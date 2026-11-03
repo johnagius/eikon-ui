@@ -316,7 +316,7 @@
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "lblreg") return; // left before a reply came back: do not draw over the next screen
     if (S.f && !fromState) keep(); // a reply landing while someone types must not wipe the form
-    var h = '<div class="lbl"><button class="lbl-back" data-act="back">‹ Registers</button>' +
+    var h = '<div class="lbl"><button class="lbl-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("lblreg")) + '</button>' +
       '<h1>Dispensing labels</h1><p class="lbl-sub">Fill in the label, check it, print it.</p>';
     if (S.loading && !S.f) h += '<div class="lbl-quiet">Opening labels…</div>';
     else if (S.error && !S.f) h += '<div class="lbl-quiet">' + esc(S.error) + "</div>";
@@ -348,7 +348,7 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
-        if (act === "back") window.location.hash = "#registers";
+        if (act === "back") window.location.hash = E.ui2BackHash("lblreg");
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "lblreg"); } catch (x) {} E.openClassic("labels"); }
         else if (act === "lang") { keep(); S.mt = b.getAttribute("data-v") === "both"; paint(true); var lb = m.querySelector('[data-act=lang][data-v="' + b.getAttribute("data-v") + '"]'); if (lb) lb.focus(); }
         else if (act === "warn") { var id = b.getAttribute("data-w"), ws = S.f.selectedWarnings, i = ws.indexOf(id); if (i !== -1) ws.splice(i, 1); else ws.push(id); var on = i === -1; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); keep(); refreshPreview(); }
@@ -424,5 +424,5 @@
     render: function (ctx) { S.mount = ctx && ctx.mount; S.f = null; S.variants = null; S.err = S.pending.length ? "Printed earlier, not yet in the history. Save again: a label is never saved twice." : ""; S.done = ""; S.lastMed = ""; css(); paint(); return load().then(function () { focus("[name=drugName]"); }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("lblreg") < 0) E.UI2_DESTINATIONS.push("lblreg");
-  if (E.UI2_PARENT) E.UI2_PARENT.lblreg = "registers";
+  if (E.UI2_PARENT) E.UI2_PARENT.lblreg = "services";
 })();

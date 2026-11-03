@@ -286,7 +286,7 @@
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var c = S.campId ? campOf(S.campId) : null, p = c && S.partId ? parts(c).filter(function (x) { return String(x.id) === S.partId; })[0] : null;
     if (S.view === "add" && S.adding && S.adding.camp) c = S.adding.camp; // the campaign as it was when the form opened: its result fields stay put
-    var h = '<div class="scr"><button class="scr-back" data-act="back">‹ Registers</button>';
+    var h = '<div class="scr"><button class="scr-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("scrreg")) + '</button>';
     if (S.view === "newcamp" && S.adding) h += newCampHtml();
     else if (S.view === "add" && S.adding && c) h += addHtml(c);
     else if (S.view === "part" && p) h += partHtml(c, p);
@@ -308,7 +308,7 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
-        if (act === "back") window.location.hash = "#registers";
+        if (act === "back") window.location.hash = E.ui2BackHash("scrreg");
         else if (act === "list") { var was = S.campId; S.view = "list"; S.campId = ""; S.partId = ""; S.pq = ""; paint(true); focusSel('.scr-row[data-id="' + cssId(was) + '"]'); }
         else if (act === "camp") { var from = S.view === "part" ? S.partId : ""; S.campId = b.getAttribute("data-id"); S.partId = ""; S.view = "camp"; if (!from) S.pq = ""; paint(true); window.scrollTo(0, 0); focusSel(from ? '.scr-row[data-id="' + cssId(from) + '"]' : "[data-act=add]"); }
         else if (act === "part") { S.partId = b.getAttribute("data-id"); S.view = "part"; paint(true); window.scrollTo(0, 0); focusSel(".scr-acts-top [data-act=camp]"); }
@@ -462,5 +462,5 @@
     render: function (ctx) { S.mount = ctx && ctx.mount; S.view = "list"; S.campId = ""; S.partId = ""; S.adding = null; S.err = ""; S.q = ""; S.pq = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("scrreg") < 0) E.UI2_DESTINATIONS.push("scrreg");
-  if (E.UI2_PARENT) E.UI2_PARENT.scrreg = "registers";
+  if (E.UI2_PARENT) E.UI2_PARENT.scrreg = "services";
 })();

@@ -564,7 +564,7 @@ const shell = await page.evaluate(() => ({
   pharmacy: (document.querySelector(".eikon-rail-brand span") || {}).textContent, who: (document.querySelector(".eikon-rail-who b") || {}).textContent,
   badgeToday: (document.querySelector('.eikon-rail-badge[data-badge="today"]') || {}).textContent
 }));
-report("shell: the rail is Today, Customers, Bookings, Stock, Registers, Team, Settings and nothing else", JSON.stringify(shell.rail) === JSON.stringify(["Today", "Customers", "Bookings", "Stock", "Registers", "Team", "Settings"]) && shell.cats === 0 && !shell.help && !shell.search && shell.topbar === "none" && shell.mark && shell.pharmacy === "Demo Pharmacy" && shell.who === "Maria Borg" && /^\d+$/.test(shell.badgeToday || ""), JSON.stringify(shell));
+report("shell: the rail is Today, Customers, Bookings, Stock, Registers, Services, Money, Team, Settings and nothing else", JSON.stringify(shell.rail) === JSON.stringify(["Today", "Customers", "Bookings", "Stock", "Registers", "Services", "Money", "Team", "Settings"]) && shell.cats === 0 && !shell.help && !shell.search && shell.topbar === "none" && shell.mark && shell.pharmacy === "Demo Pharmacy" && shell.who === "Maria Borg" && /^\d+$/.test(shell.badgeToday || ""), JSON.stringify(shell));
 await page.evaluate(() => { location.hash = "#registers"; });
 await page.waitForFunction(() => document.querySelector(".hub-card"), null, { timeout: 8000 });
 const hub = await page.evaluate(() => ({ h1: document.querySelector(".hub h1").textContent, cards: document.querySelectorAll(".hub-card").length, temp: !!document.querySelector('.hub-card[data-open="temperature"]'), topbar: getComputedStyle(document.querySelector(".eikon-topbar")).display }));
@@ -575,7 +575,7 @@ await page.waitForTimeout(400);
 const legacy = await page.evaluate(() => ({ light: document.documentElement.hasAttribute("data-ui2"), cats: document.querySelectorAll(".eikon-nav-cat").length, back: document.getElementById("eikon-back-btn").textContent, backShown: document.getElementById("eikon-back-btn").style.display !== "none", pref: localStorage.getItem("eikon_ui2") }));
 await page.click("#eikon-back-btn");
 await page.waitForFunction(() => location.hash === "#registers" && document.documentElement.hasAttribute("data-ui2") && document.querySelector(".hub-card"), null, { timeout: 15000 });
-report("shell: Registers lists every book; an old one opens in classic Eikon, whole, with one button back; the preference is kept", hub.h1 === "Registers" && hub.cards >= 20 && hub.temp && hub.topbar === "none" && !legacy.light && legacy.cats > 0 && /New Eikon/.test(legacy.back) && legacy.backShown && legacy.pref === "1", JSON.stringify({ hub, legacy }));
+report("shell: Registers lists every book; an old one opens in classic Eikon, whole, with one button back; the preference is kept", hub.h1 === "Registers" && hub.cards >= 11 && hub.temp && hub.topbar === "none" && !legacy.light && legacy.cats > 0 && /New Eikon/.test(legacy.back) && legacy.backShown && legacy.pref === "1", JSON.stringify({ hub, legacy }));
 
 // 11. Customers: Today's search hands over, the list shows people and history, Add adopts, edits are versioned
 const callsNow = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json());
@@ -1214,7 +1214,7 @@ try {
   const pocPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT" && c.path === "/poct/state").map((c) => c.body);
   const pr = pocPuts[0] && pocPuts[0].records[0], pc = pocPuts[0] && pocPuts[0].patients[0];
   report("poct: #poct opens the new screen with the earlier High BP; a known ID card fills the patient; glucose 12.4 is High; one PUT, classic shape, no deletes",
-    /150\/95/.test(poc1.list) && /High/.test(poc1.list) && poc1.rail.includes("registers") && /High/.test(pocLive) && pocPuts.length === 1 &&
+    /150\/95/.test(poc1.list) && /High/.test(poc1.list) && poc1.rail.includes("services") && /High/.test(pocLive) && pocPuts.length === 1 &&
     pr.testType === "bg" && pr.testLabel === "Blood Glucose" && pr.results.glucose === 12.4 && pr.results.timing === "Random" && pr.patient.patientId === "0012345M" && pr.patient.name === "Zammit Carmel" && pr.patient.phone === "79123456" && pr.patient.age === 64 &&
     pc.patientId === "0012345M" && pc.createdAtIso === "2026-10-01T08:00:00.000Z" && pc.lastSeenIso === pr.performedAtIso && Array.isArray(pc.conflicts) && pc.conflicts.length === 0 &&
     !("wipe_all" in pocPuts[0]) && !("deleted_record_ids" in pocPuts[0]) && !("deleted_patient_ids" in pocPuts[0]) && pocPuts[0].records.length === 1 && pocPuts[0].patients.length === 1 &&
@@ -1278,7 +1278,7 @@ try {
     JSON.stringify({ audRail, q0: q0.toString(), audCount, audRows, audTop, audSearch, audFocus, audOlder, audF: audF.map(String), audStaff, audStaffCalls }));
 } catch (e) { report("audit trail: ran to the end", false, String(e).slice(0, 300)); }
 
-// Adverse reactions: the old link opens the new screen under Registers; a new report is one PUT with only that report
+// Adverse reactions: the old link opens the new screen under Services; a new report is one PUT with only that report
 // (classic fields, empty deleted_ids); a correction sends the whole report back with only the change (unknown fields kept).
 try {
   await page.goto(base + "&ui=2#pharmacovigilance");
@@ -1293,14 +1293,14 @@ try {
   const pvPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT" && c.path === "/pharmacovigilance/state").map((c) => c.body.state);
   const n0 = (pvPuts[0] || { reports: [{}] }).reports[0], e1 = (pvPuts[1] || { reports: [{}] }).reports[0];
   const orig = { id: "pv_1_abc", status: "Draft", mpa_ref: "MPA-7", pt_id: "123456M", reaction_seriousness: "Serious – Other medically important" };
-  report("adverse reactions: #pharmacovigilance opens it under Registers; a new report is one PUT of that report alone; a correction sends the whole record, only the status changed",
-    pvRail === "registers" && /Rash/.test(pvRow) && /J\.D\./.test(pvRow) && pvPuts.length === 2 && pvPuts.every((s) => s.reports.length === 1 && Array.isArray(s.deleted_ids) && !s.deleted_ids.length) &&
+  report("adverse reactions: #pharmacovigilance opens it under Services; a new report is one PUT of that report alone; a correction sends the whole record, only the status changed",
+    pvRail === "services" && /Rash/.test(pvRow) && /J\.D\./.test(pvRow) && pvPuts.length === 2 && pvPuts.every((s) => s.reports.length === 1 && Array.isArray(s.deleted_ids) && !s.deleted_ids.length) &&
     n0.pt_initials === "A.B." && n0.status === "Draft" && n0.reaction_meddra === "Dyspepsia" && n0.drugs.length === 1 && n0.drugs[0].name === "Ibuprofen 400mg" && n0.drugs[0].route === "Oral" && /^pv_\d+_/.test(n0.id) && Object.keys(n0).length === 30 &&
     e1.id === orig.id && e1.status === "Submitted to MPA" && e1.mpa_ref === orig.mpa_ref && e1.pt_id === orig.pt_id && e1.reaction_seriousness === orig.reaction_seriousness && e1.created_at === "2026-10-30T09:00:00.000Z" && e1.drugs[0].batch_no === "AX12",
     JSON.stringify({ pvRail, pvRow, pvPuts }).slice(0, 600));
 } catch (e) { report("adverse reactions: ran to the end", false, String(e).slice(0, 300)); }
 
-// Screening campaigns: the old link opens the new screen under Registers; recording a screening is one PUT of that one
+// Screening campaigns: the old link opens the new screen under Services; recording a screening is one PUT of that one
 // campaign, whole (the person already in it, a field the screen does not know, kept), with the new person in the classic shape and an empty deleted_ids.
 try {
   await page.goto(base + "&ui=2#screening");
@@ -1317,8 +1317,8 @@ try {
   const scPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT" && c.path === "/screening/state").map((c) => c.body.state);
   const sc = (scPuts[0] || { campaigns: [{}] }).campaigns[0] || {}, scP = (sc.participants || [])[1] || {};
   const scView = await page.textContent(".scr");
-  report("screening campaigns: #screening opens it under Registers; a screening is one PUT of that campaign alone, whole, the earlier person and unknown fields kept; the new person in the classic shape",
-    scRail === "registers" && /BP Month/.test(scRow) && /1 screened of 20/.test(scRow) && /Zammit Carmel/.test(scCamp) && /162\/98 mmHg/.test(scCamp) &&
+  report("screening campaigns: #screening opens it under Services; a screening is one PUT of that campaign alone, whole, the earlier person and unknown fields kept; the new person in the classic shape",
+    scRail === "services" && /BP Month/.test(scRow) && /1 screened of 20/.test(scRow) && /Zammit Carmel/.test(scCamp) && /162\/98 mmHg/.test(scCamp) &&
     scPuts.length === 1 && scPuts[0].campaigns.length === 1 && Array.isArray(scPuts[0].deleted_ids) && !scPuts[0].deleted_ids.length &&
     sc.id === "sc_1_abc" && sc.extra === "kept" && sc.participants.length === 2 && sc.participants[0].id === "sc_p1" && sc.participants[0].followUps.length === 1 &&
     JSON.stringify(Object.keys(scP)) === JSON.stringify(["id", "idCard", "name", "phone", "email", "dob", "type", "date", "resultNotes", "resultCategory", "referral", "referralNotes", "poctResults", "followUps"]) &&
@@ -1327,7 +1327,7 @@ try {
     JSON.stringify({ scRail, scRow, scPuts }).slice(0, 600));
 } catch (e) { report("screening campaigns: ran to the end", false, String(e).slice(0, 300)); }
 
-// Contraceptive pills: the old #ocps link opens the new lookup under Registers; the classic list of 21; the classic
+// Contraceptive pills: the old #ocps link opens the new lookup under Services; the classic list of 21; the classic
 // filters (type, dose, mg/mcg) narrow as you type; a tap on a pill shows the ones with the same hormones and doses;
 // nothing is sent to the server.
 try {
@@ -1342,13 +1342,13 @@ try {
   await page.click("[data-act=clear]"); await page.click('.ocp-row[data-trade="Clairette"]'); await page.waitForTimeout(100);
   const ocpLike = await page.textContent(".ocp-like"), ocpClair = await page.$$eval(".ocp-row b", (l) => l.map((x) => x.textContent).join());
   const ocpCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method !== "GET" || /ocp|contracep/i.test(c.path));
-  report("contraceptive pills: #ocps opens the new lookup under Registers; 21 classic pills; EE 20 mcg + drospirenone 3 mg finds Freedonel, Yasminelle, Yaz; a tap shows the same pills; no write",
-    ocpRail === "registers" && ocpAll === 21 && /Ethinylestradiol 30 mcg/.test(ocpAdele) && /Desogestrel 0\.15 mg/.test(ocpAdele) && ocpHits === "Freedonel,Yasminelle,Yaz" &&
+  report("contraceptive pills: #ocps opens the new lookup under Services; 21 classic pills; EE 20 mcg + drospirenone 3 mg finds Freedonel, Yasminelle, Yaz; a tap shows the same pills; no write",
+    ocpRail === "services" && ocpAll === 21 && /Ethinylestradiol 30 mcg/.test(ocpAdele) && /Desogestrel 0\.15 mg/.test(ocpAdele) && ocpHits === "Freedonel,Yasminelle,Yaz" &&
     /as Clairette: 1 other pill\./.test(ocpLike) && ocpClair === "Clairette,Vreya" && ocpCalls.length === 0,
     JSON.stringify({ ocpRail, ocpAll, ocpAdele, ocpHits, ocpLike, ocpClair, ocpCalls }));
 } catch (e) { report("contraceptive pills: ran to the end", false, String(e).slice(0, 300)); }
 
-// Dispensing labels: the old link opens the new screen under Registers; a medicine labelled before fills its dose; Print
+// Dispensing labels: the old link opens the new screen under Services; a medicine labelled before fills its dose; Print
 // opens the classic print page and sends one PUT with only that entry and the settings unchanged.
 try {
   await page.goto(base + "&ui=2#labels");
@@ -1363,8 +1363,8 @@ try {
   const lblHtml = await page.evaluate(() => window.__lblPrinted[0]);
   const lblPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT" && c.path === "/labels/state").map((c) => c.body.state);
   const e0 = ((lblPuts[0] || {}).labelHistory || [])[0] || {};
-  report("dispensing labels: #labels opens it under Registers; a known medicine fills its dose; Print opens the classic print page; one PUT with only the new entry and the settings unchanged",
-    lblRail === "registers" && lblDose === "1 capsule" && /Rx: Amoxicillin 500mg/.test(lblPrev) && /Dose\/Freq: 1 capsule \| Three times daily/.test(lblPrev) &&
+  report("dispensing labels: #labels opens it under Services; a known medicine fills its dose; Print opens the classic print page; one PUT with only the new entry and the settings unchanged",
+    lblRail === "services" && lblDose === "1 capsule" && /Rx: Amoxicillin 500mg/.test(lblPrev) && /Dose\/Freq: 1 capsule \| Three times daily/.test(lblPrev) &&
     /<b>Rx:<\/b> Amoxicillin 500mg/.test(lblHtml) && /@page\{margin:0;\}/.test(lblHtml) && /T:21234567/.test(lblHtml) && /window\.print\(\)/.test(lblHtml) &&
     lblPuts.length === 1 && lblPuts[0].labelHistory.length === 1 && e0.drugName === "Amoxicillin 500mg" && e0.dose === "1 capsule" && e0.templateId === "tpl_std" && /^lb_\d+_/.test(e0.id) &&
     JSON.stringify(Object.keys(e0)) === JSON.stringify(["patientName", "drugName", "dose", "frequency", "route", "customInstructions", "selectedWarnings", "templateId", "id", "printedAt", "printedBy"]) &&
@@ -1401,7 +1401,7 @@ try {
     sinPuts.length === 1 && sinPuts[0].path === "/supplier-orders/87" && JSON.stringify(sinPuts[0].body) === JSON.stringify({ status: "received" }),
     JSON.stringify({ sinRail, sinRows, sinQty, sinPosts, sinDraft, sinPuts }).slice(0, 900));
 } catch (e) { report("supplier stock: ran to the end", false, String(e).slice(0, 300)); }
-// Over the counter (new layout otcreg): the old link opens it under Registers; it reads the classic OTC mindmap's own
+// Over the counter (new layout otcreg): the old link opens it under Services; it reads the classic OTC mindmap's own
 // files (no API call); a symptom shows its products in the classic's score order; a product shows its cautions first,
 // in words; search ranks like the classic; Escape steps back; nothing wider than a phone.
 try {
@@ -1424,8 +1424,8 @@ try {
   const otcW = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth && ![...document.querySelectorAll("#eikon-content *")].some((e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 0.5));
   await page.setViewportSize({ width: 1440, height: 900 });
   const otcApi = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => /productmap|otc/i.test(c.path));
-  report("over the counter: #otcmindmap opens it under Registers; 88 symptoms; acid reflux lists its 29 products, best score first; a product's cautions come first, in words; Escape steps back; fits 360 px; reads only the classic's files",
-    otcRail === "registers" && otcSym.title === "acid reflux" && otcSym.n === "29" && otcSym.first === "Acidex Oral Suspension" && /^Primary · Imported symptom tags · Score 92$/.test(otcSym.sub) && otcSym.focus === "otc-title" &&
+  report("over the counter: #otcmindmap opens it under Services; 88 symptoms; acid reflux lists its 29 products, best score first; a product's cautions come first, in words; Escape steps back; fits 360 px; reads only the classic's files",
+    otcRail === "services" && otcSym.title === "acid reflux" && otcSym.n === "29" && otcSym.first === "Acidex Oral Suspension" && /^Primary · Imported symptom tags · Score 92$/.test(otcSym.sub) && otcSym.focus === "otc-title" &&
     otcRes.join("|") === "Actifed 60mg/2.5mg Tablets|ACTIFED 30mg/1.25mg per 5ml Syrup" && /Caution: 2 guardrails/.test(otcCaut) && /Do not cross-sell together by default; show as alternative options instead\./.test(otcCaut) && /Medofed/.test(otcCaut) &&
     /otc-caution/.test(otcFirst) && otcBack === "ACTIFED 30mg/1.25mg per 5ml Syrup" && otcW && otcApi.length === 0,
     JSON.stringify({ otcRail, otcSym, otcRes: otcRes.slice(0, 3), otcCaut: otcCaut.slice(0, 200), otcFirst, otcBack, otcW, otcApi }).slice(0, 700));
@@ -1510,8 +1510,8 @@ try {
   await page.click("[data-act=reprint]"); await page.waitForTimeout(300);
   const calRe = await page.evaluate(() => window.__calPrints[1] || "");
   await page.evaluate(() => { URL.createObjectURL = window.__calOc; HTMLAnchorElement.prototype.click = window.__calAc; });
-  report("pharmacy calculators: #pharmacycalc opens it under Registers; live results; 7,5 mg methotrexate = 12 tablets; a known name fills the ID; one POST in the classic shape, printed; a saved plan prints again; no deletes",
-    calRail === "registers" && /^\s*4\s*boxes to dispense/.test(calLev) && /12\s*tablets to dispense/.test(calMtx) && /1 tablet\(s\) \+ ½ tablet/.test(calMtx) && /Once a week only/.test(calMtx) && calId === "0012345M" &&
+  report("pharmacy calculators: #pharmacycalc opens it under Services; live results; 7,5 mg methotrexate = 12 tablets; a known name fills the ID; one POST in the classic shape, printed; a saved plan prints again; no deletes",
+    calRail === "services" && /^\s*4\s*boxes to dispense/.test(calLev) && /12\s*tablets to dispense/.test(calMtx) && /1 tablet\(s\) \+ ½ tablet/.test(calMtx) && /Once a week only/.test(calMtx) && calId === "0012345M" &&
     calW.length === 1 && calW[0].method === "POST" && calW[0].path === "/pharmacy-calc/records" && Object.keys(cb).sort().join() === "calc_data_json,calc_type,id_card,patient_name,start_date" &&
     cb.calc_type === "mtx" && cb.patient_name === "Zammit Carmel" && cb.id_card === "0012345M" && cb.start_date === calStart &&
     cm.weeklyDose === 7.5 && cm.tabletStrength === 5 && cm.weeks === 8 && cm.totalTabsToDispense === 12 && cm.totalHalfPiecesUsed === 8 && cm.boxes === 1 && cm.schedule.length === 8 &&
@@ -1545,6 +1545,57 @@ try {
     dpWrites.length === 0 && dpCalls.some((c) => c.path === "/dda-sales/entries") && dpCalls.filter((c) => c.path === "/client-orders/entries").every((c) => /month=/.test(c.query) && !/from=/.test(c.query)) && dpCalls.some((c) => c.path === "/people"),
     JSON.stringify({ dpRail, dp1, dp2, dp3, dpWrites }).slice(0, 700));
 } catch (e) { globalThis.__dupMock = false; report("possible duplicates: ran to the end", false, String(e).slice(0, 300)); }
+// Where things live (2026-11-03): money and clinical services left Registers. Old links land on the same screens; the rail
+// lights the new tab and each screen's back button names it; on phones the six-word bar has More (Team, Services, Money).
+try {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const visCards = () => page.evaluate(() => [...document.querySelectorAll(".hub-card[data-open]")].filter((x) => x.offsetParent).map((x) => x.dataset.open).join());
+  const litNow = () => page.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join());
+  await page.goto(base + "&ui=2#registers");
+  await page.waitForFunction(() => document.querySelector(".hub-card[data-open]"), null, { timeout: 15000 });
+  const navReg = await visCards();
+  await page.evaluate(() => { location.hash = "#services"; });
+  await page.waitForFunction(() => (document.querySelector(".hub h1") || {}).textContent === "Services", null, { timeout: 8000 });
+  const navSvc = await visCards(), navSvcLit = await litNow();
+  await page.evaluate(() => { location.hash = "#money"; });
+  await page.waitForFunction(() => (document.querySelector(".hub h1") || {}).textContent === "Money", null, { timeout: 8000 });
+  const navMon = await visCards(), navMonLit = await litNow();
+  await page.evaluate(() => { location.hash = "#stock"; });
+  await page.waitForFunction(() => (document.querySelector(".hub h1") || {}).textContent === "Stock", null, { timeout: 8000 });
+  const navStk = await visCards();
+  // an old link: #endofday still opens End of day, now under Money, and back goes to Money
+  await page.evaluate(() => { location.hash = "#endofday"; });
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "eodreg" && document.querySelector(".eod-back"), null, { timeout: 15000 });
+  const navEod = { lit: await litNow(), back: (await page.textContent(".eod-back")).trim() };
+  await page.click(".eod-back");
+  await page.waitForFunction(() => location.hash === "#money" && (document.querySelector(".hub h1") || {}).textContent === "Money", null, { timeout: 8000 });
+  await page.evaluate(() => { location.hash = "#creditnotes"; });
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "cnreg" && document.querySelector(".cnr-back"), null, { timeout: 15000 });
+  const navCn = { lit: await litNow(), back: (await page.textContent(".cnr-back")).trim() };
+  await page.evaluate(() => { location.hash = "#settings"; });
+  await page.waitForFunction(() => (document.querySelector(".hub h1") || {}).textContent === "Settings", null, { timeout: 8000 });
+  const navDeskMore = await page.evaluate(() => [...document.querySelectorAll(".hub-card")].some((x) => x.offsetParent && /^(Team|Services|Money)$/.test(x.querySelector("b").textContent)));
+  report("places: Registers keeps the legal books; Services has tests, vaccines, screening, reactions and lookups; Money has the till and what is owed; the old doors (Registers › Proof, Stock › Price) stay",
+    !/endofday|paidout|emergency-pos|poct|vaccines|screening|pharmacovigilance|ocps|labels|otcmindmap|creditnotes|locumreceipts/.test(navReg) && /certificates,audit$/.test(navReg) && /temperature/.test(navReg) && /dda-sales/.test(navReg) && /repeatprescriptions/.test(navReg) &&
+    /^poct,vaccines,screening,pharmacovigilance,ocps/.test(navSvc) && /otcmindmap/.test(navSvc) && /labels/.test(navSvc) && navSvcLit === "services" && /^endofday,paidout,emergency-pos/.test(navMon) && /creditnotes/.test(navMon) && /locumreceipts/.test(navMon) && navMonLit === "money" &&
+    /quotations,creditnotes$/.test(navStk) &&
+    navEod.lit === "money" && navEod.back === "‹ Money" && navCn.lit === "money" && navCn.back === "‹ Money" && !navDeskMore,
+    JSON.stringify({ navReg, navSvc, navSvcLit, navMon, navMonLit, navStk, navEod, navCn, navDeskMore }));
+  // phone: six words fit at 360 px; the last reads More, lists Team, Services and Money first, and stays lit inside them
+  await page.setViewportSize({ width: 360, height: 780 });
+  await page.waitForTimeout(300);
+  const navBar = await page.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn")].filter((x) => x.offsetParent).map((x) => { const r = x.getBoundingClientRect(), l = [...x.querySelectorAll(".eikon-nav-label,.eikon-rail-more")].find((s) => s.offsetParent); return { t: l.textContent, ok: l.scrollWidth <= r.width + 0.5 && r.right <= innerWidth }; }));
+  const navMore = await page.evaluate(() => [...document.querySelectorAll(".hub-card")].filter((x) => x.offsetParent).slice(0, 3).map((x) => x.querySelector("b").textContent).join());
+  await page.locator(".hub-card", { hasText: "Services" }).first().click();
+  await page.waitForFunction(() => location.hash === "#services" && (document.querySelector(".hub h1") || {}).textContent === "Services", null, { timeout: 8000 });
+  await page.evaluate(() => { location.hash = "#poct"; });
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "pocreg", null, { timeout: 15000 });
+  const navMoreOn = await page.evaluate(() => document.querySelector('.eikon-rail-btn[data-mod="settings"]').classList.contains("more-on"));
+  report("places on a phone: Today, Customers, Bookings, Stock, Registers, More fit at 360 px; More lists Team, Services, Money first and stays lit on POCT",
+    navBar.map((x) => x.t).join() === "Today,Customers,Bookings,Stock,Registers,More" && navBar.every((x) => x.ok) && navMore === "Team,Services,Money" && navMoreOn,
+    JSON.stringify({ navBar, navMore, navMoreOn }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+} catch (e) { report("places: ran to the end", false, String(e).slice(0, 300)); }
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });

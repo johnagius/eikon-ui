@@ -233,7 +233,7 @@
     if (E.state.activeModuleId !== "eodreg") return; // left before a reply came back: do not draw over the next screen
     if (S.w && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var locked = !!(S.base && S.base.locked_at), ro = locked || S.saving;
-    var h = '<div class="eod"><button class="eod-back" data-act="back">‹ Registers</button>' +
+    var h = '<div class="eod"><button class="eod-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("eodreg")) + '</button>' +
       '<div class="eod-top"><div><h1>End of day</h1><p class="eod-sub">Close the till: X readings, cash, cheques and the bank bag.</p></div>' +
       '<label class="eod-day"><span>Day</span><input type="date" id="eod-day" max="' + esc(today()) + '" value="' + esc(S.date) + '"></label></div>';
     if (S.loading && !S.w) h += '<div class="eod-quiet">Opening ' + esc(dayLabel(S.date).toLowerCase() === "today" ? "today" : dayLabel(S.date)) + "…</div>";
@@ -383,7 +383,7 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
-        if (act === "back") window.location.hash = "#registers";
+        if (act === "back") window.location.hash = E.ui2BackHash("eodreg");
         else if (act === "retry") load();
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "eodreg"); } catch (x) {} E.openClassic("endofday"); }
         else if (act === "addrow") { keep(); var L = b.getAttribute("data-l"); S.w[L].push({ amount: "0", remark: "" }); S.dirty = true; paint(true); var n = S.w[L].length - 1;
@@ -503,5 +503,5 @@
     }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("eodreg") < 0) E.UI2_DESTINATIONS.push("eodreg");
-  if (E.UI2_PARENT) E.UI2_PARENT.eodreg = "registers";
+  if (E.UI2_PARENT) E.UI2_PARENT.eodreg = "money";
 })();

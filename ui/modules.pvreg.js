@@ -198,7 +198,7 @@
     if (E.state.activeModuleId !== "pvreg") return; // left before a reply came back: do not draw over the next screen
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var qi = m.querySelector("#pvr-q"); if (qi) S.q = qi.value;
-    var h = '<div class="pvr"><button class="pvr-back" data-act="back">‹ Registers</button>';
+    var h = '<div class="pvr"><button class="pvr-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("pvreg")) + '</button>';
     var one = S.view === "one" ? S.reports.filter(function (r) { return String(r.id) === S.openId; })[0] : null;
     if (S.view === "form" && S.adding) {
       h += '<div class="pvr-top"><div><h1>' + (S.base ? "Correct the report" : "Record a reaction") + '</h1><p class="pvr-sub">Fill in what you know; the rest can be added later.</p></div></div>' + formHtml();
@@ -229,7 +229,7 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
-        if (act === "back") window.location.hash = "#registers";
+        if (act === "back") window.location.hash = E.ui2BackHash("pvreg");
         else if (act === "add") { S.adding = fresh(); S.base = null; S.err = ""; S.force = ""; S.view = "form"; paint(true); window.scrollTo(0, 0); focus("pt_initials"); }
         else if (act === "open") { S.openId = b.getAttribute("data-id"); S.view = "one"; paint(true); window.scrollTo(0, 0); focusSel("[data-act=list]"); }
         else if (act === "list") { var id = S.openId; S.view = "list"; paint(true); focusSel('.pvr-row[data-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]'); }
@@ -334,5 +334,5 @@
     render: function (ctx) { S.mount = ctx && ctx.mount; S.view = "list"; S.openId = ""; S.adding = null; S.base = null; S.err = ""; S.force = ""; S.q = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("pvreg") < 0) E.UI2_DESTINATIONS.push("pvreg");
-  if (E.UI2_PARENT) E.UI2_PARENT.pvreg = "registers";
+  if (E.UI2_PARENT) E.UI2_PARENT.pvreg = "services";
 })();

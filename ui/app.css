@@ -977,6 +977,16 @@ html[data-ui2] .eikon-btn.primary{background:var(--accent);border-color:var(--ac
   html[data-ui2] .eikon-rail-foot{flex:0 0 auto}
   html[data-ui2] .eikon-rail-foot .eikon-rail-btn{width:58px}
 }
+/* Services and Money (2026-11-03): in the side rail on wider screens; on phones the bar keeps six words and the
+   last tab reads "More" (its page lists Team, Services and Money first) and stays lit while one of those is open. */
+html[data-ui2] .eikon-rail-more{display:none}
+@media (max-width: 760px){
+  html[data-ui2] .eikon-rail-top .eikon-rail-btn:is([data-mod="services"],[data-mod="money"]){display:none}
+  html[data-ui2] .eikon-rail-btn[data-mod="settings"] .eikon-nav-label{display:none}
+  html[data-ui2] .eikon-rail-btn[data-mod="settings"] .eikon-rail-more{display:inline;white-space:nowrap}
+  html[data-ui2] .eikon-rail-btn.more-on{background:rgba(118,118,128,.10);color:var(--accent);font-weight:600}
+  html[data-ui2] .eikon-rail-btn.more-on .eikon-rail-ico{color:var(--accent)}
+}
 
 /* ── A classic screen opened from the new layout, on a phone: no old sidebar (the back button returns),
       the screen gets the full width, and the header keeps only the way back and the title. ── */
@@ -1041,6 +1051,7 @@ html[data-ui2] input[type=search]::-webkit-search-cancel-button{-webkit-appearan
   @media (max-width: 760px){
     html[data-ui2]:not([data-ui2-visit]) .eikon-sidebar{background:rgba(30,30,32,.86);border-color:rgba(255,255,255,.08)}
     html[data-ui2]:not([data-ui2-visit]) .eikon-rail-btn.active{background:rgba(118,118,128,.24)}
+    html[data-ui2]:not([data-ui2-visit]) .eikon-rail-btn.more-on{background:rgba(118,118,128,.24);color:var(--accent)}
   }
 }
 

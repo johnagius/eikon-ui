@@ -65,7 +65,7 @@
     if (E.state.activeModuleId !== "poreg") return; // left before a reply came back: do not draw over the next screen
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var mn = MON[Number(S.month.slice(5)) - 1];
-    var h = '<div class="por"><button class="por-back" data-act="back">‹ Registers</button>' +
+    var h = '<div class="por"><button class="por-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("poreg")) + '</button>' +
       '<div class="por-top"><div><h1>Paid out</h1><p class="por-sub">Money paid from the till: couriers, cleaners, small suppliers.</p></div>' + (S.adding ? "" : '<button class="por-btn p" data-act="add">Record a payment</button>') + "</div>";
     if (S.adding) {
       var a = S.adding;
@@ -101,7 +101,7 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
-        if (act === "back") window.location.hash = "#registers";
+        if (act === "back") window.location.hash = E.ui2BackHash("poreg");
         else if (act === "add") { S.adding = { payee_name: "", fee: "", payment_method: "cash", cheque_no: "", invoice_no: "", reason: "", entry_date: today(), entry_time: nowHm() }; S.err = ""; paint(true); if (!S.names.length) loadNames(); var f = m.querySelector("[name=payee_name]"); if (f) f.focus(); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "poreg"); } catch (x) {} E.openClassic("paidout"); }
@@ -150,5 +150,5 @@
     render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.adding = null; S.err = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("poreg") < 0) E.UI2_DESTINATIONS.push("poreg");
-  if (E.UI2_PARENT) E.UI2_PARENT.poreg = "registers";
+  if (E.UI2_PARENT) E.UI2_PARENT.poreg = "money";
 })();

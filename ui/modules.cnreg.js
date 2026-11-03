@@ -82,7 +82,7 @@
     if (E.state.activeModuleId !== "cnreg") return; // left before a reply came back: do not draw over the next screen
     var qi = m.querySelector("#cnr-q"); if (qi) S.q = qi.value;
     if (!fromState) keep();
-    var h = '<div class="cnr"><button class="cnr-back" data-act="back">‹ Stock</button>' +
+    var h = '<div class="cnr"><button class="cnr-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("cnreg")) + '</button>' +
       '<div class="cnr-top"><div><h1>Credit notes</h1><p class="cnr-sub">Money customers have with you, and what is left of it.</p></div>' + (S.adding ? "" : '<button class="cnr-btn p" data-act="add">New credit note</button>') + "</div>";
     if (S.adding) {
       var a = S.adding, fld = function (k, label, extra) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] || "") + '"' + (extra || "") + "></label>"; };
@@ -109,7 +109,7 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
-        if (act === "back") window.location.hash = "#stock";
+        if (act === "back") window.location.hash = E.ui2BackHash("cnreg");
         else if (act === "add") { S.adding = { issue_date: today() }; S.using = null; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=client_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
         else if (act === "use") { S.using = Number(b.getAttribute("data-id")); S.draft = {}; S.err = ""; S.adding = null; paint(true); setTimeout(function () { var f = m.querySelector("#cnr-use [name=amount]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
@@ -184,5 +184,5 @@
     render: function (ctx) { S.mount = ctx && ctx.mount; S.using = null; S.adding = null; S.err = ""; S.q = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("cnreg") < 0) E.UI2_DESTINATIONS.push("cnreg");
-  if (E.UI2_PARENT) E.UI2_PARENT.cnreg = "stock";
+  if (E.UI2_PARENT) E.UI2_PARENT.cnreg = "money";
 })();

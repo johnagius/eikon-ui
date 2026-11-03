@@ -1322,16 +1322,32 @@
     E.highlightNav();
   };
 
-  // The reimagined rail: six words, the pharmacy's name, your name. Nothing else.
+  // The reimagined rail: a few words, the pharmacy's name, your name. Nothing else.
+  // Services and Money (2026-11-03): clinical work and the till had been filed under Registers; the legal books stay there.
+  // On phones the bottom bar keeps six words; Services, Money and Team are reached from the last tab, labelled More there.
   E.UI2_RAIL = [
-    { id: "today", title: "Today" }, { id: "customers", title: "Customers" }, { id: "stock", title: "Stock" }, { id: "registers", title: "Registers" }
+    { id: "today", title: "Today" }, { id: "customers", title: "Customers" }, { id: "stock", title: "Stock" }, { id: "registers", title: "Registers" },
+    { id: "services", title: "Services" }, { id: "money", title: "Money" }
   ];
   E.UI2_RAIL_FOOT = [{ id: "team", title: "Team" }, { id: "settings", title: "Settings" }];
-  E.UI2_DESTINATIONS = ["today", "customers", "stock", "registers", "team", "settings"];
+  E.UI2_DESTINATIONS = ["today", "customers", "stock", "registers", "team", "settings", "services", "money"];
   // Screens inside a tab keep that tab lit in the rail.
-  E.UI2_PARENT = { tempreg: "registers", cleanreg: "registers", drreg: "registers", locreg: "registers", certreg: "settings", nexreg: "stock", retreg: "stock", trfreg: "stock", alertreg: "stock", ordreg: "customers", tktreg: "customers", dlvreg: "customers", cdpreg: "registers", cdsreg: "registers", poyreg: "registers", poreg: "registers", hndreg: "team", rotreg: "team", shfreg: "team", repreg: "registers", cnreg: "stock", lrcreg: "registers", odreg: "stock", qtreg: "stock", ssreg: "stock", brdreg: "team", conreg: "team", vaxreg: "registers", eodreg: "registers", pocreg: "registers", scsreg: "stock", audreg: "settings", pvreg: "registers", scrreg: "registers", ocpreg: "registers", lblreg: "registers", sinreg: "stock", otcreg: "registers", eposreg: "registers", calreg: "registers" };
+  E.UI2_PARENT = { tempreg: "registers", cleanreg: "registers", drreg: "registers", locreg: "registers", certreg: "settings", nexreg: "stock", retreg: "stock", trfreg: "stock", alertreg: "stock", ordreg: "customers", tktreg: "customers", dlvreg: "customers", cdpreg: "registers", cdsreg: "registers", poyreg: "registers", poreg: "money", hndreg: "team", rotreg: "team", shfreg: "team", repreg: "registers", cnreg: "money", lrcreg: "money", odreg: "stock", qtreg: "stock", ssreg: "stock", brdreg: "team", conreg: "team", vaxreg: "services", eodreg: "money", pocreg: "services", scsreg: "stock", audreg: "settings", pvreg: "services", scrreg: "services", ocpreg: "services", lblreg: "services", sinreg: "stock", otcreg: "services", eposreg: "money", calreg: "services" };
   // Old registers rebuilt for the new layout: any way of reaching the old id (Today, search, a hub, a link) lands on the new screen.
   E.UI2_NATIVE = { temperature: "tempreg", cleaning: "cleanreg", dailyregister: "drreg", locumregister: "locreg", certificates: "certreg", nearexpiry: "nexreg", returns: "retreg", stocktransfers: "trfreg", alerts: "alertreg", clientorders: "ordreg", tickets: "tktreg", deliveries: "dlvreg", "dda-purchases": "cdpreg", "dda-sales": "cdsreg", "dda-poyc": "poyreg", paidout: "poreg", instructions: "hndreg", repeatprescriptions: "repreg", creditnotes: "cnreg", locumreceipts: "lrcreg", "order-diary": "odreg", quotations: "qtreg", messageboard: "brdreg", contacts: "conreg", vaccines: "vaxreg", endofday: "eodreg", shifts: "shfreg", poct: "pocreg", scarcestock: "scsreg", audit: "audreg", pharmacovigilance: "pvreg", screening: "scrreg", ocps: "ocpreg", labels: "lblreg", "supplier-inventory": "sinreg", otcmindmap: "otcreg", "emergency-pos": "eposreg", pharmacycalc: "calreg" };
+  // The tab a rebuilt screen belongs to, for its "‹ Tab" back button: one place decides, so moving a screen moves its way back too.
+  // Whatever UI2_PARENT says wins (a screen that still says "registers" goes back to Registers); an unknown or missing tab goes to Today.
+  E.ui2BackTab = function (id) {
+    var p = (E.UI2_PARENT || {})[id];
+    return p && (E.UI2_DESTINATIONS || []).indexOf(p) >= 0 ? p : "today";
+  };
+  E.ui2BackHash = function (id) { return "#" + E.ui2BackTab(id); };
+  E.ui2BackLabel = function (id) {
+    var p = E.ui2BackTab(id), all = (E.UI2_RAIL || []).concat(E.UI2_RAIL_FOOT || []);
+    for (var i = 0; i < all.length; i++) if (all[i].id === p) return "‹ " + all[i].title;
+    return "‹ " + ((E.modules && E.modules[p] && E.modules[p].title) || "Today");
+  };
+  E.UI2_MORE = ["team", "services", "money"]; // phones: reached from the last tab ("More")
   E._railBadges = E._railBadges || {};
 
   // Line icons for the new layout's menu (same set as the Eikon Next design).
@@ -1344,6 +1360,8 @@
       stock: sv('<path d="m12 2.8 8.5 4.6v9.2L12 21.2l-8.5-4.6V7.4z"/><path d="m3.8 7.6 8.2 4.5 8.2-4.5M12 12.1v9"/>'),
       registers: sv('<path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H19v15H5.5A1.5 1.5 0 0 0 4 19.5z"/><path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H19M8 7.5h7M8 11h5"/>'),
       team: sv('<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.7-3.6 3.5-5.5 7-5.5s6.3 1.9 7 5.5"/>'),
+      services: sv('<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M12 8v8M8 12h8"/>'),
+      money: sv('<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>'),
       settings: sv('<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/>'),
       _: sv('<circle cx="12" cy="12" r="8"/>')
     };
@@ -1365,6 +1383,7 @@
       b.setAttribute("data-mod", item.id);
       var n = E._railBadges[item.id];
       b.innerHTML = '<span class="eikon-rail-ico">' + (E.RAIL_ICONS[item.id] || E.RAIL_ICONS._) + '</span><span class="eikon-nav-label">' + E.escapeHtml(item.title) + '</span>' +
+        (item.id === "settings" ? '<span class="eikon-rail-more">More</span>' : "") +
         '<span class="eikon-rail-badge' + (n ? "" : " empty") + '" data-badge="' + item.id + '">' + (n || "") + '</span>';
       b.addEventListener("click", function () { E._ui2Back = null; window.location.hash = "#" + item.id; });
       return b;
@@ -1453,6 +1472,7 @@
     btns.forEach(function (b) {
       var id = b.getAttribute("data-mod") || "";
       b.classList.toggle("active", id === active || (E.UI2_PARENT && E.UI2_PARENT[active] === id));
+      if (id === "settings" && E.UI2_MORE) b.classList.toggle("more-on", E.UI2_MORE.indexOf((E.UI2_PARENT && E.UI2_PARENT[active]) || active) >= 0);
     });
 
     // Auto-expand category containing active module

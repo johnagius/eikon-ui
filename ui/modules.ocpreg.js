@@ -148,7 +148,7 @@
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "ocpreg") return; // left already: do not draw over the next screen
-    var h = '<div class="ocp"><button class="ocp-back" data-act="back">‹ Registers</button>' +
+    var h = '<div class="ocp"><button class="ocp-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("ocpreg")) + '</button>' +
       '<div class="ocp-top"><div><h1>Contraceptive pills</h1><p class="ocp-sub">Find a pill by its hormones and doses. ' + OCP_DATA.length + " pills listed.</p></div></div>" +
       '<div class="ocp-find"><input id="ocp-q" type="search" placeholder="Search a brand or hormone" aria-label="Search a brand or hormone" autocomplete="off" value="' + esc(S.q) + '"></div>' +
       '<div class="ocp-grid">' +
@@ -162,7 +162,7 @@
       '<div id="ocp-res" aria-live="polite"></div>' +
       '<p class="ocp-note">A dose matches within 1.5%; a multiphasic pill matches any dose of its hormones. To print the results, use the <a href="#" data-act="classic">classic finder</a>.</p></div>';
     m.innerHTML = h;
-    m.querySelector("[data-act=back]").addEventListener("click", function () { window.location.hash = "#registers"; });
+    m.querySelector("[data-act=back]").addEventListener("click", function () { window.location.hash = E.ui2BackHash("ocpreg"); });
     m.querySelector("[data-act=classic]").addEventListener("click", function (ev) { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "ocpreg"); } catch (x) {} E.openClassic("ocps"); });
     var bind = function (sel, key, evn) { var el = m.querySelector(sel); el.addEventListener(evn, function () { S[key] = el.value; S.like = ""; results(); }); };
     bind("#ocp-q", "q", "input"); bind("#ocp-ed", "ed", "input"); bind("#ocp-pd", "pd", "input"); bind("#ocp-e", "e", "change"); bind("#ocp-p", "p", "change");
@@ -212,5 +212,5 @@
     render: function (ctx) { S.mount = ctx && ctx.mount; S.q = ""; S.e = ""; S.ed = ""; S.eu = "mg"; S.p = ""; S.pd = ""; S.pu = "mg"; S.like = ""; css(); paint(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("ocpreg") < 0) E.UI2_DESTINATIONS.push("ocpreg");
-  if (E.UI2_PARENT) E.UI2_PARENT.ocpreg = "registers";
+  if (E.UI2_PARENT) E.UI2_PARENT.ocpreg = "services";
 })();

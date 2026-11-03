@@ -203,7 +203,7 @@
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "otcreg") return; // left before the data came back: do not draw over the next screen
     var sel = S.stack.length > 0;
-    var h = '<div class="otc' + (sel ? " has-sel" : "") + '"><div class="otc-head"><button type="button" class="otc-back" data-act="back">‹ Registers</button>' +
+    var h = '<div class="otc' + (sel ? " has-sel" : "") + '"><div class="otc-head"><button type="button" class="otc-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("otcreg")) + '</button>' +
       '<h1>Over the counter</h1><p class="otc-sub">What to recommend, by symptom. Search, or pick a symptom, then follow a product to its cautions and alternatives.</p></div>';
     if (S.loading && !S.idx) h += '<div class="otc-quiet" style="margin-top:16px">Opening the OTC guide…</div>';
     else if (S.error) h += '<div class="otc-quiet" style="margin-top:16px">' + esc(S.error) + "</div>";
@@ -220,7 +220,7 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
-        if (act === "back") window.location.hash = "#registers";
+        if (act === "back") window.location.hash = E.ui2BackHash("otcreg");
         else if (act === "close") back();
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "otcreg"); } catch (x) {} E.openClassic("otcmindmap"); }
       });
@@ -248,14 +248,14 @@
   function top() { try { if (window.matchMedia("(max-width:900px)").matches) window.scrollTo(0, 0); } catch (e) {} }
   function focusTitle() { setTimeout(function () { var x = S.mount && S.mount.querySelector("#otc-title"); var a = document.activeElement; if (x && !(a && a.id === "otc-q")) x.focus(); }, 30); }
 
-  // Escape: clear the search, else go back one step, else back to Registers
+  // Escape: clear the search, else go back one step, else back to its tab
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Escape" || e.defaultPrevented || !S.mount || E.state.activeModuleId !== "otcreg" || !document.body.contains(S.mount)) return;
     if (document.querySelector(".eikon-modal-backdrop, .eikon-modal-overlay, [role=dialog][aria-modal=true]")) return; // a dialog closes first
     var a = document.activeElement;
     if (a && a.id === "otc-q" && a.value) { e.preventDefault(); a.value = ""; S.q = ""; paint(); return; }
     e.preventDefault();
-    if (S.stack.length) back(); else window.location.hash = "#registers";
+    if (S.stack.length) back(); else window.location.hash = E.ui2BackHash("otcreg");
   });
 
   E.registerModule({
@@ -263,5 +263,5 @@
     render: function (ctx) { S.mount = ctx && ctx.mount; S.stack = []; S.q = ""; S.more = {}; S.opening = ""; S.openErr = ""; css(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("otcreg") < 0) E.UI2_DESTINATIONS.push("otcreg");
-  if (E.UI2_PARENT) E.UI2_PARENT.otcreg = "registers";
+  if (E.UI2_PARENT) E.UI2_PARENT.otcreg = "services";
 })();

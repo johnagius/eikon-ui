@@ -1073,7 +1073,7 @@
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "calreg") return; // left before a reply came back: do not draw over the next screen
     if (!fromState) keep(); // what is typed is kept; fromState: the values were just changed in code
-    var h = '<div class="cal"><button class="cal-back" data-act="back">‹ Registers</button>' +
+    var h = '<div class="cal"><button class="cal-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("calreg")) + '</button>' +
       '<h1>Pharmacy calculators</h1><p class="cal-sub">Dosing plans and the tablets or insulin to dispense, for one patient.</p>' +
       '<div class="cal-seg" role="group" aria-label="Calculator">' + CALCS.map(function (c) { return '<button type="button" data-calc="' + c[0] + '" aria-pressed="' + (S.calc === c[0]) + '" class="' + (S.calc === c[0] ? "on" : "") + '">' + esc(c[1]) + "</button>"; }).join("") + "</div>" +
       '<div class="cal-grid"><form class="cal-form" id="cal-form" autocomplete="off" aria-label="' + esc(TITLE[S.calc]) + '" novalidate>' +
@@ -1133,7 +1133,7 @@
       if (b.closest("#cal-recs")) return;
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act"), v = S.v[S.calc];
-        if (act === "back") window.location.hash = "#registers";
+        if (act === "back") window.location.hash = E.ui2BackHash("calreg");
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "calreg"); } catch (x) {} E.openClassic("pharmacycalc"); }
         else if (act === "reset") { keep(); S.v[S.calc] = defaults(S.calc); if (S.calc === "lev") S.levModeShown = S.v.lev.mode; S.err = ""; S.msg = null; paint(true); compute(); focus('[data-calc="' + S.calc + '"]'); }
         else if (act === "step-add") { keep(); v.steps.push({ dose: "5", days: "5", note: "" }); paint(true); compute(); focus('[name="pred.steps.' + (v.steps.length - 1) + '.dose"]'); }
@@ -1235,5 +1235,5 @@
     }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("calreg") < 0) E.UI2_DESTINATIONS.push("calreg");
-  if (E.UI2_PARENT) E.UI2_PARENT.calreg = "registers";
+  if (E.UI2_PARENT) E.UI2_PARENT.calreg = "services";
 })();

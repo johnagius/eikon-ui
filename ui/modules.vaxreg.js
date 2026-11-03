@@ -154,7 +154,7 @@
     if (E.state.activeModuleId !== "vaxreg") return; // left before a reply came back: do not draw over the next screen
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var qi = m.querySelector("#vxr-q"); if (qi) S.q = qi.value;
-    var h = '<div class="vxr"><button class="vxr-back" data-act="back">‹ Registers</button>' +
+    var h = '<div class="vxr"><button class="vxr-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("vaxreg")) + '</button>' +
       '<div class="vxr-top"><div><h1>Vaccines</h1><p class="vxr-sub">Vaccines ordered for clients, for travel or routine.</p></div>' + (S.adding ? "" : '<button class="vax-btn p" data-act="add">New order</button>') + "</div>";
     if (S.adding) {
       var a = S.adding, travel = a.section === "travel";
@@ -215,7 +215,7 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
-        if (act === "back") window.location.hash = "#registers";
+        if (act === "back") window.location.hash = E.ui2BackHash("vaxreg");
         else if (act === "add") { S.adding = { section: "travel", country: "", cc: "", lines: [{ name: "", qty: "1" }] }; S.err = ""; S.printFor = 0; S.justSaved = 0; paint(true); loadCountries(); focus("[name=country]"); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
         else if (act === "sec") { keep(); S.adding.section = b.getAttribute("data-sec"); if (S.adding.section === "travel") loadCountries(); paint(true); var sb = m.querySelector('[data-act=sec][data-sec="' + S.adding.section + '"]'); if (sb) sb.focus(); }
@@ -338,5 +338,5 @@
     render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.q = ""; S.printFor = 0; S.justSaved = 0; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("vaxreg") < 0) E.UI2_DESTINATIONS.push("vaxreg");
-  if (E.UI2_PARENT) E.UI2_PARENT.vaxreg = "registers";
+  if (E.UI2_PARENT) E.UI2_PARENT.vaxreg = "services";
 })();

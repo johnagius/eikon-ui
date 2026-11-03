@@ -73,7 +73,7 @@
     if (E.state.activeModuleId !== "lrcreg") return; // left before a reply came back: do not draw over the next screen
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var mn = MON[+S.month.slice(5) - 1];
-    var h = '<div class="lrc"><button class="lrc-back" data-act="back">‹ Registers</button>' +
+    var h = '<div class="lrc"><button class="lrc-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("lrcreg")) + '</button>' +
       '<div class="lrc-top"><div><h1>Locum receipts</h1><p class="lrc-sub">What each locum was paid, ready to print and sign.</p></div>' + (S.adding ? "" : '<button class="lrc-btn p" data-act="add">New receipt</button>') + "</div>";
     if (S.adding) h += formHtml();
     if (S.loading && !S.entries.length) h += '<div class="lrc-quiet">Opening locum receipts…</div>';
@@ -93,7 +93,7 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
-        if (act === "back") window.location.hash = "#registers";
+        if (act === "back") window.location.hash = E.ui2BackHash("lrcreg");
         else if (act === "add") { var t = today(), ty = dayType(t), r = mem()[ty]; S.adding = { receipt_date: t, day_type: ty, hours: "", fee_per_hour: r != null ? String(r) : "", locum_full_name: "", registration_number: "" }; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=locum_full_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
         else if (act === "print") { var row = S.entries.find(function (x) { return x.id === Number(b.getAttribute("data-id")); }); if (row) printReceipt(row); }
@@ -182,5 +182,5 @@
     render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.adding = null; S.err = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("lrcreg") < 0) E.UI2_DESTINATIONS.push("lrcreg");
-  if (E.UI2_PARENT) E.UI2_PARENT.lrcreg = "registers";
+  if (E.UI2_PARENT) E.UI2_PARENT.lrcreg = "money";
 })();

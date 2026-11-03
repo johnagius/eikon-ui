@@ -301,7 +301,7 @@
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "pocreg") return; // left before a reply came back: do not draw over the next screen
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
-    var h = '<div class="poc"><button class="poc-back" data-act="back">‹ Registers</button>' +
+    var h = '<div class="poc"><button class="poc-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("pocreg")) + '</button>' +
       '<div class="poc-top"><div><h1>Point-of-care tests</h1><p class="poc-sub">Blood pressure, glucose, cholesterol and other tests, per patient.</p></div>' + (S.adding || S.view ? "" : '<button class="poc-btn p" data-act="add">Record a test</button>') + "</div>";
     if (S.adding) h += formHtml();
     if (S.loading && !S.records.length && !S.patients.length) h += '<div class="poc-quiet">Opening the tests…</div>';
@@ -322,7 +322,7 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
-        if (act === "back") window.location.hash = "#registers";
+        if (act === "back") window.location.hash = E.ui2BackHash("pocreg");
         else if (act === "add") { S.adding = blank(null); S.err = ""; paint(true); focus("[name=patientId]"); }
         else if (act === "add-q") { var q = S.q; S.adding = blank(null); if (/\d/.test(q) && !/\s/.test(q.trim()) && !/^[+\d\s]{8,}$/.test(q.trim())) S.adding.patientId = pid(q); else if (/^[+\d\s]{8,}$/.test(q.trim())) S.adding.phone = q.trim(); else S.adding.name = q.trim(); S.err = ""; paint(true); focus("[name=patientId]"); }
         else if (act === "add-for") { var p = people()[b.getAttribute("data-pid")]; S.adding = blank(p); S.err = ""; paint(true); focus("[name=sys],[name=glucose],[name=pct],[name=tc],[name=weight],[name=leu]"); }
@@ -437,5 +437,5 @@
     render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.view = null; S.q = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("pocreg") < 0) E.UI2_DESTINATIONS.push("pocreg");
-  if (E.UI2_PARENT) E.UI2_PARENT.pocreg = "registers";
+  if (E.UI2_PARENT) E.UI2_PARENT.pocreg = "services";
 })();

@@ -423,7 +423,7 @@
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "eposreg") return; // left before a reply came back: do not draw over the next screen
     var wait = pending(), waitTot = wait.reduce(function (t, s) { return t + (Number(s && s.total) || 0); }, 0);
-    var h = '<div class="epr"><button class="epr-back" data-act="back">‹ Registers</button>' +
+    var h = '<div class="epr"><button class="epr-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("eposreg")) + '</button>' +
       '<h1>Emergency POS</h1><p class="epr-sub">Sell when the main till is down. A sale with no connection waits on this device and is sent when it is back.</p>';
     if (wait.length) h += '<div class="epr-wait" role="status"><div class="t"><b>' + wait.length + (wait.length === 1 ? " sale is" : " sales are") + " waiting on this device</b> (" + eur(waitTot) + "), not yet on the server." + (S.syncErr ? " " + esc(S.syncErr) : "") + "</div>" +
       '<button type="button" class="epr-btn" data-act="sync" data-k="sync"' + (S.syncing ? " disabled" : "") + ">" + (S.syncing ? "Sending…" : "Send now") + "</button></div>";
@@ -504,7 +504,7 @@
       b.addEventListener("click", function (ev) {
         var id = b.getAttribute("data-id");
         if (S.saving && /^(inc|dec|rm|method|exact|clear|clear-yes)$/.test(act)) return; // the basket being saved is not changed under it
-        if (act === "back") window.location.hash = "#registers";
+        if (act === "back") window.location.hash = E.ui2BackHash("eposreg");
         else if (act === "classic") classic(ev);
         else if (act === "inc") { keep(); changeQty(id, 1); S.err = ""; paint(); }
         else if (act === "dec") { keep(); var l = lineById(id); if (l && l.qty > 1) changeQty(id, -1); S.err = ""; paint(); }
@@ -558,13 +558,13 @@
     if (vr) vr.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); doVoid(S.voidId); } });
   }
 
-  // Escape: closes what is open (void, clear), otherwise back to Registers (the basket stays on this device)
+  // Escape: closes what is open (void, clear), otherwise back to its tab (the basket stays on this device)
   document.addEventListener("keydown", function (ev) {
     if (ev.key !== "Escape" || ev.defaultPrevented || !E.state || E.state.activeModuleId !== "eposreg" || !S.mount) return;
     if (document.querySelector(".eikon-modal-overlay:not([style*='none'])")) return;
     if (S.voidId != null) { var vid = S.voidId; S.voidId = null; S.voidErr = ""; paint(); focus('[data-k="void:' + vid + '"]'); return; }
     if (S.askClear) { S.askClear = false; paint(); focus("#epr-q"); return; }
-    window.location.hash = "#registers";
+    window.location.hash = E.ui2BackHash("eposreg");
   });
   // Back online while the screen is open: send what waits
   window.addEventListener("online", function () { if (E.state && E.state.activeModuleId === "eposreg") syncPending(); });
@@ -585,5 +585,5 @@
     }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("eposreg") < 0) E.UI2_DESTINATIONS.push("eposreg");
-  if (E.UI2_PARENT) E.UI2_PARENT.eposreg = "registers";
+  if (E.UI2_PARENT) E.UI2_PARENT.eposreg = "money";
 })();

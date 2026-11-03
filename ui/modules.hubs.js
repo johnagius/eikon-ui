@@ -1,7 +1,7 @@
 /* ============================================================
    EIKON — Hubs  (modules.hubs.js)
-   The reimagined rail has six words: Today, Customers, Stock, Registers, Team,
-   Settings. Stock, Registers, Team and Settings are doors: one calm page each,
+   The reimagined rail: Today, Customers, Bookings, Stock, Registers, Services,
+   Money, Team, Settings. Stock, Registers, Services, Money, Team and Settings are doors: one calm page each,
    every existing function one tap behind it, described in a sentence a new
    locum understands. Nothing is removed; it is put where it belongs.
    ============================================================ */
@@ -22,68 +22,84 @@
 
   // One sentence per function. Titles come from the modules themselves.
   var DESC = {
-    temperature: "Fridge and room readings, every day, with the limits.",
-    cleaning: "Who cleaned what, and when.",
-    dailyregister: "The day book: opening checks and sign-off.",
-    "dda-purchases": "Controlled drugs received.",
+    temperature: "Log fridge and room readings each day, against their limits.",
+    cleaning: "Record when the dispensary and fridge were cleaned, and by whom.",
+    dailyregister: "Prescription medicines supplied, one line each.",
+    locumregister: "Which pharmacist was in charge, and when.",
+    "dda-purchases": "Every delivery of a controlled drug, by invoice.",
+    "dda-sales": "Every controlled drug handed over against a prescription.",
+    "dda-poyc": "Controlled drugs given under the POYC scheme.",
+    dda_stocktakes: "Count controlled drugs and record any discrepancies.",
+    repeatprescriptions: "Prescriptions kept on file, and when each one runs out.",
     rotreg: "This week at a glance: who works, when, and who is away.",
-    ssreg: "What other pharmacies are short of, and what you asked for.",
-    "dda-sales": "Controlled drugs supplied, by prescription.",
-    "dda-poyc": "POYC controlled-drug supplies.",
-    dda_stocktakes: "Controlled-drug counts and discrepancies.",
-    repeatprescriptions: "Repeat prescriptions on file and when they expire.",
-    locumregister: "Which locum was in charge, and when.",
-    certificates: "Licences and certificates with expiry dates.",
+    ssreg: "What other pharmacies are looking for, and what you asked for.",
+    certificates: "Calibrations, services and licences, with what is due.",
     audit: "Who changed what, across the whole system.",
-    endofday: "Close the till: X readings, cash, cheques, the bank bag.",
-    paidout: "Cash paid out of the till, with a reason.",
+    endofday: "Close the till: X readings, cash, cheques and the bank bag.",
+    paidout: "Money paid from the till, such as couriers and cleaners.",
+    "emergency-pos": "Sell when the main till is down; the sales sync later.",
     creditnotes: "Money customers have with you, and what is left of it.",
-    locumreceipts: "Locum hours and fees, ready to pay.",
-    "emergency-pos": "Sell when the main till is down; syncs later.",
+    locumreceipts: "What each locum was paid, ready to print and sign.",
     poct: "Blood pressure, glucose, cholesterol and other tests, per patient.",
-    vaccines: "Vaccine orders for travel and routine jabs.",
+    vaccines: "Order vaccines for clients, for travel or routine jabs.",
+    screening: "Health-check events and the people screened at each.",
+    pharmacovigilance: "Report a reaction to a medicine and follow the report.",
     ocps: "Find a contraceptive pill by its hormones and doses.",
     pharmacycalc: "Dosing plans and supply for levothyroxine, steroid tapers, warfarin, insulin and methotrexate.",
-    pharmacovigilance: "Adverse reactions reported.",
-    screening: "Screening programmes and results.",
-    labels: "Print dispensing labels in English or Maltese.",
     otcmindmap: "What to recommend over the counter, by symptom.",
-    alerts: "Recalls and safety alerts, with the steps ticked off.",
-    nearexpiry: "What expires soon, shelf by shelf.",
-    returns: "Stock going back to the supplier.",
-    stocktransfers: "Stock moved between pharmacies.",
-    scarcestock: "Hard-to-get lines and who has them.",
-    "supplier-inventory": "What the supplier has in stock right now.",
-    "order-diary": "Orders placed with suppliers and what is still due.",
-    quotations: "Quotes given to customers and companies.",
+    labels: "Print dispensing labels in English or Maltese.",
+    alerts: "Recalls and quarantines, with each step ticked off.",
+    nearexpiry: "What expires soon, nearest first.",
+    scarcestock: "Hard-to-get lines other pharmacies have spare.",
+    "order-diary": "What to order, by supplier, and what came in.",
+    "supplier-inventory": "Browse a supplier's stock and send them an order.",
+    quotations: "Compare supplier quotes, cheapest first, with your margin.",
+    returns: "Stock going back to suppliers, until the credit note.",
+    stocktransfers: "Stock moving between your pharmacies.",
     clientorders: "Items ordered in for a customer.",
     tickets: "Questions customers are waiting on.",
     deliveries: "Home deliveries, routes and proof of delivery.",
     appointments: "Clinic bookings and the waiting list.",
     loyalty: "Loyalty cards, points and campaigns.",
     shifts: "Plan the rota: add or change shifts, answer leave requests.",
-    instructions: "Handover notes from one shift to the next.",
-    messageboard: "Notices for the whole team.",
+    instructions: "What the last shift left you, and what you leave the next one.",
+    messageboard: "Messages between pharmacies, kept for six months.",
     contacts: "Suppliers, reps, doctors, head office, one list."
   };
 
+  // Each screen has one home tab (E.UI2_PARENT in core.js): the rail lights it and the back button returns to it.
+  // Second doors kept where staff already look: Team › Locums, Settings › Contacts, Registers › Proof, Stock › Price (credit notes).
   var HUBS = {
     stock: {
       title: "Stock", lead: "What is coming in, what is going out, what is running out.",
       groups: [
         { label: "Watch", ids: ["alerts", "nearexpiry", "ssreg", "scarcestock"] },
-        { label: "Move", ids: ["returns", "stocktransfers", "order-diary", "supplier-inventory"] },
-        { label: "Price", ids: ["quotations", "creditnotes"] }
+        { label: "Order", ids: ["order-diary", "supplier-inventory"] },
+        { label: "Send on", ids: ["returns", "stocktransfers"] },
+        { label: "Price", ids: ["quotations", "creditnotes"] } // credit notes live in Money; this second door stays where staff know it
       ]
     },
     registers: {
       title: "Registers", lead: "The books an inspector asks for. Each one is filled in where the work happens; this is where you read them.",
       groups: [
         { label: "Every day", ids: ["temperature", "cleaning", "dailyregister", "locumregister"] },
-        { label: "Controlled drugs", ids: ["dda-purchases", "dda-sales", "dda-poyc", "dda_stocktakes", "repeatprescriptions"] },
-        { label: "Money", ids: ["endofday", "paidout", "locumreceipts", "emergency-pos"] },
-        { label: "Clinical", ids: ["poct", "vaccines", "ocps", "pharmacycalc", "pharmacovigilance", "screening", "labels", "otcmindmap"] },
-        { label: "Proof", ids: ["certificates", "audit"] }
+        { label: "Controlled drugs", ids: ["dda-purchases", "dda-sales", "dda-poyc", "dda_stocktakes"] },
+        { label: "Prescriptions", ids: ["repeatprescriptions"] },
+        { label: "Proof", ids: ["certificates", "audit"] } // their home is Settings; kept here because staff look here for them
+      ]
+    },
+    services: {
+      title: "Services", lead: "Care given at the counter or by appointment, and the tools for it.",
+      groups: [
+        { label: "Clinical", ids: ["poct", "vaccines", "screening", "pharmacovigilance"] },
+        { label: "Look up and print", ids: ["ocps", "pharmacycalc", "otcmindmap", "labels"] }
+      ]
+    },
+    money: {
+      title: "Money", lead: "The till and what the pharmacy owes or holds for others.",
+      groups: [
+        { label: "Till", ids: ["endofday", "paidout", "emergency-pos"] },
+        { label: "Owed", ids: ["creditnotes", "locumreceipts"] }
       ]
     },
     team: {
@@ -97,11 +113,17 @@
     settings: {
       title: "Settings", lead: "Your account, this pharmacy, and the way back.",
       groups: [
+        // Phones: the bottom bar has room for six words, so Team, Services and Money are reached from here ("More").
+        { label: "More", phoneOnly: true, actions: [
+          { title: "Team", desc: "Who is in, handover, shifts and contacts.", run: function () { window.location.hash = "#team"; } },
+          { title: "Services", desc: "Tests, vaccines, screening and counter tools.", run: function () { window.location.hash = "#services"; } },
+          { title: "Money", desc: "End of day, paid out, credit notes and locum receipts.", run: function () { window.location.hash = "#money"; } }
+        ] },
         { label: "You", actions: [
           { title: "Password", desc: "Change the password you sign in with.", run: function () { E.showChangePassword(); } },
           { title: "Sign out", desc: "Sign out on this device.", run: function () { E.logout(); } }
         ] },
-        { label: "This pharmacy", ids: ["certificates", "contacts", "audit"] },
+        { label: "This pharmacy", ids: ["certificates", "audit", "contacts"] },
         { label: "Help", actions: [
           { title: "Help & guides", desc: "Short guides for every register.", run: function () { E.showHelpGuide(); } },
           { title: "Classic layout", desc: "The previous look, with the old sidebar. The link you were given brings you back here.", run: function () { try { localStorage.setItem("eikon_ui2", "0"); } catch (e) {} var u = new URL(window.location.href); u.searchParams.set("ui", "1"); u.hash = "#dashboard"; window.location.href = u.toString(); } },
@@ -118,6 +140,7 @@
     st.textContent =
       ".hub{max-width:1180px;margin:0 auto}.hub h1{font-size:26px;letter-spacing:-.025em;margin:4px 0 6px;line-height:1.1;font-weight:800}.hub .lead{color:var(--muted);font-size:14.5px;margin:0 0 6px;max-width:640px;line-height:1.5}" +
       ".hub-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:22px 2px 8px}" +
+      ".hub-phone{display:none}@media (max-width:760px){.hub-phone{display:block}}" +
       ".hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}" +
       ".hub-card{display:block;position:relative;width:100%;text-align:left;font:inherit;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 34px 14px 16px;color:var(--text);cursor:pointer;min-height:76px;-webkit-tap-highlight-color:transparent}" +
       ".hub-card::after{content:'';position:absolute;right:16px;top:50%;width:7px;height:7px;border-right:2px solid rgba(60,60,67,.3);border-top:2px solid rgba(60,60,67,.3);transform:translateY(-50%) rotate(45deg)}" +
@@ -141,13 +164,14 @@
         (g.ids || []).forEach(function (mid) {
           var mod = E.modules[mid];
           if (!mod) return; // not in this build or this portal
-          cards += '<button class="hub-card" data-open="' + esc(mid) + '"><b>' + esc(sentence(mod.title || mid)) + '</b><span>' + esc(DESC[mid] || "") + '</span></button>';
+          var nat = (E.UI2_NATIVE || {})[mid], shown = (nat && E.modules[nat] && E.modules[nat].title) || mod.title || mid; // the name the screen itself shows
+          cards += '<button class="hub-card" data-open="' + esc(mid) + '"><b>' + esc(sentence(shown)) + '</b><span>' + esc(DESC[mid] || "") + '</span></button>';
         });
         (g.actions || []).forEach(function (a, ai) {
           cards += '<button class="hub-card" data-action="' + gi + ":" + ai + '"><b>' + esc(a.title) + '</b><span>' + esc(a.desc) + '</span></button>';
         });
         if (!cards) return;
-        html += '<div class="hub-lab">' + esc(g.label) + '</div><div class="hub-grid">' + cards + '</div>';
+        html += '<div class="hub-sec' + (g.phoneOnly ? " hub-phone" : "") + '"><h2 class="hub-lab">' + esc(g.label) + '</h2><div class="hub-grid">' + cards + '</div></div>';
       });
       html += '</div>';
       m.innerHTML = html;
