@@ -1996,6 +1996,41 @@ try {
     v1 === "Carmel Zammit" && v2 === "omron m3 in stock?" && v3 === "de Gabriele Maria" && v4 === "Ġorġ Ħili",
     JSON.stringify({ uiOut, v1, v2, v3, v4 }));
 } catch (e) { report("names: a name field is put in Title Case when it is left", false, String(e).slice(0, 300)); }
+// Error reports (backlog 7): a thrown error on a screen is one POST /client-log with build, screen id, kind, scrubbed
+// message and stack, and nothing typed in the form; the overlay does not send it twice; a screen that crashes while
+// drawing is one "render" report; never more than 5 per page load.
+try {
+  await page.goto("about:blank");
+  await page.goto(base + "&ui=2#tickets");
+  await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && window.EIKON.state.activeModuleId === "tktreg" && document.querySelector("[data-act=add]"), null, { timeout: 15000 });
+  await page.click("[data-act=add]");
+  await page.fill("#tkt-add [name=client_name]", "Zammit Carmel"); await page.fill("#tkt-add [name=phone]", "79123456"); await page.fill("#tkt-add [name=issue]", "Wants Ozempic");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.evaluate(() => { setTimeout(() => { throw new Error("Boom on the screen for 0012345M 99001122 see /people?q=Carmel"); }, 0); });
+  await page.waitForTimeout(600);
+  const logs = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.path === "/client-log");
+  const L1 = await logs();
+  const b = (L1[0] && L1[0].body) || {};
+  const txt = JSON.stringify(L1);
+  const overlay = await page.evaluate(() => { const o = document.getElementById("eikon-fatal-overlay"); const had = !!o; if (o) o.remove(); return had; });
+  // a screen that throws while drawing
+  await page.evaluate(async () => { const E = window.EIKON; E._t_render = E.modules.tktreg.render; E.modules.tktreg.render = function () { throw new Error("render broke"); }; await E.renderActiveModule(); });
+  await page.waitForTimeout(600);
+  const L2 = (await logs()).filter((c) => c.body && c.body.kind === "render");
+  await page.evaluate(() => { const E = window.EIKON; E.modules.tktreg.render = E._t_render; });
+  // ten more distinct errors: the page stops at 5 in all
+  await page.evaluate(() => { for (let i = 0; i < 10; i++) setTimeout(() => { throw new Error("Burst " + i); }, 0); });
+  await page.waitForTimeout(700);
+  const L3 = await logs();
+  await page.evaluate(() => { const o = document.getElementById("eikon-fatal-overlay"); if (o) o.remove(); });
+  report("error reports: a thrown error is one POST /client-log (screen tktreg, kind error, build, scrubbed message and stack, nothing typed in the form), the overlay adds none; a drawing crash is one render report; at most 5 per page load",
+    L1.length === 1 && JSON.stringify(Object.keys(b)) === JSON.stringify(["build", "kind", "screen", "message", "stack"]) && b.screen === "tktreg" && b.kind === "error" && /^2026-\d\d-\d\d\.\d+$/.test(b.build) &&
+    /Boom on the screen/.test(b.message) && !/Zammit|Carmel|Ozempic|0012345M|99001122|79123456|\?q=/.test(txt) && /\[id\]/.test(b.message) && /\[phone\]/.test(b.message) && overlay &&
+    L2.length === 1 && L2[0].body.screen === "tktreg" && /render broke/.test(L2[0].body.message) && L3.length === 5,
+    JSON.stringify({ n1: L1.length, b, overlay, n2: L2.length, n3: L3.length }).slice(0, 900));
+  await page.reload();
+  await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user, null, { timeout: 15000 });
+} catch (e) { report("error reports: ran to the end", false, String(e).slice(0, 300)); }
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });

@@ -347,17 +347,66 @@
       try {
         E.error("[GLOBAL] window.error:", ev && (ev.message || ev.error || ev));
         if (ev && ev.error && ev.error.stack) E.error("[GLOBAL] stack:", ev.error.stack);
+        if (E.reportError) E.reportError("error", ev && (ev.message || ev.error), ev && ev.error); // backlog 7
+        E._errReportBusy = true; // the overlay below must not report the same error again
         E.showFatalOverlay("Uncaught error", ev && (ev.message || (ev.error && ev.error.stack) || String(ev)));
+        E._errReportBusy = false;
       } catch (e) {}
     });
     window.addEventListener("unhandledrejection", function (ev) {
       try {
         E.error("[GLOBAL] unhandledrejection:", ev && ev.reason);
         if (ev && ev.reason && ev.reason.stack) E.error("[GLOBAL] stack:", ev.reason.stack);
+        if (E.reportError) E.reportError("rejection", ev && ev.reason && (ev.reason.message || ev.reason), ev && ev.reason); // backlog 7
+        E._errReportBusy = true;
         E.showFatalOverlay("Unhandled promise rejection", ev && (ev.reason && (ev.reason.stack || ev.reason.message)) || String(ev));
+        E._errReportBusy = false;
       } catch (e) {}
     });
     E.dbg("[GLOBAL] crash logging installed");
+  })();
+
+  // ---- Error reports (backlog 7): uncaught errors, unhandled rejections, the fatal overlay and a screen that
+  // crashes while drawing are sent to POST /client-log, so a fault in a pharmacy reaches us. Only when signed in;
+  // at most 5 per page load, each message once; fire-and-forget (keepalive), never retried. Sent: build, screen id
+  // (E.state.activeModuleId), kind, the error's message and stack, scrubbed below (the server scrubs again).
+  // Never sent: form values, the address (the bar is bare "/" anyway; queries and #fragments are cut), names typed.
+  (function installErrorReports() {
+    var MAX_PER_LOAD = 5, sent = 0, seen = {};
+    var build = "";
+    try { var cs = document.currentScript && document.currentScript.src || ""; var mv = /[?&]v=([A-Za-z0-9._-]{1,40})/.exec(cs); if (mv) build = mv[1]; } catch (e) {}
+    E._scrubReport = function (v, max) {
+      var s = String(v == null ? "" : v).slice(0, 8000);
+      s = s.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, " ");
+      s = s.replace(/[?#][^\s"'<>()]*?(?=(?::\d+:\d+)?(?:[\s"'<>()]|$))/g, "");
+      s = s.replace(/\bBearer\s+[^\s"']+/gi, "Bearer [token]");
+      s = s.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]");
+      s = s.replace(/\b[A-Za-z0-9_\-+\/=]{32,}\b/g, function (m) { return (/\d/.test(m) && /[A-Za-z]/.test(m)) ? "[token]" : m; });
+      s = s.replace(/\b\d{1,7}\s?[A-Za-z]\b/g, "[id]");
+      s = s.replace(/(?:\+|\b00)?\d(?:[ \-]?\d){6,14}\b/g, function (m) { return (/^\d{4}-\d\d-\d\d/.test(m) || m.replace(/\D/g, "").length < 8) ? m : "[phone]"; });
+      return s.slice(0, max);
+    };
+    E.reportError = function (kind, message, err) {
+      try {
+        if (sent >= MAX_PER_LOAD) return false;
+        var token = E.getToken ? E.getToken() : "";
+        if (!token || !E.state || !E.state.user) return false; // signed in only (never from a portal's sign-in screen)
+        if (!/^https?:$/.test(String(window.location.protocol || ""))) return false;
+        if (err && (err.network || err.status === 401)) return false; // offline / session ended: not a fault, and the POST would fail too
+        var msg = String((message && message.message) || message || (err && err.message) || "").split("\n")[0];
+        if (!msg || /ResizeObserver loop/.test(msg)) return false;
+        var body = {
+          build: build, kind: kind, screen: /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(String(E.state.activeModuleId || "")) ? E.state.activeModuleId : "",
+          message: E._scrubReport(msg, 300), stack: E._scrubReport(err && err.stack || "", 2000)
+        };
+        var key = body.kind + "|" + body.screen + "|" + body.message;
+        if (seen[key]) return false;
+        seen[key] = 1; sent++;
+        fetch((E.apiBase || "") + "/client-log", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token }, body: JSON.stringify(body) })
+          .catch(function () {});
+        return true;
+      } catch (e) { return false; }
+    };
   })();
 
   // DOM helpers
@@ -576,6 +625,7 @@
 
   // Fatal overlay (never silent black screen)
   E.showFatalOverlay = function (title, details) {
+    try { if (!E._errReportBusy && E.reportError) E.reportError("fatal", String(details || title || "").split("\n")[0] || String(title || ""), { stack: String(details || "") }); } catch (eR) {} // backlog 7
     try {
       var overlay = document.getElementById("eikon-fatal-overlay");
       if (!overlay) {
@@ -1691,6 +1741,7 @@
       await E.modules[id].render({ E: E, mount: content, user: E.state.user });
     } catch (err) {
       E.error("[router] module render error:", err);
+      if (E.reportError) E.reportError("render", err, err); // backlog 7
       var msg = String(err && (err.stack || err.message || err));
       content.innerHTML =
         '<div class="eikon-card">' +

@@ -16473,6 +16473,8 @@ export default {
       if (parts.length === 1 && parts[0] === "account" && request.method === "POST") {
         return await handleSuCreateAccount(request, env, corsOkHeaders);
       }
+      // Client error reports (backlog 7): superusers only
+      if (parts.length === 1 && parts[0] === "client-errors" && request.method === "GET") return await handleSuClientErrors(request, env, corsOkHeaders, url);
 
       
       // Orgs
@@ -16535,6 +16537,11 @@ export default {
 const authUser = await authFromRequest(request, env);
     if (!authUser) return jsonResponse({ ok: false, error: "Unauthorized" }, 401, corsOkHeaders);
     request = await nameCaseRequest(request, env, url, authUser); // people's names in Title Case on save
+    // Client error reports (backlog 7): signed in only
+    if (url.pathname === "/client-log" && request.method === "POST") {
+      if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
+      return await handleClientLog(request, env, corsOkHeaders, authUser);
+    }
 
     // Bookings (Eikon Next appointments)
     if (url.pathname === "/bookings" || url.pathname.startsWith("/bookings/")) {
@@ -22063,3 +22070,104 @@ async function handleNamesAdmin(request, env, corsOkHeaders, authUser, url) {
     groups: report });
 }
 // ── End people's names ──────────────────────────────────────────────────────────────────────────────────
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   CLIENT ERROR REPORTS (backlog 7) — errors from pharmacies' browsers reach us, with no patient data.
+   POST /client-log (signed in): {build, screen, kind, message, stack}. Scrubbed here (and already in the browser):
+   e-mails, Maltese ID cards, phone numbers, bearer tokens and long token-like runs, and anything after ? or # in a URL.
+   message <= 300 chars, stack <= 2000. Rate limit 20 a minute per session (login_attempts bucket, ip "-" so it never
+   counts toward sign-in throttling). One row per day + pharmacy + screen + message; a repeat adds 1 to count.
+   At most 200 distinct rows per pharmacy per day; rows older than 30 days are removed.
+   GET /su/api/client-errors?days=7 (superusers only): the last N days, grouped.
+   Self-contained: the only other lines are two router hooks in fetch().
+   ══════════════════════════════════════════════════════════════════════════════ */
+const CLIENT_LOG_MAX_PER_MIN = 20;
+const CLIENT_LOG_MAX_ROWS_PER_DAY = 200;
+const CLIENT_LOG_KINDS = ["error", "rejection", "fatal", "render"];
+async function ensureClientErrorsSchema__impl(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS client_errors (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+    day TEXT NOT NULL, build TEXT NOT NULL DEFAULT '', screen TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'error', message TEXT NOT NULL DEFAULT '',
+    stack TEXT NOT NULL DEFAULT '', count INTEGER NOT NULL DEFAULT 1, first_at TEXT NOT NULL DEFAULT (datetime('now')), last_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(day, org_id, location_id, screen, message))`, []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_client_errors_day ON client_errors (day)", []);
+}
+const ensureClientErrorsSchema = schemaOnce("ensureClientErrorsSchema", ensureClientErrorsSchema__impl);
+
+// The same rules the browser applies (core.js E._scrubReport), applied again here: the server never trusts the client.
+function clientLogScrub(v, max) {
+  let s = String(v == null ? "" : v).slice(0, 8000);
+  s = s.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, " ");
+  // URLs: drop the query and fragment, keep a stack frame's :line:col
+  s = s.replace(/[?#][^\s"'<>()]*?(?=(?::\d+:\d+)?(?:[\s"'<>()]|$))/g, "");
+  s = s.replace(/\bBearer\s+[^\s"']+/gi, "Bearer [token]");
+  s = s.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]");
+  s = s.replace(/\b[A-Za-z0-9_\-+/=]{32,}\b/g, (m) => (/\d/.test(m) && /[A-Za-z]/.test(m)) ? "[token]" : m);
+  s = s.replace(/\b\d{1,7}\s?[A-Za-z]\b/g, "[id]");
+  s = s.replace(/(?:\+|\b00)?\d(?:[ \-]?\d){6,14}\b/g, (m) => (/^\d{4}-\d\d-\d\d/.test(m) || m.replace(/\D/g, "").length < 8) ? m : "[phone]");
+  return s.slice(0, max);
+}
+function clientLogField(v, re, dflt) { const s = String(v == null ? "" : v).trim(); return re.test(s) ? s : dflt; }
+
+async function handleClientLog(request, env, corsOkHeaders, authUser) {
+  try {
+    let text = "";
+    try { text = await request.text(); } catch (e) {}
+    if (text.length > 16384) return jsonResponse({ ok: false, error: "Too large" }, 413, corsOkHeaders);
+    let b = null;
+    try { b = JSON.parse(text || "{}"); } catch (e) {}
+    if (!b || typeof b !== "object") return jsonResponse({ ok: false, error: "Invalid JSON" }, 400, corsOkHeaders);
+    const message = clientLogScrub(b.message, 300).trim();
+    if (!message) return jsonResponse({ ok: false, error: "message required" }, 400, corsOkHeaders);
+    await ensureLoginAttemptsSchema(env);
+    const bucket = "client-log:" + String(authUser.session_id);
+    const n = await dbFirst(env, "SELECT COUNT(*) AS c FROM login_attempts WHERE email=? AND ip='-' AND attempted_at > datetime('now','-1 minute')", [bucket]);
+    if (n && Number(n.c) >= CLIENT_LOG_MAX_PER_MIN) return jsonResponse({ ok: false, error: "Too many reports" }, 429, corsOkHeaders);
+    try { await dbRun(env, "INSERT INTO login_attempts (email, ip) VALUES (?, '-')", [bucket]); } catch (e) {}
+    await ensureClientErrorsSchema(env);
+    const org = Number(authUser.org_id), loc = Number(authUser.location_id);
+    const screen = clientLogField(b.screen, /^[A-Za-z][A-Za-z0-9_-]{0,63}$/, "");
+    const kind = CLIENT_LOG_KINDS.indexOf(String(b.kind || "")) >= 0 ? String(b.kind) : "error";
+    const build = clientLogField(b.build, /^[A-Za-z0-9._-]{1,40}$/, "");
+    const stack = clientLogScrub(b.stack, 2000);
+    const day = new Date().toISOString().slice(0, 10);
+    const known = await dbFirst(env, "SELECT id FROM client_errors WHERE day=? AND org_id=? AND location_id=? AND screen=? AND message=?", [day, org, loc, screen, message]);
+    if (known) {
+      await dbRun(env, "UPDATE client_errors SET count = count + 1, last_at = datetime('now'), build = ? WHERE id = ?", [build, known.id]);
+      return jsonResponse({ ok: true, repeat: true }, 200, corsOkHeaders);
+    }
+    const rows = await dbFirst(env, "SELECT COUNT(*) AS c FROM client_errors WHERE day=? AND org_id=? AND location_id=?", [day, org, loc]);
+    if (rows && Number(rows.c) >= CLIENT_LOG_MAX_ROWS_PER_DAY) return jsonResponse({ ok: true, dropped: true }, 200, corsOkHeaders);
+    await dbRun(env, `INSERT INTO client_errors (org_id, location_id, day, build, screen, kind, message, stack) VALUES (?,?,?,?,?,?,?,?)
+      ON CONFLICT(day, org_id, location_id, screen, message) DO UPDATE SET count = count + 1, last_at = datetime('now'), build = excluded.build`,
+      [org, loc, day, build, screen, kind, message, stack]);
+    try { await dbRun(env, "DELETE FROM client_errors WHERE day < ?", [new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)]); } catch (e) {}
+    return jsonResponse({ ok: true }, 200, corsOkHeaders);
+  } catch (e) {
+    return jsonResponse({ ok: false, error: "Could not store the report" }, 500, corsOkHeaders);
+  }
+}
+
+async function handleSuClientErrors(request, env, corsOkHeaders, url) {
+  await ensureClientErrorsSchema(env);
+  let days = Number(url.searchParams.get("days") || 7);
+  if (!Number.isInteger(days) || days < 1) days = 7;
+  if (days > 30) days = 30;
+  const since = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
+  const groups = await dbAll(env, `SELECT screen, kind, message, SUM(count) AS count, COUNT(DISTINCT day) AS days,
+      COUNT(DISTINCT org_id || ':' || location_id) AS pharmacies, MIN(first_at) AS first_at, MAX(last_at) AS last_at,
+      GROUP_CONCAT(DISTINCT build) AS builds, MAX(stack) AS stack
+    FROM client_errors WHERE day >= ? GROUP BY screen, kind, message ORDER BY MAX(last_at) DESC LIMIT 200`, [since]);
+  const where = await dbAll(env, `SELECT e.screen, e.message, e.org_id, e.location_id, o.name AS org_name, l.name AS location_name, SUM(e.count) AS count
+    FROM client_errors e LEFT JOIN orgs o ON o.id = e.org_id LEFT JOIN locations l ON l.id = e.location_id
+    WHERE e.day >= ? GROUP BY e.screen, e.message, e.org_id, e.location_id`, [since]);
+  const by = new Map();
+  for (const w of where) {
+    const k = w.screen + "\u0001" + w.message;
+    if (!by.has(k)) by.set(k, []);
+    by.get(k).push({ org_id: w.org_id, location_id: w.location_id, org_name: w.org_name || "", location_name: w.location_name || "", count: Number(w.count) || 0 });
+  }
+  const out = groups.map((g) => ({ screen: g.screen, kind: g.kind, message: g.message, count: Number(g.count) || 0, days: Number(g.days) || 0,
+    pharmacies: Number(g.pharmacies) || 0, first_at: g.first_at, last_at: g.last_at, builds: String(g.builds || "").split(",").filter(Boolean),
+    stack: g.stack || "", where: by.get(g.screen + "\u0001" + g.message) || [] }));
+  return jsonResponse({ ok: true, since, days, groups: out }, 200, corsOkHeaders);
+}
