@@ -604,3 +604,8 @@ All of it waits only on the worker deploy.
 - CD registers: baseline count of matching entries before saving; on a lost answer, re-read and mark the line saved
   if it arrived. Real worker test: POST reaches the server, reply cut → found, retry sends only the rest; no
   duplicates. UI 131/131. BUILD .81.
+
+## Round 65 — lost answers on the money screens
+- Live: BUILD .81. Paid out, locum receipts, credit-note uses: baseline count before POST; on a network error,
+  re-read; arrived → treated as saved (no double payment / double use); not arrived → form kept, "check the list".
+  Real worker: reply cut after storing (3 screens) and request never arriving. UI 131/131. BUILD .82.
