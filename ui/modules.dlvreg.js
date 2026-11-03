@@ -149,6 +149,8 @@
     var fd = m.querySelector("#dlv-done"); if (fd) fd.addEventListener("submit", function (ev) { ev.preventDefault(); delivered(fd); });
     var ff = m.querySelector("#dlv-fail"); if (ff) ff.addEventListener("submit", function (ev) { ev.preventDefault(); failed(ff); });
     var fa = m.querySelector("#dlv-add"); if (fa) fa.addEventListener("submit", function (ev) { ev.preventDefault(); add(fa); });
+    if (fa && E.personPick) E.personPick.attach({ key: "dlvreg", form: fa, fields: { name: "client_name", phone: "phone", address: "delivery_address" },
+      local: function () { return S.entries.map(function (e) { return { name: e.client_name, phone: e.phone, address: e.delivery_address, date: String(e.order_date || "").slice(0, 10), from: "delivery" }; }); } });
   }
 
   function find(id) { return S.entries.find(function (x) { return x.id === id; }); }

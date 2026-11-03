@@ -1596,6 +1596,57 @@ try {
     JSON.stringify({ navBar, navMore, navMoreOn }));
   await page.setViewportSize({ width: 1440, height: 900 });
 } catch (e) { report("places: ran to the end", false, String(e).slice(0, 300)); }
+// People known here, offered as an ID card or a name is typed (eikon.personpick.js): a part of an ID card lists the
+// person, arrow + Enter fills the ID card (padded), name and address with a quiet "Filled from"; a complete ID card
+// fills only empty fields (a typed name stays); a name suggests in Orders and fills the phone; only reads are sent.
+try {
+  await page.goto(base + "&ui=2#dda-sales");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "cdsreg" && window.EIKON.personPick && document.querySelector("[data-act=add]"), null, { timeout: 15000 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=add]"); await page.waitForTimeout(200);
+  await page.type("[name=client_id_card]", "2345", { delay: 20 }); await page.waitForTimeout(700);
+  const ppList = await page.evaluate(() => { const el = document.querySelector("[name=client_id_card]"), lb = document.getElementById(el.getAttribute("aria-controls")); return { role: el.getAttribute("role"), exp: el.getAttribute("aria-expanded"), lb: lb && lb.getAttribute("role"), opts: lb ? [...lb.querySelectorAll("[role=option] b")].map((b) => b.textContent) : [] }; });
+  await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
+  const ppPick = await page.evaluate(() => ({ id: document.querySelector("[name=client_id_card]").value, name: document.querySelector("[name=client_name]").value, addr: document.querySelector("[name=client_address]").value, note: [...document.querySelectorAll(".epp-note")].map((n) => n.textContent).join(""), open: !!document.querySelector(".epp-list:not([hidden])"), focus: document.activeElement && document.activeElement.name }));
+  await page.click("[data-act=add-cancel]"); await page.click("[data-act=add]"); await page.waitForTimeout(200);
+  await page.fill("[name=client_name]", "Typed By Hand");
+  await page.type("[name=client_id_card]", "12345m", { delay: 20 }); await page.waitForTimeout(900);
+  const ppExact = await page.evaluate(() => ({ name: document.querySelector("[name=client_name]").value, addr: document.querySelector("[name=client_address]").value, note: [...document.querySelectorAll(".epp-note")].map((n) => n.textContent).join("") }));
+  await page.click("[data-act=add-cancel]");
+  await page.goto(base + "&ui=2#clientorders");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector("[data-act=add]"), null, { timeout: 15000 });
+  await page.click("[data-act=add]"); await page.waitForTimeout(200);
+  await page.type("[name=client_name]", "Zam", { delay: 20 }); await page.waitForTimeout(700);
+  const ppNames = await page.$$eval(".epp-list:not([hidden]) .epp-opt b", (l) => l.map((x) => x.textContent));
+  await page.click('.epp-list:not([hidden]) .epp-opt:has-text("Zammit Paul")'); await page.waitForTimeout(300);
+  const ppOrd = await page.evaluate(() => ({ name: document.querySelector("[name=client_name]").value, phone: document.querySelector("[name=contact]").value }));
+  await page.keyboard.press("Escape");
+  const ppCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json());
+  const ppReads = ppCalls.filter((c) => c.path === "/people" || c.path === "/dda-sales/clients"), ppWrites = ppCalls.filter((c) => c.method !== "GET");
+  report("people as you type: 2345 lists Zammit Carmel (combobox + listbox); arrow + Enter fills 0012345M, name and address and says where from; 12345m keeps a typed name and fills the address; Zam in Orders fills the phone; reads only",
+    ppList.role === "combobox" && ppList.exp === "true" && ppList.lb === "listbox" && ppList.opts.join() === "Zammit Carmel" &&
+    ppPick.id === "0012345M" && ppPick.name === "Zammit Carmel" && ppPick.addr === "1 Triq il-Knisja" && ppPick.note === "Filled from earlier records (last 5 Oct)" && !ppPick.open && ppPick.focus === "client_id_card" &&
+    ppExact.name === "Typed By Hand" && ppExact.addr === "1 Triq il-Knisja" && /Filled from/.test(ppExact.note) &&
+    ppNames.includes("Zammit Paul") && ppNames.includes("Zammit Carmel") && ppOrd.name === "Zammit Paul" && ppOrd.phone === "79000001" &&
+    ppReads.length >= 3 && ppReads.every((c) => /[?&]q=/.test(c.query)) && ppReads.some((c) => /q=2345/.test(c.query)) && ppWrites.length === 0,
+    JSON.stringify({ ppList, ppPick, ppExact, ppNames, ppOrd, ppReads: ppReads.map((c) => c.path + c.query), ppWrites }));
+} catch (e) { report("people as you type: ran to the end", false, String(e).slice(0, 300)); }
+// A name typed first-name-first, or in part, still finds the person ("carmel zam" -> Zammit Carmel, not Zammit Paul);
+// the server is asked for the longest word, every word is checked here; choosing fills the ID card.
+try {
+  await page.goto(base + "&ui=2#dda-sales");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "cdsreg" && window.EIKON.personPick && document.querySelector("[data-act=add]"), null, { timeout: 15000 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=add]"); await page.waitForTimeout(200);
+  await page.type("[name=client_name]", "carmel zam", { delay: 20 }); await page.waitForTimeout(800);
+  const nmOpts = await page.evaluate(() => { const el = document.querySelector("[name=client_name]"), lb = document.getElementById(el.getAttribute("aria-controls") || ""); return lb ? [...lb.querySelectorAll("[role=option] b")].map((b) => b.textContent) : []; });
+  await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
+  const nmPick = await page.evaluate(() => ({ id: document.querySelector("[name=client_id_card]").value, name: document.querySelector("[name=client_name]").value }));
+  const nmGets = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "GET" && c.path === "/people").map((c) => c.query || c.url || "");
+  await page.click("[data-act=add-cancel]");
+  report("people suggestions: first name then part of the surname finds the person, not a namesake; choosing fills the ID card",
+    nmOpts.includes("Zammit Carmel") && !nmOpts.includes("Zammit Paul") && nmPick.name === "Zammit Carmel" && /12345M/.test(nmPick.id), JSON.stringify({ nmOpts, nmPick, nmGets }));
+} catch (e) { report("people suggestions: first name then part of the surname ran to the end", false, String(e).slice(0, 300)); }
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });

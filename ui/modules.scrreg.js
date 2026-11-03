@@ -325,6 +325,12 @@
       f.addEventListener("submit", function (ev) { ev.preventDefault(); saveScreening(); });
       var idIn = f.querySelector("[name=idCard]");
       if (idIn) idIn.addEventListener("blur", function () { var v = idIn.value; setTimeout(function () { lookup(v); }, 0); }); // after the blur: focus has moved on, and the redraw puts it back there
+      if (E.personPick) E.personPick.attach({ key: "scrreg", form: f, fields: { id: "idCard", name: "name", phone: "phone", dob: "dob" }, idValue: pid, onFill: function () { keep(); },
+        local: function () {
+          var out = []; S.campaigns.forEach(function (c) { parts(c).forEach(function (p) { out.push({ name: str(p.name), id_card: str(p.idCard), phone: str(p.phone), dob: str(p.dob), date: str(p.date).slice(0, 10), from: "screening" }); }); });
+          var cl = window.__POCT_CLOUD; (cl && Array.isArray(cl.patients) ? cl.patients : []).forEach(function (p) { if (p) out.push({ name: str(p.name), id_card: str(p.patientId), phone: str(p.phone), date: str(p.lastSeenIso).slice(0, 10), from: "test" }); });
+          return out;
+        } });
       var w = f.querySelector("[name=r_weight]"), ht = f.querySelector("[name=r_height]");
       if (w && ht) { // the classic BMI auto-calculation, unchanged
         var auto = function () {

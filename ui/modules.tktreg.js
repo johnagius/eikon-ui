@@ -116,6 +116,8 @@
     });
     var fn = m.querySelector("#tkt-note"); if (fn) fn.addEventListener("submit", function (ev) { ev.preventDefault(); addNote(fn); });
     var fa = m.querySelector("#tkt-add"); if (fa) fa.addEventListener("submit", function (ev) { ev.preventDefault(); add(fa); });
+    if (fa && E.personPick) E.personPick.attach({ key: "tktreg", form: fa, fields: { name: "client_name", phone: "phone" },
+      local: function () { return S.entries.map(function (e) { return { name: e.client_name, phone: e.phone, date: String(e.open_date || "").slice(0, 10), from: "question" }; }); } });
   }
 
   async function update(id, body, okText) {

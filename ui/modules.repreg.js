@@ -118,6 +118,9 @@
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
       var idIn = f.querySelector("[name=client_id]"); if (idIn) idIn.addEventListener("blur", function () { fillPatient(); });
       var dn = f.querySelector("[name=prescriber_name]"); if (dn) dn.addEventListener("blur", function () { fillPrescriber(); });
+      if (E.personPick) E.personPick.attach({ key: "repreg", form: f, fields: { id: "client_id", name: "client_name" }, idValue: function (v) { return String(v || "").replace(/\s+/g, "").toUpperCase(); },
+        local: function () { return S.entries.map(function (e) { return { name: e.client_name, id_card: e.client_id, date: e.entry_date, from: "prescription" }; }); },
+        onFill: function () { keep(); } });
     }
   }
   function focus(n) { setTimeout(function () { var x = S.mount && S.mount.querySelector("[name=" + n + "]"); if (x && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) x.focus(); }, 30); }

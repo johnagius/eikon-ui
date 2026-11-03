@@ -121,6 +121,8 @@
     });
     var qi = m.querySelector("#ord-q"); if (qi) qi.addEventListener("input", function () { var pos = qi.selectionStart; S.q = qi.value; paint(); var q2 = S.mount.querySelector("#ord-q"); if (q2) { q2.focus(); try { q2.setSelectionRange(pos, pos); } catch (e) {} } });
     var f = m.querySelector("#ord-add"); if (f) f.addEventListener("submit", function (ev) { ev.preventDefault(); add(f); });
+    if (f && E.personPick) E.personPick.attach({ key: "ordreg", form: f, fields: { name: "client_name", phone: "contact" },
+      local: function () { return S.entries.map(function (e) { return { name: e.client_name, phone: e.client_phone || e.contact, address: e.client_address, date: String(e.order_date || "").slice(0, 10), from: "order" }; }); } });
   }
 
   async function ready(id) {

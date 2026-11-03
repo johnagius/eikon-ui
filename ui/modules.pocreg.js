@@ -340,6 +340,8 @@
     f.querySelectorAll(".poc-seg [data-type]").forEach(function (b) { b.addEventListener("click", function () { keep(); S.adding.type = b.getAttribute("data-type"); S.err = ""; paint(true); var x = S.mount.querySelector('.poc-seg [data-type="' + S.adding.type + '"]'); if (x) x.focus(); }); });
     var idIn = f.querySelector("[name=patientId]");
     if (idIn) { idIn.addEventListener("input", function () { clearTimeout(S.idT); S.idT = setTimeout(function () { lookup(idIn.value); }, 300); }); idIn.addEventListener("blur", function () { var v = idIn.value; setTimeout(function () { lookup(v); }, 0); }); } // after the blur: focus has moved on, and the redraw puts it back there
+    if (E.personPick) E.personPick.attach({ key: "pocreg", form: f, fields: { id: "patientId", name: "name", phone: "phone", address: "address" }, idValue: pid, onFill: function () { keep(); },
+      local: function () { var map = people(); return Object.keys(map).map(function (k) { var p = map[k]; return { name: p.name, id_card: p.id, phone: p.phone, address: p.address, date: String(p.last || "").slice(0, 10), from: "test" }; }); } });
     var pct = f.querySelector("[name=pct]"), mm = f.querySelector("[name=mmol]");
     if (pct && mm) { // the two HbA1c units fill each other, as in the classic screen
       pct.addEventListener("input", function () { var v = num(pct.value); mm.value = v === null ? "" : String(pctToMmol(v)); });

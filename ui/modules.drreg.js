@@ -171,6 +171,8 @@
       var hit = S.history.find(function (e) { return norm(e.client_id) === norm(g("client_id").value) && e.client_name; });
       if (hit && !g("client_name").value) g("client_name").value = hit.client_name;
     });
+    if (E.personPick) E.personPick.attach({ key: "drreg", form: f, fields: { id: "client_id", name: "client_name" },
+      local: function () { return S.history.concat(S.entries).map(function (e) { return { name: e.client_name, id_card: e.client_id, date: e.entry_date, from: "register entry" }; }); } });
   }
 
   async function save(f) {

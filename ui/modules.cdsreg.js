@@ -135,6 +135,10 @@
       // lookups run as the ID card is completed and when the prescriber field is left (a repaint can swallow a "change" event)
       var idIn = f.querySelector("[name=client_id_card]"); if (idIn) { idIn.addEventListener("input", function () { clearTimeout(S.idT); S.idT = setTimeout(function () { lookupPatient(idIn.value); }, 300); }); idIn.addEventListener("blur", function () { lookupPatient(idIn.value); }); }
       var dn = f.querySelector("[name=doctor_name]"); if (dn) dn.addEventListener("blur", function () { lookupDoctor(dn.value); });
+      // people known here, offered as the ID card or the name is typed; choosing one fills only empty fields
+      if (E.personPick) E.personPick.attach({ key: C.id, form: f, fields: { id: "client_id_card", name: "client_name", address: "client_address" }, sources: C.pad ? ["dda", "people"] : ["people"], idValue: idCard,
+        local: function () { return S.entries.map(function (e) { return { name: e.client_name, id_card: e.client_id_card, address: e.client_address, date: e.entry_date, from: C.pad ? "DDA sale" : "POYC" }; }); },
+        onFill: function () { keep(); } });
       var sn = f.querySelector("[name=prescription_serial_no]"); if (sn) sn.addEventListener("input", function () { if (S.dup) { S.dup = null; S.dupOk = ""; keep(); paint(true); var x = S.mount.querySelector("[name=prescription_serial_no]"); if (x) { x.focus(); x.setSelectionRange(x.value.length, x.value.length); } } });
     }
   }
