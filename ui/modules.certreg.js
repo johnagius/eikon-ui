@@ -64,7 +64,7 @@
     } catch (e) {
       S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the certificates");
     }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
   function rowHtml(it) {
@@ -121,7 +121,7 @@
         var a = b.getAttribute("data-act");
         if (a === "back") window.location.hash = "#settings";
         else if (a === "print") window.print();
-        else if (a === "edit") { S.editing = Number(b.getAttribute("data-id")); S.formErr = ""; S.draft = null; paint(); setTimeout(function () { var f = m.querySelector("[name=last_date]"); if (f) f.focus(); }, 30); }
+        else if (a === "edit") { S.editing = Number(b.getAttribute("data-id")); S.formErr = ""; S.draft = null; paint(); setTimeout(function () { var f = m.querySelector("[name=last_date]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (a === "cancel") { S.editing = null; S.formErr = ""; S.draft = null; paint(); }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "certreg"); } catch (e) {} E.openClassic("certificates"); }
       });

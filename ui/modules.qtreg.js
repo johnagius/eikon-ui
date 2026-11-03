@@ -57,7 +57,7 @@
   async function load() {
     S.loading = true; S.error = ""; paint();
     try { S.entries = await fetchList(S.all); } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load quotations"); }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
   function rowHtml(e, best) {
@@ -96,7 +96,7 @@
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
         if (act === "back") window.location.hash = "#stock";
-        else if (act === "add") { S.adding = { quote_date: today(), vat_rate: "18", qty_purchased: "1", qty_free: "0", item_description: S.q || "" }; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=item_description]"); if (f) f.focus(); }, 30); }
+        else if (act === "add") { S.adding = { quote_date: today(), vat_rate: "18", qty_purchased: "1", qty_free: "0", item_description: S.q || "" }; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=item_description]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "qtreg"); } catch (x) {} E.openClassic("quotations"); }
       });

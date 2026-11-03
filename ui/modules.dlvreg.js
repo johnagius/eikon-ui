@@ -65,7 +65,7 @@
       S.entries = (r.entries || []).filter(function (e) { return ACTIVE.indexOf(e.status) >= 0; })
         .sort(function (a, b) { return String(a.scheduled_date || a.order_date || "").localeCompare(String(b.scheduled_date || b.order_date || "")) || (Number(a.priority) || 2) - (Number(b.priority) || 2) || a.id - b.id; });
     } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load deliveries"); }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
   function day(e) { return isYmd(e.scheduled_date) ? e.scheduled_date : isYmd(e.order_date) ? e.order_date : today(); }
@@ -140,7 +140,7 @@
         if (a === "back") window.location.hash = "#customers";
         else if (a === "add") { S.adding = {}; S.err = ""; paint(); }
         else if (a === "add-cancel") { S.adding = null; S.err = ""; paint(); }
-        else if (a === "done" || a === "fail") { S.open = id; S.mode = a; S.draft = null; S.err = ""; paint(); setTimeout(function () { var f = m.querySelector(".dlv-in input"); if (f) f.focus(); }, 30); }
+        else if (a === "done" || a === "fail") { S.open = id; S.mode = a; S.draft = null; S.err = ""; paint(); setTimeout(function () { var f = m.querySelector(".dlv-in input"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (a === "cancel") { S.open = null; S.mode = ""; S.err = ""; paint(); }
         else if (a === "road") { var e = find(id); if (e) save(e, { status: "Out for Delivery" }, "Out for delivery", "On its way."); }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "dlvreg"); } catch (x) {} E.openClassic("deliveries"); }

@@ -46,7 +46,7 @@
   async function load() {
     S.loading = true; S.error = ""; paint();
     try { S.needs = await fetchNeeds(); } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load shortages"); }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
   function offerLine(o, ownerView) {
@@ -101,9 +101,9 @@
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
         if (act === "back") window.location.hash = "#stock";
-        else if (act === "add") { S.adding = {}; S.offering = null; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=item_name]"); if (f) f.focus(); }, 30); }
+        else if (act === "add") { S.adding = {}; S.offering = null; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=item_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
-        else if (act === "offer") { S.offering = id; S.draft = {}; S.adding = null; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("#ssr-offer [name=quantity_offered]"); if (f) f.focus(); }, 30); }
+        else if (act === "offer") { S.offering = id; S.draft = {}; S.adding = null; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("#ssr-offer [name=quantity_offered]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (act === "offer-cancel") { S.offering = null; S.err = ""; paint(true); }
         else if (act === "accept") step(id, "accept", "Accepted. They will send it.");
         else if (act === "confirm") step(id, "confirm", "Marked as sent.");

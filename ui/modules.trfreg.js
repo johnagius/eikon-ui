@@ -55,7 +55,7 @@
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load transfers");
       S.items = (r.items || []).filter(function (it) { return !it.is_closed; });
     } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load transfers"); }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
   // Everything that waits for this pharmacy, with the one action that moves it on.

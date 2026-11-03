@@ -62,7 +62,7 @@
       }
       var seen = {}; S.entries = rows.filter(function (e) { return seen[e.id] ? false : (seen[e.id] = 1); });
     } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load orders"); }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
   function rowHtml(e, done) {
@@ -113,7 +113,7 @@
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act");
         if (a === "back") window.location.hash = "#customers";
-        else if (a === "add") { S.adding = {}; S.err = ""; paint(); setTimeout(function () { var f = m.querySelector("[name=client_name]"); if (f) f.focus(); }, 30); }
+        else if (a === "add") { S.adding = {}; S.err = ""; paint(); setTimeout(function () { var f = m.querySelector("[name=client_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (a === "add-cancel") { S.adding = null; S.err = ""; paint(); }
         else if (a === "ready") ready(Number(b.getAttribute("data-id")));
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "ordreg"); } catch (e) {} E.openClassic("clientorders"); }

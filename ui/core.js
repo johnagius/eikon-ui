@@ -1403,6 +1403,17 @@
       return { ok: true, recovered: true };
     }
   };
+  // Run a redraw only when nobody is typing in a form on this screen. A list that arrives while someone is filling a
+  // form used to redraw everything under their fingers, and the next keystrokes could land in another field. The
+  // redraw now waits until focus leaves the form (moving between its fields does not count), then catches up.
+  E.whenFormIdle = function (mount, fn) {
+    var busy = function () { var a = document.activeElement; return !!(mount && a && mount.contains(a) && a.closest && a.closest("form")); };
+    if (!busy()) return fn();
+    var done = false, run = function () { if (done) return; done = true; mount.removeEventListener("focusout", onOut); clearInterval(t); fn(); };
+    var onOut = function () { setTimeout(function () { if (!busy()) run(); }, 0); };
+    mount.addEventListener("focusout", onOut);
+    var t = setInterval(function () { if (!busy() || !document.body.contains(mount)) run(); }, 2000); // a safety net
+  };
   E.carryPerson = function (p) {
     try { sessionStorage.setItem("eikon_carry_person", JSON.stringify({ id: p.id, name: p.name || "", id_card: p.id_card || "", phone: p.phone || "", alt_phone: p.alt_phone || "", email: p.email || "", address: p.address || "", at: Date.now() })); } catch (e) {}
   };

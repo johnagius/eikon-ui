@@ -66,7 +66,7 @@
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load the register");
       S.entries = r.entries || [];
     } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register"); }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
   async function loadDoctors() { // the prescribers this pharmacy sees most, for the name list
     try { S.doctors = await C.doctors(""); } catch (e) { S.doctors = []; }

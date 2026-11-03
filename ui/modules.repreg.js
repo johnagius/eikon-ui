@@ -55,7 +55,7 @@
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load repeat prescriptions");
       S.entries = r.entries || [];
     } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load repeat prescriptions"); }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
   function key(e) { return low(e.client_id).replace(/\s+/g, "") + "|" + low(e.medicine_name_dose).replace(/\s+/g, " ").trim(); }
@@ -119,7 +119,7 @@
       var dn = f.querySelector("[name=prescriber_name]"); if (dn) dn.addEventListener("blur", function () { fillPrescriber(); });
     }
   }
-  function focus(n) { setTimeout(function () { var x = S.mount && S.mount.querySelector("[name=" + n + "]"); if (x) x.focus(); }, 30); }
+  function focus(n) { setTimeout(function () { var x = S.mount && S.mount.querySelector("[name=" + n + "]"); if (x && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) x.focus(); }, 30); }
   function uniq(a) { var seen = {}, out = []; a.forEach(function (x) { var k = String(x || "").trim(); if (k && !seen[low(k)]) { seen[low(k)] = 1; out.push(k); } }); return out.sort(); }
 
   function keep() {

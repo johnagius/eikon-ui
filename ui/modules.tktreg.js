@@ -62,7 +62,7 @@
       S.entries = (r.entries || []).filter(function (e) { return !Number(e.resolved) && e.status !== "Resolved" && e.status !== "Closed"; })
         .sort(function (a, b) { return (Number(a.priority) || 2) - (Number(b.priority) || 2) || String(a.followup_date || "9") .localeCompare(String(b.followup_date || "9")) || String(a.open_date).localeCompare(String(b.open_date)); });
     } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load questions"); }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
   function cardHtml(e) {
@@ -108,7 +108,7 @@
         if (a === "back") window.location.hash = "#customers";
         else if (a === "add") { S.adding = {}; S.err = ""; paint(); }
         else if (a === "add-cancel") { S.adding = null; S.err = ""; paint(); }
-        else if (a === "note") { S.noting = id; S.noteDraft = ""; S.err = ""; paint(); setTimeout(function () { var f = m.querySelector("#tkt-note input"); if (f) f.focus(); }, 30); }
+        else if (a === "note") { S.noting = id; S.noteDraft = ""; S.err = ""; paint(); setTimeout(function () { var f = m.querySelector("#tkt-note input"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (a === "note-cancel") { S.noting = null; S.err = ""; paint(); }
         else if (a === "resolve") update(id, { status: "Resolved" }, "Marked resolved");
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "tktreg"); } catch (x) {} E.openClassic("tickets"); }

@@ -65,7 +65,7 @@
       var seen = {}; S.known = [];
       both[0].concat(both[1]).forEach(function (r) { var k = String(r.locum_full_name || "").trim().toLowerCase(); if (k && !seen[k]) { seen[k] = 1; S.known.push({ name: r.locum_full_name, reg: r.registration_number }); } });
     } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load locum receipts"); }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
   function paint(fromState) {
@@ -94,7 +94,7 @@
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
         if (act === "back") window.location.hash = "#registers";
-        else if (act === "add") { var t = today(), ty = dayType(t), r = mem()[ty]; S.adding = { receipt_date: t, day_type: ty, hours: "", fee_per_hour: r != null ? String(r) : "", locum_full_name: "", registration_number: "" }; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=locum_full_name]"); if (f) f.focus(); }, 30); }
+        else if (act === "add") { var t = today(), ty = dayType(t), r = mem()[ty]; S.adding = { receipt_date: t, day_type: ty, hours: "", fee_per_hour: r != null ? String(r) : "", locum_full_name: "", registration_number: "" }; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=locum_full_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
         else if (act === "print") { var row = S.entries.find(function (x) { return x.id === Number(b.getAttribute("data-id")); }); if (row) printReceipt(row); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "lrcreg"); } catch (x) {} E.openClassic("locumreceipts"); }

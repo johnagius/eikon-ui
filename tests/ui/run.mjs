@@ -620,6 +620,10 @@ const drrPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()
 const db = (drrPosts[0] || {}).body || {};
 report("daily register: Today's Open lands on the new screen; every line required; known ID and prescriber fill in; one POST", drr1.hash === "#drreg" && !drr1.classic && drr1.rail.join() === "registers" && drrPosts0.length === 0 && drrErr.miss === 6 && /Nothing was saved/.test(drrErr.err) && filled.name === "John Borg" && filled.reg === "4321" && drrPosts.length === 1 && db.client_name === "John Borg" && db.prescriber_reg_no === "4321" && db.medicine_name_dose === "Augmentin 1g" && /^\d{4}-\d{2}-\d{2}$/.test(db.entry_date), JSON.stringify({ drr1, drrErr, filled, drrPosts }));
 
+// A save on the rebuilt screens may read the list first (postOnce), so wait for it to finish, not a fixed time:
+// the screen keeps its submit button disabled for the whole save.
+const settleSave = async () => { await page.waitForTimeout(150); await page.waitForFunction(() => !document.querySelector("button[type=submit][disabled]"), null, { timeout: 6000 }).catch(() => {}); await page.waitForTimeout(200); };
+
 // Locum register in the new layout: a returning locum's registration number fills in; time in is required; one POST.
 await page.goto(base + "&ui=2#locumregister");
 await page.waitForFunction(() => window.EIKON.state.activeModuleId === "locreg" && document.querySelector("[data-act=new]") && !/Opening/.test(document.querySelector(".lcr").textContent), null, { timeout: 15000 });
@@ -633,7 +637,7 @@ await page.click("#lcr-form button[type=submit]"); await page.waitForTimeout(300
 const lcrPosts0 = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/locumregister/entries");
 const lcrErr = await page.evaluate(() => (document.querySelector(".lcr-err") || {}).textContent || "");
 await page.fill("#lcr-form [name=time_in]", "08:00");
-await page.click("#lcr-form button[type=submit]"); await page.waitForTimeout(700);
+await page.click("#lcr-form button[type=submit]"); await settleSave();
 const lcrPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/locumregister/entries");
 const lb = (lcrPosts[0] || {}).body || {};
 report("locum register: old link lands on the new screen; a known locum fills the reg no; time in required; one POST", lcr1.hash === "#locreg" && lcr1.rail.join() === "registers" && lcrReg === "P1234" && lcrPosts0.length === 0 && /time in/.test(lcrErr) && lcrPosts.length === 1 && lb.locum_full_name === "Pharm. Anna Grech" && lb.registration_number === "P1234" && lb.time_in === "08:00", JSON.stringify({ lcr1, lcrReg, lcrErr, lcrPosts }));
@@ -753,7 +757,7 @@ await fetch(`http://localhost:${PORT}/__reset`);
 await page.click("[data-act=add]"); await page.fill("[name=agent]", "Actavis"); await page.fill("[name=invoice_number]", "INV-9");
 await page.fill('[data-i="0"][data-k=dda_name_dose]', "Morphine 10mg"); await page.fill('[data-i="0"][data-k=quantity]', "30");
 await page.fill('[data-i="1"][data-k=dda_name_dose]', "Fentanyl 25mcg"); await page.fill('[data-i="1"][data-k=quantity]', "5");
-await page.click("#cdp-add button[type=submit]"); await page.waitForTimeout(800);
+await page.click("#cdp-add button[type=submit]"); await settleSave();
 const cdpPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/dda-purchases/entries").map((c) => c.body);
 report("controlled drugs received: open from the old link in the new layout; one invoice with two lines makes two entries",
   cdp1.rail.join() === "registers" && /Supplier/.test(cdp1.inv) && /INV-1/.test(cdp1.inv) && cdpPosts.length === 2 && cdpPosts.every((b) => b.agent === "Actavis" && b.invoice_number === "INV-9" && /^\d{4}-\d{2}-\d{2}$/.test(b.entry_date)) && cdpPosts[0].dda_name_dose === "Morphine 10mg" && cdpPosts[0].quantity === 30 && cdpPosts[1].quantity === 5,
@@ -771,7 +775,7 @@ await fetch(`http://localhost:${PORT}/__reset`);
 await page.click("#cds-add button[type=submit]"); await page.waitForTimeout(600);
 const cds1 = await page.evaluate(() => ({ name: document.querySelector("[name=client_name]").value, reg: document.querySelector("[name=doctor_reg_no]").value, dup: !!document.querySelector(".cds-dup"), btn: document.querySelector("#cds-add button[type=submit]").textContent }));
 const cdsBefore = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST").length;
-await page.click("#cds-add button[type=submit]"); await page.waitForTimeout(700);
+await page.click("#cds-add button[type=submit]"); await settleSave();
 const cdsPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/dda-sales/entries").map((c) => c.body);
 report("controlled drugs supplied: ID card and prescriber fill in; a repeated serial shows and waits for 'Yes, record'; then one entry",
   cds1.name === "Zammit Carmel" && cds1.reg === "R1201" && cds1.dup && cds1.btn === "Yes, record" && cdsBefore === 0 && cdsPosts.length === 1 && cdsPosts[0].client_id_card === "0012345M" && cdsPosts[0].client_address === "1 Triq il-Knisja" && cdsPosts[0].quantity === 10 && cdsPosts[0].prescription_serial_no === "RX-1",
@@ -793,7 +797,7 @@ await page.goto(base + "&ui=2#paidout");
 await page.waitForFunction(() => window.EIKON.state.activeModuleId === "poreg" && document.querySelector(".por-sum"), null, { timeout: 15000 });
 const po1 = await page.evaluate(() => document.querySelector(".por-sum").textContent);
 await fetch(`http://localhost:${PORT}/__reset`);
-await page.click("[data-act=add]"); await page.fill("[name=payee_name]", "Cleaner Joe"); await page.fill("[name=fee]", "25,5"); await page.click("#por-add button[type=submit]"); await page.waitForTimeout(700);
+await page.click("[data-act=add]"); await page.fill("[name=payee_name]", "Cleaner Joe"); await page.fill("[name=fee]", "25,5"); await page.click("#por-add button[type=submit]"); await settleSave();
 const poPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/paid-out/entries").map((c) => c.body);
 report("paid out: opens from the old link in the new layout with today's total; 25,5 is recorded as 25.50 cash",
   /Today€12\.50/.test(po1) && poPosts.length === 1 && poPosts[0].fee === 25.5 && poPosts[0].payment_method === "cash" && poPosts[0].cheque_no === "" && poPosts[0].payee_name === "Cleaner Joe" && /^\d{2}:\d{2}$/.test(poPosts[0].entry_time),
@@ -833,7 +837,7 @@ await page.goto(base + "&ui=2#repeatprescriptions");
 await page.waitForFunction(() => window.EIKON.state.activeModuleId === "repreg" && document.querySelector(".rep-row"), null, { timeout: 15000 });
 const rep1 = await page.textContent(".rep-row");
 await fetch(`http://localhost:${PORT}/__reset`);
-await page.click(".rep-row [data-act=renew]"); await page.click("#rep-add button[type=submit]"); await page.waitForTimeout(700);
+await page.click(".rep-row [data-act=renew]"); await page.click("#rep-add button[type=submit]"); await settleSave();
 const repPost = ((await (await fetch(`http://localhost:${PORT}/__calls`)).json()).find((c) => c.method === "POST" && c.path === "/repeat-prescriptions/entries") || {}).body || {};
 report("repeat prescriptions: opens from the old link, flags the one expiring soon; Renew records the same prescription dated today",
   /Expires in 12 days/.test(rep1) && repPost.client_id === "123456M" && repPost.medicine_name_dose === "Atorvastatin 20mg" && repPost.prescriber_reg_no === "R1201" && repPost.entry_date === todayYmd && repPost.expires_date === "", JSON.stringify({ rep1, repPost }));
@@ -843,10 +847,10 @@ await page.goto(base + "&ui=2#creditnotes");
 await page.waitForFunction(() => window.EIKON.state.activeModuleId === "cnreg" && document.querySelector(".cnr-card"), null, { timeout: 15000 });
 const cn1 = await page.textContent(".cnr-card");
 await fetch(`http://localhost:${PORT}/__reset`);
-await page.click(".cnr-card [data-act=use]"); await page.fill("#cnr-use [name=amount]", "20"); await page.click("#cnr-use button[type=submit]"); await page.waitForTimeout(600);
+await page.click(".cnr-card [data-act=use]"); await page.fill("#cnr-use [name=amount]", "20"); await page.click("#cnr-use button[type=submit]"); await settleSave();
 const cnErr = await page.textContent(".cnr-err").catch(() => "");
 const cnBefore = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST").length;
-await page.click("[data-act=all]"); await page.click("#cnr-use button[type=submit]"); await page.waitForTimeout(600);
+await page.click("[data-act=all]"); await page.click("#cnr-use button[type=submit]"); await settleSave();
 const cnPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST").map((c) => ({ path: c.path, amount: c.body && c.body.amount }));
 report("credit notes: opens from the old link with what is left; more than is left is refused; Use all sends the rest",
   /€17\.50 left/.test(cn1) && /only €17\.50 is left/.test(cnErr) && cnBefore === 0 && cnPosts.length === 1 && cnPosts[0].path === "/creditnotes/entries/91/purchases" && cnPosts[0].amount === 17.5, JSON.stringify({ cn1, cnErr, cnPosts }));
@@ -875,7 +879,7 @@ const lrcTag = await page.evaluate(() => !!document.querySelector(".lrc-row .lrc
 await fetch(`http://localhost:${PORT}/__reset`);
 await page.click("[data-act=add]"); await page.fill("[name=locum_full_name]", "Paul Vella"); await page.press("[name=locum_full_name]", "Tab"); await page.waitForTimeout(200);
 const xmas = (new Date().getFullYear() - 1) + "-12-25";
-await page.fill("[name=receipt_date]", xmas); await page.waitForTimeout(200); await page.fill("[name=hours]", "4"); await page.click("#lrc-add button[type=submit]"); await page.waitForTimeout(700);
+await page.fill("[name=receipt_date]", xmas); await page.waitForTimeout(200); await page.fill("[name=hours]", "4"); await page.click("#lrc-add button[type=submit]"); await settleSave();
 const lrcPost = ((await (await fetch(`http://localhost:${PORT}/__calls`)).json()).find((c) => c.method === "POST" && c.path === "/locumreceipts/receipts") || {}).body || {};
 report("locum receipts: a receipt saved at the normal rate is not tagged holiday; Christmas takes the remembered holiday rate; the known reg no fills in",
   !lrcTag && lrcPost.registration_number === "PH1234" && lrcPost.day_type === "holiday" && lrcPost.fee_per_hour === 22.5 && lrcPost.hours === 4 && lrcPost.receipt_date === xmas, JSON.stringify({ lrcTag, lrcPost }));
@@ -900,7 +904,7 @@ await page.click("[data-act=add]"); await page.fill("[name=item_description]", "
 await page.click("#qtr-add button[type=submit]");
 let qtPost = {}; for (let i = 0; i < 40 && !qtPost.item_description; i++) { await page.waitForTimeout(100); qtPost = ((await (await fetch(`http://localhost:${PORT}/__calls`)).json()).find((c) => c.method === "POST" && c.path === "/quotations/entries") || {}).body || {}; } // the save reads the list first (no double saves), then posts
 report("price check: opens from the old link; the 10+2 deal is Best at €2.17 a unit; a quote sends the server's inputs",
-  /Actavis.*Best/.test(qt1[0] || "") && /€2\.17/.test(qt1[0] || "") && qtPost.cost_excl_vat === 2.5 && qtPost.discount_euro === 0.3 && qtPost.cost_incl_vat === 2.95 && qtPost.vat_rate === 18 && qtPost.qty_purchased === 10 && qtPost.qty_free === 0 && qtPost.retail_price === 4.5, JSON.stringify({ qt1, qtPost }));
+  /Actavis.*Best/.test(qt1[0] || "") && /€2\.17/.test(qt1[0] || "") && qtPost.cost_excl_vat === 2.5 && qtPost.discount_euro === 0.3 && qtPost.cost_incl_vat === 2.95 && qtPost.vat_rate === 18 && qtPost.qty_purchased === 10 && qtPost.qty_free === 0 && qtPost.retail_price === 4.5, JSON.stringify({ qt1, qtPost, dbg: await page.evaluate(() => ({ err: (document.querySelector(".qtr-err") || {}).textContent, form: !!document.querySelector("#qtr-add"), dis: !!document.querySelector("#qtr-add button[type=submit][disabled]"), vals: [...document.querySelectorAll("#qtr-add input,#qtr-add select")].map((i) => i.name + "=" + i.value).join("&"), toasts: [...document.querySelectorAll(".eikon-toast")].map((t) => t.textContent).join("|") })), calls: (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).map((c) => c.method + " " + c.path + (c.query ? "?" + c.query : "")) }));
 
 // Shortages: its own Stock card; your request with an offer to accept; other pharmacies' requests with "I can help".
 await page.goto(base + "&ui=2#stock");

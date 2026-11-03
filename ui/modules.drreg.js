@@ -76,7 +76,7 @@
     } catch (e) {
       S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register");
     }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
   function matches(e) {
@@ -148,7 +148,7 @@
         else if (a === "prev") { S.month = shiftMonth(S.month, -1); load(); }
         else if (a === "next") { if (S.month < thisMonth()) { S.month = shiftMonth(S.month, 1); load(); } }
         else if (a === "print") window.print();
-        else if (a === "new") { S.form = { entry_date: ymd(new Date()) }; paint(); setTimeout(function () { var c = m.querySelector("[name=client_id]"); if (c) c.focus(); }, 30); }
+        else if (a === "new") { S.form = { entry_date: ymd(new Date()) }; paint(); setTimeout(function () { var c = m.querySelector("[name=client_id]"); if (c && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) c.focus(); }, 30); }
         else if (a === "cancel") { S.form = null; paint(); }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "drreg"); } catch (e) {} E.openClassic("dailyregister"); }
       });

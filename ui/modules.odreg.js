@@ -56,7 +56,7 @@
       var both = await Promise.all([list(S.day), list(shift(S.day, 1)).catch(function () { return []; })]);
       S.entries = both[0]; S.carried = {}; both[1].forEach(function (e) { if (e.carried_from_id) S.carried[e.carried_from_id] = 1; }); // what has already gone forward
     } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the order diary"); }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
   async function loadItems() {
     try { var r = await E.apiFetch("/order-diary/items", { method: "GET" }); S.items = (r && r.ok && r.items) || []; } catch (e) { S.items = []; }
@@ -110,7 +110,7 @@
         var act = b.getAttribute("data-act");
         if (act === "back") window.location.hash = "#stock";
         else if (act === "prev" || act === "next" || act === "today") { S.day = act === "today" ? today() : shift(S.day, act === "next" ? 1 : -1); S.entries = []; S.adding = null; load(); }
-        else if (act === "add") { S.adding = { qty: "1" }; S.err = ""; paint(true); if (!S.items.length) loadItems(); setTimeout(function () { var f = m.querySelector("[name=item_name]"); if (f) f.focus(); }, 30); }
+        else if (act === "add") { S.adding = { qty: "1" }; S.err = ""; paint(true); if (!S.items.length) loadItems(); setTimeout(function () { var f = m.querySelector("[name=item_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
         else if (act === "carry") carry();
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "odreg"); } catch (x) {} E.openClassic("order-diary"); }

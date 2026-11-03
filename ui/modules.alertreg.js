@@ -57,7 +57,7 @@
       S.entries = (r.entries || []).filter(function (e) { return e.status !== "closed" || String(e.entry_date) >= cutoff; })
         .sort(function (a, b) { return String(a.entry_date) < String(b.entry_date) ? 1 : -1; });
     } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load alerts"); }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
   function cardHtml(e) {

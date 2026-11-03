@@ -59,7 +59,7 @@
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load the list");
       S.entries = (r.entries || []).slice().sort(function (a, b) { return String(a.expiry_date) < String(b.expiry_date) ? -1 : 1; });
     } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the list"); }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
   function rowHtml(e) {
@@ -116,7 +116,7 @@
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act");
         if (a === "back") window.location.hash = "#stock";
-        else if (a === "add") { S.adding = {}; S.err = ""; paint(); setTimeout(function () { var f = m.querySelector("[name=product_name]"); if (f) f.focus(); }, 30); }
+        else if (a === "add") { S.adding = {}; S.err = ""; paint(); setTimeout(function () { var f = m.querySelector("[name=product_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (a === "add-cancel") { S.adding = null; S.err = ""; paint(); }
         else if (a === "ret") { S.returning = Number(b.getAttribute("data-id")); S.retDraft = null; S.err = ""; paint(); }
         else if (a === "ret-cancel") { S.returning = null; S.err = ""; paint(); }

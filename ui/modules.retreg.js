@@ -59,7 +59,7 @@
       S.entries = (r.entries || []).filter(function (e) { return !on(e, "credit_note_received") || String(e.entry_date) >= cutoff; })
         .sort(function (a, b) { return String(a.entry_date) < String(b.entry_date) ? -1 : 1; });
     } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load returns"); }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
   function rowHtml(e) {

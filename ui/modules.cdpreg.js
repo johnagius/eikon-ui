@@ -61,7 +61,7 @@
       var all = both[0].concat(both[1]);
       S.known = { names: uniq(all.map(function (e) { return e.dda_name_dose; })), agents: uniq(all.map(function (e) { return e.agent; })) };
     } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register"); }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
   function groups() { // one card per delivery note: same day, supplier and invoice

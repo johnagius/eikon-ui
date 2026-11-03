@@ -54,7 +54,7 @@
       S.leaves = [].concat.apply([], res.slice(2).map(function (r) { return (r && r.ok && r.leaves) || []; }))
         .filter(function (l) { var st = String(l.status || "").toLowerCase(); return (st === "approved" || st === "pending") && l.end_date >= from && l.start_date <= to; }); // approved and still-asked leave; refused leave is not shown
     } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the rota"); }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
   function paint() {

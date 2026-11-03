@@ -60,7 +60,7 @@
       if (S.notes == null) { S.notes = S.mine.notes; S.notesBase = S.mine.notes; }
       var g = res[2] && res[2].ok && res[2].global; S.standing = g && g.permanent_handover && g.permanent_handover.text ? String(g.permanent_handover.text) : "";
     } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the handover"); }
-    S.loading = false; paint();
+    S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
   function pt(b, removable) {
