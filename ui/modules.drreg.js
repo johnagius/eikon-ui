@@ -183,6 +183,17 @@
     S.form = Object.assign({}, body, { err: "", missing: missing });
     if (missing.length) { S.form.err = "Fill in " + missing.map(function (k) { return FIELDS.find(function (fd) { return fd[0] === k; })[1].toLowerCase(); }).join(", ") + ". Nothing was saved."; return paint(); }
     if (body.entry_date > ymd(new Date())) { S.form.err = "The date is in the future. Nothing was saved."; return paint(); }
+    // the ID card and the person (E.people.confirmPerson): asked before anything is saved; Go back keeps the form
+    if (E.people && E.people.confirmPerson) {
+      S.saving = true; paint();
+      var asked = await E.people.confirmPerson({ name: body.client_name, id_card: body.client_id }, { key: "drreg", record: "register entry" });
+      S.saving = false;
+      if (asked.action !== "save") {
+        if (asked.action === "fill") S.form[asked.field === "name" ? "client_name" : "client_id"] = asked.value;
+        paint(); var back = S.mount && S.mount.querySelector("#drr-form [name=" + (asked.field === "name" ? "client_name" : "client_id") + "]"); if (back) back.focus();
+        return;
+      }
+    }
     S.saving = true; paint();
     try {
       var r = await E.postOnce("/daily-register/entries", body, { list: async function () { var r0 = await E.apiFetch("/daily-register/entries?month=" + body.entry_date.slice(0, 7), { method: "GET" }); return (r0 && r0.ok && r0.entries) || []; },

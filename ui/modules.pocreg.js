@@ -413,6 +413,21 @@
     else if (t === "bmi" && (res.weight === null || res.height === null)) S.err = "Write the weight and the height.";
     else { var bad = RES[t].filter(function (k) { return ["sys", "dia", "pulse", "glucose", "pct", "mmol", "tc", "hdl", "ldl", "tg", "weight", "height", "waist"].indexOf(k) >= 0 && has(a[k]) && (num(a[k]) === null || num(a[k]) < 0); })[0]; if (bad) S.err = "One of the values is not a number. Check it and press Record again."; }
     if (S.err) { S.err += " Nothing was saved."; return paint(true); }
+    // the ID card and the person (E.people.confirmPerson): asked before anything is saved; Go back keeps the form
+    var asked = null;
+    if (E.people && E.people.confirmPerson) {
+      S.saving = true; paint(true);
+      asked = await E.people.confirmPerson({ name: a.name, id_card: pid(a.patientId), phone: a.phone, address: a.address }, { key: "pocreg", record: "test" });
+      S.saving = false;
+      if (asked.action !== "save") {
+        if (asked.action === "fill") { if (asked.field === "name") a.name = asked.value; else a.patientId = pid(asked.value); }
+        paint(true); var back = S.mount && S.mount.querySelector("#poc-add [name=" + (asked.field === "name" ? "name" : "patientId") + "]"); if (back) back.focus();
+        return;
+      }
+      if (asked.change) { // the card was just changed on the patient list too: read it again so this test joins the changed patient
+        try { var st0 = await E.apiFetch("/poct/state", { method: "GET" }); var s0 = (st0 && (st0.state || st0.data)) || st0 || {}; if (Array.isArray(s0.patients)) S.patients = s0.patients; } catch (e0) {}
+      }
+    }
     if (!a.recId) a.recId = uid(); // kept for retries: the server stores by this id, so pressing Record again never adds a second test
     var pt = { name: a.name, patientId: pid(a.patientId), phone: a.phone, age: num(a.age), address: a.address };
     var rec = { id: a.recId, testType: t, testLabel: LABEL[t], performedAtIso: d.toISOString(), performedAtLocal: a.dt, patient: pt, feeDue: 0, notes: a.notes, intervention: a.intervention, results: res, updatedAtIso: new Date().toISOString() };
@@ -429,7 +444,7 @@
         if (!got) throw x0;
       }
       S.adding = null; S.view = pt.patientId; S.q = "";
-      if (E.linkPerson) E.linkPerson({ name: pt.name, id_card: pt.patientId, phone: pt.phone, address: pt.address }, "register:poct"); // one person in Customers, found or added
+      if (E.linkPerson) E.linkPerson({ name: pt.name, id_card: pt.patientId, phone: pt.phone, address: pt.address }, "register:poct", asked); // one person in Customers, found or added
       E.toast(mc.conflict ? "Recorded. This ID card was on file with a different name or phone; the patient's details were kept." : NICE[t] + " recorded for " + pt.name, mc.conflict ? "warning" : "success");
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();

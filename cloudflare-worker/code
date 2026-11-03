@@ -16296,6 +16296,372 @@ async function handlePeopleBackfill(request, env, corsOkHeaders, authUser) {
   return jsonResponse({ ok: true, created: batch.length, remaining: toInsert.length - batch.length, scanned }, 200, corsOkHeaders);
 }
 
+// ===================================================================================
+// ID card change for one person, on their details and on every one of their records
+// (POST /people/:id/change-id-card, POST /people/id-card-changes/:change/undo,
+//  GET /people/:id/id-card-changes). Separate block: nothing above calls into it.
+//
+// Safety, in the order the code applies it:
+//   - Who: PEOPLE_ID_CARD_CHANGE_ROLES may apply a change; admin and staff may only preview it.
+//   - Where: every read and write is `org_id = ? AND location_id = ?` of the caller. Other
+//     pharmacies of the same group (same org, other location) and other orgs are never read
+//     or written. Every table below has its own location_id (contacts_clients is the one
+//     contacts table that does; the group-wide contacts tables hold no ID card).
+//   - Which rows: a row is the person's only when its card is one of the old card's spellings
+//     (mtIdCardLookupKeys) AND its name is the person's (personNamesCompatible) or blank. A row
+//     with the old card under someone else's name is left alone and listed. A row with only a
+//     name is never changed; "stamp" (from = "") adds the card only to rows the user ticked,
+//     whose card is blank and whose name is exactly the person's.
+//   - Refused: the new card already on another person (people), or on any record under a
+//     different name (case B: the caller must sort out who it is first).
+//   - What: only the card column (and, in JSON registers, only the card key). Never DELETE.
+//   - Confirmed: the preview returns a plan fingerprint; applying with a different one (rows
+//     changed in between) is refused with the new preview, so what was confirmed is what runs.
+//   - One transaction (D1 batch): header, every row's old/new value (insert-only log), the
+//     updates; then one audit_log entry (auditWith before/after). Undo is another insert-only change that puts back
+//     only values still as this change left them.
+// ===================================================================================
+const PEOPLE_ID_CARD_CHANGE_ROLES = ["admin"];          // add "staff" here if the owner wants assistants to apply it
+const PEOPLE_ID_CARD_PREVIEW_ROLES = ["admin", "staff"]; // the preview only reads
+const PEOPLE_ID_CARD_MAX_ROWS = 2000;
+
+// Every register column that holds a customer's ID card. legal: the inspector's registers (the question lists them first).
+// unique: the table allows one row per card, so a card already there is not taken twice (that row is skipped and listed).
+const PEOPLE_ID_CARD_TABLES = [
+  { table: "dda_sales_entries",           label: "DDA sales",            col: "client_id_card",  name: "client_name",  date: "entry_date",       title: "medicine_name_dose", legal: true },
+  { table: "dda_poyc_entries",            label: "POYC",                 col: "client_id_card",  name: "client_name",  date: "entry_date",       title: "medicine_name_dose", legal: true },
+  { table: "daily_register_entries",      label: "Daily register",       col: "client_id",       name: "client_name",  date: "entry_date",       title: "medicine_name_dose", legal: true },
+  { table: "repeat_prescription_entries", label: "Repeat prescriptions", col: "client_id",       name: "client_name",  date: "entry_date",       title: "medicine_name_dose", legal: true },
+  { table: "poct_patients",               label: "Tests (patient list)", col: "patient_id",      name: "name",         date: "last_seen_iso",    unique: true, json: { col: "patient_json", path: ["patientId"] } },
+  { table: "poct_records",                label: "Tests",                col: "patient_id",      name: "patient_name", date: "performed_at_iso", title: "test_label", json: { col: "record_json", path: ["patient", "patientId"] } },
+  { table: "loyalty_clients",             label: "Loyalty cards",        col: "id_card",         name: "name",         date: "created_at",       unique: true },
+  { table: "loyalty_transactions",        label: "Loyalty visits",       col: "client_id_card",  name: "client_name",  date: "txn_date" },
+  { table: "appt_appointments",           label: "Appointments",         col: "patient_id_card", name: "patient_name", date: "date" },
+  { table: "appt_waitlist",               label: "Waiting list",         col: "patient_id_card", name: "patient_name", date: "added_date" },
+  { table: "bk_bookings",                 label: "Bookings",             col: "person_id_card",  name: "person_name",  date: "date" },
+  { table: "pharmacy_calc_patients",      label: "Calculator patients",  col: "id_card",         name: "patient_name", date: "updated_at",       unique: true },
+  { table: "pharmacy_calc_records",       label: "Calculations",         col: "id_card",         name: "patient_name", date: "start_date",       title: "calc_type" },
+  { table: "contacts_clients",            label: "Client contacts",      col: "id_card",         name: "name",         date: "updated_at" }
+];
+// JSON-state registers: the card lives inside the JSON; only that key is changed.
+const PEOPLE_ID_CARD_JSON_TABLES = [
+  { table: "screening_campaigns", label: "Screening",          col: "campaign_json", list: "participants", key: "idCard", name: "name", date: "date" },
+  { table: "pv_reports",          label: "Pharmacovigilance",  col: "report_json",   key: "pt_id", initials: "pt_initials", date: "report_date" }
+];
+
+async function ensurePeopleIdCardChangeSchema__impl(env) {
+  // Insert-only: nothing in the worker ever UPDATEs or DELETEs these rows.
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS people_id_card_changes (
+    change_id TEXT PRIMARY KEY, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, person_id INTEGER NOT NULL,
+    kind TEXT NOT NULL, from_card TEXT NOT NULL DEFAULT '', to_card TEXT NOT NULL DEFAULT '', undo_of TEXT NOT NULL DEFAULT '',
+    rows_changed INTEGER NOT NULL DEFAULT 0, summary_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')), created_by INTEGER)`, []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_people_idcc_person ON people_id_card_changes (org_id, location_id, person_id, created_at)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_people_idcc_undo ON people_id_card_changes (org_id, location_id, undo_of)", []);
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS people_id_card_change_rows (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, change_id TEXT NOT NULL, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+    table_name TEXT NOT NULL, row_id INTEGER NOT NULL, column_name TEXT NOT NULL, json_path TEXT NOT NULL DEFAULT '',
+    old_value TEXT, new_value TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), created_by INTEGER)`, []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_people_idccr_change ON people_id_card_change_rows (change_id)", []);
+}
+const ensurePeopleIdCardChangeSchema = schemaOnce("ensurePeopleIdCardChangeSchema", ensurePeopleIdCardChangeSchema__impl);
+
+// Names compared without case, accents, punctuation or word order: "Zammit Carmel" is "carmel  ZAMMIT".
+function personNameWords(raw) {
+  return String(raw || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9\u0127\u0121\u017c\u010b]+/g, " ").trim().split(" ").filter(Boolean).sort();
+}
+// Same person's name: the same words, or one is the other plus extra names, sharing at least two
+// ("Laura Borg" and "Laura Maria Borg"). One word alone ("Borg") is never enough.
+function personNamesCompatible(a, b) {
+  const x = personNameWords(a), y = personNameWords(b);
+  if (!x.length || !y.length) return false;
+  if (x.join(" ") === y.join(" ")) return true;
+  const [s, l] = x.length <= y.length ? [x, y] : [y, x];
+  if (s.length < 2) return false;
+  const pool = l.slice();
+  for (const w of s) { const i = pool.indexOf(w); if (i < 0) return false; pool.splice(i, 1); }
+  return true;
+}
+function personNamesSame(a, b) { const x = personNameWords(a); return x.length > 0 && x.join(" ") === personNameWords(b).join(" "); }
+// Pharmacovigilance keeps initials only ("L.B."): the same letters as the first letters of the name's words.
+function personInitialsCompatible(initials, name) {
+  const i = String(initials || "").normalize("NFD").replace(/[^A-Za-z]/g, "").toLowerCase().split("").sort().join("");
+  if (!i) return true;
+  return i === personNameWords(name).map((w) => w[0]).sort().join("");
+}
+function idCardKeySql(col) { return "upper(replace(COALESCE(" + col + ", ''), ' ', ''))"; }
+function idcHash(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36) + "." + s.length.toString(36); }
+function idcGet(o, path) { let v = o; for (const k of path) { if (!v || typeof v !== "object") return undefined; v = v[k]; } return v; }
+function idcSet(o, path, val) { let v = o; for (let i = 0; i < path.length - 1; i++) { if (!v[path[i]] || typeof v[path[i]] !== "object") return false; v = v[path[i]]; } v[path[path.length - 1]] = val; return true; }
+
+// Everything a change would do, read-only. mode "change": rows with the old card; mode "stamp": the chosen card-less rows.
+async function peopleIdCardPlan(env, org, loc, person, from, to, opts) {
+  const mode = from ? "change" : "stamp";
+  const fromKeys = from ? mtIdCardLookupKeys(from) : [];
+  const toKeys = mtIdCardLookupKeys(to);
+  const aliases = await dbAll(env, "SELECT name FROM people WHERE org_id = ? AND location_id = ? AND (id = ? OR merged_into = ?)", [org, loc, person.id, person.id]);
+  const names = Array.from(new Set([person.name].concat(aliases.map((a) => a.name)).filter(Boolean)));
+  const isHers = (n) => !String(n || "").trim() || names.some((m) => personNamesCompatible(m, n));
+  const items = [], skipped = [], conflicts = [], candidates = [];
+  const counts = {};
+  const pick = new Set((opts && opts.rows || []).map((r) => String(r.table) + ":" + Number(r.id)));
+  const otherOwner = await dbFirst(env, "SELECT id, name FROM people WHERE org_id = ? AND location_id = ? AND id_card = ? AND id <> ?", [org, loc, normalizeMtIdCard(to), person.id]);
+  if (otherOwner) conflicts.push({ table: "people", label: "Customers", id: otherOwner.id, name: otherOwner.name });
+
+  for (const d of PEOPLE_ID_CARD_TABLES) {
+    let rowsTo = [], rowsFrom = [], rowsBlank = [];
+    const sel = "SELECT id, " + d.col + " AS card, " + d.name + " AS name, " + d.date + " AS date" + (d.title ? ", " + d.title + " AS title" : "") + (d.json ? ", " + d.json.col + " AS js" : "") + " FROM " + d.table + " WHERE org_id = ? AND location_id = ? AND ";
+    try {
+      rowsTo = await dbAll(env, sel + idCardKeySql(d.col) + " IN (" + toKeys.map(() => "?").join(",") + ")", [org, loc, ...toKeys]);
+      if (mode === "change") rowsFrom = await dbAll(env, sel + idCardKeySql(d.col) + " IN (" + fromKeys.map(() => "?").join(",") + ") ORDER BY id", [org, loc, ...fromKeys]);
+      else if (!d.unique && !d.json) rowsBlank = await dbAll(env, sel + "TRIM(COALESCE(" + d.col + ", '')) = '' ORDER BY " + d.date + " DESC, id DESC LIMIT 400", [org, loc]);
+    } catch (e) { continue; } // table not created for this pharmacy
+    if (mode === "change") for (const r of rowsTo) if (!isHers(r.name)) conflicts.push({ table: d.table, label: d.label, id: r.id, name: r.name, date: String(r.date || "").slice(0, 10) });
+    if (mode === "change") {
+      for (const r of rowsFrom) {
+        if (!isHers(r.name)) { skipped.push({ table: d.table, label: d.label, id: r.id, name: r.name, date: String(r.date || "").slice(0, 10), reason: "another name" }); continue; }
+        if (d.unique && rowsTo.length) { skipped.push({ table: d.table, label: d.label, id: r.id, name: r.name, date: String(r.date || "").slice(0, 10), reason: "already has a row with the new card" }); continue; }
+        const it = { table: d.table, label: d.label, legal: !!d.legal, id: r.id, col: d.col, old: r.card };
+        if (d.json) {
+          let o = null; try { o = JSON.parse(String(r.js || "")); } catch (e) { o = null; }
+          const cur = o ? idcGet(o, d.json.path) : undefined;
+          if (o && cur !== undefined && fromKeys.includes(String(cur || "").replace(/\s+/g, "").toUpperCase())) {
+            idcSet(o, d.json.path, normalizeMtIdCard(to));
+            it.json = { col: d.json.col, path: d.json.path.join("."), before: String(r.js), after: JSON.stringify(o), old: String(cur) };
+          } else it.json = { col: d.json.col, path: "", before: String(r.js), after: String(r.js), old: "" }; // the column only: the JSON does not hold this card
+        }
+        items.push(it); counts[d.label] = (counts[d.label] || 0) + 1;
+      }
+    } else {
+      for (const r of rowsBlank) {
+        if (!names.some((m) => personNamesSame(m, r.name))) continue;
+        const c = { table: d.table, label: d.label, legal: !!d.legal, id: r.id, name: r.name, date: String(r.date || "").slice(0, 10), title: String(r.title || "").slice(0, 120) };
+        candidates.push(c);
+        if (pick.has(d.table + ":" + r.id)) { items.push({ table: d.table, label: d.label, legal: !!d.legal, id: r.id, col: d.col, old: String(r.card || "") }); counts[d.label] = (counts[d.label] || 0) + 1; }
+      }
+    }
+  }
+  if (mode === "change") {
+    for (const d of PEOPLE_ID_CARD_JSON_TABLES) {
+      let rows = [];
+      try { rows = await dbAll(env, "SELECT id, " + d.col + " AS js FROM " + d.table + " WHERE org_id = ? AND location_id = ? ORDER BY id", [org, loc]); } catch (e) { continue; }
+      for (const r of rows) {
+        let o = null; try { o = JSON.parse(String(r.js || "")); } catch (e) { continue; }
+        if (!o || typeof o !== "object") continue;
+        const entries = d.list ? (Array.isArray(o[d.list]) ? o[d.list] : []) : [o];
+        const paths = [];
+        entries.forEach((p, i) => {
+          if (!p || typeof p !== "object") return;
+          const k = String(p[d.key] || "").replace(/\s+/g, "").toUpperCase();
+          const who = d.list ? p[d.name] : null;
+          const mine = d.list ? isHers(who) : personInitialsCompatible(p[d.initials], person.name);
+          const label = { table: d.table, label: d.label, id: r.id, name: d.list ? who : p[d.initials], date: String(p[d.date] || "").slice(0, 10) };
+          if (toKeys.includes(k) && !mine) conflicts.push(label);
+          if (!fromKeys.includes(k)) return;
+          if (!mine) { skipped.push(Object.assign({ reason: "another name" }, label)); return; }
+          paths.push({ i, pid: d.list ? String(p.id || "") : "", old: String(p[d.key]) });
+          p[d.key] = normalizeMtIdCard(to);
+        });
+        if (!paths.length) continue;
+        for (const p of paths) {
+          items.push({ table: d.table, label: d.label, id: r.id, col: d.col, jsonOnly: true,
+            json: { col: d.col, path: d.list ? d.list + "[" + (p.pid ? "id=" + p.pid : p.i) + "]." + d.key : d.key, old: p.old }, before: String(r.js), after: JSON.stringify(o) });
+          counts[d.label] = (counts[d.label] || 0) + 1;
+        }
+      }
+    }
+  }
+  const registers = Object.keys(counts).map((label) => ({ label, count: counts[label], legal: items.some((i) => i.label === label && i.legal) }))
+    .sort((a, b) => (b.legal - a.legal) || (b.count - a.count));
+  const fingerprint = idcHash(mode + "|" + normalizeMtIdCard(from) + "|" + normalizeMtIdCard(to) + "|" + (person.id_card || "") + "|" +
+    items.map((i) => i.table + ":" + i.id + ":" + (i.json ? i.json.path : i.col) + ":" + (i.json ? i.json.old : i.old)).sort().join(","));
+  return { mode, items, registers, skipped, conflicts, candidates: candidates.slice(0, 200), total: items.length, fingerprint };
+}
+
+function peopleIdCardPreviewJson(person, from, to, plan, canApply) {
+  return { ok: true, preview: true, can_apply: canApply, person: { id: person.id, name: person.name, id_card: person.id_card },
+    from: normalizeMtIdCard(from), to: normalizeMtIdCard(to), mode: plan.mode, total: plan.total, registers: plan.registers,
+    skipped: plan.skipped.slice(0, 50), skipped_total: plan.skipped.length, candidates: plan.candidates, plan: plan.fingerprint };
+}
+
+function idcLogSelect(changeId, org, loc, userId, table, column, path, newVal, oldExpr) {
+  return "INSERT INTO people_id_card_change_rows (change_id, org_id, location_id, table_name, row_id, column_name, json_path, old_value, new_value, created_by) SELECT " +
+    "?, ?, ?, '" + table + "', id, '" + column + "', ?, " + oldExpr + ", ?, ? FROM " + table;
+}
+
+// POST /people/:id/change-id-card { from, to, confirm, plan, rows }
+async function handlePersonChangeIdCard(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, PEOPLE_ID_CARD_PREVIEW_ROLES)) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = authUser.org_id, loc = authUser.location_id;
+  const body = (await readJson(request)) || {};
+  const from = normalizeMtIdCard(body.from), to = normalizeMtIdCard(body.to);
+  await ensurePeopleSchema(env);
+  await ensurePeopleIdCardChangeSchema(env);
+  const person = await peopleLoad(env, org, loc, id);
+  if (!person) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  if (person.merged_into) return jsonResponse({ ok: false, error: "This record was merged into another person", current: person }, 409, corsOkHeaders);
+  if (!to || to.length < 3) return jsonResponse({ ok: false, error: "Write the new ID card" }, 400, corsOkHeaders);
+  if (from && from === to) return jsonResponse({ ok: false, error: "The new ID card is the same as the old one" }, 400, corsOkHeaders);
+  // The person must still hold the card the question was about: "from" for a change, "to" already for a stamp.
+  if (from ? person.id_card !== from : person.id_card !== to) return jsonResponse({ ok: false, error: "Changed elsewhere", current: person }, 409, corsOkHeaders);
+  const canApply = requireRole(authUser, PEOPLE_ID_CARD_CHANGE_ROLES);
+  const rows = Array.isArray(body.rows) ? body.rows.slice(0, 400) : [];
+  const plan = await peopleIdCardPlan(env, org, loc, person, from, to, { rows });
+  if (plan.conflicts.length) {
+    const c = plan.conflicts[0];
+    return jsonResponse({ ok: false, code: "card_in_use", error: to + " already belongs to " + (c.name || "someone else") + " (" + c.label + "). Check who this is before changing anything.", owner: c, conflicts: plan.conflicts.slice(0, 20) }, 409, corsOkHeaders);
+  }
+  if (body.confirm !== true) return jsonResponse(peopleIdCardPreviewJson(person, from, to, plan, canApply), 200, corsOkHeaders);
+  if (!canApply) return jsonResponse({ ok: false, error: "Only an administrator can change an ID card on all records" }, 403, corsOkHeaders);
+  if (String(body.plan || "") !== plan.fingerprint) return jsonResponse(Object.assign(peopleIdCardPreviewJson(person, from, to, plan, canApply), { ok: false, code: "plan_changed", error: "The records changed since the question was asked. Check the new numbers." }), 409, corsOkHeaders);
+  if (plan.mode === "stamp" && !plan.items.length) return jsonResponse({ ok: false, error: "Choose the records to add the ID card to" }, 400, corsOkHeaders);
+  if (plan.total > PEOPLE_ID_CARD_MAX_ROWS) return jsonResponse({ ok: false, error: "Too many records (" + plan.total + ") to change at once" }, 413, corsOkHeaders);
+
+  const changeId = "idc_" + crypto.randomUUID();
+  const uid = authUser.user_id;
+  const summary = { registers: plan.registers, skipped_total: plan.skipped.length };
+  const stmts = [];
+  const P = (sql, ...b) => env.DB.prepare(sql).bind(...b);
+  stmts.push(P("INSERT INTO people_id_card_changes (change_id, org_id, location_id, person_id, kind, from_card, to_card, rows_changed, summary_json, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    changeId, org, loc, person.id, plan.mode, from, to, plan.total, JSON.stringify(summary), uid));
+  if (plan.mode === "change") {
+    stmts.push(P(idcLogSelect(changeId, org, loc, uid, "people", "id_card", "", to, "id_card") + " WHERE id = ? AND org_id = ? AND location_id = ? AND id_card = ?", changeId, org, loc, "", to, uid, person.id, org, loc, from));
+    stmts.push(P("UPDATE people SET id_card = ?, version = version + 1, updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ? AND id_card = ?", to, uid, person.id, org, loc, from));
+  }
+  // Column tables, a chunk of ids at a time. The log row is written from the row itself, in the same transaction and
+  // with the same condition as the update, so the log holds exactly what was there.
+  const fromKeys = from ? mtIdCardLookupKeys(from) : [];
+  const cond = (col) => plan.mode === "change" ? idCardKeySql(col) + " IN (" + fromKeys.map(() => "?").join(",") + ")" : "TRIM(COALESCE(" + col + ", '')) = ''";
+  const condB = plan.mode === "change" ? fromKeys : [];
+  for (const d of PEOPLE_ID_CARD_TABLES) {
+    const its = plan.items.filter((i) => i.table === d.table);
+    if (!its.length) continue;
+    if (d.json) {
+      for (const i of its) {
+        stmts.push(P(idcLogSelect(changeId, org, loc, uid, d.table, d.col, "", to, d.col) + " WHERE id = ? AND org_id = ? AND location_id = ? AND " + cond(d.col) + " AND " + d.json.col + " = ?", changeId, org, loc, "", to, uid, i.id, org, loc, ...condB, i.json.before));
+        if (i.json.path) stmts.push(P(idcLogSelect(changeId, org, loc, uid, d.table, d.json.col, i.json.path, to, "?") + " WHERE id = ? AND org_id = ? AND location_id = ? AND " + cond(d.col) + " AND " + d.json.col + " = ?", changeId, org, loc, i.json.path, i.json.old, to, uid, i.id, org, loc, ...condB, i.json.before));
+        stmts.push(P("UPDATE " + d.table + " SET " + d.col + " = ?, " + d.json.col + " = ? WHERE id = ? AND org_id = ? AND location_id = ? AND " + cond(d.col) + " AND " + d.json.col + " = ?", to, i.json.after, i.id, org, loc, ...condB, i.json.before));
+      }
+      continue;
+    }
+    for (let k = 0; k < its.length; k += 80) {
+      const ids = its.slice(k, k + 80).map((i) => i.id), ph = ids.map(() => "?").join(",");
+      const where = " WHERE org_id = ? AND location_id = ? AND id IN (" + ph + ") AND " + cond(d.col);
+      stmts.push(P(idcLogSelect(changeId, org, loc, uid, d.table, d.col, "", to, d.col) + where, changeId, org, loc, "", to, uid, org, loc, ...ids, ...condB));
+      stmts.push(P("UPDATE " + d.table + " SET " + d.col + " = ?" + where, to, org, loc, ...ids, ...condB));
+    }
+  }
+  // JSON registers: one update per row with all of its changed keys, only if the row is still as it was read.
+  const jsonRows = new Map();
+  for (const i of plan.items.filter((x) => x.jsonOnly)) { const k = i.table + ":" + i.id; if (!jsonRows.has(k)) jsonRows.set(k, { first: i, paths: [] }); jsonRows.get(k).paths.push(i.json); }
+  for (const { first, paths } of jsonRows.values()) {
+    for (const p of paths) stmts.push(P(idcLogSelect(changeId, org, loc, uid, first.table, first.col, p.path, to, "?") + " WHERE id = ? AND org_id = ? AND location_id = ? AND " + first.col + " = ?", changeId, org, loc, p.path, p.old, to, uid, first.id, org, loc, first.before));
+    stmts.push(P("UPDATE " + first.table + " SET " + first.col + " = ? WHERE id = ? AND org_id = ? AND location_id = ? AND " + first.col + " = ?", first.after, first.id, org, loc, first.before));
+  }
+  await env.DB.batch(stmts);
+  const logged = await dbFirst(env, "SELECT COUNT(*) AS c FROM people_id_card_change_rows WHERE change_id = ? AND table_name <> 'people' AND json_path = ''", [changeId]);
+  const after = await peopleLoad(env, org, loc, person.id);
+  // One audit entry per run (the row-by-row record is people_id_card_change_rows, written in the same transaction as the change).
+  await writeAudit(env, org, uid, plan.mode === "change" ? "PERSON_ID_CARD_CHANGE" : "PERSON_ID_CARD_STAMP", "people", String(person.id),
+    auditWith({ location_id: loc, change_id: changeId, from, to, rows: plan.total, registers: plan.registers, skipped: plan.skipped.length }, person, after), loc);
+  return jsonResponse({ ok: true, change_id: changeId, person: after, from, to, mode: plan.mode, changed: plan.total, logged_rows: Number(logged && logged.c || 0), registers: plan.registers, skipped: plan.skipped.slice(0, 50), skipped_total: plan.skipped.length }, 200, corsOkHeaders);
+}
+
+// POST /people/id-card-changes/:change/undo — puts back what that change wrote, where it is still as it left it.
+async function handlePersonIdCardUndo(request, env, corsOkHeaders, authUser, changeId) {
+  if (!requireRole(authUser, PEOPLE_ID_CARD_CHANGE_ROLES)) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = authUser.org_id, loc = authUser.location_id, uid = authUser.user_id;
+  await ensurePeopleSchema(env);
+  await ensurePeopleIdCardChangeSchema(env);
+  const head = await dbFirst(env, "SELECT * FROM people_id_card_changes WHERE change_id = ? AND org_id = ? AND location_id = ?", [changeId, org, loc]);
+  if (!head || head.kind === "undo") return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  const done = await dbFirst(env, "SELECT change_id FROM people_id_card_changes WHERE org_id = ? AND location_id = ? AND undo_of = ?", [org, loc, changeId]);
+  if (done) return jsonResponse({ ok: false, error: "Already undone", undo_id: done.change_id }, 409, corsOkHeaders);
+  const later = await dbFirst(env, "SELECT change_id FROM people_id_card_changes WHERE org_id = ? AND location_id = ? AND person_id = ? AND kind <> 'undo' AND created_at >= ? AND change_id <> ? AND change_id NOT IN (SELECT undo_of FROM people_id_card_changes WHERE org_id = ? AND location_id = ? AND undo_of <> '') ORDER BY created_at DESC LIMIT 1",
+    [org, loc, head.person_id, head.created_at, changeId, org, loc]);
+  if (later && head.kind === "change") return jsonResponse({ ok: false, error: "A later ID card change for this person must be undone first", later: later.change_id }, 409, corsOkHeaders);
+  const logs = await dbAll(env, "SELECT * FROM people_id_card_change_rows WHERE change_id = ? AND org_id = ? AND location_id = ? ORDER BY id", [changeId, org, loc]);
+  const undoId = "idc_" + crypto.randomUUID();
+  const P = (sql, ...b) => env.DB.prepare(sql).bind(...b);
+  const stmts = [], skipped = [];
+  let restored = 0;
+  const peopleLog = logs.find((l) => l.table_name === "people");
+  if (peopleLog) {
+    const taken = await dbFirst(env, "SELECT id, name FROM people WHERE org_id = ? AND location_id = ? AND id_card = ? AND id <> ?", [org, loc, peopleLog.old_value, head.person_id]);
+    if (taken) return jsonResponse({ ok: false, error: peopleLog.old_value + " now belongs to " + taken.name + ", so it cannot be put back", owner: taken }, 409, corsOkHeaders);
+  }
+  const byRow = new Map();
+  for (const l of logs) { const k = l.table_name + ":" + l.row_id; if (!byRow.has(k)) byRow.set(k, []); byRow.get(k).push(l); }
+  const allowed = new Set(["people"].concat(PEOPLE_ID_CARD_TABLES.map((d) => d.table), PEOPLE_ID_CARD_JSON_TABLES.map((d) => d.table)));
+  for (const [k, ls] of byRow) {
+    const table = ls[0].table_name, rowId = ls[0].row_id;
+    if (!allowed.has(table)) continue;
+    const colLog = ls.find((l) => !l.json_path), jsonLogs = ls.filter((l) => l.json_path);
+    const def = PEOPLE_ID_CARD_TABLES.find((d) => d.table === table) || PEOPLE_ID_CARD_JSON_TABLES.find((d) => d.table === table) || { table: "people", col: "id_card" };
+    const jsonCol = def.json ? def.json.col : (def.list || def.key) ? def.col : null;
+    let cur = null;
+    try { cur = await dbFirst(env, "SELECT * FROM " + table + " WHERE id = ? AND org_id = ? AND location_id = ?", [rowId, org, loc]); } catch (e) { cur = null; }
+    if (!cur) { skipped.push({ table, id: rowId, reason: "no longer there" }); continue; }
+    const sets = [], vals = [], conds = [], cvals = [], logRows = [];
+    if (colLog && table !== "people") {
+      const col = colLog.column_name;
+      if (String(cur[col] || "") !== String(colLog.new_value || "")) { skipped.push({ table, id: rowId, reason: "changed since" }); continue; }
+      if (def.unique && colLog.old_value) {
+        const clash = await dbFirst(env, "SELECT id FROM " + table + " WHERE org_id = ? AND location_id = ? AND " + col + " = ? AND id <> ?", [org, loc, colLog.old_value, rowId]);
+        if (clash) { skipped.push({ table, id: rowId, reason: "the old card is on another row now" }); continue; }
+      }
+      sets.push(col + " = ?"); vals.push(colLog.old_value); conds.push(col + " = ?"); cvals.push(colLog.new_value);
+      logRows.push([col, "", colLog.new_value, colLog.old_value]);
+    }
+    if (jsonLogs.length && jsonCol) {
+      let o = null; try { o = JSON.parse(String(cur[jsonCol] || "")); } catch (e) { o = null; }
+      let ok = !!o;
+      for (const l of jsonLogs) {
+        if (!ok) break;
+        const m = /^(\w+)\[(?:id=(.*)|(\d+))\]\.(\w+)$/.exec(l.json_path);
+        let holder = null, key = l.json_path;
+        if (m) { const list = Array.isArray(o[m[1]]) ? o[m[1]] : []; holder = m[2] !== undefined ? list.find((p) => p && String(p.id || "") === m[2]) : list[Number(m[3])]; key = m[4]; }
+        else if (l.json_path.indexOf(".") > 0) { const parts = l.json_path.split("."); key = parts.pop(); holder = idcGet(o, parts); }
+        else holder = o;
+        if (!holder || String(holder[key] || "") !== String(l.new_value || "")) { ok = false; break; }
+        holder[key] = l.old_value; logRows.push([jsonCol, l.json_path, l.new_value, l.old_value]);
+      }
+      if (!ok) { skipped.push({ table, id: rowId, reason: "changed since" }); continue; }
+      sets.push(jsonCol + " = ?"); vals.push(JSON.stringify(o)); conds.push(jsonCol + " = ?"); cvals.push(String(cur[jsonCol]));
+    }
+    if (table === "people") {
+      if (String(cur.id_card || "") !== String(colLog.new_value || "")) return jsonResponse({ ok: false, error: "The person's ID card was changed again since; change it back in Customers" }, 409, corsOkHeaders);
+      sets.push("id_card = ?", "version = version + 1", "updated_at = datetime('now')", "updated_by = ?"); vals.push(colLog.old_value, uid); conds.push("id_card = ?"); cvals.push(colLog.new_value);
+      logRows.push(["id_card", "", colLog.new_value, colLog.old_value]);
+    }
+    if (!sets.length) continue;
+    for (const [col, path, oldV, newV] of logRows) stmts.push(P("INSERT INTO people_id_card_change_rows (change_id, org_id, location_id, table_name, row_id, column_name, json_path, old_value, new_value, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", undoId, org, loc, table, rowId, col, path, oldV, newV, uid));
+    stmts.push(P("UPDATE " + table + " SET " + sets.join(", ") + " WHERE id = ? AND org_id = ? AND location_id = ? AND " + conds.join(" AND "), ...vals, rowId, org, loc, ...cvals));
+    if (table !== "people") restored++;
+  }
+  stmts.unshift(P("INSERT INTO people_id_card_changes (change_id, org_id, location_id, person_id, kind, from_card, to_card, undo_of, rows_changed, summary_json, created_by) VALUES (?, ?, ?, ?, 'undo', ?, ?, ?, ?, ?, ?)",
+    undoId, org, loc, head.person_id, head.to_card, head.from_card, changeId, restored, JSON.stringify({ skipped }), uid));
+  const beforeP = await peopleLoad(env, org, loc, head.person_id);
+  await env.DB.batch(stmts);
+  const afterP = await peopleLoad(env, org, loc, head.person_id);
+  await writeAudit(env, org, uid, "PERSON_ID_CARD_UNDO", "people", String(head.person_id),
+    auditWith({ location_id: loc, change_id: undoId, undo_of: changeId, restored, skipped }, beforeP, afterP), loc);
+  return jsonResponse({ ok: true, undo_id: undoId, undo_of: changeId, restored, skipped, person: afterP }, 200, corsOkHeaders);
+}
+
+// GET /people/:id/id-card-changes — the person's card changes, newest first, with whether each was undone.
+async function handlePersonIdCardChanges(request, env, corsOkHeaders, authUser, id) {
+  if (!requireRole(authUser, PEOPLE_ID_CARD_PREVIEW_ROLES)) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = authUser.org_id, loc = authUser.location_id;
+  await ensurePeopleIdCardChangeSchema(env);
+  const rows = await dbAll(env, "SELECT c.change_id, c.kind, c.from_card, c.to_card, c.undo_of, c.rows_changed, c.summary_json, c.created_at, c.created_by, (SELECT u.change_id FROM people_id_card_changes u WHERE u.org_id = c.org_id AND u.location_id = c.location_id AND u.undo_of = c.change_id) AS undone_by FROM people_id_card_changes c WHERE c.org_id = ? AND c.location_id = ? AND c.person_id = ? ORDER BY c.created_at DESC, c.rowid DESC LIMIT 50", [org, loc, id]);
+  return jsonResponse({ ok: true, changes: rows.map((r) => { let s = {}; try { s = JSON.parse(r.summary_json || "{}"); } catch (e) {} return { change_id: r.change_id, kind: r.kind, from: r.from_card, to: r.to_card, undo_of: r.undo_of || null, rows: r.rows_changed, registers: s.registers || [], undone_by: r.undone_by || null, at: r.created_at, by: r.created_by }; }), can_undo: requireRole(authUser, PEOPLE_ID_CARD_CHANGE_ROLES) }, 200, corsOkHeaders);
+}
+// ===================================================================================
+// end of the ID card change block
+// ===================================================================================
+
 // The memo above lasts one isolate, and Cloudflare starts isolates often: a cold /today ran ~100 schema statements
 // (2–3 s on D1, once 12 s). So each schema step also leaves a mark in the database (eikon_schema: name -> fingerprint
 // of its own code). A new isolate reads all marks in one query and skips every step whose code has not changed;
@@ -16656,6 +17022,9 @@ const authUser = await authFromRequest(request, env);
     }
     { const m = url.pathname.match(/^\/people\/(\d+)$/); if (m && request.method === "GET") return await handlePersonGet(request, env, corsOkHeaders, authUser, Number(m[1])); }
     { const m = url.pathname.match(/^\/people\/(\d+)\/merge$/); if (m && request.method === "POST") return await handlePersonMerge(request, env, corsOkHeaders, authUser, Number(m[1])); }
+    { const m = url.pathname.match(/^\/people\/(\d+)\/change-id-card$/); if (m && request.method === "POST") return await handlePersonChangeIdCard(request, env, corsOkHeaders, authUser, Number(m[1])); } // ID card change (block after handlePeopleBackfill)
+    { const m = url.pathname.match(/^\/people\/(\d+)\/id-card-changes$/); if (m && request.method === "GET") return await handlePersonIdCardChanges(request, env, corsOkHeaders, authUser, Number(m[1])); }
+    { const m = url.pathname.match(/^\/people\/id-card-changes\/(idc_[0-9a-f-]{36})\/undo$/); if (m && request.method === "POST") return await handlePersonIdCardUndo(request, env, corsOkHeaders, authUser, m[1]); }
 
     if (url.pathname === "/auth/change-password" && request.method === "POST") {
       return await handleChangePassword(request, env, corsOkHeaders, authUser);

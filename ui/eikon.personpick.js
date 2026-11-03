@@ -124,8 +124,10 @@
   }
 
   // ---- one combobox per field; state kept by key so a redraw of the form does not lose the list or the note ----
+  var picks = {}; // the person last chosen on each screen, for E.people.confirmPerson (which of two namesakes)
   E.personPick = {
     norm: normId, key: idKey,
+    picked: function (key) { var x = picks[key]; return x && Date.now() - x.at < 600000 ? x : null; },
     // The same lookup without a form, for the search (eikon.search.js): people saved in Customers and people seen in
     // the registers, one row each, best first. Same cache, same scope, same rules as the suggestions under a field.
     find: async function (q, max) {
@@ -205,6 +207,7 @@
         if (!x || !val || str(x.value).trim() || (x === ae && how !== "pick")) return;
         x.value = val; done.push(f);
       });
+      picks[o.key] = { pid: c.pid || null, name: c.name, id_card: c.id_card || "", at: Date.now() };
       st.note = done.length ? "Filled from " + origin(c) : ""; st.noteFor = sameKey(); note.textContent = st.note;
       if (st.note) say(st.note);
       try { if (o.onFill) o.onFill({ person: c, filled: done, how: how, field: kind }); } catch (e) {}

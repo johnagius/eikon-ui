@@ -156,6 +156,14 @@
     if (!/^\d{4}-\d{2}-\d{2}$/.test(a.entry_date || "") || a.entry_date > today()) S.err = "Choose the day it was written. Nothing was saved.";
     else { var miss = need.filter(function (n) { return !a[n[0]]; })[0]; if (miss) S.err = "Write " + miss[1] + ". Nothing was saved."; }
     if (S.err) return paint(true);
+    // the ID card and the person (E.people.confirmPerson): asked before anything is saved; Go back keeps the form
+    var asked = null;
+    if (E.people && E.people.confirmPerson) {
+      S.saving = true; paint(true);
+      asked = await E.people.confirmPerson({ name: a.client_name, id_card: a.client_id }, { key: "repreg", record: "prescription" });
+      S.saving = false;
+      if (asked.action !== "save") { if (asked.action === "fill") { if (asked.field === "name") a.client_name = asked.value; else a.client_id = asked.value; } paint(true); focus(asked.field === "name" ? "client_name" : "client_id"); return; }
+    }
     S.saving = true; paint(true);
     try {
       var body = {}; F.forEach(function (k) { body[k] = a[k]; }); body.expires_date = ""; // the server sets six months on
@@ -163,7 +171,7 @@
         same: function (e) { return e.entry_date === body.entry_date && String(e.client_id || "").trim().toLowerCase() === String(body.client_id || "").trim().toLowerCase() && String(e.medicine_name_dose || "").trim().toLowerCase() === String(body.medicine_name_dose || "").trim().toLowerCase() && String(e.prescriber_reg_no || "").trim().toLowerCase() === String(body.prescriber_reg_no || "").trim().toLowerCase(); } });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; E.toast("Recorded for " + a.client_name, "success");
-      if (E.linkPerson) E.linkPerson({ name: body.client_name, id_card: body.client_id }, "register:repeat"); // one person in Customers, found or added
+      if (E.linkPerson) E.linkPerson({ name: body.client_name, id_card: body.client_id }, "register:repeat", asked); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }

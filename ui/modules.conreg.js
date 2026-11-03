@@ -311,6 +311,18 @@
     else if (!F.id && !body.name) S.err = "Write a name. Nothing was saved.";
     else if (F.id && !t.cols.some(function (k) { return body[k]; })) S.err = "Write at least a name or a number. Nothing was saved.";
     if (S.err) return paint(true);
+    // a client's ID card and the person (E.people.confirmPerson): asked before anything is saved; Go back keeps the form
+    var asked = null;
+    if (F.type === "clients" && body.id_card && E.people && E.people.confirmPerson) {
+      S.saving = true; paint(true);
+      asked = await E.people.confirmPerson({ name: body.name, id_card: body.id_card, address: body.address, phone: body.phone }, { key: "conreg", record: "contact" });
+      S.saving = false;
+      if (asked.action !== "save") {
+        if (asked.action === "fill") S.form.vals[asked.field === "name" ? "name" : "id_card"] = asked.value;
+        paint(true); var back = S.mount && S.mount.querySelector("[name=" + (asked.field === "name" ? "name" : "id_card") + "]"); if (back) back.focus();
+        return;
+      }
+    }
     S.saving = true; paint(true);
     var newKey = null;
     try {
@@ -334,7 +346,7 @@
         if (r2 && r2.id) newKey = F.type + ":" + r2.id;
         else if (r2 && r2.recovered) S.pick = { type: F.type, body: body };
         E.toast(body.name + " added to " + t.many.toLowerCase(), "success");
-        if (F.type === "clients" && E.linkPerson) E.linkPerson({ name: body.name, id_card: body.id_card, address: body.address, phone: body.phone, alt_phone: body.alt_phone }, "contacts:clients"); // one person in Customers, found or added
+        if (F.type === "clients" && E.linkPerson) E.linkPerson({ name: body.name, id_card: body.id_card, address: body.address, phone: body.phone, alt_phone: body.alt_phone }, "contacts:clients", asked); // one person in Customers, found or added
       }
       S.form = null; S.sel = newKey;
       if (!newKey && !S.pick) S.sel = null;

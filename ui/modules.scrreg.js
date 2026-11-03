@@ -411,6 +411,18 @@
       else if (bad) S.err = "The " + low(bad[1]) + " is not a number. Check it.";
     }
     if (S.err) { S.err += " Nothing was saved."; paint(true); return showErr(); }
+    // the ID card and the person (E.people.confirmPerson): asked before anything is saved; Go back keeps the form
+    if (E.people && E.people.confirmPerson && pid(a.idCard)) {
+      S.saving = true; paint(true);
+      var asked = await E.people.confirmPerson({ name: a.name, id_card: pid(a.idCard), phone: a.phone, email: a.email }, { key: "scrreg", record: "screening" });
+      S.saving = false;
+      if (asked.action !== "save") {
+        if (asked.action === "fill") { if (asked.field === "name") a.name = asked.value; else a.idCard = pid(asked.value); }
+        paint(true); var back = S.mount && S.mount.querySelector("[name=" + (asked.field === "name" ? "name" : "idCard") + "]"); if (back) back.focus();
+        return;
+      }
+      S.asked = asked;
+    }
     var rec = build(), cid = a.camp.id;
     S.saving = true; paint(true);
     var has1 = function (list) { var c = list.filter(function (x) { return String(x.id) === String(cid); })[0]; return !!c && parts(c).some(function (p) { return String(p.id) === String(rec.id); }); };
@@ -428,7 +440,7 @@
     S.saving = false; return load();
   }
   function doneScreening(rec, cid) {
-    if (E.linkPerson) E.linkPerson({ name: rec.name, id_card: rec.idCard, phone: rec.phone, email: rec.email, date_of_birth: rec.dob }, "register:screening"); // one person in Customers, found or added
+    if (E.linkPerson) E.linkPerson({ name: rec.name, id_card: rec.idCard, phone: rec.phone, email: rec.email, date_of_birth: rec.dob }, "register:screening", S.asked); S.asked = null; // one person in Customers, found or added
     S.adding = null; S.err = ""; S.view = "part"; S.campId = String(cid); S.partId = String(rec.id);
     var c = campOf(cid); if (c && !parts(c).some(function (p) { return String(p.id) === String(rec.id); })) c.participants = parts(c).concat([rec]);
     E.toast("Screening recorded for " + (rec.name || rec.idCard), "success");

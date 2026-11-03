@@ -87,6 +87,8 @@
       var a = S.adding;
       h += '<form class="ord-form" id="ord-add" autocomplete="off">' +
         '<label><span>Customer</span><input name="client_name" value="' + esc(a.client_name || "") + '" placeholder="Name and surname"></label>' +
+        // not part of the order (the orders table has no ID card): it is checked against the person and kept on their details
+        '<label><span>ID card</span><input name="id_card" value="' + esc(a.id_card || "") + '" placeholder="Optional, kept on their details" autocapitalize="characters"></label>' +
         '<label><span>Phone</span><input name="contact" type="tel" value="' + esc(a.contact || "") + '" placeholder="Optional"></label>' +
         '<label><span>Items</span><input name="items" value="' + esc(a.items || "") + '" placeholder="e.g. Augmentin 625 x14"></label>' +
         '<label><span>Needed by</span><input name="needed_by" type="date" min="' + esc(today()) + '" value="' + esc(a.needed_by || "") + '"></label>' +
@@ -122,7 +124,7 @@
     });
     var qi = m.querySelector("#ord-q"); if (qi) qi.addEventListener("input", function () { var pos = qi.selectionStart; S.q = qi.value; paint(); var q2 = S.mount.querySelector("#ord-q"); if (q2) { q2.focus(); try { q2.setSelectionRange(pos, pos); } catch (e) {} } });
     var f = m.querySelector("#ord-add"); if (f) f.addEventListener("submit", function (ev) { ev.preventDefault(); add(f); });
-    if (f && E.personPick) E.personPick.attach({ key: "ordreg", form: f, fields: { name: "client_name", phone: "contact" },
+    if (f && E.personPick) E.personPick.attach({ key: "ordreg", form: f, fields: { id: "id_card", name: "client_name", phone: "contact" },
       local: function () { return S.entries.map(function (e) { return { name: e.client_name, phone: e.client_phone || e.contact, address: e.client_address, date: String(e.order_date || "").slice(0, 10), from: "order" }; }); } });
   }
 
@@ -151,18 +153,31 @@
     var body = { order_date: today(), client_name: v("client_name"), contact: v("contact"), items: v("items"), needed_by: v("needed_by"), pick_up_date: v("pick_up_date") || v("needed_by"), deposit: v("deposit"), priority: Number(v("priority") || 2), notes: v("notes") };
     // The server reads client_phone, pickup_date and deposit_amount; the names above alone were dropped (phone, pick-up date and deposit came back empty).
     body.client_phone = body.contact; body.pickup_date = body.pick_up_date; body.deposit_amount = body.deposit;
-    S.adding = Object.assign({}, body, { pick_up_date: v("pick_up_date") }); S.err = "";
+    var idc = E.people ? E.people.normIdCard(v("id_card")) : v("id_card");
+    S.adding = Object.assign({}, body, { pick_up_date: v("pick_up_date"), id_card: v("id_card") }); S.err = "";
     if (!body.client_name) S.err = "Write the customer's name. Nothing was saved.";
     else if (!body.items) S.err = "Write what they ordered. Nothing was saved.";
     else if (!/^\d{4}-\d{2}-\d{2}$/.test(body.needed_by)) S.err = "Choose when it is needed. Nothing was saved.";
     else if (body.deposit && !(Number(body.deposit) >= 0)) S.err = "The deposit should be a number. Nothing was saved.";
     if (S.err) return paint();
+    // an ID card typed here and the person (E.people.confirmPerson): asked before the order is saved; Go back keeps the form
+    var asked = null;
+    if (idc && E.people && E.people.confirmPerson) {
+      S.saving = true; paint();
+      asked = await E.people.confirmPerson({ name: body.client_name, id_card: idc, phone: body.contact }, { key: "ordreg", record: "order" });
+      S.saving = false;
+      if (asked.action !== "save") {
+        if (asked.action === "fill") S.adding[asked.field === "name" ? "client_name" : "id_card"] = asked.value;
+        paint(); var back = S.mount && S.mount.querySelector("#ord-add [name=" + (asked.field === "name" ? "client_name" : "id_card") + "]"); if (back) back.focus();
+        return;
+      }
+    }
     S.saving = true; paint();
     try {
       var r = await E.apiFetch("/client-orders/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; E.toast("Order added for " + body.client_name, "success");
-      if (E.linkPerson) E.linkPerson({ name: body.client_name, phone: body.contact }, "register:orders"); // one person in Customers, found or added
+      if (E.linkPerson) E.linkPerson({ name: body.client_name, phone: body.contact, id_card: idc }, "register:orders", asked); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }

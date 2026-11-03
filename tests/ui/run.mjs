@@ -1048,7 +1048,11 @@ await page.goto(base + "&ui=2#repeatprescriptions");
 await page.waitForFunction(() => window.EIKON.state.activeModuleId === "repreg" && document.querySelector(".rep-row"), null, { timeout: 15000 });
 const rep1 = await page.textContent(".rep-row");
 await fetch(`http://localhost:${PORT}/__reset`);
-await page.click(".rep-row [data-act=renew]"); await page.click("#rep-add button[type=submit]"); await settleSave();
+await page.click(".rep-row [data-act=renew]"); await page.click("#rep-add button[type=submit]");
+// The mock's Customers list has Zammit Carmel with 0012345M (after the adopt test) while this prescription says 123456M:
+// that is question C (eikon.people.js), answered here with "Only this prescription" so the renewal itself is what is tested.
+if (await page.waitForSelector(".epc [data-epc=only]", { timeout: 2500 }).then(() => true, () => false)) await page.click(".epc [data-epc=only]");
+await settleSave();
 const repPost = ((await (await fetch(`http://localhost:${PORT}/__calls`)).json()).find((c) => c.method === "POST" && c.path === "/repeat-prescriptions/entries") || {}).body || {};
 report("repeat prescriptions: opens from the old link, flags the one expiring soon; Renew records the same prescription dated today",
   /Expires in 12 days/.test(rep1) && repPost.client_id === "123456M" && repPost.medicine_name_dose === "Atorvastatin 20mg" && repPost.prescriber_reg_no === "R1201" && repPost.entry_date === todayYmd && repPost.expires_date === "", JSON.stringify({ rep1, repPost }));
@@ -2336,6 +2340,170 @@ try {
   report("search: the classic layout is untouched: no dialog, no scanning", !cl.dlg && !cl.scan && cl.mod === "temperature" && !cl.ui2, JSON.stringify(cl));
   await page.goto(base + "&ui=2#today"); await ui2Ready("today");
 } catch (e) { report("search: ran to the end", false, String(e).slice(0, 400)); }
+// The ID card on a record and its person (E.people.confirmPerson in ui/eikon.people.js), in DDA sales, Orders and
+// Repeat prescriptions: A (the person has no card: asked to add it, then their card-less records offered to tick),
+// B (the card is someone else's: stopped, never saved under the wrong name), C (the person has another card: asked to
+// change it everywhere, with the count per register). GET/POST /people and the change endpoint answered here.
+try {
+  // the name rule is the worker's own (personNameWords / personNamesCompatible run side by side)
+  const wsrc2 = fs.readFileSync(path.join(here, "..", "..", "cloudflare-worker", "code"), "utf8");
+  const wfn2 = (name) => { const i = wsrc2.indexOf("function " + name + "("); let d = 0, j = wsrc2.indexOf("{", i); for (; j < wsrc2.length; j++) { if (wsrc2[j] === "{") d++; else if (wsrc2[j] === "}" && --d === 0) break; } return wsrc2.slice(i, j + 1); };
+  const WN = new Function(wfn2("personNameWords") + wfn2("personNamesCompatible") + "return personNamesCompatible;")();
+  const pairs = [["Zammit Carmel", "carmel ZAMMIT"], ["Laura Borg", "Laura Maria Borg"], ["Borg", "Laura Borg"], ["Joséph Vella", "joseph vella"], ["Laura Borg", "Carmel Zammit"], ["", "x"], ["Ta' Xbiex Ann", "ann ta xbiex"]];
+  await page.goto(base + "&ui=2#today");
+  await page.waitForFunction(() => window.EIKON && window.EIKON.people && window.EIKON.people.confirmPerson, null, { timeout: 15000 });
+  const uiN = await page.evaluate((p) => p.map(([a, b]) => window.EIKON.people.namesCompatible(a, b)), pairs);
+  report("id card questions: names compare exactly as the worker does (case, accents, word order; one word is not enough)",
+    JSON.stringify(uiN) === JSON.stringify(pairs.map(([a, b]) => WN(a, b))) && JSON.stringify(uiN) === "[true,true,false,true,false,false,true]", JSON.stringify(uiN));
+
+  let book, changes, stamps;
+  const reset = () => { book = [{ id: 501, name: "Laura Borg", id_card: "", phone: "", address: "5 Triq il-Wied, Qormi", version: 1 }, { id: 502, name: "Carmel Zammit", id_card: "0012345M", phone: "", address: "1 Triq il-Knisja", version: 3 }]; changes = []; stamps = []; };
+  reset();
+  const norm = (s) => { s = String(s || "").replace(/\s+/g, "").toUpperCase(); const m = /^(\d{1,7})([A-Z])$/.exec(s); return m ? ("0000000" + m[1]).slice(-7) + m[2] : s; };
+  const J = (route, o, status) => route.fulfill({ status: status || 200, contentType: "application/json", body: JSON.stringify(o) });
+  const onP = async (route) => {
+    const rq = route.request(), u = new URL(rq.url()), b = JSON.parse(rq.postData() || "{}");
+    if (u.pathname === "/people" && rq.method() === "GET") {
+      const q = String(u.searchParams.get("q") || "").toLowerCase();
+      const hit = book.filter((p) => /\d/.test(q) ? p.id_card && p.id_card.replace(/^0+/, "").toLowerCase().indexOf(q.replace(/^0+/, "")) >= 0 : p.name.toLowerCase().indexOf(q) >= 0);
+      return J(route, { ok: true, q, people: hit, history: [] });
+    }
+    if (u.pathname === "/people" && rq.method() === "POST") {
+      const p = book.find((x) => x.id === b.id);
+      if (p && b.id_card) { p.id_card = norm(b.id_card); p.version++; }
+      return J(route, { ok: true, person: p || Object.assign({ id: 599, version: 1 }, b), created: !p });
+    }
+    let m = /^\/people\/(\d+)\/change-id-card$/.exec(u.pathname);
+    if (m) {
+      const p = book.find((x) => x.id === Number(m[1])); changes.push(b);
+      if (!b.from) { // stamp
+        if (!b.confirm) return J(route, { ok: true, preview: true, can_apply: true, mode: "stamp", total: (b.rows || []).length, registers: [], candidates: [{ table: "repeat_prescription_entries", label: "Repeat prescriptions", legal: true, id: 7, name: p.name, date: "2026-03-12", title: "Ramipril 5mg" }, { table: "client_orders_entries", label: "Orders", id: 8, name: p.name, date: "2026-05-02", title: "" }], plan: "st1" });
+        stamps.push(b); return J(route, { ok: true, change_id: "idc_00000000-0000-0000-0000-000000000001", changed: b.rows.length, person: p });
+      }
+      if (!b.confirm) return J(route, { ok: true, preview: true, can_apply: true, mode: "change", from: b.from, to: norm(b.to), total: 4, plan: "pl1", skipped_total: 1,
+        registers: [{ label: "DDA sales", count: 2, legal: true }, { label: "Repeat prescriptions", count: 1, legal: true }, { label: "Tests", count: 1, legal: false }], candidates: [] });
+      p.id_card = norm(b.to); p.version++;
+      return J(route, { ok: true, change_id: "idc_00000000-0000-0000-0000-000000000002", changed: 4, person: p, registers: [] });
+    }
+    m = /^\/people\/id-card-changes\/([^/]+)\/undo$/.exec(u.pathname);
+    if (m) { book[0].id_card = "0034567L"; changes.push({ undo: m[1] }); return J(route, { ok: true, restored: 4, skipped: [] }); }
+    return route.fallback();
+  };
+  const isP = (url) => url.pathname === "/people" || url.pathname.indexOf("/people/") === 0;
+  await page.route(isP, onP);
+  const dlg = () => page.evaluate(() => { const d = document.querySelector(".epc[role=alertdialog]"); return d ? { title: d.querySelector("h2").textContent, text: d.textContent, modal: d.getAttribute("aria-modal"), lab: d.getAttribute("aria-labelledby"), focus: document.activeElement && document.activeElement.textContent, inert: !!document.querySelector("#eikon-root[inert], body > div[inert]"), btns: [...d.querySelectorAll(".epc-b")].map((x) => x.textContent) } : null; });
+  const waitDlg = (re) => page.waitForFunction((s) => { const h = document.querySelector(".epc h2"); return h && new RegExp(s).test(h.textContent); }, re, { timeout: 6000 });
+  const posts = async (p) => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === p);
+  const press = (id) => page.click(`.epc [data-epc=${id}]`);
+
+  // ---------- DDA sales ----------
+  const openDda = async () => { await page.goto(base + "&ui=2#dda-sales"); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "cdsreg" && window.EIKON.personPick && document.querySelector("[data-act=add]"), null, { timeout: 15000 }); };
+  const ddaForm = async (card, serial) => {
+    await page.click("[data-act=add]"); await page.waitForTimeout(150);
+    await page.type("[name=client_name]", "laura", { delay: 15 }); await page.waitForSelector(".epp-list:not([hidden]) .epp-opt", { timeout: 5000 });
+    await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter"); await page.waitForTimeout(250); // the owner's way: search "laura", pick her
+    await page.fill("[name=client_id_card]", card); await page.fill("[name=doctor_name]", "Dr Abela"); await page.fill("[name=doctor_reg_no]", "R1201"); await page.fill("[name=prescription_serial_no]", serial);
+    await page.fill('[data-i="0"][data-k=medicine_name_dose]', "Morphine 10mg"); await page.fill('[data-i="0"][data-k=quantity]', "2");
+  };
+  await openDda(); await fetch(`http://localhost:${PORT}/__reset`);
+  // A
+  await ddaForm("34567l", "IDA-1");
+  const picked = await page.evaluate(() => ({ name: document.querySelector("[name=client_name]").value, addr: document.querySelector("[name=client_address]").value }));
+  await page.click("#cds-add button[type=submit]"); await waitDlg("^Add ID card");
+  const dA = await dlg(); const before0 = (await posts("/dda-sales/entries")).length;
+  await page.keyboard.press("Tab"); await page.keyboard.press("Tab"); await page.keyboard.press("Tab"); const trapped = await page.evaluate(() => !!(document.activeElement && document.activeElement.closest(".epc")));
+  await press("yes"); await waitDlg("earlier record");
+  const dA2 = await dlg();
+  await page.check('.epc input[data-i="0"]'); await press("stamp");
+  await page.waitForFunction(() => !document.querySelector(".epc"), null, { timeout: 6000 }); await page.waitForTimeout(700);
+  const ddaA = await posts("/dda-sales/entries");
+  report("id card A (DDA sales): search 'laura', pick her (no card), type 34567l → asked “Add ID card 0034567L to Laura Borg’s details?” (alertdialog, Yes focused, Tab stays inside, nothing saved yet); Yes puts it on her, her card-less records are offered unticked, the ticked one gets it; the sale is saved with the card",
+    picked.name === "Laura Borg" && dA && dA.title === "Add ID card 0034567L to Laura Borg’s details?" && dA.modal === "true" && dA.lab === "epc-t" && dA.focus === "Yes, add it" && dA.inert && trapped && before0 === 0 &&
+    dA2 && /2 earlier records without an ID card/.test(dA2.title) && /legal register/.test(dA2.text) && book[0].id_card === "0034567L" &&
+    stamps.length === 1 && JSON.stringify(stamps[0].rows) === JSON.stringify([{ table: "repeat_prescription_entries", id: 7 }]) && stamps[0].plan === "st1" &&
+    ddaA.length === 1 && ddaA[0].body.client_id_card === "0034567L" && ddaA[0].body.client_name === "Laura Borg",
+    JSON.stringify({ picked, dA, dA2, before0, trapped, stamps, ddaA: ddaA.map((c) => c.body) }).slice(0, 1500));
+
+  // B: Carmel's card typed on a record named Laura → stopped; Escape goes back with the form kept; "Yes, it is Carmel" puts her name in
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await ddaForm("12345m", "IDB-1");
+  await page.click("#cds-add button[type=submit]"); await waitDlg("belongs to");
+  const dB = await dlg();
+  await page.keyboard.press("Escape"); await page.waitForTimeout(300);
+  const keptB = await page.evaluate(() => ({ open: !!document.querySelector(".epc"), name: document.querySelector("[name=client_name]").value, card: document.querySelector("[name=client_id_card]").value, med: document.querySelector('[data-i="0"][data-k=medicine_name_dose]').value, focus: document.activeElement && document.activeElement.name }));
+  await page.click("#cds-add button[type=submit]"); await waitDlg("belongs to"); await press("use"); await page.waitForTimeout(300);
+  const usedB = await page.evaluate(() => ({ name: document.querySelector("[name=client_name]").value, open: !!document.querySelector(".epc") }));
+  const ddaB = await posts("/dda-sales/entries");
+  report("id card B (DDA sales): Carmel's 0012345M on a record named Laura Borg stops the save: “0012345M belongs to Carmel Zammit. Is this Carmel Zammit?” (Go back focused); Escape returns with everything kept; Yes puts Carmel Zammit in the name and still saves nothing",
+    dB && dB.title === "0012345M belongs to Carmel Zammit. Is this Carmel Zammit?" && dB.focus === "No, go back and correct" && !keptB.open && keptB.name === "Laura Borg" && keptB.card === "0012345M" && keptB.med === "Morphine 10mg" && keptB.focus === "client_id_card" &&
+    usedB.name === "Carmel Zammit" && !usedB.open && ddaB.length === 0, JSON.stringify({ dB, keptB, usedB, n: ddaB.length }));
+  await page.click("[data-act=add-cancel]");
+
+  // C: Laura (now 0034567L) with 45678l typed → asked to change everywhere, counts per register; Change → Save the DDA sale
+  await fetch(`http://localhost:${PORT}/__reset`); changes = [];
+  await ddaForm("45678l", "IDC-1");
+  await page.click("#cds-add button[type=submit]"); await waitDlg("^Change Laura Borg");
+  const dC = await dlg();
+  await press("change"); await waitDlg("^ID card changed"); const dC2 = await dlg(); await press("go");
+  await page.waitForFunction(() => !document.querySelector(".epc"), null, { timeout: 6000 }); await page.waitForTimeout(700);
+  const ddaC = await posts("/dda-sales/entries");
+  report("id card C (DDA sales): Laura has 0034567L and 45678l is typed → “Change Laura Borg’s ID card from 0034567L to 0045678L on their details and all their records?” listing DDA sales 2 and Repeat prescriptions 1 (legal registers) and the 1 not changed, Keep focused; Change everywhere sends the confirmed plan, then the sale is saved with the new card",
+    dC && dC.title === "Change Laura Borg’s ID card from 0034567L to 0045678L on their details and all their records?" && /DDA saleslegal register2/.test(dC.text) && /Repeat prescriptionslegal register1/.test(dC.text) && /1 record with 0034567L under another name is not changed/.test(dC.text) && dC.focus === "Keep 0034567L" &&
+    JSON.stringify(dC.btns) === JSON.stringify(["Go back", "Only this DDA sale", "Keep 0034567L", "Change everywhere"]) &&
+    changes.length === 2 && changes[0].from === "0034567L" && changes[0].to === "0045678L" && !changes[0].confirm && changes[1].confirm === true && changes[1].plan === "pl1" &&
+    dC2 && /Changed on Laura Borg’s details and 4 records/.test(dC2.text) && ddaC.length === 1 && ddaC[0].body.client_id_card === "0045678L",
+    JSON.stringify({ dC, dC2, changes, ddaC: ddaC.map((c) => c.body) }).slice(0, 1500));
+
+  // ---------- Repeat prescriptions ----------
+  reset();
+  const openRep = async () => { await page.goto(base + "&ui=2#repeatprescriptions"); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "repreg" && document.querySelector("[data-act=add]"), null, { timeout: 15000 }); };
+  const repForm = async (card) => { await page.click("[data-act=add]"); await page.waitForTimeout(150); await page.fill("[name=client_id]", card); await page.fill("[name=client_name]", "Borg Laura"); await page.fill("[name=medicine_name_dose]", "Ramipril 5mg"); await page.fill("[name=posology]", "1 od"); await page.fill("[name=prescriber_name]", "Dr Borg"); await page.fill("[name=prescriber_reg_no]", "2"); };
+  await openRep(); await fetch(`http://localhost:${PORT}/__reset`);
+  await repForm("34567L"); await page.click("#rep-add button[type=submit]"); await waitDlg("^Add ID card"); const rA = await dlg();
+  await press("no"); await page.waitForFunction(() => !document.querySelector(".epc"), null, { timeout: 6000 }); await page.waitForTimeout(700);
+  const repA = await posts("/repeat-prescriptions/entries"); const repAcard = book[0].id_card;
+  await repForm("12345M"); await page.click("#rep-add button[type=submit]"); await waitDlg("belongs to"); const rB = await dlg(); await press("back"); await page.waitForTimeout(250);
+  const repB = await posts("/repeat-prescriptions/entries");
+  await page.click("[data-act=add-cancel]").catch(() => {});
+  book[0].id_card = "0034567L"; changes = [];
+  await repForm("45678L"); await page.click("#rep-add button[type=submit]"); await waitDlg("^Change"); const rC = await dlg();
+  await press("keep"); await page.waitForTimeout(300);
+  const repKeep = await page.evaluate(() => ({ card: document.querySelector("[name=client_id]").value, open: !!document.querySelector(".epc") }));
+  const repC0 = (await posts("/repeat-prescriptions/entries")).length;
+  await page.click("#rep-add button[type=submit]"); await page.waitForTimeout(900);
+  const repC = await posts("/repeat-prescriptions/entries");
+  report("id card A/B/C (repeat prescriptions): “Borg Laura” is Laura Borg (word order); A No saves the prescription only and links nobody; B stops on Carmel's card; C Keep puts 0034567L back in the form without saving, and pressing Record again saves it with no question",
+    rA && rA.title === "Add ID card 0034567L to Laura Borg’s details?" && repA.length === 1 && repA[0].body.client_id === "34567L" && repAcard === "" &&
+    rB && rB.title === "0012345M belongs to Carmel Zammit. Is this Carmel Zammit?" && repB.length === 1 &&
+    rC && /from 0034567L to 0045678L/.test(rC.title) && repKeep.card === "0034567L" && !repKeep.open && repC0 === 1 && repC.length === 2 && repC[1].body.client_id === "0034567L" && changes.filter((c) => c.confirm).length === 0,
+    JSON.stringify({ rA, repA: repA.map((c) => c.body), repAcard, rB, rC, repKeep, repC: repC.map((c) => c.body), changes }).slice(0, 1500));
+
+  // ---------- Orders (an optional ID card on the form, kept on the person; the order itself has no card) ----------
+  reset();
+  await page.goto(base + "&ui=2#clientorders");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector("[data-act=add]"), null, { timeout: 15000 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  const ordForm = async (card) => { await page.click("[data-act=add]"); await page.waitForTimeout(150); await page.fill("#ord-add [name=client_name]", "Laura Borg"); await page.fill("#ord-add [name=id_card]", card); await page.fill("#ord-add [name=items]", "Vitamin D"); await page.fill("#ord-add [name=needed_by]", todayYmd); };
+  await ordForm("34567l"); await page.click("#ord-add button[type=submit]"); await waitDlg("^Add ID card"); const oA = await dlg(); await press("yes");
+  await page.waitForFunction(() => !document.querySelector(".epc"), null, { timeout: 6000 }).catch(() => {});
+  const oA2 = await dlg(); if (oA2) await press("skip");
+  await page.waitForTimeout(700);
+  const ordA = await posts("/client-orders/entries");
+  await ordForm("12345m"); await page.click("#ord-add button[type=submit]"); await waitDlg("belongs to"); const oB = await dlg(); await page.keyboard.press("Escape"); await page.waitForTimeout(250);
+  const ordB = await posts("/client-orders/entries"); const ordBkept = await page.evaluate(() => ({ items: document.querySelector("#ord-add [name=items]").value, card: document.querySelector("#ord-add [name=id_card]").value }));
+  await page.click("[data-act=add-cancel]");
+  changes = [];
+  await ordForm("45678l"); await page.click("#ord-add button[type=submit]"); await waitDlg("^Change"); const oC = await dlg(); await press("change"); await waitDlg("^ID card changed");
+  await press("undo"); await page.waitForFunction(() => !document.querySelector(".epc"), null, { timeout: 6000 }); await page.waitForTimeout(400);
+  const ordC = await posts("/client-orders/entries"); const ordCform = await page.evaluate(() => !!document.querySelector("#ord-add"));
+  report("id card A/B/C (orders): A asks and puts 0034567L on Laura Borg, the order body has no card; B stops on Carmel's card with the form kept; C changes everywhere and Undo puts it back, nothing saved and the form still open",
+    oA && oA.title === "Add ID card 0034567L to Laura Borg’s details?" && book[0].id_card !== "" && ordA.length === 1 && !("id_card" in ordA[0].body) && ordA[0].body.client_name === "Laura Borg" &&
+    oB && /0012345M belongs to Carmel Zammit/.test(oB.title) && ordB.length === 1 && ordBkept.items === "Vitamin D" && ordBkept.card === "12345m" &&
+    oC && /from 0034567L to 0045678L/.test(oC.title) && changes.some((c) => c.confirm) && changes.some((c) => c.undo === "idc_00000000-0000-0000-0000-000000000002") && ordC.length === 1 && ordCform,
+    JSON.stringify({ oA, oA2: !!oA2, ordA: ordA.map((c) => c.body), oB, ordBkept, oC, changes, nC: ordC.length, ordCform }).slice(0, 1500));
+  await page.click("[data-act=add-cancel]").catch(() => {});
+  await page.unroute(isP, onP);
+} catch (e) { report("id card questions: ran to the end", false, String(e).slice(0, 400)); }
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });

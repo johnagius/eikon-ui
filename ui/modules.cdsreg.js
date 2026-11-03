@@ -200,6 +200,18 @@
       S.saving = false;
       if (dup) { S.dup = dup; S.dupOk = a.prescription_serial_no; return paint(); }
     }
+    // the ID card and the person: add it to them, stop on someone else's card, or change theirs (E.people.confirmPerson)
+    var asked = null;
+    if (!a.lines.some(function (l) { return l.saved; }) && E.people && E.people.confirmPerson) {
+      S.saving = true; paint();
+      asked = await E.people.confirmPerson({ name: a.client_name, id_card: a.client_id_card, address: a.client_address }, { key: C.id, record: C.pad ? "DDA sale" : "POYC entry" });
+      S.saving = false;
+      if (asked.action !== "save") { // nothing is saved; the form keeps everything (a name or card put in when asked)
+        if (asked.action === "fill") { if (asked.field === "name") a.client_name = asked.value; else a.client_id_card = idCard(asked.value); }
+        paint(true); var back = S.mount && S.mount.querySelector("[name=" + (asked.field === "name" ? "client_name" : "client_id_card") + "]"); if (back) back.focus();
+        return;
+      }
+    }
     S.saving = true; paint();
     var done = 0, failed = "", lost = null;
     // count what the register already holds for these lines, so a save whose answer is lost can be checked afterwards
@@ -223,7 +235,7 @@
       } catch (e1) { failed = "the connection dropped. Check the register below before pressing Record again"; }
     }
     S.saving = false;
-    if (done && E.linkPerson) E.linkPerson({ name: a.client_name, id_card: a.client_id_card, address: a.client_address, doctor_name: a.doctor_name }, C.id === "poyreg" ? "register:poyc" : "register:dda-sales"); // one person in Customers, found or added
+    if (done && E.linkPerson) E.linkPerson({ name: a.client_name, id_card: a.client_id_card, address: a.client_address, doctor_name: a.doctor_name }, C.id === "poyreg" ? "register:poyc" : "register:dda-sales", asked); // one person in Customers, found or added
     if (!failed) { S.adding = null; S.dup = null; S.dupOk = ""; E.toast(done === 1 ? "Recorded" : done + " medicines recorded", "success"); if (a.entry_date.slice(0, 7) !== S.month) S.month = a.entry_date.slice(0, 7); }
     else S.err = (done ? done + " saved. " : "") + "Not saved from " + (todo[done] || {}).medicine_name_dose + ": " + String(failed).replace(/\.$/, "") + ". Press Record to try the rest again.";
     return load();

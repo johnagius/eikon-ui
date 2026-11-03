@@ -142,11 +142,16 @@
     if (!String(body.name || "").trim()) return E.toast("Enter the person's name. Nothing was saved.", "warn");
     state.saving = true;
     var btn = form.querySelector("[data-act=save]"); if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+    // a changed ID card: on their details only, or on all their records too (E.people.confirmCardEdit); Go back keeps the form
+    var asked = E.people && E.people.confirmCardEdit ? await E.people.confirmCardEdit(p, body.id_card) : { action: "save" };
+    if (asked.action !== "save") { state.saving = false; if (btn) { btn.disabled = false; btn.textContent = "Save"; } var idf = form.querySelector("[name=id_card]"); if (idf) idf.focus(); return; }
+    if (asked.change && asked.person) { body.version = asked.person.version; body.id_card = asked.person.id_card; } // the card already changed everywhere: save the rest on top
     try {
       var r = await E.apiFetch("/people", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok || !r.person) throw new Error((r && r.error) || "Save failed");
       state.detail.person = r.person; state.editing = false;
       E.toast("Saved " + r.person.name, "success");
+      if (asked.stampAfter && r.person.id_card && E.people.stampAfterEdit) await E.people.stampAfterEdit(r.person);
       search(state.q);
       renderDetail();
     } catch (e) {
