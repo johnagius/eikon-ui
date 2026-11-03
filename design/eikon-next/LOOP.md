@@ -737,3 +737,9 @@ All of it waits only on the worker deploy.
 - Fixed in core and all 22 rebuilt screens: E.saveFailText marks "a save just failed", and the very next load (once, within 2.5 s) keeps what is on screen if it fails as well; the save message under the form explains. Any other load (opening, changing month) shows errors as before, so a stale month can never be shown under a new label. Handover's re-read after a save is quiet in the same way.
 - Proved: on the old code 5 checks fail (Handover loses the typing; all three lose the list); now 16/16 pass, and one save arrives on reconnect. New suite test (offline paid out): 139 tests, all pass.
 - Seen once in 3 suite runs: "customers: a stale edit is refused…" failed, then passed twice. Not touched by this change; to investigate next (flakes here have been real bugs before).
+
+## Round 86 — The Customers flake, and a lost-typing case it led to (UI .99)
+
+- "customers: a stale edit is refused…" failed once in 3 runs in round 85. Six more full runs and two runs with the browser's CPU slowed 6× and 8× around the Customers steps: never again. Reading the flow found no background load that can land after Edit. The only timing dependency was the test's fixed 700 ms pause after Save; it now waits for the outcome itself (the warning, or a "Saved"/"Not saved" message, ignoring the earlier "added to Customers" toast that can still be up). Logged as a test-timing flake, not an app bug.
+- Reading the save code showed a real gap: when someone else saved the customer first, the screen showed their version and said "make your change again", but what this person had typed was gone (the comment claimed it stayed in a toast; it did not). The warning now ends with what they had typed, field by field, e.g. "Yours was: Notes “Prefers SMS”." (only fields they changed that differ from the other version). Same idea as Handover's notes conflict.
+- Suite test extended to check that text. 139/139 (three runs).
