@@ -1047,3 +1047,8 @@ html[data-ui2] input[type=search]::-webkit-search-cancel-button{-webkit-appearan
 /* Keyboard focus in the new layout: one clear green ring, only when tabbing (not on tap or click) */
 html[data-ui2]:not([data-ui2-visit]) :is(button,a,[tabindex],select,input[type=checkbox]):focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:2px}
 html[data-ui2]:not([data-ui2-visit]) .eikon-rail-btn:focus-visible{outline-offset:-2px}
+/* Text fields: the grouped form rows hide the outline, so the row being typed in gets a faint tint instead,
+   and fields that have their own border turn green. Works with a mouse, a finger or the keyboard. */
+html[data-ui2]:not([data-ui2-visit]) .eikon-content form :is(label,.row):focus-within{background:rgba(10,143,106,.07)}
+html[data-ui2]:not([data-ui2-visit]) .eikon-content :is(textarea,input[type=search],.hnd-in):focus{border-color:var(--accent)!important}
+@media (prefers-color-scheme: dark){ html[data-ui2]:not([data-ui2-visit]) .eikon-content form :is(label,.row):focus-within{background:rgba(43,196,138,.14)} }
