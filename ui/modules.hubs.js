@@ -18,6 +18,7 @@
     cleaning: "Who cleaned what, and when.",
     dailyregister: "The day book: opening checks and sign-off.",
     "dda-purchases": "Controlled drugs received.",
+    rotreg: "This week at a glance: who works, when, and who is away.",
     "dda-sales": "Controlled drugs supplied, by prescription.",
     "dda-poyc": "POYC controlled-drug supplies.",
     dda_stocktakes: "Controlled-drug counts and discrepancies.",
@@ -79,7 +80,7 @@
     team: {
       title: "Team", lead: "Who is in, what they need to know, and what they are owed.",
       groups: [
-        { label: "Today", ids: ["shifts", "instructions", "messageboard"] },
+        { label: "Today", ids: ["rotreg", "shifts", "instructions", "messageboard"] },
         { label: "Locums", ids: ["locumregister", "locumreceipts"] },
         { label: "People we call", ids: ["contacts"] }
       ]
@@ -146,6 +147,8 @@
           // Registers rebuilt in the new layout open there; the rest still open in classic.
           var NATIVE = E.UI2_NATIVE || {}, nat = NATIVE[b.getAttribute("data-open")];
           if (nat && E.modules[nat]) { window.location.hash = "#" + nat; return; }
+          var own = b.getAttribute("data-open"); // a screen that only exists in the new layout opens here
+          if (E.modules[own] && E.modules[own].ui2Only) { window.location.hash = "#" + own; return; }
           try { sessionStorage.setItem("eikon_ui2_return", id); } catch (e) {}
           E.openClassic(b.getAttribute("data-open"));
         });

@@ -106,6 +106,9 @@ function mockApi(req, res, body) {
   if (p === "/instructions/daily" && req.method === "GET") { const y = url.searchParams.get("ymd"); return res.end(JSON.stringify({ ok: true, record: y === todayYmd ? { ymd: y, notes: "Inspector may visit", handover_out: [{ id: "t1", sev: "g", text: "Already for tomorrow" }] } : { ymd: y, notes: "", handover_out: [{ id: "y1", sev: "g", text: "Restock gloves" }, { id: "y2", sev: "r", text: "Methadone at 9" }] } })); }
   if (p === "/instructions/daily" && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
   if (p === "/instructions/global" && req.method === "GET") return res.end(JSON.stringify({ ok: true, global: { permanent_handover: { text: "Count the CD cupboard every evening" } } }));
+  if (p === "/shifts/staff" && req.method === "GET") return res.end(JSON.stringify({ ok: true, staff: [{ id: 1, full_name: "Maria Borg", designation: "Pharmacist" }, { id: 2, full_name: "Karl Vella", designation: "Assistant" }] }));
+  if (p === "/shifts/assignments-range") return res.end(JSON.stringify({ ok: true, shifts: [{ id: 1, staff_id: 1, shift_date: todayYmd, start_time: "08:00", end_time: "14:00" }] }));
+  if (p === "/shifts/leaves" && req.method === "GET") return res.end(JSON.stringify({ ok: true, leaves: [{ id: 1, staff_id: 2, leave_type: "sick", start_date: todayYmd, end_date: todayYmd, status: "approved" }, { id: 2, staff_id: 1, leave_type: "annual", start_date: todayYmd, end_date: todayYmd, status: "rejected" }] }));
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -789,6 +792,15 @@ const hnPut = (hnCalls.find((c) => c.method === "PUT") || {}).body || {};
 report("handover: opens from the old link, critical first; adding re-reads today and keeps the notes and the earlier point",
   /CRITICALMethadone/.test(hn1.first || "") && /CD cupboard/.test(hn1.always || "") && hn1.rail.join() === "team" && hnCalls[0].method === "GET" && hnPut.notes === "Inspector may visit" && hnPut.handover_out.length === 2 && hnPut.handover_out[0].text === "Already for tomorrow" && hnPut.handover_out[1].text === "Fridge door sticks" && hnPut.handover_out[1].sev === "r",
   JSON.stringify({ hn1, hnCalls }));
+
+// Who's in: a Team card next to Shifts, opens in the new layout, today's shift and approved leave, refused leave hidden.
+await page.goto(base + "&ui=2#team");
+await page.waitForFunction(() => document.querySelector('.hub-card[data-open="rotreg"]'), null, { timeout: 15000 });
+await page.click('.hub-card[data-open="rotreg"]');
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "rotreg" && document.querySelector(".rot-day.today .rot-p"), null, { timeout: 15000 });
+const rot = await page.evaluate(() => ({ today: document.querySelector(".rot-day.today").textContent, classic: location.search.indexOf("ui=classic") >= 0 }));
+report("who's in: opens from Team in the new layout; today's shift, approved sick leave shown, refused leave hidden",
+  !rot.classic && /Maria Borg.*08:00–14:00/.test(rot.today) && /Karl Vella.*Sick leave.*Away/.test(rot.today) && (rot.today.match(/Maria Borg/g) || []).length === 1, JSON.stringify(rot));
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
