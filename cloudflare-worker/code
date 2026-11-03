@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-03-bookings-16";
+const WORKER_VERSION = "2026-11-03-bookings-17";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -15424,13 +15424,13 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
 
   const ensures = [ensureDailyRegisterSchema, ensureCertificatesSchema, ensureAlertsSchema, ensureReturnsSchema, ensureNearExpirySchema,
     ensureClientOrdersSchema, ensureClientTicketsSchema, ensureDeliveriesSchema, ensureEndOfDaySchema, ensurePaidOutSchema, ensureShiftsSchema, ensureSupplierProductsSchema];
-  for (const fn of ensures) { try { await fn(env); } catch (e) {} }
-  try { await ensureDefaultTempDevicesIfMissing(env, authUser); } catch (e) {}
-  try { await ensureDefaultCertificatesIfMissing(env, authUser); } catch (e) {}
-
-  // ---- Before opening: the registers that must be filled today
-  const before = [];
-  const devs = await all(
+  // The schema steps do not depend on each other: all at once, then the two default seeds (they need the tables).
+  await Promise.all(ensures.map(function (fn) { return Promise.resolve().then(function () { return fn(env); }).catch(function () {}); }));
+  await Promise.all([ensureDefaultTempDevicesIfMissing(env, authUser).catch(function () {}), ensureDefaultCertificatesIfMissing(env, authUser).catch(function () {})]);
+  const nowHm = tzHm();
+  // Every read below depends only on the pharmacy and today's dates: start them together (one round trip of
+  // waiting instead of ~20 in a row); each one is awaited where it is used.
+  const __p_devs = all(
     `SELECT d.id, d.name, d.device_type, d.min_limit, d.max_limit,
             t.min_temp AS t_min, t.max_temp AS t_max, y.min_temp AS y_min, y.max_temp AS y_max
        FROM temperature_devices d
@@ -15438,6 +15438,47 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
        LEFT JOIN temperature_entries y ON y.device_id = d.id AND y.org_id = d.org_id AND y.location_id = d.location_id AND y.entry_date = ?
       WHERE d.org_id = ? AND d.location_id = ? AND d.active = 1
       ORDER BY d.id`, [today, yesterday, org, loc]);
+  const __p_drCount = one(`SELECT COUNT(*) AS c FROM daily_register_entries WHERE org_id = ? AND location_id = ? AND entry_date = ?`, [org, loc, today]);
+  const __p_lastClean = one(`SELECT entry_date, cleaner_name FROM cleaning_entries WHERE org_id = ? AND location_id = ? ORDER BY entry_date DESC, time_in DESC LIMIT 1`, [org, loc]);
+  const __p_orders = all(
+    `SELECT id, client_name, client_phone, items_text, priority, needed_by, pickup_date, order_date, follow_up_status, order_code
+       FROM client_orders_entries WHERE org_id = ? AND location_id = ? AND fulfilled = 0
+      ORDER BY priority ASC, COALESCE(NULLIF(needed_by, ''), '9999-12-31') ASC, order_date ASC LIMIT 50`, [org, loc]);
+  const __p_tickets = all(
+    `SELECT id, ticket_id, client_name, phone, issue, status, priority, open_date, followup_date
+       FROM client_tickets_entries WHERE org_id = ? AND location_id = ? AND resolved = 0 AND status NOT IN ('Resolved', 'Closed')
+      ORDER BY priority ASC, open_date ASC LIMIT 50`, [org, loc]);
+  const __p_deliveries = all(
+    `SELECT id, delivery_id, client_name, phone, delivery_address, scheduled_date, scheduled_time_slot, order_date, status, cold_chain_required, contains_controlled
+       FROM client_deliveries WHERE org_id = ? AND location_id = ? AND status IN ('Scheduled', 'Dispatched', 'Out for Delivery')
+        AND COALESCE(NULLIF(scheduled_date, ''), order_date) <= ?
+      ORDER BY COALESCE(NULLIF(scheduled_date, ''), order_date) ASC, priority ASC, id ASC LIMIT 50`, [org, loc, today]);
+  const __p_certs = all(`SELECT item_key, title, last_date, interval_months FROM certificates_items WHERE org_id = ? AND location_id = ?`, [org, loc]);
+  const __p_alerts = all(
+    `SELECT id, item_name, alert_type, status, entry_date, team_informed, supplier_informed, authorities_informed, return_arranged, handed_over, collection_note_received, credit_note_received
+       FROM alerts_entries WHERE org_id = ? AND location_id = ? AND lower(status) != 'closed' ORDER BY entry_date DESC LIMIT 20`, [org, loc]);
+  const __p_retOpen = one(
+    `SELECT COUNT(*) AS c FROM returns_entries WHERE org_id = ? AND location_id = ? AND entry_date >= ? AND COALESCE(supplier_refused, 0) = 0
+        AND NOT (return_arranged = 1 AND handed_over = 1 AND collection_note_received = 1 AND credit_note_received = 1)`, [org, loc, sixMonthsAgo]);
+  const __p_ne = all(`SELECT product_name, expiry_date FROM near_expiry_entries WHERE org_id = ? AND location_id = ? AND COALESCE(return_status, '') != 'handed_over' AND expiry_date <= ? ORDER BY expiry_date ASC LIMIT 200`, [org, loc, in30]);
+  const __p_eod = one(`SELECT id, locked_at, saved_at, staff_name FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date = ?`, [org, loc, today]);
+  const __p_po = one(`SELECT COALESCE(SUM(fee), 0) AS total, COUNT(*) AS c FROM paid_out_entries WHERE org_id = ? AND location_id = ? AND entry_date = ?`, [org, loc, today]);
+  const __p_so = all(`SELECT status, COUNT(*) AS c FROM supplier_orders WHERE org_id = ? AND pharmacy_location_id = ? AND status IN ('pending', 'shipped') GROUP BY status`, [org, loc]);
+  const __p_shifts = all(
+    `SELECT a.start_time, a.end_time, s.full_name, s.designation FROM shift_assignments a JOIN shift_staff s ON s.id = a.staff_id
+      WHERE a.org_id = ? AND a.location_id = ? AND a.shift_date = ? ORDER BY a.start_time ASC`, [org, loc, today]);
+  const __p_hand = one(`SELECT ymd, notes, handover_json FROM instructions_daily WHERE org_id = ? AND location_id = ? AND ymd = ?`, [org, loc, yesterday]);
+  const __p_notesToday = one(`SELECT notes FROM instructions_daily WHERE org_id = ? AND location_id = ? AND ymd = ?`, [org, loc, today]);
+  const __p_bkRows = all(
+    `SELECT b.id, b.start_time, b.end_time, b.person_name, b.status, s.name AS service, p.name AS provider
+       FROM bk_bookings b LEFT JOIN bk_services s ON s.id = b.service_id LEFT JOIN bk_providers p ON p.id = b.provider_id
+      WHERE b.org_id = ? AND b.location_id = ? AND b.date = ? AND b.status IN ('booked','confirmed','arrived') AND b.end_time > ?
+      ORDER BY b.start_time ASC, b.id ASC LIMIT 6`, [org, loc, today, nowHm]);
+  const __p_bkTotal = one(`SELECT COUNT(*) AS c FROM bk_bookings WHERE org_id = ? AND location_id = ? AND date = ? AND status <> 'cancelled'`, [org, loc, today]);
+
+  // ---- Before opening: the registers that must be filled today
+  const before = [];
+  const devs = await __p_devs;
   for (const d of devs) {
     const done = d.t_min != null && d.t_max != null;
     const lo = todayNum(d.min_limit), hi = todayNum(d.max_limit);
@@ -15452,14 +15493,14 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
       action: { method: "POST", path: "/temperature/entries", body: { device_id: d.id, entry_date: today }, fields: ["min_temp", "max_temp", "notes"], label: "Log" }
     });
   }
-  const drCount = await one(`SELECT COUNT(*) AS c FROM daily_register_entries WHERE org_id = ? AND location_id = ? AND entry_date = ?`, [org, loc, today]);
+  const drCount = await __p_drCount;
   const drN = Number(drCount && drCount.c || 0);
   before.push({
     kind: "daily_register", title: "Daily register", sub: drN ? (drN + (drN === 1 ? " entry" : " entries") + " today") : "No entry yet today",
     status: drN ? "done" : "todo", count_today: drN,
     action: { type: "open", path: "#dailyregister", label: "Open" }
   });
-  const lastClean = await one(`SELECT entry_date, cleaner_name FROM cleaning_entries WHERE org_id = ? AND location_id = ? ORDER BY entry_date DESC, time_in DESC LIMIT 1`, [org, loc]);
+  const lastClean = await __p_lastClean;
   const cleanDays = lastClean ? ymdDiffDays(lastClean.entry_date, today) : null;
   before.push({
     kind: "cleaning", title: "Cleaning",
@@ -15471,31 +15512,21 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
 
   // ---- Customers waiting: orders to hand over, questions to answer
   const waiting = [];
-  const orders = await all(
-    `SELECT id, client_name, client_phone, items_text, priority, needed_by, pickup_date, order_date, follow_up_status, order_code
-       FROM client_orders_entries WHERE org_id = ? AND location_id = ? AND fulfilled = 0
-      ORDER BY priority ASC, COALESCE(NULLIF(needed_by, ''), '9999-12-31') ASC, order_date ASC LIMIT 50`, [org, loc]);
+  const orders = await __p_orders;
   for (const o of orders) {
     waiting.push({ kind: "order", id: o.id, name: o.client_name, phone: o.client_phone || "", detail: o.items_text || "", code: o.order_code || "",
       needed_by: o.needed_by || null, pickup_date: o.pickup_date || null, priority: Number(o.priority) || 2,
       waiting_days: ymdDiffDays(o.order_date, today), due_today: !!(o.needed_by && o.needed_by <= today),
       action: { type: "open", path: "#clientorders", label: "Open" } });
   }
-  const tickets = await all(
-    `SELECT id, ticket_id, client_name, phone, issue, status, priority, open_date, followup_date
-       FROM client_tickets_entries WHERE org_id = ? AND location_id = ? AND resolved = 0 AND status NOT IN ('Resolved', 'Closed')
-      ORDER BY priority ASC, open_date ASC LIMIT 50`, [org, loc]);
+  const tickets = await __p_tickets;
   for (const t of tickets) {
     waiting.push({ kind: "question", id: t.id, ref: t.ticket_id || "", name: t.client_name, phone: t.phone || "", detail: t.issue || "", status: t.status,
       priority: Number(t.priority) || 2, waiting_days: ymdDiffDays(t.open_date, today), followup_date: t.followup_date || null,
       action: { type: "open", path: "#tickets", label: "Reply" } });
   }
   // deliveries still to go out today, and any that slipped past their day
-  const deliveries = await all(
-    `SELECT id, delivery_id, client_name, phone, delivery_address, scheduled_date, scheduled_time_slot, order_date, status, cold_chain_required, contains_controlled
-       FROM client_deliveries WHERE org_id = ? AND location_id = ? AND status IN ('Scheduled', 'Dispatched', 'Out for Delivery')
-        AND COALESCE(NULLIF(scheduled_date, ''), order_date) <= ?
-      ORDER BY COALESCE(NULLIF(scheduled_date, ''), order_date) ASC, priority ASC, id ASC LIMIT 50`, [org, loc, today]);
+  const deliveries = await __p_deliveries;
   for (const d of deliveries) {
     const due = d.scheduled_date || d.order_date || today;
     waiting.push({ kind: "delivery", id: d.id, ref: d.delivery_id || "", name: d.client_name, phone: d.phone || "", detail: d.delivery_address || "", slot: d.scheduled_time_slot || "",
@@ -15505,7 +15536,7 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
 
   // ---- Attention: paperwork and dates that are slipping
   const attention = [];
-  const certs = await all(`SELECT item_key, title, last_date, interval_months FROM certificates_items WHERE org_id = ? AND location_id = ?`, [org, loc]);
+  const certs = await __p_certs;
   for (const c of certs) {
     if (!c.last_date) continue;
     let due = "";
@@ -15514,19 +15545,15 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
     if (due < today) attention.push({ kind: "certificate", title: c.title, status: "expired", due, days: ymdDiffDays(due, today), action: { type: "open", path: "#certificates", label: "Open" } });
     else if (due <= in30) attention.push({ kind: "certificate", title: c.title, status: "due_soon", due, days: ymdDiffDays(today, due), action: { type: "open", path: "#certificates", label: "Open" } });
   }
-  const alerts = await all(
-    `SELECT id, item_name, alert_type, status, entry_date, team_informed, supplier_informed, authorities_informed, return_arranged, handed_over, collection_note_received, credit_note_received
-       FROM alerts_entries WHERE org_id = ? AND location_id = ? AND lower(status) != 'closed' ORDER BY entry_date DESC LIMIT 20`, [org, loc]);
+  const alerts = await __p_alerts;
   for (const a of alerts) {
     const flags = ["team_informed", "supplier_informed", "authorities_informed", "return_arranged", "handed_over", "collection_note_received", "credit_note_received"];
     const left = flags.filter((f) => Number(a[f] || 0) !== 1).length;
     attention.push({ kind: "alert", id: a.id, title: a.item_name, alert_type: a.alert_type, status: a.status, steps_left: left, date: a.entry_date, action: { type: "open", path: "#alerts", label: "Open" } });
   }
-  const retOpen = await one(
-    `SELECT COUNT(*) AS c FROM returns_entries WHERE org_id = ? AND location_id = ? AND entry_date >= ? AND COALESCE(supplier_refused, 0) = 0
-        AND NOT (return_arranged = 1 AND handed_over = 1 AND collection_note_received = 1 AND credit_note_received = 1)`, [org, loc, sixMonthsAgo]);
+  const retOpen = await __p_retOpen;
   if (Number(retOpen && retOpen.c || 0) > 0) attention.push({ kind: "returns", open_count: Number(retOpen.c), title: Number(retOpen.c) + (Number(retOpen.c) === 1 ? " return" : " returns") + " awaiting paperwork", action: { type: "open", path: "#returns", label: "Open" } });
-  const ne = await all(`SELECT product_name, expiry_date FROM near_expiry_entries WHERE org_id = ? AND location_id = ? AND COALESCE(return_status, '') != 'handed_over' AND expiry_date <= ? ORDER BY expiry_date ASC LIMIT 200`, [org, loc, in30]);
+  const ne = await __p_ne;
   if (ne.length) {
     const expired = ne.filter((x) => x.expiry_date < today);
     attention.push({ kind: "near_expiry", expired_count: expired.length, due30_count: ne.length - expired.length, first: ne[0].product_name, first_expiry: ne[0].expiry_date,
@@ -15535,31 +15562,24 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
   }
 
   // ---- Takings, stock, team
-  const eod = await one(`SELECT id, locked_at, saved_at, staff_name FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date = ?`, [org, loc, today]);
-  const po = await one(`SELECT COALESCE(SUM(fee), 0) AS total, COUNT(*) AS c FROM paid_out_entries WHERE org_id = ? AND location_id = ? AND entry_date = ?`, [org, loc, today]);
+  const eod = await __p_eod;
+  const po = await __p_po;
   const takings = { end_of_day_saved: !!eod, end_of_day_locked: !!(eod && eod.locked_at), paid_out_today: Math.round(Number(po && po.total || 0) * 100) / 100, paid_out_count: Number(po && po.c || 0),
     action: { type: "open", path: "#endofday", label: eod ? (eod.locked_at ? "View" : "Close the day") : "Close the day" } };
-  const so = await all(`SELECT status, COUNT(*) AS c FROM supplier_orders WHERE org_id = ? AND pharmacy_location_id = ? AND status IN ('pending', 'shipped') GROUP BY status`, [org, loc]);
+  const so = await __p_so;
   const stock = { supplier_orders_pending: 0, supplier_orders_shipped: 0 };
   for (const r of so) { if (r.status === "pending") stock.supplier_orders_pending = Number(r.c); if (r.status === "shipped") stock.supplier_orders_shipped = Number(r.c); }
-  const shifts = await all(
-    `SELECT a.start_time, a.end_time, s.full_name, s.designation FROM shift_assignments a JOIN shift_staff s ON s.id = a.staff_id
-      WHERE a.org_id = ? AND a.location_id = ? AND a.shift_date = ? ORDER BY a.start_time ASC`, [org, loc, today]);
-  const hand = await one(`SELECT ymd, notes, handover_json FROM instructions_daily WHERE org_id = ? AND location_id = ? AND ymd = ?`, [org, loc, yesterday]);
-  const notesToday = await one(`SELECT notes FROM instructions_daily WHERE org_id = ? AND location_id = ? AND ymd = ?`, [org, loc, today]);
+  const shifts = await __p_shifts;
+  const hand = await __p_hand;
+  const notesToday = await __p_notesToday;
   let incoming = [];
   try { incoming = hand ? parseHandoverJson(hand.handover_json) : []; } catch (e) { incoming = []; }
   const team = { on_today: shifts.map((x) => ({ name: x.full_name, role: x.designation, from: x.start_time, to: x.end_time })),
     handover_incoming: Array.isArray(incoming) ? incoming : [], notes_today: notesToday ? String(notesToday.notes || "") : "" };
 
   // ---- Bookings today (new appointments): the next few still to come. Empty if Bookings is not set up.
-  const nowHm = tzHm();
-  const bkRows = await all(
-    `SELECT b.id, b.start_time, b.end_time, b.person_name, b.status, s.name AS service, p.name AS provider
-       FROM bk_bookings b LEFT JOIN bk_services s ON s.id = b.service_id LEFT JOIN bk_providers p ON p.id = b.provider_id
-      WHERE b.org_id = ? AND b.location_id = ? AND b.date = ? AND b.status IN ('booked','confirmed','arrived') AND b.end_time > ?
-      ORDER BY b.start_time ASC, b.id ASC LIMIT 6`, [org, loc, today, nowHm]);
-  const bkTotal = await one(`SELECT COUNT(*) AS c FROM bk_bookings WHERE org_id = ? AND location_id = ? AND date = ? AND status <> 'cancelled'`, [org, loc, today]);
+  const bkRows = await __p_bkRows;
+  const bkTotal = await __p_bkTotal;
   const bookings = { total_today: bkTotal ? Number(bkTotal.c) || 0 : 0,
     next: bkRows.map((r) => ({ id: r.id, start: r.start_time, end: r.end_time, name: r.person_name, status: r.status, service: r.service || "", provider: r.provider || "" })),
     action: { type: "open", path: "#bookings", label: "Bookings" } };
@@ -15946,14 +15966,45 @@ async function handlePeopleBackfill(request, env, corsOkHeaders, authUser) {
   return jsonResponse({ ok: true, created: batch.length, remaining: toInsert.length - batch.length, scanned }, 200, corsOkHeaders);
 }
 
+// The memo above lasts one isolate, and Cloudflare starts isolates often: a cold /today ran ~100 schema statements
+// (2–3 s on D1, once 12 s). So each schema step also leaves a mark in the database (eikon_schema: name -> fingerprint
+// of its own code). A new isolate reads all marks in one query and skips every step whose code has not changed;
+// a changed step (new column, new index) runs once more. Anything odd (no table, a failed read) runs the step as before.
+const __schemaMarks = new WeakMap();
+function schemaFingerprint(name, impl) {
+  const src = name + ":" + String(impl);
+  let h = 5381; for (let i = 0; i < src.length; i++) h = ((h * 33) ^ src.charCodeAt(i)) >>> 0;
+  return h.toString(36) + "." + src.length.toString(36);
+}
+function schemaMarks(env, key) {
+  let p = __schemaMarks.get(key);
+  if (!p) {
+    p = env.DB.prepare("SELECT k, v FROM eikon_schema").all()
+      .then((r) => { const o = new Map(); for (const row of ((r && r.results) || [])) o.set(row.k, row.v); return o; })
+      .catch(() => new Map());
+    __schemaMarks.set(key, p);
+  }
+  return p;
+}
+async function schemaMark(env, name, fp) {
+  try {
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS eikon_schema (k TEXT PRIMARY KEY, v TEXT NOT NULL, at TEXT NOT NULL DEFAULT (datetime('now')))").run();
+    await env.DB.prepare("INSERT INTO eikon_schema (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v, at = datetime('now')").bind(name, fp).run();
+  } catch (e) {} // a mark is only a shortcut: without it the step simply runs again next time
+}
 function schemaOnce(name, impl) {
+  const fp = schemaFingerprint(name, impl);
   return async function (env) {
     const key = (env && typeof env.DB === "object" && env.DB) ? env.DB : globalThis;
     let m = __schemaDone.get(key);
     if (!m) { m = new Map(); __schemaDone.set(key, m); }
     let p = m.get(name);
     if (!p) {
-      p = Promise.resolve().then(() => impl(env)).catch((e) => { m.delete(name); throw e; });
+      p = Promise.resolve().then(async () => {
+        if (key !== globalThis) { const marks = await schemaMarks(env, key); if (marks.get(name) === fp) return; }
+        await impl(env);
+        if (key !== globalThis) await schemaMark(env, name, fp);
+      }).catch((e) => { m.delete(name); throw e; });
       m.set(name, p);
     }
     return p;
