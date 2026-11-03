@@ -622,3 +622,8 @@ All of it waits only on the worker deploy.
   responses, both handled: /client-orders range (400 → month fallback, by design) and /bookings/setup (404 →
   "Bookings is not switched on for this pharmacy yet"). So the live site is consistent while bookings-13 waits.
 - Repeatable: scratchpad/tools/prodmix.mjs (serve the mix on :8803 with serve.mjs).
+
+## Round 68 — a test that could not see the bug it guards
+- The worker source check for String(x !== undefined ? x : existing.x) used single spaces; three column-aligned
+  lines in the order diary update slipped past. Pattern now \s+; lines fall back to "". Order diary columns are
+  NOT NULL DEFAULT '' → no stored data affected (defensive). Worker 99/99. WORKER_VERSION bookings-14.
