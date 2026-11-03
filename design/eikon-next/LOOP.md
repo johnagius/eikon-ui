@@ -701,3 +701,10 @@ All of it waits only on the worker deploy.
 - Bookings had no coverage in tests/ui/run.mjs, only scratchpad e2e against the local real stack. Added mocks (setup with one service and one practitioner, today's list, waiting list, rooms, free times, booking POST, provider PUT) and one test covering: today's list draws; settings opened with Enter is a labelled modal dialog holding focus; 30 Tabs never leave it; Escape closes it and focus returns to the gear; "+" after 09:00–13:00 gives 16:00–19:00; a new booking sends exactly one POST with the chosen time and name.
 - Proved it bites: against the Bookings module from before rounds 77–79 it fails (reported as one FAIL; the test is wrapped so a timeout reports instead of aborting the suite). On current code: 138/138.
 - No UI change, so no BUILD bump. Worker still bookings-14, awaiting John's deploy.
+
+## Round 81 — Phone review of the newest screens (UI .93)
+
+- .92 confirmed live (BUILD 2026-11-03.92 served). Worker still 2026-11-02-fixes-1; bookings-14 awaits John.
+- Phone (390×844) screenshots of Who's in, Shortages, Price check, Order diary, Locum receipts, Credit notes, Repeat prescriptions and Handover, empty-state view. Most read well. Who's in was the weak one: an empty week drew seven identical "No one on the rota." boxes, a full phone screen of nothing. Now one card, "Nothing planned this week · No shifts and no leave from 2 Nov to 8 Nov", with a Plan shifts button to the classic Shifts screen. Weeks with any shift or leave draw as before (the suite's rota test still passes).
+- Checked on 8 screens that, scrolled to the bottom, the last line clears the floating tab bar. It does.
+- UI suite 138/138. Light and dark checked.
