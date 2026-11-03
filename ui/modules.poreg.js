@@ -54,7 +54,11 @@
     } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load paid outs"); }
     S.loading = false; paint();
   }
-  async function loadNames() { try { var r = await E.apiFetch("/paid-out/names", { method: "GET" }); S.names = (r && r.ok && r.names) || []; } catch (e) { S.names = []; } if (S.adding) paint(); }
+  async function loadNames() {
+    try { var r = await E.apiFetch("/paid-out/names", { method: "GET" }); S.names = (r && r.ok && r.names) || []; } catch (e) { S.names = []; }
+    // only the suggestion list changes: redrawing the form here could swallow a tap on Record that lands at the same moment
+    var dl = S.mount && S.mount.querySelector("#por-names"); if (dl) dl.innerHTML = S.names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("");
+  }
 
   function paint(fromState) {
     var m = S.mount; if (!m) return;

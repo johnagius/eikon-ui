@@ -35,7 +35,7 @@
       // browser and the Worker's edge cache can reuse every file (previously every load
       // used Date.now(), so 52 files were re-downloaded on every visit).
       // Bump BUILD on EVERY change to any file in ui/: browsers keep stamped files for a day.
-      var BUILD = "2026-11-02.76";
+      var BUILD = "2026-11-02.78";
 
       function log() { try { console.log.apply(console, arguments); } catch (e) {} }
       function warn() { try { console.warn.apply(console, arguments); } catch (e) {} }
@@ -142,6 +142,7 @@
         "./modules.hndreg.js",
         "./modules.rotreg.js",
         "./modules.repreg.js",
+        "./modules.cnreg.js",
         "./modules.alerts.js",
         "./modules.shifts.js",
         "./modules.ocps.js",

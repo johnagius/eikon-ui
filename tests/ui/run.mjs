@@ -112,6 +112,8 @@ function mockApi(req, res, body) {
   if (p === "/repeat-prescriptions/entries" && req.method === "GET") { const d = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
     return res.end(JSON.stringify({ ok: true, entries: [{ id: 81, entry_date: d(-170), expires_date: d(12), client_name: "Zammit Carmel", client_id: "123456M", medicine_name_dose: "Atorvastatin 20mg", posology: "1 at night", prescriber_name: "Dr Abela", prescriber_reg_no: "R1201" }] })); }
   if (p === "/repeat-prescriptions/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, entry_id: 82 }));
+  if (p === "/creditnotes/list") return res.end(JSON.stringify({ ok: true, entries: [{ id: 91, issue_date: "2026-10-01", client_name: "Rita", client_surname: "Camilleri", telephone: "79222333", amount: 30, expiry_date: "", no_expiry: false, purchase_entries: [{ id: 1, amount: 12.5 }], notes: [] }] }));
+  if (/^\/creditnotes\/entries\/\d+\/purchases$/.test(p) && req.method === "POST") return res.end(JSON.stringify({ ok: true, id: 2 }));
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -782,7 +784,7 @@ await page.click("[data-act=add]"); await page.fill("[name=payee_name]", "Cleane
 const poPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/paid-out/entries").map((c) => c.body);
 report("paid out: opens from the old link in the new layout with today's total; 25,5 is recorded as 25.50 cash",
   /Today€12\.50/.test(po1) && poPosts.length === 1 && poPosts[0].fee === 25.5 && poPosts[0].payment_method === "cash" && poPosts[0].cheque_no === "" && poPosts[0].payee_name === "Cleaner Joe" && /^\d{2}:\d{2}$/.test(poPosts[0].entry_time),
-  JSON.stringify({ po1, poPosts }));
+  JSON.stringify({ po1, poPosts, poErr: await page.evaluate(() => { const e = document.querySelector(".por-err"); const d = document.querySelector("[name=entry_date]"); const t = document.querySelector("[name=entry_time]"); return [(e || {}).textContent, d && d.value, t && t.value, new Date().toString()].join(" | "); }) }));
 
 // Handover in the new layout: critical first from yesterday; adding a point re-reads the day and sends notes and every point.
 await page.goto(base + "&ui=2#instructions");
@@ -822,6 +824,19 @@ await page.click(".rep-row [data-act=renew]"); await page.click("#rep-add button
 const repPost = ((await (await fetch(`http://localhost:${PORT}/__calls`)).json()).find((c) => c.method === "POST" && c.path === "/repeat-prescriptions/entries") || {}).body || {};
 report("repeat prescriptions: opens from the old link, flags the one expiring soon; Renew records the same prescription dated today",
   /Expires in 12 days/.test(rep1) && repPost.client_id === "123456M" && repPost.medicine_name_dose === "Atorvastatin 20mg" && repPost.prescriber_reg_no === "R1201" && repPost.entry_date === todayYmd && repPost.expires_date === "", JSON.stringify({ rep1, repPost }));
+
+// Credit notes: what is left; using more than is left is refused before anything is sent; Use all sends exactly the rest.
+await page.goto(base + "&ui=2#creditnotes");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "cnreg" && document.querySelector(".cnr-card"), null, { timeout: 15000 });
+const cn1 = await page.textContent(".cnr-card");
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.click(".cnr-card [data-act=use]"); await page.fill("#cnr-use [name=amount]", "20"); await page.click("#cnr-use button[type=submit]"); await page.waitForTimeout(600);
+const cnErr = await page.textContent(".cnr-err").catch(() => "");
+const cnBefore = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST").length;
+await page.click("[data-act=all]"); await page.click("#cnr-use button[type=submit]"); await page.waitForTimeout(600);
+const cnPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST").map((c) => ({ path: c.path, amount: c.body && c.body.amount }));
+report("credit notes: opens from the old link with what is left; more than is left is refused; Use all sends the rest",
+  /€17\.50 left/.test(cn1) && /only €17\.50 is left/.test(cnErr) && cnBefore === 0 && cnPosts.length === 1 && cnPosts[0].path === "/creditnotes/entries/91/purchases" && cnPosts[0].amount === 17.5, JSON.stringify({ cn1, cnErr, cnPosts }));
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };

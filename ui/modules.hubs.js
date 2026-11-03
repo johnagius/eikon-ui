@@ -28,7 +28,7 @@
     audit: "Who changed what, across the whole system.",
     endofday: "Close the till: X readings, cash, cheques, the bank bag.",
     paidout: "Cash paid out of the till, with a reason.",
-    creditnotes: "Credit notes owed to and by suppliers.",
+    creditnotes: "Money customers have with you, and what is left of it.",
     locumreceipts: "Locum hours and fees, ready to pay.",
     "emergency-pos": "Sell when the main till is down; syncs later.",
     poct: "Blood pressure, glucose, cholesterol and other tests, per patient.",

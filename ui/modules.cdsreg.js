@@ -70,7 +70,8 @@
   }
   async function loadDoctors() { // the prescribers this pharmacy sees most, for the name list
     try { S.doctors = await C.doctors(""); } catch (e) { S.doctors = []; }
-    if (S.adding) paint();
+    // only the suggestion list changes: redrawing the form here could swallow a tap that lands at the same moment
+    var dl = S.mount && S.mount.querySelector("#cds-docs"); if (dl) dl.innerHTML = uniq(S.doctors.map(function (d) { return d.doctor_name; })).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("");
   }
 
   function paint(fromState) {
