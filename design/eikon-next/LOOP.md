@@ -596,3 +596,11 @@ All of it waits only on the worker deploy.
   (fixed + Good Friday), shared rate memory key, known locum → reg no, live total. Holiday tag uses stored
   day_type (caught in screenshot: a Sunday paid at normal rate was tagged holiday). Real worker + print popup
   checked. UI 131/131. BUILD .80.
+
+## Round 64 — tour 2; lost answers on saves
+- Live: BUILD .80. Second tour image (Handover, Who's in, Repeat Rx, Credit notes, Locum receipts) sent to John.
+- Saves that time out / lose the connection were reported "Not saved: Network error" though the server may have stored
+  them (risk: duplicate register lines on retry). E.saveFailText in core; 16 rebuilt screens use it.
+- CD registers: baseline count of matching entries before saving; on a lost answer, re-read and mark the line saved
+  if it arrived. Real worker test: POST reaches the server, reply cut → found, retry sends only the rest; no
+  duplicates. UI 131/131. BUILD .81.
