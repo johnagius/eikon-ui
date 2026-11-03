@@ -38,6 +38,7 @@
       ".rot-p.off{opacity:.75}.rot-p.off em{font-weight:500;color:var(--warn,#A06A0E)}" +
       ".rot-empty{padding:22px 18px;display:flex;flex-direction:column;align-items:flex-start;gap:6px}.rot-empty b{font-size:17px}.rot-empty span{color:var(--muted);font-size:14px}" +
       ".rot-btn{font:inherit;font-size:14px;font-weight:600;height:36px;padding:0 16px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;margin-top:8px}.rot-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}" +
+      ".rot-day.none .h{padding:11px 14px}.rot-day.none:not(.today) .h b{font-weight:600;color:var(--muted)}" +
       ".rot-none{padding:8px 14px 12px;color:var(--muted);font-size:13.5px}" +
       ".rot-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       "@media (max-width:600px){.rot{padding:4px 16px 0}.rot h1{font-size:32px}}";
@@ -83,7 +84,8 @@
         var d = plus(S.monday, i), key = ymd(d);
         var day = S.shifts.filter(function (x) { return x.shift_date === key; });
         var away = S.leaves.filter(function (l) { return l.start_date <= key && l.end_date >= key; });
-        h += '<div class="rot-day' + (key === today ? " today" : "") + '"><div class="h"><b>' + (key === today ? "Today" : DAY[i]) + "</b><span>" + d.getDate() + " " + MON[d.getMonth()] + (day.length ? " · " + day.length + (day.length === 1 ? " shift" : " shifts") : "") + "</span></div>";
+        var empty = !day.length && !away.length; // a day with nobody is one slim line, so the working days stand out
+        h += '<div class="rot-day' + (key === today ? " today" : "") + (empty ? " none" : "") + '"><div class="h"><b>' + (key === today ? "Today" : DAY[i]) + "</b><span>" + d.getDate() + " " + MON[d.getMonth()] + (day.length ? " · " + day.length + (day.length === 1 ? " shift" : " shifts") : "") + (empty ? " · Nobody on" : "") + "</span></div>";
         h += day.map(function (x) {
           var p = S.staff[x.staff_id] || { full_name: "Staff #" + x.staff_id };
           return '<div class="rot-p"><span class="rot-av" style="background:hsl(' + hue(p.full_name) + ',45%,42%)">' + esc(initials(p.full_name)) + '</span><div class="t"><b>' + esc(p.full_name) + "</b><span>" + esc(x.role_override || p.designation || "") + (x.notes ? " · " + esc(x.notes) : "") + "</span></div><em>" + esc(hm(x.start_time)) + "–" + esc(hm(x.end_time)) + "</em></div>";
@@ -92,7 +94,6 @@
           var p = S.staff[l.staff_id] || { full_name: "Staff #" + l.staff_id };
           return '<div class="rot-p off"><span class="rot-av" style="background:hsl(' + hue(p.full_name) + ',20%,55%)">' + esc(initials(p.full_name)) + '</span><div class="t"><b>' + esc(p.full_name) + "</b><span>" + esc(leaveLabel(l.leave_type)) + "</span></div><em>" + (String(l.status).toLowerCase() === "pending" ? "Asked for leave" : "Away") + (l.start_time && l.start_date === key ? " from " + esc(hm(l.start_time)) : "") + "</em></div>";
         }).join("");
-        if (!day.length && !away.length) h += '<div class="rot-none">No one on the rota.</div>';
         h += "</div>";
       }
     }

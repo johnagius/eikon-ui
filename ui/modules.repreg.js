@@ -17,7 +17,8 @@
   function today() { return ymd(new Date()); }
   function back(days) { var d = new Date(); d.setDate(d.getDate() - days); return ymd(d); }
   function daysUntil(s) { var p = String(s).split("-"), t = new Date(); return Math.round((new Date(+p[0], +p[1] - 1, +p[2]) - new Date(t.getFullYear(), t.getMonth(), t.getDate())) / 86400000); }
-  function dm(s) { var p = String(s).split("-"); return Number(p[2]) + " " + MON[Number(p[1]) - 1] + " " + p[0]; }
+  // The year is left out when it is this year (3 Nov), kept otherwise (4 Mar 2027): rows stay on fewer lines on a phone.
+  function dm(s) { var p = String(s || "").split("-"); return p.length === 3 ? Number(p[2]) + " " + MON[Number(p[1]) - 1] + (Number(p[0]) === new Date().getFullYear() ? "" : " " + p[0]) : ""; }
   function low(s) { return String(s || "").toLowerCase(); }
 
   function css() {

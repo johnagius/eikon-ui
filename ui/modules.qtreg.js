@@ -13,7 +13,8 @@
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function today() { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
-  function dm(s) { var p = String(s || "").split("-"); return p.length === 3 ? Number(p[2]) + " " + MON[Number(p[1]) - 1] + " " + p[0] : ""; }
+  // The year is left out when it is this year (3 Nov), kept otherwise (4 Mar 2027): rows stay on fewer lines on a phone.
+  function dm(s) { var p = String(s || "").split("-"); return p.length === 3 ? Number(p[2]) + " " + MON[Number(p[1]) - 1] + (Number(p[0]) === new Date().getFullYear() ? "" : " " + p[0]) : ""; }
   function eur(n) { return "€" + (Math.round((Number(n) || 0) * 100) / 100).toFixed(2); }
   function num(raw) { var s = String(raw == null ? "" : raw).replace(/[€%\s]/g, "").replace(",", "."); return s === "" ? null : (/^\d+(\.\d+)?$/.test(s) ? Number(s) : NaN); }
   function low(s) { return String(s || "").trim().toLowerCase(); }
