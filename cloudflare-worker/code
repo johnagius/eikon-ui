@@ -692,15 +692,34 @@ async function handleSuGetOrg(request, env, extraHeaders, orgId) {
   return jsonResponse({ ok:true, org }, 200, extraHeaders);
 }
 
+// Superuser actions are audited under the TARGET org (and location when there is one), naming the superuser.
+const SU_ACTOR = new WeakMap();
+function suUserSafe(u) {
+  if (!u) return u;
+  const o = Object.assign({}, u); delete o.pass_salt_b64; delete o.pass_hash_b64; delete o.pass_iters; return o;
+}
+async function suAudit(request, env, orgId, locationId, action, entityType, entityId, details) {
+  const su = SU_ACTOR.get(request) || null;
+  await writeAudit(env, orgId == null ? 0 : orgId, su ? su.user_id : null, action, entityType, String(entityId == null ? "" : entityId),
+    Object.assign({ superuser: su ? su.email : null }, details || {}), locationId);
+}
+// Rows per table for one location, read before a wipe so the audit says what went.
+async function suLocationCounts(env, tables, locationId) {
+  const out = {};
+  for (const t of tables) { try { const r = await dbFirst(env, `SELECT COUNT(1) AS c FROM ${t} WHERE location_id=?`, [locationId]); if (r && r.c) out[t] = r.c; } catch (e) {} }
+  return out;
+}
+
 async function handleSuUpdateOrg(request, env, extraHeaders, orgId) {
   const body = await readJson(request);
   const name = String(body.name || "").trim();
   if (!name) return jsonResponse({ ok:false, error:"name is required" }, 400, extraHeaders);
 
-  const org = await dbFirst(env, "SELECT id FROM orgs WHERE id=?", [orgId]);
+  const org = await dbFirst(env, "SELECT * FROM orgs WHERE id=?", [orgId]);
   if (!org) return jsonResponse({ ok:false, error:"org not found" }, 404, extraHeaders);
 
   await dbRun(env, "UPDATE orgs SET name=? WHERE id=?", [name, orgId]);
+  await suAudit(request, env, orgId, null, "SU_ORG_UPDATE", "orgs", orgId, { before: org, after: await dbFirst(env, "SELECT * FROM orgs WHERE id=?", [orgId]) });
   return jsonResponse({ ok:true }, 200, extraHeaders);
 }
 
@@ -722,6 +741,7 @@ async function handleSuDeleteOrg(request, env, extraHeaders, orgId, force) {
       return jsonResponse({ ok:false, error:"org not empty", locations: lc, users: uc }, 400, extraHeaders);
     }
     await dbRun(env, "DELETE FROM orgs WHERE id=?", [orgId]);
+    await suAudit(request, env, orgId, null, "SU_ORG_DELETE", "orgs", orgId, { before: org });
     return jsonResponse({ ok:true }, 200, extraHeaders);
   }
 
@@ -730,6 +750,9 @@ async function handleSuDeleteOrg(request, env, extraHeaders, orgId, force) {
 
   const locs = await dbAll(env, "SELECT id FROM locations WHERE org_id=? ORDER BY id", [orgId]);
   const tables = await suTablesWithLocationId(env);
+  const __suBefore = { org, locations: await dbAll(env, "SELECT * FROM locations WHERE org_id=? ORDER BY id", [orgId]).catch(() => null),
+    users: (await dbAll(env, "SELECT * FROM users WHERE org_id=? ORDER BY id", [orgId]).catch(() => [])).map(suUserSafe), rows: {} };
+  for (const l of locs) __suBefore.rows[l.id] = await suLocationCounts(env, tables, l.id);
 
   // Wipe module tables per location
   for (const l of locs) {
@@ -749,6 +772,7 @@ async function handleSuDeleteOrg(request, env, extraHeaders, orgId, force) {
   // Delete locations then org
   await dbRun(env, "DELETE FROM locations WHERE org_id=?", [orgId]);
   await dbRun(env, "DELETE FROM orgs WHERE id=?", [orgId]);
+  await suAudit(request, env, orgId, null, "SU_ORG_DELETE_ALL", "orgs", orgId, { before: __suBefore, wiped_tables: tables });
 
   return jsonResponse({ ok:true, deleted_locations: locs.length, wiped_tables: tables }, 200, extraHeaders);
 }
@@ -819,6 +843,7 @@ async function handleSuCreateAccount(request, env, extraHeaders) {
     [orgId, email, fullName, role, saltB64, hashB64, iters, activeVal, locationId]
   );
 
+  await suAudit(request, env, orgId, locationId, "SU_ACCOUNT_CREATE", "users", userRow?.id, { email, role, org_created: !orgRow, location_name: locationName, is_active: activeVal });
   return jsonResponse({ ok:true, org_id: orgId, location_id: locationId, user_id: userRow?.id }, 200, extraHeaders);
 }
 
@@ -867,6 +892,9 @@ async function handleSuUpdateUser(request, env, extraHeaders, userId) {
     SET email=?, full_name=?, role=?, is_active=?, org_id=?, default_location_id=?
     WHERE id=?
   `, [email, full_name, role, is_active, org_id, default_location_id, userId]);
+  const __after = await dbFirst(env, "SELECT * FROM users WHERE id=?", [userId]).catch(() => null);
+  await suAudit(request, env, existing.org_id, existing.default_location_id, "SU_USER_UPDATE", "users", userId, { before: suUserSafe(existing), after: suUserSafe(__after) });
+  if (Number(org_id) !== Number(existing.org_id)) await suAudit(request, env, org_id, default_location_id, "SU_USER_UPDATE", "users", userId, { before: suUserSafe(existing), after: suUserSafe(__after) });
 
   return jsonResponse({ ok:true }, 200, extraHeaders);
 }
@@ -876,7 +904,7 @@ async function handleSuResetPassword(request, env, extraHeaders, userId) {
   const password = String(body.password || "");
   if (!password) return jsonResponse({ ok:false, error:"password is required" }, 400, extraHeaders);
 
-  const user = await dbFirst(env, "SELECT id FROM users WHERE id=?", [userId]);
+  const user = await dbFirst(env, "SELECT id, org_id, email, default_location_id FROM users WHERE id=?", [userId]);
   if (!user) return jsonResponse({ ok:false, error:"user not found" }, 404, extraHeaders);
 
   const iters = 100000;
@@ -888,14 +916,17 @@ async function handleSuResetPassword(request, env, extraHeaders, userId) {
   await dbRun(env, "UPDATE users SET pass_salt_b64=?, pass_hash_b64=?, pass_iters=? WHERE id=?", [saltB64, hashB64, iters, userId]);
   // Best-effort: clear sessions for that user if sessions table exists
   try { await dbRun(env, "DELETE FROM sessions WHERE user_id=?", [userId]); } catch {}
+  // Never the password itself, nor its hash.
+  await suAudit(request, env, user.org_id, user.default_location_id, "SU_PASSWORD_RESET", "users", userId, { email: user.email, sessions_cleared: true });
   return jsonResponse({ ok:true }, 200, extraHeaders);
 }
 
 async function handleSuDeleteUser(request, env, extraHeaders, userId) {
-  const user = await dbFirst(env, "SELECT id FROM users WHERE id=?", [userId]);
+  const user = await dbFirst(env, "SELECT * FROM users WHERE id=?", [userId]);
   if (!user) return jsonResponse({ ok:false, error:"user not found" }, 404, extraHeaders);
   try { await dbRun(env, "DELETE FROM sessions WHERE user_id=?", [userId]); } catch {}
   await dbRun(env, "DELETE FROM users WHERE id=?", [userId]);
+  await suAudit(request, env, user.org_id, user.default_location_id, "SU_USER_DELETE", "users", userId, { before: suUserSafe(user) });
   return jsonResponse({ ok:true }, 200, extraHeaders);
 }
 
@@ -907,7 +938,7 @@ async function handleSuGetLocation(request, env, extraHeaders, locationId) {
 
 async function handleSuUpdateLocation(request, env, extraHeaders, locationId) {
   const body = await readJson(request);
-  const existing = await dbFirst(env, "SELECT id, org_id, name FROM locations WHERE id=?", [locationId]);
+  const existing = await dbFirst(env, "SELECT * FROM locations WHERE id=?", [locationId]);
   if (!existing) return jsonResponse({ ok:false, error:"location not found" }, 404, extraHeaders);
 
   const name = body.name !== undefined ? String(body.name).trim() : existing.name;
@@ -928,6 +959,9 @@ async function handleSuUpdateLocation(request, env, extraHeaders, locationId) {
   }
 
   await dbRun(env, "UPDATE locations SET org_id=?, name=? WHERE id=?", [org_id, name, locationId]);
+  const __after = await dbFirst(env, "SELECT * FROM locations WHERE id=?", [locationId]).catch(() => null);
+  await suAudit(request, env, existing.org_id, locationId, "SU_LOCATION_UPDATE", "locations", locationId, { before: existing, after: __after, users_moved: count });
+  if (Number(org_id) !== Number(existing.org_id)) await suAudit(request, env, org_id, locationId, "SU_LOCATION_UPDATE", "locations", locationId, { before: existing, after: __after, users_moved: count });
   return jsonResponse({ ok:true }, 200, extraHeaders);
 }
 
@@ -937,7 +971,8 @@ async function suTablesWithLocationId(env) {
   const out = [];
   for (const t of tables) {
     const name = t.name;
-    if (["orgs","locations","users"].includes(name)) continue;
+    // audit_log carries location_id for new rows: a wipe must never erase the record of what was there.
+    if (["orgs","locations","users","audit_log","eikon_schema"].includes(name)) continue;
     try {
       const cols = await dbAll(env, `PRAGMA table_info(${name})`, []);
       const hasLoc = cols.some(c => c.name === "location_id");
@@ -952,18 +987,22 @@ async function handleSuWipeLocation(request, env, extraHeaders, locationId) {
   if (!loc) return jsonResponse({ ok:false, error:"location not found" }, 404, extraHeaders);
 
   const tables = await suTablesWithLocationId(env);
+  const __counts = await suLocationCounts(env, tables, locationId);
   for (const t of tables) {
     // delete rows scoped to location (module data only — users and sessions are preserved)
     try { await dbRun(env, `DELETE FROM ${t} WHERE location_id=?`, [locationId]); } catch {}
   }
+  // Row counts only: a whole location's data does not fit an audit row (that is what backups are for).
+  await suAudit(request, env, loc.org_id, locationId, "SU_LOCATION_WIPE", "locations", locationId, { rows_deleted: __counts, wiped_tables: tables });
   return jsonResponse({ ok:true, wiped_tables: tables }, 200, extraHeaders);
 }
 
 async function handleSuDeleteLocation(request, env, extraHeaders, locationId) {
-  const loc = await dbFirst(env, "SELECT id FROM locations WHERE id=?", [locationId]);
+  const loc = await dbFirst(env, "SELECT * FROM locations WHERE id=?", [locationId]);
   if (!loc) return jsonResponse({ ok:false, error:"location not found" }, 404, extraHeaders);
   // This may fail if foreign keys exist; caller can wipe first.
   await dbRun(env, "DELETE FROM locations WHERE id=?", [locationId]);
+  await suAudit(request, env, loc.org_id, locationId, "SU_LOCATION_DELETE", "locations", locationId, { before: loc });
   return jsonResponse({ ok:true }, 200, extraHeaders);
 }
 
@@ -1019,14 +1058,114 @@ async function dbRun(env, sql, bind = []) {
   return res;
 }
 
-async function writeAudit(env, orgId, userId, action, entityType, entityId, detailsObj) {
-  const detailsJson = JSON.stringify(detailsObj || {});
-  await dbRun(
-    env,
-    `INSERT INTO audit_log (org_id, user_id, action, entity_type, entity_id, details_json, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
-    [orgId, userId || null, action, entityType, entityId || "", detailsJson]
-  );
+// Audit rows: never fail the user's action, keep details_json under ~10 KB, and name the pharmacy (location_id)
+// for new rows. Older rows keep location_id NULL and stay visible org-wide, as before.
+const AUDIT_MAX_BYTES = 10000;
+const __auditEnc = new TextEncoder();
+function auditBytes(s) { return __auditEnc.encode(s).length; }
+// Shrinks the longest text values (EOD and POCT JSON blobs, long notes) until the whole record fits, marking each cut.
+function auditDetailsJson(detailsObj) {
+  let json;
+  try { json = JSON.stringify(detailsObj || {}); } catch (e) { return JSON.stringify({ truncated: true, note: "details could not be serialised" }); }
+  if (auditBytes(json) <= AUDIT_MAX_BYTES) return json;
+  let obj;
+  try { obj = JSON.parse(json); } catch (e) { obj = {}; }
+  const leaves = [];
+  (function walk(o) {
+    if (!o || typeof o !== "object") return;
+    for (const k of Object.keys(o)) {
+      const v = o[k];
+      if (typeof v === "string") leaves.push({ o, k, len: v.length });
+      else if (v && typeof v === "object") walk(v);
+    }
+  })(obj);
+  leaves.sort((a, b) => b.len - a.len);
+  const cut = [];
+  for (const leaf of leaves) {
+    if (leaf.len <= 300) break;
+    const v = leaf.o[leaf.k];
+    leaf.o[leaf.k] = v.slice(0, 300) + "…[truncated " + (v.length - 300) + " chars]";
+    cut.push(leaf.k);
+    obj.truncated = true;
+    obj.truncated_fields = cut.slice(0, 50);
+    json = JSON.stringify(obj);
+    if (auditBytes(json) <= AUDIT_MAX_BYTES) return json;
+  }
+  // Still too big (very many fields): keep the identifying keys only.
+  const keep = { truncated: true, note: "details over " + AUDIT_MAX_BYTES + " bytes; only identifying fields kept" };
+  for (const k of Object.keys(obj)) {
+    const v = obj[k];
+    if (v === null || typeof v === "number" || typeof v === "boolean" || (typeof v === "string" && v.length <= 300)) keep[k] = v;
+  }
+  for (const side of ["before", "after"]) {
+    const r = obj[side];
+    if (r && typeof r === "object" && !Array.isArray(r)) {
+      keep[side] = {};
+      for (const k of Object.keys(r)) { const v = r[k]; if (v === null || typeof v === "number" || typeof v === "boolean" || (typeof v === "string" && v.length <= 300)) keep[side][k] = v; }
+    }
+  }
+  json = JSON.stringify(keep);
+  return auditBytes(json) <= AUDIT_MAX_BYTES ? json : JSON.stringify({ truncated: true, note: keep.note });
+}
+
+async function ensureAuditSchema__impl(env) {
+  // Nullable, added once; no existing row is touched (an ADD COLUMN without a default leaves old rows NULL).
+  try { await dbRun(env, "ALTER TABLE audit_log ADD COLUMN location_id INTEGER", []); } catch (e) { /* column may already exist */ }
+}
+
+async function writeAudit(env, orgId, userId, action, entityType, entityId, detailsObj, locationId) {
+  try {
+    const detailsJson = auditDetailsJson(detailsObj);
+    let loc = locationId;
+    if ((loc === undefined || loc === null) && detailsObj && typeof detailsObj === "object") loc = detailsObj.location_id;
+    loc = Number.isInteger(Number(loc)) && Number(loc) > 0 ? Number(loc) : null;
+    try { await ensureAuditSchema(env); } catch (e) {}
+    try {
+      await dbRun(
+        env,
+        `INSERT INTO audit_log (org_id, user_id, action, entity_type, entity_id, details_json, created_at, location_id)
+         VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
+        [orgId, userId || null, action, entityType, entityId || "", detailsJson, loc]
+      );
+    } catch (e) {
+      // No location_id column (the ALTER could not run): write the row the old way.
+      await dbRun(
+        env,
+        `INSERT INTO audit_log (org_id, user_id, action, entity_type, entity_id, details_json, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+        [orgId, userId || null, action, entityType, entityId || "", detailsJson]
+      );
+    }
+  } catch (e) {
+    // An audit write must never fail the user's action.
+    try { console.log("[audit] write failed", action, e && e.message); } catch (e2) {}
+  }
+}
+
+// The whole row as it stands, for details.before / details.after. Read by its primary key inside the caller's org AND
+// pharmacy, the same scope the handler writes in; pass { group: true } only where the handler is deliberately
+// group-wide (quotations; credit-note uses and notes, whose pharmacy is checked through their credit note).
+// null when it cannot be read: a snapshot never blocks the action.
+async function auditSnap(env, table, id, authUser, opts) {
+  try {
+    if (id === undefined || id === null || id === "") return null;
+    const col = (opts && opts.key) || "id";
+    if (!authUser || authUser.org_id == null) return await dbFirst(env, `SELECT * FROM ${table} WHERE ${col} = ?`, [id]);
+    if (authUser.location_id != null && !(opts && opts.group)) {
+      return await dbFirst(env, `SELECT * FROM ${table} WHERE ${col} = ? AND org_id = ? AND location_id = ?`, [id, authUser.org_id, authUser.location_id]);
+    }
+    return await dbFirst(env, `SELECT * FROM ${table} WHERE ${col} = ? AND org_id = ?`, [id, authUser.org_id]);
+  } catch (e) { return null; }
+}
+async function auditSnapAll(env, table, col, id, authUser) {
+  try { return await dbAll(env, `SELECT * FROM ${table} WHERE ${col} = ? AND org_id = ? ORDER BY id`, [id, authUser.org_id]); } catch (e) { return null; }
+}
+// Adds before/after to a handler's existing detail keys (kept, so the Audit trail still reads them).
+function auditWith(details, before, after) {
+  const o = (details && typeof details === "object" && !Array.isArray(details)) ? Object.assign({}, details) : {};
+  if (before !== undefined) o.before = before;
+  if (after !== undefined) o.after = after;
+  return o;
 }
 
 function requireRole(user, roles) {
@@ -1429,7 +1568,7 @@ async function handleChangePassword(request, env, corsOkHeaders, authUser) {
   const hash = await pbkdf2Hash(next, salt, iters);
   await dbRun(env, "UPDATE users SET pass_salt_b64 = ?, pass_hash_b64 = ?, pass_iters = ? WHERE id = ?", [base64FromBytes(salt), base64FromBytes(hash), iters, user.id]);
   try { await dbRun(env, "DELETE FROM sessions WHERE user_id = ? AND id != ?", [user.id, authUser.session_id]); } catch (e) {}
-  await writeAudit(env, authUser.org_id, authUser.user_id, "PASSWORD_CHANGE", "user", String(user.id), { other_sessions_revoked: true });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "PASSWORD_CHANGE", "user", String(user.id), { other_sessions_revoked: true }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -1572,7 +1711,7 @@ async function ensureDefaultTempDevicesIfMissing(env, authUser) {
     );
   }
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_DEFAULT_DEVICES_CREATE", "location", String(authUser.location_id), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_DEFAULT_DEVICES_CREATE", "location", String(authUser.location_id), {}, authUser.location_id);
 }
 
 async function handleTempDevicesList(request, env, corsOkHeaders, authUser) {
@@ -1615,7 +1754,7 @@ async function handleTempDevicesCreate(request, env, corsOkHeaders, authUser) {
     [authUser.org_id, authUser.location_id, name, deviceType, minLimit, maxLimit]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_DEVICE_CREATE", "temperature_devices", String(row.id), { name, device_type: deviceType });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_DEVICE_CREATE", "temperature_devices", String(row.id), { name, device_type: deviceType }, authUser.location_id);
 
   return jsonResponse({ ok: true, device_id: row.id }, 200, corsOkHeaders);
 }
@@ -1669,7 +1808,7 @@ async function handleTempDevicesUpdate(request, env, corsOkHeaders, authUser, de
     min_limit: newMin,
     max_limit: newMax,
     active: newActive
-  });
+  }, authUser.location_id);
 
   const out = { ok: true };
   if (isDebugEnabled(request)) out.debug = { id: deviceId };
@@ -1741,6 +1880,8 @@ async function handleTempEntriesUpsert(request, env, corsOkHeaders, authUser) {
 
   const dev = await assertDeviceBelongsActive(env, authUser.org_id, authUser.location_id, deviceId);
   if (!dev) return jsonResponse({ ok: false, error: "Invalid device" }, 400, corsOkHeaders);
+  let __tempBefore = null;
+  try { __tempBefore = await dbFirst(env, "SELECT * FROM temperature_entries WHERE org_id = ? AND location_id = ? AND device_id = ? AND entry_date = ?", [authUser.org_id, authUser.location_id, deviceId, entryDate]); } catch (e) {}
 
   const row = await dbFirst(
     env,
@@ -1769,8 +1910,9 @@ async function handleTempEntriesUpsert(request, env, corsOkHeaders, authUser) {
     entry_date: entryDate,
     device_id: deviceId,
     min_temp: minTemp,
-    max_temp: maxTemp
-  });
+    max_temp: maxTemp,
+    ...(__tempBefore ? { before: __tempBefore, after: await auditSnap(env, "temperature_entries", row.id, authUser) } : {})
+  }, authUser.location_id);
 
   return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
 }
@@ -1779,6 +1921,7 @@ async function handleTempEntryDelete(request, env, corsOkHeaders, authUser, entr
   if (!requireRole(authUser, ["admin", "staff"])) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   }
+  const __before = await auditSnap(env, "temperature_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -1804,10 +1947,10 @@ async function handleTempEntryDelete(request, env, corsOkHeaders, authUser, entr
     [authUser.org_id, JSON.stringify({ entry_id: entryId })]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_ENTRY_DELETE", "temperature_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "TEMP_ENTRY_DELETE", "temperature_entries", String(entryId), auditWith({
     entry_date: existing.entry_date,
     device_id: existing.device_id
-  });
+  }, __before), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -2199,13 +2342,14 @@ async function handleQuotationsEntryCreate(request, env, corsOkHeaders, authUser
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "QUOTATION_CREATE", "quotation_entries", String(row.id), { item_description: itemDescription, quote_date: quoteDate });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "QUOTATION_CREATE", "quotation_entries", String(row.id), { item_description: itemDescription, quote_date: quoteDate }, authUser.location_id);
 
   return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
 }
 
 async function handleQuotationsEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
   await ensureQuotationsSchema(env);
+  const __before = await auditSnap(env, "quotation_entries", entryId, authUser, { group: true });
 
   const existing = await dbFirst(env, "SELECT * FROM quotation_entries WHERE org_id = ? AND id = ?", [authUser.org_id, entryId]);
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
@@ -2246,17 +2390,20 @@ async function handleQuotationsEntryUpdate(request, env, corsOkHeaders, authUser
     ]
   );
 
+  await writeAudit(env, authUser.org_id, authUser.user_id, "QUOTATION_UPDATE", "quotation_entries", String(entryId), auditWith({ item_description: itemDescription, quote_date: quoteDate }, __before, await auditSnap(env, "quotation_entries", entryId, authUser, { group: true })), authUser.location_id);
+
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
 async function handleQuotationsEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
   await ensureQuotationsSchema(env);
+  const __before = await auditSnap(env, "quotation_entries", entryId, authUser, { group: true });
 
   const existing = await dbFirst(env, "SELECT id FROM quotation_entries WHERE org_id = ? AND id = ?", [authUser.org_id, entryId]);
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   await dbRun(env, "DELETE FROM quotation_entries WHERE org_id = ? AND id = ?", [authUser.org_id, entryId]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "QUOTATION_DELETE", "quotation_entries", String(entryId), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "QUOTATION_DELETE", "quotation_entries", String(entryId), auditWith({}, __before), authUser.location_id);
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
@@ -2346,12 +2493,13 @@ async function handleOrderDiaryEntryCreate(request, env, corsOkHeaders, authUser
   );
 
   await upsertOrderDiaryItem(env, authUser.org_id, item_name, supplier);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "ORDER_DIARY_CREATE", "order_diary_entries", String(row.id), { item_name, order_date });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ORDER_DIARY_CREATE", "order_diary_entries", String(row.id), { item_name, order_date }, authUser.location_id);
   return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
 }
 
 async function handleOrderDiaryEntryUpdate(request, env, corsOkHeaders, authUser, id) {
   await ensureOrderDiarySchema(env);
+  const __before = await auditSnap(env, "order_diary_entries", id, authUser);
   const existing = await dbFirst(env,
     `SELECT * FROM order_diary_entries WHERE org_id = ? AND location_id = ? AND id = ?`,
     [authUser.org_id, authUser.location_id, id]
@@ -2377,19 +2525,20 @@ async function handleOrderDiaryEntryUpdate(request, env, corsOkHeaders, authUser
     await upsertOrderDiaryItem(env, authUser.org_id, item_name, supplier);
   }
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "ORDER_DIARY_UPDATE", "order_diary_entries", String(id), { status });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ORDER_DIARY_UPDATE", "order_diary_entries", String(id), auditWith({ status }, __before, await auditSnap(env, "order_diary_entries", id, authUser)), authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
 async function handleOrderDiaryEntryDelete(request, env, corsOkHeaders, authUser, id) {
   await ensureOrderDiarySchema(env);
+  const __before = await auditSnap(env, "order_diary_entries", id, authUser);
   const existing = await dbFirst(env,
     `SELECT id FROM order_diary_entries WHERE org_id = ? AND location_id = ? AND id = ?`,
     [authUser.org_id, authUser.location_id, id]
   );
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
   await dbRun(env, `DELETE FROM order_diary_entries WHERE org_id = ? AND location_id = ? AND id = ?`, [authUser.org_id, authUser.location_id, id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "ORDER_DIARY_DELETE", "order_diary_entries", String(id), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ORDER_DIARY_DELETE", "order_diary_entries", String(id), auditWith({}, __before), authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -2451,7 +2600,7 @@ async function handleOrderDiaryCarryOver(request, env, corsOkHeaders, authUser) 
     carried++;
   }
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "ORDER_DIARY_CARRY_OVER", "order_diary_entries", from_date, { from_date, to_date, carried });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ORDER_DIARY_CARRY_OVER", "order_diary_entries", from_date, { from_date, to_date, carried }, authUser.location_id);
   return jsonResponse({ ok: true, carried, to_date }, 200, corsOkHeaders);
 }
 
@@ -2650,6 +2799,7 @@ async function handleSupplierProductCreate(request, env, corsOkHeaders, authUser
     ]
   );
 
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_PRODUCT_CREATE", "supplier_products", String(row.id), { description, after: await auditSnap(env, "supplier_products", row.id, authUser) }, authUser.location_id);
   return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
 }
 
@@ -2694,6 +2844,7 @@ async function handleSupplierProductUpdate(request, env, corsOkHeaders, authUser
     ]
   );
 
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_PRODUCT_UPDATE", "supplier_products", String(entryId), { description, before: existing, after: await auditSnap(env, "supplier_products", entryId, authUser) }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -2702,9 +2853,11 @@ async function handleSupplierProductDelete(request, env, corsOkHeaders, authUser
   const existing = await dbFirst(env, "SELECT id FROM supplier_products WHERE org_id = ? AND location_id = ? AND id = ?",
     [authUser.org_id, authUser.location_id, entryId]);
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  const __before = await auditSnap(env, "supplier_products", entryId, authUser);
 
   await dbRun(env, "DELETE FROM supplier_products WHERE org_id = ? AND location_id = ? AND id = ?",
     [authUser.org_id, authUser.location_id, entryId]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_PRODUCT_DELETE", "supplier_products", String(entryId), { before: __before }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -2760,6 +2913,7 @@ async function handleSupplierProductStockStatus(request, env, corsOkHeaders, aut
     );
   }
 
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_PRODUCT_STOCK_STATUS", "supplier_products", String(entryId), { out_of_stock: newStatus, propagated: propagated.length, propagated_ids: propagated.map((p) => p.id).slice(0, 200), before: existing, after: await auditSnap(env, "supplier_products", entryId, authUser) }, authUser.location_id);
   return jsonResponse({ ok: true, changed: true, propagated: propagated.length }, 200, corsOkHeaders);
 }
 
@@ -2863,7 +3017,7 @@ async function handleSupplierProductsBulkImport(request, env, corsOkHeaders, aut
     );
   }
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_BULK_IMPORT", "supplier_products", "", { imported, changes: changes.length });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_BULK_IMPORT", "supplier_products", "", { imported, changes: changes.length }, authUser.location_id);
 
   return jsonResponse({ ok: true, imported, errors, changes: changes.length }, 200, corsOkHeaders);
 }
@@ -2951,12 +3105,17 @@ async function handleSupplierInventorySettingsGet(request, env, corsOkHeaders, a
 async function handleSupplierInventorySettingsPut(request, env, corsOkHeaders, authUser) {
   await ensureSupplierProductsSchema(env);
   const body = await readJson(request);
+  let __before = null;
+  try { __before = await dbFirst(env, "SELECT * FROM supplier_inventory_settings WHERE org_id = ? AND location_id = ?", [authUser.org_id, authUser.location_id]); } catch (e) {}
 
   await dbRun(env,
     `INSERT INTO supplier_inventory_settings (org_id, location_id, settings_json, updated_at, updated_by) VALUES (?,?,?,datetime('now'),?)
      ON CONFLICT(org_id, location_id) DO UPDATE SET settings_json=excluded.settings_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
     [authUser.org_id, authUser.location_id, JSON.stringify(body), authUser.user_id]);
 
+  let __after = null;
+  try { __after = await dbFirst(env, "SELECT * FROM supplier_inventory_settings WHERE org_id = ? AND location_id = ?", [authUser.org_id, authUser.location_id]); } catch (e) {}
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_INVENTORY_SETTINGS_PUT", "supplier_inventory_settings", "", { before: __before, after: __after }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -3030,6 +3189,7 @@ async function handleOrderItemFeedbackCreate(request, env, corsOkHeaders, authUs
       item.order_created_at || "", authUser.user_id
     ]);
 
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_FEEDBACK_CREATE", "supplier_order_item_feedback", String(fb.id), { order_id: item.order_id, order_item_id: itemId, problem_type: problemType, after: await auditSnap(env, "supplier_order_item_feedback", fb.id, null) }, authUser.location_id);
   return jsonResponse({ ok: true, id: fb.id }, 200, corsOkHeaders);
 }
 
@@ -3100,7 +3260,7 @@ async function handleSupplierOrderCreate(request, env, corsOkHeaders, authUser) 
     );
   }
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_ORDER_CREATE", "supplier_orders", String(order.id), { items: items.length });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_ORDER_CREATE", "supplier_orders", String(order.id), { items: items.length }, authUser.location_id);
 
   return jsonResponse({ ok: true, id: order.id }, 200, corsOkHeaders);
 }
@@ -3216,7 +3376,7 @@ async function handleSupplierOrderConfirm(request, env, corsOkHeaders, authUser,
   setBinds.push(orderId);
   await dbRun(env, "UPDATE supplier_orders SET " + setParts.join(", ") + " WHERE id = ?", setBinds);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_ORDER_CONFIRM", "supplier_orders", String(orderId), { status: newStatus });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_ORDER_CONFIRM", "supplier_orders", String(orderId), { status: newStatus }, authUser.location_id);
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
@@ -3234,6 +3394,7 @@ async function handleSupplierOrderItemUnavailable(request, env, corsOkHeaders, a
   await dbRun(env, "UPDATE supplier_order_items SET unavailable = ?, notes = ? WHERE id = ?",
     [body.unavailable ? 1 : 0, String(body.notes || "").trim(), itemId]);
 
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_ORDER_ITEM_UNAVAILABLE", "supplier_order_items", String(itemId), { unavailable: body.unavailable ? 1 : 0, before: item, after: await auditSnap(env, "supplier_order_items", itemId, null) }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -3273,6 +3434,7 @@ async function handleSupplierOrderUpdate(request, env, corsOkHeaders, authUser, 
       [String(body.scheduled_delivery_date).trim(), orderId]);
   }
 
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_ORDER_UPDATE", "supplier_orders", String(orderId), { status: newStatus || order.status, before: order, after: await auditSnap(env, "supplier_orders", orderId, null) }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -3289,6 +3451,7 @@ async function handleFeedbackResolve(request, env, corsOkHeaders, authUser, feed
   await dbRun(env,
     `UPDATE supplier_order_item_feedback SET resolution_status = ?, supplier_notes = ?, resolved_at = datetime('now'), resolved_by = ? WHERE id = ?`,
     [resolution, notes, authUser.user_id, feedbackId]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SUPPLIER_FEEDBACK_RESOLVE", "supplier_order_item_feedback", String(feedbackId), { resolution_status: resolution, before: fb, after: await auditSnap(env, "supplier_order_item_feedback", feedbackId, null) }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -3558,7 +3721,7 @@ async function handleClientOrdersEntryCreate(request, env, corsOkHeaders, authUs
     client_name: clientName,
     priority,
     fulfilled
-  });
+  }, authUser.location_id);
 
   return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
 }
@@ -3569,6 +3732,7 @@ async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUs
   }
 
   await ensureClientOrdersSchema(env);
+  const __before = await auditSnap(env, "client_orders_entries", entryId, authUser);
 
   // Parse + validate id (be strict, but accept numeric strings)
   const id = Number(entryId);
@@ -3731,6 +3895,8 @@ async function handleClientOrdersEntryUpdate(request, env, corsOkHeaders, authUs
     [authUser.org_id, authUser.location_id, id]
   );
 
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_UPDATE", "client_orders_entries", String(id), auditWith({}, __before, await auditSnap(env, "client_orders_entries", id, authUser)), authUser.location_id);
+
   return jsonResponse({ ok: true, entry: clientOrderRowToUi(updated) }, 200, corsOkHeaders);
 }
 
@@ -3742,6 +3908,7 @@ async function handleClientOrdersEntryDelete(request, env, corsOkHeaders, authUs
   await ensureClientOrdersSchema(env);
 
   const entryIdNum = parseInt(String(entryId || ""), 10);
+  const __before = await auditSnap(env, "client_orders_entries", entryIdNum, authUser);
   if (!entryIdNum || isNaN(entryIdNum)) {
     return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
   }
@@ -3760,7 +3927,7 @@ async function handleClientOrdersEntryDelete(request, env, corsOkHeaders, authUs
 
   await dbRun(env, "DELETE FROM client_orders_entries WHERE org_id = ? AND location_id = ? AND id = ?", [authUser.org_id, authUser.location_id, entryIdNum]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_DELETE", "client_orders_entries", String(entryIdNum), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_DELETE", "client_orders_entries", String(entryIdNum), auditWith({}, __before), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -3971,7 +4138,7 @@ async function handleClientTicketsEntryCreate(request, env, corsOkHeaders, authU
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_TICKET_CREATE", "client_tickets_entries", String(row.id), {
     ticket_id: ticketId, client_name: clientName, priority, status
-  });
+  }, authUser.location_id);
 
   return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
 }
@@ -3984,6 +4151,7 @@ async function handleClientTicketsEntryUpdate(request, env, corsOkHeaders, authU
   }
 
   await ensureClientTicketsSchema(env);
+  const __before = await auditSnap(env, "client_tickets_entries", entryId, authUser);
 
   const id = Number(entryId);
   if (!Number.isFinite(id) || id % 1 !== 0 || id <= 0) {
@@ -4077,6 +4245,8 @@ async function handleClientTicketsEntryUpdate(request, env, corsOkHeaders, authU
     [authUser.org_id, authUser.location_id, id]
   );
 
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_TICKET_UPDATE", "client_tickets_entries", String(id), auditWith({}, __before, await auditSnap(env, "client_tickets_entries", id, authUser)), authUser.location_id);
+
   return jsonResponse({ ok: true, entry: clientTicketRowToUi(updated) }, 200, corsOkHeaders);
 }
 
@@ -4090,6 +4260,7 @@ async function handleClientTicketsEntryDelete(request, env, corsOkHeaders, authU
   await ensureClientTicketsSchema(env);
 
   const id = parseInt(String(entryId || ""), 10);
+  const __before = await auditSnap(env, "client_tickets_entries", entryId, authUser);
   if (!id || isNaN(id)) {
     return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
   }
@@ -4106,7 +4277,7 @@ async function handleClientTicketsEntryDelete(request, env, corsOkHeaders, authU
 
   await dbRun(env, "DELETE FROM client_tickets_entries WHERE org_id = ? AND location_id = ? AND id = ?", [authUser.org_id, authUser.location_id, id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_TICKET_DELETE", "client_tickets_entries", String(id), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_TICKET_DELETE", "client_tickets_entries", String(id), auditWith({}, __before), authUser.location_id);
 
 
   // Keep calendar token mapping table in sync for public iCal feed
@@ -4226,6 +4397,7 @@ async function handleEodUpsert(request, env, corsOkHeaders, authUser) {
     "SELECT id, locked_at FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date = ?",
     [authUser.org_id, authUser.location_id, date]
   );
+  const __eodBefore = existing ? await auditSnap(env, "end_of_day", existing.id, authUser) : null;
 
   // An unlock must be explicit. A plain save from a PC that loaded the day before
   // another PC locked it carries locked_at:"" and must NOT unlock it (it gets 409 below).
@@ -4253,7 +4425,8 @@ async function handleEodUpsert(request, env, corsOkHeaders, authUser) {
         "EOD_UNLOCK",
         "end_of_day",
         String(existing.id),
-        { eod_date: date }
+        auditWith({ eod_date: date }, __eodBefore, await auditSnap(env, "end_of_day", existing.id, authUser)),
+        authUser.location_id
       );
 
       const row = await dbFirst(
@@ -4322,7 +4495,7 @@ async function handleEodUpsert(request, env, corsOkHeaders, authUser) {
       ]
     );
 
-    await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CREATE", "end_of_day", String(row.id), { eod_date: date, locked: wantsLock });
+    await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CREATE", "end_of_day", String(row.id), { eod_date: date, locked: wantsLock }, authUser.location_id);
 
   } else {
     await dbRun(
@@ -4366,7 +4539,7 @@ async function handleEodUpsert(request, env, corsOkHeaders, authUser) {
       ]
     );
 
-    await writeAudit(env, authUser.org_id, authUser.user_id, wantsLock ? "EOD_LOCK" : "EOD_UPDATE", "end_of_day", String(existing.id), { eod_date: date });
+    await writeAudit(env, authUser.org_id, authUser.user_id, wantsLock ? "EOD_LOCK" : "EOD_UPDATE", "end_of_day", String(existing.id), auditWith({ eod_date: date }, __eodBefore, await auditSnap(env, "end_of_day", existing.id, authUser)), authUser.location_id);
   }
 
   const row = await dbFirst(
@@ -4392,9 +4565,10 @@ async function handleEodLock(request, env, corsOkHeaders, authUser) {
   const existing = await dbFirst(env, "SELECT id, locked_at FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date = ?", [authUser.org_id, authUser.location_id, date]);
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
   if (existing.locked_at) return jsonResponse({ ok: true, id: existing.id, locked_at: existing.locked_at }, 200, corsOkHeaders);
+  const __eodBefore = await auditSnap(env, "end_of_day", existing.id, authUser);
 
   await dbRun(env, "UPDATE end_of_day SET locked_at = datetime('now'), updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ?", [authUser.user_id, existing.id, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_LOCK", "end_of_day", String(existing.id), { eod_date: date });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_LOCK", "end_of_day", String(existing.id), auditWith({ eod_date: date }, __eodBefore, await auditSnap(env, "end_of_day", existing.id, authUser)), authUser.location_id);
 
   const locked = await dbFirst(env, "SELECT locked_at FROM end_of_day WHERE id = ? AND org_id = ? AND location_id = ?", [existing.id, authUser.org_id, authUser.location_id]);
   return jsonResponse({ ok: true, id: existing.id, locked_at: locked ? locked.locked_at : null }, 200, corsOkHeaders);
@@ -4436,7 +4610,7 @@ async function handleEodContactsCreate(request, env, corsOkHeaders, authUser) {
   if (!name) return jsonResponse({ ok: false, error: "Missing display_name" }, 400, corsOkHeaders);
 
   const row = await dbFirst(env, "INSERT INTO end_of_day_contacts (org_id, location_id, display_name, phone, email, is_active, created_at, updated_at, created_by, updated_by) VALUES (?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), ?, ?) RETURNING id", [authUser.org_id, authUser.location_id, name, phone, email, authUser.user_id, authUser.user_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_CREATE", "end_of_day_contacts", String(row.id), { display_name: name });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_CREATE", "end_of_day_contacts", String(row.id), { display_name: name }, authUser.location_id);
 
   return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
 }
@@ -4466,7 +4640,7 @@ async function handleEodContactsBulkSave(contacts, env, corsOkHeaders, authUser)
     }
   }
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACTS_BULK_SAVE", "end_of_day_contacts", "", { count: ids.length });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACTS_BULK_SAVE", "end_of_day_contacts", "", { count: ids.length }, authUser.location_id);
   return jsonResponse({ ok: true, ids: ids }, 200, corsOkHeaders);
 }
 
@@ -4494,7 +4668,7 @@ async function handleEodContactsUpdate(request, env, corsOkHeaders, authUser, co
   if (!name) return jsonResponse({ ok: false, error: "Missing display_name" }, 400, corsOkHeaders);
 
   await dbRun(env, "UPDATE end_of_day_contacts SET display_name = ?, phone = ?, email = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ?", [name, phone, email, authUser.user_id, contactId, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_UPDATE", "end_of_day_contacts", String(contactId), { display_name: name });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_UPDATE", "end_of_day_contacts", String(contactId), { display_name: name }, authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { id: contactId };
@@ -4510,7 +4684,7 @@ async function handleEodContactsDeactivate(request, env, corsOkHeaders, authUser
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   await dbRun(env, "UPDATE end_of_day_contacts SET is_active = 0, updated_at = datetime('now'), updated_by = ? WHERE id = ? AND org_id = ? AND location_id = ?", [authUser.user_id, contactId, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_DEACTIVATE", "end_of_day_contacts", String(contactId), { display_name: existing.display_name });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EOD_CONTACT_DEACTIVATE", "end_of_day_contacts", String(contactId), { display_name: existing.display_name }, authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -4741,7 +4915,7 @@ async function handlePaidOutEntryCreate(request, env, corsOkHeaders, authUser) {
     payee_name: payeeName,
     fee,
     payment_method: method
-  });
+  }, authUser.location_id);
 
   const saved = await dbFirst(
     env,
@@ -4765,6 +4939,7 @@ async function handlePaidOutEntryUpdate(request, env, corsOkHeaders, authUser, e
   }
 
   await ensurePaidOutSchema(env);
+  const __before = await auditSnap(env, "paid_out_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -4827,12 +5002,12 @@ async function handlePaidOutEntryUpdate(request, env, corsOkHeaders, authUser, e
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "PAID_OUT_ENTRY_UPDATE", "paid_out_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "PAID_OUT_ENTRY_UPDATE", "paid_out_entries", String(entryId), auditWith({
     entry_date: entryDate,
     payee_name: payeeName,
     fee,
     payment_method: method
-  });
+  }, __before, await auditSnap(env, "paid_out_entries", entryId, authUser)), authUser.location_id);
 
   const saved = await dbFirst(
     env,
@@ -4856,6 +5031,7 @@ async function handlePaidOutEntryDelete(request, env, corsOkHeaders, authUser, e
   }
 
   await ensurePaidOutSchema(env);
+  const __before = await auditSnap(env, "paid_out_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -4870,11 +5046,11 @@ async function handlePaidOutEntryDelete(request, env, corsOkHeaders, authUser, e
     [entryId, authUser.org_id, authUser.location_id]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "PAID_OUT_ENTRY_DELETE", "paid_out_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "PAID_OUT_ENTRY_DELETE", "paid_out_entries", String(entryId), auditWith({
     entry_date: existing.entry_date,
     payee_name: existing.payee_name,
     fee: existing.fee
-  });
+  }, __before), authUser.location_id);
 
   const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -5028,7 +5204,7 @@ async function handleNearExpiryEntryCreate(request, env, corsOkHeaders, authUser
   await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_CREATE", "near_expiry_entries", String(row.id), {
     product_name: productName,
     expiry_date: expiryDate
-  });
+  }, authUser.location_id);
 
   const saved = await dbFirst(
     env,
@@ -5051,6 +5227,7 @@ async function handleNearExpiryEntryUpdate(request, env, corsOkHeaders, authUser
   }
 
   await ensureNearExpirySchema(env);
+  const __before = await auditSnap(env, "near_expiry_entries", id, authUser);
 
   const existing = await dbFirst(
     env,
@@ -5095,10 +5272,10 @@ async function handleNearExpiryEntryUpdate(request, env, corsOkHeaders, authUser
     );
   }
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_UPDATE", "near_expiry_entries", String(id), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_UPDATE", "near_expiry_entries", String(id), auditWith({
     product_name: productName,
     expiry_date: expiryDate
-  });
+  }, __before, await auditSnap(env, "near_expiry_entries", id, authUser)), authUser.location_id);
 
   const saved = await dbFirst(
     env,
@@ -5121,6 +5298,7 @@ async function handleNearExpiryEntryDelete(request, env, corsOkHeaders, authUser
   }
 
   await ensureNearExpirySchema(env);
+  const __before = await auditSnap(env, "near_expiry_entries", id, authUser);
 
   const existing = await dbFirst(
     env,
@@ -5151,10 +5329,10 @@ async function handleNearExpiryEntryDelete(request, env, corsOkHeaders, authUser
     );
   }
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_DELETE", "near_expiry_entries", String(id), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_DELETE", "near_expiry_entries", String(id), auditWith({
     product_name: existing.product_name,
     expiry_date: existing.expiry_date
-  });
+  }, __before), authUser.location_id);
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
@@ -5226,7 +5404,7 @@ async function handleNearExpiryCreateReturn(request, env, corsOkHeaders, authUse
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_CREATE_RETURN", "near_expiry_entries", String(nearExpiryId), {
     return_id: returnId, product_name: ne.product_name
-  });
+  }, authUser.location_id);
 
   // Return the updated near_expiry entry
   const updated = await dbFirst(env,
@@ -5301,7 +5479,7 @@ async function handleNearExpiryCreateReturnsBulk(request, env, corsOkHeaders, au
 
     await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_CREATE_RETURN", "near_expiry_entries", String(neId), {
       return_id: returnId, product_name: ne.product_name
-    });
+    }, authUser.location_id);
   }
 
   return jsonResponse({ ok: true, created: returnIds.length, skipped, return_ids: returnIds }, 200, corsOkHeaders);
@@ -5373,7 +5551,7 @@ async function handleCleaningEntryCreate(request, env, corsOkHeaders, authUser) 
     time_out: timeOut || "",
     cleaner_name: cleanerName,
     staff_name: staffName
-  });
+  }, authUser.location_id);
 
   return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
 }
@@ -5382,6 +5560,7 @@ async function handleCleaningEntryUpdate(request, env, corsOkHeaders, authUser, 
   if (!requireRole(authUser, ["admin", "staff"])) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   }
+  const __before = await auditSnap(env, "cleaning_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -5415,13 +5594,13 @@ async function handleCleaningEntryUpdate(request, env, corsOkHeaders, authUser, 
     [entryDate, timeIn, timeOut || "", cleanerName, staffName, notes, entryId, authUser.org_id, authUser.location_id]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_UPDATE", "cleaning_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_UPDATE", "cleaning_entries", String(entryId), auditWith({
     entry_date: entryDate,
     time_in: timeIn,
     time_out: timeOut || "",
     cleaner_name: cleanerName,
     staff_name: staffName
-  });
+  }, __before, await auditSnap(env, "cleaning_entries", entryId, authUser)), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -5433,6 +5612,7 @@ async function handleCleaningEntryDelete(request, env, corsOkHeaders, authUser, 
   if (!requireRole(authUser, ["admin", "staff"])) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   }
+  const __before = await auditSnap(env, "cleaning_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -5450,7 +5630,7 @@ async function handleCleaningEntryDelete(request, env, corsOkHeaders, authUser, 
     [entryId, authUser.org_id, authUser.location_id]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_DELETE", "cleaning_entries", String(entryId), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_DELETE", "cleaning_entries", String(entryId), auditWith({}, __before), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -5649,7 +5829,7 @@ async function handleLocumRegisterEntryCreate(request, env, corsOkHeaders, authU
     time_out: timeOut || "",
     locum_full_name: fullName,
     registration_number: regNo
-  });
+  }, authUser.location_id);
 
   return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
 }
@@ -5660,6 +5840,7 @@ async function handleLocumRegisterEntryUpdate(request, env, corsOkHeaders, authU
   }
 
   await ensureLocumRegisterSchema(env);
+  const __before = await auditSnap(env, "locum_register_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -5692,13 +5873,13 @@ async function handleLocumRegisterEntryUpdate(request, env, corsOkHeaders, authU
     [entryDate, timeIn, timeOut || "", fullName, regNo, entryId, authUser.org_id, authUser.location_id]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_REGISTER_ENTRY_UPDATE", "locum_register_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_REGISTER_ENTRY_UPDATE", "locum_register_entries", String(entryId), auditWith({
     entry_date: entryDate,
     time_in: timeIn,
     time_out: timeOut || "",
     locum_full_name: fullName,
     registration_number: regNo
-  });
+  }, __before, await auditSnap(env, "locum_register_entries", entryId, authUser)), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -5712,6 +5893,7 @@ async function handleLocumRegisterEntryDelete(request, env, corsOkHeaders, authU
   }
 
   await ensureLocumRegisterSchema(env);
+  const __before = await auditSnap(env, "locum_register_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -5729,7 +5911,7 @@ async function handleLocumRegisterEntryDelete(request, env, corsOkHeaders, authU
     [entryId, authUser.org_id, authUser.location_id]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_REGISTER_ENTRY_DELETE", "locum_register_entries", String(entryId), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_REGISTER_ENTRY_DELETE", "locum_register_entries", String(entryId), auditWith({}, __before), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -5902,7 +6084,7 @@ async function handleLocumReceiptCreate(request, env, corsOkHeaders, authUser) {
     day_type: dayType,
     fee_per_hour: feePerHour,
     total_fee: totalFee
-  });
+  }, authUser.location_id);
 
   const payload = { ok: true, receipt: row, id: row.id };
   if (isDebugEnabled(request)) payload.debug = { row };
@@ -5913,6 +6095,7 @@ async function handleLocumReceiptUpdate(request, env, corsOkHeaders, authUser, r
   if (!requireRole(authUser, ["admin", "staff"])) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   }
+  const __before = await auditSnap(env, "locum_receipts", receiptId, authUser);
 
   // extra protection as requested
   if (!requireHeaderPass(request, "X-Eikon-Edit-Pass", locumEditPass(env))) {
@@ -5964,7 +6147,7 @@ async function handleLocumReceiptUpdate(request, env, corsOkHeaders, authUser, r
     [receiptDate, hours, fullName, regNo, dayType, feePerHour, totalFee, receiptId, authUser.org_id, authUser.location_id]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_RECEIPT_UPDATE", "locum_receipts", String(receiptId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_RECEIPT_UPDATE", "locum_receipts", String(receiptId), auditWith({
     receipt_date: receiptDate,
     hours,
     locum_full_name: fullName,
@@ -5972,7 +6155,7 @@ async function handleLocumReceiptUpdate(request, env, corsOkHeaders, authUser, r
     day_type: dayType,
     fee_per_hour: feePerHour,
     total_fee: totalFee
-  });
+  }, __before, await auditSnap(env, "locum_receipts", receiptId, authUser)), authUser.location_id);
 
   const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { receiptId };
@@ -5983,6 +6166,7 @@ async function handleLocumReceiptDelete(request, env, corsOkHeaders, authUser, r
   if (!requireRole(authUser, ["admin", "staff"])) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   }
+  const __before = await auditSnap(env, "locum_receipts", receiptId, authUser);
 
   // extra protection as requested
   if (!requireHeaderPass(request, "X-Eikon-Edit-Pass", locumEditPass(env))) {
@@ -6006,7 +6190,7 @@ async function handleLocumReceiptDelete(request, env, corsOkHeaders, authUser, r
     [receiptId, authUser.org_id, authUser.location_id]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_RECEIPT_DELETE", "locum_receipts", String(receiptId), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_RECEIPT_DELETE", "locum_receipts", String(receiptId), auditWith({}, __before), authUser.location_id);
 
   const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { receiptId };
@@ -6264,7 +6448,7 @@ async function handleDailyRegisterEntryCreate(request, env, corsOkHeaders, authU
     entry_date: entryDate,
     client_id: clientId,
     medicine_name_dose: medicineNameDose
-  });
+  }, authUser.location_id);
 
   return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
 }
@@ -6275,6 +6459,7 @@ async function handleDailyRegisterEntryUpdate(request, env, corsOkHeaders, authU
   }
 
   await ensureDailyRegisterSchema(env);
+  const __before = await auditSnap(env, "daily_register_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -6322,11 +6507,11 @@ async function handleDailyRegisterEntryUpdate(request, env, corsOkHeaders, authU
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DAILY_REGISTER_ENTRY_UPDATE", "daily_register_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DAILY_REGISTER_ENTRY_UPDATE", "daily_register_entries", String(entryId), auditWith({
     entry_date: entryDate,
     client_id: clientId,
     medicine_name_dose: medicineNameDose
-  });
+  }, __before, await auditSnap(env, "daily_register_entries", entryId, authUser)), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -6340,6 +6525,7 @@ async function handleDailyRegisterEntryDelete(request, env, corsOkHeaders, authU
   }
 
   await ensureDailyRegisterSchema(env);
+  const __before = await auditSnap(env, "daily_register_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -6357,10 +6543,10 @@ async function handleDailyRegisterEntryDelete(request, env, corsOkHeaders, authU
     [entryId, authUser.org_id, authUser.location_id]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DAILY_REGISTER_ENTRY_DELETE", "daily_register_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DAILY_REGISTER_ENTRY_DELETE", "daily_register_entries", String(entryId), auditWith({
     entry_date: existing.entry_date,
     client_id: existing.client_id
-  });
+  }, __before), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -6642,7 +6828,7 @@ async function handleRepeatPrescriptionsEntryCreate(request, env, corsOkHeaders,
     expires_date: expiresDate,
     client_id: clientId,
     medicine_name_dose: medicineNameDose
-  });
+  }, authUser.location_id);
 
   return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
 }
@@ -6653,6 +6839,7 @@ async function handleRepeatPrescriptionsEntryUpdate(request, env, corsOkHeaders,
   }
 
   await ensureRepeatPrescriptionsSchema(env);
+  const __before = await auditSnap(env, "repeat_prescription_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -6706,12 +6893,12 @@ async function handleRepeatPrescriptionsEntryUpdate(request, env, corsOkHeaders,
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "REPEAT_RX_ENTRY_UPDATE", "repeat_prescription_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "REPEAT_RX_ENTRY_UPDATE", "repeat_prescription_entries", String(entryId), auditWith({
     entry_date: entryDate,
     expires_date: expiresDate,
     client_id: clientId,
     medicine_name_dose: medicineNameDose
-  });
+  }, __before, await auditSnap(env, "repeat_prescription_entries", entryId, authUser)), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -6725,6 +6912,7 @@ async function handleRepeatPrescriptionsEntryDelete(request, env, corsOkHeaders,
   }
 
   await ensureRepeatPrescriptionsSchema(env);
+  const __before = await auditSnap(env, "repeat_prescription_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -6742,11 +6930,11 @@ async function handleRepeatPrescriptionsEntryDelete(request, env, corsOkHeaders,
     [entryId, authUser.org_id, authUser.location_id]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "REPEAT_RX_ENTRY_DELETE", "repeat_prescription_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "REPEAT_RX_ENTRY_DELETE", "repeat_prescription_entries", String(entryId), auditWith({
     entry_date: existing.entry_date,
     expires_date: existing.expires_date,
     client_id: existing.client_id
-  });
+  }, __before), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -6886,7 +7074,7 @@ async function handleAlertsEntryCreate(request, env, corsOkHeaders, authUser) {
   ]);
 
   const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
-  await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_CREATE", "alerts_entries", String(newId || ""), { entry_date, alert_type, status, item_name });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_CREATE", "alerts_entries", String(newId || ""), { entry_date, alert_type, status, item_name }, authUser.location_id);
 
   return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
 }
@@ -6896,6 +7084,7 @@ async function handleAlertsEntryUpdate(request, env, corsOkHeaders, authUser, id
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   }
   await ensureAlertsSchema(env);
+  const __before = await auditSnap(env, "alerts_entries", id, authUser);
 
   const existing = await dbFirst(env, `
     SELECT id FROM alerts_entries
@@ -6947,7 +7136,7 @@ async function handleAlertsEntryUpdate(request, env, corsOkHeaders, authUser, id
     id, authUser.org_id, authUser.location_id
   ]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_UPDATE", "alerts_entries", String(id), { entry_date, alert_type, status, item_name });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_UPDATE", "alerts_entries", String(id), auditWith({ entry_date, alert_type, status, item_name }, __before, await auditSnap(env, "alerts_entries", id, authUser)), authUser.location_id);
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { id: id };
   return jsonResponse(payload, 200, corsOkHeaders);
@@ -6959,6 +7148,7 @@ async function handleAlertsEntryDelete(request, env, corsOkHeaders, authUser, id
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   }
   await ensureAlertsSchema(env);
+  const __before = await auditSnap(env, "alerts_entries", id, authUser);
 
   const existing = await dbFirst(env, `
     SELECT id, entry_date, alert_type, item_name
@@ -6968,7 +7158,7 @@ async function handleAlertsEntryDelete(request, env, corsOkHeaders, authUser, id
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   await dbRun(env, `DELETE FROM alerts_entries WHERE id = ? AND org_id = ? AND location_id = ?`, [id, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_DELETE", "alerts_entries", String(id), existing);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "ALERT_DELETE", "alerts_entries", String(id), auditWith(existing, __before), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -7114,7 +7304,7 @@ async function handleReturnsEntryCreate(request, env, corsOkHeaders, authUser) {
   ]);
 
   const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
-  await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_CREATE", "returns_entries", String(newId || ""), { entry_date, description });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_CREATE", "returns_entries", String(newId || ""), { entry_date, description }, authUser.location_id);
 
   return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
 }
@@ -7124,6 +7314,7 @@ async function handleReturnsEntryUpdate(request, env, corsOkHeaders, authUser, i
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   }
   await ensureReturnsSchema(env);
+  const __before = await auditSnap(env, "returns_entries", id, authUser);
 
   const existing = await dbFirst(env, `
     SELECT id, entry_date, description
@@ -7196,7 +7387,7 @@ async function handleReturnsEntryUpdate(request, env, corsOkHeaders, authUser, i
     id, authUser.org_id, authUser.location_id
   ]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_UPDATE", "returns_entries", String(id), { entry_date, description, supplier_refused });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_UPDATE", "returns_entries", String(id), auditWith({ entry_date, description, supplier_refused }, __before, await auditSnap(env, "returns_entries", id, authUser)), authUser.location_id);
 
   // Sync near_expiry status if this return is linked to a near expiry entry
   const returnRow = await dbFirst(env,
@@ -7222,7 +7413,7 @@ async function handleReturnsEntryUpdate(request, env, corsOkHeaders, authUser, i
     );
     if (linkedTransfer) {
       await dbRun(env, "UPDATE stock_transfer_items SET is_closed = 1, close_reason = 'Return handed over', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, linkedTransfer.id]);
-      await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_CLOSE", "stock_transfer_items", String(linkedTransfer.id), { reason: "return_handed_over", returns_id: id });
+      await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_CLOSE", "stock_transfer_items", String(linkedTransfer.id), { reason: "return_handed_over", returns_id: id }, authUser.location_id);
     }
     // Also remove from transfer if this return was created BY a transfer item (placed_on_returns_id)
     const linkedTransfer2 = await dbFirst(env,
@@ -7231,7 +7422,7 @@ async function handleReturnsEntryUpdate(request, env, corsOkHeaders, authUser, i
     );
     if (linkedTransfer2) {
       await dbRun(env, "UPDATE stock_transfer_items SET is_closed = 1, close_reason = 'Return handed over', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, linkedTransfer2.id]);
-      await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_CLOSE", "stock_transfer_items", String(linkedTransfer2.id), { reason: "return_handed_over", returns_id: id });
+      await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_CLOSE", "stock_transfer_items", String(linkedTransfer2.id), { reason: "return_handed_over", returns_id: id }, authUser.location_id);
     }
   }
 
@@ -7243,6 +7434,7 @@ async function handleReturnsEntryDelete(request, env, corsOkHeaders, authUser, i
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   }
   await ensureReturnsSchema(env);
+  const __before = await auditSnap(env, "returns_entries", id, authUser);
 
   const existing = await dbFirst(env, `
     SELECT id, entry_date, description, near_expiry_id
@@ -7253,7 +7445,7 @@ async function handleReturnsEntryDelete(request, env, corsOkHeaders, authUser, i
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   await dbRun(env, `DELETE FROM returns_entries WHERE id=? AND org_id=? AND location_id=?`, [id, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_DELETE", "returns_entries", String(id), { entry_date: existing.entry_date, description: existing.description });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_DELETE", "returns_entries", String(id), auditWith({ entry_date: existing.entry_date, description: existing.description }, __before), authUser.location_id);
 
   // Unlink near_expiry entry if this return was linked
   if (existing.near_expiry_id) {
@@ -7274,7 +7466,7 @@ async function handleReturnsEntryDelete(request, env, corsOkHeaders, authUser, i
   if (linkedTransfer) {
     await dbRun(env, "DELETE FROM stock_transfer_requests WHERE item_id = ?", [linkedTransfer.id]);
     await dbRun(env, "DELETE FROM stock_transfer_items WHERE id = ?", [linkedTransfer.id]);
-    await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_DELETE", "stock_transfer_items", String(linkedTransfer.id), { reason: "return_deleted", returns_id: id });
+    await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_DELETE", "stock_transfer_items", String(linkedTransfer.id), { reason: "return_deleted", returns_id: id }, authUser.location_id);
   }
   // Also check if placed_on_returns_id links back
   const linkedTransfer2 = await dbFirst(env,
@@ -7455,7 +7647,7 @@ async function handleDeliveriesEntryCreate(request, env, corsOkHeaders, authUser
   ]);
 
   const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DELIVERY_CREATE", "client_deliveries", String(newId || ""), { delivery_id, client_name, status });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DELIVERY_CREATE", "client_deliveries", String(newId || ""), { delivery_id, client_name, status }, authUser.location_id);
 
   return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
 }
@@ -7465,6 +7657,7 @@ async function handleDeliveriesEntryUpdate(request, env, corsOkHeaders, authUser
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   }
   await ensureDeliveriesSchema(env);
+  const __before = await auditSnap(env, "client_deliveries", id, authUser);
 
   const existing = await dbFirst(env, `
     SELECT id, delivery_id, client_name, status
@@ -7536,7 +7729,7 @@ async function handleDeliveriesEntryUpdate(request, env, corsOkHeaders, authUser
     id, authUser.org_id, authUser.location_id
   ]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DELIVERY_UPDATE", "client_deliveries", String(id), { delivery_id, client_name, status });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DELIVERY_UPDATE", "client_deliveries", String(id), auditWith({ delivery_id, client_name, status }, __before, await auditSnap(env, "client_deliveries", id, authUser)), authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -7545,6 +7738,7 @@ async function handleDeliveriesEntryDelete(request, env, corsOkHeaders, authUser
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   }
   await ensureDeliveriesSchema(env);
+  const __before = await auditSnap(env, "client_deliveries", id, authUser);
 
   const existing = await dbFirst(env, `
     SELECT id, delivery_id, client_name, status
@@ -7555,7 +7749,7 @@ async function handleDeliveriesEntryDelete(request, env, corsOkHeaders, authUser
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   await dbRun(env, `DELETE FROM client_deliveries WHERE id=? AND org_id=? AND location_id=?`, [id, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DELIVERY_DELETE", "client_deliveries", String(id), { delivery_id: existing.delivery_id, client_name: existing.client_name });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DELIVERY_DELETE", "client_deliveries", String(id), auditWith({ delivery_id: existing.delivery_id, client_name: existing.client_name }, __before), authUser.location_id);
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
@@ -7677,13 +7871,14 @@ async function handleCreditNoteCreate(request, env, corsOkHeaders, authUser) {
   `, [authUser.org_id, authUser.location_id, issue_date, client_name, client_surname, telephone, email||null, receipt_number||null, amount, (no_expiry ? null : expiry_date||null), no_expiry, authUser.user_id, authUser.user_id]);
 
   const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_CREATE", "credit_notes", String(newId||""), { issue_date, client_name, client_surname });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_CREATE", "credit_notes", String(newId||""), { issue_date, client_name, client_surname }, authUser.location_id);
   return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
 }
 
 async function handleCreditNoteUpdate(request, env, corsOkHeaders, authUser, id) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   await ensureCreditNotesSchema(env);
+  const __before = await auditSnap(env, "credit_notes", id, authUser);
   const existing = await dbFirst(env, `SELECT id FROM credit_notes WHERE id=? AND org_id=? AND location_id=?`, [id, authUser.org_id, authUser.location_id]);
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
@@ -7710,20 +7905,22 @@ async function handleCreditNoteUpdate(request, env, corsOkHeaders, authUser, id)
     WHERE id=? AND org_id=? AND location_id=?
   `, [issue_date, client_name, client_surname, telephone, email||null, receipt_number||null, amount, (no_expiry ? null : expiry_date||null), no_expiry, authUser.user_id, id, authUser.org_id, authUser.location_id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_UPDATE", "credit_notes", String(id), { issue_date, client_name, client_surname });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_UPDATE", "credit_notes", String(id), auditWith({ issue_date, client_name, client_surname }, __before, await auditSnap(env, "credit_notes", id, authUser)), authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
 async function handleCreditNoteDelete(request, env, corsOkHeaders, authUser, id) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   await ensureCreditNotesSchema(env);
+  const __before = await auditSnap(env, "credit_notes", id, authUser);
+  if (__before) { __before.purchases = await auditSnapAll(env, "credit_note_purchases", "credit_note_id", id, authUser); __before.notes = await auditSnapAll(env, "credit_note_notes", "credit_note_id", id, authUser); }
   const existing = await dbFirst(env, `SELECT id, client_name, client_surname FROM credit_notes WHERE id=? AND org_id=? AND location_id=?`, [id, authUser.org_id, authUser.location_id]);
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   await dbRun(env, `DELETE FROM credit_note_purchases WHERE credit_note_id=? AND org_id=?`, [id, authUser.org_id]);
   await dbRun(env, `DELETE FROM credit_note_notes WHERE credit_note_id=? AND org_id=?`, [id, authUser.org_id]);
   await dbRun(env, `DELETE FROM credit_notes WHERE id=? AND org_id=? AND location_id=?`, [id, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_DELETE", "credit_notes", String(id), { client_name: existing.client_name, client_surname: existing.client_surname });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_DELETE", "credit_notes", String(id), auditWith({ client_name: existing.client_name, client_surname: existing.client_surname }, __before), authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -7744,6 +7941,7 @@ async function handleCreditNotePurchaseAdd(request, env, corsOkHeaders, authUser
   `, [creditNoteId, authUser.org_id, authUser.location_id, amount, receipt_number||null, authUser.user_id]);
 
   const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_PURCHASE_ADD", "credit_note_purchases", String(newId || ""), { credit_note_id: creditNoteId, amount, receipt_number, after: newId ? await auditSnap(env, "credit_note_purchases", newId, authUser, { group: true }) : null }, authUser.location_id);
   return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
 }
 
@@ -7753,7 +7951,9 @@ async function handleCreditNotePurchaseDelete(request, env, corsOkHeaders, authU
   const existing = await dbFirst(env, `SELECT p.id FROM credit_note_purchases p JOIN credit_notes c ON c.id = p.credit_note_id
     WHERE p.id=? AND p.credit_note_id=? AND p.org_id=? AND c.org_id=? AND c.location_id=?`, [purchaseId, creditNoteId, authUser.org_id, authUser.org_id, authUser.location_id]);
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  const __before = await auditSnap(env, "credit_note_purchases", purchaseId, authUser, { group: true });
   await dbRun(env, `DELETE FROM credit_note_purchases WHERE id=? AND credit_note_id=? AND org_id=?`, [purchaseId, creditNoteId, authUser.org_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_PURCHASE_DELETE", "credit_note_purchases", String(purchaseId), { credit_note_id: creditNoteId, before: __before }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -7773,6 +7973,7 @@ async function handleCreditNoteNoteAdd(request, env, corsOkHeaders, authUser, cr
   `, [creditNoteId, authUser.org_id, authUser.location_id, text, authUser.user_id]);
 
   const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_NOTE_ADD", "credit_note_notes", String(newId || ""), { credit_note_id: creditNoteId, after: newId ? await auditSnap(env, "credit_note_notes", newId, authUser, { group: true }) : null }, authUser.location_id);
   return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
 }
 
@@ -7782,7 +7983,9 @@ async function handleCreditNoteNoteDelete(request, env, corsOkHeaders, authUser,
   const existing = await dbFirst(env, `SELECT n.id FROM credit_note_notes n JOIN credit_notes c ON c.id = n.credit_note_id
     WHERE n.id=? AND n.credit_note_id=? AND n.org_id=? AND c.org_id=? AND c.location_id=?`, [noteId, creditNoteId, authUser.org_id, authUser.org_id, authUser.location_id]);
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  const __before = await auditSnap(env, "credit_note_notes", noteId, authUser, { group: true });
   await dbRun(env, `DELETE FROM credit_note_notes WHERE id=? AND credit_note_id=? AND org_id=?`, [noteId, creditNoteId, authUser.org_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_NOTE_DELETE", "credit_note_notes", String(noteId), { credit_note_id: creditNoteId, before: __before }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -7964,6 +8167,19 @@ async function handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, 
 
 
 
+// The ID-card tidy-up rewrites older DDA lines in place; until that stops (backlog item 2), each rewrite leaves
+// one audit row listing the lines and the ID card each had before.
+async function ddaIdCardRewriteAudit(env, authUser, norm, keys) {
+  try {
+    if (!norm || !keys || !keys.length) return;
+    const ph = keys.map(() => "?").join(", ");
+    const rows = await dbAll(env, `SELECT id, client_id_card FROM dda_sales_entries WHERE org_id = ? AND location_id = ? AND upper(replace(client_id_card, ' ', '')) IN (${ph}) AND client_id_card != ?`,
+      [authUser.org_id, authUser.location_id].concat(keys, [norm]));
+    if (!rows.length) return;
+    await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ID_CARD_REWRITE", "dda_sales_entries", "", { to: norm, count: rows.length, before: rows.slice(0, 300) }, authUser.location_id);
+  } catch (e) {}
+}
+
 async function handleDdaSalesClientLookup(request, env, corsOkHeaders, authUser, url) {
   if (!requireRole(authUser, ["admin", "staff"])) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
@@ -7994,6 +8210,7 @@ async function handleDdaSalesClientLookup(request, env, corsOkHeaders, authUser,
 
   if (row && row.client_id_card && row.client_id_card !== clientIdCard) {
     // normalize existing historical records to prevent duplicates going forward
+    await ddaIdCardRewriteAudit(env, authUser, clientIdCard, keys);
     await dbRun(
       env,
       `UPDATE dda_sales_entries
@@ -8154,6 +8371,7 @@ async function handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser) 
 
   // normalize existing historical records for this client_id_card to prevent duplicates
   if (clientIdCardNorm && keys.length) {
+  await ddaIdCardRewriteAudit(env, authUser, clientIdCardNorm, keys);
   await dbRun(
       env,
       `UPDATE dda_sales_entries
@@ -8212,7 +8430,7 @@ async function handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser) 
     prescription_serial_no: prescriptionSerialNo,
     quantity: quantity,
     urgent: urgent
-  });
+  }, authUser.location_id);
 
   return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
 }
@@ -8223,6 +8441,7 @@ async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, 
   }
 
   await ensureDdaSalesSchema(env);
+  const __before = await auditSnap(env, "dda_sales_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -8244,6 +8463,7 @@ async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, 
 
   // normalize existing historical records for this client_id_card to prevent duplicates
   if (clientIdCardNorm && keys.length) {
+  await ddaIdCardRewriteAudit(env, authUser, clientIdCardNorm, keys);
   await dbRun(
       env,
       `UPDATE dda_sales_entries
@@ -8294,13 +8514,13 @@ async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, 
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_UPDATE", "dda_sales_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_UPDATE", "dda_sales_entries", String(entryId), auditWith({
     entry_date: entryDate,
     client_id_card: clientIdCardNorm,
     prescription_serial_no: prescriptionSerialNo,
     quantity: quantity,
     urgent: urgent
-  });
+  }, __before, await auditSnap(env, "dda_sales_entries", entryId, authUser)), authUser.location_id);
 
   const changes = updRes && updRes.meta && typeof updRes.meta.changes === "number" ? updRes.meta.changes : null;
   const wantDebug = (request.headers.get("X-Eikon-Debug") || "") === "1";
@@ -8333,6 +8553,7 @@ async function handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, 
   }
 
   await ensureDdaSalesSchema(env);
+  const __before = await auditSnap(env, "dda_sales_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -8358,11 +8579,11 @@ async function handleDdaSalesEntryDelete(request, env, corsOkHeaders, authUser, 
     return jsonResponse(payload, 500, corsOkHeaders);
   }
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_DELETE", "dda_sales_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_DELETE", "dda_sales_entries", String(entryId), auditWith({
     entry_date: existing.entry_date,
     client_id_card: existing.client_id_card,
     prescription_serial_no: existing.prescription_serial_no
-  });
+  }, __before), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -8669,7 +8890,7 @@ async function handleDdaPoycEntryCreate(request, env, corsOkHeaders, authUser) {
     client_id_card: clientIdCard,
     prescription_serial_no: prescriptionSerialNo,
     quantity: quantity
-  });
+  }, authUser.location_id);
 
   return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
 }
@@ -8680,6 +8901,7 @@ async function handleDdaPoycEntryUpdate(request, env, corsOkHeaders, authUser, e
   }
 
   await ensureDdaPoycSchema(env);
+  const __before = await auditSnap(env, "dda_poyc_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -8733,12 +8955,12 @@ async function handleDdaPoycEntryUpdate(request, env, corsOkHeaders, authUser, e
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_POYC_ENTRY_UPDATE", "dda_poyc_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_POYC_ENTRY_UPDATE", "dda_poyc_entries", String(entryId), auditWith({
     entry_date: entryDate,
     client_id_card: clientIdCard,
     prescription_serial_no: prescriptionSerialNo,
     quantity: quantity
-  });
+  }, __before, await auditSnap(env, "dda_poyc_entries", entryId, authUser)), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -8752,6 +8974,7 @@ async function handleDdaPoycEntryDelete(request, env, corsOkHeaders, authUser, e
   }
 
   await ensureDdaPoycSchema(env);
+  const __before = await auditSnap(env, "dda_poyc_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -8769,11 +8992,11 @@ async function handleDdaPoycEntryDelete(request, env, corsOkHeaders, authUser, e
     [entryId, authUser.org_id, authUser.location_id]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_POYC_ENTRY_DELETE", "dda_poyc_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_POYC_ENTRY_DELETE", "dda_poyc_entries", String(entryId), auditWith({
     entry_date: existing.entry_date,
     client_id_card: existing.client_id_card,
     prescription_serial_no: existing.prescription_serial_no
-  });
+  }, __before), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -9018,7 +9241,7 @@ async function handleDdaPurchasesEntryCreate(request, env, corsOkHeaders, authUs
     dda_name_dose: ddaNameDose,
     invoice_number: invoiceNumber,
     quantity
-  });
+  }, authUser.location_id);
 
   return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
 }
@@ -9029,6 +9252,7 @@ async function handleDdaPurchasesEntryUpdate(request, env, corsOkHeaders, authUs
   }
 
   await ensureDdaPurchasesSchema(env);
+  const __before = await auditSnap(env, "dda_purchases_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -9070,12 +9294,12 @@ async function handleDdaPurchasesEntryUpdate(request, env, corsOkHeaders, authUs
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_PURCHASES_ENTRY_UPDATE", "dda_purchases_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_PURCHASES_ENTRY_UPDATE", "dda_purchases_entries", String(entryId), auditWith({
     entry_date: entryDate,
     dda_name_dose: ddaNameDose,
     invoice_number: invoiceNumber,
     quantity
-  });
+  }, __before, await auditSnap(env, "dda_purchases_entries", entryId, authUser)), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -9089,6 +9313,7 @@ async function handleDdaPurchasesEntryDelete(request, env, corsOkHeaders, authUs
   }
 
   await ensureDdaPurchasesSchema(env);
+  const __before = await auditSnap(env, "dda_purchases_entries", entryId, authUser);
 
   const existing = await dbFirst(
     env,
@@ -9106,11 +9331,11 @@ async function handleDdaPurchasesEntryDelete(request, env, corsOkHeaders, authUs
     [entryId, authUser.org_id, authUser.location_id]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_PURCHASES_ENTRY_DELETE", "dda_purchases_entries", String(entryId), {
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_PURCHASES_ENTRY_DELETE", "dda_purchases_entries", String(entryId), auditWith({
     entry_date: existing.entry_date,
     dda_name_dose: existing.dda_name_dose,
     invoice_number: existing.invoice_number
-  });
+  }, __before), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -9245,7 +9470,7 @@ async function handleDdaStockTakeCreate(request, env, corsOkHeaders, authUser) {
     RETURNING id, created_at
   `, [authUser.org_id, authUser.location_id, authUser.user_id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_CREATE", "dda_stocktakes", String(row.id), { created_at: row.created_at });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_CREATE", "dda_stocktakes", String(row.id), { created_at: row.created_at }, authUser.location_id);
   return jsonResponse({ ok: true, stocktake_id: row.id, created_at: row.created_at }, 200, corsOkHeaders);
 }
 
@@ -9290,7 +9515,7 @@ async function handleDdaStockTakeUpdate(request, env, corsOkHeaders, authUser, s
       WHERE id = ? AND org_id = ? AND location_id = ?
     `, [stocktakeId, authUser.org_id, authUser.location_id]);
 
-    await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_CLOSE", "dda_stocktakes", String(stocktakeId), {});
+    await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_CLOSE", "dda_stocktakes", String(stocktakeId), {}, authUser.location_id);
   } else if (reopen) {
     await dbRun(env, `
       UPDATE dda_stocktakes
@@ -9299,7 +9524,7 @@ async function handleDdaStockTakeUpdate(request, env, corsOkHeaders, authUser, s
       WHERE id = ? AND org_id = ? AND location_id = ?
     `, [stocktakeId, authUser.org_id, authUser.location_id]);
 
-    await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_REOPEN", "dda_stocktakes", String(stocktakeId), {});
+    await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_REOPEN", "dda_stocktakes", String(stocktakeId), {}, authUser.location_id);
   }
 
     const payload = { ok: true };
@@ -9330,7 +9555,7 @@ async function handleDdaStockTakeItemAdd(request, env, corsOkHeaders, authUser, 
   `, [authUser.org_id, authUser.location_id, stocktakeId, name, dosage, Math.floor(qty)]);
 
   await dbRun(env, `UPDATE dda_stocktakes SET updated_at = datetime('now') WHERE id = ? AND org_id = ? AND location_id = ?`, [stocktakeId, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_ADD", "dda_stocktake_items", String(row.id), { stocktake_id: stocktakeId, item_name: name, dosage, qty_tablets: Math.floor(qty) });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_ADD", "dda_stocktake_items", String(row.id), { stocktake_id: stocktakeId, item_name: name, dosage, qty_tablets: Math.floor(qty) }, authUser.location_id);
 
   return jsonResponse({ ok: true, item_id: row.id }, 200, corsOkHeaders);
 }
@@ -9338,6 +9563,7 @@ async function handleDdaStockTakeItemAdd(request, env, corsOkHeaders, authUser, 
 async function handleDdaStockTakeItemUpdate(request, env, corsOkHeaders, authUser, itemId) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   await ensureDdaStockTakesSchema(env);
+  const __before = await auditSnap(env, "dda_stocktake_items", itemId, authUser);
 
   const existing = await dbFirst(env, `
     SELECT id, stocktake_id
@@ -9362,7 +9588,7 @@ async function handleDdaStockTakeItemUpdate(request, env, corsOkHeaders, authUse
   `, [name, dosage, Math.floor(qty), itemId, authUser.org_id, authUser.location_id]);
 
   await dbRun(env, `UPDATE dda_stocktakes SET updated_at = datetime('now') WHERE id = ? AND org_id = ? AND location_id = ?`, [existing.stocktake_id, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_UPDATE", "dda_stocktake_items", String(itemId), { item_name: name, dosage, qty_tablets: Math.floor(qty) });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_UPDATE", "dda_stocktake_items", String(itemId), auditWith({ item_name: name, dosage, qty_tablets: Math.floor(qty) }, __before, await auditSnap(env, "dda_stocktake_items", itemId, authUser)), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { id: itemId };
@@ -9373,6 +9599,7 @@ async function handleDdaStockTakeItemUpdate(request, env, corsOkHeaders, authUse
 async function handleDdaStockTakeItemDelete(request, env, corsOkHeaders, authUser, itemId) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   await ensureDdaStockTakesSchema(env);
+  const __before = await auditSnap(env, "dda_stocktake_items", itemId, authUser);
 
   const existing = await dbFirst(env, `
     SELECT id, stocktake_id, item_name
@@ -9384,7 +9611,7 @@ async function handleDdaStockTakeItemDelete(request, env, corsOkHeaders, authUse
 
   await dbRun(env, `DELETE FROM dda_stocktake_items WHERE id = ? AND org_id = ? AND location_id = ?`, [itemId, authUser.org_id, authUser.location_id]);
   await dbRun(env, `UPDATE dda_stocktakes SET updated_at = datetime('now') WHERE id = ? AND org_id = ? AND location_id = ?`, [existing.stocktake_id, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_DELETE", "dda_stocktake_items", String(itemId), { item_name: existing.item_name });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_STOCKTAKE_ITEM_DELETE", "dda_stocktake_items", String(itemId), auditWith({ item_name: existing.item_name }, __before), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -9616,7 +9843,7 @@ async function ensureDefaultCertificatesIfMissing(env, authUser) {
     );
   }
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CERT_DEFAULT_ITEMS_CREATE", "location", String(authUser.location_id), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CERT_DEFAULT_ITEMS_CREATE", "location", String(authUser.location_id), {}, authUser.location_id);
   console.log("[certificates] default items ensured");
 }
 
@@ -9785,7 +10012,7 @@ async function handleCertificatesItemUpdate(request, env, corsOkHeaders, authUse
     last_date: newLast,
     interval_months: newInterval,
     certified_person: (existing.requires_person === 1 ? (newPerson || "") : "")
-  });
+  }, authUser.location_id);
 
   console.log("[certificates] UPDATE done", { id: existing.id, item_key: existing.item_key });
     const payload = { ok: true };
@@ -9912,7 +10139,7 @@ async function handleCertificatesUpload(request, env, corsOkHeaders, authUser, i
     file_mime: fileMime,
     file_size: fileSize,
     stored: hasR2 ? "r2" : "d1_base64"
-  });
+  }, authUser.location_id);
 
   console.log("[certificates] UPLOAD done", { id: existing.id, item_key: existing.item_key });
     const payload = { ok: true };
@@ -10777,7 +11004,7 @@ async function handlePoctStatePut(request, env, corsOkHeaders, authUser) {
       await dbRun(env, `DELETE FROM poct_patients WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
       counts.records_deleted += Number(n1 && n1.c || 0);
       counts.patients_deleted += Number(n2 && n2.c || 0);
-      await writeAudit(env, orgId, userId, "POCT_WIPE_ALL", "poct_records", "", { records: counts.records_deleted, patients: counts.patients_deleted });
+      await writeAudit(env, orgId, userId, "POCT_WIPE_ALL", "poct_records", "", { records: counts.records_deleted, patients: counts.patients_deleted }, authUser.location_id);
     } else {
       const recChunks = poctChunk(delRec, 800);
       for (let c = 0; c < recChunks.length; c++) {
@@ -10797,7 +11024,7 @@ async function handlePoctStatePut(request, env, corsOkHeaders, authUser) {
       }
     }
 
-    await writeAudit(env, orgId, userId, "POCT_STATE_PUT", "poct_records", "", counts);
+    await writeAudit(env, orgId, userId, "POCT_STATE_PUT", "poct_records", "", counts, authUser.location_id);
   } catch (e) {
     // Best-effort failure response; partial progress is possible but safe (upserts happen before deletes).
     throw e;
@@ -10853,6 +11080,8 @@ async function handleInstructionsGlobalPut(request, env, corsOkHeaders, authUser
 
   const now = nowIso();
   const dataJson = JSON.stringify(global);
+  let __before = null;
+  try { __before = await dbFirst(env, "SELECT * FROM instructions_global WHERE org_id = ? AND location_id = ?", [authUser.org_id, authUser.location_id]); } catch (e) {}
 
   await env.DB.prepare(
     `INSERT INTO instructions_global
@@ -10872,6 +11101,9 @@ async function handleInstructionsGlobalPut(request, env, corsOkHeaders, authUser
     authUser.user_id
   ).run();
 
+  let __after = null;
+  try { __after = await dbFirst(env, "SELECT * FROM instructions_global WHERE org_id = ? AND location_id = ?", [authUser.org_id, authUser.location_id]); } catch (e) {}
+  await writeAudit(env, authUser.org_id, authUser.user_id, "INSTRUCTIONS_GLOBAL_PUT", "instructions_global", String((__after && __after.id) || ""), { before: __before, after: __after }, authUser.location_id);
   return jsonResponse({ ok: true, updated_at: now }, 200, corsOkHeaders);
 }
 
@@ -10964,6 +11196,8 @@ async function handleInstructionsDailyPut(request, env, corsOkHeaders, authUser)
   const handoverJson = JSON.stringify(handover);
 
   const now = nowIso();
+  let __before = null;
+  try { __before = await dbFirst(env, "SELECT * FROM instructions_daily WHERE org_id = ? AND location_id = ? AND ymd = ?", [authUser.org_id, authUser.location_id, ymd]); } catch (e) {}
 
   // If cleared, delete the day row to keep month lists clean
   if ((notes || "").trim() === "" && (!handover || handover.length === 0)) {
@@ -10972,6 +11206,7 @@ async function handleInstructionsDailyPut(request, env, corsOkHeaders, authUser)
        WHERE org_id = ? AND location_id = ? AND ymd = ?`
     ).bind(authUser.org_id, authUser.location_id, ymd).run();
 
+    if (__before) await writeAudit(env, authUser.org_id, authUser.user_id, "INSTRUCTIONS_DAILY_DELETE", "instructions_daily", String(__before.id || ""), { ymd, before: __before }, authUser.location_id);
     return jsonResponse({ ok: true, deleted: true, updated_at: now }, 200, corsOkHeaders);
   }
 
@@ -10996,6 +11231,9 @@ async function handleInstructionsDailyPut(request, env, corsOkHeaders, authUser)
     authUser.user_id
   ).run();
 
+  let __after = null;
+  try { __after = await dbFirst(env, "SELECT * FROM instructions_daily WHERE org_id = ? AND location_id = ? AND ymd = ?", [authUser.org_id, authUser.location_id, ymd]); } catch (e) {}
+  await writeAudit(env, authUser.org_id, authUser.user_id, __before ? "INSTRUCTIONS_DAILY_UPDATE" : "INSTRUCTIONS_DAILY_CREATE", "instructions_daily", String((__after && __after.id) || ""), { ymd, before: __before, after: __after }, authUser.location_id);
   return jsonResponse({ ok: true, updated_at: now }, 200, corsOkHeaders);
 }
 
@@ -11131,7 +11369,7 @@ async function checkScarceStockDepletion(env, offerId, authUser) {
 
   if (Number(offer.is_closed || 0) !== 1) {
     await dbRun(env, "UPDATE scarce_stock_offers SET is_closed=1, updated_at=datetime('now') WHERE id=?", [offerId]);
-    await writeAudit(env, offer.org_id, authUser.user_id, "SCARCE_OFFER_DEPLETED", "scarce_stock_offers", String(offerId), { quantity_available: offer.quantity_available, requested: Number(totalReq?.total || 0) });
+    await writeAudit(env, offer.org_id, authUser.user_id, "SCARCE_OFFER_DEPLETED", "scarce_stock_offers", String(offerId), { quantity_available: offer.quantity_available, requested: Number(totalReq?.total || 0) }, authUser.location_id);
   }
 
   await ensureStockTransfersSchema(env);
@@ -11141,7 +11379,7 @@ async function checkScarceStockDepletion(env, offerId, authUser) {
   );
   for (const t of linked) {
     await dbRun(env, "UPDATE stock_transfer_items SET is_closed = 1, close_reason = 'Scarce stock fully requested', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, t.id]);
-    await writeAudit(env, offer.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_CLOSE", "stock_transfer_items", String(t.id), { reason: "scarce_stock_depleted", offer_id: offerId });
+    await writeAudit(env, offer.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_CLOSE", "stock_transfer_items", String(t.id), { reason: "scarce_stock_depleted", offer_id: offerId }, authUser.location_id);
   }
 }
 
@@ -11172,7 +11410,7 @@ async function handleScarceOffersList(request, env, corsOkHeaders, authUser, url
       await dbRun(env, "DELETE FROM stock_transfer_requests WHERE item_id = ?", [expOffer.transfer_item_id]);
       await dbRun(env, "DELETE FROM stock_transfer_items WHERE id = ?", [expOffer.transfer_item_id]);
       await dbRun(env, "UPDATE scarce_stock_offers SET transfer_item_id=NULL, updated_at=datetime('now') WHERE id=?", [exp.id]);
-      await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_DELETE", "stock_transfer_items", String(expOffer.transfer_item_id), { reason: "scarce_stock_expired", offer_id: exp.id });
+      await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_DELETE", "stock_transfer_items", String(expOffer.transfer_item_id), { reason: "scarce_stock_expired", offer_id: exp.id }, authUser.location_id);
     }
     // Also check if a transfer item links back via placed_on_scarce_stock_id
     const linkedTransfer = await dbFirst(env,
@@ -11207,7 +11445,7 @@ async function handleScarceOffersList(request, env, corsOkHeaders, authUser, url
         if (neId) {
           await dbRun(env, "UPDATE scarce_stock_offers SET near_expiry_id=?, updated_at=datetime('now') WHERE id=?", [neId, exp.id]);
         }
-        await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_AUTO_CREATE", "near_expiry_entries", String(neId || ""), { source: "expired_scarce_stock", offer_id: exp.id, item_name: exp.item_name });
+        await writeAudit(env, authUser.org_id, authUser.user_id, "NEAR_EXPIRY_AUTO_CREATE", "near_expiry_entries", String(neId || ""), { source: "expired_scarce_stock", offer_id: exp.id, item_name: exp.item_name }, authUser.location_id);
       } else {
         // Link existing near expiry entry to this offer
         await dbRun(env, "UPDATE scarce_stock_offers SET near_expiry_id=?, updated_at=datetime('now') WHERE id=?", [existing.id, exp.id]);
@@ -11367,7 +11605,7 @@ async function handleScarceOfferCreate(request, env, corsOkHeaders, authUser) {
     );
   }
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_CREATE", "scarce_stock_offers", String(insertedId || ""), { item_name, quantity_available: qty, near_expiry_id });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_CREATE", "scarce_stock_offers", String(insertedId || ""), { item_name, quantity_available: qty, near_expiry_id }, authUser.location_id);
   return jsonResponse({ ok: true, id: insertedId }, 200, corsOkHeaders);
 }
 
@@ -11409,7 +11647,7 @@ async function handleScarceOfferUpdate(request, env, corsOkHeaders, authUser, of
     authUser.user_id, id
   ]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_UPDATE", "scarce_stock_offers", String(id), { item_name, quantity_available: qty, is_closed: is_closed ? 1 : 0 });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_UPDATE", "scarce_stock_offers", String(id), { item_name, quantity_available: qty, is_closed: is_closed ? 1 : 0 }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -11444,7 +11682,7 @@ async function handleScarceOfferDelete(request, env, corsOkHeaders, authUser, of
     await ensureStockTransfersSchema(env);
     await dbRun(env, "DELETE FROM stock_transfer_requests WHERE item_id = ?", [existing.transfer_item_id]);
     await dbRun(env, "DELETE FROM stock_transfer_items WHERE id = ?", [existing.transfer_item_id]);
-    await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_DELETE", "stock_transfer_items", String(existing.transfer_item_id), { reason: "scarce_stock_deleted", offer_id: id });
+    await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_AUTO_DELETE", "stock_transfer_items", String(existing.transfer_item_id), { reason: "scarce_stock_deleted", offer_id: id }, authUser.location_id);
   }
   // Also check if a transfer item links via placed_on_scarce_stock_id or source_module
   await ensureStockTransfersSchema(env);
@@ -11460,10 +11698,10 @@ async function handleScarceOfferDelete(request, env, corsOkHeaders, authUser, of
   if (existing.placed_on_returns && existing.placed_on_returns_id) {
     await dbRun(env, "DELETE FROM returns_entries WHERE id=? AND org_id=? AND location_id=?",
       [existing.placed_on_returns_id, existing.org_id, existing.location_id]);
-    await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_AUTO_DELETE", "returns_entries", String(existing.placed_on_returns_id), { reason: "scarce_stock_deleted", offer_id: id });
+    await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_AUTO_DELETE", "returns_entries", String(existing.placed_on_returns_id), { reason: "scarce_stock_deleted", offer_id: id }, authUser.location_id);
   }
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_DELETE", "scarce_stock_offers", String(id), { item_name: existing.item_name || "" });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_DELETE", "scarce_stock_offers", String(id), { item_name: existing.item_name || "" }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -11504,7 +11742,7 @@ async function handleScarceOfferRequestCreate(request, env, corsOkHeaders, authU
   ]);
 
   const insertedId = res?.meta?.last_row_id || null;
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_REQUEST_CREATE", "scarce_stock_offer_requests", String(insertedId || ""), { offer_id: id, quantity_requested: qty });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_REQUEST_CREATE", "scarce_stock_offer_requests", String(insertedId || ""), { offer_id: id, quantity_requested: qty }, authUser.location_id);
 
   // Check if stock is fully requested — auto-delete linked near expiry item
   await checkScarceStockDepletion(env, id, authUser);
@@ -11538,7 +11776,7 @@ async function handleScarceOfferRequestUpdate(request, env, corsOkHeaders, authU
     WHERE id = ?
   `, [qty, note, authUser.user_id, id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_REQUEST_UPDATE", "scarce_stock_offer_requests", String(id), { quantity_requested: qty });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_REQUEST_UPDATE", "scarce_stock_offer_requests", String(id), { quantity_requested: qty }, authUser.location_id);
 
   // Check if stock is fully requested — auto-delete linked near expiry item
   await checkScarceStockDepletion(env, existing.offer_id, authUser);
@@ -11561,7 +11799,7 @@ async function handleScarceOfferRequestDelete(request, env, corsOkHeaders, authU
   }
 
   await dbRun(env, `DELETE FROM scarce_stock_offer_requests WHERE id = ?`, [id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_REQUEST_DELETE", "scarce_stock_offer_requests", String(id), { offer_id: existing.offer_id });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_REQUEST_DELETE", "scarce_stock_offer_requests", String(id), { offer_id: existing.offer_id }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -11692,7 +11930,7 @@ async function handleScarceNeedCreate(request, env, corsOkHeaders, authUser) {
   ]);
 
   const insertedId = res?.meta?.last_row_id || null;
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_CREATE", "scarce_stock_needs", String(insertedId || ""), { item_name, quantity_needed: qty });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_CREATE", "scarce_stock_needs", String(insertedId || ""), { item_name, quantity_needed: qty }, authUser.location_id);
   return jsonResponse({ ok: true, id: insertedId }, 200, corsOkHeaders);
 }
 
@@ -11735,7 +11973,7 @@ async function handleScarceNeedUpdate(request, env, corsOkHeaders, authUser, nee
     authUser.user_id, id
   ]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_UPDATE", "scarce_stock_needs", String(id), { item_name, quantity_needed: qty, is_closed: is_closed ? 1 : 0 });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_UPDATE", "scarce_stock_needs", String(id), { item_name, quantity_needed: qty, is_closed: is_closed ? 1 : 0 }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -11756,7 +11994,7 @@ async function handleScarceNeedDelete(request, env, corsOkHeaders, authUser, nee
   await dbRun(env, `DELETE FROM scarce_stock_need_offers WHERE need_id = ?`, [id]);
   await dbRun(env, `DELETE FROM scarce_stock_needs WHERE id = ?`, [id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_DELETE", "scarce_stock_needs", String(id), { item_name: existing.item_name || "" });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_DELETE", "scarce_stock_needs", String(id), { item_name: existing.item_name || "" }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -11789,7 +12027,7 @@ async function handleScarceNeedOfferCreate(request, env, corsOkHeaders, authUser
   ]);
 
   const insertedId = res?.meta?.last_row_id || null;
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_CREATE", "scarce_stock_need_offers", String(insertedId || ""), { need_id: id, quantity_offered: qty });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_CREATE", "scarce_stock_need_offers", String(insertedId || ""), { need_id: id, quantity_offered: qty }, authUser.location_id);
   return jsonResponse({ ok: true, id: insertedId }, 200, corsOkHeaders);
 }
 
@@ -11819,7 +12057,7 @@ async function handleScarceNeedOfferUpdate(request, env, corsOkHeaders, authUser
     WHERE id = ?
   `, [qty, note, authUser.user_id, id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_UPDATE", "scarce_stock_need_offers", String(id), { quantity_offered: qty });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_UPDATE", "scarce_stock_need_offers", String(id), { quantity_offered: qty }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -11838,7 +12076,7 @@ async function handleScarceNeedOfferDelete(request, env, corsOkHeaders, authUser
   }
 
   await dbRun(env, `DELETE FROM scarce_stock_need_offers WHERE id = ?`, [id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_DELETE", "scarce_stock_need_offers", String(id), { need_id: existing.need_id });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_DELETE", "scarce_stock_need_offers", String(id), { need_id: existing.need_id }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -11861,7 +12099,7 @@ async function handleScarceNeedOfferAccept(request, env, corsOkHeaders, authUser
   }
 
   await dbRun(env, `UPDATE scarce_stock_need_offers SET accepted = 1, updated_at = datetime('now'), updated_by = ? WHERE id = ?`, [authUser.user_id, id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_ACCEPT", "scarce_stock_need_offers", String(id), { need_id: existing.need_id });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_ACCEPT", "scarce_stock_need_offers", String(id), { need_id: existing.need_id }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -11899,7 +12137,7 @@ async function handleScarceNeedOfferConfirm(request, env, corsOkHeaders, authUse
     }
   }
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_CONFIRM", "scarce_stock_need_offers", String(id), { need_id: existing.need_id, quantity_offered: existing.quantity_offered });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_NEED_OFFER_CONFIRM", "scarce_stock_need_offers", String(id), { need_id: existing.need_id, quantity_offered: existing.quantity_offered }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -11928,7 +12166,7 @@ async function handleScarceOfferPlaceOnReturns(request, env, corsOkHeaders, auth
   await dbRun(env, "UPDATE scarce_stock_offers SET placed_on_returns = 1, placed_on_returns_id = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?",
     [returnsId, authUser.user_id, id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_PLACE_RETURNS", "scarce_stock_offers", String(id), { returns_id: returnsId });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_PLACE_RETURNS", "scarce_stock_offers", String(id), { returns_id: returnsId }, authUser.location_id);
   return jsonResponse({ ok: true, returns_id: returnsId }, 201, corsOkHeaders);
 }
 
@@ -11970,7 +12208,7 @@ async function handleScarceOfferPlaceOnTransfer(request, env, corsOkHeaders, aut
   await dbRun(env, "UPDATE scarce_stock_offers SET transfer_item_id = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?",
     [transferId, authUser.user_id, id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_PLACE_TRANSFER", "scarce_stock_offers", String(id), { transfer_item_id: transferId });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_PLACE_TRANSFER", "scarce_stock_offers", String(id), { transfer_item_id: transferId }, authUser.location_id);
   return jsonResponse({ ok: true, transfer_item_id: transferId }, 201, corsOkHeaders);
 }
 
@@ -12064,7 +12302,7 @@ async function handleStockTransferItemsList(request, env, corsOkHeaders, authUse
       await dbRun(env, "DELETE FROM scarce_stock_offers WHERE id = ? AND org_id = ? AND location_id = ?",
         [expItem.placed_on_scarce_stock_id, authUser.org_id, authUser.location_id]);
       await dbRun(env, "UPDATE stock_transfer_items SET placed_on_scarce_stock = 0, placed_on_scarce_stock_id = NULL WHERE id = ?", [expItem.id]);
-      await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_AUTO_DELETE", "scarce_stock_offers", String(expItem.placed_on_scarce_stock_id), { reason: "transfer_item_expired", transfer_item_id: expItem.id });
+      await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_AUTO_DELETE", "scarce_stock_offers", String(expItem.placed_on_scarce_stock_id), { reason: "transfer_item_expired", transfer_item_id: expItem.id }, authUser.location_id);
     }
     // Note: expired items CAN still be on Returns (user requirement), so we don't remove placed_on_returns
   }
@@ -12189,7 +12427,7 @@ async function handleStockTransferItemCreate(request, env, corsOkHeaders, authUs
   `, [authUser.org_id, authUser.location_id, entryDate, itemDesc, batch, expiryDate || null, qty, sourceModule, sourceId, authUser.user_id, authUser.user_id]);
 
   const newId = res.meta?.last_row_id || null;
-  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_CREATE", "stock_transfer_items", String(newId), { item_description: itemDesc, quantity: qty, source_module: sourceModule, source_id: sourceId });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_CREATE", "stock_transfer_items", String(newId), { item_description: itemDesc, quantity: qty, source_module: sourceModule, source_id: sourceId }, authUser.location_id);
 
   return jsonResponse({ ok: true, id: newId }, 201, corsOkHeaders);
 }
@@ -12223,7 +12461,7 @@ async function handleStockTransferItemUpdate(request, env, corsOkHeaders, authUs
     WHERE id = ?
   `, [itemDesc, batch, expiryDate || null, qty, isClosed, closeReason, authUser.user_id, itemId]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_UPDATE", "stock_transfer_items", String(itemId), { item_description: itemDesc });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_UPDATE", "stock_transfer_items", String(itemId), { item_description: itemDesc }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -12242,7 +12480,7 @@ async function handleStockTransferItemDelete(request, env, corsOkHeaders, authUs
   if (existing.placed_on_returns && existing.placed_on_returns_id) {
     await dbRun(env, "DELETE FROM returns_entries WHERE id = ? AND org_id = ? AND location_id = ?",
       [existing.placed_on_returns_id, authUser.org_id, authUser.location_id]);
-    await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_AUTO_DELETE", "returns_entries", String(existing.placed_on_returns_id), { reason: "transfer_item_removed", transfer_item_id: itemId });
+    await writeAudit(env, authUser.org_id, authUser.user_id, "RETURNS_AUTO_DELETE", "returns_entries", String(existing.placed_on_returns_id), { reason: "transfer_item_removed", transfer_item_id: itemId }, authUser.location_id);
   }
 
   // Remove linked scarce stock offer if placed via transfer
@@ -12250,7 +12488,7 @@ async function handleStockTransferItemDelete(request, env, corsOkHeaders, authUs
     await dbRun(env, "DELETE FROM scarce_stock_offer_requests WHERE offer_id = ?", [existing.placed_on_scarce_stock_id]);
     await dbRun(env, "DELETE FROM scarce_stock_offers WHERE id = ? AND org_id = ? AND location_id = ?",
       [existing.placed_on_scarce_stock_id, authUser.org_id, authUser.location_id]);
-    await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_AUTO_DELETE", "scarce_stock_offers", String(existing.placed_on_scarce_stock_id), { reason: "transfer_item_removed", transfer_item_id: itemId });
+    await writeAudit(env, authUser.org_id, authUser.user_id, "SCARCE_OFFER_AUTO_DELETE", "scarce_stock_offers", String(existing.placed_on_scarce_stock_id), { reason: "transfer_item_removed", transfer_item_id: itemId }, authUser.location_id);
   }
 
   // Delete all requests for this item
@@ -12258,7 +12496,7 @@ async function handleStockTransferItemDelete(request, env, corsOkHeaders, authUs
   // Delete the item
   await dbRun(env, "DELETE FROM stock_transfer_items WHERE id = ?", [itemId]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_DELETE", "stock_transfer_items", String(itemId), { item_description: existing.item_description });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_DELETE", "stock_transfer_items", String(itemId), { item_description: existing.item_description }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -12305,7 +12543,7 @@ async function handleStockTransferRequestCreate(request, env, corsOkHeaders, aut
   `, [itemId, authUser.org_id, authUser.location_id, qty, note, authUser.user_id, authUser.user_id]);
 
   const newId = res.meta?.last_row_id || null;
-  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_CREATE", "stock_transfer_requests", String(newId), { item_id: itemId, quantity: qty });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_CREATE", "stock_transfer_requests", String(newId), { item_id: itemId, quantity: qty }, authUser.location_id);
 
   return jsonResponse({ ok: true, id: newId }, 201, corsOkHeaders);
 }
@@ -12323,7 +12561,7 @@ async function handleStockTransferRequestAccept(request, env, corsOkHeaders, aut
   if (req.status !== "pending") return jsonResponse({ ok: false, error: "Request is not pending (current: " + req.status + ")" }, 400, corsOkHeaders);
 
   await dbRun(env, "UPDATE stock_transfer_requests SET status = 'accepted', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, requestId]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_ACCEPT", "stock_transfer_requests", String(requestId), { item_id: req.item_id });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_ACCEPT", "stock_transfer_requests", String(requestId), { item_id: req.item_id }, authUser.location_id);
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
@@ -12341,7 +12579,7 @@ async function handleStockTransferRequestReject(request, env, corsOkHeaders, aut
   if (req.status !== "pending") return jsonResponse({ ok: false, error: "Request is not pending" }, 400, corsOkHeaders);
 
   await dbRun(env, "UPDATE stock_transfer_requests SET status = 'rejected', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, requestId]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_REJECT", "stock_transfer_requests", String(requestId), { item_id: req.item_id });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_REJECT", "stock_transfer_requests", String(requestId), { item_id: req.item_id }, authUser.location_id);
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
@@ -12359,7 +12597,7 @@ async function handleStockTransferRequestDispatch(request, env, corsOkHeaders, a
   if (req.status !== "accepted") return jsonResponse({ ok: false, error: "Request must be accepted before dispatch (current: " + req.status + ")" }, 400, corsOkHeaders);
 
   await dbRun(env, "UPDATE stock_transfer_requests SET status = 'dispatched', updated_at = datetime('now'), updated_by = ? WHERE id = ?", [authUser.user_id, requestId]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_DISPATCH", "stock_transfer_requests", String(requestId), { item_id: req.item_id });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_DISPATCH", "stock_transfer_requests", String(requestId), { item_id: req.item_id }, authUser.location_id);
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
@@ -12396,7 +12634,7 @@ async function handleStockTransferRequestDelivery(request, env, corsOkHeaders, a
     }
   }
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_DELIVERY", "stock_transfer_requests", String(requestId), { item_id: req.item_id, quantity: req.quantity_requested });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_DELIVERY", "stock_transfer_requests", String(requestId), { item_id: req.item_id, quantity: req.quantity_requested }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -12418,7 +12656,7 @@ async function handleStockTransferRequestDelete(request, env, corsOkHeaders, aut
   if (req.status === "delivered") return jsonResponse({ ok: false, error: "Cannot cancel a delivered transfer" }, 400, corsOkHeaders);
 
   await dbRun(env, "DELETE FROM stock_transfer_requests WHERE id = ?", [requestId]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_DELETE", "stock_transfer_requests", String(requestId), { item_id: req.item_id });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_REQUEST_DELETE", "stock_transfer_requests", String(requestId), { item_id: req.item_id }, authUser.location_id);
 
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
@@ -12447,7 +12685,7 @@ async function handleStockTransferPlaceOnReturns(request, env, corsOkHeaders, au
   await dbRun(env, "UPDATE stock_transfer_items SET placed_on_returns = 1, placed_on_returns_id = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?",
     [returnsId, authUser.user_id, itemId]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_PLACE_RETURNS", "stock_transfer_items", String(itemId), { returns_id: returnsId });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_PLACE_RETURNS", "stock_transfer_items", String(itemId), { returns_id: returnsId }, authUser.location_id);
   return jsonResponse({ ok: true, returns_id: returnsId }, 201, corsOkHeaders);
 }
 
@@ -12479,7 +12717,7 @@ async function handleStockTransferPlaceOnScarceStock(request, env, corsOkHeaders
   await dbRun(env, "UPDATE stock_transfer_items SET placed_on_scarce_stock = 1, placed_on_scarce_stock_id = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?",
     [scarceId, authUser.user_id, itemId]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_PLACE_SCARCE", "stock_transfer_items", String(itemId), { scarce_stock_id: scarceId });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_TRANSFER_PLACE_SCARCE", "stock_transfer_items", String(itemId), { scarce_stock_id: scarceId }, authUser.location_id);
   return jsonResponse({ ok: true, scarce_stock_id: scarceId }, 201, corsOkHeaders);
 }
 
@@ -12635,7 +12873,7 @@ async function handleVaccinesCatalogCreate(request, env, corsOkHeaders, authUser
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "VAX_CATALOG_ADD", "vaccines_catalog", String(newId || ""), {
     brand_name
-  });
+  }, authUser.location_id);
 
   return jsonResponse({ ok: true, id: newId, created_at }, 200, corsOkHeaders);
 }
@@ -12799,7 +13037,7 @@ async function handleVaccinesOrdersCreate(request, env, corsOkHeaders, authUser)
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "VAX_ORDER_CREATE", "vaccines_orders", String(orderId), {
     section, country_code, country_name, client_first, client_last, phone, email, items
-  });
+  }, authUser.location_id);
 
   return jsonResponse({
     ok: true,
@@ -12877,7 +13115,7 @@ async function handleVaccinesStockRowCreate(request, env, corsOkHeaders, authUse
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "VAX_STOCK_CREATE", "vaccines_stock", String(id || ""), {
     vaccine_name, qty, batch, expiry_date
-  });
+  }, authUser.location_id);
 
   return jsonResponse({ ok: true, id, updated_at }, 200, corsOkHeaders);
 }
@@ -12908,7 +13146,7 @@ async function handleVaccinesStockRowUpdate(request, env, corsOkHeaders, authUse
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "VAX_STOCK_UPDATE", "vaccines_stock", String(id), {
     vaccine_name: row.vaccine_name, qty, batch, expiry_date
-  });
+  }, authUser.location_id);
 
   return jsonResponse({ ok: true, id, updated_at }, 200, corsOkHeaders);
 }
@@ -13002,6 +13240,7 @@ async function handlePharmacyCalcRecordsCreate(request, env, corsOkHeaders, auth
     [authUser.org_id, authUser.location_id, patientName, idCard, startDate, calcType, calcDataJson, authUser.user_id]
   );
 
+  await writeAudit(env, authUser.org_id, authUser.user_id, "PHARMACY_CALC_RECORD_CREATE", "pharmacy_calc_records", String(row ? row.id : ""), { calc_type: calcType, start_date: startDate, after: row ? await auditSnap(env, "pharmacy_calc_records", row.id, authUser) : null }, authUser.location_id);
   return jsonResponse({ ok: true, id: row ? row.id : null }, 201, corsOkHeaders);
 }
 
@@ -13012,10 +13251,12 @@ async function handlePharmacyCalcRecordDelete(request, env, corsOkHeaders, authU
     [recordId, authUser.org_id, authUser.location_id]
   );
   if (!existing) return jsonResponse({ ok: false, error: "Record not found" }, 404, corsOkHeaders);
+  const __before = await auditSnap(env, "pharmacy_calc_records", recordId, authUser);
   await dbRun(env,
     `DELETE FROM pharmacy_calc_records WHERE id = ? AND org_id = ? AND location_id = ?`,
     [recordId, authUser.org_id, authUser.location_id]
   );
+  await writeAudit(env, authUser.org_id, authUser.user_id, "PHARMACY_CALC_RECORD_DELETE", "pharmacy_calc_records", String(recordId), { before: __before }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -13184,7 +13425,7 @@ async function handleShiftStaffCreate(request, env, corsOkHeaders, authUser) {
      typeof body.patterns_json === "string" ? body.patterns_json : JSON.stringify(body.patterns || body.week_patterns || []),
      isActive,
      authUser.user_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_STAFF_CREATE", "shift_staff", String(row.id), { full_name: fullName });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_STAFF_CREATE", "shift_staff", String(row.id), { full_name: fullName }, authUser.location_id);
   return jsonResponse({ ok: true, staff_id: row.id }, 200, corsOkHeaders);
 }
 
@@ -13213,7 +13454,7 @@ async function handleShiftStaffUpdate(request, env, corsOkHeaders, authUser, sta
      typeof body.patterns_json === "string" ? body.patterns_json : JSON.stringify(body.patterns || body.week_patterns || []),
      body.is_active === 0 ? 0 : 1,
      staffId, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_STAFF_UPDATE", "shift_staff", String(staffId), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_STAFF_UPDATE", "shift_staff", String(staffId), {}, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -13233,7 +13474,7 @@ async function handleShiftStaffDelete(request, env, corsOkHeaders, authUser, sta
 
   await dbRun(env, `DELETE FROM shift_staff WHERE id=? AND org_id=? AND location_id=?`, [staffId, authUser.org_id, authUser.location_id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_STAFF_DELETE", "shift_staff", String(staffId), { full_name: ex.full_name });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_STAFF_DELETE", "shift_staff", String(staffId), { full_name: ex.full_name }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -13269,7 +13510,7 @@ async function handleShiftAssignmentCreate(request, env, corsOkHeaders, authUser
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?) RETURNING id`,
     [authUser.org_id, authUser.location_id, staffId, shiftDate, startTime, endTime,
      String(body.role_override||""), String(body.notes||""), authUser.user_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_ASSIGN_CREATE", "shift_assignments", String(row.id), { shift_date: shiftDate });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_ASSIGN_CREATE", "shift_assignments", String(row.id), { shift_date: shiftDate }, authUser.location_id);
   return jsonResponse({ ok: true, shift_id: row.id }, 200, corsOkHeaders);
 }
 
@@ -13277,6 +13518,7 @@ async function handleShiftAssignmentUpdate(request, env, corsOkHeaders, authUser
   await ensureShiftsSchema(env);
   const ex = await dbFirst(env, `SELECT id FROM shift_assignments WHERE id=? AND org_id=? AND location_id=?`, [shiftId, authUser.org_id, authUser.location_id]);
   if (!ex) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  const __before = await auditSnap(env, "shift_assignments", shiftId, authUser);
   const body = await readJson(request);
   await dbRun(env,
     `UPDATE shift_assignments SET start_time=?, end_time=?, role_override=?, notes=?, updated_at=datetime('now')
@@ -13284,13 +13526,14 @@ async function handleShiftAssignmentUpdate(request, env, corsOkHeaders, authUser
     [String(body.start_time||"09:00"), String(body.end_time||"18:00"),
      String(body.role_override||""), String(body.notes||""),
      shiftId, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_ASSIGN_UPDATE", "shift_assignments", String(shiftId), { before: __before, after: await auditSnap(env, "shift_assignments", shiftId, authUser) }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
 async function handleShiftAssignmentDelete(request, env, corsOkHeaders, authUser, shiftId) {
   await ensureShiftsSchema(env);
   await dbRun(env, `DELETE FROM shift_assignments WHERE id=? AND org_id=? AND location_id=?`, [shiftId, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_ASSIGN_DELETE", "shift_assignments", String(shiftId), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_ASSIGN_DELETE", "shift_assignments", String(shiftId), {}, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -13392,7 +13635,7 @@ async function handleShiftApplyPattern(request, env, corsOkHeaders, authUser) {
     inserted++;
   }
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_APPLY_PATTERN", "shift_assignments", String(staffId), { mode, start, end, inserted });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_APPLY_PATTERN", "shift_assignments", String(staffId), { mode, start, end, inserted }, authUser.location_id);
 
   try { console.log("[shifts][apply-pattern] done staffId:", staffId, "inserted:", inserted); } catch(e) {}
   return jsonResponse({ ok:true, inserted }, 200, corsOkHeaders);
@@ -13429,7 +13672,7 @@ async function handleShiftLeaveCreate(request, env, corsOkHeaders, authUser) {
      String(body.leave_type||"annual"), startDate, body.start_time||null,
      endDate, body.end_time||null, parseFloat(body.hours_requested)||8,
      String(body.reason||""), authUser.user_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_LEAVE_CREATE", "shift_leaves", String(row.id), { start_date: startDate });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_LEAVE_CREATE", "shift_leaves", String(row.id), { start_date: startDate }, authUser.location_id);
   return jsonResponse({ ok: true, leave_id: row.id }, 200, corsOkHeaders);
 }
 
@@ -13439,7 +13682,7 @@ async function handleShiftLeaveApprove(request, env, corsOkHeaders, authUser, le
     `UPDATE shift_leaves SET status='approved', reviewed_by=?, reviewed_at=datetime('now'), updated_at=datetime('now')
      WHERE id=? AND org_id=? AND location_id=?`,
     [authUser.user_id, leaveId, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_LEAVE_APPROVE", "shift_leaves", String(leaveId), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_LEAVE_APPROVE", "shift_leaves", String(leaveId), {}, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -13449,7 +13692,7 @@ async function handleShiftLeaveReject(request, env, corsOkHeaders, authUser, lea
     `UPDATE shift_leaves SET status='rejected', reviewed_by=?, reviewed_at=datetime('now'), updated_at=datetime('now')
      WHERE id=? AND org_id=? AND location_id=?`,
     [authUser.user_id, leaveId, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_LEAVE_REJECT", "shift_leaves", String(leaveId), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_LEAVE_REJECT", "shift_leaves", String(leaveId), {}, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -13466,10 +13709,15 @@ async function handleShiftOpeningHoursPut(request, env, corsOkHeaders, authUser)
   await ensureShiftsSchema(env);
   const body = await readJson(request);
   const json = JSON.stringify(body);
+  let __before = null;
+  try { __before = await dbFirst(env, "SELECT * FROM shift_opening_hours WHERE org_id = ? AND location_id = ?", [authUser.org_id, authUser.location_id]); } catch (e) {}
   await dbRun(env,
     `INSERT INTO shift_opening_hours (org_id, location_id, hours_json, updated_at, updated_by) VALUES (?,?,?,datetime('now'),?)
      ON CONFLICT(org_id, location_id) DO UPDATE SET hours_json=excluded.hours_json, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
     [authUser.org_id, authUser.location_id, json, authUser.user_id]);
+  let __after = null;
+  try { __after = await dbFirst(env, "SELECT * FROM shift_opening_hours WHERE org_id = ? AND location_id = ?", [authUser.org_id, authUser.location_id]); } catch (e) {}
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_OPENING_HOURS_PUT", "shift_opening_hours", "", { before: __before, after: __after }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -13483,6 +13731,8 @@ async function handleShiftSettingsGet(request, env, corsOkHeaders, authUser) {
 async function handleShiftSettingsPut(request, env, corsOkHeaders, authUser) {
   await ensureShiftsSchema(env);
   const body = await readJson(request);
+  let __before = null;
+  try { __before = await dbFirst(env, "SELECT * FROM shift_settings WHERE org_id = ? AND location_id = ?", [authUser.org_id, authUser.location_id]); } catch (e) {}
 
   await dbRun(env,
     `INSERT INTO shift_settings (org_id, location_id, settings_json, updated_at, updated_by) VALUES (?,?,?,datetime('now'),?)
@@ -13511,6 +13761,9 @@ async function handleShiftSettingsPut(request, env, corsOkHeaders, authUser) {
     console.log("[shifts][settings] calendarToken sync failed", e && (e.stack || e));
   }
 
+  let __after = null;
+  try { __after = await dbFirst(env, "SELECT * FROM shift_settings WHERE org_id = ? AND location_id = ?", [authUser.org_id, authUser.location_id]); } catch (e) {}
+  await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_SETTINGS_PUT", "shift_settings", "", { before: __before, after: __after }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -14073,7 +14326,7 @@ async function handleApptDoctorCreate(request, env, corsOkHeaders, authUser) {
      VALUES (?,?,?,?,?,?,?,?) RETURNING id`,
     [authUser.org_id, authUser.location_id, name, specialty, phone, defaultFee, notes, authUser.user_id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_DOCTOR_CREATE", "appt_doctors", String(row.id), { name });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_DOCTOR_CREATE", "appt_doctors", String(row.id), { name }, authUser.location_id);
   return jsonResponse({ ok: true, id: row.id }, 201, corsOkHeaders);
 }
 
@@ -14104,7 +14357,7 @@ async function handleApptDoctorUpdate(request, env, corsOkHeaders, authUser, id)
      WHERE id=? AND org_id=? AND location_id=?`,
     [name, specialty, phone, defaultFee, notes, id, authUser.org_id, authUser.location_id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_DOCTOR_UPDATE", "appt_doctors", String(id), { name });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_DOCTOR_UPDATE", "appt_doctors", String(id), { name }, authUser.location_id);
   const updated = await dbFirst(env, `SELECT * FROM appt_doctors WHERE id=?`, [id]);
   return jsonResponse({ ok: true, doctor: doctorRowToUi(updated) }, 200, corsOkHeaders);
 }
@@ -14126,7 +14379,7 @@ async function handleApptDoctorDelete(request, env, corsOkHeaders, authUser, id)
   await dbRun(env, `DELETE FROM appt_doctors WHERE id=? AND org_id=? AND location_id=?`,
     [id, authUser.org_id, authUser.location_id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_DOCTOR_DELETE", "appt_doctors", String(id), { name: existing.name });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_DOCTOR_DELETE", "appt_doctors", String(id), { name: existing.name }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -14182,7 +14435,7 @@ async function handleApptClinicCreate(request, env, corsOkHeaders, authUser) {
      VALUES (?,?,?,?,?,?,?,?,?) RETURNING id`,
     [authUser.org_id, authUser.location_id, name, locality, address, phone, fee, notes, authUser.user_id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_CLINIC_CREATE", "appt_clinics", String(row.id), { name });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_CLINIC_CREATE", "appt_clinics", String(row.id), { name }, authUser.location_id);
   return jsonResponse({ ok: true, id: row.id }, 201, corsOkHeaders);
 }
 
@@ -14214,7 +14467,7 @@ async function handleApptClinicUpdate(request, env, corsOkHeaders, authUser, id)
      WHERE id=? AND org_id=? AND location_id=?`,
     [name, locality, address, phone, fee, notes, id, authUser.org_id, authUser.location_id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_CLINIC_UPDATE", "appt_clinics", String(id), { name });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_CLINIC_UPDATE", "appt_clinics", String(id), { name }, authUser.location_id);
   const updated = await dbFirst(env, `SELECT * FROM appt_clinics WHERE id=?`, [id]);
   return jsonResponse({ ok: true, clinic: clinicRowToUi(updated) }, 200, corsOkHeaders);
 }
@@ -14232,7 +14485,7 @@ async function handleApptClinicDelete(request, env, corsOkHeaders, authUser, id)
 
   await dbRun(env, `DELETE FROM appt_clinics WHERE id=? AND org_id=? AND location_id=?`,
     [id, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_CLINIC_DELETE", "appt_clinics", String(id), { name: existing.name });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_CLINIC_DELETE", "appt_clinics", String(id), { name: existing.name }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -14327,7 +14580,7 @@ async function handleApptScheduleCreate(request, env, corsOkHeaders, authUser) {
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_SCHEDULE_CREATE", "appt_schedules", String(row.id), {
     doctor_id: doctorId, is_one_off: isOneOff
-  });
+  }, authUser.location_id);
   const created = await dbFirst(env, `SELECT * FROM appt_schedules WHERE id=?`, [row.id]);
   return jsonResponse({ ok: true, id: row.id, schedule: scheduleRowToUi(created) }, 201, corsOkHeaders);
 }
@@ -14371,7 +14624,7 @@ async function handleApptScheduleUpdate(request, env, corsOkHeaders, authUser, i
      validFrom, validUntil, isOneOff ? date : null, startTime, endTime, slotDuration,
      cancelled, cancelReason, id, authUser.org_id, authUser.location_id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_SCHEDULE_UPDATE", "appt_schedules", String(id), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_SCHEDULE_UPDATE", "appt_schedules", String(id), {}, authUser.location_id);
   const updated = await dbFirst(env, `SELECT * FROM appt_schedules WHERE id=?`, [id]);
   return jsonResponse({ ok: true, schedule: scheduleRowToUi(updated) }, 200, corsOkHeaders);
 }
@@ -14389,7 +14642,7 @@ async function handleApptScheduleDelete(request, env, corsOkHeaders, authUser, i
 
   await dbRun(env, `DELETE FROM appt_schedules WHERE id=? AND org_id=? AND location_id=?`,
     [id, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_SCHEDULE_DELETE", "appt_schedules", String(id), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_SCHEDULE_DELETE", "appt_schedules", String(id), {}, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -14533,7 +14786,7 @@ async function handleApptCreate(request, env, corsOkHeaders, authUser) {
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_CREATE", "appt_appointments", String(row.id), {
     patient_name: patientName, date, status
-  });
+  }, authUser.location_id);
 
   const created = await dbFirst(env, `SELECT * FROM appt_appointments WHERE id=?`, [row.id]);
   return jsonResponse({ ok: true, id: row.id, apptRef: finalRef, token, appointment: apptRowToUi(created) }, 201, corsOkHeaders);
@@ -14615,7 +14868,7 @@ async function handleApptUpdate(request, env, corsOkHeaders, authUser, id) {
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_UPDATE", "appt_appointments", String(id), {
     patient_name: patientName, status, date
-  });
+  }, authUser.location_id);
   const updated = await dbFirst(env, `SELECT * FROM appt_appointments WHERE id=?`, [id]);
   return jsonResponse({ ok: true, appointment: apptRowToUi(updated) }, 200, corsOkHeaders);
 }
@@ -14633,7 +14886,7 @@ async function handleApptDelete(request, env, corsOkHeaders, authUser, id) {
 
   await dbRun(env, `DELETE FROM appt_appointments WHERE id=? AND org_id=? AND location_id=?`,
     [id, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_DELETE", "appt_appointments", String(id), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_DELETE", "appt_appointments", String(id), {}, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -14718,7 +14971,7 @@ async function handleApptWaitlistCreate(request, env, corsOkHeaders, authUser) {
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_WL_CREATE", "appt_waitlist", String(row.id), {
     patient_name: patientName
-  });
+  }, authUser.location_id);
   const created = await dbFirst(env, `SELECT * FROM appt_waitlist WHERE id=?`, [row.id]);
   return jsonResponse({ ok: true, id: row.id, wlRef, entry: waitlistRowToUi(created) }, 201, corsOkHeaders);
 }
@@ -14770,7 +15023,7 @@ async function handleApptWaitlistUpdate(request, env, corsOkHeaders, authUser, i
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_WL_UPDATE", "appt_waitlist", String(id), {
     status, patient_name: patientName
-  });
+  }, authUser.location_id);
   const updated = await dbFirst(env, `SELECT * FROM appt_waitlist WHERE id=?`, [id]);
   return jsonResponse({ ok: true, entry: waitlistRowToUi(updated) }, 200, corsOkHeaders);
 }
@@ -14788,7 +15041,7 @@ async function handleApptWaitlistDelete(request, env, corsOkHeaders, authUser, i
 
   await dbRun(env, `DELETE FROM appt_waitlist WHERE id=? AND org_id=? AND location_id=?`,
     [id, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_WL_DELETE", "appt_waitlist", String(id), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "APPT_WL_DELETE", "appt_waitlist", String(id), {}, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -14859,6 +15112,7 @@ async function handleApptPublicLookup(request, env, corsOkHeaders, url) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Audit Log Handler ─────────────────────────────────────────────────────
+const __auditHasLoc = new WeakMap();
 async function handleAuditLogList(request, env, corsOkHeaders, authUser, url) {
   if (!requireRole(authUser, ["admin"])) {
     return jsonResponse({ ok: false, error: "Forbidden – admin only" }, 403, corsOkHeaders);
@@ -14886,6 +15140,18 @@ async function handleAuditLogList(request, env, corsOkHeaders, authUser, url) {
 
   let where = ["a.org_id = ?"];
   let bind  = [authUser.org_id];
+  // New rows name their pharmacy: another pharmacy of the same group does not see them. Older rows
+  // (location_id NULL) stay visible across the group, as before.
+  let hasLoc = false;
+  try {
+    await ensureAuditSchema(env);
+    hasLoc = __auditHasLoc.get(env.DB) === true;
+    if (!hasLoc) { const cols = await dbAll(env, "PRAGMA table_info(audit_log)", []); hasLoc = cols.some((c) => c.name === "location_id"); if (hasLoc) __auditHasLoc.set(env.DB, true); }
+  } catch (e) {}
+  if (hasLoc && authUser.location_id != null) {
+    where.push("(a.location_id = ? OR a.location_id IS NULL)");
+    bind.push(authUser.location_id);
+  }
 
   if (module && MODULE_ENTITY_MAP[module]) {
     const types = MODULE_ENTITY_MAP[module];
@@ -14912,7 +15178,7 @@ async function handleAuditLogList(request, env, corsOkHeaders, authUser, url) {
 
   const sql = `
     SELECT a.id, a.user_id, a.action, a.entity_type, a.entity_id,
-           a.details_json, a.created_at,
+           a.details_json, a.created_at,${hasLoc ? " a.location_id," : ""}
            u.full_name AS user_name, u.email AS user_email
     FROM audit_log a
     LEFT JOIN users u ON u.id = a.user_id
@@ -14935,6 +15201,7 @@ async function handleAuditLogList(request, env, corsOkHeaders, authUser, url) {
       entity_type: r.entity_type,
       entity_id: r.entity_id,
       details: details,
+      location_id: r.location_id == null ? null : r.location_id,
       created_at: r.created_at
     };
   });
@@ -15156,6 +15423,7 @@ async function handleBoardMessageCreate(request, env, corsOkHeaders, authUser) {
 
   // Return the created message
   const msg = await dbFirst(env, `SELECT * FROM board_messages WHERE id = ?`, [newId]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "BOARD_MESSAGE_CREATE", "board_messages", String(newId || ""), { scope, after: msg }, authUser.location_id);
   return jsonResponse({ ok: true, id: newId, message: msg }, 200, corsOkHeaders);
 }
 
@@ -15178,6 +15446,7 @@ async function handleBoardMessagePin(request, env, corsOkHeaders, authUser, msgI
   await dbRun(env, `UPDATE board_messages SET is_pinned = ?, pinned_at = ?, pinned_by = ?, updated_at = datetime('now') WHERE id = ?`,
     [newPinned, newPinned ? nowIso() : null, newPinned ? authUser.user_id : null, msgId]);
 
+  await writeAudit(env, authUser.org_id, authUser.user_id, "BOARD_MESSAGE_PIN", "board_messages", String(msgId), { is_pinned: newPinned }, authUser.location_id);
   return jsonResponse({ ok: true, is_pinned: newPinned }, 200, corsOkHeaders);
 }
 
@@ -15187,9 +15456,11 @@ async function handleBoardMessageDelete(request, env, corsOkHeaders, authUser, m
   const existing = await dbFirst(env, `SELECT id, user_id FROM board_messages WHERE id = ?`, [msgId]);
   if (!existing) return jsonResponse({ ok: false, error: "Message not found" }, 404, corsOkHeaders);
   if (existing.user_id !== authUser.user_id) return jsonResponse({ ok: false, error: "You can only delete your own messages" }, 403, corsOkHeaders);
+  const __before = await auditSnap(env, "board_messages", msgId, null);
 
   await dbRun(env, `DELETE FROM board_mentions WHERE message_id = ?`, [msgId]);
   await dbRun(env, `DELETE FROM board_messages WHERE id = ?`, [msgId]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "BOARD_MESSAGE_DELETE", "board_messages", String(msgId), { before: __before }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -15256,6 +15527,7 @@ async function handleBoardSuggestionCreate(request, env, corsOkHeaders, authUser
   `, [authUser.org_id, title, priority, authUser.user_id, authUser.full_name || ""]);
 
   const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
+  await writeAudit(env, authUser.org_id, authUser.user_id, "BOARD_SUGGESTION_CREATE", "board_suggestions", String(newId || ""), { title, priority }, authUser.location_id);
   return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
 }
 
@@ -15269,6 +15541,7 @@ async function handleBoardSuggestionUpdate(request, env, corsOkHeaders, authUser
   const isOwner = existing.created_by === authUser.user_id;
   const isSuper = isSuperuser(authUser, env);
   if (!isOwner && !isSuper) return jsonResponse({ ok: false, error: "You can only edit your own suggestions" }, 403, corsOkHeaders);
+  const __before = await auditSnap(env, "board_suggestions", sugId, null);
 
   const body = await readJson(request);
   const sets = [];
@@ -15292,6 +15565,7 @@ async function handleBoardSuggestionUpdate(request, env, corsOkHeaders, authUser
   sets.push("updated_at = datetime('now')");
   bind.push(sugId);
   await dbRun(env, `UPDATE board_suggestions SET ${sets.join(", ")} WHERE id = ?`, bind);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "BOARD_SUGGESTION_UPDATE", "board_suggestions", String(sugId), { before: __before, after: await auditSnap(env, "board_suggestions", sugId, null) }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -15303,8 +15577,11 @@ async function handleBoardSuggestionDelete(request, env, corsOkHeaders, authUser
   if (existing.created_by !== authUser.user_id && !isSuperuser(authUser, env)) {
     return jsonResponse({ ok: false, error: "You can only delete your own suggestions" }, 403, corsOkHeaders);
   }
+  const __before = await auditSnap(env, "board_suggestions", sugId, null);
+  if (__before) { try { __before.comments = await dbAll(env, "SELECT * FROM board_suggestion_comments WHERE suggestion_id = ? ORDER BY id", [sugId]); } catch (e) {} }
   await dbRun(env, `DELETE FROM board_suggestion_comments WHERE suggestion_id = ?`, [sugId]);
   await dbRun(env, `DELETE FROM board_suggestions WHERE id = ?`, [sugId]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "BOARD_SUGGESTION_DELETE", "board_suggestions", String(sugId), { before: __before }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -15329,6 +15606,7 @@ async function handleBoardSuggestionCommentCreate(request, env, corsOkHeaders, a
 
   await dbRun(env, `INSERT INTO board_suggestion_comments (suggestion_id, user_id, user_name, body, created_at) VALUES (?, ?, ?, ?, datetime('now'))`,
     [sugId, authUser.user_id, authUser.full_name || "", commentBody]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "BOARD_SUGGESTION_COMMENT", "board_suggestions", String(sugId), { body: commentBody }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -16103,6 +16381,7 @@ const ensureScreeningSchema = schemaOnce("ensureScreeningSchema", ensureScreenin
 const ensureLabelsSchema = schemaOnce("ensureLabelsSchema", ensureLabelsSchema__impl);
 const ensureContactsSchema = schemaOnce("ensureContactsSchema", ensureContactsSchema__impl);
 const ensurePeopleSchema = schemaOnce("ensurePeopleSchema", ensurePeopleSchema__impl);
+const ensureAuditSchema = schemaOnce("ensureAuditSchema", ensureAuditSchema__impl);
 
 export default {
   // Cloudflare cron: booking reminders (needs a cron trigger, e.g. every 10 minutes).
@@ -16182,6 +16461,7 @@ export default {
       if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
       const su = await requireSuperuser(request, env, corsOkHeaders);
       if (!su.ok) return su.res;
+      SU_ACTOR.set(request, su.authUser);
 
       const path = url.pathname.replace(/^\/su\/api\//, "");
       const parts = path.split("/").filter(Boolean);
@@ -16376,7 +16656,7 @@ const authUser = await authFromRequest(request, env);
       // Revoke this session server-side and purge expired ones while we are here.
       try { await dbRun(env, "DELETE FROM sessions WHERE id = ?", [authUser.session_id]); } catch (e) {}
       try { await dbRun(env, "DELETE FROM sessions WHERE expires_at < datetime('now')", []); } catch (e) {}
-      try { await writeAudit(env, authUser.org_id, authUser.user_id, "LOGOUT", "user", String(authUser.user_id), {}); } catch (e) {}
+      try { await writeAudit(env, authUser.org_id, authUser.user_id, "LOGOUT", "user", String(authUser.user_id), {}, authUser.location_id); } catch (e) {}
       return jsonResponse({ ok: true }, 200, corsOkHeaders);
     }
 
@@ -17966,7 +18246,7 @@ async function handleLoyaltyCampaignCreate(request, env, corsOkHeaders, authUser
       authUser.user_id
     ]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_CAMPAIGN_CREATE", "loyalty_campaigns", id, { name, type });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_CAMPAIGN_CREATE", "loyalty_campaigns", id, { name, type }, authUser.location_id);
   return jsonResponse({ ok: true, id }, 200, corsOkHeaders);
 }
 
@@ -18028,7 +18308,7 @@ async function handleLoyaltyCampaignUpdate(request, env, corsOkHeaders, authUser
       campId, authUser.org_id, authUser.location_id
     ]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_CAMPAIGN_UPDATE", "loyalty_campaigns", campId, { name, type });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_CAMPAIGN_UPDATE", "loyalty_campaigns", campId, { name, type }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -18047,7 +18327,7 @@ async function handleLoyaltyCampaignDelete(request, env, corsOkHeaders, authUser
     `DELETE FROM loyalty_campaigns WHERE id=? AND org_id=? AND location_id=?`,
     [campId, authUser.org_id, authUser.location_id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_CAMPAIGN_DELETE", "loyalty_campaigns", campId, {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_CAMPAIGN_DELETE", "loyalty_campaigns", campId, {}, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -18093,6 +18373,8 @@ async function handleLoyaltyClientUpsert(request, env, corsOkHeaders, authUser) 
 
   const idCard = normMtIdCard(rawCard);
   const name   = String(body.name || "").trim();
+  let __before = null;
+  try { __before = await dbFirst(env, "SELECT * FROM loyalty_clients WHERE org_id = ? AND location_id = ? AND id_card = ?", [authUser.org_id, authUser.location_id, idCard]); } catch (e) {}
 
   await dbRun(env, `
     INSERT INTO loyalty_clients (org_id, location_id, id_card, name, created_at, updated_at)
@@ -18106,6 +18388,9 @@ async function handleLoyaltyClientUpsert(request, env, corsOkHeaders, authUser) 
     `SELECT id, id_card, name FROM loyalty_clients WHERE org_id=? AND location_id=? AND id_card=?`,
     [authUser.org_id, authUser.location_id, idCard]);
 
+  let __after = null;
+  try { __after = await dbFirst(env, "SELECT * FROM loyalty_clients WHERE org_id = ? AND location_id = ? AND id_card = ?", [authUser.org_id, authUser.location_id, idCard]); } catch (e) {}
+  await writeAudit(env, authUser.org_id, authUser.user_id, __before ? "LOYALTY_CLIENT_UPDATE" : "LOYALTY_CLIENT_CREATE", "loyalty_clients", idCard, { before: __before, after: __after }, authUser.location_id);
   return jsonResponse({ ok: true, client: row }, 200, corsOkHeaders);
 }
 
@@ -18126,7 +18411,7 @@ async function handleLoyaltyClientDelete(request, env, corsOkHeaders, authUser, 
     `DELETE FROM loyalty_transactions WHERE org_id=? AND location_id=? AND client_id_card=?`,
     [authUser.org_id, authUser.location_id, idCard]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_CLIENT_DELETE", "loyalty_clients", idCard, {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_CLIENT_DELETE", "loyalty_clients", idCard, {}, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -18295,7 +18580,7 @@ async function handleLoyaltyTransactionCreate(request, env, corsOkHeaders, authU
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "LOYALTY_TXN_CREATE", "loyalty_transactions", String(row.id), {
     client_id_card: idCard, campaign_id: campaignId, action_label: actionLabel
-  });
+  }, authUser.location_id);
 
   return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
 }
@@ -18374,7 +18659,7 @@ async function handleCherubinoOrderCreate(request, env, corsOkHeaders, authUser)
      VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
     [authUser.org_id, authUser.location_id, authUser.location_name || "", orderDate, description, quantity, authUser.user_id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_ORDER_CREATE", "cherubino_orders", String(row.id), { description, quantity, orderDate });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_ORDER_CREATE", "cherubino_orders", String(row.id), { description, quantity, orderDate }, authUser.location_id);
   return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
 }
 
@@ -18412,7 +18697,7 @@ async function handleCherubinoOrderUpdate(request, env, corsOkHeaders, authUser,
      WHERE id=? AND org_id=?`,
     [desc, qty, oos, ordered, availWsl, pendWsl, orderId, authUser.org_id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_ORDER_UPDATE", "cherubino_orders", String(orderId), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_ORDER_UPDATE", "cherubino_orders", String(orderId), {}, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -18428,7 +18713,7 @@ async function handleCherubinoOrderDelete(request, env, corsOkHeaders, authUser,
   }
 
   await dbRun(env, `DELETE FROM cherubino_orders WHERE id = ? AND org_id = ?`, [orderId, authUser.org_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_ORDER_DELETE", "cherubino_orders", String(orderId), {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_ORDER_DELETE", "cherubino_orders", String(orderId), {}, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -18507,7 +18792,7 @@ async function handleCherubinoPriceCreate(request, env, corsOkHeaders, authUser)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
     [authUser.org_id, productName, oldPrice, newPrice, authUser.user_id, authUser.full_name || "", authUser.location_id, authUser.location_name || ""]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_PRICE_CREATE", "cherubino_price_changes", String(row.id), { productName, oldPrice, newPrice });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_PRICE_CREATE", "cherubino_price_changes", String(row.id), { productName, oldPrice, newPrice }, authUser.location_id);
   return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
 }
 
@@ -18524,14 +18809,18 @@ async function handleCherubinoPriceCheck(request, env, corsOkHeaders, authUser, 
        checked_by_id = excluded.checked_by_id, checked_by_name = excluded.checked_by_name, checked_at = datetime('now')`,
     [authUser.org_id, changeId, authUser.location_id, authUser.location_name || "", authUser.user_id, authUser.full_name || ""]);
 
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_PRICE_CHECK", "cherubino_price_checks", String(changeId), {}, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
 async function handleCherubinoPriceUncheck(request, env, corsOkHeaders, authUser, changeId) {
   await ensureCherubinoPriceSchema(env);
+  let __before = null;
+  try { __before = await dbFirst(env, "SELECT * FROM cherubino_price_checks WHERE price_change_id = ? AND location_id = ? AND org_id = ?", [changeId, authUser.location_id, authUser.org_id]); } catch (e) {}
   await dbRun(env,
     `DELETE FROM cherubino_price_checks WHERE price_change_id = ? AND location_id = ? AND org_id = ?`,
     [changeId, authUser.location_id, authUser.org_id]);
+  if (__before) await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_PRICE_UNCHECK", "cherubino_price_checks", String(changeId), { before: __before }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -18632,7 +18921,7 @@ async function handleShortExpiryUpload(request, env, corsOkHeaders, authUser) {
       [authUser.org_id, stkCode, stkDesc, batch, expiry, qty, locCode]);
     inserted++;
   }
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_SE_UPLOAD", "cherubino_short_expiry", "", { count: inserted, wipe: !!body.wipe });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_SE_UPLOAD", "cherubino_short_expiry", "", { count: inserted, wipe: !!body.wipe }, authUser.location_id);
   return jsonResponse({ ok: true, inserted }, 200, corsOkHeaders);
 }
 
@@ -18653,6 +18942,8 @@ async function handleShortExpiryOrder(request, env, corsOkHeaders, authUser) {
     [itemId, authUser.org_id, authUser.location_id]);
   const othersTotal = othersSum ? othersSum.total : 0;
   const availableForMe = item.qty - othersTotal;
+  let __before = null;
+  try { __before = await dbFirst(env, "SELECT * FROM cherubino_short_expiry_orders WHERE item_id = ? AND location_id = ? AND org_id = ?", [itemId, authUser.location_id, authUser.org_id]); } catch (e) {}
 
   if (quantity > availableForMe) {
     return jsonResponse({ ok: false, error: "Exceeds available stock. Only " + availableForMe + " available." }, 400, corsOkHeaders);
@@ -18665,14 +18956,20 @@ async function handleShortExpiryOrder(request, env, corsOkHeaders, authUser) {
        quantity = excluded.quantity, created_by = excluded.created_by, created_at = datetime('now')`,
     [authUser.org_id, itemId, authUser.location_id, authUser.location_name || "", quantity, authUser.user_id]);
 
+  let __after = null;
+  try { __after = await dbFirst(env, "SELECT * FROM cherubino_short_expiry_orders WHERE item_id = ? AND location_id = ? AND org_id = ?", [itemId, authUser.location_id, authUser.org_id]); } catch (e) {}
+  await writeAudit(env, authUser.org_id, authUser.user_id, __before ? "SHORT_EXPIRY_ORDER_UPDATE" : "SHORT_EXPIRY_ORDER_CREATE", "cherubino_short_expiry_orders", String(itemId), { quantity, before: __before, after: __after }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
 async function handleShortExpiryOrderDelete(request, env, corsOkHeaders, authUser, itemId) {
   await ensureCherubinoShortExpirySchema(env);
+  let __before = null;
+  try { __before = await dbFirst(env, "SELECT * FROM cherubino_short_expiry_orders WHERE item_id = ? AND location_id = ? AND org_id = ?", [itemId, authUser.location_id, authUser.org_id]); } catch (e) {}
   await dbRun(env,
     `DELETE FROM cherubino_short_expiry_orders WHERE item_id = ? AND location_id = ? AND org_id = ?`,
     [itemId, authUser.location_id, authUser.org_id]);
+  if (__before) await writeAudit(env, authUser.org_id, authUser.user_id, "SHORT_EXPIRY_ORDER_DELETE", "cherubino_short_expiry_orders", String(itemId), { before: __before }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -18727,7 +19024,7 @@ async function handleOosCreate(request, env, corsOkHeaders, authUser) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
     [authUser.org_id, description, source, isAdmin ? null : authUser.location_id, isAdmin ? "" : (authUser.location_name || ""), status, authUser.user_id, authUser.full_name || ""]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_CREATE", "cherubino_oos", String(row.id), { description, source, status });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_CREATE", "cherubino_oos", String(row.id), { description, source, status }, authUser.location_id);
   return jsonResponse({ ok: true, id: row.id }, 200, corsOkHeaders);
 }
 
@@ -18743,14 +19040,14 @@ async function handleOosUpdate(request, env, corsOkHeaders, authUser, id) {
   if (action === "approve" && isAdmin) {
     // Admin approves a pending pharmacy item → becomes admin-owned active
     await dbRun(env, `UPDATE cherubino_oos SET source='admin', status='active', source_location_id=NULL, source_location_name='' WHERE id=? AND org_id=?`, [id, authUser.org_id]);
-    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_APPROVE", "cherubino_oos", String(id), {});
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_APPROVE", "cherubino_oos", String(id), {}, authUser.location_id);
     return jsonResponse({ ok: true }, 200, corsOkHeaders);
   }
 
   if ((action === "keep" || action === "reject_removal") && isAdmin) {
     // Admin keeps the item on the list: denies a back-in-stock report or a removal request.
     await dbRun(env, `UPDATE cherubino_oos SET status='active' WHERE id=? AND org_id=?`, [id, authUser.org_id]);
-    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_KEEP", "cherubino_oos", String(id), { from_status: String(existing.status || "") });
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_KEEP", "cherubino_oos", String(id), { from_status: String(existing.status || "") }, authUser.location_id);
     return jsonResponse({ ok: true }, 200, corsOkHeaders);
   }
 
@@ -18758,28 +19055,28 @@ async function handleOosUpdate(request, env, corsOkHeaders, authUser, id) {
     // Admin rejects a pending pharmacy proposal → delete it. Only valid while pending.
     if (String(existing.status || "") !== "pending") return jsonResponse({ ok: false, error: "Only a pending proposal can be rejected" }, 400, corsOkHeaders);
     await dbRun(env, `DELETE FROM cherubino_oos WHERE id=? AND org_id=?`, [id, authUser.org_id]);
-    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_REJECT", "cherubino_oos", String(id), {});
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_REJECT", "cherubino_oos", String(id), {}, authUser.location_id);
     return jsonResponse({ ok: true }, 200, corsOkHeaders);
   }
 
   if (action === "approve_back_in_stock" && isAdmin) {
     // Admin approves back-in-stock → remove the item
     await dbRun(env, `DELETE FROM cherubino_oos WHERE id=? AND org_id=?`, [id, authUser.org_id]);
-    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_BACK_IN_STOCK", "cherubino_oos", String(id), {});
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_BACK_IN_STOCK", "cherubino_oos", String(id), {}, authUser.location_id);
     return jsonResponse({ ok: true }, 200, corsOkHeaders);
   }
 
   if (action === "mark_back_in_stock" && !isAdmin) {
     // Pharmacy marks admin item as back in stock → pending approval
     await dbRun(env, `UPDATE cherubino_oos SET status='back_in_stock' WHERE id=? AND org_id=?`, [id, authUser.org_id]);
-    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_MARK_BACK", "cherubino_oos", String(id), { location: authUser.location_name });
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_MARK_BACK", "cherubino_oos", String(id), { location: authUser.location_name }, authUser.location_id);
     return jsonResponse({ ok: true }, 200, corsOkHeaders);
   }
 
   if (action === "request_removal" && !isAdmin) {
     // Pharmacy requests removal of an admin-approved item
     await dbRun(env, `UPDATE cherubino_oos SET status='removal_requested' WHERE id=? AND org_id=?`, [id, authUser.org_id]);
-    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_REQUEST_REMOVAL", "cherubino_oos", String(id), { location: authUser.location_name });
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_REQUEST_REMOVAL", "cherubino_oos", String(id), { location: authUser.location_name }, authUser.location_id);
     return jsonResponse({ ok: true }, 200, corsOkHeaders);
   }
 
@@ -18796,14 +19093,14 @@ async function handleOosDelete(request, env, corsOkHeaders, authUser, id) {
   // Admin can delete anything
   if (isAdmin) {
     await dbRun(env, `DELETE FROM cherubino_oos WHERE id = ? AND org_id = ?`, [id, authUser.org_id]);
-    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_DELETE", "cherubino_oos", String(id), {});
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_DELETE", "cherubino_oos", String(id), {}, authUser.location_id);
     return jsonResponse({ ok: true }, 200, corsOkHeaders);
   }
 
   // Pharmacy can only delete their own unapproved items
   if (existing.source === "pharmacy" && existing.status === "pending" && Number(existing.source_location_id) === Number(authUser.location_id)) {
     await dbRun(env, `DELETE FROM cherubino_oos WHERE id = ? AND org_id = ?`, [id, authUser.org_id]);
-    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_DELETE", "cherubino_oos", String(id), {});
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CHERUBINO_OOS_DELETE", "cherubino_oos", String(id), {}, authUser.location_id);
     return jsonResponse({ ok: true }, 200, corsOkHeaders);
   }
 
@@ -18984,7 +19281,7 @@ async function handlePosCatalogBatch(request, env, corsOkHeaders, authUser) {
       total_rows = excluded.total_rows`,
     [authUser.org_id, authUser.location_id, fileName, totalRows]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_CATALOG_BATCH", "pos_products", "", { count: upserted });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_CATALOG_BATCH", "pos_products", "", { count: upserted }, authUser.location_id);
   return jsonResponse({ ok: true, upserted }, 200, corsOkHeaders);
 }
 
@@ -18992,7 +19289,7 @@ async function handlePosCatalogClear(request, env, corsOkHeaders, authUser) {
   await ensurePosSchema(env);
   await dbRun(env, `DELETE FROM pos_products WHERE org_id=? AND location_id=?`,
     [authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_CATALOG_CLEAR", "pos_products", "", {});
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_CATALOG_CLEAR", "pos_products", "", {}, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -19069,7 +19366,7 @@ async function handlePosSaleCreate(request, env, corsOkHeaders, authUser) {
      subtotal, vatTotal, total, paymentMethod, amountTendered, changeGiven,
      notes, clientName, clientId, offlineId, authUser.user_id, m.discountPct]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_SALE_CREATE", "pos_sales", String(row.id), { total, vat_total: vatTotal, discount_pct: m.discountPct, payment_method: paymentMethod });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_SALE_CREATE", "pos_sales", String(row.id), { total, vat_total: vatTotal, discount_pct: m.discountPct, payment_method: paymentMethod }, authUser.location_id);
   return jsonResponse({ ok: true, id: row.id, subtotal, vat_total: vatTotal, total, change_given: changeGiven }, 200, corsOkHeaders);
 }
 
@@ -19082,7 +19379,7 @@ async function handlePosSaleVoid(request, env, corsOkHeaders, authUser, saleId) 
   const reason = String(body.reason || "").trim();
   await dbRun(env, `UPDATE pos_sales SET voided=1, voided_at=datetime('now'), voided_by=?, voided_reason=?, updated_at=datetime('now') WHERE id=?`,
     [authUser.user_id, reason, saleId]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_SALE_VOID", "pos_sales", String(saleId), { reason });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_SALE_VOID", "pos_sales", String(saleId), { reason }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -19125,7 +19422,7 @@ async function handlePosSalesSync(request, env, corsOkHeaders, authUser) {
     }
   }
   const synced = results.filter(r => r.ok && !r.duplicate).length;
-  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_SALES_SYNC", "pos_sales", "", { synced, total: sales.length });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "EPOS_SALES_SYNC", "pos_sales", "", { synced, total: sales.length }, authUser.location_id);
   return jsonResponse({ ok: true, synced, results }, 200, corsOkHeaders);
 }
 
@@ -19202,7 +19499,7 @@ async function handlePvStatePut(request, env, corsOkHeaders, authUser) {
     pvRemoved += Number(r && r.meta && r.meta.changes || 0);
   }
 
-  await writeAudit(env, orgId, userId, "PV_STATE_PUT", "pv_reports", "", { count: cleaned.length, deleted: pvRemoved, deleted_ids: pvDeleted });
+  await writeAudit(env, orgId, userId, "PV_STATE_PUT", "pv_reports", "", { count: cleaned.length, deleted: pvRemoved, deleted_ids: pvDeleted }, authUser.location_id);
   return jsonResponse({ ok: true, saved: cleaned.length }, 200, corsOkHeaders);
 }
 
@@ -19280,7 +19577,7 @@ async function handleScreeningStatePut(request, env, corsOkHeaders, authUser) {
     scRemoved += Number(r && r.meta && r.meta.changes || 0);
   }
 
-  await writeAudit(env, orgId, userId, "SCREENING_STATE_PUT", "screening_campaigns", "", { count: cleaned.length, deleted: scRemoved, deleted_ids: scDeleted });
+  await writeAudit(env, orgId, userId, "SCREENING_STATE_PUT", "screening_campaigns", "", { count: cleaned.length, deleted: scRemoved, deleted_ids: scDeleted }, authUser.location_id);
   return jsonResponse({ ok: true, saved: cleaned.length }, 200, corsOkHeaders);
 }
 
@@ -19397,7 +19694,7 @@ async function handleLabelsStatePut(request, env, corsOkHeaders, authUser) {
       settings_json = excluded.settings_json, updated_by = excluded.updated_by, updated_at = datetime('now')`,
     [orgId, locId, settingsJson, userId]);
 
-  await writeAudit(env, orgId, userId, "LABELS_STATE_PUT", "label_history", "", { historyCount: cleaned.length });
+  await writeAudit(env, orgId, userId, "LABELS_STATE_PUT", "label_history", "", { historyCount: cleaned.length }, authUser.location_id);
   return jsonResponse({ ok: true, saved: cleaned.length }, 200, corsOkHeaders);
 }
 
@@ -19514,7 +19811,7 @@ async function handleContactsSave(request, env, corsOkHeaders, authUser, tableKe
     vals.push(...whereVals);
 
     await dbRun(env, `UPDATE ${def.db} SET ${sets.join(", ")} WHERE ${whereClause}`, vals);
-    await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_UPDATE", def.db, String(id), body);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_UPDATE", def.db, String(id), body, authUser.location_id);
     return jsonResponse({ ok: true, id: id }, 200, corsOkHeaders);
   } else {
     // Insert new
@@ -19530,7 +19827,7 @@ async function handleContactsSave(request, env, corsOkHeaders, authUser, tableKe
       `INSERT INTO ${def.db} (${colNames.join(", ")}) VALUES (${placeholders})`,
       vals);
     const newId = res && res.meta ? res.meta.last_row_id : null;
-    await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_CREATE", def.db, String(newId || ""), body);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_CREATE", def.db, String(newId || ""), body, authUser.location_id);
     return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
   }
 }
@@ -19554,7 +19851,7 @@ async function handleContactsDelete(request, env, corsOkHeaders, authUser, table
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   await dbRun(env, `DELETE FROM ${def.db} WHERE ${whereClause}`, whereVals);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_DELETE", def.db, String(id), existing);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_DELETE", def.db, String(id), existing, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -19588,7 +19885,7 @@ async function handleContactsBulk(request, env, corsOkHeaders, authUser, tableKe
     ids.push(res && res.meta ? res.meta.last_row_id : null);
   }
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_BULK_IMPORT", def.db, "", { count: rows.length });
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_BULK_IMPORT", def.db, "", { count: rows.length }, authUser.location_id);
   return jsonResponse({ ok: true, ids: ids }, 200, corsOkHeaders);
 }
 
@@ -20095,7 +20392,7 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
         [org, loc, b.kind, f.label || d.label, last && last.p != null ? Number(last.p) + 1 : 0, f.enabled === 0 ? 0 : 1, f.from_name || "", f.from_email || "", await bkEncrypt(env, secret),
          f.smtp_host || "", f.smtp_port || 465, f.smtp_user || "", f.smtp_secure || "tls", f.daily_cap !== undefined ? f.daily_cap : d.daily, f.monthly_cap !== undefined ? f.monthly_cap : d.monthly]);
       const id = r && r.meta && r.meta.last_row_id;
-      await writeAudit(env, org, me, "BK_SENDER_ADD", "bk_senders", String(id), { kind: b.kind });
+      await writeAudit(env, org, me, "BK_SENDER_ADD", "bk_senders", String(id), { kind: b.kind }, loc);
       return ok({ sender: out(await mine(id)) }, 201);
     }
     if (m === "POST" && parts[1] === "order") {
@@ -20126,13 +20423,13 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
       if (secret) { if (String(env.BOOKINGS_KEY || "").length < 16) return bad("Messages need the BOOKINGS_KEY secret set on the server"); f.cred_enc = await bkEncrypt(env, secret); f.cooldown_until = ""; f.last_error = ""; }
       const cols = Object.keys(f);
       if (cols.length) await dbRun(env, `UPDATE bk_senders SET ${cols.map((c) => c + "=?").join(", ")}, updated_at=datetime('now') WHERE id=? AND org_id=? AND location_id=?`, [...cols.map((c) => f[c]), id, org, loc]);
-      await writeAudit(env, org, me, "BK_SENDER_EDIT", "bk_senders", String(id), { fields: cols.filter((c) => c !== "cred_enc"), key_changed: !!secret });
+      await writeAudit(env, org, me, "BK_SENDER_EDIT", "bk_senders", String(id), { fields: cols.filter((c) => c !== "cred_enc"), key_changed: !!secret }, loc);
       return ok({ sender: out(await mine(id)) });
     }
     if (m === "DELETE") {
       await dbRun(env, `DELETE FROM bk_senders WHERE id=? AND org_id=? AND location_id=?`, [id, org, loc]);
       if (cur.legacy) await dbRun(env, `UPDATE bk_settings SET api_key_enc='', provider=CASE WHEN provider='off' THEN 'off' ELSE 'on' END WHERE org_id=? AND location_id=?`, [org, loc]);
-      await writeAudit(env, org, me, "BK_SENDER_DELETE", "bk_senders", String(id), { kind: cur.kind });
+      await writeAudit(env, org, me, "BK_SENDER_DELETE", "bk_senders", String(id), { kind: cur.kind }, loc);
       return ok({ deleted: id });
     }
     return bad("Not found", 404);
@@ -20159,7 +20456,7 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
       if (!name) return bad("Name is required");
       const r = await dbFirst(env, `INSERT INTO bk_waitlist (org_id, location_id, service_id, person_name, person_phone, person_email, note, created_by) VALUES (?,?,?,?,?,?,?,?) RETURNING *`,
         [org, loc, svc.id, name, String(b.personPhone || "").trim(), String(b.personEmail || "").trim().toLowerCase(), String(b.note || "").trim(), me]);
-      await writeAudit(env, org, me, "BK_WAITLIST_ADD", "bk_waitlist", String(r.id), { service_id: svc.id });
+      await writeAudit(env, org, me, "BK_WAITLIST_ADD", "bk_waitlist", String(r.id), { service_id: svc.id }, loc);
       return ok({ entry: wlRow(r) }, 201);
     }
     if (m === "PATCH" && parts.length === 2) {
@@ -20203,14 +20500,14 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
     if (m === "POST" && parts.length === 1) {
       const r = await dbFirst(env, `INSERT INTO bk_services (org_id, location_id, name, duration_min, buffer_min, price_cents, color, provider_ids_json, online, active, sort)
         VALUES (?,?,?,?,?,?,?,?,?,1,?) RETURNING *`, [org, loc, name, dur, buf, price, String(b.color || ""), JSON.stringify(pids), b.online ? 1 : 0, Math.round(Number(b.sort) || 0)]);
-      await writeAudit(env, org, me, "BK_SERVICE_CREATE", "bk_services", String(r.id), { name });
+      await writeAudit(env, org, me, "BK_SERVICE_CREATE", "bk_services", String(r.id), { name }, loc);
       return ok({ service: bkServiceRow(r) }, 201);
     }
     if (m === "PUT" && parts.length === 2) {
       const r = await dbFirst(env, `UPDATE bk_services SET name=?, duration_min=?, buffer_min=?, price_cents=?, color=?, provider_ids_json=?, online=?, active=?, sort=?, updated_at=datetime('now')
         WHERE id=? AND org_id=? AND location_id=? RETURNING *`, [name, dur, buf, price, String(b.color || ""), JSON.stringify(pids), b.online ? 1 : 0, b.active === false ? 0 : 1, Math.round(Number(b.sort) || 0), Number(parts[1]), org, loc]);
       if (!r) return bad("Not found", 404);
-      await writeAudit(env, org, me, "BK_SERVICE_UPDATE", "bk_services", String(r.id), { name });
+      await writeAudit(env, org, me, "BK_SERVICE_UPDATE", "bk_services", String(r.id), { name }, loc);
       return ok({ service: bkServiceRow(r) });
     }
   }
@@ -20243,7 +20540,7 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
       if (sent === "sent") emailed++;
       else toCall.push({ id: r.id, personName: r.person_name, personPhone: r.person_phone, date: r.date, start: r.start_time });
     }
-    await writeAudit(env, org, me, "BK_PROVIDER_AWAY", "bk_providers", String(pid), { from, to, start: st, end: en, reason, cancelled });
+    await writeAudit(env, org, me, "BK_PROVIDER_AWAY", "bk_providers", String(pid), { from, to, start: st, end: en, reason, cancelled }, loc);
     return ok({ cancelled, emailed, toCall });
   }
 
@@ -20256,7 +20553,7 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
     if (!name) return bad("Give the room a name, e.g. Room 1");
     if (m === "POST" && parts.length === 1) {
       const r = await dbFirst(env, `INSERT INTO bk_rooms (org_id, location_id, name) VALUES (?,?,?) RETURNING *`, [org, loc, name]);
-      await writeAudit(env, org, me, "BK_ROOM_CREATE", "bk_rooms", String(r.id), { name });
+      await writeAudit(env, org, me, "BK_ROOM_CREATE", "bk_rooms", String(r.id), { name }, loc);
       return ok({ room: { id: r.id, name: r.name, active: true } }, 201);
     }
     if (m === "PUT" && parts.length === 2) {
@@ -20298,7 +20595,7 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
     }
     if (m === "POST" && parts.length === 1) {
       const r = await dbFirst(env, `INSERT INTO bk_providers (org_id, location_id, name, kind, hours_json, title, speciality) VALUES (?,?,?,?,?,?,?) RETURNING *`, [org, loc, name, kind, JSON.stringify(hours), title, speciality]);
-      await writeAudit(env, org, me, "BK_PROVIDER_CREATE", "bk_providers", String(r.id), { name });
+      await writeAudit(env, org, me, "BK_PROVIDER_CREATE", "bk_providers", String(r.id), { name }, loc);
       return ok({ provider: bkProviderRow(r) }, 201);
     }
     if (m === "PUT" && parts.length === 2) {
@@ -20307,7 +20604,7 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
           updated_at=datetime('now') WHERE id=? AND org_id=? AND location_id=? RETURNING *`,
         [name, kind, JSON.stringify(hours), b.active === false ? 0 : 1, b.title !== undefined ? 1 : 0, title, b.speciality !== undefined ? 1 : 0, speciality, Number(parts[1]), org, loc]);
       if (!r) return bad("Not found", 404);
-      await writeAudit(env, org, me, "BK_PROVIDER_UPDATE", "bk_providers", String(r.id), { name });
+      await writeAudit(env, org, me, "BK_PROVIDER_UPDATE", "bk_providers", String(r.id), { name }, loc);
       return ok({ provider: bkProviderRow(r) });
     }
   }
@@ -20381,7 +20678,7 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'booked',?,?,?,?,?) RETURNING *`,
         [org, loc, bkRef(), svc.id, slot.providerId, name, String(b.personPhone || "").trim(), String(b.personEmail || "").trim().toLowerCase(),
           String(b.personIdCard || "").trim().toUpperCase(), date, start, end, svc.priceCents, String(b.notes || ""), bkRandomHex(16), me, me]);
-      await writeAudit(env, org, me, "BK_CREATE", "bk_bookings", String(r.id), { date, start, service_id: svc.id, provider_id: slot.providerId });
+      await writeAudit(env, org, me, "BK_CREATE", "bk_bookings", String(r.id), { date, start, service_id: svc.id, provider_id: slot.providerId }, loc);
       const message = await bkNotify(env, request, r, "confirm");
       // Booked from the waiting list: mark that entry as done (only if it is for this pharmacy and still waiting).
       if (b.waitlistId) await dbRun(env, `UPDATE bk_waitlist SET status='booked', booking_id=?, updated_at=datetime('now') WHERE id=? AND org_id=? AND location_id=? AND status='waiting'`, [r.id, Number(b.waitlistId), org, loc]);
@@ -20418,7 +20715,7 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
         [status, date, start, end, pid, b.notes !== undefined ? String(b.notes) : cur.notes, status === "cancelled" ? String(b.cancelReason || cur.cancel_reason) : cur.cancel_reason,
           me, id, org, loc, cur.version]);
       if (!r) return bad("Changed by someone else", 409);
-      await writeAudit(env, org, me, "BK_UPDATE", "bk_bookings", String(id), { status, date, start, provider_id: pid });
+      await writeAudit(env, org, me, "BK_UPDATE", "bk_bookings", String(id), { status, date, start, provider_id: pid }, loc);
       let message = "";
       let offer = null;
       if (status === "cancelled" && cur.status !== "cancelled") {
@@ -20854,7 +21151,7 @@ async function handleBookingsSettings(request, env, corsOkHeaders, authUser, url
       await dbRun(env, `UPDATE bk_settings SET public_enabled=?, public_slug=?, updated_at=datetime('now') WHERE org_id=? AND location_id=?`, [want ? 1 : 0, slug || "", org, loc]);
     }
     await bkSyncLegacySender(env, org, loc);
-    await writeAudit(env, org, authUser.user_id, "BK_SETTINGS_UPDATE", "bk_settings", String(loc), { provider, from_email: fromEmail, key_changed: b.apiKey !== undefined, public_enabled: b.publicEnabled });
+    await writeAudit(env, org, authUser.user_id, "BK_SETTINGS_UPDATE", "bk_settings", String(loc), { provider, from_email: fromEmail, key_changed: b.apiKey !== undefined, public_enabled: b.publicEnabled }, loc);
     return jsonResponse({ ok: true, settings: bkSettingsOut(await bkGetSettings(env, org, loc), env) }, 200, corsOkHeaders);
   }
   if (request.method === "POST" && /\/test$/.test(url.pathname)) {
@@ -20954,7 +21251,7 @@ async function handleBookingLink(request, env, url) {
         WHERE id=? AND version=? AND status IN ('booked','confirmed') RETURNING *`, [nd, ns, bkTime(bkMin(ns) + svcRow.durationMin), pick.providerId, b.id, b.version]);
     } catch (e) { return jsonOut({ ok: false, error: "That time is no longer free. Please pick another." }, 409); }
     if (!r) return jsonOut({ ok: false, error: "Your booking changed meanwhile. Please reload." }, 409);
-    await writeAudit(env, b.org_id, null, "BK_MOVE_ONLINE", "bk_bookings", String(b.id), { from: b.date + " " + b.start_time, to: nd + " " + ns });
+    await writeAudit(env, b.org_id, null, "BK_MOVE_ONLINE", "bk_bookings", String(b.id), { from: b.date + " " + b.start_time, to: nd + " " + ns }, b.location_id);
     await bkNotify(env, request, r, "change");
     return jsonOut({ ok: true, when: bkWhen(r) });
   }
@@ -20964,7 +21261,7 @@ async function handleBookingLink(request, env, url) {
     if (!canCancel) return bkPage("Can't cancel", `<div class="c"><h1>Too late to cancel online</h1><div class="s">Please call ${e(pharmacy)}${s.phone ? " on " + e(s.phone) : ""}.</div></div>`, 409);
     const r = await dbFirst(env, `UPDATE bk_bookings SET status='cancelled', cancel_reason='Cancelled by the customer online', version=version+1, updated_at=datetime('now')
       WHERE id=? AND status IN ('booked','confirmed') RETURNING *`, [b.id]);
-    if (r) { await writeAudit(env, b.org_id, null, "BK_CANCEL_ONLINE", "bk_bookings", String(b.id), {}); await bkNotify(env, request, r, "cancel"); }
+    if (r) { await writeAudit(env, b.org_id, null, "BK_CANCEL_ONLINE", "bk_bookings", String(b.id), {}, b.location_id); await bkNotify(env, request, r, "cancel"); }
     return bkPage("Cancelled", `<div class="c"><h1>Cancelled</h1><div class="s">Your ${e(svcName.toLowerCase())} on ${e(bkWhen(b))} is cancelled. ${e(pharmacy)} has been told.</div></div>`);
   }
 
@@ -21120,7 +21417,7 @@ async function bkImportLegacy(env, authUser, dry) {
     if (!dry) { const r = await dbFirst(env, `INSERT INTO bk_waitlist (org_id, location_id, service_id, person_name, person_phone, person_email, note, created_by) VALUES (?,?,?,?,?,?,?,?) RETURNING id`,
       [org, loc, svcFor[pairKey(w.doctor_id, w.clinic_id)], String(w.patient_name || "Unknown"), String(w.patient_phone || ""), String(w.patient_email || "").toLowerCase(), String(w.notes || ""), authUser.user_id]); await mapSet("wait", w.id, r.id); }
   }
-  if (!dry) await writeAudit(env, org, authUser.user_id, "BK_IMPORT_LEGACY", "bk_bookings", String(loc), rep);
+  if (!dry) await writeAudit(env, org, authUser.user_id, "BK_IMPORT_LEGACY", "bk_bookings", String(loc), rep, loc);
   return rep;
 }
 
@@ -21224,7 +21521,7 @@ async function handlePublicBooking(request, env, url) {
         VALUES (?,?,?,?,?,?,?,?,?,?,?,'booked',?,?,?) RETURNING *`,
         [org, loc, bkRef(), svc.id, slot.providerId, p.name, p.phone, p.email, p.date, p.start, bkTime(bkMin(p.start) + svc.durationMin), svc.priceCents, "Booked online", bkRandomHex(16)]);
       await dbRun(env, `UPDATE bk_holds SET used=1 WHERE id=?`, [h.id]);
-      await writeAudit(env, org, null, "BK_CREATE_ONLINE", "bk_bookings", String(r.id), { date: p.date, start: p.start, service_id: svc.id });
+      await writeAudit(env, org, null, "BK_CREATE_ONLINE", "bk_bookings", String(r.id), { date: p.date, start: p.start, service_id: svc.id }, loc);
       await bkNotify(env, request, r, "confirm");
       const tok = await bkLinkToken(env, r);
       return json({ ok: true, when: bkWhen(r), service: svc.name, link: tok ? `/b/${tok}` : "" });
