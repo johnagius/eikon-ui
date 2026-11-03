@@ -126,7 +126,7 @@
       var r = await E.apiFetch("/client-tickets/entries/" + encodeURIComponent(String(id)), { method: "PUT", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       ok = true; if (okText) E.toast(okText, "success");
-    } catch (x) { S.err = "Not saved: " + String((x && (x.message || x)) || "error"); E.toast(S.err, "error"); }
+    } catch (x) { S.err = E.saveFailText(x); E.toast(S.err, "error"); }
     S.busy[id] = false; if (ok) { S.noting = null; S.err = ""; } await load(); return ok;
   }
   function addNote(f) {
@@ -151,7 +151,7 @@
       var r = await E.apiFetch("/client-tickets/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; E.toast("Question recorded · " + body.ticket_id, "success");
-    } catch (x) { S.err = "Not saved: " + String((x && (x.message || x)) || "error"); }
+    } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }
 

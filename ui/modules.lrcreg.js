@@ -145,7 +145,7 @@
       remember(a.day_type === "holiday" ? "holiday" : "normal", rate);
       S.adding = null; E.toast(eur(hrs * rate) + " for " + a.locum_full_name + " · Print it from the list", "success");
       if (a.receipt_date.slice(0, 7) !== S.month) S.month = a.receipt_date.slice(0, 7);
-    } catch (x) { S.err = "Not saved: " + String((x && (x.message || x)) || "error"); }
+    } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }
 

@@ -183,7 +183,7 @@
       S.form = null; E.toast("Cleaning recorded · " + dayShort(body.entry_date) + " · " + body.cleaner_name, "success");
       S.month = body.entry_date.slice(0, 7);
     } catch (e) {
-      S.form.err = "Not saved: " + String((e && (e.message || e)) || "error");
+      S.form.err = E.saveFailText(e);
     }
     S.saving = false;
     return load();

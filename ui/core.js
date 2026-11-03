@@ -1380,6 +1380,12 @@
 
   // Hand a person from Customers to a register so the name is never typed again.
   // Lives in sessionStorage for five minutes, in this tab only, and is taken once.
+  // One wording for a save that failed. A timeout or a dropped connection on a save is uncertain: the server may
+  // have stored it before the answer was lost, so the person is told to look before recording it again.
+  E.saveFailText = function (x) {
+    if (x && x.network) return /timed out/i.test(String(x.message || "")) ? "No answer from the server in time. It may have been saved: check the list before doing it again." : "The connection dropped. Check the list: if it is not there, try again.";
+    return "Not saved: " + String((x && (x.message || x)) || "error");
+  };
   E.carryPerson = function (p) {
     try { sessionStorage.setItem("eikon_carry_person", JSON.stringify({ id: p.id, name: p.name || "", id_card: p.id_card || "", phone: p.phone || "", alt_phone: p.alt_phone || "", email: p.email || "", address: p.address || "", at: Date.now() })); } catch (e) {}
   };

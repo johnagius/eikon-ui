@@ -149,7 +149,7 @@
       var r = await E.apiFetch("/certificates/items/" + encodeURIComponent(String(it.id)), { method: "PUT", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.editing = null; S.draft = null; E.toast(it.title + " updated", "success");
-    } catch (e) { S.formErr = "Not saved: " + String((e && (e.message || e)) || "error"); }
+    } catch (e) { S.formErr = E.saveFailText(e); }
     S.saving = false;
     return load();
   }

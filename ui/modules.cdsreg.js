@@ -190,7 +190,11 @@
       if (dup) { S.dup = dup; S.dupOk = a.prescription_serial_no; return paint(); }
     }
     S.saving = true; paint();
-    var done = 0, failed = "";
+    var done = 0, failed = "", lost = null;
+    // count what the register already holds for these lines, so a save whose answer is lost can be checked afterwards
+    var monthList = async function () { var r0 = await E.apiFetch(C.path + "/entries?month=" + a.entry_date.slice(0, 7), { method: "GET" }); return (r0 && r0.ok && r0.entries) || []; };
+    var same = function (e, l) { return e.entry_date === a.entry_date && String(e.medicine_name_dose).trim().toLowerCase() === String(l.medicine_name_dose).trim().toLowerCase() && Number(e.quantity) === Number(l.quantity) && String(e.prescription_serial_no).trim() === a.prescription_serial_no && String(e.client_id_card).replace(/\s+/g, "").toUpperCase().replace(/^0+/, "") === String(a.client_id_card).replace(/\s+/g, "").toUpperCase().replace(/^0+/, ""); };
+    var before = null; try { before = await monthList(); } catch (e0) { before = null; }
     for (var i = 0; i < todo.length; i++) {
       var l = todo[i];
       try {
@@ -198,11 +202,18 @@
           medicine_name_dose: l.medicine_name_dose, quantity: Number(l.quantity), doctor_name: a.doctor_name, doctor_reg_no: a.doctor_reg_no, prescription_serial_no: a.prescription_serial_no, urgent: a.urgent ? 1 : 0 }) }); // the POYC server ignores urgent
         if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
         l.saved = true; done++;
-      } catch (x) { failed = String((x && (x.message || x)) || "error"); break; } // stop: the rest stay in the form
+      } catch (x) { failed = x && x.network ? E.saveFailText(x) : String((x && (x.message || x)) || "error"); lost = x && x.network ? l : null; break; } // stop: the rest stay in the form
+    }
+    if (lost && before) { // the answer was lost: look in the register before anything is sent again
+      try {
+        var after = await monthList();
+        if (after.filter(function (e) { return same(e, lost); }).length > before.filter(function (e) { return same(e, lost); }).length) { lost.saved = true; done++; failed = todo[done] ? "the connection dropped (the line before it did save)" : ""; }
+        else failed = "the connection dropped and it is not in the register";
+      } catch (e1) { failed = "the connection dropped. Check the register below before pressing Record again"; }
     }
     S.saving = false;
     if (!failed) { S.adding = null; S.dup = null; S.dupOk = ""; E.toast(done === 1 ? "Recorded" : done + " medicines recorded", "success"); if (a.entry_date.slice(0, 7) !== S.month) S.month = a.entry_date.slice(0, 7); }
-    else S.err = (done ? done + " saved. " : "") + "Not saved from " + (todo[done] || {}).medicine_name_dose + ": " + failed + ". Press Record to try the rest again.";
+    else S.err = (done ? done + " saved. " : "") + "Not saved from " + (todo[done] || {}).medicine_name_dose + ": " + String(failed).replace(/\.$/, "") + ". Press Record to try the rest again.";
     return load();
   }
 

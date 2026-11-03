@@ -125,7 +125,7 @@
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       if (after) after(); E.toast(okText, "success");
       return rec;
-    } catch (x) { S.err = "Not saved: " + String((x && (x.message || x)) || "error"); }
+    } catch (x) { S.err = E.saveFailText(x); }
     finally { S.saving = false; await load(); }
   }
   async function saveNotes() {

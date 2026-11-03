@@ -130,7 +130,7 @@
       var r = await E.apiFetch("/client-orders/entries/" + encodeURIComponent(String(id)), { method: "PUT", body: JSON.stringify({ fulfilled: true }) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       E.toast(e.client_name + "'s order is ready", "success");
-    } catch (x) { E.toast("Not saved: " + String((x && (x.message || x)) || "error"), "error"); }
+    } catch (x) { E.toast(E.saveFailText(x), "error"); }
     S.busy[id] = false; return load();
   }
 
@@ -149,7 +149,7 @@
       var r = await E.apiFetch("/client-orders/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; E.toast("Order added for " + body.client_name, "success");
-    } catch (x) { S.err = "Not saved: " + String((x && (x.message || x)) || "error"); }
+    } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }
 

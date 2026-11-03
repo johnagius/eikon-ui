@@ -121,7 +121,7 @@
       var r = await E.apiFetch("/alerts/entries/" + encodeURIComponent(String(id)), { method: "PUT", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       if (okText) E.toast(okText, "success");
-    } catch (x) { E.toast("Not saved: " + String((x && (x.message || x)) || "error"), "error"); }
+    } catch (x) { E.toast(E.saveFailText(x), "error"); }
     S.busy[id] = false; return load();
   }
 
@@ -136,7 +136,7 @@
       var r = await E.apiFetch("/alerts/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; E.toast("Alert recorded · " + body.item_name, "success");
-    } catch (x) { S.err = "Not saved: " + String((x && (x.message || x)) || "error"); }
+    } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }
 

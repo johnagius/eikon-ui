@@ -132,7 +132,7 @@
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; E.toast("Paid out " + eur(fee) + " to " + a.payee_name, "success");
       if (a.entry_date.slice(0, 7) !== S.month) S.month = a.entry_date.slice(0, 7);
-    } catch (x) { S.err = "Not saved: " + String((x && (x.message || x)) || "error"); }
+    } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }
 

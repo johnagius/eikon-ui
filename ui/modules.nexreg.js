@@ -143,7 +143,7 @@
       var r = await E.apiFetch("/near-expiry/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; E.toast("Added · " + body.product_name + " · expires " + nice(body.expiry_date), "success");
-    } catch (e) { S.err = "Not saved: " + String((e && (e.message || e)) || "error"); }
+    } catch (e) { S.err = E.saveFailText(e); }
     S.saving = false; return load();
   }
 
@@ -158,7 +158,7 @@
       var r = await E.apiFetch("/near-expiry/entries/create-return", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.returning = null; E.toast(e.product_name + " added to Returns for " + body.supplier, "success");
-    } catch (x) { S.err = "Not saved: " + String((x && (x.message || x)) || "error"); }
+    } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }
 

@@ -139,18 +139,29 @@
     }
     if (S.err) return paint();
     S.saving = true; paint();
-    var done = 0, failed = "";
+    var done = 0, failed = "", lost = null;
+    // count what the register already holds for these lines, so a save whose answer is lost can be checked afterwards
+    var monthList = async function () { var r0 = await E.apiFetch("/dda-purchases" + "/entries?month=" + a.entry_date.slice(0, 7), { method: "GET" }); return (r0 && r0.ok && r0.entries) || []; };
+    var same = function (e, l) { return e.entry_date === a.entry_date && String(e.dda_name_dose).trim().toLowerCase() === String(l.dda_name_dose).trim().toLowerCase() && Number(e.quantity) === Number(l.quantity) && String(e.invoice_number).trim() === a.invoice_number && String(e.agent).trim().toLowerCase() === a.agent.toLowerCase(); };
+    var before = null; try { before = await monthList(); } catch (e0) { before = null; }
     for (var i = 0; i < todo.length; i++) {
       var l = todo[i];
       try {
         var r = await E.apiFetch("/dda-purchases/entries", { method: "POST", body: JSON.stringify({ entry_date: a.entry_date, dda_name_dose: l.dda_name_dose, quantity: Number(l.quantity), agent: a.agent, invoice_number: a.invoice_number }) });
         if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
         l.saved = true; done++;
-      } catch (x) { failed = String((x && (x.message || x)) || "error"); break; } // stop: the rest stay in the form
+      } catch (x) { failed = x && x.network ? E.saveFailText(x) : String((x && (x.message || x)) || "error"); lost = x && x.network ? l : null; break; } // stop: the rest stay in the form
+    }
+    if (lost && before) { // the answer was lost: look in the register before anything is sent again
+      try {
+        var after = await monthList();
+        if (after.filter(function (e) { return same(e, lost); }).length > before.filter(function (e) { return same(e, lost); }).length) { lost.saved = true; done++; failed = todo[done] ? "the connection dropped (the line before it did save)" : ""; }
+        else failed = "the connection dropped and it is not in the register";
+      } catch (e1) { failed = "the connection dropped. Check the register below before pressing Record again"; }
     }
     S.saving = false;
     if (!failed) { S.adding = null; E.toast(done === 1 ? "1 line recorded" : done + " lines recorded", "success"); if (monthOf(a.entry_date) !== S.month) S.month = monthOf(a.entry_date); }
-    else S.err = (done ? done + " saved. " : "") + "Not saved from " + (todo[done] || {}).dda_name_dose + ": " + failed + ". Press Record to try the rest again.";
+    else S.err = (done ? done + " saved. " : "") + "Not saved from " + (todo[done] || {}).dda_name_dose + ": " + String(failed).replace(/\.$/, "") + ". Press Record to try the rest again.";
     return load();
   }
 

@@ -137,7 +137,7 @@
   async function run(fn, okText) {
     S.busy = true; S.err = ""; paint();
     try { await fn(); if (okText) E.toast(okText, "success"); S.busy = false; return true; }
-    catch (e) { S.err = String((e && (e.message || e)) || "error"); E.toast("Not saved: " + S.err, "error"); S.busy = false; paint(); return false; }
+    catch (e) { S.err = E.saveFailText(e); E.toast(S.err, "error"); S.busy = false; paint(); return false; }
   }
   async function step(rq, a) {
     var path = { accept: "/accept", reject: "/reject", dispatch: "/confirm-dispatch", deliver: "/confirm-delivery" }[a];

@@ -165,7 +165,7 @@
       var r = await E.apiFetch("/client-deliveries/entries/" + encodeURIComponent(String(e.id)), { method: "PUT", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       ok = true; if (okText) E.toast(okText, "success");
-    } catch (x) { S.err = "Not saved: " + String((x && (x.message || x)) || "error"); E.toast(S.err, "error"); }
+    } catch (x) { S.err = E.saveFailText(x); E.toast(S.err, "error"); }
     S.busy[e.id] = false; if (ok) { S.open = null; S.mode = ""; S.err = ""; } await load(); return ok;
   }
   function delivered(f) {
@@ -205,7 +205,7 @@
       var r = await E.apiFetch("/client-deliveries/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; E.toast("Delivery recorded · " + body.delivery_id, "success");
-    } catch (x) { S.err = "Not saved: " + String((x && (x.message || x)) || "error"); }
+    } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }
 

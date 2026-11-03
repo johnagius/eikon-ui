@@ -103,7 +103,7 @@
       var r = await E.apiFetch("/returns/entries/" + encodeURIComponent(String(id)), { method: "PUT", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       E.toast(e.description + " · " + (STEPS.find(function (s) { return s[0] === key; }) || ["", "done"])[1].toLowerCase(), "success");
-    } catch (x) { E.toast("Not saved: " + String((x && (x.message || x)) || "error"), "error"); }
+    } catch (x) { E.toast(E.saveFailText(x), "error"); }
     S.busy[id] = false; return load();
   }
 
