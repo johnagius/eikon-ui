@@ -772,3 +772,9 @@ All of it waits only on the worker deploy.
 - Phone screenshots of the public page with 10-minute slots: after a time was chosen, the whole grid (72 buttons) stayed on screen through the name form and the code step, so the form sat several screens down and the chosen time was a small highlighted button somewhere in the middle. The grid also left a ragged gap on the right (fixed-width buttons in a flex row).
 - Now: once a time is chosen, the day and time grid folds into one line in a card, "Today at 08:20", with a Change button (no Change once the code is sent); Change reopens the grid with the chosen time marked and keyboard focus on it. A slot taken in the meantime clears the choice, so the grid comes back with the message, as before. The grid is a CSS grid (auto-fill, min 76px) that fills the row evenly.
 - Checked: fold/Change/rebook flow, booked by mouse and by keyboard alone, every stop shows focus, axe clean at every step in light and dark. Worker tests 99/99. Ships with John's next deploy (bookings-15).
+
+## Round 91 — One page for the server deploy
+
+- Rounds 88–90 added to the worker, which only John can deploy. Checked what is actually waiting: the live server is still 2026-11-02-fixes-1, from before Bookings, so the deploy carries all of Bookings, the board privacy fix, Today deliveries, the audit fixes and the booking-page work (one file, +1680 lines since 54b2ec3).
+- Checked the data side from the diff: no existing table is altered or dropped; the 12 new bk_ tables create themselves (IF NOT EXISTS), the only ALTERs add columns to those new tables, old Appointments are only read. No d1 step needed. BOOKINGS_KEY is optional (without it Bookings works, emails/links stay off).
+- Wrote design/eikon-next/DEPLOY-WORKER.md: what is live vs waiting, what it brings, why data is safe, the optional secret, the one deploy command, how to check (/health), and rollback.
