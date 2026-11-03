@@ -102,20 +102,26 @@
         '  </div>' +
         '</div>';
 
+      var lastAt = Date.now();
       await renderDashboard(ctx.mount);
 
-      // 30s auto-refresh
+      // 30s auto-refresh, not from a hidden tab; back on the tab, at once if it is due
       if (_autoInterval) clearInterval(_autoInterval);
       _autoInterval = setInterval(function () {
-        if (E.state.activeModuleId !== "supplier-dashboard") return;
-        renderDashboard(ctx.mount);
+        if (E.state.activeModuleId !== "supplier-dashboard" || document.hidden) return;
+        lastAt = Date.now(); renderDashboard(ctx.mount);
       }, 30000);
+      var onVis = function () {
+        if (!document.hidden && E.state.activeModuleId === "supplier-dashboard" && Date.now() - lastAt > 30000) { lastAt = Date.now(); renderDashboard(ctx.mount); }
+      };
+      document.addEventListener("visibilitychange", onVis);
 
       var onHashChange = function () {
         if (E.state.activeModuleId !== "supplier-dashboard" || E.getHashModuleId() !== "supplier-dashboard") {
           clearInterval(_autoInterval);
           _autoInterval = null;
           window.removeEventListener("hashchange", onHashChange);
+          document.removeEventListener("visibilitychange", onVis);
         }
       };
       window.addEventListener("hashchange", onHashChange);
