@@ -429,6 +429,7 @@
         if (!got) throw x0;
       }
       S.adding = null; S.view = pt.patientId; S.q = "";
+      if (E.linkPerson) E.linkPerson({ name: pt.name, id_card: pt.patientId, phone: pt.phone, address: pt.address }, "register:poct"); // one person in Customers, found or added
       E.toast(mc.conflict ? "Recorded. This ID card was on file with a different name or phone; the patient's details were kept." : NICE[t] + " recorded for " + pt.name, mc.conflict ? "warning" : "success");
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();

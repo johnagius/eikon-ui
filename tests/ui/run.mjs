@@ -851,7 +851,7 @@ await page.click('[data-act=resolve][data-id="62"]'); await page.waitForTimeout(
 await page.click('[data-act=add]'); await page.click("#tkt-add button[type=submit]"); await page.waitForTimeout(200);
 const tkErr = await page.evaluate(() => (document.querySelector(".tkt-err") || {}).textContent || "");
 await page.fill("#tkt-add [name=client_name]", "Borg Anna"); await page.fill("#tkt-add [name=issue]", "Does Panadol come in syrup?"); await page.click("#tkt-add button[type=submit]"); await page.waitForTimeout(700);
-const tkCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT" || c.method === "POST");
+const tkCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => (c.method === "PUT" || c.method === "POST") && c.path !== "/people"); // the person link after a save is checked in its own test
 const tkNote = tkCalls[0] || {}, tkLog = (() => { try { return JSON.parse(tkNote.body.notes_log); } catch (e) { return []; } })(), tkNew = (tkCalls[2] || {}).body || {};
 report("questions: open in the new layout, high first; a note keeps the old ones; Resolved sends only status; a new one needs a name and gets a category",
   tk1.rail.join() === "customers" && tk1.names[0] === "Farrugia Tony" && /Called, no answer/.test(tk1.last) && tkCalls.length === 3 &&
@@ -1341,7 +1341,7 @@ try {
   const ocpHits = await page.$$eval(".ocp-row b", (l) => l.map((x) => x.textContent).join());
   await page.click("[data-act=clear]"); await page.click('.ocp-row[data-trade="Clairette"]'); await page.waitForTimeout(100);
   const ocpLike = await page.textContent(".ocp-like"), ocpClair = await page.$$eval(".ocp-row b", (l) => l.map((x) => x.textContent).join());
-  const ocpCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method !== "GET" || /ocp|contracep/i.test(c.path));
+  const ocpCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => (c.method !== "GET" || /ocp|contracep/i.test(c.path)) && c.path !== "/people");
   report("contraceptive pills: #ocps opens the new lookup under Services; 21 classic pills; EE 20 mcg + drospirenone 3 mg finds Freedonel, Yasminelle, Yaz; a tap shows the same pills; no write",
     ocpRail === "services" && ocpAll === 21 && /Ethinylestradiol 30 mcg/.test(ocpAdele) && /Desogestrel 0\.15 mg/.test(ocpAdele) && ocpHits === "Freedonel,Yasminelle,Yaz" &&
     /as Clairette: 1 other pill\./.test(ocpLike) && ocpClair === "Clairette,Vreya" && ocpCalls.length === 0,
@@ -1625,7 +1625,7 @@ try {
   const ppReads = ppCalls.filter((c) => c.path === "/people" || c.path === "/dda-sales/clients"), ppWrites = ppCalls.filter((c) => c.method !== "GET");
   report("people as you type: 2345 lists Zammit Carmel (combobox + listbox); arrow + Enter fills 0012345M, name and address and says where from; 12345m keeps a typed name and fills the address; Zam in Orders fills the phone; reads only",
     ppList.role === "combobox" && ppList.exp === "true" && ppList.lb === "listbox" && ppList.opts.join() === "Zammit Carmel" &&
-    ppPick.id === "0012345M" && ppPick.name === "Zammit Carmel" && ppPick.addr === "1 Triq il-Knisja" && ppPick.note === "Filled from earlier records (last 5 Oct)" && !ppPick.open && ppPick.focus === "client_id_card" &&
+    ppPick.id === "0012345M" && ppPick.name === "Zammit Carmel" && ppPick.addr === "1 Triq il-Knisja" && /^Filled from (Customers|earlier records \(last 5 Oct\))$/.test(ppPick.note) && !ppPick.open && ppPick.focus === "client_id_card" &&
     ppExact.name === "Typed By Hand" && ppExact.addr === "1 Triq il-Knisja" && /Filled from/.test(ppExact.note) &&
     ppNames.includes("Zammit Paul") && ppNames.includes("Zammit Carmel") && ppOrd.name === "Zammit Paul" && ppOrd.phone === "79000001" &&
     ppReads.length >= 3 && ppReads.every((c) => /[?&]q=/.test(c.query)) && ppReads.some((c) => /q=2345/.test(c.query)) && ppWrites.length === 0,
@@ -1704,6 +1704,97 @@ try {
     asked.join() === "prompt,prompt" && putsNone === 0 && ordNoPh.length === 1 && ordNoPh[0].path === "/client-orders/entries/53" &&
     JSON.stringify(ordNoPh[0].body) === JSON.stringify({ fulfilled: true, client_phone: "79112233", contact: "79112233" }), JSON.stringify({ asked, putsNone, ordNoPh }));
 } catch (e) { report("orders: Ready on an order with no phone", false, String(e).slice(0, 300)); }
+// One person across screens (ui/eikon.people.js): the shared normaliser is the worker's own (its two functions are read
+// from cloudflare-worker/code and run side by side); after a register saves, the person is found in GET /people and
+// reused, a blank is filled through the server's own path, two possible matches link nothing, and only an unknown
+// person is added; the register's own POST body is unchanged; Customers' "+ New" opens an existing match.
+try {
+  const wsrc = fs.readFileSync(path.join(here, "..", "..", "cloudflare-worker", "code"), "utf8");
+  const wfn = (name) => { const i = wsrc.indexOf("function " + name + "("); let d = 0, j = wsrc.indexOf("{", i); for (; j < wsrc.length; j++) { if (wsrc[j] === "{") d++; else if (wsrc[j] === "}" && --d === 0) break; } return wsrc.slice(i, j + 1); };
+  const W = new Function(wfn("normalizeMtIdCard") + "\n" + wfn("mtIdCardLookupKeys") + "\nreturn { n: normalizeMtIdCard, k: mtIdCardLookupKeys };")();
+  const cards = ["123m", " 123 M ", "0000123M", "123M", "1234567m", "12345678M", "AB123456", "ab 12 34", "", "M123", "0012345m", "7 g"];
+  await page.goto(base + "&ui=2#today");
+  await page.waitForFunction(() => window.EIKON && window.EIKON.people && window.EIKON.state && window.EIKON.state.user, null, { timeout: 15000 });
+  const mine = await page.evaluate((c) => ({ n: c.map((x) => window.EIKON.people.normIdCard(x)), k: c.map((x) => window.EIKON.people.idCardKeys(x)),
+    ph: ["+356 7912 3456", "00356 79123456", "79 12 34 56", "35679123456", "+44 7700 900123"].map((x) => window.EIKON.people.normPhone(x)),
+    em: window.EIKON.people.normEmail("  Rita.Pace@Example.MT "), nm: window.EIKON.people.nameKey("  Pace   Rita ") }), cards);
+  report("people: the shared ID-card normaliser gives exactly the worker's answers (normalizeMtIdCard, mtIdCardLookupKeys); phones, e-mails and names compare as the server cleans them",
+    JSON.stringify(mine.n) === JSON.stringify(cards.map(W.n)) && JSON.stringify(mine.k) === JSON.stringify(cards.map(W.k)) && mine.n[0] === "0000123M" && mine.n[1] === "0000123M" &&
+    JSON.stringify(mine.ph) === JSON.stringify(["79123456", "79123456", "79123456", "79123456", "447700900123"]) && mine.em === "rita.pace@example.mt" && mine.nm === "pace rita",
+    JSON.stringify({ mine, worker: { n: cards.map(W.n), k: cards.map(W.k) } }));
+
+  // GET /people answered here for this test only (the mock's own /people stays as it is for the Customers tests)
+  const book = { "0000777M": [{ id: 77, name: "Pace Rita", id_card: "0000777M", phone: "99001122", alt_phone: "", email: "", address: "", version: 4 }],
+    "pace rita": [{ id: 77, name: "Pace Rita", id_card: "0000777M", phone: "99001122", alt_phone: "", email: "", address: "", version: 4 }],
+    "vella mark": [{ id: 81, name: "Vella Mark", id_card: "", phone: "79111111", version: 1 }, { id: 82, name: "Vella  Mark", id_card: "", phone: "79222222", version: 1 }] };
+  const pplPosts = [], pplGets = [];
+  const onPeople = async (route) => {
+    const rq = route.request(), u = new URL(rq.url());
+    if (rq.method() === "POST") { const b = JSON.parse(rq.postData() || "{}"); pplPosts.push(b); return route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, created: !b.id && !b.id_card, person: Object.assign({ id: 99, version: 1 }, b) }) }); }
+    const q = String(u.searchParams.get("q") || ""); pplGets.push(q);
+    return route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, q, people: book[q.trim().replace(/\s+/g, " ").toLowerCase()] || book[q] || [], history: [] }) });
+  };
+  const isPeople = (url) => url.pathname === "/people";
+  await page.route(isPeople, onPeople);
+  const linked = () => page.evaluate(() => window.EIKON._lastPersonLink || null);
+  const regPosts = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path !== "/people");
+
+  // Questions: "pace  rita" with her phone typed +356 → found by name and phone, nothing to fill, nothing added
+  await page.goto(base + "&ui=2#tickets");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "tktreg" && window.EIKON.people, null, { timeout: 15000 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=add]");
+  await page.fill("#tkt-add [name=client_name]", "pace  rita"); await page.fill("#tkt-add [name=phone]", "+356 9900 1122"); await page.fill("#tkt-add [name=issue]", "Is her order in?");
+  await page.click("#tkt-add button[type=submit]"); await page.waitForTimeout(700);
+  const L1 = await linked(), T1 = (await regPosts()).filter((c) => c.path === "/client-tickets/entries");
+  const tkKeys = ["ticket_id", "open_date", "client_name", "phone", "email", "issue", "category", "priority", "status", "assigned_to", "followup_date", "notes_log"];
+  // two "Vella Mark"s with different phones, and this one gives none: nothing linked, nothing added
+  await page.click("[data-act=add]");
+  await page.fill("#tkt-add [name=client_name]", "Vella Mark"); await page.fill("#tkt-add [name=issue]", "Price of Voltaren?");
+  await page.click("#tkt-add button[type=submit]"); await page.waitForTimeout(700);
+  const L2 = await linked();
+  // nobody of that name: one person added, with what the screen had
+  await page.click("[data-act=add]");
+  await page.fill("#tkt-add [name=client_name]", "Spiteri Noel"); await page.fill("#tkt-add [name=phone]", "79333333"); await page.fill("#tkt-add [name=issue]", "Flu jab?");
+  await page.click("#tkt-add button[type=submit]"); await page.waitForTimeout(700);
+  const L3 = await linked(), T3 = (await regPosts()).filter((c) => c.path === "/client-tickets/entries");
+  report("people: a question for a known person is linked to them (name and phone, +356 and spaces ignored), two possible matches link nothing, only an unknown person is added; the question body is unchanged",
+    L1 && L1.person && L1.person.id === 77 && L1.how === "name+contact" && !L1.filled && L2 && !L2.person && L2.skipped === "ambiguous" &&
+    L3 && L3.how === "new" && pplPosts.length === 1 && JSON.stringify(pplPosts[0]) === JSON.stringify({ name: "Spiteri Noel", source: "register:questions", id_card: "", phone: "79333333" }) &&
+    T1.length === 1 && JSON.stringify(Object.keys(T1[0].body)) === JSON.stringify(tkKeys) && T1[0].body.client_name === "pace  rita" && T1[0].body.phone === "+356 9900 1122" && T3.length === 3 && T3.every((c) => JSON.stringify(Object.keys(c.body)) === JSON.stringify(tkKeys)),
+    JSON.stringify({ L1, L2, L3, pplPosts, pplGets, T1: T1.map((c) => c.body) }).slice(0, 900));
+
+  // POYC: card typed "777m" (POYC keeps it unpadded) → her name comes from the people list; after the save her empty
+  // address is filled through the server's own blank-filling path (name + card, no id), and the POYC body is unchanged
+  pplPosts.length = 0;
+  await page.goto(base + "&ui=2#dda-poyc");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "poyreg" && window.EIKON.people, null, { timeout: 15000 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=add]"); await page.waitForTimeout(200);
+  await page.fill("[name=client_id_card]", "777m"); await page.press("[name=client_id_card]", "Tab");
+  await page.waitForFunction(() => (document.querySelector("[name=client_name]") || {}).value === "Pace Rita", null, { timeout: 6000 }).catch(() => {});
+  const poyName = await page.inputValue("[name=client_name]");
+  await page.fill("[name=client_address]", "3 Triq il-Kbira, Mosta"); await page.fill("[name=doctor_name]", "Dr Abela"); await page.fill("[name=doctor_reg_no]", "R1201"); await page.fill("[name=prescription_serial_no]", "PY-77");
+  await page.fill('[data-i="0"][data-k=medicine_name_dose]', "Morphine 10mg"); await page.fill('[data-i="0"][data-k=quantity]', "5");
+  await page.click("#cds-add button[type=submit]"); await page.waitForTimeout(900);
+  const L4 = await linked(), P4 = (await regPosts()).filter((c) => c.path === "/dda-poyc/entries");
+  report("people: POYC fills a known card's name from the people list and fills her empty address on her one record; the POYC body is unchanged",
+    poyName === "Pace Rita" && P4.length === 1 && JSON.stringify(Object.keys(P4[0].body)) === JSON.stringify(["entry_date", "client_name", "client_id_card", "client_address", "medicine_name_dose", "quantity", "doctor_name", "doctor_reg_no", "prescription_serial_no", "urgent"]) &&
+    P4[0].body.client_id_card === "777M" && L4 && L4.person && L4.how === "id_card" && pplPosts.length === 1 && !("id" in pplPosts[0]) && pplPosts[0].id_card === "0000777M" && pplPosts[0].name === "Pace Rita" && pplPosts[0].address === "3 Triq il-Kbira, Mosta" && !("phone" in pplPosts[0]),
+    JSON.stringify({ poyName, P4: P4.map((c) => c.body), L4, pplPosts }).slice(0, 900));
+
+  // Customers "+ New": the same name and phone again opens the person who is there; nothing is posted
+  pplPosts.length = 0;
+  await page.goto(base + "&ui=2#customers");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "customers" && document.querySelector('[data-act="new"]'), null, { timeout: 15000 });
+  await page.click('[data-act="new"]'); await page.waitForSelector("#cus-new");
+  await page.fill("#cus-new [name=name]", "Pace Rita"); await page.fill("#cus-new [name=phone]", "9900 1122");
+  await page.click('#cus-new [data-act="create"]'); await page.waitForTimeout(900);
+  const cusToast = await page.evaluate(() => [...document.querySelectorAll(".eikon-toast")].map((t) => t.textContent).join("|"));
+  await page.unroute(isPeople, onPeople);
+  report("people: Customers' + New with a name and phone already there opens that person instead of adding a second",
+    pplPosts.length === 0 && /Pace Rita already exists, opened/.test(cusToast), JSON.stringify({ pplPosts, cusToast }));
+} catch (e) { report("people: ran to the end", false, String(e).slice(0, 300)); }
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });

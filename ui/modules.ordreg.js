@@ -161,6 +161,7 @@
       var r = await E.apiFetch("/client-orders/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; E.toast("Order added for " + body.client_name, "success");
+      if (E.linkPerson) E.linkPerson({ name: body.client_name, phone: body.contact }, "register:orders"); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }

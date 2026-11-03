@@ -131,9 +131,15 @@
     F.forEach(function (k) { var el = f.querySelector("[name=" + k + "]"); if (el) S.adding[k] = String(el.value || "").trim(); });
   }
   function fillPatient() { // only empty fields, from the newest earlier prescription for this ID card
-    keep(); var id = low(S.adding && S.adding.client_id).replace(/\s+/g, ""); if (!id) return;
-    var hit = S.entries.filter(function (e) { return low(e.client_id).replace(/\s+/g, "") === id; })[0];
-    if (hit && !S.adding.client_name) { S.adding.client_name = hit.client_name; S.adding.known = true; paint(true); }
+    keep(); var raw = S.adding && S.adding.client_id, id = low(raw).replace(/\s+/g, ""); if (!id) return;
+    var same = E.people ? function (v) { return E.people.sameIdCard(v, raw); } : function (v) { return low(v).replace(/\s+/g, "") === id; }; // 123M is 0000123M
+    var hit = S.entries.filter(function (e) { return same(e.client_id); })[0];
+    if (hit && !S.adding.client_name) { S.adding.client_name = hit.client_name; S.adding.known = true; paint(true); return; }
+    if (hit || S.adding.client_name || !E.people) return;
+    E.people.byIdCard(raw).then(function (p) { // not in this register: the pharmacy's people list may know them from another screen
+      if (!p || !S.adding || S.adding.client_id !== raw) return;
+      keep(); if (!S.adding.client_name) { S.adding.client_name = p.name || ""; S.adding.known = true; paint(true); }
+    });
   }
   function fillPrescriber() {
     keep(); var n = low(S.adding && S.adding.prescriber_name).trim(); if (!n || S.adding.prescriber_reg_no) return;
@@ -157,6 +163,7 @@
         same: function (e) { return e.entry_date === body.entry_date && String(e.client_id || "").trim().toLowerCase() === String(body.client_id || "").trim().toLowerCase() && String(e.medicine_name_dose || "").trim().toLowerCase() === String(body.medicine_name_dose || "").trim().toLowerCase() && String(e.prescriber_reg_no || "").trim().toLowerCase() === String(body.prescriber_reg_no || "").trim().toLowerCase(); } });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; E.toast("Recorded for " + a.client_name, "success");
+      if (E.linkPerson) E.linkPerson({ name: body.client_name, id_card: body.client_id }, "register:repeat"); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }

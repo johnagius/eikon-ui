@@ -334,6 +334,7 @@
         if (r2 && r2.id) newKey = F.type + ":" + r2.id;
         else if (r2 && r2.recovered) S.pick = { type: F.type, body: body };
         E.toast(body.name + " added to " + t.many.toLowerCase(), "success");
+        if (F.type === "clients" && E.linkPerson) E.linkPerson({ name: body.name, id_card: body.id_card, address: body.address, phone: body.phone, alt_phone: body.alt_phone }, "contacts:clients"); // one person in Customers, found or added
       }
       S.form = null; S.sel = newKey;
       if (!newKey && !S.pick) S.sel = null;

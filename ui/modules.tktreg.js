@@ -153,6 +153,7 @@
       var r = await E.apiFetch("/client-tickets/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; E.toast("Question recorded · " + body.ticket_id, "success");
+      if (E.linkPerson) E.linkPerson({ name: body.client_name, phone: body.phone }, "register:questions"); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }

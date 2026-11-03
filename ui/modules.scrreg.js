@@ -428,6 +428,7 @@
     S.saving = false; return load();
   }
   function doneScreening(rec, cid) {
+    if (E.linkPerson) E.linkPerson({ name: rec.name, id_card: rec.idCard, phone: rec.phone, email: rec.email, date_of_birth: rec.dob }, "register:screening"); // one person in Customers, found or added
     S.adding = null; S.err = ""; S.view = "part"; S.campId = String(cid); S.partId = String(rec.id);
     var c = campOf(cid); if (c && !parts(c).some(function (p) { return String(p.id) === String(rec.id); })) c.participants = parts(c).concat([rec]);
     E.toast("Screening recorded for " + (rec.name || rec.idCard), "success");

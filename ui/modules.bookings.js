@@ -514,7 +514,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     if (act === "offer-book") {
       var o = S.sheet.offer;
       try { var rb = await api("/bookings", { method: "POST", body: JSON.stringify({ serviceId: o.serviceId, providerId: o.providerId, date: o.date, start: o.start, personName: o.personName, personPhone: o.personPhone, personEmail: o.personEmail, waitlistId: o.waitlistId }) });
-        S.sheet = null; toast("Booked " + rb.booking.personName + " · " + o.start); return load({ silent: true }); }
+        S.sheet = null; toast("Booked " + rb.booking.personName + " · " + o.start); if (E.linkPerson) E.linkPerson({ name: o.personName, phone: o.personPhone, email: o.personEmail }, "bookings"); return load({ silent: true }); }
       catch (e) { S.sheet.err = e && e.status === 409 ? "Someone took that time first." : errMsg(e); return paint(); }
     }
     if (act === "view") { S.view = t.getAttribute("data-v"); return load({ silent: true }); }
@@ -535,7 +535,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       sh.saving = true; sh.err = ""; paint();
       try {
         var r = await api("/bookings", { method: "POST", body: JSON.stringify({ serviceId: sh.serviceId, providerId: sh.slot.providerId, date: sh.slot.date, start: sh.slot.time, personName: sh.name, personPhone: sh.phone, personEmail: sh.email, waitlistId: sh.waitlistId || undefined }) });
-        S.sheet = null; S.date = r.booking.date; toast("Booked " + r.booking.personName + " · " + dayShort(r.booking.date) + " " + r.booking.start);
+        S.sheet = null; S.date = r.booking.date; if (E.linkPerson) E.linkPerson({ name: sh.name, phone: sh.phone, email: sh.email }, "bookings"); toast("Booked " + r.booking.personName + " · " + dayShort(r.booking.date) + " " + r.booking.start);
         return load({ silent: true });
       } catch (e) {
         sh.saving = false;

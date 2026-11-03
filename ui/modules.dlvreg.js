@@ -207,6 +207,7 @@
       var r = await E.apiFetch("/client-deliveries/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; E.toast("Delivery recorded · " + body.delivery_id, "success");
+      if (E.linkPerson) E.linkPerson({ name: body.client_name, phone: body.phone, address: body.delivery_address }, "register:deliveries"); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }

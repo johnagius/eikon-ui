@@ -161,7 +161,13 @@
         if (!S.adding.client_name) S.adding.client_name = r.client_name || "";
         if (!S.adding.client_address) S.adding.client_address = r.client_address || "";
         S.adding.found = true;
-      } else S.adding.found = false;
+      } else { // not in this register yet: the pharmacy's people list may know them from another screen
+        var p = E.people ? await E.people.byIdCard(id) : null;
+        if (!S.adding || S.adding.looked !== id) return;
+        keep(); S.adding.client_id_card = id; // what was typed while the second lookup ran is kept
+        if (p) { if (!S.adding.client_name) S.adding.client_name = p.name || ""; if (!S.adding.client_address) S.adding.client_address = p.address || ""; }
+        S.adding.found = !!p;
+      }
       paint(true); // the form state was just updated from the screen and the lookup: draw it as it is
     } catch (e) {}
   }
@@ -217,6 +223,7 @@
       } catch (e1) { failed = "the connection dropped. Check the register below before pressing Record again"; }
     }
     S.saving = false;
+    if (done && E.linkPerson) E.linkPerson({ name: a.client_name, id_card: a.client_id_card, address: a.client_address, doctor_name: a.doctor_name }, C.id === "poyreg" ? "register:poyc" : "register:dda-sales"); // one person in Customers, found or added
     if (!failed) { S.adding = null; S.dup = null; S.dupOk = ""; E.toast(done === 1 ? "Recorded" : done + " medicines recorded", "success"); if (a.entry_date.slice(0, 7) !== S.month) S.month = a.entry_date.slice(0, 7); }
     else S.err = (done ? done + " saved. " : "") + "Not saved from " + (todo[done] || {}).medicine_name_dose + ": " + String(failed).replace(/\.$/, "") + ". Press Record to try the rest again.";
     return load();

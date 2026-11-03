@@ -176,7 +176,10 @@
     if (!String(body.name || "").trim()) return E.toast("Enter the person's name. Nothing was saved.", "warn");
     var btn = form.querySelector("[data-act=create]"); if (btn) { btn.disabled = true; btn.textContent = "Adding…"; }
     try {
-      var r = await E.apiFetch("/people", { method: "POST", body: JSON.stringify(body) });
+      // The same person typed again without an ID card (same name and phone or e-mail, or the one person with this
+      // name and nothing that differs) is opened, not added twice. A card is matched by the server itself, below.
+      var f = null; if (E.people && !E.people.normIdCard(body.id_card)) { try { f = await E.people.find(body); } catch (e0) { f = null; } }
+      var r = f && f.person ? { ok: true, created: false, person: f.person } : await E.apiFetch("/people", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok || !r.person) throw new Error((r && r.error) || "Could not add");
       E.toast(r.created ? r.person.name + " added" : r.person.name + " already exists, opened", "success");
       state.creating = false;

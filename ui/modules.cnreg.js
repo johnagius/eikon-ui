@@ -175,6 +175,7 @@
       var r = await E.apiFetch("/creditnotes/entries", { method: "POST", body: JSON.stringify({ issue_date: a.issue_date, client_name: a.client_name, client_surname: a.client_surname, telephone: a.telephone, email: "", receipt_number: a.receipt_number || "", amount: amt, expiry_date: a.expiry_date || "", no_expiry: 0 }) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; E.toast("Credit note of " + eur(amt) + " for " + a.client_name, "success");
+      if (E.linkPerson) E.linkPerson({ name: a.client_name + " " + a.client_surname, phone: a.telephone }, "register:credit-notes"); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }
