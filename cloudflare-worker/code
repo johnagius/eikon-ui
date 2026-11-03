@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-03-bookings-17";
+const WORKER_VERSION = "2026-11-03-bookings-18";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -20689,8 +20689,11 @@ async function bkRunReminders(env, nowOverride) {
   const now = nowOverride || (tn ? { date: tn[1], min: Number(tn[2]) * 60 + Number(tn[3]) } : bkNowLocal(env));
   const tomorrow = bkAddDays(now.date, 1);
   let sent = 0;
-  const sets = await dbAll(env, `SELECT * FROM bk_settings WHERE provider<>'off' AND api_key_enc<>''`, []);
+  // Every pharmacy with emails on that can actually send: a key in the old single slot or any working sender
+  // (the senders list is how pharmacies set email up now; the old filter on api_key_enc skipped them all).
+  const sets = await dbAll(env, `SELECT * FROM bk_settings WHERE provider<>'off'`, []);
   for (const s of sets) {
+    if (!(await bkCanSend(env, s))) continue;
     const rows = [];
     if (s.remind_evening && now.min >= 18 * 60) {
       for (const b of await dbAll(env, `SELECT * FROM bk_bookings WHERE org_id=? AND location_id=? AND date=? AND status IN ('booked','confirmed') AND person_email<>''`, [s.org_id, s.location_id, tomorrow])) rows.push([b, "remind_evening"]);

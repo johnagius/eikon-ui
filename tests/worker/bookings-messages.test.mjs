@@ -121,6 +121,24 @@ test("booking reminders: the evening before, sent once even if the job runs twic
   } finally { cap.restore(); }
 });
 
+test("booking reminders: also for a pharmacy whose email is set up as senders (no key in the old slot)", async () => {
+  const app = await makeApp({ env: KEY }); const cap = captureFetch();
+  try {
+    const { token } = await app.bootstrap();
+    const p = await app.api("POST", "/bookings/providers", { token, body: { name: "Maria", hours: { 1: [["08:00", "20:00"]] } } });
+    const sv = await app.api("POST", "/bookings/services", { token, body: { name: "Flu vaccine", durationMin: 10, providerIds: [p.json.provider.id] } });
+    eq((await app.api("PUT", "/bookings/settings", { token, body: { provider: "on", fromName: "Demo Pharmacy", fromEmail: "bookings@demo.mt" } })).status, 200);
+    ok((await app.api("POST", "/bookings/senders", { token, body: { kind: "brevo", fromEmail: "bookings@demo.mt", apiKey: "xkeysib-only-sender" } })).status < 300, "sender added");
+    eq((await app.api("GET", "/bookings/settings", { token })).json.settings.hasKey, false, "nothing in the old key slot");
+    const b = await app.api("POST", "/bookings", { token, body: { serviceId: sv.json.service.id, date: MON, start: "10:00", personName: "Carmen Grech", personEmail: "carmen@example.com" } });
+    ok(b.status < 300, b.text);
+    const mod = await (await import("./harness.mjs")).loadWorker();
+    const before = cap.sent.length; let pr; await mod.scheduled({}, { ...app.env, BK_TEST_NOW: "2027-02-28 18:30" }, { waitUntil(x) { pr = x; } }); await pr;
+    const sent = cap.sent.slice(before);
+    eq(sent.length, 1, "the evening reminder goes out through the sender"); ok(/brevo/.test(sent[0].url)); ok(/Tomorrow: Flu vaccine/.test(sent[0].body.subject));
+  } finally { cap.restore(); }
+});
+
 test("booking messages: a failing provider never fails the booking; the failure is recorded", async () => {
   const app = await makeApp({ env: KEY }); const cap = captureFetch(500);
   try {

@@ -23,3 +23,7 @@ database_id = "049c6f25-93b7-4513-909d-a43fb53988cc"
 UI_GITHUB_BRANCH = "claude/eloquent-newton-7ib4gb"
 # UI files carry a fixed build stamp (index.html BUILD), so they can be cached.
 UI_CACHE_SECONDS = "300"
+
+# Booking reminders (the evening before / N hours before): the worker's scheduled() runs every 10 minutes.
+[triggers]
+crons = ["*/10 * * * *"]
