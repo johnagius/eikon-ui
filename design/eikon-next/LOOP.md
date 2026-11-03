@@ -648,3 +648,11 @@ All of it waits only on the worker deploy.
   server allows (owner / offerer); confirm shown only after accept, like classic. postOnce for creates.
 - Local server now has a second pharmacy in another group (other@demo.mt) for network tests; full flow verified.
 - A Price-check UI test flaked (fixed wait vs. postOnce's extra read) → it now polls for the POST. UI 137/137. BUILD .86.
+
+## Round 73 — a flaky test was a real typing bug
+- Price-check UI test failed intermittently. Repro (15 saves in a loop): 3-4 lost — the cost landed in the item
+  field. Cause: Add's setTimeout(focus first field, 30) fired after typing had moved on. All rebuilt screens' delayed
+  focus now skip when a form field is already focused. Also E.whenFormIdle: load-complete repaints wait until focus
+  leaves the form (23 screens), so slow lists never redraw under someone typing.
+- UI tests: settleSave() waits for the disabled submit to clear instead of fixed sleeps (8 places).
+- Repro 0/15 failures; UI 137/137; real-worker checks (7 screens) pass. BUILD .87.
