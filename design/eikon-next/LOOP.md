@@ -752,3 +752,10 @@ All of it waits only on the worker deploy.
   - phone numbers inside a line of text (Credit notes, dark): told apart from the text by colour only (1.27:1).
 - Fixed: light green token #077A5B → #066B4F everywhere (app.css --accent/--ok and Bookings --t): white on it 6.5:1, on page grey 5.8:1, on its tints 5.2:1+. Initials circles at 32% lightness (worst hue 4.75:1). Leave rows keep full contrast (name muted, "Asked for leave" in --warn #8A5A08). Phone links inside text are underlined.
 - Re-run: no WCAG A/AA violations on any of the 29 screens with data, light and dark; Bookings and login clean too. UI suite 139/139.
+
+## Round 88 — The customer-facing booking pages (worker bookings-15, needs deploy)
+
+- New axe-pub.mjs: sets up bookings on the real local stack, then walks the public page as a customer (services → details → email code → booked), opens the manage link from the confirmation email, and runs axe (WCAG A/AA) at every step, light and dark.
+- Found on the page customers see: ~30 low-contrast items in light (the green kicker 3.65:1, grey subtitles 3.61:1, small notes), the footer and notes in dark (3.25:1), and the day picker marked role="listbox" holding buttons (screen readers announce it wrongly). The manage/cancel/change pages and the booking email used #0A8F6A with white text (3.8:1).
+- Fixed in the worker (these pages are served by it): light tokens --t #066B4F, --l2 #6A6A70, --l3 #6E6E73, --red #C4221A; dark --l3 at .6; the day picker is role="group" (its buttons already carry aria-pressed); manage pages and the email button on #066B4F. Same values as the staff app since round 87.
+- Re-run: every step clean in light and dark, the booking still completes, no page errors. Worker tests 99/99. WORKER_VERSION 2026-11-03-bookings-15; it ships with John's next deploy, together with bookings-14 (board group-leak fix).
