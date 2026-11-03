@@ -1068,3 +1068,5 @@ html[data-ui2] .eikon-skip:focus{top:12px;outline:3px solid rgba(10,143,106,.5);
 html[data-ui2] #eikon-content:focus{outline:none}
 html:not([data-ui2]) .eikon-skip{display:none}
 @media (prefers-color-scheme: dark){ html[data-ui2] .eikon-skip{color:#00160E} }
+/* Small red buttons in Bookings (Remove) sit on the grey fill: a lighter red there keeps 5:1 in dark mode. */
+@media (prefers-color-scheme: dark){ html[data-ui2]:not([data-ui2-visit]) .bkx-mini.red{color:#FF7A72} }
