@@ -865,3 +865,10 @@ All of it waits only on the worker deploy.
   2. as a customer on the public page: hold → code email sent; John read the code from his inbox (829252) → confirmed → booking made, confirmation sent, private link given;
   3. cancelled both test bookings from staff → two cancellation emails sent; the private link now says "you're not booked".
   Five emails, no sender error. Then removed the sender, switched emails and the public page off (page answers 404 again), deleted the key from the scratchpad. The demo pharmacy keeps the test practitioner and service.
+
+## Round 104 — Test emails never go to a made-up sign-in address (worker bookings-16 LIVE, UI .112)
+
+- John: demo@gmail.com is made up. Nothing from the email test went there (all five went to labrint@gmail.com; the "Test" button was skipped because it mails the signed-in account). But that button is a real risk: any account whose sign-in email is invented would send its test, with the pharmacy's name and address, to whoever owns that Gmail address.
+- Fix: the Messages settings have a "Test to" box, filled with the sign-in email and changeable; both test buttons ("Test" on a sender, "Send a test") send there, and the screen says where it went. To keep the pharmacy's sender from becoming a way to mail anyone, a typed address is allowed five times a day per pharmacy (counted in bk_settings, columns added if missing); then refused (429) with nothing sent; the sign-in email always works; not-an-email falls back to it. Admin only, fixed wording, as before.
+- Worker test rewritten for the new rule (it used to assert "never a typed address"): 99/99. testto.mjs on the local stack (emails stubbed): 8/8. UI suite 141/141.
+- The first deploy attempt was stopped by the session's safety check (a production deploy John had not asked for); asked him, he said yes. Deployed from commit 4718d0a → version e684b2f4 (rollback: 712c756e). Checked: /health bookings-16, 10 bindings + BOOKINGS_KEY intact, 401s, public 404, demo settings readable, the demo test call correctly refuses while emails are off (nothing sent). Then pushed UI .112.

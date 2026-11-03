@@ -11,7 +11,8 @@ does not: it changes only when someone runs `wrangler deploy`.
 
 | | Version | Cloudflare version id |
 |---|---|---|
-| Live now | `2026-11-03-bookings-15` + `BOOKINGS_KEY` set (08:27 UTC) | `712c756e-f4e8-4554-bf6d-2a0b019df65f` |
+| Live now (09:22 UTC) | `2026-11-03-bookings-16`: test emails go to a typed address (5 a day) | `e684b2f4-763f-424e-bafb-76eee1125bc1` |
+| Before that | `2026-11-03-bookings-15` + `BOOKINGS_KEY` set (08:27 UTC) | `712c756e-f4e8-4554-bf6d-2a0b019df65f` |
 | Same code, before the key | `2026-11-03-bookings-15` | `c586a98f-4a79-499c-a5db-9057522b6bdb` |
 | Before (roll back to this) | `2026-11-02-fixes-1` | `4b2cf8da-5410-46b1-93b7-103606d7a7f8` |
 
