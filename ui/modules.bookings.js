@@ -24,8 +24,10 @@
   if (ENABLED && Array.isArray(E.UI2_RAIL) && !E.UI2_RAIL.some(function (x) { return x.id === "bookings"; })) {
     var at = E.UI2_RAIL.findIndex(function (x) { return x.id === "customers"; });
     E.UI2_RAIL.splice(at >= 0 ? at + 1 : 1, 0, { id: "bookings", title: "Bookings" });
-    if (Array.isArray(E.UI2_DESTINATIONS)) E.UI2_DESTINATIONS.push("bookings");
   }
+  // Always a screen of the new layout, even where the rail does not show it yet: a link to #bookings (Today's
+  // bookings, an old bookmark) must open it here, not drop the person into the classic layout for the session.
+  if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("bookings") < 0) E.UI2_DESTINATIONS.push("bookings");
 
   var S = { mount: null, view: "day", date: null, setup: null, bookings: [], loading: false, error: "", sheet: null, onVis: null };
 

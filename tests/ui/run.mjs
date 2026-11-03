@@ -935,6 +935,8 @@ try {
 await page.goto(base + "&ui=2#bookings");
 await page.waitForFunction(() => window.EIKON.state.activeModuleId === "bookings" && document.querySelector(".bkx-r[data-act=open]"), null, { timeout: 15000 });
 const bk1 = await page.evaluate(() => document.querySelector(".bkx-r[data-act=open]").textContent);
+const bkLayout = await page.evaluate(() => ({ ui2: document.documentElement.hasAttribute("data-ui2"), classic: location.search.indexOf("ui=classic") >= 0, flag: localStorage.getItem("eikon_bookings") }));
+report("bookings: a link to #bookings opens in the new layout even where the rail does not list Bookings", bkLayout.ui2 && !bkLayout.classic && bkLayout.flag !== "1", JSON.stringify(bkLayout));
 await page.focus("[data-act=settings]"); await page.keyboard.press("Enter");
 await page.waitForFunction(() => document.querySelector(".bkx-sheet"), null, { timeout: 5000 });
 const bkSheet = await page.evaluate(() => { const s = document.querySelector(".bkx-sheet"); return { dialog: s.getAttribute("role") === "dialog" && s.getAttribute("aria-modal") === "true", label: s.getAttribute("aria-label"), inside: s.contains(document.activeElement) }; });
