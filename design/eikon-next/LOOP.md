@@ -921,3 +921,14 @@ All of it waits only on the worker deploy.
 - Clean addresses: worker urls-1 (John said deploy; version 8d472b00; rollback 20465171) + UI .129. A browser page load of / or /<screen> gets the app; every API call keeps its JSON (tested against every route string × 8 client kinds); /ui/index.html#… unchanged for tablets, frames and other sites. Live: /today as a page → 200 text/html with the mark; as an API call → 401 JSON; health urls-1; both eikonhq.com domains still attached.
 - Planner agent wrote a ranked backlog (scratchpad agents/BACKLOG.md, 15 items, 12 decisions for John). Running from it: register lines never vanish (audit + soft delete), per-pharmacy isolation inside groups, export/inspection pack. Done: backup script + restore drill rehearsed locally 22/22 (encrypted export, whole and per-pharmacy restore); not run against the real account yet — needs John's decisions on where backups live and who holds the key.
 - Suite 176 → 188; worker tests 106.
+
+## Rounds 114–116 — Bare address, records download, names, stock-takes; server batch built (UI .131–.134; worker batch not yet deployed)
+
+- .131 John: "even cleaner if it stays eikonhq.com". The screen now lives in history.state (eikonRoute) instead of the path; the bar shows eikonhq.com/ everywhere; Back/Forward/refresh keep the screen; /endofday and /#endofday still open it.
+- .132 Settings › Download our records (backlog 5): 15 registers → XLSX (Summary + a sheet each) or CSV zip; print pack; admin only; read-only; row counts equal the API's on the real stack.
+- .133 Names in Title Case (John): one function in worker and UI; only all-lower / all-upper names change; mixed case kept (de Gabriele, McDonald). UI cases on leaving the field now; the worker part and the one-off fix (dry run, undo table, customers / legal / staff groups) wait for the deploy.
+- .134 DDA stock-takes rebuilt (last classic screen): bodies, rows, audit and print identical to the classic.
+- Server batch on the branch, not deployed: per-pharmacy isolation inside groups (backlog 3; 186 route checks, all deliberate group sharing pinned), full audit with before/after and ~40 newly audited handlers (backlog 1; rehearsal 16/16), names casing + fix endpoint. Worker tests 130/130.
+- Backups (backlog 4) rehearsed locally 22/22, waiting on John (where, who holds the key).
+- Rebasing onto .134 before merge: classic modules on demand (≈60% fewer bytes, Today 3.9 → 2.4 s on a slow link), vendored/pinned libraries (no CDN on boot, −950 KB), search that acts + scanning, error reports (UI test failed after merge; being fixed). Running: ID-card consistency (ask to add, stop on someone else's card, change across all records with undo).
+- Suite 188 → 195.
