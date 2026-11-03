@@ -50,6 +50,10 @@ function todayPayload() {
     counts: { before_opening: (todayState.tempDone ? 0 : 1) + 1 + (todayState.cleanDone ? 0 : 1), customers_waiting: 2, attention: 2 }
   };
 }
+let boardState = { msgs: [
+  { id: 11, user_id: 7, user_name: "Sara Vella", location_name: "Sliema Pharmacy", body: "Who has Ozempic 1mg? @Demo Pharmacy", scope: "all", is_pinned: 1, created_at: "2026-11-02 08:00:00" },
+  { id: 12, user_id: 3, user_name: "Karl Vella", location_name: "Demo Pharmacy", body: "Courier at 16:00", scope: "org", is_pinned: 0, created_at: new Date().toISOString().slice(0, 19).replace("T", " ") }] };
+let eodState = { rec: null, n: 0 };
 let peopleState = { adopted: false, carmel: { id: 1, name: "Zammit Carmel", id_card: "0012345M", phone: "79123456", alt_phone: "", email: "", address: "1 Triq il-Knisja", doctor_name: "", date_of_birth: "", notes: "", source: "history", version: 1, updated_at: "2026-10-31 09:00:00" } };
 function mockApi(req, res, body) {
   const url = new URL(req.url, "http://x");
@@ -136,6 +140,30 @@ function mockApi(req, res, body) {
   if (p === "/bookings/next") return res.end(JSON.stringify({ ok: true, slots: [{ date: todayYmd, time: "23:30", providerId: 1 }, { date: todayYmd, time: "23:45", providerId: 1 }] }));
   if (p === "/bookings" && req.method === "POST") return res.end(JSON.stringify({ ok: true, booking: { id: 502, serviceId: body.serviceId, providerId: body.providerId, date: body.date, start: body.start, end: "23:45", personName: body.personName, status: "booked" } }));
   if (/^\/bookings\/providers\/\d+$/.test(p) && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
+  // Chat board (new layout): one message for every pharmacy (pinned), one for our group; pin is a toggle like the worker.
+  if (p === "/board/messages" && req.method === "GET") {
+    if (url.searchParams.get("pinned") === "1") return res.end(JSON.stringify({ ok: true, messages: boardState.msgs.filter((m) => m.is_pinned) }));
+    const sc = url.searchParams.get("scope");
+    return res.end(JSON.stringify({ ok: true, messages: boardState.msgs.filter((m) => sc !== "org" || m.scope === "org").slice().sort((a, b) => b.id - a.id) }));
+  }
+  if (p === "/board/messages" && req.method === "POST") { const m = { id: 900 + boardState.msgs.length, user_id: 1, user_name: "Maria Borg", location_name: "Demo Pharmacy", body: body.body, scope: body.scope, is_pinned: 0, created_at: new Date().toISOString().slice(0, 19).replace("T", " ") }; boardState.msgs.push(m); return res.end(JSON.stringify({ ok: true, id: m.id, message: m })); }
+  if (/^\/board\/messages\/\d+\/pin$/.test(p) && req.method === "PUT") { const m = boardState.msgs.find((x) => x.id === Number(p.split("/")[3])); m.is_pinned = m.is_pinned ? 0 : 1; return res.end(JSON.stringify({ ok: true, is_pinned: m.is_pinned })); }
+  if (p === "/board/users/search") return res.end(JSON.stringify({ ok: true, users: [{ id: 5, full_name: "Sara Vella", location_name: "Sliema Pharmacy" }] }));
+  if (p === "/contacts/suppliers" && req.method === "GET") return res.end(JSON.stringify({ ok: true, rows: [{ id: 31, org_id: 1, name: "Actavis Malta", phone: "2123 4567", email: "orders@actavis.example" }] }));
+  if (p === "/contacts/doctors" && req.method === "GET") return res.end(JSON.stringify({ ok: true, rows: [{ id: 41, org_id: 1, name: "Dr Abela", phone_personal: "7912 3456", phone_patient: "2144 0000" }] }));
+  if (/^\/contacts\/(suppliers|medreps|headoffice|orgpharmacies|poyc|locums|doctors|specialists|clients)$/.test(p) && req.method === "POST") return res.end(JSON.stringify({ ok: true, id: body && body.id ? body.id : 77 }));
+  if (p === "/vaccines/catalog" && req.method === "GET") return res.end(JSON.stringify({ ok: true, items: [
+    { id: 1, brand_name: "Typhim Vi", vaccinates_for: "Typhoid", dosing_schedule: "1 dose", routine_in_malta: "", travel_always: "KE,TZ", travel_highrisk: "" },
+    { id: 2, brand_name: "Rabipur", vaccinates_for: "Rabies", dosing_schedule: "3 doses", routine_in_malta: "", travel_always: "", travel_highrisk: "KE" },
+    { id: 3, brand_name: "Boostrix", vaccinates_for: "Tetanus, diphtheria, pertussis", dosing_schedule: "1 dose", routine_in_malta: "yes", travel_always: "", travel_highrisk: "" }] }));
+  if (p === "/vaccines/stock/rows" && req.method === "GET") return res.end(JSON.stringify({ ok: true, rows: [{ id: 4, vaccine_name: "Typhim Vi", qty: 6, batch: "TV-1", expiry_date: "2027-05-31", updated_at: "" }] }));
+  if (p === "/vaccines/orders" && req.method === "GET") return res.end(JSON.stringify({ ok: true, orders: [{ id: 31, created_at: new Date().toISOString(), section: "other", country_code: "", country_name: "", client_first: "Rita", client_last: "Camilleri", phone: "79222333", email: "", items: [{ name: "Boostrix", qty: 1 }] }] }));
+  if (p === "/vaccines/orders" && req.method === "POST") return res.end(JSON.stringify({ ok: true, order: Object.assign({ id: 32, created_at: new Date().toISOString() }, body) }));
+  // End of day (new layout eodreg): one stored day that the test can change behind the screen's back
+  if (p === "/endofday/record" && req.method === "GET") return res.end(JSON.stringify({ ok: true, record: url.searchParams.get("date") === todayYmd ? eodState.rec : null }));
+  if (p === "/endofday/record" && req.method === "PUT") { const r = (body && body.record) || {}; eodState.rec = Object.assign({}, r, { id: 1, updated_at: "2026-11-03 18:0" + (++eodState.n) + ":00", locked_at: r.locked_at ? "2026-11-03 18:30:00" : "" }); return res.end(JSON.stringify({ ok: true, record: eodState.rec })); }
+  if (p === "/endofday/dates") return res.end(JSON.stringify({ ok: true, dates: eodState.rec ? [todayYmd] : [] }));
+  if (p === "/endofday/contacts" && req.method === "GET") return res.end(JSON.stringify({ ok: true, contacts: [{ id: 4, display_name: "BOV Paola" }] }));
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -978,6 +1006,90 @@ try {
   await page.context().setOffline(false);
   report("offline save: says the connection dropped, keeps what was typed and the list on screen", /connection dropped/i.test(off.err) && off.name === "Offline Ltd" && off.fee === "7" && !off.gone && off.sum, JSON.stringify(off));
 } catch (e) { await page.context().setOffline(false).catch(() => {}); report("offline save: ran to the end", false, String(e).slice(0, 300)); }
+
+// Chat board in the new layout: opens from the old link under Team; pinned on top, "Mentions you"; a new message goes
+// to our group by default (one POST); Pin reads the pinned list first and does not flip a message that is already pinned.
+await page.goto(base + "&ui=2#messageboard");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "brdreg" && document.querySelector(".brd-pin .brd-m"), null, { timeout: 15000 });
+const bd1 = await page.evaluate(() => ({ pin: document.querySelector(".brd-pin").textContent, feed: document.querySelector(".brd-list:not(.brd-pin)").textContent, rail: [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join(), btn: document.querySelector("#brd-new button[type=submit]").textContent }));
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.fill("#brd-ta", "Fridge back to 4 degrees"); await page.click("#brd-new button[type=submit]"); await settleSave();
+boardState.msgs.find((m) => m.id === 12).is_pinned = 1; // another till pins it; this screen still offers Pin
+await page.click('.brd-list:not(.brd-pin) [data-act=pin][data-id="12"]'); await page.waitForFunction(() => document.querySelectorAll(".brd-pin .brd-m").length === 2, null, { timeout: 6000 }).catch(() => {});
+await page.click('.brd-list:not(.brd-pin) [data-act=pin][data-id="902"]'); await page.waitForFunction(() => document.querySelectorAll(".brd-pin .brd-m").length === 3, null, { timeout: 6000 }).catch(() => {});
+const bdCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.path.startsWith("/board/"));
+const bdPosts = bdCalls.filter((c) => c.method === "POST"), bdPuts = bdCalls.filter((c) => c.method === "PUT");
+report("chat board: opens from the old link under Team, pinned first, mentions marked; one POST to our group; pin checks first, never flips twice",
+  /Sliema Pharmacy.*Mentions you.*Who has Ozempic/.test(bd1.pin) && /Courier at 16:00/.test(bd1.feed) && /Our group/.test(bd1.feed) && bd1.rail === "team" && bd1.btn === "Send to our group" &&
+  bdPosts.length === 1 && bdPosts[0].body.body === "Fridge back to 4 degrees" && bdPosts[0].body.scope === "org" && bdPuts.length === 1 && bdPuts[0].path === "/board/messages/902/pin" && boardState.msgs.find((m) => m.id === 12).is_pinned === 1 && boardState.msgs.find((m) => m.id === 11).is_pinned === 1,
+  JSON.stringify({ bd1, bdCalls: bdCalls.map((c) => c.method + " " + c.path + c.query) }));
+
+// Contacts: the old link opens the new screen; the doctor's personal number stays out of the list; an edit sends the whole
+// record with its id (the server replaces every field); a new rep is one POST without an id.
+await page.goto(base + "&ui=2#contacts");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "conreg" && document.querySelector(".con-row"), null, { timeout: 15000 });
+const con1 = await page.evaluate(() => ({ list: document.querySelector(".con-side").textContent, call: (document.querySelector('.con-row:has([data-open="suppliers:31"]) .con-call') || {}).getAttribute && document.querySelector('.con-row:has([data-open="suppliers:31"]) .con-call').getAttribute("href") }));
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.click('[data-open="suppliers:31"]'); await page.click(".con-detail [data-act=edit]");
+await page.fill("#con-form [name=phone]", "2123 9999"); await page.click("#con-form button[type=submit]"); await settleSave();
+await page.click(".con-head [data-act=add]"); await page.selectOption("#con-form [name=type]", "medreps");
+await page.fill('#con-form [name="name"]', "Rita Grech"); await page.fill("#con-form [name=phone]", "9988 7766"); await page.click("#con-form button[type=submit]"); await settleSave();
+const conPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path.startsWith("/contacts/")).map((c) => ({ path: c.path, body: c.body }));
+report("contacts: opens from the old link; personal number kept out of the list; an edit sends the full record; a new rep is one POST",
+  /Actavis Malta/.test(con1.list) && /Dr Abela/.test(con1.list) && !/7912 3456/.test(con1.list) && con1.call === "tel:21234567" && conPosts.length === 2 &&
+  conPosts[0].path === "/contacts/suppliers" && JSON.stringify(conPosts[0].body) === JSON.stringify({ name: "Actavis Malta", phone: "2123 9999", email: "orders@actavis.example", id: 31 }) &&
+  conPosts[1].path === "/contacts/medreps" && JSON.stringify(conPosts[1].body) === JSON.stringify({ name: "Rita Grech", phone: "9988 7766", email: "" }), JSON.stringify({ con1, conPosts }));
+
+// Vaccines: the old link opens the new screen; Kenya brings its recommendations; a tapped vaccine and the client go in one POST shaped like the classic one.
+try {
+  await page.goto(base + "&ui=2#vaccines");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "vaxreg" && document.querySelector(".vxr-row"), null, { timeout: 15000 });
+  const vx1 = await page.textContent(".vxr-row");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=add]");
+  await page.waitForFunction(() => document.querySelectorAll("#vxr-countries option").length > 200, null, { timeout: 15000 });
+  await page.fill("[name=country]", "keny"); await page.press("[name=country]", "Enter");
+  await page.waitForFunction(() => document.querySelector("[data-act=pick]"), null, { timeout: 5000 });
+  const vxRec = await page.evaluate(() => document.querySelector("#vxr-add").innerText);
+  await page.click('[data-act=pick][aria-pressed=false]:has-text("Typhim Vi")');
+  await page.fill("[name=client_first]", "Joseph"); await page.fill("[name=client_last]", "Grech"); await page.fill("[name=phone]", "79000111");
+  await page.click("#vxr-add button[type=submit]");
+  let vxPosts = []; for (let i = 0; i < 40 && !vxPosts.length; i++) { await page.waitForTimeout(100); vxPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/vaccines/orders").map((c) => c.body); }
+  report("vaccines: opens from the old link; Kenya shows always / higher-risk vaccines; one POST with the classic fields",
+    /Rita Camilleri/.test(vx1) && /Recommended for Kenya/i.test(vxRec) && /Typhim Vi/.test(vxRec) && /If at higher risk/i.test(vxRec) && /Rabipur/.test(vxRec) &&
+    vxPosts.length === 1 && JSON.stringify(vxPosts[0]) === JSON.stringify({ section: "travel", country_code: "KE", country_name: "Kenya", client_first: "Joseph", client_last: "Grech", phone: "79000111", email: "", items: [{ name: "Typhim Vi", qty: 1 }] }),
+    JSON.stringify({ vx1, vxRec: vxRec.slice(0, 200), vxPosts }));
+} catch (e) { report("vaccines: the order flow ran to the end", false, String(e).slice(0, 300)); }
+
+// End of day: Today's "Close the day" link opens the new screen; the difference follows the typing (comma decimals);
+// Save sends the whole record once, under every name the server reads, with no locked_at; a save by another till
+// in between is refused (no PUT) until the person chooses to save over it.
+try {
+  eodState = { rec: null, n: 0 };
+  await page.goto(base + "&ui=2#endofday");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "eodreg" && document.querySelector("#eod-form"), null, { timeout: 15000 });
+  await page.fill("[name=staff]", "Maria"); await page.fill("[name=float_amount]", "100");
+  await page.fill('[name="row:x:0:amount"]', "500,40"); await page.fill('[name="row:epos:0:amount"]', "200.10"); await page.fill('[name="row:paid_outs:0:amount"]', "12,5");
+  await page.fill('[name="cash:n50"]', "5"); await page.fill('[name="cash:n20"]', "1"); await page.fill('[name="cash:coins_total"]', "117,10");
+  const eodOu = await page.textContent('[data-b="ouBig"]'), eodDep = await page.inputValue('[name="dep:n50"]');
+  await page.fill("[name=bag_number]", "B-7");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=save]");
+  await page.waitForFunction(() => /Saved/.test(document.querySelector(".eod-st").textContent) && !document.querySelector("[data-act=save][disabled]"), null, { timeout: 8000 });
+  const eodPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT" && c.path === "/endofday/record").map((c) => c.body.record);
+  const e0 = eodPuts[0] || {};
+  // another till saves meanwhile
+  eodState.rec = Object.assign({}, eodState.rec, { staff: "Karl", staff_name: "Karl", updated_at: "2026-11-03 18:20:00" });
+  await page.fill("[name=staff]", "Maria B");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=save]"); await page.waitForSelector(".eod-note.dn", { timeout: 8000 });
+  const eodRefused = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT").length === 0 && eodState.rec.staff === "Karl";
+  await page.click("[data-act=mine]"); await page.waitForFunction(() => !document.querySelector(".eod-note.dn") && !document.querySelector("[data-act=save][disabled]"), null, { timeout: 8000 });
+  report("end of day: opens from #endofday; short by €0.70 as typed (commas); one whole-record PUT with staff/staff_name and bov_deposit aligned, no locked_at; a save from another till in between is refused until 'Save mine over theirs'",
+    eodOu === "Short by €0.70" && eodDep === "5" && eodPuts.length === 1 && e0.staff === "Maria" && e0.staff_name === "Maria" && e0.float_amount === "100.00" && e0.x[0].amount === "500.40" && e0.paid_outs[0].amount === "12.50" &&
+    e0.cash.coins_total === "117.10" && e0.deposit.n50 === "5" && e0.bov_deposit.n50 === "5" && e0.bag_number === "B-7" && e0.bov_bag_number === "B-7" && !("locked_at" in e0) && e0.action === "SAVE" &&
+    eodRefused && eodState.rec.staff === "Maria B", JSON.stringify({ eodOu, eodDep, n: eodPuts.length, e0, eodRefused, now: eodState.rec && eodState.rec.staff }));
+} catch (e) { report("end of day: ran to the end", false, String(e).slice(0, 300)); }
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };

@@ -41,7 +41,7 @@
     locumreceipts: "Locum hours and fees, ready to pay.",
     "emergency-pos": "Sell when the main till is down; syncs later.",
     poct: "Blood pressure, glucose, cholesterol and other tests, per patient.",
-    vaccines: "Vaccines given, batches and consent.",
+    vaccines: "Vaccine orders for travel and routine jabs.",
     ocps: "Contraceptive supply records.",
     pharmacycalc: "Dose and renal calculators, per patient.",
     pharmacovigilance: "Adverse reactions reported.",
