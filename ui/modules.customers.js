@@ -369,8 +369,13 @@
     state.mount = ctx && ctx.mount;
     state.creating = false; state.conflict = ""; state.conflictExisting = null;
     try { var carried = sessionStorage.getItem("eikon_customers_q"); if (carried) { state.q = carried; sessionStorage.removeItem("eikon_customers_q"); } } catch (e) {}
+    // From the search (eikon.search.js): open one person, or start a new one with the scanned ID card filled in.
+    var go = null; try { go = JSON.parse(sessionStorage.getItem("eikon_customers_open") || "null"); sessionStorage.removeItem("eikon_customers_open"); } catch (e) {}
+    if (go && go.at && Date.now() - go.at > 60000) go = null; // an old hand-over is ignored
+    if (go && go.new) { state.selected = null; state.detail = null; state.q = String(go.id_card || ""); state.creating = true; }
     injectCss();
     render();
+    if (go && Number(go.id) > 0) open(Number(go.id));
   }
   function destroy() { if (state.timer) { clearTimeout(state.timer); state.timer = null; } state.seq++; }
 

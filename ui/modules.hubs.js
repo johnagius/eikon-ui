@@ -154,6 +154,15 @@
     document.head.appendChild(st);
   }
 
+  // Registers rebuilt in the new layout open there; the rest still open in classic (and come back to hubId).
+  function openCard(mid, hubId) {
+    var nat = (E.UI2_NATIVE || {})[mid];
+    if (nat && E.modules[nat]) { window.location.hash = "#" + nat; return; }
+    if (E.modules[mid] && E.modules[mid].ui2Only) { window.location.hash = "#" + mid; return; } // a screen that only exists in the new layout opens here
+    try { sessionStorage.setItem("eikon_ui2_return", hubId); } catch (e) {}
+    E.openClassic(mid);
+  }
+
   function makeHub(id, cfg) {
     function render(ctx) {
       var m = ctx && ctx.mount; if (!m) return;
@@ -178,15 +187,7 @@
       html += '</div>';
       m.innerHTML = html;
       m.querySelectorAll("[data-open]").forEach(function (b) {
-        b.addEventListener("click", function () {
-          // Registers rebuilt in the new layout open there; the rest still open in classic.
-          var NATIVE = E.UI2_NATIVE || {}, nat = NATIVE[b.getAttribute("data-open")];
-          if (nat && E.modules[nat]) { window.location.hash = "#" + nat; return; }
-          var own = b.getAttribute("data-open"); // a screen that only exists in the new layout opens here
-          if (E.modules[own] && E.modules[own].ui2Only) { window.location.hash = "#" + own; return; }
-          try { sessionStorage.setItem("eikon_ui2_return", id); } catch (e) {}
-          E.openClassic(b.getAttribute("data-open"));
-        });
+        b.addEventListener("click", function () { openCard(b.getAttribute("data-open"), id); });
       });
       m.querySelectorAll("[data-action]").forEach(function (b) {
         b.addEventListener("click", function () {
@@ -204,6 +205,22 @@
   window.addEventListener("eikon:modules", function () {
     try { if (HUBS[E.state.activeModuleId] && document.querySelector(".hub")) E.renderActiveModule(); } catch (e) {}
   });
+
+  // Every card behind every hub, once each (its first hub), for the search (eikon.search.js): the name the screen shows,
+  // its sentence, and the same way in as the card. Read when asked, so screens that load late are there too.
+  E.ui2Screens = function () {
+    var out = [], seen = {};
+    Object.keys(HUBS).forEach(function (hid) {
+      HUBS[hid].groups.forEach(function (g) {
+        (g.ids || []).forEach(function (mid) {
+          var mod = E.modules[mid]; if (!mod || seen[mid]) return; seen[mid] = 1;
+          var nat = (E.UI2_NATIVE || {})[mid], shown = (nat && E.modules[nat] && E.modules[nat].title) || mod.title || mid;
+          out.push({ key: mid, title: sentence(shown), old: mod.title || "", desc: DESC[mid] || "", hub: HUBS[hid].title, open: function () { openCard(mid, hid); } });
+        });
+      });
+    });
+    return out;
+  };
 
   // Which hub an old module belongs to, for the back link.
   E.ui2HubFor = function (modId) {

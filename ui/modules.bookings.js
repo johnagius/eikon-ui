@@ -141,6 +141,9 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       S.error = e && e.status === 404 ? "Bookings is not switched on for this pharmacy yet." : errMsg(e);
     }
     S.loading = false; paint();
+    // Arrived from the search (eikon.search.js): open that booking.
+    var want = null; try { want = JSON.parse(sessionStorage.getItem("eikon_bk_open") || "null"); sessionStorage.removeItem("eikon_bk_open"); } catch (e) {}
+    if (want && Date.now() - (want.at || 0) < 60000 && !S.error && (S.bookings || []).some(function (b) { return b.id === want.id; })) { S.sheet = { kind: "booking", id: want.id }; paint(); return; }
     // Arrived from a customer's "Booking" button: open a new booking with their details filled in.
     var carry = null; try { carry = JSON.parse(sessionStorage.getItem("eikon_bk_carry") || "null"); sessionStorage.removeItem("eikon_bk_carry"); } catch (e) {}
     if (carry && S.setup && !S.error) {
@@ -758,6 +761,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
   async function render(ctx) {
     injectCss();
     S.mount = ctx.mount; S.date = S.date || todayStr(); S.sheet = null;
+    try { var w0 = JSON.parse(sessionStorage.getItem("eikon_bk_open") || "null"); if (w0 && /^\d{4}-\d{2}-\d{2}$/.test(w0.date || "")) { S.date = w0.date; S.view = "day"; } } catch (e) {} // the search opens one booking: show its day
     S.mount.addEventListener("click", onClick);
     S.mount.addEventListener("change", onChange);
     document.addEventListener("keydown", onKey);

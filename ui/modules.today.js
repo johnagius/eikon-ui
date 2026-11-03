@@ -45,6 +45,7 @@
     st.id = "eikon-today-css";
     st.textContent =
       ".tdy{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:0 22px;align-content:start}" +
+      ".tdy-find{grid-column:1;position:relative;min-width:0}.tdy-find .tdy-results{position:absolute;left:0;right:0;top:100%;z-index:40;box-shadow:0 10px 30px rgba(0,0,0,.14)}" +
       ".tdy-search{grid-column:1;display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:0 14px;height:50px}" +
       ".tdy-search input{flex:1;border:0;outline:0;background:transparent;color:var(--text);font-size:16px;min-width:0}" +
       ".tdy-search input::placeholder{color:var(--muted)}.tdy-search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(7,122,91,.16)}" +
@@ -217,7 +218,7 @@
     var user = E.state.user || {};
     var html = '<div class="tdy">';
     if (state.error) html += '<div class="tdy-off">' + esc(state.error) + (state.loadedAt ? " Showing what we had at " + hm(state.loadedAt) + "." : " Nothing to show yet.") + '</div>';
-    html += '<label class="tdy-search"><span aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:rgba(60,60,67,.55);flex:none;display:block"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><input id="tdy-q" type="search" placeholder="What do you need? A customer, a product, a register…" autocomplete="off" value="' + esc(state.search) + '"><span class="hint">Enter opens it</span></label>';
+    html += '<div class="tdy-find"><label class="tdy-search"><span aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:rgba(60,60,67,.55);flex:none;display:block"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><input id="tdy-q" type="search" placeholder="What do you need? A customer, an order, a register…" autocomplete="off" value="' + esc(state.search) + '"><span class="hint">' + (E.searchAttachToday ? "Enter opens it · / anywhere" : "Enter opens it") + '</span></label><div class="tdy-results" id="tdy-results" hidden></div></div>';
     html += '<div class="tdy-date"><b>' + esc(longDate(d && d.date)) + '</b><span>' + esc(d && d.time ? d.time : hm()) + (user.location_name ? " · " + esc(user.location_name) : "") + '</span></div>';
 
     if (!d) {
@@ -264,6 +265,7 @@
     html += waiting.length ? '<div class="tdy-list">' + waiting.map(rowCustomer).join("") + '</div>' : '<div class="tdy-quiet">No one is waiting. New orders and questions appear here the moment they are recorded.</div>';
     // Bookings today (only when the pharmacy uses Bookings): the next few, one tap to the day.
     var bk = d.bookings;
+    if (bk && bk.total_today > 0) E.state.todayBookings = true; // the search asks Bookings only where it is used
     if (bk && bk.total_today > 0) {
       html += '<div class="tdy-lab">Bookings today <b>' + bk.total_today + '</b><a data-open="#bookings">All bookings ›</a></div>';
       html += bk.next.length ? '<div class="tdy-list">' + bk.next.map(function (b) {
@@ -337,8 +339,10 @@
       });
     });
     var q = m.querySelector("#tdy-q");
+    if (q) q.addEventListener("input", function () { state.search = q.value; });
+    // The search that acts (eikon.search.js): screens, people, open orders and today's bookings, under the box.
+    if (q && E.searchAttachToday) { E.searchAttachToday(q, m.querySelector("#tdy-results")); return; }
     if (q) {
-      q.addEventListener("input", function () { state.search = q.value; });
       q.addEventListener("keydown", function (e) {
         if (e.key !== "Enter") return;
         var term = (q.value || "").trim().toLowerCase();

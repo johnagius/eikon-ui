@@ -92,7 +92,7 @@ function mockApi(req, res, body) {
     const thisMonth = new Date().toISOString().slice(0, 7);
     return res.end(JSON.stringify({ ok: true, entries: q.get("month") !== thisMonth ? [] : [
       { id: 51, order_date: d(-3), client_name: "Grech Carmen", client_phone: "79123456", items_text: "Augmentin 625 x14", priority: 2, needed_by: d(-1), deposit_amount: 0, fulfilled: 0, notes: "" },
-      { id: 52, order_date: d(-1), client_name: "Vella Joseph", client_phone: "79000111", items_text: "Nexium 20mg", priority: 1, needed_by: d(3), deposit_amount: 5, fulfilled: 0, notes: "" }] }));
+      { id: 52, order_date: d(-1), client_name: "Vella Joseph", client_phone: "79000111", items_text: "Nexium 20mg", priority: 1, needed_by: d(3), deposit_amount: 5, fulfilled: 0, notes: "", order_code: "KX7P2Q" }] }));
   }
   if (p.startsWith("/client-orders/entries/") && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
   if (p === "/client-tickets/entries" && req.method === "GET") {
@@ -620,7 +620,8 @@ await page.waitForFunction(() => location.hash === "#customers" && document.quer
 await page.waitForTimeout(300);
 const cus1 = await page.evaluate(() => ({ q: document.querySelector("#cus-q").value, people: document.querySelectorAll("[data-person]").length, hist: document.querySelectorAll("[data-hist]").length, rail: !!document.querySelector('.eikon-nav-btn[data-mod="customers"]'), histText: document.querySelector("[data-hist] .cus-t span").textContent }));
 const peopleGets = (await callsNow()).filter((c) => c.path === "/people" && c.method === "GET");
-report("customers: Today's search hands the term over; people, history and the rail entry render", cus1.q === "zammit" && cus1.people === 1 && cus1.hist === 1 && cus1.rail && /1 DDA sale, 1 loyalty card/.test(cus1.histText) && peopleGets.length >= 1 && /q=zammit/.test(peopleGets[peopleGets.length - 1].query), JSON.stringify({ cus1, peopleGets }));
+// Enter opens the first result (eikon.search.js): Zammit Carmel, known only from the registers, so Customers opens on her ID card.
+report("customers: Today's search hands the first person over; people, history and the rail entry render", cus1.q === "0012345M" && cus1.people === 1 && cus1.hist === 1 && cus1.rail && /1 DDA sale, 1 loyalty card/.test(cus1.histText) && peopleGets.length >= 1 && peopleGets.some((c) => /q=zammit/.test(c.query)), JSON.stringify({ cus1, peopleGets }));
 
 await fetch(`http://localhost:${PORT}/__reset`);
 await page.click("[data-adopt]");
@@ -2176,6 +2177,165 @@ try {
   await vp.evaluate(() => { localStorage.removeItem("eikon_ui2"); });
   await vp.close();
 } catch (e) { report("vendor: ran to the end", false, String(e).slice(0, 300)); }
+// ---- Search that acts (ui/eikon.search.js): "/" and Ctrl+K, synonyms, groups, requests, scanning ----
+try {
+  peopleState.adopted = true; // Zammit Carmel is saved in Customers (the adopt test above), so a scan of her card opens her record
+  const ui2Ready = (id) => page.waitForFunction((m) => window.EIKON && window.EIKON.state && window.EIKON.state.user && window.EIKON.state.activeModuleId === m && window.EIKON._lateIn, id, { timeout: 15000 });
+  const dlgInfo = () => page.evaluate(() => { const d = document.querySelector(".esr[role=dialog]"); return { open: !!d, modal: d && d.getAttribute("aria-modal"), focus: document.activeElement && document.activeElement.id, opts: [...document.querySelectorAll(".esr-opt b")].map((b) => b.textContent), sel: (document.querySelector(".esr-opt[aria-selected=true] b") || {}).textContent || "" }; });
+  const firstFor = async (term) => { await page.fill("#esr-q", term); await page.waitForTimeout(60); return (await dlgInfo()).opts[0] || ""; };
+
+  // 1. "/" on a rebuilt screen opens it with focus in the box; Escape closes and focus goes back where it was
+  await page.goto(base + "&ui=2#tempreg"); await ui2Ready("tempreg");
+  await page.focus('.eikon-rail-btn[data-mod="registers"]');
+  await page.keyboard.press("/");
+  await page.waitForSelector(".esr[role=dialog]", { timeout: 4000 });
+  const s1 = await dlgInfo();
+  await page.keyboard.press("Escape");
+  const s1b = await page.evaluate(() => ({ open: !!document.querySelector(".esr-ov"), back: document.activeElement && document.activeElement.getAttribute("data-mod") }));
+  // Ctrl+K from a hub, and Cmd+K; "/" typed into a field stays in the field
+  await page.goto(base + "&ui=2#money"); await ui2Ready("money");
+  await page.keyboard.press("Control+k"); await page.waitForSelector(".esr[role=dialog]", { timeout: 4000 });
+  const s2 = await dlgInfo(); await page.keyboard.press("Escape");
+  await page.keyboard.press("Meta+k"); await page.waitForSelector(".esr[role=dialog]", { timeout: 4000 });
+  const s2m = !!(await dlgInfo()).open; await page.keyboard.press("Escape");
+  await page.goto(base + "&ui=2#customers"); await ui2Ready("customers");
+  await page.fill("#cus-q", ""); await page.click("#cus-q"); await page.keyboard.type("a/b");
+  const s3 = await page.evaluate(() => ({ open: !!document.querySelector(".esr-ov"), v: document.querySelector("#cus-q").value }));
+  report("search: \"/\" opens a search dialog on a rebuilt screen (focus in it), Escape gives focus back; Ctrl+K and Cmd+K open it from a hub; \"/\" typed in a field stays in the field",
+    s1.open && s1.modal === "true" && s1.focus === "esr-q" && !s1b.open && s1b.back === "registers" && s2.open && s2.focus === "esr-q" && s2m && !s3.open && s3.v === "a/b", JSON.stringify({ s1, s1b, s2, s2m, s3 }));
+
+  // 2. Synonyms: the words people use
+  await page.keyboard.press("Control+k"); await page.waitForSelector("#esr-q");
+  const syn = {};
+  for (const t of ["fridge", "temp", "DDA", "CD", "controlled", "Rx", "repeat", "till", "cash", "credit note", "recall", "rota", "BP", "label"]) syn[t] = await firstFor(t);
+  const ddaAll = (await (async () => { await page.fill("#esr-q", "DDA"); await page.waitForTimeout(60); return (await dlgInfo()).opts; })());
+  report("search: synonyms find the screen (fridge/temp → Temperature, DDA/CD/controlled → the controlled-drug registers, Rx/repeat → Repeat prescriptions, till/cash → Money)",
+    syn.fridge === "Temperature" && syn.temp === "Temperature" && /DDA|CD|[Cc]ontrolled/.test(syn.DDA) && ddaAll.filter((x) => /DDA|CD|[Cc]ontrolled/.test(x)).length >= 3 && /DDA|CD|[Cc]ontrolled/.test(syn.CD) && /DDA|CD|[Cc]ontrolled/.test(syn.controlled) &&
+    /[Rr]epeat/.test(syn.Rx) && /[Rr]epeat/.test(syn.repeat) && syn.till === "Money" && syn.cash === "Money" && /[Cc]redit/.test(syn["credit note"]) && /[Aa]lert|[Rr]ecall/.test(syn.recall) && /[Ww]ho|[Rr]ota|week/i.test(syn.rota) && /[Pp]oint|POCT|test/i.test(syn.BP) && /[Ll]abel/.test(syn.label),
+    JSON.stringify({ syn, ddaAll }));
+
+  // 3. Groups and requests: one /people per pause, orders read once; arrows move, Enter opens
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.fill("#esr-q", ""); await page.type("#esr-q", "vella", { delay: 40 });
+  await page.waitForFunction(() => [...document.querySelectorAll(".esr-grp")].some((g) => g.getAttribute("aria-label") === "Open orders"), null, { timeout: 6000 });
+  const g1 = await page.evaluate(() => [...document.querySelectorAll(".esr-grp")].map((g) => g.getAttribute("aria-label") + ":" + g.querySelectorAll(".esr-opt").length));
+  const c1 = await callsNow();
+  const pplQ = c1.filter((c) => c.path === "/people" && c.method === "GET"), ordQ = c1.filter((c) => c.path === "/client-orders/entries");
+  await page.type("#esr-q", " j", { delay: 40 }); await page.waitForTimeout(500);
+  const c2 = await callsNow(); const ordQ2 = c2.filter((c) => c.path === "/client-orders/entries"), pplQ2 = c2.filter((c) => c.path === "/people" && c.method === "GET");
+  const writes = c2.filter((c) => c.method !== "GET");
+  await page.keyboard.press("ArrowDown"); const sel1 = (await dlgInfo()).sel; await page.keyboard.press("ArrowUp"); const sel0 = (await dlgInfo()).sel;
+  report("search: results come in groups (open orders and today's bookings by name); one /people request per pause in typing (none when the same word is asked again), open orders read once and filtered here, nothing written; arrows move",
+    g1.some((x) => /^Open orders:1$/.test(x)) && g1.some((x) => /^Today's bookings:\d$/.test(x)) && pplQ.length === 1 && /q=vella/.test(pplQ[0].query) && ordQ.length >= 1 && ordQ.length <= 4 && ordQ2.length === ordQ.length && pplQ2.length <= 2 && writes.length === 0 && sel1 && sel0 && sel1 !== sel0,
+    JSON.stringify({ g1, ppl: pplQ2.map((c) => c.query), ord: ordQ2.map((c) => c.query), writes, sel0, sel1 }));
+  await page.fill("#esr-q", "kx7p");
+  await page.waitForFunction(() => /Vella Joseph/.test((document.querySelector('.esr-grp[aria-label="Open orders"] .esr-opt') || {}).textContent || ""), null, { timeout: 6000 });
+  // a booking today, chosen from its group, opens with its details
+  await page.fill("#esr-q", "anna");
+  await page.waitForSelector('.esr-grp[aria-label="Today\'s bookings"] .esr-opt', { timeout: 6000 });
+  await page.click('.esr-grp[aria-label="Today\'s bookings"] .esr-opt');
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "bookings" && /Anna Vella/.test((document.querySelector(".bkx-g") || {}).textContent || "") && document.querySelector('[data-act="st"][data-s="arrived"]'), null, { timeout: 8000 });
+  report("search: a booking found by name opens on its own sheet in Bookings", true);
+  await page.goto(base + "&ui=2#money"); await ui2Ready("money");
+  // Enter opens the first result
+  await page.keyboard.press("Control+k"); await page.fill("#esr-q", "fridge"); await page.keyboard.press("Enter");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "tempreg", null, { timeout: 8000 });
+  const s4 = await page.evaluate(() => ({ open: !!document.querySelector(".esr-ov"), classic: location.search.indexOf("ui=classic") >= 0 }));
+  report("search: an order is found by its code, and Enter on \"fridge\" opens Temperature in the new layout and closes the dialog", !s4.open && !s4.classic, JSON.stringify(s4));
+
+  // 4. Focus is shown on every stop, and stays inside the dialog
+  await page.keyboard.press("/"); await page.waitForSelector("#esr-q");
+  const stops = [];
+  for (let i = 0; i < 4; i++) {
+    stops.push(await page.evaluate(() => { const a = document.activeElement, cs = getComputedStyle(a), bar = a.closest(".esr-bar"); return { el: a.id || a.getAttribute("data-act") || a.tagName, inside: !!a.closest(".esr"), shown: cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) > 0 || (a.id === "esr-q" && bar && getComputedStyle(bar).boxShadow !== "none") }; }));
+    await page.keyboard.press("Tab");
+  }
+  await page.keyboard.press("Shift+Tab"); await page.keyboard.press("Shift+Tab");
+  const back2 = await page.evaluate(() => !!document.activeElement.closest(".esr"));
+  await page.keyboard.press("Escape");
+  report("search: keyboard only, every stop in the dialog shows focus and Tab/Shift+Tab never leave it", stops.every((s) => s.inside && s.shown) && back2 && stops.some((s) => s.el === "close"), JSON.stringify(stops));
+
+  // 5. Scanning on Today: a burst of keys under 30 ms, then Enter, opens the person; an unknown card offers to add them
+  await page.goto(base + "&ui=2#today"); await ui2Ready("today"); await page.waitForTimeout(300);
+  await page.evaluate(() => { document.activeElement && document.activeElement.blur && document.activeElement.blur(); window.EIKON._lastScan = null; });
+  await page.keyboard.type("12345M", { delay: 0 }); await page.keyboard.press("Enter");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "customers" && document.querySelector(".cus-head h1"), null, { timeout: 8000 });
+  const sc1 = await page.evaluate(() => ({ h1: document.querySelector(".cus-head h1").textContent, scan: window.EIKON._lastScan }));
+  // the same burst into Today's own box: the box is left as it was and the person opens
+  await page.goto(base + "&ui=2#today"); await ui2Ready("today"); await page.waitForTimeout(300);
+  await page.click("#tdy-q"); await page.keyboard.type("0012345M", { delay: 0 }); await page.keyboard.press("Enter");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "customers" && document.querySelector(".cus-head h1"), null, { timeout: 8000 });
+  const sc1b = await page.evaluate(() => ({ h1: document.querySelector(".cus-head h1").textContent, scan: window.EIKON._lastScan }));
+  // an unknown card: "No one with card … — add?", Enter goes to a new customer with the card filled in
+  await page.goto(base + "&ui=2#today"); await ui2Ready("today"); await page.waitForTimeout(300);
+  await page.keyboard.type("999999M", { delay: 0 }); await page.keyboard.press("Enter");
+  await page.waitForFunction(() => /No one with card 999999M/.test((document.querySelector(".esr-opt") || {}).textContent || ""), null, { timeout: 8000 });
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => document.querySelector("#cus-new [name=id_card]"), null, { timeout: 8000 });
+  const sc2 = await page.evaluate(() => ({ card: document.querySelector("#cus-new [name=id_card]").value, name: document.querySelector("#cus-new [name=name]").value }));
+  // an order slip's code opens that order
+  await page.goto(base + "&ui=2#today"); await ui2Ready("today"); await page.waitForTimeout(300);
+  await page.keyboard.type("KX7P2Q", { delay: 0 }); await page.keyboard.press("Enter");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector(".ord-row"), null, { timeout: 8000 });
+  const sc3 = await page.evaluate(() => ({ rows: [...document.querySelectorAll(".ord-row .t b")].map((b) => b.textContent), q: (document.querySelector("#ord-q") || {}).value }));
+  const scWrites = (await callsNow()).filter((c) => c.method !== "GET" && c.path !== "/auth/login");
+  report("search: a scanned ID card on Today opens that person (padded or not, also from Today's box), an unknown card offers \"add?\" and opens a new customer with it, an order slip's code opens that order; nothing is written",
+    sc1.h1 === "Zammit Carmel" && sc1.scan && sc1.scan.where === "today" && sc1b.h1 === "Zammit Carmel" && sc1b.scan.code === "0012345M" && sc2.card === "999999M" && sc2.name === "" && JSON.stringify(sc3.rows) === JSON.stringify(["Vella Joseph"]) && sc3.q === "KX7P2Q" && scWrites.length === 0,
+    JSON.stringify({ sc1, sc1b, sc2, sc3, scWrites }));
+  // in the dialog too
+  await page.keyboard.press("Control+k"); await page.waitForSelector("#esr-q");
+  await page.keyboard.type("12345M", { delay: 0 }); await page.keyboard.press("Enter");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "customers" && document.querySelector(".cus-head h1") && !document.querySelector(".esr-ov"), null, { timeout: 8000 });
+  const sc4 = await page.evaluate(() => window.EIKON._lastScan);
+  report("search: a scan into the search dialog opens that person", sc4 && sc4.where === "dialog" && sc4.code === "12345M", JSON.stringify(sc4));
+
+  // 6. Normal typing is never a scan: the same card typed at a fast typist's pace (40 ms a key), quick bursts in a form
+  await page.goto(base + "&ui=2#today"); await ui2Ready("today"); await page.waitForTimeout(300);
+  await page.evaluate(() => { window.EIKON._lastScan = null; });
+  await page.click("#tdy-q"); await page.keyboard.type("12345M", { delay: 40 });
+  await page.waitForTimeout(400);
+  const t1 = await page.evaluate(() => ({ v: document.querySelector("#tdy-q").value, scan: window.EIKON._lastScan, list: document.querySelectorAll("#tdy-results .esr-opt").length, hidden: document.querySelector("#tdy-results").hidden }));
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "customers", null, { timeout: 8000 });
+  const t1b = await page.evaluate(() => window.EIKON._lastScan);
+  // the fastest a person types in bursts (two or three keys under 30 ms, then a pause) never adds up to a scan
+  await page.goto(base + "&ui=2#today"); await ui2Ready("today"); await page.waitForTimeout(300);
+  await page.click("#tdy-q");
+  for (const chunk of ["12", "34", "5M"]) { await page.keyboard.type(chunk, { delay: 0 }); await page.waitForTimeout(45); }
+  await page.keyboard.press("Enter"); await page.waitForTimeout(400);
+  const t2 = await page.evaluate(() => window.EIKON._lastScan);
+  // a scanner (or fast fingers) into a register form field is left to the form
+  await page.goto(base + "&ui=2#repeatprescriptions"); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "repreg" && document.querySelector("[data-act=add]"), null, { timeout: 15000 });
+  await page.click("[data-act=add]"); await page.waitForTimeout(200);
+  await page.click("#rep-add [name=client_id]"); await page.keyboard.type("100001M", { delay: 0 });
+  const t3v = await page.inputValue("#rep-add [name=client_id]");
+  await page.keyboard.press("Enter"); await page.waitForTimeout(400);
+  const t3 = await page.evaluate((v) => ({ v, mod: window.EIKON.state.activeModuleId, scan: window.EIKON._lastScan, dlg: !!document.querySelector(".esr-ov") }), t3v);
+  report("search: typing is never taken for a scan: a card typed at 40 ms a key stays in the box and Enter searches; 2-key bursts with pauses are not a scan; a fast burst in a register form stays in the form",
+    t1.v === "12345M" && !t1.scan && t1.list >= 1 && !t1.hidden && !t1b && !t2 && t3.v === "100001M" && t3.mod === "repreg" && !t3.scan && !t3.dlg, JSON.stringify({ t1, t1b, t2, t3 }));
+
+  // 7. Camera: nothing loaded until asked; the browser's own reader (stubbed here) reads an order slip
+  await page.goto(base + "&ui=2#today"); await ui2Ready("today"); await page.waitForTimeout(300);
+  const zx0 = await page.evaluate(() => [...document.scripts].some((s) => /zxing/i.test(s.src)));
+  await page.evaluate(() => {
+    window.BarcodeDetector = function () {}; window.BarcodeDetector.prototype.detect = function () { return Promise.resolve([{ rawValue: "KX7P2Q", format: "qr_code" }]); };
+    navigator.mediaDevices.getUserMedia = function () { const c = document.createElement("canvas"); c.width = 64; c.height = 48; const x = c.getContext("2d"); let k = 0; setInterval(() => { x.fillStyle = (k++ % 2) ? "#000" : "#fff"; x.fillRect(0, 0, 64, 48); }, 40); return Promise.resolve(c.captureStream(10)); };
+  });
+  await page.keyboard.press("Control+k"); await page.click('.esr [data-act="cam"]');
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector(".ord-row"), null, { timeout: 8000 });
+  const cam = await page.evaluate(() => ({ rows: [...document.querySelectorAll(".ord-row .t b")].map((b) => b.textContent), zx: [...document.scripts].some((s) => /zxing/i.test(s.src)), dlg: !!document.querySelector(".esr-ov") }));
+  report("search: the camera reads an order code with the browser's reader and opens that order; ZXing is not loaded unless needed", !zx0 && !cam.zx && !cam.dlg && JSON.stringify(cam.rows) === JSON.stringify(["Vella Joseph"]), JSON.stringify({ zx0, cam }));
+
+  // 8. Classic layout: no shortcut, no scanning
+  await page.goto(base + "&ui=classic#temperature"); await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && window.EIKON.state.activeModuleId === "temperature", null, { timeout: 15000 });
+  await page.waitForTimeout(300);
+  await page.evaluate(() => { document.activeElement && document.activeElement.blur && document.activeElement.blur(); window.EIKON._lastScan = null; });
+  await page.keyboard.press("/"); await page.keyboard.press("Control+k"); await page.keyboard.type("12345M", { delay: 0 }); await page.keyboard.press("Enter");
+  await page.waitForTimeout(300);
+  const cl = await page.evaluate(() => ({ dlg: !!document.querySelector(".esr-ov"), scan: window.EIKON._lastScan, mod: window.EIKON.state.activeModuleId, ui2: document.documentElement.hasAttribute("data-ui2") }));
+  report("search: the classic layout is untouched: no dialog, no scanning", !cl.dlg && !cl.scan && cl.mod === "temperature" && !cl.ui2, JSON.stringify(cl));
+  await page.goto(base + "&ui=2#today"); await ui2Ready("today");
+} catch (e) { report("search: ran to the end", false, String(e).slice(0, 400)); }
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });

@@ -71,7 +71,7 @@
         var r = await E.apiFetch("/people?q=" + encodeURIComponent(q) + "&limit=30", { method: "GET", timeoutMs: 8000 });
         if (!r || !r.ok) return [];
         var out = [];
-        (r.people || []).forEach(function (p) { out.push({ name: p.name, id_card: p.id_card, phone: p.phone, address: p.address, date: "", from: "Customers" }); });
+        (r.people || []).forEach(function (p) { out.push({ pid: p.id, name: p.name, id_card: p.id_card, phone: p.phone, address: p.address, date: "", from: "Customers" }); });
         (r.history || []).forEach(function (h) {
           var kinds = Object.keys(h.sources || {});
           out.push({ name: h.name, id_card: h.id_card, phone: h.phone, address: h.address, date: str(h.last_date).slice(0, 10), from: kinds.length === 1 ? (LABEL[kinds[0]] || "record") : "records" });
@@ -102,6 +102,7 @@
       var k = c.id_card ? idKey(c.id_card) : "", n = nameKey(c.name), g = k ? byId[k] : (byName[n] && byName[n].length === 1 ? byName[n][0] : null);
       if (!g) { g = { name: str(c.name).trim(), id_card: str(c.id_card).trim(), phone: "", address: "", dob: "", date: "", from: "" }; out.push(g); if (k) byId[k] = g; (byName[n] = byName[n] || []).push(g); }
       ["phone", "address", "dob"].forEach(function (f) { if (!g[f] && str(c[f]).trim()) g[f] = str(c[f]).trim(); });
+      if (c.pid && !g.pid) g.pid = c.pid; // saved in Customers: the search (eikon.search.js) opens that record
       if (!g.id_card && c.id_card) { g.id_card = str(c.id_card).trim(); byId[idKey(c.id_card)] = g; }
       if (c.date && c.date > g.date) { g.date = c.date; g.from = c.from; } else if (!g.from) g.from = c.from;
     });
@@ -125,6 +126,13 @@
   // ---- one combobox per field; state kept by key so a redraw of the form does not lose the list or the note ----
   E.personPick = {
     norm: normId, key: idKey,
+    // The same lookup without a form, for the search (eikon.search.js): people saved in Customers and people seen in
+    // the registers, one row each, best first. Same cache, same scope, same rules as the suggestions under a field.
+    find: async function (q, max) {
+      q = str(q).trim(); if (!q) return [];
+      var list = ((await SOURCES.people(wire(q))) || []).filter(function (c) { return matches(c, q); });
+      return sortFor(merge(list), q).slice(0, max || MAX);
+    },
     attach: function (o) {
       if (!o || !o.form || !o.fields) return;
       css();

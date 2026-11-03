@@ -70,6 +70,7 @@
     var cls = done ? "" : n < 0 ? "late" : n <= 1 ? "soon" : "";
     var phone = e.client_phone || e.contact || "";
     var sub = []; if (phone) sub.push('<a href="tel:' + esc(String(phone).replace(/\s+/g, "")) + '">' + esc(phone) + "</a>");
+    if (e.order_code) sub.push("Code " + esc(e.order_code));
     if (Number(e.deposit_amount || e.deposit) > 0) sub.push("Deposit €" + esc(e.deposit_amount || e.deposit)); if (e.notes) sub.push(esc(e.notes));
     var pill = done ? "Ready " + when(String(e.fulfilled_at || "").slice(0, 10)) : need ? (n < 0 ? "Late · needed " + when(need) : "Needed " + when(need)) : "No date";
     return '<div class="ord-row ' + cls + (Number(e.priority) === 1 && !done ? " hi" : "") + '"><div class="t"><b>' + esc(e.client_name) + '</b><div class="it">' + esc(e.items_text || e.items || "") + "</div><span>" + sub.join(" · ") + "</span></div>" +
@@ -96,11 +97,11 @@
         (S.err ? '<div class="ord-err">' + esc(S.err) + "</div>" : "") +
         '<div class="acts"><button type="button" class="ord-btn" data-act="add-cancel">Cancel</button><button type="submit" class="ord-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Add order") + "</button></div></form>";
     }
-    var q = S.q.trim().toLowerCase(), match = function (e) { return !q || [e.client_name, e.items_text, e.items, e.client_phone, e.contact, e.notes].some(function (v) { return String(v || "").toLowerCase().indexOf(q) >= 0; }); };
+    var q = S.q.trim().toLowerCase(), match = function (e) { return !q || [e.client_name, e.items_text, e.items, e.client_phone, e.contact, e.notes, e.order_code].some(function (v) { return String(v || "").toLowerCase().indexOf(q) >= 0; }); };
     var open = S.entries.filter(function (e) { return !Number(e.fulfilled) && match(e); }).sort(function (a, b) { return String(a.needed_by || "9") < String(b.needed_by || "9") ? -1 : String(a.needed_by || "9") > String(b.needed_by || "9") ? 1 : Number(a.priority) - Number(b.priority); });
     var week = ymd(new Date(Date.now() - 7 * 86400000));
     var done = S.entries.filter(function (e) { return Number(e.fulfilled) && String(e.fulfilled_at || "").slice(0, 10) >= week && match(e); }).sort(function (a, b) { return String(a.fulfilled_at) < String(b.fulfilled_at) ? 1 : -1; });
-    if (S.entries.length > 8) h += '<input class="ord-q" id="ord-q" type="search" placeholder="Search customer, phone or item" value="' + esc(S.q) + '">';
+    if (S.entries.length > 8 || S.q) h += '<input class="ord-q" aria-label="Search orders" id="ord-q" type="search" placeholder="Search customer, phone or item" value="' + esc(S.q) + '">';
     if (S.loading && !S.entries.length) h += '<div class="ord-quiet">Opening orders…</div>';
     else if (S.error) h += '<div class="ord-quiet">' + esc(S.error) + "</div>";
     else {
@@ -168,7 +169,14 @@
 
   E.registerModule({
     id: "ordreg", title: "Orders", order: 3, icon: "◎", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; css(); paint(); return load(); }
+    render: function (ctx) {
+      S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null;
+      // From the search (eikon.search.js): show the order that was chosen or scanned (its code, or the customer's name).
+      // That filter is for this visit only: the next visit opens on every order again.
+      if (S.qFromSearch) { S.q = ""; S.qFromSearch = false; }
+      try { var go = JSON.parse(sessionStorage.getItem("eikon_ordreg_q") || "null"); sessionStorage.removeItem("eikon_ordreg_q"); if (go && go.q && Date.now() - (go.at || 0) < 60000) { S.q = String(go.q); S.qFromSearch = true; } } catch (e) {}
+      css(); paint(); return load();
+    }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("ordreg") < 0) E.UI2_DESTINATIONS.push("ordreg");
   if (E.UI2_PARENT) E.UI2_PARENT.ordreg = "customers";
