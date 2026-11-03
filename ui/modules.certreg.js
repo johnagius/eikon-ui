@@ -40,7 +40,7 @@
       ".crt-row.over{border-left-color:var(--danger)}.crt-row.soon{border-left-color:#C98A12}.crt-row.none{border-left-color:var(--border)}" +
       ".crt-row .t{flex:1;min-width:0}.crt-row b{display:block;font-size:15px;font-weight:600}.crt-row span{display:block;font-size:12.5px;color:var(--muted)}" +
       ".crt-pill{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;white-space:nowrap}" +
-      ".crt-pill.over{background:rgba(215,38,28,.12);color:var(--danger)}.crt-pill.soon{background:rgba(201,138,18,.16);color:var(--warn,#A06A0E)}.crt-pill.ok{background:rgba(10,143,106,.12);color:var(--accent)}.crt-pill.none{background:rgba(127,127,127,.14);color:var(--muted)}" +
+      ".crt-pill.over{background:rgba(215,38,28,.12);color:var(--danger)}.crt-pill.soon{background:rgba(201,138,18,.16);color:var(--warn,#A06A0E)}.crt-row.none .crt-pill{display:none}.crt-pill.ok{background:rgba(10,143,106,.12);color:var(--accent)}.crt-pill.none{background:rgba(127,127,127,.14);color:var(--muted)}" +
       ".crt-form{border-top:.5px solid var(--border);background:rgba(118,118,128,.05)}" +
       ".crt-form label{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 16px;border-top:.5px solid var(--border)}.crt-form label:first-child{border-top:0}" +
       ".crt-form label>span{flex:0 0 110px;font-size:15px}.crt-form input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
@@ -48,7 +48,7 @@
       ".crt-err{color:var(--danger);font-size:13px;padding:2px 16px 4px}" +
       ".crt-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".crt-print,.crt-pmeta{display:none}" +
-      "@media (max-width:600px){.crt{padding:4px 16px 0}.crt h1{font-size:32px}.crt-row{flex-wrap:wrap;row-gap:8px}.crt-row .t{flex-basis:100%}.crt-row .crt-btn{margin-left:auto;height:32px}.crt-form label>span{flex-basis:96px}}" +
+      "@media (max-width:600px){.crt{padding:4px 16px 0}.crt h1{font-size:32px}.crt-row{flex-wrap:wrap;row-gap:8px}.crt-row .t{flex-basis:100%}.crt-row .crt-btn{margin-left:auto;height:32px}.crt-row.none{flex-wrap:nowrap}.crt-row.none .t{flex-basis:auto}.crt-form label>span{flex-basis:96px}}" +
       "@media print{.eikon-sidebar,.eikon-topbar,.crt-back,.crt-top .crt-btn,.crt-lab,.crt-list,.crt-note,.eikon-toast{display:none!important}" +
       ".eikon-content{padding:0!important}.crt-pmeta{display:block;font-size:12px;margin:2px 0 8px}.crt-print{display:table;width:100%;border-collapse:collapse;font-size:11px}" +
       ".crt-print th,.crt-print td{border:1px solid #999;padding:3px 6px;text-align:left}}";
@@ -102,9 +102,11 @@
     else if (!S.items.length) h += '<div class="crt-quiet">No certificates are set up for this pharmacy.</div>';
     else {
       var sorted = S.items.slice().sort(function (a, b) { var x = state(a), y = state(b); return x.order - y.order || (x.n || 0) - (y.n || 0) || String(a.title).localeCompare(String(b.title)); });
-      var need = sorted.filter(function (it) { return state(it).k !== "ok"; }), fine = sorted.filter(function (it) { return state(it).k === "ok"; });
+      // Never-recorded items get their own group at the end as one-line rows, so what is overdue or due soon is what you see first.
+      var need = sorted.filter(function (it) { var k = state(it).k; return k === "over" || k === "soon"; }), fine = sorted.filter(function (it) { return state(it).k === "ok"; }), never = sorted.filter(function (it) { return state(it).k === "none"; });
       if (need.length) h += '<div class="crt-lab">Needs attention</div><div class="crt-list">' + need.map(rowHtml).join("") + "</div>";
       if (fine.length) h += '<div class="crt-lab">In date</div><div class="crt-list">' + fine.map(rowHtml).join("") + "</div>";
+      if (never.length) h += '<div class="crt-lab">Not recorded yet</div><div class="crt-list">' + never.map(rowHtml).join("") + "</div>";
       h += '<p class="crt-note" style="font-size:12.5px;color:var(--muted);margin-top:12px">To upload or download a certificate file, use the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p>';
       h += '<table class="crt-print"><thead><tr><th>Item</th><th>Last</th><th>Next due</th><th>Every</th><th>Certified</th><th>Status</th></tr></thead><tbody>' +
         sorted.map(function (it) { return "<tr><td>" + esc(it.title) + "</td><td>" + esc(nice(it.last_date)) + "</td><td>" + esc(nice(it.next_due)) + "</td><td>" + esc(it.interval_months) + " months</td><td>" + esc(it.certified_person || "") + "</td><td>" + esc(state(it).label) + "</td></tr>"; }).join("") +
