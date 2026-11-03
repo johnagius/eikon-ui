@@ -2005,6 +2005,7 @@
         ".eks button{font:inherit;font-size:15px;font-weight:600;min-height:44px;padding:0 18px;border-radius:22px;border:1px solid var(--border,rgba(0,0,0,.2));background:var(--panel2,#fff);color:var(--text,#000);cursor:pointer}" +
         ".eks button.p{background:var(--accent,#0A8F6A);border-color:var(--accent,#0A8F6A);color:#fff}.eks button.t{border:0;background:none;color:var(--accent,#0A8F6A);padding:0 4px}.eks button:disabled{opacity:.6}" +
         ".eks-err{color:var(--danger,#B42318);font-size:13.5px;margin-top:10px;min-height:1px}.eks-who{font-weight:700;color:var(--text,#000)}" +
+        ".eks-caps{font-size:13px;font-weight:600;color:var(--text,#000);margin-top:8px;min-height:1px}.eks label.eks-show{display:flex;align-items:center;gap:10px;min-height:44px;margin:4px 0 0;font-weight:500;font-size:14px}.eks label.eks-show input{width:20px;height:20px;margin:0}" +
         // light accents in the dark looks need dark text (as the new layout's own buttons): the classic look is always dark
         "html:not([data-ui2]) .eks button.p{color:#06121F}@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .eks button.p{color:#00160E}}";
       document.head.appendChild(st);
@@ -2031,6 +2032,9 @@
         c.inert = true; c.setAttribute("aria-hidden", "true");
       });
       document.body.appendChild(el);
+      // A password typed with Caps Lock on is the commonest reason it is "not right": say so while it is on.
+      var caps = el.querySelector(".eks-caps");
+      if (caps) { var watch = function (e) { if (e.target && e.target.type === "password" && e.getModifierState) { var w = e.getModifierState("CapsLock") ? "Caps Lock is on." : ""; if (caps.textContent !== w) caps.textContent = w; } }; el.addEventListener("keydown", watch); el.addEventListener("keyup", watch); }
       document.addEventListener("keydown", trap, true);
       document.addEventListener("focusin", keepIn, true);
       return el;
@@ -2060,18 +2064,22 @@
         '<label for="eks-fc-cur">Temporary password</label><input id="eks-fc-cur" type="password" autocomplete="current-password">' +
         '<label for="eks-fc-n1">New password (10 characters or more)</label><input id="eks-fc-n1" type="password" autocomplete="new-password">' +
         '<label for="eks-fc-n2">New password again</label><input id="eks-fc-n2" type="password" autocomplete="new-password">' +
-        '<div class="eks-err" id="eks-fc-err" role="alert"></div>' +
+        '<label class="eks-show"><input type="checkbox" id="eks-fc-show"> Show the passwords</label>' +
+        '<div class="eks-caps" aria-live="polite"></div><div class="eks-err" id="eks-fc-err" role="alert"></div>' +
         '<div class="eks-acts"><button type="button" class="t" id="eks-fc-out">Sign out</button><button type="submit" class="p" id="eks-fc-go">Save and continue</button></div></form>');
       var f = sh.querySelector("#eks-fc"), err = sh.querySelector("#eks-fc-err"), go = sh.querySelector("#eks-fc-go");
       function v(id) { return (sh.querySelector("#" + id) || {}).value || ""; }
       sh.querySelector("#eks-fc-out").addEventListener("click", function () { E._signSheet.close(); E.logout(); });
+      sh.querySelector("#eks-fc-show").addEventListener("change", function () { var t = this.checked ? "text" : "password"; ["eks-fc-cur", "eks-fc-n1", "eks-fc-n2"].forEach(function (id) { var i = sh.querySelector("#" + id); if (i) i.type = t; }); });
+      function bad(id, text) { err.textContent = text; var i = sh.querySelector("#" + id); if (i) { i.focus(); try { i.select(); } catch (e0) {} } } // say it, and put the cursor where the fix is
       f.addEventListener("submit", async function (e) {
         e.preventDefault();
         var cur = v("eks-fc-cur"), n1 = v("eks-fc-n1"), n2 = v("eks-fc-n2");
-        if (!cur || !n1) { err.textContent = "Enter the temporary password and a new one."; return; }
-        if (n1.length < 10) { err.textContent = "The new password needs at least 10 characters."; return; }
-        if (n1 !== n2) { err.textContent = "The two new passwords do not match."; return; }
-        go.disabled = true; err.textContent = "";
+        if (!cur) return bad("eks-fc-cur", "Enter the temporary password you were given.");
+        if (!n1) return bad("eks-fc-n1", "Choose a new password.");
+        if (n1.length < 10) return bad("eks-fc-n1", "The new password needs at least 10 characters. It has " + n1.length + ".");
+        if (n1 !== n2) return bad("eks-fc-n2", "The two new passwords do not match. Type it again.");
+        go.disabled = true; go.textContent = "Saving…"; err.textContent = "";
         try {
           var r = await E.apiFetch("/auth/change-password", { method: "POST", body: JSON.stringify({ current_password: cur, new_password: n1 }) });
           if (!r || !r.ok) throw new Error((r && r.error) || "Could not change the password");
@@ -2080,8 +2088,9 @@
           try { E.toast("Password saved. Use it from now on.", "success"); } catch (eT) {}
           resolve();
         } catch (x) {
-          err.textContent = x && x.status === 403 ? "The temporary password is not right." : String((x && (x.message || x)) || "Could not change the password");
-          go.disabled = false;
+          go.disabled = false; go.textContent = "Save and continue";
+          if (x && x.status === 403) bad("eks-fc-cur", "The temporary password is not right. Check it with whoever gave it to you.");
+          else err.textContent = x && x.network ? "Can't reach the server. Check the connection and try again." : String((x && (x.message || x)) || "Could not change the password");
         }
       });
       var first = sh.querySelector("#eks-fc-cur"); if (first) first.focus();
@@ -2120,7 +2129,7 @@
         '<p>Signed in as <span class="eks-who">' + E.escapeHtml(u.full_name || u.email || "") + '</span>. Enter the password to carry on where you were, or sign in as yourself.</p>' +
         '<label for="eks-lk-email">E-mail</label><input id="eks-lk-email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" value="' + E.escapeHtml(u.email || "") + '">' +
         '<label for="eks-lk-pass">Password</label><input id="eks-lk-pass" type="password" autocomplete="current-password">' +
-        '<div class="eks-err" id="eks-lk-err" role="alert"></div>' +
+        '<div class="eks-caps" aria-live="polite"></div><div class="eks-err" id="eks-lk-err" role="alert"></div>' +
         '<div class="eks-acts"><button type="button" class="t" id="eks-lk-other">Someone else</button><button type="submit" class="p" id="eks-lk-go">Unlock</button></div></form>');
       var f = sh.querySelector("#eks-lk"), err = sh.querySelector("#eks-lk-err"), go = sh.querySelector("#eks-lk-go");
       var em = sh.querySelector("#eks-lk-email"), pw = sh.querySelector("#eks-lk-pass");
@@ -2131,8 +2140,9 @@
     async function unlock(emailIn, pass, err, go) {
       var u = E.state.user || {};
       var email = String(emailIn || "").trim().toLowerCase();
-      if (!email || !pass) { err.textContent = "Enter the e-mail and password."; return; }
-      go.disabled = true; err.textContent = "";
+      var pwEl = document.getElementById("eks-lk-pass"), emEl = document.getElementById("eks-lk-email");
+      if (!email || !pass) { err.textContent = !email ? "Enter the e-mail you sign in with." : "Enter the password."; var miss = !email ? emEl : pwEl; if (miss) miss.focus(); return; }
+      go.disabled = true; go.textContent = "Unlocking…"; err.textContent = "";
       try {
         if (email === String(u.email || "").toLowerCase()) {
           // Same person: the password is checked against this session; nothing else changes.
@@ -2158,8 +2168,9 @@
         done(L2.user && (L2.user.id || L2.user.user_id));
         E._reload();
       } catch (x2) {
-        err.textContent = x2 && (x2.status === 401 || x2.status === 403) ? "That e-mail and password do not match." : x2 && x2.status === 429 ? "Too many attempts. Wait 15 minutes and try again." : String((x2 && (x2.message || x2)) || "Could not unlock");
-        go.disabled = false;
+        err.textContent = x2 && (x2.status === 401 || x2.status === 403) ? "That e-mail and password do not match." : x2 && x2.status === 429 ? "Too many attempts. Wait 15 minutes and try again." : x2 && x2.network ? "Can't reach the server. Check the connection and try again." : String((x2 && (x2.message || x2)) || "Could not unlock");
+        go.disabled = false; go.textContent = "Unlock";
+        if (pwEl) { pwEl.focus(); try { pwEl.select(); } catch (e3) {} } // the password is what is usually wrong: ready to type again
       }
     }
     async function endSession(tok) {

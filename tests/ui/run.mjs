@@ -55,6 +55,7 @@ let boardState = { msgs: [
   { id: 11, user_id: 7, user_name: "Sara Vella", location_name: "Sliema Pharmacy", body: "Who has Ozempic 1mg? @Demo Pharmacy", scope: "all", is_pinned: 1, created_at: "2026-11-02 08:00:00" },
   { id: 12, user_id: 3, user_name: "Karl Vella", location_name: "Demo Pharmacy", body: "Courier at 16:00", scope: "org", is_pinned: 0, created_at: new Date().toISOString().slice(0, 19).replace("T", " ") }] };
 let eodState = { rec: null, n: 0 };
+let hndGap = false; // Handover: yesterday left nothing, the day before did
 let eposSales = [];
 let pvState = { reports: [{ id: "pv_1_abc", created_at: "2026-10-30T09:00:00.000Z", updated_at: "2026-10-30T09:00:00.000Z", status: "Draft", report_type: "Initial", pt_initials: "J.D.", pt_age: "65", pt_sex: "Female", pt_weight: "", pt_height: "", pt_dob_day: "5", pt_dob_month: "3", pt_id: "123456M", pt_medical_history: "",
   drugs: [{ name: "Amoxicillin 500mg", dose: "500mg", route: "Oral", frequency: "TDS", start_date: "", stop_date: "", indication: "URTI", batch_no: "AX12", mah: "" }], reaction_description: "Itchy rash", reaction_start: "", reaction_stop: "", reaction_seriousness: "Serious – Other medically important", reaction_outcome: "Recovering", reaction_causality: "Possible", reaction_meddra: "Rash",
@@ -150,6 +151,7 @@ function mockApi(req, res, body) {
   if (p === "/paid-out/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [{ id: 3, entry_date: todayYmd, entry_time: "09:00", payee_name: "Courier Ltd", fee: 12.5, payment_method: "cash", invoice_no: "", cheque_no: "", reason: "Gozo" }] }));
   if (p === "/paid-out/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, entry_id: 4 }));
   if (p === "/paid-out/names") return res.end(JSON.stringify({ ok: true, names: ["Courier Ltd"] }));
+  if (p === "/instructions/daily" && req.method === "GET" && hndGap) { const y = url.searchParams.get("ymd"), ago = (n) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10); return res.end(JSON.stringify({ ok: true, record: { ymd: y, notes: "", handover_out: y === ago(2) ? [{ id: "s1", sev: "y", text: "Saturday: fridge engineer Monday" }] : [] } })); } // nothing yesterday (a closed Sunday)
   if (p === "/instructions/daily" && req.method === "GET") { const y = url.searchParams.get("ymd"); return res.end(JSON.stringify({ ok: true, record: y === todayYmd ? { ymd: y, notes: "Inspector may visit", handover_out: [{ id: "t1", sev: "g", text: "Already for tomorrow" }] } : { ymd: y, notes: "", handover_out: [{ id: "y1", sev: "g", text: "Restock gloves" }, { id: "y2", sev: "r", text: "Methadone at 9" }] } })); }
   if (p === "/instructions/daily" && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
   if (p === "/instructions/global" && req.method === "GET") return res.end(JSON.stringify({ ok: true, global: { permanent_handover: { text: "Count the CD cupboard every evening" } } }));
@@ -1146,7 +1148,7 @@ await page.fill("#hnd-new", "Fridge door sticks"); await page.click('.hnd-seg [d
 const hnCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.path.startsWith("/instructions/daily"));
 const hnPut = (hnCalls.find((c) => c.method === "PUT") || {}).body || {};
 report("handover: opens from the old link, critical first; adding re-reads today and keeps the notes and the earlier point",
-  /CRITICALMethadone/.test(hn1.first || "") && /CD cupboard/.test(hn1.always || "") && hn1.rail.join() === "team" && hnCalls[0].method === "GET" && hnPut.notes === "Inspector may visit" && hnPut.handover_out.length === 2 && hnPut.handover_out[0].text === "Already for tomorrow" && hnPut.handover_out[1].text === "Fridge door sticks" && hnPut.handover_out[1].sev === "r",
+  /CriticalMethadone/.test(hn1.first || "") && /CD cupboard/.test(hn1.always || "") && hn1.rail.join() === "team" && hnCalls[0].method === "GET" && hnPut.notes === "Inspector may visit" && hnPut.handover_out.length === 2 && hnPut.handover_out[0].text === "Already for tomorrow" && hnPut.handover_out[1].text === "Fridge door sticks" && hnPut.handover_out[1].sev === "r",
   JSON.stringify({ hn1, hnCalls }));
 
 // Who's in: a Team card next to Shifts, opens in the new layout, today's shift and approved leave, refused leave hidden.
@@ -1165,6 +1167,44 @@ const tdyTeam = await page.evaluate(() => { const t = document.querySelector("[d
 await page.click("[data-open='#rotreg']");
 await page.waitForFunction(() => window.EIKON.state.activeModuleId === "rotreg", null, { timeout: 15000 });
 report("today: the critical handover point comes first in red; Who's in opens the rota", /Methadone/.test(tdyTeam.first || "") && /danger/.test(tdyTeam.red), JSON.stringify(tdyTeam));
+
+// Team group, best-in-class pass: one word for a role on both rota screens, ← → move the week and focus stays on the
+// arrow, a failed load says why with Try again, the back button names its tab, and phone targets are 44 px.
+try {
+  await page.waitForFunction(() => document.querySelector(".rot-day.today .rot-p"), null, { timeout: 15000 });
+  const tg1 = await page.evaluate(() => ({ roles: [...document.querySelectorAll(".rot-p .t span")].map((x) => x.textContent), back: document.querySelector(".rot-back").textContent, week: document.querySelector(".rot-nav b").textContent }));
+  await page.click(".rot-nav [data-act=next]"); await page.waitForFunction((w) => document.querySelector(".rot-nav b").textContent !== w, tg1.week, { timeout: 5000 });
+  const tg2 = await page.evaluate(() => ({ week: document.querySelector(".rot-nav b").textContent, focus: document.activeElement && document.activeElement.getAttribute("data-act") }));
+  await page.evaluate(() => document.activeElement.blur()); await page.keyboard.press("ArrowLeft");
+  await page.waitForFunction((w) => document.querySelector(".rot-nav b").textContent === w, tg1.week, { timeout: 5000 });
+  await page.route("**/shifts/assignments-range*", (r) => r.abort());
+  await page.keyboard.press("ArrowRight"); await page.waitForSelector(".rot-quiet [data-act=retry]", { timeout: 8000 });
+  const tg3 = await page.evaluate(() => ({ text: document.querySelector(".rot-quiet").textContent, role: document.querySelector(".rot-quiet").getAttribute("role") }));
+  await page.unroute("**/shifts/assignments-range*");
+  await page.click(".rot-quiet [data-act=retry]"); await page.waitForFunction(() => document.querySelector(".rot-day") && !document.querySelector(".rot-quiet"), null, { timeout: 8000 });
+  report("who's in: roles read as on Plan shifts (Pharmacy assistant), back says ‹ Team, Next keeps focus, ← and → move the week, a failed load says why with Try again that works",
+    tg1.roles.some((r) => r === "Pharmacist") && tg1.back === "‹ Team" && tg2.week !== tg1.week && tg2.focus === "next" && /Can't reach the server/.test(tg3.text) && tg3.role === "alert", JSON.stringify({ tg1, tg2, tg3 }));
+  // Handover on a Monday after a closed Sunday: the last day that left something, by its weekday.
+  hndGap = true;
+  await page.goto(base + "&ui=2#hndreg");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "hndreg" && document.querySelector(".hnd-lab"), null, { timeout: 15000 });
+  const hg = await page.evaluate(() => ({ lab: document.querySelector(".hnd-lab").textContent, pt: (document.querySelector(".hnd-list .hnd-pt") || {}).textContent }));
+  hndGap = false;
+  const wd = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][new Date(Date.now() - 2 * 864e5).getDay()];
+  report("handover: nothing from yesterday (a closed Sunday) shows the last day that left something, named by its weekday; urgency reads Medium, not MEDIUM",
+    hg.lab === "From " + wd + " 1" && /^MediumSaturday: fridge engineer/.test(hg.pt || ""), JSON.stringify({ hg, wd }));
+  // Phone: every control on the team screens is at least 44 px tall (the back button too).
+  await page.setViewportSize({ width: 390, height: 844 });
+  const small = [];
+  for (const id of ["rotreg", "hndreg", "brdreg", "teamreg", "shfreg"]) {
+    await page.goto(base + "&ui=2#" + id);
+    await page.waitForFunction((m) => window.EIKON.state.activeModuleId === m && document.querySelector("[data-act=back]") && !document.querySelector("[role=status][aria-label^=Opening], [role=status][aria-label^=Loading]"), id, { timeout: 15000 });
+    await page.waitForTimeout(300);
+    small.push(...await page.evaluate((m) => [...document.querySelectorAll("#eikon-content button, #eikon-content a")].filter((e) => { const r = e.getBoundingClientRect(); return r.width && r.height && r.height < 43.5; }).map((e) => m + ":" + (e.getAttribute("data-act") || e.className) + ":" + Math.round(e.getBoundingClientRect().height)), id));
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  report("team screens on a phone: every button and link is at least 44 px tall", small.length === 0, JSON.stringify(small));
+} catch (e) { report("team group pass: ran to the end", false, String(e).slice(0, 400)); }
 
 // Repeat prescriptions: soon-to-expire flagged; Renew sends the same patient, medicine and prescriber, dated today, expiry left to the server.
 await page.goto(base + "&ui=2#repeatprescriptions");
@@ -2960,6 +3000,16 @@ try {
   await pg.waitForFunction(() => document.querySelector(".eks #eks-fc"), null, { timeout: 15000 });
   const fc1 = await pg.evaluate(() => ({ app: !!document.getElementById("eikon-content"), title: document.getElementById("eks-fc-t").textContent, focus: document.activeElement && document.activeElement.id }));
   const fcTrap = await trapCheck(pg);
+  await pg.fill("#eks-fc-cur", "temp-pass-1"); await pg.fill("#eks-fc-n1", "short"); await pg.click("#eks-fc-go");
+  const fcShort = await pg.evaluate(() => ({ err: document.getElementById("eks-fc-err").textContent, focus: document.activeElement.id }));
+  await pg.check("#eks-fc-show");
+  const fcShow = await pg.evaluate(() => ["eks-fc-cur", "eks-fc-n1", "eks-fc-n2"].map((id) => document.getElementById(id).type).join());
+  await pg.uncheck("#eks-fc-show");
+  // (Playwright's keyboard does not carry Caps Lock state: the key events say it, as a real keyboard's do)
+  const capsKey = (on) => pg.evaluate((c) => { const i = document.getElementById("eks-fc-n1"); i.focus(); i.dispatchEvent(new KeyboardEvent("keyup", { key: c ? "A" : "a", modifierCapsLock: c, bubbles: true })); return document.querySelector(".eks-caps").textContent; }, on);
+  const fcCaps = await capsKey(true), fcCaps2 = await capsKey(false);
+  report("forced change: a short password is explained (with its length) and the cursor goes to it; Show the passwords shows all three; Caps Lock on is said while it is on",
+    /at least 10 characters\. It has 5/.test(fcShort.err) && fcShort.focus === "eks-fc-n1" && fcShow === "text,text,text" && fcCaps === "Caps Lock is on." && fcCaps2 === "", JSON.stringify({ fcShort, fcShow, fcCaps, fcCaps2 }));
   await pg.fill("#eks-fc-cur", "nope"); await pg.fill("#eks-fc-n1", "Rita-own-2026!"); await pg.fill("#eks-fc-n2", "Rita-own-2026!"); await pg.click("#eks-fc-go");
   await pg.waitForFunction(() => /not right/.test((document.getElementById("eks-fc-err") || {}).textContent || ""), null, { timeout: 10000 });
   await pg.fill("#eks-fc-cur", "temp-pass-1"); await pg.click("#eks-fc-go");
@@ -2995,6 +3045,8 @@ try {
   await fetch(`http://localhost:${PORT}/__reset`);
   await pg.fill("#eks-lk-pass", "wrong"); await pg.click("#eks-lk-go");
   await pg.waitForFunction(() => /do not match/.test((document.getElementById("eks-lk-err") || {}).textContent || ""), null, { timeout: 10000 });
+  const lkRetry = await pg.evaluate(() => { const i = document.getElementById("eks-lk-pass"); return { focus: document.activeElement === i, sel: i.selectionStart === 0 && i.selectionEnd === i.value.length, btn: document.getElementById("eks-lk-go").textContent }; });
+  report("idle lock: after a wrong password the cursor is back in it, selected to type again, and the button says Unlock again", lkRetry.focus && lkRetry.sel && lkRetry.btn === "Unlock", JSON.stringify(lkRetry));
   await pg.fill("#eks-lk-pass", "maria-pass"); await pg.click("#eks-lk-go");
   await pg.waitForFunction(() => !document.querySelector(".eks"), null, { timeout: 10000 });
   const same = await pg.evaluate(() => ({ kept: document.querySelector("input[data-min]") && document.querySelector("input[data-min]").value, token: localStorage.getItem("eikon_token"), locked: localStorage.getItem("eikon_locked"), inert: !!document.getElementById("eikon-root").inert }));

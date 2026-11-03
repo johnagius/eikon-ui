@@ -49,7 +49,7 @@
     st.id = "eikon-brdreg-css";
     st.textContent =
       ".brd{max-width:880px;margin:0 auto}" +
-      ".brd-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".brd-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;min-height:44px;padding:0 12px 0 0;margin:-8px 0 -6px;cursor:pointer}" +
       ".brd h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.brd-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
       ".brd-btn{font:inherit;font-size:14px;font-weight:600;height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
       ".brd-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.brd-btn:disabled{opacity:.55;cursor:default}" +
@@ -74,9 +74,12 @@
       ".brd-at{font-weight:600;color:var(--accent)}.brd-tag{font-weight:600}" +
       ".brd-pin .brd-m{border-left:3px solid var(--accent)}" +
       ".brd-more{display:block;margin:10px auto 0}" +
-      ".brd-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:12px;padding:16px;color:var(--muted)}" +
+      ".brd-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:12px;padding:16px;color:var(--muted)}.brd-quiet .brd-btn{display:block;margin-top:12px}" +
+      ".brd-sk{height:64px;border-top:.5px solid var(--border)}.brd-sk:first-child{border-top:0}.brd-sk i{display:block;height:12px;border-radius:6px;background:rgba(118,118,128,.14);margin:14px 14px 0;width:40%}.brd-sk i+i{width:75%;margin-top:10px}" +
+      ".brd-foot{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.6}.brd-foot a{color:var(--accent)}" +
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .brd-chip.on{background:rgba(43,196,138,.16)}html[data-ui2]:not([data-ui2-visit]) .brd-m.mine{background:rgba(43,196,138,.07)}html[data-ui2]:not([data-ui2-visit]) .brd-btn.x.d{color:#FF7A72}}" +
-      "@media (max-width:600px){.brd{padding:4px 16px 0}.brd h1{font-size:32px}.brd-to .lbl{flex-basis:100%}.brd-to .sp{flex-basis:100%;height:0}.brd-to .brd-btn.p{margin-left:auto}}";
+      "@media (max-width:600px){.brd{padding:4px 16px 0}.brd h1{font-size:32px}.brd-to .lbl{flex-basis:100%}.brd-to .sp{flex-basis:100%;height:0}.brd-to .brd-btn.p{margin-left:auto}" +
+        ".brd-btn,.brd-chip{min-height:44px;height:auto;border-radius:22px}.brd-btn.x{min-height:44px;padding:0 12px}.brd-foot a{display:inline-block;padding:12px 0;margin:-12px 0}}";
     document.head.appendChild(st);
   }
 
@@ -152,7 +155,7 @@
     var ta = m.querySelector("#brd-ta"), hadFocus = ta && document.activeElement === ta, sel = ta ? [ta.selectionStart, ta.selectionEnd] : null;
     if (ta && !fromState) keep(); // a reply landing while someone types must not wipe the message
     var u = me(), org = String(u.org_name || "").trim();
-    var h = '<div class="brd"><button class="brd-back" data-act="back">‹ Team</button><h1>Chat board</h1><p class="brd-sub">Messages between pharmacies. Kept for six months unless pinned.</p>';
+    var h = '<div class="brd"><button class="brd-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("brdreg") : "‹ Team") + '</button><h1>Chat board</h1><p class="brd-sub">Messages between pharmacies. Kept for six months unless pinned.</p>';
     h += '<form class="brd-new" id="brd-new" autocomplete="off"><label for="brd-ta" class="brd-lab" style="margin:0 0 7px">New message</label>' +
       '<textarea class="brd-ta" id="brd-ta" maxlength="2000" aria-describedby="brd-hint" placeholder="Write a message. Type @ to mention a pharmacy.">' + esc(S.draft) + "</textarea>" +
       '<div class="brd-ment" id="brd-ment" role="group" aria-label="Pharmacies to mention">' + mentHtml() + "</div>" +
@@ -162,8 +165,9 @@
       '<span class="sp"></span><button type="submit" class="brd-btn p"' + (S.sending ? " disabled" : "") + ">" + (S.sending ? "Sending…" : S.to === "all" ? "Send to every pharmacy" : "Send to our group") + "</button></div>" +
       '<p class="brd-hint" id="brd-hint">' + (S.to === "all" ? "<b>Every pharmacy on Eikon</b>, in every group, can read this." : "Only pharmacies in <b>" + esc(org || "your group") + "</b> can read this.") + " Add #suggestion to save it to the suggestions list.</p>" +
       (S.err ? '<div class="brd-err" role="alert">' + esc(S.err) + "</div>" : "") + "</form>";
-    if (S.error) h += '<div class="brd-quiet" style="margin-top:16px">' + esc(S.error) + "</div>";
-    else if (!S.msgs) h += '<div class="brd-quiet" style="margin-top:16px">Opening the board…</div>';
+    var sk = '<div class="brd-list" role="status" aria-label="Opening the board" style="margin-top:16px">' + '<div class="brd-sk"><i></i><i></i></div>'.repeat(3) + "</div>"; // the shape of the list, not a spinner
+    if (S.error) h += '<div class="brd-quiet" style="margin-top:16px" role="alert">' + esc(S.error) + '<button class="brd-btn" data-act="retry">Try again</button></div>';
+    else if (!S.msgs) h += sk;
     else {
       if (S.pinned.length) {
         var shown = S.pinAll ? S.pinned : S.pinned.slice(0, 3);
@@ -173,7 +177,7 @@
       h += '<div class="brd-bar"><h2 class="brd-lab" style="margin:0">Messages</h2><div class="brd-to" style="margin:0" role="group" aria-label="Show">' +
         '<button type="button" class="brd-chip' + (S.view === "all" ? " on" : "") + '" data-view="all" aria-pressed="' + (S.view === "all") + '">Everything</button>' +
         '<button type="button" class="brd-chip' + (S.view === "org" ? " on" : "") + '" data-view="org" aria-pressed="' + (S.view === "org") + '">Our group only</button></div></div>';
-      if (S.loading && !S.msgs.length) h += '<div class="brd-quiet" style="margin-top:10px">Opening the board…</div>';
+      if (S.loading && !S.msgs.length) h += sk;
       else if (!S.msgs.length) h += '<div class="brd-quiet" style="margin-top:10px">' + (S.view === "org" ? "No messages for our group yet." : "No messages yet. Write the first one above.") + "</div>";
       else {
         var days = [], by = {};
@@ -182,7 +186,7 @@
         if (S.hasOlder) h += '<button class="brd-btn brd-more" data-act="older"' + (S.older ? " disabled" : "") + ">" + (S.older ? "Loading…" : "Show older messages") + "</button>";
       }
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:14px">The suggestions list (priority, status, comments, export) is in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += '<p class="brd-foot">The suggestions list (priority, status, comments, export) is in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
     m.innerHTML = h;
     bind(m);
     if (hadFocus) { var again = m.querySelector("#brd-ta"); if (again) { again.focus(); try { again.setSelectionRange(sel[0], sel[1]); } catch (x) {} } }
@@ -192,7 +196,8 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
-        if (act === "back") window.location.hash = "#team";
+        if (act === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("brdreg") : "#team";
+        else if (act === "retry") load();
         else if (act === "pin") setPin(id, Number(b.getAttribute("data-want")) === 1);
         else if (act === "del") { S.confirmDel = id; paint(); var y = m.querySelector('[data-act="del-no"]'); if (y) y.focus(); }
         else if (act === "del-no") { var was = S.confirmDel; S.confirmDel = 0; paint(); var d = m.querySelector('[data-act="del"][data-id="' + was + '"]'); if (d) d.focus(); }

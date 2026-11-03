@@ -17,7 +17,7 @@
 
   var ID = "teamreg";
   var S = { mount: null, list: null, me: null, manageAdmins: false, loading: false, error: "", missing: false,
-    adding: false, add: { name: "", email: "", role: "staff" }, addErr: "", addSaving: false, shown: null, rowBusy: {}, rowErr: {} };
+    adding: false, add: { name: "", email: "", role: "staff" }, addErr: "", fieldErr: {}, addSaving: false, shown: null, rowBusy: {}, rowErr: {} };
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
@@ -34,7 +34,7 @@
     st.id = "eikon-teamreg-css";
     st.textContent =
       ".tmr{max-width:880px;margin:0 auto}" +
-      ".tmr-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".tmr-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;min-height:44px;padding:0 12px 0 0;margin:-8px 0 -6px;cursor:pointer}" +
       ".tmr-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}" +
       ".tmr h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.tmr-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0;max-width:620px;line-height:1.45}" +
       ".tmr-btn{font:inherit;font-size:14px;font-weight:600;min-height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
@@ -51,13 +51,14 @@
       ".tmr-form label>span{flex:0 0 84px;font-size:15px}.tmr-form input,.tmr-form select{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
       ".tmr-form input:focus-visible,.tmr-form select:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}" +
       ".tmr-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end;align-items:center;flex-wrap:wrap}" +
-      ".tmr-err{color:var(--danger);font-size:13px;padding:4px 14px}" +
+      ".tmr-err{color:var(--danger);font-size:13px;padding:4px 14px}.tmr-ferr{display:block;color:var(--danger);font-size:13px;padding:0 14px 8px 110px}" +
+      ".tmr-sk{height:60px;border-top:.5px solid var(--border)}.tmr-sk:first-child{border-top:0}.tmr-sk i{display:block;height:12px;border-radius:6px;background:rgba(118,118,128,.14);margin:14px 16px 0;width:30%}.tmr-sk i+i{width:55%;margin-top:10px}" +
       ".tmr-once{background:var(--panel2);border:2px solid var(--accent);border-radius:14px;padding:16px;margin-top:14px}" +
       ".tmr-once h2{font-size:17px;margin:0 0 6px}.tmr-once p{margin:6px 0;font-size:14px;color:var(--muted);line-height:1.45}" +
       ".tmr-pw{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.tmr-pw code{font-size:24px;font-weight:700;letter-spacing:.06em;font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--bg);padding:6px 12px;border-radius:8px;color:var(--text)}" +
       ".tmr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".tmr-foot{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5}" +
-      "@media (max-width:600px){.tmr{padding:4px 16px 0}.tmr h1{font-size:28px}.tmr-form label>span{flex-basis:70px}}";
+      "@media (max-width:600px){.tmr{padding:4px 16px 0}.tmr h1{font-size:28px}.tmr-form label>span{flex-basis:70px}.tmr-ferr{padding-left:96px}.tmr-btn{min-height:44px;border-radius:22px}}";
     document.head.appendChild(st);
   }
 
@@ -108,6 +109,9 @@
       (err ? '<span style="color:var(--danger)" role="alert">' + esc(err) + '</span>' : "") + '</div><div class="tmr-acts">' + acts + '</div></div>';
   }
 
+  // An error under its own field, tied to it for screen readers.
+  function ferr(k) { return S.fieldErr[k] ? ' aria-invalid="true" aria-describedby="tmr-ferr-' + k + '"' : ""; }
+  function ferrText(k) { return S.fieldErr[k] ? '<span class="tmr-ferr" id="tmr-ferr-' + k + '" role="alert">' + esc(S.fieldErr[k]) + "</span>" : ""; }
   function keep() {
     var m = S.mount; if (!m) return;
     var n = m.querySelector("#tmr-name"), e = m.querySelector("#tmr-email"), r = m.querySelector("#tmr-role");
@@ -118,7 +122,7 @@
     var m = S.mount; if (!m || !here()) return;
     keep();
     var focusId = document.activeElement && m.contains(document.activeElement) ? document.activeElement.id : "";
-    var h = '<div class="tmr"><button class="tmr-back" data-act="back">‹ Team</button><div class="tmr-top"><div><h1>People who sign in</h1>' +
+    var h = '<div class="tmr"><button class="tmr-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel(ID) : "‹ Team") + '</button><div class="tmr-top"><div><h1>People who sign in</h1>' +
       '<p class="tmr-sub">Everyone at ' + esc((E.state.user && E.state.user.location_name) || "this pharmacy") + ' signs in as themselves, so the registers show who did what.</p></div>';
     if (!isAdmin()) {
       m.innerHTML = h + '</div><div class="tmr-quiet">Only the pharmacy\'s admin can add people or change sign-ins. Ask your pharmacist.</div></div>';
@@ -139,8 +143,8 @@
     }
     if (S.adding) {
       h += '<form class="tmr-form" id="tmr-add" novalidate><div class="t">Add a person</div>' +
-        '<label><span>Name</span><input id="tmr-name" autocomplete="off" value="' + esc(S.add.name) + '" placeholder="Their full name"></label>' +
-        '<label><span>E-mail</span><input id="tmr-email" type="email" autocomplete="off" autocapitalize="none" spellcheck="false" inputmode="email" value="' + esc(S.add.email) + '" placeholder="They sign in with this"></label>' +
+        '<label><span>Name</span><input id="tmr-name" autocomplete="off" autocapitalize="words" value="' + esc(S.add.name) + '" placeholder="Their full name"' + ferr("name") + '></label>' + ferrText("name") +
+        '<label><span>E-mail</span><input id="tmr-email" type="email" autocomplete="off" autocapitalize="none" spellcheck="false" inputmode="email" value="' + esc(S.add.email) + '" placeholder="They sign in with this"' + ferr("email") + '></label>' + ferrText("email") +
         '<label><span>Role</span><select id="tmr-role"><option value="staff"' + (S.add.role !== "admin" ? " selected" : "") + '>Staff</option>' +
         (S.manageAdmins ? '<option value="admin"' + (S.add.role === "admin" ? " selected" : "") + '>Admin (can manage sign-ins)</option>' : "") + '</select></label>' +
         (S.addErr ? '<div class="tmr-err" role="alert">' + esc(S.addErr) + '</div>' : "") +
@@ -153,7 +157,7 @@
       if (off.length) h += '<div class="tmr-lab">Switched off · ' + off.length + '</div><div class="tmr-list">' + off.map(row).join("") + '</div>';
       h += '<p class="tmr-foot">Switching someone off signs them out of every device at once; their name stays on everything they recorded. ' +
         'A new password signs them out too, and they choose their own at the next sign-in. Every change is in the Audit trail.</p>';
-    } else if (S.loading) h += '<div class="tmr-quiet">Loading…</div>';
+    } else if (S.loading && !S.error) h += '<div class="tmr-list" role="status" aria-label="Loading the sign-ins" style="margin-top:20px">' + '<div class="tmr-sk"><i></i><i></i></div>'.repeat(3) + '</div>'; // the shape of the list, not a spinner
     h += '</div>';
     m.innerHTML = h;
     bind();
@@ -167,18 +171,21 @@
       b.addEventListener("click", function (ev) { act(b.getAttribute("data-act"), b.getAttribute("data-id"), ev); });
     });
     var f = m.querySelector("#tmr-add");
-    if (f) f.addEventListener("submit", function (e) { e.preventDefault(); create(); });
+    if (f) {
+      f.addEventListener("submit", function (e) { e.preventDefault(); create(); });
+      f.addEventListener("keydown", function (e) { if (e.key === "Escape" && !S.addSaving) { e.preventDefault(); act("add-cancel"); } }); // Escape closes, as everywhere
+    }
   }
 
   function byId(id) { return (S.list || []).filter(function (u) { return String(u.id) === String(id); })[0]; }
 
   function act(a, id, ev) {
-    if (a === "back") { window.location.hash = "#team"; return; }
+    if (a === "back") { window.location.hash = E.ui2BackHash ? E.ui2BackHash(ID) : "#team"; return; }
     if (a === "retry") { load(); return; }
-    if (a === "add") { S.adding = true; S.addErr = ""; paint(); var n = document.getElementById("tmr-name"); if (n) n.focus(); return; }
-    if (a === "add-cancel") { S.adding = false; S.add = { name: "", email: "", role: "staff" }; S.addErr = ""; paint(); return; }
+    if (a === "add") { S.adding = true; S.addErr = ""; S.fieldErr = {}; paint(); var n = document.getElementById("tmr-name"); if (n) n.focus(); return; }
+    if (a === "add-cancel") { S.adding = false; S.add = { name: "", email: "", role: "staff" }; S.addErr = ""; S.fieldErr = {}; paint(); focusAdd(); return; }
     if (a === "copy") { copy(); return; }
-    if (a === "done") { S.shown = null; paint(); return; }
+    if (a === "done") { S.shown = null; paint(); focusAdd(); return; }
     var u = byId(id); if (!u) return;
     if (a === "reset") confirmThen("Give " + (u.full_name || u.email) + " a new password?", "They are signed out of every device now and sign in again with a temporary password you will see once.", "New password", false, function () { reset(u); });
     if (a === "off") confirmThen("Switch off " + (u.full_name || u.email) + "?", "They are signed out of every device now and cannot sign in until you switch them on again. What they recorded stays, with their name.", "Switch off", true, function () { setActive(u, false); });
@@ -202,21 +209,26 @@
   async function create() {
     keep();
     var name = S.add.name.trim(), email = S.add.email.trim().toLowerCase();
-    if (!name) { S.addErr = "Enter the person's name."; paint(); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { S.addErr = "Enter the e-mail they will sign in with."; paint(); return; }
+    // Every problem at once, each under its own field; focus goes to the first.
+    S.fieldErr = {}; S.addErr = "";
+    if (!name) S.fieldErr.name = "Write the person's name.";
+    if (!email) S.fieldErr.email = "Write the e-mail they will sign in with.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) S.fieldErr.email = "That e-mail looks incomplete. Check it, for example karl@pharmacy.mt.";
+    if (S.fieldErr.name || S.fieldErr.email) { paint(); var bad = document.getElementById(S.fieldErr.name ? "tmr-name" : "tmr-email"); if (bad) bad.focus(); return; }
     if (S.addSaving) return;
     S.addSaving = true; S.addErr = ""; paint();
     try {
       var r = await E.apiFetch("/team/users", { method: "POST", body: JSON.stringify({ email: email, full_name: name, role: S.add.role === "admin" ? "admin" : "staff" }) });
       if (!r || !r.ok || !r.temporary_password) throw new Error((r && r.error) || "Not added");
       S.shown = { title: name + " can sign in", name: name, email: email, password: r.temporary_password };
-      S.adding = false; S.add = { name: "", email: "", role: "staff" }; S.addSaving = false;
+      S.adding = false; S.add = { name: "", email: "", role: "staff" }; S.addSaving = false; S.fieldErr = {};
       showOnce();
       await load();
       return;
     } catch (x) { S.addErr = failText(x); }
     S.addSaving = false; paint();
   }
+  function focusAdd() { var b = S.mount && S.mount.querySelector('[data-act="add"]'); if (b) b.focus(); }
   function showOnce() { paint(); var d = document.getElementById("tmr-done"); if (d) d.focus(); } // focus on Done: a repaint keeps it there
 
   async function reset(u) {
@@ -247,6 +259,7 @@
     try {
       var r = await E.apiFetch("/team/users/" + encodeURIComponent(u.id) + "/role", { method: "POST", body: JSON.stringify({ role: role }) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Not done");
+      E.toast((u.full_name || u.email) + (role === "admin" ? " is now an admin." : " is now staff."), "success");
       delete S.rowBusy[u.id];
       await load();
     } catch (x) { S.rowErr[u.id] = failText(x); delete S.rowBusy[u.id]; paint(); }
@@ -263,7 +276,7 @@
 
   async function render(ctx) {
     S.mount = ctx && ctx.mount;
-    S.shown = null; S.adding = false; S.addErr = ""; S.rowBusy = {}; S.rowErr = {}; S.error = ""; S.missing = false;
+    S.shown = null; S.adding = false; S.addErr = ""; S.fieldErr = {}; S.rowBusy = {}; S.rowErr = {}; S.error = ""; S.missing = false;
     css();
     paint();
     if (isAdmin()) await load();

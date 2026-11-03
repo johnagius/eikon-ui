@@ -9,14 +9,18 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, ymd: "", incoming: [], mine: null, standing: "", loading: false, error: "", sev: "g", draft: "", notes: null, notesBase: "", saving: false, err: "", warn: "" };
+  var S = { mount: null, ymd: "", incoming: [], mine: null, standing: "", loading: false, error: "", sev: "g", draft: "", notes: null, notesBase: "", saving: false, err: "", warn: "", fromYmd: "" };
   var SEV = { r: ["Critical", 0], y: ["Medium", 1], g: ["Low", 2] };
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function ymdOf(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
   function today() { return ymdOf(new Date()); }
-  function yesterday() { var d = new Date(); d.setDate(d.getDate() - 1); return ymdOf(d); }
+  function daysAgo(n) { var d = new Date(); d.setDate(d.getDate() - n); return ymdOf(d); }
+  var WD = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  // "From yesterday", or the weekday of the last day that left something (a Monday after a closed Sunday shows Saturday's).
+  function fromLabel() { if (!S.fromYmd || S.fromYmd === daysAgo(1)) return "From yesterday"; var p = S.fromYmd.split("-"); return "From " + WD[new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay()]; }
+  function dirty() { return (S.notes || "") !== (S.notesBase || ""); }
   function bySev(a, b) { return (SEV[a.sev] || SEV.g)[1] - (SEV[b.sev] || SEV.g)[1]; }
   function clean(rec) { return { notes: String((rec && rec.notes) || ""), handover_out: Array.isArray(rec && rec.handover_out) ? rec.handover_out : [] }; }
 
@@ -26,7 +30,7 @@
     st.id = "eikon-hndreg-css";
     st.textContent =
       ".hnd{max-width:880px;margin:0 auto}" +
-      ".hnd-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".hnd-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;min-height:44px;padding:0 12px 0 0;margin:-8px 0 -6px;cursor:pointer}" +
       ".hnd h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.hnd-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
       ".hnd-btn{font:inherit;font-size:14px;font-weight:600;height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
       ".hnd-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.hnd-btn:disabled{opacity:.55;cursor:default}.hnd-btn.x{border:0;background:none;color:var(--muted);height:28px;padding:0 6px}" +
@@ -34,15 +38,18 @@
       ".hnd-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".hnd-pt{display:flex;gap:10px;align-items:flex-start;padding:11px 14px;border-top:.5px solid var(--border);font-size:15px;line-height:1.35}.hnd-pt:first-child{border-top:0}.hnd-pt .t{flex:1;min-width:0;white-space:pre-wrap}" +
       ".hnd-dot{flex:0 0 9px;height:9px;border-radius:50%;margin-top:6px;background:var(--ok)}.hnd-dot.y{background:#E0A100}.hnd-dot.r{background:var(--danger)}" +
-      ".hnd-pt small{display:block;font-size:11.5px;color:var(--muted);font-weight:600;letter-spacing:.02em}.hnd-pt.r small{color:var(--danger)}" +
+      ".hnd-pt small{display:block;font-size:12px;color:var(--muted);font-weight:700}.hnd-pt.r small{color:var(--danger)}" +
       ".hnd-box{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;font-size:15px;white-space:pre-wrap;line-height:1.4}" +
       ".hnd-ta{width:100%;box-sizing:border-box;min-height:96px;border:1px solid var(--border);border-radius:12px;background:var(--panel2);color:var(--text);font:inherit;font-size:16px;padding:12px 14px;outline:0;resize:vertical}" +
       ".hnd-row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}.hnd-in{flex:1;min-width:180px;height:40px;border:1px solid var(--border);border-radius:12px;background:var(--panel2);color:var(--text);font:inherit;font-size:16px;padding:0 12px;outline:0}" +
       ".hnd-seg{display:flex;gap:4px}.hnd-seg button{font:inherit;font-size:13px;font-weight:600;height:32px;padding:0 10px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer}" +
       ".hnd-seg button.on{color:#fff}.hnd-seg button.on[data-sev=g]{background:var(--ok);border-color:var(--ok)}.hnd-seg button.on[data-sev=y]{background:#C98A12;border-color:#C98A12}.hnd-seg button.on[data-sev=r]{background:var(--danger);border-color:var(--danger)}" +
       ".hnd-err{color:var(--danger);font-size:13px;margin-top:6px}.hnd-warn{font-size:13.5px;margin-top:8px;padding:10px 12px;border-radius:10px;background:rgba(201,138,18,.12)}" +
-      ".hnd-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:12px;padding:16px;color:var(--muted)}" +
-      "@media (max-width:600px){.hnd{padding:4px 16px 0}.hnd h1{font-size:32px}}";
+      ".hnd-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:12px;padding:16px;color:var(--muted)}.hnd-quiet .hnd-btn{display:block;margin-top:12px}" +
+      ".hnd-dirty{font-size:13px;color:var(--muted);margin-right:auto}" +
+      ".hnd-sk{height:120px;margin-top:22px;border-radius:12px;background:rgba(118,118,128,.1)}.hnd-sk+.hnd-sk{height:96px}" +
+      ".hnd-foot{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.6}.hnd-foot a{color:var(--accent)}" +
+      "@media (max-width:600px){.hnd{padding:4px 16px 0}.hnd h1{font-size:32px}.hnd-btn{height:44px;border-radius:22px}.hnd-btn.x{height:44px;padding:0 10px}.hnd-in{height:44px}.hnd-seg button{height:44px;padding:0 12px}.hnd-foot a{display:inline-block;padding:12px 0;margin:-12px 0}}";
     document.head.appendChild(st);
   }
 
@@ -55,8 +62,12 @@
     var quiet = opts && opts.quiet && S.mine; // after a save: if the re-read fails, keep what is on screen (and what was typed)
     S.loading = true; if (!quiet) { S.error = ""; paint(); }
     try {
-      var res = await Promise.all([day(yesterday()), day(S.ymd), E.apiFetch("/instructions/global", { method: "GET" }).catch(function () { return null; })]);
-      S.incoming = res[0].handover_out.slice().sort(bySev);
+      var res = await Promise.all([day(daysAgo(1)), day(S.ymd), E.apiFetch("/instructions/global", { method: "GET" }).catch(function () { return null; })]);
+      // Nothing from yesterday (a closed Sunday, a holiday): the last day that left something, up to four days back.
+      var inc = res[0].handover_out, from = daysAgo(1);
+      for (var back = 2; !inc.length && back <= 4; back++) { var r0 = await day(daysAgo(back)); if (r0.handover_out.length) { inc = r0.handover_out; from = daysAgo(back); } }
+      S.fromYmd = from;
+      S.incoming = inc.slice().sort(bySev);
       S.mine = res[1];
       if (S.notes == null) { S.notes = S.mine.notes; S.notesBase = S.mine.notes; }
       var g = res[2] && res[2].ok && res[2].global; S.standing = g && g.permanent_handover && g.permanent_handover.text ? String(g.permanent_handover.text) : "";
@@ -66,8 +77,8 @@
 
   function pt(b, removable) {
     var sev = SEV[b.sev] ? b.sev : "g";
-    return '<div class="hnd-pt ' + sev + '"><span class="hnd-dot ' + sev + '"></span><div class="t">' + (sev !== "g" ? "<small>" + SEV[sev][0].toUpperCase() + "</small>" : "") + esc(b.text) + "</div>" +
-      (removable ? '<button class="hnd-btn x" data-act="rm" data-id="' + esc(b.id) + '" aria-label="Remove">Remove</button>' : "") + "</div>";
+    return '<div class="hnd-pt ' + sev + '"><span class="hnd-dot ' + sev + '"></span><div class="t">' + (sev !== "g" ? "<small>" + SEV[sev][0] + "</small>" : "") + esc(b.text) + "</div>" +
+      (removable ? '<button class="hnd-btn x" data-act="rm" data-id="' + esc(b.id) + '" aria-label="' + esc("Remove: " + b.text) + '">Remove</button>' : "") + "</div>";
   }
 
   function paint(fromState) {
@@ -75,35 +86,39 @@
     if (E.state.activeModuleId !== "hndreg") return; // left before a reply came back: do not draw over the next screen
     var ta = m.querySelector("#hnd-notes"); if (ta && !fromState) S.notes = ta.value; // typing survives every repaint
     var inp = m.querySelector("#hnd-new"); if (inp) S.draft = inp.value;
-    var h = '<div class="hnd"><button class="hnd-back" data-act="back">‹ Team</button><h1>Handover</h1><p class="hnd-sub">What the last shift left you, and what you leave the next one.</p>';
-    if (S.error) h += '<div class="hnd-quiet" style="margin-top:16px">' + esc(S.error) + "</div>";
-    else if (!S.mine) h += '<div class="hnd-quiet" style="margin-top:16px">Opening the handover…</div>';
+    var h = '<div class="hnd"><button class="hnd-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("hndreg") : "‹ Team") + '</button><h1>Handover</h1><p class="hnd-sub">What the last shift left you, and what you leave the next one.</p>';
+    if (S.error) h += '<div class="hnd-quiet" style="margin-top:16px" role="alert">' + esc(S.error) + '<button class="hnd-btn" data-act="retry">Try again</button></div>';
+    else if (!S.mine) h += '<div role="status" aria-label="Opening the handover"><div class="hnd-sk"></div><div class="hnd-sk"></div></div>'; // the shape of the page, not a spinner
     else {
-      h += '<div class="hnd-lab">From yesterday <b>' + S.incoming.length + "</b></div>" + (S.incoming.length ? '<div class="hnd-list">' + S.incoming.map(function (b) { return pt(b, false); }).join("") + "</div>" : '<div class="hnd-quiet">Nothing was handed over from yesterday.</div>');
-      if (S.standing) h += '<div class="hnd-lab">Always</div><div class="hnd-box">' + esc(S.standing) + "</div>";
-      h += '<div class="hnd-lab">Today\'s notes</div><textarea class="hnd-ta" id="hnd-notes" placeholder="Anything for today\'s team">' + esc(S.notes || "") + "</textarea>" +
-        (S.warn ? '<div class="hnd-warn">' + esc(S.warn) + "</div>" : "") +
-        '<div class="hnd-row" style="justify-content:flex-end"><button class="hnd-btn p" data-act="notes"' + (S.saving || (S.notes || "") === S.notesBase ? " disabled" : "") + ">Save notes</button></div>";
+      h += '<h2 class="hnd-lab">' + esc(fromLabel()) + " <b>" + S.incoming.length + "</b></h2>" + (S.incoming.length ? '<div class="hnd-list">' + S.incoming.map(function (b) { return pt(b, false); }).join("") + "</div>" : '<div class="hnd-quiet">Nothing was handed over in the last few days.</div>');
+      if (S.standing) h += '<h2 class="hnd-lab">Always</h2><div class="hnd-box">' + esc(S.standing) + "</div>";
+      h += '<h2 class="hnd-lab"><label for="hnd-notes">Today\'s notes</label></h2><textarea class="hnd-ta" id="hnd-notes" aria-describedby="hnd-dirty" placeholder="Anything for today\'s team">' + esc(S.notes || "") + "</textarea>" +
+        (S.warn ? '<div class="hnd-warn" role="alert">' + esc(S.warn) + "</div>" : "") +
+        '<div class="hnd-row" style="justify-content:flex-end"><span class="hnd-dirty" id="hnd-dirty" aria-live="polite">' + (dirty() ? "Not saved yet" : "") + '</span><button class="hnd-btn p" data-act="notes" title="Save notes (Ctrl+Enter)"' + (S.saving || !dirty() ? " disabled" : "") + ">Save notes</button></div>";
       var out = S.mine.handover_out.slice().sort(bySev);
-      h += '<div class="hnd-lab">For tomorrow <b>' + out.length + "</b></div>" + (out.length ? '<div class="hnd-list">' + out.map(function (b) { return pt(b, true); }).join("") + "</div>" : "") +
-        '<form class="hnd-row" id="hnd-add" autocomplete="off"><input class="hnd-in" id="hnd-new" placeholder="e.g. Call Mrs Borg about her insulin" value="' + esc(S.draft) + '">' +
-        '<div class="hnd-seg">' + ["g", "y", "r"].map(function (k) { return '<button type="button" data-sev="' + k + '" class="' + (S.sev === k ? "on" : "") + '">' + SEV[k][0] + "</button>"; }).join("") + "</div>" +
+      h += '<h2 class="hnd-lab"><label for="hnd-new">For tomorrow</label> <b>' + out.length + "</b></h2>" + (out.length ? '<div class="hnd-list">' + out.map(function (b) { return pt(b, true); }).join("") + "</div>" : "") +
+        '<form class="hnd-row" id="hnd-add" autocomplete="off"><input class="hnd-in" id="hnd-new" enterkeyhint="done" placeholder="e.g. Call Mrs Borg about her insulin" value="' + esc(S.draft) + '">' +
+        '<div class="hnd-seg" role="group" aria-label="How urgent">' + ["g", "y", "r"].map(function (k) { return '<button type="button" data-sev="' + k + '" aria-pressed="' + (S.sev === k) + '" class="' + (S.sev === k ? "on" : "") + '">' + SEV[k][0] + "</button>"; }).join("") + "</div>" +
         '<button type="submit" class="hnd-btn p"' + (S.saving ? " disabled" : "") + ">Add</button></form>" +
-        (S.err ? '<div class="hnd-err">' + esc(S.err) + "</div>" : "");
+        (S.err ? '<div class="hnd-err" role="alert">' + esc(S.err) + "</div>" : "");
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:14px">Changing the standing instructions, fees and other days are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += '<p class="hnd-foot">To change the standing instructions or another day, use the <a href="#" data-act="classic">classic screen</a>.</p></div>';
     m.innerHTML = h;
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
-        if (act === "back") window.location.hash = "#team";
+        if (act === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("hndreg") : "#team";
+        else if (act === "retry") load();
         else if (act === "notes") saveNotes();
-        else if (act === "rm") change(function (rec) { var id = b.getAttribute("data-id"); rec.handover_out = rec.handover_out.filter(function (x) { return String(x.id) !== id; }); }, "Removed");
+        else if (act === "rm") change(function (rec) { var id = b.getAttribute("data-id"); rec.handover_out = rec.handover_out.filter(function (x) { return String(x.id) !== id; }); }, "Removed").then(function () { var i = S.mount && S.mount.querySelector("#hnd-new"); if (i && !document.activeElement.closest("form, textarea")) i.focus(); });
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "hndreg"); } catch (x) {} E.openClassic("instructions"); }
       });
     });
-    m.querySelectorAll(".hnd-seg [data-sev]").forEach(function (b) { b.addEventListener("click", function () { S.sev = b.getAttribute("data-sev"); paint(); }); });
-    var t = m.querySelector("#hnd-notes"); if (t) t.addEventListener("input", function () { var btn = m.querySelector('[data-act="notes"]'); if (btn) btn.disabled = S.saving || t.value === S.notesBase; });
+    m.querySelectorAll(".hnd-seg [data-sev]").forEach(function (b) { b.addEventListener("click", function () { S.sev = b.getAttribute("data-sev"); paint(); var again = S.mount && S.mount.querySelector('.hnd-seg [data-sev="' + S.sev + '"]'); if (again) again.focus(); }); });
+    var t = m.querySelector("#hnd-notes"); if (t) {
+      t.addEventListener("input", function () { S.notes = t.value; var btn = m.querySelector('[data-act="notes"]'); if (btn) btn.disabled = S.saving || !dirty(); var d = m.querySelector("#hnd-dirty"), w = dirty() ? "Not saved yet" : ""; if (d && d.textContent !== w) d.textContent = w; });
+      t.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey) && !S.saving && dirty()) { ev.preventDefault(); saveNotes(); } }); // Ctrl+Enter saves; Enter is a new line
+    }
     var f = m.querySelector("#hnd-add"); if (f) f.addEventListener("submit", function (ev) {
       ev.preventDefault();
       var text = String((m.querySelector("#hnd-new") || {}).value || "").trim(); S.draft = text;
@@ -143,7 +158,14 @@
 
   E.registerModule({
     id: "hndreg", title: "Handover", order: 3, icon: "↻", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.ymd = today(); S.mine = null; S.notes = null; S.err = ""; S.warn = ""; S.draft = ""; css(); paint(); return load(); }
+    render: function (ctx) {
+      // Notes typed and not saved, and a point not yet added, are still there when you come back the same day.
+      var keepDraft = S.ymd === today();
+      S.mount = ctx && ctx.mount; S.ymd = today(); S.mine = null; S.err = ""; S.warn = "";
+      if (!keepDraft || !dirty()) S.notes = null;
+      if (!keepDraft) S.draft = "";
+      css(); paint(); return load();
+    }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("hndreg") < 0) E.UI2_DESTINATIONS.push("hndreg");
   if (E.UI2_PARENT) E.UI2_PARENT.hndreg = "team";

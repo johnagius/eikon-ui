@@ -10,7 +10,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, monday: null, staff: {}, shifts: [], leaves: [], hours: null, loading: false, error: "", leaveErr: "", form: null, saving: false, ask: null, busy: 0, lvMsg: "" };
+  var S = { mount: null, monday: null, staff: {}, shifts: [], leaves: [], hours: null, loading: false, error: "", leaveErr: "", form: null, saving: false, ask: null, busy: 0, lvMsg: "", last: null };
   var DAY = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   var DESIG = { pharmacist: "Pharmacist", locum: "Locum pharmacist", assistant: "Pharmacy assistant", dispenser: "Dispenser", cashier: "Cashier", manager: "Manager", cleaner: "Cleaner", other: "Other" };
@@ -62,7 +62,7 @@
     st.id = "eikon-shfreg-css";
     st.textContent =
       ".shf{max-width:880px;margin:0 auto}" +
-      ".shf-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".shf-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;min-height:44px;padding:0 12px 0 0;margin:-8px 0 -6px;cursor:pointer}" +
       ".shf h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.shf-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
       ".shf-nav{display:flex;align-items:center;gap:8px;margin-top:16px}.shf-nav b{flex:1;min-width:0;text-align:center;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
       ".shf-nav button{font:inherit;font-size:20px;line-height:1;width:36px;height:36px;flex:0 0 36px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer}" +
@@ -97,8 +97,11 @@
       ".shf-lv .why{font-size:13.5px;margin:6px 0 0 40px}.shf-lv .cov{font-size:12.5px;margin:4px 0 0 40px;color:var(--muted)}.shf-lv .cov.bad{color:var(--danger);font-weight:600}" +
       ".shf-lv .acts{display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:8px}.shf-lv .acts .q{flex:1 1 100%;font-size:14px}" +
       ".shf-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
-      ".shf-note{font-size:12.5px;color:var(--muted);margin-top:14px}" +
-      "@media (max-width:600px){.shf{padding:4px 16px 0}.shf h1{font-size:32px}}";
+      ".shf-note{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.6}.shf-note a{color:var(--accent)}.shf-quiet .shf-btn{display:block;margin-top:12px}" +
+      ".shf-sk{height:150px;margin-top:10px;border-radius:12px;background:rgba(118,118,128,.1)}.shf-sk+.shf-sk{height:110px}" +
+      // A wide desktop shows the week in two columns (Monday to Sunday reading across), so most of it is seen without scrolling.
+      "@media (min-width:1280px){.shf{max-width:1180px}.shf-week{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;align-items:start}}" +
+      "@media (max-width:600px){.shf{padding:4px 16px 0}.shf h1{font-size:32px}.shf-nav button{width:44px;height:44px;flex-basis:44px;border-radius:22px}.shf-nav .now{flex:0 0 auto}.shf-btn{height:44px;border-radius:22px}.shf-note a{display:inline-block;padding:12px 0;margin:-12px 0}}";
     document.head.appendChild(st);
   }
 
@@ -181,9 +184,10 @@
     if (S.form && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var sun = plus(S.monday, 6), thisWeek = ymd(mondayOf(new Date())) === ymd(S.monday);
     var label = S.monday.getDate() + " " + MON[S.monday.getMonth()] + " – " + sun.getDate() + " " + MON[sun.getMonth()];
-    var h = '<div class="shf"><button class="shf-back" data-act="back">‹ Team</button><h1>Plan shifts</h1><p class="shf-sub">Who works when: add, change or remove a shift, and answer leave requests.</p>';
-    if (S.loading && !Object.keys(S.staff).length) h += '<div class="shf-quiet">Opening the rota…</div>';
-    else if (S.error) h += '<div class="shf-quiet">' + esc(S.error) + "</div>";
+    var ae = document.activeElement, keepAct = ae && m.contains(ae) && !(ae.closest && ae.closest("form")) ? ae.getAttribute("data-act") : null; // the week arrows keep focus across the redraw
+    var h = '<div class="shf"><button class="shf-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("shfreg") : "‹ Team") + '</button><h1>Plan shifts</h1><p class="shf-sub">Who works when: add, change or remove a shift, and answer leave requests.</p>';
+    if (S.loading && !Object.keys(S.staff).length) h += '<div role="status" aria-label="Opening the rota"><div class="shf-sk"></div><div class="shf-sk"></div></div>'; // the shape of the week, not a spinner
+    else if (S.error) h += '<div class="shf-quiet" role="alert">' + esc(S.error) + '<button class="shf-btn" data-act="retry">Try again</button></div>';
     else {
       var pending = S.leaves.filter(function (l) { return low(l.status) === "pending"; }).sort(function (a, b) { return String(a.start_date).localeCompare(String(b.start_date)); });
       if (pending.length || S.lvMsg) {
@@ -192,9 +196,10 @@
         if (pending.length) h += '<div class="shf-card">' + pending.map(leaveHtml).join("") + "</div>";
       }
       if (S.leaveErr) h += '<p class="shf-note">' + esc(S.leaveErr) + "</p>";
-      if (!active().length) h += '<div class="shf-quiet">No staff on the rota yet. Add the team in the <a href="#" data-act="classic" style="color:var(--accent)">classic Shifts screen</a> first.</div>';
-      h += '<div class="shf-nav"><button data-act="prev" aria-label="Previous week">‹</button><b>' + esc(label) + "</b>" + (thisWeek ? "" : '<button class="now" data-act="now">This week</button>') + '<button data-act="next" aria-label="Next week">›</button></div>';
+      if (!active().length) h += '<div class="shf-quiet">No staff on the rota yet. Add the team in the <a href="#" data-act="classic">classic Shifts screen</a> first.</div>';
+      h += '<div class="shf-nav"><button data-act="prev" aria-label="Previous week" title="Previous week (←)">‹</button><b>' + esc(label) + "</b>" + (thisWeek ? "" : '<button class="now" data-act="now">This week</button>') + '<button data-act="next" aria-label="Next week" title="Next week (→)">›</button></div>';
       var today = ymd(new Date());
+      h += '<div class="shf-week">';
       for (var i = 0; i < 7; i++) {
         var d = plus(S.monday, i), key = ymd(d), oh = hoursFor(key);
         var day = S.shifts.filter(function (x) { return x.shift_date === key; });
@@ -215,17 +220,20 @@
         else if (active().length) h += '<button class="shf-add" data-act="add" data-date="' + key + '" aria-label="Add a shift on ' + esc(DAY[i] + " " + d.getDate() + " " + MON[d.getMonth()]) + '">+ Add shift</button>';
         h += "</section>";
       }
+      h += "</div>";
     }
-    h += '<p class="shf-note">Patterns, opening hours, new leave requests, staff, leave balances and the calendar link are in the <a href="#" data-act="classic" style="color:var(--accent)">classic Shifts screen</a>.</p></div>';
+    h += '<p class="shf-note">Patterns, opening hours, new leave requests, staff, leave balances and the calendar link are in the <a href="#" data-act="classic">classic Shifts screen</a>.</p></div>';
     m.innerHTML = h;
+    if (keepAct && /^(prev|next|now)$/.test(keepAct)) { var kb = m.querySelector('[data-act="' + keepAct + '"]') || m.querySelector('[data-act="next"]'); if (kb) kb.focus(); }
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
-        if (a === "back") window.location.hash = "#team";
+        if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("shfreg") : "#team";
+        else if (a === "retry") load();
         else if (a === "prev" || a === "next" || a === "now") { if (S.saving) return; S.form = null; S.ask = null; S.monday = a === "now" ? mondayOf(new Date()) : plus(S.monday, a === "prev" ? -7 : 7); S.shifts = []; load(); }
-        else if (a === "add") { var key = b.getAttribute("data-date"), oh = hoursFor(key); S.form = { mode: "add", date: key, staff_id: "", start_time: hm(oh.open) || "09:00", end_time: hm(oh.close) || "18:00", notes: "", err: "", warn: "", warnSig: "" }; paint(true); focus("staff_id"); }
+        else if (a === "add") { var key = b.getAttribute("data-date"); S.form = addDefaults(key); paint(true); focus(S.form.staff_id ? "start_time" : "staff_id"); }
         else if (a === "edit") { var x = S.shifts.filter(function (s) { return Number(s.id) === id; })[0]; if (!x) return; S.form = { mode: "edit", id: x.id, date: x.shift_date, staff_id: x.staff_id, start_time: hm(x.start_time), end_time: hm(x.end_time), notes: x.notes || "", err: "", warn: "", warnSig: "" }; paint(true); focus("start_time"); }
-        else if (a === "cancel") { S.form = null; paint(true); }
+        else if (a === "cancel") closeForm();
         else if (a === "del") { keep(); S.form.confirmDel = true; S.form.err = ""; paint(true); var y = m.querySelector('[data-act="del-no"]'); if (y) y.focus(); }
         else if (a === "del-no") { S.form.confirmDel = false; paint(true); }
         else if (a === "del-yes") remove();
@@ -237,9 +245,32 @@
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "shfreg"); } catch (x2) {} E.openClassic("shifts"); }
       });
     });
-    var f = m.querySelector("#shf-form"); if (f) f.addEventListener("submit", function (ev) { ev.preventDefault(); save(); });
+    var f = m.querySelector("#shf-form"); if (f) {
+      f.addEventListener("submit", function (ev) { ev.preventDefault(); save(); });
+      f.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !S.saving) { ev.preventDefault(); ev.stopPropagation(); if (S.form && S.form.confirmDel) { S.form.confirmDel = false; paint(true); } else closeForm(); } }); // Escape closes, as everywhere
+    }
   }
-  function focus(n) { setTimeout(function () { var x = S.mount && S.mount.querySelector("#shf-form [name=" + n + "]"); if (x && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) x.focus(); }, 30); }
+  // A new shift starts from what was last added here (the same person and hours, as a rota repeats across the week)
+  // when that person is free that day; otherwise from the day's opening hours with nobody chosen.
+  function addDefaults(key) {
+    var oh = hoursFor(key), L = S.last, f = { mode: "add", date: key, staff_id: "", start_time: hm(oh.open) || "09:00", end_time: hm(oh.close) || "18:00", notes: "", err: "", warn: "", warnSig: "" };
+    if (L) {
+      f.start_time = L.start_time; f.end_time = L.end_time;
+      var p = S.staff[L.staff_id], taken = S.shifts.some(function (x) { return x.shift_date === key && Number(x.staff_id) === Number(L.staff_id); });
+      if (p && Number(p.is_active) !== 0 && !approvedOn(L.staff_id, key) && !taken) f.staff_id = String(L.staff_id);
+    }
+    return f;
+  }
+  // Close the form and put focus back where it was opened from: the shift's row, or the day's "+ Add shift".
+  function closeForm() {
+    var f = S.form; S.form = null; paint(true); refocus(f);
+  }
+  function refocus(f) {
+    if (!f || !S.mount) return;
+    var el = (f.mode === "edit" && S.mount.querySelector('.shf-p[data-act="edit"][data-id="' + f.id + '"]')) || S.mount.querySelector('[data-act="add"][data-date="' + f.date + '"]');
+    if (el) { try { el.focus({ preventScroll: false }); } catch (e) { el.focus(); } }
+  }
+  function focus(n) { var now = S.mount && S.mount.querySelector("#shf-form [name=" + n + "]"); if (now) now.focus(); setTimeout(function () { var x = S.mount && S.mount.querySelector("#shf-form [name=" + n + "]"); if (x && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) x.focus(); }, 30); }
 
   function keep() {
     var f = S.mount && S.mount.querySelector("#shf-form"); if (!f || !S.form) return;
@@ -254,7 +285,7 @@
     else if (!/^\d{2}:\d{2}$/.test(f.start_time) || !/^\d{2}:\d{2}$/.test(f.end_time)) f.err = "Choose when the shift starts and ends. Nothing was saved.";
     else if (mins(f.end_time) <= mins(f.start_time)) f.err = "The shift must end after it starts. Nothing was saved.";
     else if (f.mode === "add" && approvedOn(f.staff_id, key)) f.err = person(f.staff_id).full_name + " is on approved leave that day. Nothing was saved.";
-    if (f.err) return paint(true);
+    if (f.err) { paint(true); var bad = /Choose who|on approved leave/.test(f.err) ? "staff_id" : /end after/.test(f.err) ? "end_time" : "start_time"; var be = S.mount && S.mount.querySelector("#shf-form [name=" + bad + "]"); if (be) be.focus(); return; }
     if (isPharm(person(f.staff_id))) { // two pharmacists at once is allowed, but only after a second press (as in the classic screen)
       var ov = overlaps(key, f.start_time, f.end_time, f.mode === "edit" ? f.id : null);
       var sig = ov.length ? [f.staff_id, f.start_time, f.end_time].concat(ov.map(function (x) { return x.id; })).join("|") : "";
@@ -270,6 +301,7 @@
           same: function (x) { return Number(x.staff_id) === body.staff_id && x.shift_date === key && hm(x.start_time) === body.start_time && hm(x.end_time) === body.end_time; } });
         if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
         E.toast("Shift added for " + name, "success");
+        S.last = { staff_id: body.staff_id, start_time: body.start_time, end_time: body.end_time };
       } else {
         // The server writes start, end, role and note together: read the shift as it is now and send it whole.
         var now = (await dayList(key)).filter(function (x) { return Number(x.id) === Number(f.id); })[0];
@@ -281,7 +313,8 @@
       }
       S.form = null;
     } catch (x) { f.err = E.saveFailText(x); }
-    S.saving = false; return load();
+    S.saving = false; await load();
+    if (!S.form) refocus(f); // focus lands back on the day, so the next shift is one Enter away
   }
   async function remove() {
     if (S.saving || !S.form) return;
@@ -292,7 +325,8 @@
       if (!r || !r.ok) throw new Error((r && r.error) || "Not removed");
       S.form = null; E.toast("Shift removed for " + name, "success");
     } catch (x) { f.err = E.saveFailText(x).replace(/^Not saved/, "Not removed"); f.confirmDel = false; }
-    S.saving = false; return load();
+    S.saving = false; await load();
+    if (!S.form) refocus({ mode: "add", date: f.date });
   }
   async function answer(id, what) {
     if (S.busy) return;
@@ -306,9 +340,19 @@
     S.busy = 0; return load();
   }
 
+  // ← and → move a week, as the arrows do, whenever no shift is open and the keys are not typing somewhere.
+  function onKey(ev) {
+    if (E.state.activeModuleId !== "shfreg" || !S.mount || !document.body.contains(S.mount) || S.form || S.saving || ev.altKey || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.defaultPrevented) return;
+    if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+    var a = document.activeElement; if (a && a !== document.body && !S.mount.contains(a)) return;
+    if (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return;
+    if (document.querySelector(".eikon-modal-overlay[style*='flex'], .eks")) return;
+    ev.preventDefault(); S.ask = null; S.monday = plus(S.monday, ev.key === "ArrowLeft" ? -7 : 7); S.shifts = []; load();
+  }
   E.registerModule({
     id: "shfreg", title: "Plan shifts", order: 3, icon: "◷", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.monday = mondayOf(new Date()); S.shifts = []; S.form = null; S.ask = null; S.lvMsg = ""; S.busy = 0; S.saving = false; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.monday = mondayOf(new Date()); S.shifts = []; S.form = null; S.ask = null; S.lvMsg = ""; S.busy = 0; S.saving = false; css(); paint(); document.removeEventListener("keydown", onKey); document.addEventListener("keydown", onKey); return load(); },
+    destroy: function () { document.removeEventListener("keydown", onKey); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("shfreg") < 0) E.UI2_DESTINATIONS.push("shfreg");
   if (E.UI2_PARENT) E.UI2_PARENT.shfreg = "team";
