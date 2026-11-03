@@ -993,3 +993,9 @@ All of it waits only on the worker deploy.
 - Integrator merged b4-4 counter defaults, b4-7 first day, b4-3 search actions onto batch 5 (da12c66) with a 3-way merge per file; both sides kept (tempreg: Fridges and rooms beside the batch-5 day panel; every render keeps E.months.take/E.correct.reset and wraps load() in E.takeOpenForm). Two test-only fixes for the combination (correct-eod presses Change first; firstday only touches its own pharmacy's devices).
 - Checks: worker 209/0, UI 380/0, real 43/0 (1866 checks); counter-defaults bodies 7/7 SAME; search requests and rows ALL IDENTICAL.
 - Started: q4-6a stock classic actions, q4-6b money classic actions, q4-8 honest offline banner + "did it land?" check, and "steal": text typed during a load/redraw landing in the wrong field (seen twice in tests: "Prefers SMS" in Name, "Evening" in a delivery's name) — reproduce and fix at the root with one rule (programmatic focus never leaves a field the person is in). Consistency pass rebasing onto .150.
+
+## Round 136 — Honest when offline (UI .151 on main, 9d57a2a)
+
+- Container restarted ~22:40; no work lost (every agent copy on disk); five agents resumed.
+- b4-8 merged (agent base tree = f115176 exactly): offline/online banner (role=status, floats, no layout shift); after a lost answer one GET of the screen's own list with a strict match → "It was saved" / "Not saved … Try again" / "We could not tell"; identical retry checked against the list first, never auto-resent; refresh on return; Emergency POS, auth and client-log untouched. Real-stack proof: one row in every drop path. Worker 209/0, UI 385/0, real 43/0, axe clean.
+- Proposals (for later rounds): E.landedOk and E.onReconnect on the remaining create screens.
