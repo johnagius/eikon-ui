@@ -550,3 +550,12 @@ All of it waits only on the worker deploy.
   mention reads filtered, which also hides already-recorded leaked mentions). board.test.mjs fails on the current
   code, passes on the fix. Worker 99/99. WORKER_VERSION bookings-13. **Deploy needed to close it on the live site.**
 - Suggestions are global by design (product ideas); user search is org-scoped; delete is own-only. Left as is.
+
+## Round 56 — cross-group sweep of the worker (no further leaks)
+- Scripted scan 1: every SELECT/UPDATE/DELETE keyed only by id (59 hits). Each is preceded by an org/location-scoped
+  lookup (or supplier-location / owner check), apart from the board ones fixed in round 55.
+- Scan 2: SELECTs on the 84 tables that carry org_id with no org/location/id filter (11 hits): all build their WHERE
+  from org_id/location_id earlier, or are shared by design — supplier stock changes ("visible to ALL users"),
+  scarce-stock needs/offers (pharmacy-to-pharmacy network, shows group names), board suggestions (product ideas),
+  public booking by slug, reminder sweep.
+- Nothing else to fix. The board fix (bookings-13) is still the one that needs deploying.
