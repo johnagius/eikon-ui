@@ -193,6 +193,18 @@
     return h;
   }
 
+  // The reports of any month (from the reports already read), and on paper with the classic list's columns
+  // (the classic screen prints one report at a time).
+  var HIST = { local: true, title: "By month", label: "Reports made", nowText: "No reaction reported this month yet.", dep: function () { return S.loading ? undefined : S.reports; },
+    active: function () { return E.state.activeModuleId === "pvreg" && S.view === "list"; }, paint: function () { paint(); },
+    fetch: function (ym) { return Promise.resolve(S.reports.filter(function (r) { return when(r).slice(0, 7) === ym; }).sort(function (a, b) { return when(b).localeCompare(when(a)); })); },
+    row: function (r) { return { t: r.reaction_meddra || r.reaction_description || "Reaction not described", s: [dm(when(r)), r.pt_initials, drugsOf(r).map(function (d) { return d.name; }).join(", ")].filter(Boolean).join(" · "), r: str(r.status || "Draft") }; },
+    print: function (ym, list) { printMonth(ym, list); } };
+  function printMonth(ym, list) {
+    var rows = list.slice().sort(function (a, b) { return when(a).localeCompare(when(b)); });
+    E.months.print({ register: "Adverse reactions", month: ym, landscape: true, sections: [{ cols: ["Date", "Patient", "Drug(s)", "Reaction", "Seriousness", "Status"],
+      rows: rows.map(function (r) { return [E.months.dmy(when(r)), [r.pt_initials, r.pt_id].filter(Boolean).join(" · "), drugsOf(r).map(function (d) { return d.name; }).join(", "), r.reaction_meddra || r.reaction_description || "", r.reaction_seriousness || "", r.status || "Draft"]; }) }] });
+  }
   function paint(fromState) {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "pvreg") return; // left before a reply came back: do not draw over the next screen
@@ -218,7 +230,8 @@
         var drafts = S.reports.filter(function (r) { return str(r.status || "Draft") === "Draft"; }).length, shown = list.slice(0, 60);
         h += '<div class="pvr-lab"><span>' + (q ? "Matching" : "Recent") + " <b>" + list.length + "</b></span>" + (drafts && !q ? "<span>Drafts <b>" + drafts + "</b></span>" : "") + "</div>";
         h += shown.length ? '<div class="pvr-list">' + shown.map(rowHtml).join("") + "</div>" : '<div class="pvr-quiet">No report matches.</div>';
-        if (list.length > shown.length) h += '<p class="pvr-note">Showing the newest 60. Search to find an older one.</p>';
+        if (list.length > shown.length) h += '<p class="pvr-note">Showing the newest 60. Search to find an older one, or go by month below.</p>';
+        if (!q) h += E.months.history("pvreg", HIST); // every report of a month, any month, and its printout
       }
     }
     h += '<p class="pvr-note">Deleting a report, printing it and the PDF form are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
@@ -226,6 +239,7 @@
     if (ae && m.contains(ae)) back = ae.id === "pvr-q" ? "#pvr-q" : ae.name ? "[name=" + ae.name + "]" : ae.getAttribute("data-k") ? '[data-i="' + ae.getAttribute("data-i") + '"][data-k="' + ae.getAttribute("data-k") + '"]' : "";
     m.innerHTML = h;
     if (back) { var again = m.querySelector(back); if (again) { again.focus(); try { if (again.type === "text" || again.type === "search" || again.tagName === "TEXTAREA") { var L = again.value.length; again.setSelectionRange(L, L); } } catch (x) {} } } // typing keeps its place
+    E.months.wireHistory(m, "pvreg");
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
@@ -331,7 +345,7 @@
 
   E.registerModule({
     id: "pvreg", title: "Adverse reactions", order: 3, icon: "!", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.view = "list"; S.openId = ""; S.adding = null; S.base = null; S.err = ""; S.force = ""; S.q = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; E.months.historyReset("pvreg"); S.view = "list"; S.openId = ""; S.adding = null; S.base = null; S.err = ""; S.force = ""; S.q = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("pvreg") < 0) E.UI2_DESTINATIONS.push("pvreg");
   if (E.UI2_PARENT) E.UI2_PARENT.pvreg = "services";

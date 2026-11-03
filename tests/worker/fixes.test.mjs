@@ -180,3 +180,19 @@ test("updates never turn a stored NULL into the text 'null' (no String(x !== und
   eq(bad, [], "every kept field falls back to an empty string, not String(null)");
 });
 
+
+test("client tickets: deleting a question does not touch the shifts calendar token (a pasted block threw on an undefined `body`)", async ({ api, bootstrap, DB }) => {
+  const { token } = await bootstrap();
+  const today = new Date().toISOString().slice(0, 10);
+  const c = await api("POST", "/client-tickets/entries", { token, body: { ticket_id: "TKT-00009", open_date: today, client_name: "Grech Joseph", phone: "79000000", category: "General Enquiry", priority: 2, status: "Open", issue: "x" } });
+  eq(c.status, 200, c.text);
+  const id = c.json.id || (c.json.entry && c.json.entry.id) || DB.one("SELECT id FROM client_tickets_entries").id;
+  DB.db.exec(`CREATE TABLE IF NOT EXISTS shift_calendar_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER, location_id INTEGER, token TEXT, updated_at TEXT, updated_by INTEGER, UNIQUE(org_id, location_id));`);
+  DB.db.prepare("INSERT INTO shift_calendar_tokens (org_id, location_id, token) VALUES (1, 1, 'CAL-TOKEN-1')").run();
+  const logs = []; const orig = console.log; console.log = (...a) => { logs.push(a.join(" ")); };
+  let d; try { d = await api("DELETE", "/client-tickets/entries/" + id, { token }); } finally { console.log = orig; }
+  eq(d.status, 200, d.text);
+  eq(DB.one("SELECT COUNT(*) AS n FROM client_tickets_entries").n, 0);
+  eq(DB.one("SELECT token FROM shift_calendar_tokens").token, "CAL-TOKEN-1", "calendar token kept");
+  ok(!logs.some((l) => /token sync failed/.test(l)), "no failed token sync on a ticket delete: " + logs.join(" | "));
+});

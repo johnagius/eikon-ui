@@ -90,16 +90,16 @@
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "locreg") return; // left before a reply came back: do not draw over the next screen
-    var isNow = S.month >= thisMonth(), user = E.state.user || {};
+    var MB = E.months, user = E.state.user || {};
     var h = '<div class="lcr"><button class="lcr-back" data-act="back">‹ Registers</button>' +
       '<div class="lcr-top"><div><h1>Locum register</h1><p class="lcr-sub">Which pharmacist was in charge, and when.</p></div>' +
-      '<div class="lcr-acts">' + (S.form ? "" : '<button class="lcr-btn p" data-act="new">New entry</button>') + '<button class="lcr-btn" data-act="print">Print</button></div></div>' +
+      '<div class="lcr-acts">' + (S.form ? "" : '<button class="lcr-btn p" data-act="new">New entry</button>') + "</div></div>" +
       '<p class="lcr-pmeta">' + esc((user.location_name || "") + " · Locum register · " + monthLabel(S.month) + " · printed " + ymd(new Date())) + "</p>";
     if (S.form) h += formHtml();
-    h += '<div class="lcr-month"><button class="lcr-arrow" data-act="prev" aria-label="Previous month">‹</button><b>' + esc(monthLabel(S.month)) + '</b><button class="lcr-arrow" data-act="next" aria-label="Next month"' + (isNow ? " disabled" : "") + ">›</button></div>";
+    h += MB.bar(S.month, { label: "Locum register" });
     if (S.loading && !S.entries.length) h += '<div class="lcr-quiet">Opening the register…</div>';
     else if (S.error) h += '<div class="lcr-quiet">' + esc(S.error) + "</div>";
-    else if (!S.entries.length) h += '<div class="lcr-quiet">No locum recorded in ' + esc(monthLabel(S.month)) + ".</div>";
+    else if (!S.entries.length) h += '<div class="lcr-quiet" data-empty>' + esc(MB.empty(S.month)) + "</div>";
     else {
       var day = null;
       S.entries.forEach(function (e) {
@@ -116,6 +116,13 @@
       }).join("") : '<tr><td colspan="5">No locum recorded this month.</td></tr>') + "</tbody></table></div>";
     m.innerHTML = h;
     bind(m);
+    MB.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; load(); }, paint: paint, print: printMonth });
+  }
+  // The classic locum register printout: one line per entry, oldest first.
+  function printMonth() {
+    var MB = E.months;
+    MB.print({ register: "Locum register", month: S.month, sections: [{ cols: ["Date", "Time in", "Time out", "Name and surname", "Registration no"],
+      rows: S.entries.slice().reverse().map(function (e) { return [MB.dmy(e.entry_date), e.time_in || "", e.time_out || "", e.locum_full_name || "", e.registration_number || ""]; }) }] });
   }
 
   function bind(m) {
@@ -123,9 +130,6 @@
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act");
         if (a === "back") window.location.hash = "#registers";
-        else if (a === "prev") { S.month = shiftMonth(S.month, -1); load(); }
-        else if (a === "next") { if (S.month < thisMonth()) { S.month = shiftMonth(S.month, 1); load(); } }
-        else if (a === "print") window.print();
         else if (a === "new") { S.form = { entry_date: ymd(new Date()), time_in: hmNow() }; paint(); setTimeout(function () { var c = m.querySelector("[name=locum_full_name]"); if (c && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) c.focus(); }, 30); }
         else if (a === "cancel") { S.form = null; paint(); }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "locreg"); } catch (e) {} E.openClassic("locumregister"); }
@@ -167,7 +171,7 @@
 
   E.registerModule({
     id: "locreg", title: "Locum register", order: 3, icon: "◷", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; if (!S.month) S.month = thisMonth(); css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.month = thisMonth(); S.entries = []; E.months.reset(); css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("locreg") < 0) E.UI2_DESTINATIONS.push("locreg");
   if (E.UI2_PARENT) E.UI2_PARENT.locreg = "registers";

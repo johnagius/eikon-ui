@@ -70,6 +70,21 @@
       (closed ? "" : '<div class="alr-foot"><button class="alr-btn" data-act="close" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ">Close alert</button></div>") + "</div>";
   }
 
+  // Every alert recorded in a month (any month), and the classic printout of it.
+  var HIST = { dep: function () { return S.loading ? undefined : S.entries; }, title: "By month", label: "Alerts recorded", active: function () { return E.state.activeModuleId === "alertreg"; }, paint: function () { paint(); },
+    fetch: async function (ym) { var r = await E.apiFetch("/alerts/entries?month=" + encodeURIComponent(ym), { method: "GET" }); if (!r || !r.ok) throw new Error((r && r.error) || "Could not load alerts"); return (r.entries || []).slice().sort(function (a, b) { return String(b.entry_date).localeCompare(String(a.entry_date)) || b.id - a.id; }); },
+    row: function (e) { return { t: e.item_name || "", s: [E.months.dmy(e.entry_date), e.alert_type === "quarantine" ? "Quarantine" : "Recall", e.status === "in_progress" ? "In progress" : e.status === "closed" ? "Closed" : "Open", e.supplier].filter(Boolean).join(" · ") }; },
+    print: function (ym, rows) {
+      var yn = function (v) { return v === 1 || v === "1" || v === true ? "Yes" : "No"; };
+      E.months.print({ register: "Alerts", month: ym, landscape: true, sections: [{ cols: ["Date", "Type", "Status", "Item", "Room/Fridge", "Supplier", "Checklist"],
+        rows: rows.slice().reverse().map(function (r) {
+          var bits = []; if (r.batch) bits.push("Batch: " + r.batch); if (r.expiry) bits.push("Expiry: " + E.months.dmy(r.expiry)); if (r.quantity) bits.push("Qty: " + r.quantity);
+          return [E.months.dmy(r.entry_date), r.alert_type === "quarantine" ? "Quarantine" : "Recall", r.status === "in_progress" ? "In progress" : r.status === "closed" ? "Closed" : "Open",
+            { html: "<b>" + esc(r.item_name || "") + "</b>" + (bits.length ? "<br>" + esc(bits.join(" | ")) : "") + (r.reason ? "<br>Reason: " + esc(r.reason) : "") + (r.notes ? "<br>Notes: " + esc(r.notes) : "") },
+            r.storage_location === "fridge" ? "Fridge" : "Room", r.supplier || "",
+            { html: esc("Team: " + yn(r.team_informed) + " | Supplier: " + yn(r.supplier_informed) + " | Authorities: " + yn(r.authorities_informed)) + "<br>" + esc("Return: " + yn(r.return_arranged) + " | Handover: " + yn(r.handed_over) + " | Collection: " + yn(r.collection_note_received) + " | Credit: " + yn(r.credit_note_received)) }];
+        }) }] });
+    } };
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "alertreg") return; // left before a reply came back: do not draw over the next screen
@@ -95,8 +110,10 @@
       h += open.length ? '<div class="alr-lab">Open <b>' + open.length + "</b></div>" + open.map(cardHtml).join("") : '<div class="alr-quiet">No open alerts. When a recall comes in, record it here and tick off each step.</div>';
       if (closed.length) h += '<div class="alr-lab">Closed in the last 60 days <b>' + closed.length + "</b></div>" + closed.map(cardHtml).join("");
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Changing an alert’s details, notes, deleting and older alerts are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += E.months.history("alertreg", HIST);
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Changing an alert’s details, notes and deleting are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
     m.innerHTML = h;
+    E.months.wireHistory(m, "alertreg");
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
@@ -142,7 +159,7 @@
 
   E.registerModule({
     id: "alertreg", title: "Alerts", order: 3, icon: "!", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; E.months.historyReset("alertreg"); css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("alertreg") < 0) E.UI2_DESTINATIONS.push("alertreg");
   if (E.UI2_PARENT) E.UI2_PARENT.alertreg = "stock";

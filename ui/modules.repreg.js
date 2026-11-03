@@ -7,7 +7,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, entries: [], loading: false, error: "", q: "", adding: null, saving: false, err: "" };
+  var S = { mount: null, entries: [], loading: false, error: "", q: "", adding: null, saving: false, err: "", mo: "", moEntries: [], moLoading: false, moError: "" };
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   var F = ["entry_date", "client_id", "client_name", "medicine_name_dose", "posology", "prescriber_name", "prescriber_reg_no"];
 
@@ -20,6 +20,14 @@
   // The year is left out when it is this year (3 Nov), kept otherwise (4 Mar 2027): rows stay on fewer lines on a phone.
   function dm(s) { var p = String(s || "").split("-"); return p.length === 3 ? Number(p[2]) + " " + MON[Number(p[1]) - 1] + (Number(p[0]) === new Date().getFullYear() ? "" : " " + p[0]) : ""; }
   function low(s) { return String(s || "").toLowerCase(); }
+  // Wide screens get a table (the classic's columns); phones and narrow windows keep the two-line list.
+  var WIDE = "(min-width:1200px)", mqWide = null;
+  function wide() { try { return window.matchMedia(WIDE).matches; } catch (e) { return false; } }
+  function watchWidth() {
+    if (mqWide) return;
+    try { mqWide = window.matchMedia(WIDE); var f = function () { if (S.mount && E.state.activeModuleId === "repreg") E.whenFormIdle(S.mount, function () { paint(); }); };
+      if (mqWide.addEventListener) mqWide.addEventListener("change", f); else if (mqWide.addListener) mqWide.addListener(f); } catch (e) {}
+  }
 
   function css() {
     if (document.getElementById("eikon-repreg-css")) return;
@@ -44,7 +52,12 @@
       ".rep-form label>span{flex:0 0 104px;font-size:15px}.rep-form input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}.rep-form label small{color:var(--accent);font-size:12px;font-weight:600}" +
       ".rep-form .note{font-size:13px;color:var(--muted);padding:8px 14px 0}.rep-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end}" +
       ".rep-err{color:var(--danger);font-size:13px;padding:4px 14px}" +
+      ".rep-h2{font-size:20px;font-weight:700;letter-spacing:-.01em;margin:28px 0 0}" +
       ".rep-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
+      "@media (min-width:1200px){.rep{max-width:1180px}}" +
+      ".rep-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.rep-tbl{width:100%;border-collapse:separate;border-spacing:0;background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;font-size:13.5px}" +
+      ".rep-tbl th{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}" +
+      ".rep-tbl td{padding:8px 12px;border-top:.5px solid var(--border);vertical-align:middle}.rep-tbl tbody tr:first-child td{border-top:0}.rep-tbl td.n{white-space:nowrap;font-variant-numeric:tabular-nums}.rep-tbl td.b{font-weight:600}.rep-tbl td.r{text-align:right;white-space:nowrap}.rep-tbl td.r .rep-btn{margin-left:8px}" +
       "@media (max-width:600px){.rep{padding:4px 16px 0}.rep h1{font-size:32px}.rep-form label>span{flex-basis:92px}}";
     document.head.appendChild(st);
   }
@@ -71,6 +84,19 @@
       '<button class="rep-btn" data-act="renew" data-id="' + e.id + '">Renew</button></div></div>';
   }
 
+  function pillHtml(e) {
+    var n = daysUntil(e.expires_date), nx = renewedBy(e);
+    if (nx) return '<span class="rep-pill">Renewed ' + esc(dm(nx.entry_date)) + "</span>";
+    return n < 0 ? '<span class="rep-pill gone">Expired ' + esc(dm(e.expires_date)) + "</span>" : n <= 21 ? '<span class="rep-pill soon">Expires in ' + n + (n === 1 ? " day" : " days") + "</span>" : '<span class="rep-pill">Until ' + esc(dm(e.expires_date)) + "</span>";
+  }
+  function tableHtml(rows) {
+    return '<table class="rep-tbl"><thead><tr><th scope="col">Patient</th><th scope="col">ID card</th><th scope="col">Medicine</th><th scope="col">Dose</th><th scope="col">Prescriber</th><th scope="col">Written</th><th scope="col"><span class="rep-sr">Status</span></th></tr></thead><tbody>' +
+      rows.map(function (e) {
+        return '<tr><td class="b">' + esc(e.client_name) + '</td><td class="n">' + esc(e.client_id) + "</td><td>" + esc(e.medicine_name_dose) + "</td><td>" + esc(e.posology) + "</td><td>" + esc(e.prescriber_name) + '</td><td class="n">' + esc(dm(e.entry_date)) + '</td><td class="r">' + pillHtml(e) +
+          (renewedBy(e) ? "" : '<button class="rep-btn" data-act="renew" data-id="' + e.id + '">Renew</button>') + "</td></tr>";
+      }).join("") + "</tbody></table>";
+  }
+
   function paint(fromState) {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "repreg") return; // left before a reply came back: do not draw over the next screen
@@ -95,10 +121,16 @@
       var t = today(), list = S.entries.filter(match);
       var valid = list.filter(function (e) { return e.expires_date >= t; }).sort(function (x, y) { return String(x.expires_date).localeCompare(String(y.expires_date)); });
       var gone = list.filter(function (e) { return e.expires_date < t && e.expires_date >= back(30) && !renewedBy(e); }).sort(function (x, y) { return String(y.expires_date).localeCompare(String(x.expires_date)); });
-      h += '<div class="rep-lab">Still valid <b>' + valid.length + "</b></div>" + (valid.length ? '<div class="rep-list">' + valid.map(rowHtml).join("") + "</div>" : '<div class="rep-quiet">' + (q ? "No valid prescription matches." : "No repeat prescription on file.") + "</div>");
-      if (gone.length) h += '<div class="rep-lab">Ran out this month <b>' + gone.length + '</b></div><div class="rep-list">' + gone.map(rowHtml).join("") + "</div>";
+      var W = wide(), block = function (rows) { return W ? tableHtml(rows) : '<div class="rep-list">' + rows.map(rowHtml).join("") + "</div>"; };
+      h += '<div class="rep-lab">Still valid <b>' + valid.length + "</b></div>" + (valid.length ? block(valid) : '<div class="rep-quiet">' + (q ? "No valid prescription matches." : "No repeat prescription on file.") + "</div>");
+      if (gone.length) h += '<div class="rep-lab">Ran out this month <b>' + gone.length + "</b></div>" + block(gone);
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Correcting or deleting a prescription and older ones are in the <a href="#" data-act="classic" style="color:var(--accent)">classic register</a>.</p></div>';
+    // Every prescription written in a month, any month: the register as the classic screen lists and prints it.
+    var mo = S.moEntries.filter(function (e) { var q2 = low(S.q).trim(); return !q2 || [e.client_name, e.client_id, e.medicine_name_dose, e.prescriber_name].some(function (v) { return low(v).indexOf(q2) >= 0; }); });
+    h += '<h2 class="rep-h2" id="rep-bymonth">Written by month</h2>' + E.months.bar(S.mo, { label: "Repeat prescriptions written" }) +
+      (S.moLoading && !S.moEntries.length ? '<div class="rep-quiet">Opening ' + esc(E.months.label(S.mo)) + "…</div>" : S.moError ? '<div class="rep-quiet">' + esc(S.moError) + "</div>" :
+        '<div class="rep-lab">Written in ' + esc(E.months.label(S.mo)) + " <b>" + mo.length + "</b></div>" + (mo.length ? '<div class="rep-list">' + mo.map(rowHtml).join("") + "</div>" : '<div class="rep-quiet" data-empty>' + (S.moEntries.length ? "No prescription that month matches." : esc(E.months.empty(S.mo))) + "</div>"));
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Correcting or deleting a prescription is in the <a href="#" data-act="classic" style="color:var(--accent)">classic register</a>.</p></div>';
     var ae = document.activeElement, keepSel = ae && m.contains(ae) && ae.name ? "[name=" + ae.name + "]" : ae && ae.id === "rep-q" ? "#rep-q" : "";
     m.innerHTML = h;
     if (keepSel) { var again = m.querySelector(keepSel); if (again) { again.focus(); try { var L = again.value.length; again.setSelectionRange(L, L); } catch (x) {} } } // typing keeps its place
@@ -113,6 +145,7 @@
       });
     });
     var qn = m.querySelector("#rep-q"); if (qn) qn.addEventListener("input", function () { paint(); });
+    E.months.wire(m, { month: function () { return S.mo; }, go: function (ym) { S.mo = ym; S.moEntries = []; loadMonth(); }, paint: function () { paint(); }, print: printMonth });
     var f = m.querySelector("#rep-add");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
@@ -122,6 +155,23 @@
         local: function () { return S.entries.map(function (e) { return { name: e.client_name, id_card: e.client_id, date: e.entry_date, from: "prescription" }; }); },
         onFill: function () { keep(); } });
     }
+  }
+  async function loadMonth() {
+    var want = S.mo; S.moLoading = true; S.moError = ""; paint();
+    try {
+      var r = await E.apiFetch("/repeat-prescriptions/entries?month=" + encodeURIComponent(want), { method: "GET" });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Could not load the month");
+      if (want !== S.mo) return;
+      S.moEntries = (r.entries || []).slice().sort(function (a, b) { return String(b.entry_date).localeCompare(String(a.entry_date)) || b.id - a.id; });
+    } catch (e) { if (want === S.mo) S.moError = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the month"); }
+    if (want !== S.mo) return;
+    S.moLoading = false; E.whenFormIdle(S.mount, paint);
+  }
+  // The classic printout: Date, Expires, Client (with the ID card), Medicine Name & Dose, Posology, Prescriber Name, Reg No; oldest first.
+  function printMonth() {
+    var MB = E.months;
+    MB.print({ register: "Repeat prescriptions", month: S.mo, landscape: true, sections: [{ cols: ["Date", "Expires", "Client", "Medicine name and dose", "Posology", "Prescriber name", "Reg no"],
+      rows: S.moEntries.slice().reverse().map(function (e) { return [MB.dmy(e.entry_date), MB.dmy(e.expires_date), { html: "<b>" + esc(e.client_name || "") + "</b><br>ID: " + esc(e.client_id || "") }, e.medicine_name_dose || "", e.posology || "", e.prescriber_name || "", e.prescriber_reg_no || ""]; }) }] });
   }
   function focus(n) { setTimeout(function () { var x = S.mount && S.mount.querySelector("[name=" + n + "]"); if (x && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) x.focus(); }, 30); }
   function uniq(a) { var seen = {}, out = []; a.forEach(function (x) { var k = String(x || "").trim(); if (k && !seen[low(k)]) { seen[low(k)] = 1; out.push(k); } }); return out.sort(); }
@@ -173,12 +223,14 @@
       S.adding = null; E.toast("Recorded for " + a.client_name, "success");
       if (E.linkPerson) E.linkPerson({ name: body.client_name, id_card: body.client_id }, "register:repeat", asked); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
-    S.saving = false; return load();
+    S.saving = false;
+    if (!S.adding && a.entry_date) { S.mo = a.entry_date.slice(0, 7); loadMonth(); } // the month it was written shows it
+    return load();
   }
 
   E.registerModule({
     id: "repreg", title: "Repeat prescriptions", order: 3, icon: "℞", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.q = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.q = ""; S.mo = E.months.now(); S.moEntries = []; E.months.reset(); css(); watchWidth(); paint(); loadMonth(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("repreg") < 0) E.UI2_DESTINATIONS.push("repreg");
   if (E.UI2_PARENT) E.UI2_PARENT.repreg = "registers";

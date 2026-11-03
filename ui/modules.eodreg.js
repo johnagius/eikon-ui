@@ -185,6 +185,7 @@
       ".eod-chip.ok{background:var(--ok-soft,rgba(28,138,91,.14));color:var(--ok,#1C8A5B)}.eod-chip.wn{background:var(--warn-soft,rgba(201,138,18,.16));color:var(--warn,#8A5A08)}" +
       ".eod-btn{font:inherit;font-size:14px;font-weight:600;height:36px;padding:0 16px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
       ".eod-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.eod-btn:disabled{opacity:.55;cursor:default}" +
+      ".eod-mp{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 2px 0;font-size:12.5px;color:var(--muted)}.eod-mp .eod-btn{min-height:44px}" +
       ".eod-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:22px 2px 7px;display:flex;justify-content:space-between;gap:10px}.eod-lab b{color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:0;font-size:13px;text-transform:none}" +
       ".eod-card{background:var(--panel2);border:1px solid var(--border);border-radius:14px;overflow:hidden}" +
       ".eod-f{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 14px;border-top:.5px solid var(--border)}.eod-card>:first-child{border-top:0}" +
@@ -239,7 +240,7 @@
     if (S.loading && !S.w) h += '<div class="eod-quiet">Opening ' + esc(dayLabel(S.date).toLowerCase() === "today" ? "today" : dayLabel(S.date)) + "…</div>";
     else if (S.error && !S.w) h += '<div class="eod-quiet">' + esc(S.error) + ' <button class="eod-btn" data-act="retry" style="margin-left:8px">Try again</button></div>';
     else if (S.w) h += dayHtml(locked, ro);
-    h += '<p class="eod-foot">Unlocking a day, printing it on A4, the date-range report, the audit log, copying the deposit to an email and managing bank contacts are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += '<p class="eod-foot">Unlocking a day, printing it on A4, a date-range report across months, the audit log, copying the deposit to an email and managing bank contacts are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
     var ae = document.activeElement, sel = ae && m.contains(ae) && ae.name ? '[name="' + ae.name + '"]' : (ae && ae.id === "eod-day" ? "#eod-day" : "");
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) again.focus(); }
@@ -341,13 +342,30 @@
     add(S.w); // this day as it stands on screen (the classic screen: stored month − stored day + what is typed)
     return t;
   }
+  // The classic "Range report" for the month: every saved day, its columns in its order, and the totals row.
+  function printMonth() {
+    var MB = E.months, ym = S.date.slice(0, 7); if (!MB || !S.month || S.monthYm !== ym) return;
+    var days = Object.keys(S.month).sort(), e2 = function (n) { return "€" + Number(n || 0).toFixed(2); };
+    var cols = ["Staff Name", "Date"].concat(["Total Cash", "Rounded Cash Deposited"]).concat(["Bag Number"]).concat(["Total X Reading", "Total EPOS", "Total Cheques", "Total Paid Outs", "Total Cash Count", "Rounded", "Total Cash Till", "Total BOV Deposit", "Over / Under", "Coins"])
+      .map(function (h, i) { return i < 2 || i === 4 ? h : { h: h, num: true }; });
+    var sum = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    var rows = days.map(function (d) {
+      var w = working(S.month[d]), c = calc(w), v = [c.E, c.F, c.A, c.B, c.C, c.D, c.till, round5(c.till), mnum(w.float_amount), c.bov, c.OU, c.COINS];
+      v.forEach(function (x, i) { sum[i] += x; });
+      return [w.staff, MB.dmy(d), e2(v[0]), e2(v[1]), w.bag_number.trim()].concat(v.slice(2).map(e2));
+    });
+    MB.print({ register: "End Of Day — Range Report", month: ym, landscape: true,
+      intro: '<p class="sub"><b>Range:</b> ' + esc(MB.dmy(MB.first(ym))) + " to " + esc(MB.dmy(MB.last(ym))) + "</p>",
+      sections: [{ cols: cols, rows: rows, empty: "No records in range.", foot: rows.length ? ["Totals (" + rows.length + " days)", "", e2(sum[0]), e2(sum[1]), ""].concat(sum.slice(2).map(e2)) : null }] });
+  }
   function monthHtml() {
     var mn = MON[+S.date.slice(5, 7) - 1], t = monthDays();
     var h = '<div class="eod-lab"><span>' + esc(mn) + ' so far</span><span data-b="mdays">' + (t ? t.days + (t.days === 1 ? " day saved" : " days saved") : "") + '</span></div><div class="eod-card eod-sum">';
     if (!t) return h + '<div class="r"><span>' + esc(S.monthErr || "Adding up the month…") + "</span></div></div>";
     return h + '<div class="r"><span>Total cash</span><b data-b="mE">' + esc(eur(t.E)) + "</b></div>" +
       '<div class="r"><span>Over / under</span><b data-b="mOU">' + esc(eur(t.OU)) + "</b></div>" +
-      '<div class="r"><span>Coin box</span><b data-b="mCOINS">' + esc(eur(t.COINS)) + "</b></div></div>";
+      '<div class="r"><span>Coin box</span><b data-b="mCOINS">' + esc(eur(t.COINS)) + "</b></div></div>" +
+      '<p class="eod-mp"><button type="button" class="eod-btn" data-act="print-month">Print ' + esc(E.months ? E.months.label(S.date.slice(0, 7)) : "the month") + '</button><span>The days saved, as the classic range report prints them. Choose a day in another month to print that one.</span></p>';
   }
 
   // ---- typing: numbers follow in place, nothing is redrawn under the fingers
@@ -385,6 +403,7 @@
         var act = b.getAttribute("data-act");
         if (act === "back") window.location.hash = E.ui2BackHash("eodreg");
         else if (act === "retry") load();
+        else if (act === "print-month") printMonth();
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "eodreg"); } catch (x) {} E.openClassic("endofday"); }
         else if (act === "addrow") { keep(); var L = b.getAttribute("data-l"); S.w[L].push({ amount: "0", remark: "" }); S.dirty = true; paint(true); var n = S.w[L].length - 1;
           setTimeout(function () { var f = m.querySelector('[name="row:' + L + ":" + n + ':amount"]'); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form") && document.activeElement !== b)) f.focus(); }, 30); }
@@ -448,7 +467,7 @@
     var amt = function (v) { return (Math.round(mnum(v) * 100) / 100).toFixed(2); };
     var rows = function (list) { return list.map(function (r) { var o = clone(r); o.amount = amt(r.amount); o.remark = String(r.remark || ""); return o; }); };
     var cash = clone(w.cash); DEN.forEach(function (d) { cash["n" + d] = String(inum(w.cash["n" + d])); }); cash.coins_total = amt(w.cash.coins_total);
-    var dep = {}; DEN.forEach(function (d) { dep["n" + d] = String(inum(w.deposit["n" + d])); });
+    var dep = {}; DEN.forEach(function (d) { dep["n" + d] = inum(w.deposit["n" + d]); }); // bag counts as numbers, as the classic screen stores them
     var staff = String(w.staff || "").trim(), bag = String(w.bag_number || "").trim(), u = user();
     // Each value goes under every name the server reads (it prefers staff_name, bov_deposit, bov_bag_number, bov_contact_id).
     var p = { date: S.date, eod_date: S.date, time_of_day: w.time_of_day === "PM" ? "PM" : "AM", staff: staff, staff_name: staff, location_name: String(u.location_name || ""),

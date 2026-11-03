@@ -68,6 +68,17 @@
     } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
+  // The legal register as the classic screen prints it (its report): the month, the classic's columns in its order,
+  // oldest first (the report's order: date, then the order typed). DDA sales has the Urgent column; POYC has none.
+  function printMonth() {
+    var MB = E.months, m = S.month, rows = S.entries.slice().sort(function (a, b) { return String(a.entry_date).localeCompare(String(b.entry_date)) || Number(a.id) - Number(b.id); });
+    MB.print({ register: C.report, month: m, landscape: true, sections: [{ heading: m, sub: "Range: " + MB.first(m) + " to " + MB.last(m), cols: C.printCols,
+      rows: rows.map(function (r) {
+        var row = [r.entry_date || "", r.client_name || "", r.client_id_card || "", r.client_address || "", r.medicine_name_dose || "", r.quantity == null ? "" : String(r.quantity), r.doctor_name || "", r.doctor_reg_no || "", r.prescription_serial_no || ""];
+        if (C.urgent) row.push(r.urgent === 1 || r.urgent === true || String(r.urgent || "").toLowerCase() === "true" ? "URGENT" : "");
+        return row; }),
+      empty: "No entries for the selected date range." }] });
+  }
   async function loadDoctors() { // the prescribers this pharmacy sees most, for the name list
     try { S.doctors = await C.doctors(""); } catch (e) { S.doctors = []; }
     // only the suggestion list changes: redrawing the form here could swallow a tap that lands at the same moment
@@ -105,6 +116,7 @@
         '<datalist id="cds-docs">' + uniq(S.doctors.map(function (d) { return d.doctor_name; })).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>" +
         '<datalist id="cds-meds">' + uniq(S.entries.map(function (e) { return e.medicine_name_dose; })).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
     }
+    h += E.months.bar(S.month, { label: C.title });
     if (S.loading && !S.entries.length) h += '<div class="cds-quiet">Opening the register…</div>';
     else if (S.error) h += '<div class="cds-quiet">' + esc(S.error) + "</div>";
     else {
@@ -112,9 +124,9 @@
       h += S.entries.length ? '<div class="cds-list">' + S.entries.map(function (e) {
         return '<div class="cds-row"><div class="t"><b>' + esc(e.medicine_name_dose) + "</b>" + (Number(e.urgent) ? '<i class="cds-pill" style="font-style:normal">Urgent</i>' : "") +
           "<span>" + esc(dmy(e.entry_date)) + " · " + esc(e.client_name) + " · " + esc(e.doctor_name) + " · Rx " + esc(e.prescription_serial_no) + "</span></div><em>" + esc(e.quantity) + "</em></div>";
-      }).join("") + "</div>" : '<div class="cds-quiet">Nothing supplied this month yet.</div>';
+      }).join("") + "</div>" : '<div class="cds-quiet" data-empty>' + esc(E.months.empty(S.month, "Nothing supplied this month yet.")) + "</div>";
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Correcting or deleting an entry, other months and the inspector\'s report are in the <a href="#" data-act="classic" style="color:var(--accent)">classic register</a>.</p></div>';
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Correcting or deleting an entry is in the <a href="#" data-act="classic" style="color:var(--accent)">classic register</a>.</p></div>';
     var ae = document.activeElement, back = ae && m.contains(ae) && ae.closest && ae.closest("#cds-add") ? (ae.name ? "[name=" + ae.name + "]" : ae.getAttribute("data-i") != null ? '[data-i="' + ae.getAttribute("data-i") + '"][data-k="' + ae.getAttribute("data-k") + '"]' : "") : "";
     m.innerHTML = h;
     if (back) { var again = m.querySelector("#cds-add " + back); if (again && !again.disabled) again.focus(); } // a lookup filling fields keeps your place
@@ -128,6 +140,7 @@
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", C.id); } catch (x) {} E.openClassic(C.classic); }
       });
     });
+    E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; load(); }, paint: function () { paint(); }, print: printMonth });
     var f = m.querySelector("#cds-add");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
@@ -243,7 +256,7 @@
 
   E.registerModule({
     id: C.id, title: C.title, order: 3, icon: "℞", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.adding = null; S.err = ""; S.dup = null; S.dupOk = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); S.adding = null; S.err = ""; S.dup = null; S.dupOk = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf(C.id) < 0) E.UI2_DESTINATIONS.push(C.id);
   if (E.UI2_PARENT) E.UI2_PARENT[C.id] = "registers";
@@ -256,11 +269,13 @@
     return [].concat.apply([], res.map(function (r) { return (r && r.ok && r.entries) || []; }));
   }
 
-  make({ id: "cdsreg", path: "/dda-sales", classic: "dda-sales", title: "Controlled drugs supplied", sub: "Every controlled drug handed over against a prescription.", urgent: true, pad: true,
+  make({ id: "cdsreg", path: "/dda-sales", classic: "dda-sales", report: "DDA Sales Report",
+    printCols: ["Date", "Client Name", "ID Card", "Address", "Medicine Name & Dose", "Qty", "Doctor Name", "Doctor Reg No.", "Prescription Serial No.", "Urgent"], title: "Controlled drugs supplied", sub: "Every controlled drug handed over against a prescription.", urgent: true, pad: true,
     patient: function (id) { return E.apiFetch("/dda-sales/client?client_id_card=" + encodeURIComponent(id), { method: "GET" }); },
     doctors: async function (q) { var r = await E.apiFetch("/dda-sales/doctors?limit=" + (q ? 5 : 50) + (q ? "&q=" + encodeURIComponent(q) : ""), { method: "GET" }); return (r && r.ok && r.doctors) || []; } });
 
-  make({ id: "poyreg", path: "/dda-poyc", classic: "dda-poyc", title: "POYC controlled drugs", sub: "Controlled drugs given under the Pharmacy of Your Choice scheme.", urgent: false, pad: false,
+  make({ id: "poyreg", path: "/dda-poyc", classic: "dda-poyc", report: "DDA POYC Report",
+    printCols: ["Date", "Client", "ID Card", "Address", "Medicine (name & dose)", "Qty", "Doctor", "Reg No.", "Prescription Serial No."], title: "POYC controlled drugs", sub: "Controlled drugs given under the Pharmacy of Your Choice scheme.", urgent: false, pad: false,
     patient: async function (id) {
       var hit = (await poycSearch(id)).filter(function (e) { return String(e.client_id_card || "").replace(/\s+/g, "").toUpperCase().replace(/^0+/, "") === id.replace(/^0+/, ""); })[0];
       return hit ? { ok: true, found: true, client_name: hit.client_name, client_address: hit.client_address } : { ok: true, found: false };

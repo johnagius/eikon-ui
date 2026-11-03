@@ -29,6 +29,15 @@
   function monthLabel(m) { var p = m.split("-"); return MONTHS[Number(p[1]) - 1] + " " + p[0]; }
   function dayLong(s) { var d = parse(s), t = ymd(new Date()); return s === t ? "Today" : WDN[d.getDay()] + " " + d.getDate() + " " + MON[d.getMonth()]; }
   function norm(s) { return String(s || "").trim().toLowerCase(); }
+  // Wide screens get the register as a table (the classic's columns); phones and narrow windows keep the two-line list.
+  var WIDE = "(min-width:1200px)", mqWide = null;
+  function wide() { try { return window.matchMedia(WIDE).matches; } catch (e) { return false; } }
+  function watchWidth() {
+    if (mqWide) return;
+    try { mqWide = window.matchMedia(WIDE); var f = function () { if (S.mount && E.state.activeModuleId === "drreg") E.whenFormIdle(S.mount, paint); };
+      if (mqWide.addEventListener) mqWide.addEventListener("change", f); else if (mqWide.addListener) mqWide.addListener(f); } catch (e) {}
+  }
+  function dayShort(s) { var d = parse(s); return s === ymd(new Date()) ? "Today" : WDN[d.getDay()].slice(0, 3) + " " + d.getDate() + " " + MON[d.getMonth()]; }
 
   function css() {
     if (document.getElementById("eikon-drreg-css")) return;
@@ -58,8 +67,14 @@
       ".drr-err{color:var(--danger);font-size:13px;padding:2px 16px 4px}" +
       ".drr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".drr-print,.drr-pmeta{display:none}" +
+      "@media (min-width:1200px){.drr{max-width:1180px}}" +
+      ".drr-tbl{width:100%;border-collapse:separate;border-spacing:0;background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:12px;font-size:13.5px}" +
+      ".drr-tbl th{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}" +
+      ".drr-tbl td{padding:9px 12px;border-top:.5px solid var(--border);vertical-align:top}.drr-tbl tbody tr:first-child td{border-top:0}" +
+      ".drr-tbl td.d{white-space:nowrap;color:var(--muted);font-variant-numeric:tabular-nums}.drr-tbl td.m{font-weight:600}.drr-tbl td.n{white-space:nowrap;font-variant-numeric:tabular-nums}" +
+      ".drr-tbl tr.nd td{border-top:1px solid var(--border)}" +
       "@media (max-width:600px){.drr{padding:4px 16px 0}.drr h1{font-size:32px}.drr-form label>span{flex-basis:84px}.drr-form .acts{flex-wrap:wrap}.drr-form .acts small{flex-basis:100%;margin:0 0 4px}}" +
-      "@media print{.eikon-sidebar,.eikon-topbar,.drr-back,.drr-acts,.drr-bar,.drr-lab,.drr-list,.drr-form,.drr-note,.eikon-toast{display:none!important}" +
+      "@media print{.eikon-sidebar,.eikon-topbar,.drr-back,.drr-acts,.drr-bar,.drr-lab,.drr-list,.drr-tbl,.drr-form,.drr-note,.eikon-toast{display:none!important}" +
       ".eikon-content{padding:0!important}.drr-pmeta{display:block;font-size:12px;margin:2px 0 8px}.drr-print{display:table;width:100%;border-collapse:collapse;font-size:10.5px}" +
       ".drr-print th,.drr-print td{border:1px solid #999;padding:3px 5px;text-align:left;vertical-align:top}}";
     document.head.appendChild(st);
@@ -104,19 +119,26 @@
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "drreg") return; // left before a reply came back: do not draw over the next screen
-    var isNow = S.month >= thisMonth(), user = E.state.user || {};
+    var MB = E.months, user = E.state.user || {};
     var h = '<div class="drr"><button class="drr-back" data-act="back">‹ Registers</button>' +
       '<div class="drr-top"><div><h1>Daily register</h1><p class="drr-sub">Prescription medicines supplied, one line each.</p></div>' +
-      '<div class="drr-acts">' + (S.form ? "" : '<button class="drr-btn p" data-act="new">New entry</button>') + '<button class="drr-btn" data-act="print">Print</button></div></div>' +
+      '<div class="drr-acts">' + (S.form ? "" : '<button class="drr-btn p" data-act="new">New entry</button>') + "</div></div>" +
       '<p class="drr-pmeta">' + esc((user.location_name || "") + " · Daily register · " + monthLabel(S.month) + " · printed " + ymd(new Date())) + "</p>";
     if (S.form) h += formHtml();
-    h += '<div class="drr-bar"><div class="drr-month"><button class="drr-arrow" data-act="prev" aria-label="Previous month">‹</button><b>' + esc(monthLabel(S.month)) + '</b><button class="drr-arrow" data-act="next" aria-label="Next month"' + (isNow ? " disabled" : "") + '>›</button></div>' +
-      '<input class="drr-q" id="drr-q" type="search" placeholder="Search client, ID, medicine or prescriber" value="' + esc(S.q) + '"></div>';
+    h += MB.bar(S.month, { label: "Daily register" }) +
+      '<div class="drr-bar"><input class="drr-q" id="drr-q" type="search" aria-label="Search this month" placeholder="Search client, ID, medicine or prescriber" value="' + esc(S.q) + '"></div>';
     var shown = S.entries.filter(matches);
     if (S.loading && !S.entries.length) h += '<div class="drr-quiet">Opening the register…</div>';
     else if (S.error) h += '<div class="drr-quiet">' + esc(S.error) + "</div>";
-    else if (!S.entries.length) h += '<div class="drr-quiet">Nothing recorded in ' + esc(monthLabel(S.month)) + ".</div>";
+    else if (!S.entries.length) h += '<div class="drr-quiet" data-empty>' + esc(MB.empty(S.month)) + "</div>";
     else if (!shown.length) h += '<div class="drr-quiet">No entry matches “' + esc(S.q) + "”.</div>";
+    else if (wide()) {
+      h += '<table class="drr-tbl"><thead><tr><th scope="col">Date</th><th scope="col">Client</th><th scope="col">ID card</th><th scope="col">Medicine and dose</th><th scope="col">Posology</th><th scope="col">Prescriber</th><th scope="col">Reg no</th></tr></thead><tbody>' +
+        shown.map(function (e, i) {
+          var first = i === 0 || shown[i - 1].entry_date !== e.entry_date;
+          return '<tr' + (first && i ? ' class="nd"' : "") + '><td class="d">' + (first ? esc(dayShort(e.entry_date)) : "") + "</td><td>" + esc(e.client_name) + '</td><td class="n">' + esc(e.client_id) + '</td><td class="m">' + esc(e.medicine_name_dose) + "</td><td>" + esc(e.posology) + "</td><td>" + esc(e.prescriber_name) + '</td><td class="n">' + esc(e.prescriber_reg_no) + "</td></tr>";
+        }).join("") + "</tbody></table>";
+    }
     else {
       var day = null;
       shown.forEach(function (e) {
@@ -138,6 +160,13 @@
       }).join("") : '<tr><td colspan="7">Nothing recorded this month.</td></tr>') + "</tbody></table></div>";
     m.innerHTML = h;
     bind(m);
+    MB.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; load(); }, paint: paint, print: printMonth });
+  }
+  // The classic daily register printout (its columns, in its order), oldest first; the whole month, whatever the search.
+  function printMonth() {
+    var MB = E.months;
+    MB.print({ register: "Daily register", month: S.month, landscape: true, sections: [{ cols: ["Date", "Client", "Medicine name and dose", "Posology", "Prescriber name", "Reg no"],
+      rows: S.entries.slice().reverse().map(function (e) { return [MB.dmy(e.entry_date), { html: "<b>" + esc(e.client_name || "") + "</b><br>ID: " + esc(e.client_id || "") }, e.medicine_name_dose || "", e.posology || "", e.prescriber_name || "", e.prescriber_reg_no || ""]; }) }] });
   }
 
   function bind(m) {
@@ -145,9 +174,6 @@
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act");
         if (a === "back") window.location.hash = "#registers";
-        else if (a === "prev") { S.month = shiftMonth(S.month, -1); load(); }
-        else if (a === "next") { if (S.month < thisMonth()) { S.month = shiftMonth(S.month, 1); load(); } }
-        else if (a === "print") window.print();
         else if (a === "new") { S.form = { entry_date: ymd(new Date()) }; paint(); setTimeout(function () { var c = m.querySelector("[name=client_id]"); if (c && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) c.focus(); }, 30); }
         else if (a === "cancel") { S.form = null; paint(); }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "drreg"); } catch (e) {} E.openClassic("dailyregister"); }
@@ -210,7 +236,7 @@
 
   E.registerModule({
     id: "drreg", title: "Daily register", order: 3, icon: "Rx", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; if (!S.month) S.month = thisMonth(); css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.month = thisMonth(); S.entries = []; E.months.reset(); css(); watchWidth(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("drreg") < 0) E.UI2_DESTINATIONS.push("drreg");
   if (E.UI2_PARENT) E.UI2_PARENT.drreg = "registers";

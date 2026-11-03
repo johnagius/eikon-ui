@@ -104,6 +104,16 @@
     return h + "</div>";
   }
 
+  // Every delivery ordered in a month (any month, done or not), and the classic printout of the list.
+  var HIST = { dep: function () { return S.loading ? undefined : S.entries; }, title: "By month", label: "Deliveries ordered", nowText: "No delivery ordered this month yet.",
+    active: function () { return E.state.activeModuleId === "dlvreg"; }, paint: function () { paint(); },
+    fetch: async function (ym) { var r = await E.apiFetch("/client-deliveries/entries", { method: "GET" }); if (!r || !r.ok) throw new Error((r && r.error) || "Could not load deliveries"); return (r.entries || []).filter(function (e) { return String(e.order_date || "").slice(0, 7) === ym; }).sort(function (a, b) { return String(b.order_date).localeCompare(String(a.order_date)) || b.id - a.id; }); },
+    row: function (e) { return { t: (e.client_name || "") + (e.delivery_id ? " · " + e.delivery_id : ""), s: [E.months.dmy(e.order_date), e.scheduled_date ? "due " + E.months.dmy(e.scheduled_date) : "", e.delivery_address].filter(Boolean).join(" · "), r: e.status || "" }; },
+    print: function (ym, rows) {
+      E.months.print({ register: "Deliveries", month: ym, landscape: true, sections: [{ cols: ["Del #", "Order Date", "Scheduled", "Client", "Phone", "Method", "Driver", "Status", "Address", "Items"],
+        rows: rows.slice().reverse().map(function (r) { return [r.delivery_id || "", E.months.dmy(r.order_date), E.months.dmy(r.scheduled_date) + (r.scheduled_time_slot ? " " + r.scheduled_time_slot : ""), r.client_name || "", r.phone || "", r.delivery_method || "", r.assigned_driver || "", r.status || "", r.delivery_address || "",
+          arr(r.items).map(function (i) { return (i.qty || 1) + "× " + (i.name || ""); }).join(", ")]; }) }] });
+    } };
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "dlvreg") return; // left before a reply came back: do not draw over the next screen
@@ -132,8 +142,10 @@
       if (now.length) h += '<div class="dlv-lab">Today <b>' + now.length + "</b></div>" + now.map(cardHtml).join("");
       if (later.length) h += '<div class="dlv-lab">Later <b>' + later.length + "</b></div>" + later.map(cardHtml).join("");
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Changing a delivery, drivers, item batches, printing and past deliveries are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += E.months.history("dlvreg", HIST);
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Changing a delivery, drivers and item batches are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
     m.innerHTML = h;
+    E.months.wireHistory(m, "dlvreg");
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
@@ -214,7 +226,7 @@
 
   E.registerModule({
     id: "dlvreg", title: "Deliveries", order: 3, icon: "→", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.open = null; S.mode = ""; S.err = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.open = null; S.mode = ""; S.err = ""; E.months.historyReset("dlvreg"); css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("dlvreg") < 0) E.UI2_DESTINATIONS.push("dlvreg");
   if (E.UI2_PARENT) E.UI2_PARENT.dlvreg = "customers";

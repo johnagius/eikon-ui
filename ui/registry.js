@@ -49,6 +49,7 @@
     ["modules.hndreg.js", "hndreg", "Handover", "↻", 3, true, "new", ["pharmacy"]],
     ["modules.rotreg.js", "rotreg", "Who's in", "◷", 3, true, "new", ["pharmacy"]],
     ["modules.shfreg.js", "shfreg", "Plan shifts", "◷", 3, true, "new", ["pharmacy"]],
+    ["modules.teamreg.js", "teamreg", "People who sign in", "◉", 3, true, "new", ["pharmacy"]],
     ["modules.repreg.js", "repreg", "Repeat prescriptions", "℞", 3, true, "new", ["pharmacy"]],
     ["modules.cnreg.js", "cnreg", "Credit notes", "€", 3, true, "new", ["pharmacy"]],
     ["modules.lrcreg.js", "lrcreg", "Locum receipts", "€", 3, true, "new", ["pharmacy"]],

@@ -15,7 +15,9 @@
   var state = { data: null, loadedAt: null, error: "", errorKind: "", timer: null, mount: null, busy: {}, search: "" };
 
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
-  function hm(d) { d = d || new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
+  function hm(d) { d = d || new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); } // device clock: only for the time written into a cleaning line, as before
+  function mt(d) { return E.maltaHm ? E.maltaHm(d || new Date()) : hm(d); } // every clock SHOWN on Today is Malta time, like the header
+  function todayYmd() { return (state.data && state.data.date) || (E.maltaYmd ? E.maltaYmd() : ""); }
   function initials(name) {
     var p = String(name || "").trim().split(/\s+/).filter(Boolean);
     return ((p[0] || "?")[0] + (p[1] ? p[1][0] : "")).toUpperCase();
@@ -23,7 +25,8 @@
   function hue(name) { var h = 0; for (var i = 0; i < String(name).length; i++) h = (h * 31 + String(name).charCodeAt(i)) % 360; return h; }
   function dayWord(ymd) {
     if (!ymd) return "";
-    var t = new Date(); var today = t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0");
+    var today = todayYmd();
+    if (!today) { var t = new Date(); today = t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0"); }
     if (ymd === today) return "today";
     var d = new Date(ymd + "T12:00:00"); if (!isFinite(d.getTime())) return ymd;
     var diff = Math.round((d - new Date(today + "T12:00:00")) / 86400000);
@@ -33,10 +36,17 @@
     return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   }
   function longDate(ymd) {
+    ymd = ymd || todayYmd();
     var d = ymd ? new Date(ymd + "T12:00:00") : new Date();
     return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   }
   function sentence(t) { t = String(t || "").trim(); if (!t) return ""; if (/^HTTP \d+$/.test(t)) t = "The server answered " + t.slice(5); return /[.!?]$/.test(t) ? t : t + "."; }
+  // The full question fits a desktop box; on a phone it was cut ("…A customer, an orde").
+  var NARROW = "(max-width:420px)";
+  function placeholder() {
+    var narrow = false; try { narrow = window.matchMedia(NARROW).matches; } catch (e) {}
+    return narrow ? "Customer, order or register…" : "What do you need? A customer, an order, a register…";
+  }
   function plural(n, one, many) { return n + " " + (n === 1 ? one : (many || one + "s")); }
 
   // ---------- styles (scoped) ----------
@@ -61,7 +71,8 @@
       ".tdy-row{display:flex;align-items:center;gap:12px;padding:11px 14px 11px 0;border-top:1px solid var(--border);border-left:3px solid transparent}.tdy-row:first-child{border-top:0}" +
       ".tdy-row.red{border-left-color:var(--danger)}.tdy-row.amb{border-left-color:#C98A12}.tdy-row.grn{border-left-color:var(--ok)}.tdy-row.blu{border-left-color:var(--accent)}" +
       ".tdy-av{width:36px;height:36px;border-radius:50%;flex:none;margin-left:12px;display:grid;place-items:center;font-weight:700;font-size:12.5px;color:#fff}.tdy-av.sq{border-radius:9px}.tdy-av.nt{background:rgba(120,120,128,.12);color:#3A3A3C;font-size:14px}.tdy-av.tm{background:rgba(10,143,106,.10);color:#0A7A5B}" +
-      ".tdy-t{flex:1;min-width:0}.tdy-t b{display:block;font-size:14.5px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tdy-t span{display:block;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tdy-t span.u{color:var(--danger)}" +
+      ".tdy-t{flex:1;min-width:0}.tdy-t b{display:block;font-size:14.5px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tdy-t span{display:block;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tdy-t span.u{color:var(--danger)}.tdy-t span.w{color:var(--warn,#A06A0E);font-weight:600;white-space:normal}" +
+      ".tdy-warn{background:rgba(201,138,18,.12);border:1px solid rgba(201,138,18,.45);border-left:4px solid #C98A12;border-radius:12px;padding:10px 14px;margin:0 0 10px;font-size:13.5px;line-height:1.45;color:var(--text)}.tdy-warn p{margin:0}.tdy-warn p+p{margin-top:6px}.tdy-warn b{color:var(--warn,#A06A0E)}.tdy-warn a{color:var(--accent);font-weight:600;white-space:nowrap}" +
       ".tdy-pill{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;white-space:nowrap}.tdy-pill.red{background:rgba(191,59,46,.14);color:var(--danger)}.tdy-pill.amb{background:rgba(201,138,18,.16);color:var(--warn,#A06A0E)}.tdy-pill.grn{background:rgba(28,138,91,.16);color:var(--ok)}.tdy-pill.blu{background:rgba(10,143,106,.14);color:var(--accent)}.tdy-pill.gry{background:rgba(127,127,127,.14);color:var(--muted)}" +
       ".tdy-btn{font-size:13px;font-weight:600;padding:8px 14px;border-radius:9px;border:1px solid var(--border);background:var(--panel);white-space:nowrap;color:var(--text);cursor:pointer}.tdy-btn:disabled{opacity:.55;cursor:default}" +
       ".tdy-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.tdy-btn.g{background:var(--ok);border-color:var(--ok);color:#fff}" +
@@ -69,6 +80,8 @@
       ".tdy-tile{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}.tdy-tile .tdy-lab{margin:0 0 8px}.tdy-tile .big{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}.tdy-tile .big span{font-size:14px;font-weight:600;color:var(--muted);letter-spacing:0;margin-left:6px}.tdy-tile p{margin:6px 0 0;font-size:12.5px;color:var(--muted);line-height:1.45}.tdy-tile p b{color:var(--text);font-weight:600}.tdy-tile .tdy-btn{margin-top:10px}" +
       ".tdy-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.tdy-chips i{font-style:normal;height:26px;padding:0 10px;border-radius:6px;background:rgba(127,127,127,.12);display:inline-flex;align-items:center;font-size:11.5px;font-weight:600;color:var(--muted)}.tdy-chips i.on{background:rgba(28,138,91,.16);color:var(--ok)}" +
       ".tdy-foot{grid-column:1/-1;display:flex;gap:16px;align-items:center;font-size:12.5px;color:var(--muted);margin-top:18px;padding-top:10px;border-top:1px solid var(--border)}.tdy-foot a{color:var(--accent);cursor:pointer;font-weight:600}.tdy-foot .right{margin-left:auto}" +
+      ".tdy-setup{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin:14px 0 0}.tdy-setup h2{font-size:15px;font-weight:700;margin:0 0 2px}.tdy-setup p{margin:0 0 6px;font-size:13px;color:var(--muted)}" +
+      ".tdy-setup ul{list-style:none;margin:0;padding:0}.tdy-setup li{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;border-top:.5px solid var(--border);font-size:14.5px}.tdy-setup li:first-child{border-top:0}" +
       ".tdy-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:12px;padding:22px;color:var(--muted);font-size:14px}" +
       ".tdy-off{max-width:1180px;margin:0 auto 10px;box-sizing:border-box;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:rgba(201,138,18,.14);border:1px solid rgba(201,138,18,.35);color:var(--warn,#A06A0E);border-radius:10px;padding:8px 12px;font-size:13px}.tdy-off span{flex:1 1 220px}.tdy-off .tdy-btn{padding:6px 12px}" +
       ".tdy-sr{position:absolute;left:-9999px}" +
@@ -124,7 +137,7 @@
       var r = await E.apiFetch(row.action.path, { method: row.action.method, body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       var out = (row.limits && ((row.limits.min != null && minV < row.limits.min) || (row.limits.max != null && maxV > row.limits.max)));
-      E.toast(name + " logged " + minV + " to " + maxV + " °C · " + hm() + (out ? " · outside the limits, add a note in the register" : ""), out ? "warn" : "success");
+      E.toast(name + " logged " + minV + " to " + maxV + " °C · " + mt() + (out ? " · outside the limits, add a note in the register" : ""), out ? "warn" : "success");
       await load({ silent: true });
     } catch (e) {
       E.toast("Not saved: " + String(e && (e.message || e) || "error"), "error");
@@ -151,7 +164,7 @@
       var body = Object.assign({}, row.action.body, { time_in: hm(d), time_out: "", cleaner_name: who, staff_name: user.full_name || "", notes: "" });
       var r = await E.apiFetch(row.action.path, { method: row.action.method, body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      E.toast("Cleaning recorded · " + hm() + " · " + who, "success");
+      E.toast("Cleaning recorded · " + mt() + " · " + who, "success");
       await load({ silent: true });
     } catch (e) {
       E.toast("Not saved: " + String(e && (e.message || e) || "error"), "error");
@@ -163,22 +176,63 @@
   }
   function openPath(path) { if (path && path[0] === "#") window.location.hash = path; }
 
+  // First-run list (backlog 2 item 4), for the pharmacy's admin only, and only while something is missing: no fridge or
+  // room to log, nobody else signs in, opening hours never set. Each line goes when it is done; the list goes with the last.
+  // Counted by GET /today itself (still one request); an older server sends no "setup" and nothing is shown.
+  function setupItems(before) {
+    var s = (state.data && state.data.setup) || {}, out = []; // from GET /today (an older server sends none: no list)
+    if (!before.some(function (r) { return r.kind === "temperature"; })) out.push({ k: "fridge", t: "Add the fridge and room you log", go: "#temperature", b: "Add" });
+    if (s.sign_ins === 1) out.push({ k: "people", t: "Add the people who work here, so each signs in as themselves", go: "#teamreg", b: "Add people" });
+    if (s.opening_hours_saved === false) out.push({ k: "hours", t: "Set your opening hours", go: "#shifts", b: "Set hours" });
+    return out;
+  }
+  function setupCard(before) {
+    var u = E.state.user || {};
+    if (u.role !== "admin" || !(state.data && state.data.setup)) return "";
+    var items = setupItems(before);
+    if (!items.length) return "";
+    return '<section class="tdy-setup" aria-labelledby="tdy-setup-t"><h2 id="tdy-setup-t">Getting this pharmacy ready</h2><p>' + plural(items.length, "thing") + ' left. Each goes from this list once it is done.</p><ul>' +
+      items.map(function (i) { return '<li data-setup="' + i.k + '"><span>' + esc(i.t) + '</span><button class="tdy-btn" data-open="' + esc(i.go) + '">' + esc(i.b) + '</button></li>'; }).join("") + '</ul></section>';
+  }
+
   // ---------- render ----------
+  // Line icons in the rail's style (stroke, round caps), not characters: a lone "°" read as a stray mark.
+  function ico(d) { return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + "</svg>"; }
+  var ICO = {
+    room: ico('<path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z"/><path d="M12 9v7"/>'),
+    fridge: ico('<path d="M12 2.5v19M3.8 7.2l16.4 9.6M3.8 16.8l16.4-9.6"/><path d="m9.5 4 2.5 2 2.5-2M9.5 20l2.5-2 2.5 2"/>'),
+    register: ico('<path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H19v15H5.5A1.5 1.5 0 0 0 4 19.5z"/><path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H19M8 7.5h7M8 11h5"/>'),
+    clean: ico('<path d="M10 3.5 11.7 8.3 16.5 10 11.7 11.7 10 16.5 8.3 11.7 3.5 10 8.3 8.3z"/><path d="M17.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>')
+  };
+  function num(v) { return v == null || v === "" ? NaN : Number(v); }
+  // Yesterday's reading against the limits: the server sends both; only today's was ever judged.
+  function yesterdayOut(r) {
+    var y = r && r.yesterday, l = (r && r.limits) || {};
+    if (!y) return null;
+    var lo = num(l.min), hi = num(l.max), mn = num(y.min), mx = num(y.max);
+    var low = isFinite(lo) && isFinite(mn) && mn < lo, high = isFinite(hi) && isFinite(mx) && mx > hi;
+    if (!low && !high) return null;
+    return { low: low, high: high, min: mn, max: mx, lo: lo, hi: hi,
+      reading: low && high ? mn + " to " + mx + " °C" : (low ? mn : mx) + " °C",
+      limits: (isFinite(lo) ? lo : "–") + " to " + (isFinite(hi) ? hi : "–") + " °C" };
+  }
+  function yesterdayYmd() { var t = todayYmd(); if (!t) return ""; var d = new Date(t + "T12:00:00"); d.setDate(d.getDate() - 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
   function rowTemp(r) {
-    var done = r.status === "done";
-    var cls = done ? (r.out_of_range ? "red" : "grn") : "amb";
+    var done = r.status === "done", yo = yesterdayOut(r);
+    var cls = done ? (r.out_of_range ? "red" : (yo ? "amb" : "grn")) : "amb";
     var pill = done ? (r.out_of_range ? '<span class="tdy-pill red">Outside limits</span>' : '<span class="tdy-pill grn">Logged ' + esc(r.today.min) + " to " + esc(r.today.max) + "</span>") : "";
     var inl = done ? "" :
       '<div class="tdy-inl"><small>min</small><input data-min inputmode="decimal" aria-label="Minimum temperature"><small>max</small><input data-max inputmode="decimal" aria-label="Maximum temperature"></div>' +
       '<button class="tdy-btn p" data-act="temp">Log</button>';
     return '<div class="tdy-row ' + cls + '" data-kind="temperature" data-device="' + esc(r.device_id) + '">' +
-      '<div class="tdy-av sq nt">' + (r.limits && r.limits.max != null && r.limits.max <= 10 ? "❄" : "°") + '</div>' +
-      '<div class="tdy-t"><b>' + esc(r.title) + '</b><span>' + esc(r.sub) + '</span></div>' + pill + inl + '</div>';
+      '<div class="tdy-av sq nt">' + (r.limits && r.limits.max != null && r.limits.max <= 10 ? ICO.fridge : ICO.room) + '</div>' +
+      '<div class="tdy-t"><b>' + esc(r.title) + '</b>' +
+      (yo ? '<span class="w">Outside limits yesterday: ' + esc(yo.reading) + ' · limits ' + esc(yo.limits) + '</span>' : '<span>' + esc(r.sub) + '</span>') + '</div>' + pill + inl + '</div>';
   }
   function rowDaily(r) {
     var done = r.status === "done";
     return '<div class="tdy-row ' + (done ? "grn" : "amb") + '" data-kind="daily_register">' +
-      '<div class="tdy-av sq nt" style="font-size:12.5px">Rx</div>' +
+      '<div class="tdy-av sq nt">' + ICO.register + '</div>' +
       '<div class="tdy-t"><b>Daily register</b><span>' + esc(r.sub) + '</span></div>' +
       (done ? '<span class="tdy-pill grn">Done</span>' : '<span class="tdy-pill amb">No entry yet</span>') +
       '<button class="tdy-btn" data-open="' + esc(r.action.path) + '">Open</button></div>';
@@ -188,7 +242,7 @@
     var pill = r.status === "done" ? '<span class="tdy-pill grn">Done today</span>' : r.status === "overdue" ? '<span class="tdy-pill red">Overdue</span>' : '<span class="tdy-pill gry">Due weekly</span>';
     var sub = r.status === "overdue" ? '<span class="u">' + esc(r.sub) + " · due weekly</span>" : "<span>" + esc(r.sub) + "</span>";
     return '<div class="tdy-row ' + cls + '" data-kind="cleaning">' +
-      '<div class="tdy-av sq nt">✓</div>' +
+      '<div class="tdy-av sq nt">' + ICO.clean + '</div>' +
       '<div class="tdy-t"><b>Cleaning · dispensary and fridge</b>' + sub + '</div>' + pill +
       (r.status === "done" ? "" : '<div class="tdy-inl"></div><button class="tdy-btn" data-act="clean">Done now</button>') + '</div>';
   }
@@ -222,11 +276,11 @@
     var user = E.state.user || {};
     // The notice sits above the grid, not in it: inside, it took the first row and pushed the worklist below the side tiles.
     var html = "";
-    if (state.error) html += '<div class="tdy-off" role="alert"><span>' + esc(state.error) + (d && state.loadedAt ? " Showing what we had at " + hm(state.loadedAt) + "." : " Nothing to show yet.") + '</span>' +
+    if (state.error) html += '<div class="tdy-off" role="alert"><span>' + esc(state.error) + (d && state.loadedAt ? " Showing what we had at " + mt(state.loadedAt) + "." : " Nothing to show yet.") + '</span>' +
       (state.errorKind === "auth" ? '<button class="tdy-btn p" data-signin>Sign in again</button>' : '<button class="tdy-btn" data-retry>Try again</button>') + '</div>';
     html += '<div class="tdy">';
-    html += '<div class="tdy-find"><label class="tdy-search"><span aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:rgba(60,60,67,.55);flex:none;display:block"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><input id="tdy-q" type="search" placeholder="What do you need? A customer, an order, a register…" autocomplete="off" value="' + esc(state.search) + '"><span class="hint">' + (E.searchAttachToday ? "Enter opens it · / anywhere" : "Enter opens it") + '</span></label><div class="tdy-results" id="tdy-results" hidden></div></div>';
-    html += '<div class="tdy-date"><b>' + esc(longDate(d && d.date)) + '</b><span>' + esc(d && d.time ? d.time : hm()) + (user.location_name ? " · " + esc(user.location_name) : "") + '</span></div>';
+    html += '<div class="tdy-find"><label class="tdy-search"><span aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:rgba(60,60,67,.55);flex:none;display:block"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><input id="tdy-q" type="search" placeholder="' + esc(placeholder()) + '" aria-label="Search: a customer, an order, a register" autocomplete="off" value="' + esc(state.search) + '"><span class="hint">' + (E.searchAttachToday ? "Enter opens it · / anywhere" : "Enter opens it") + '</span></label><div class="tdy-results" id="tdy-results" hidden></div></div>';
+    html += '<div class="tdy-date"><b>' + esc(longDate(d && d.date)) + '</b><span>' + esc(d && d.time ? d.time : mt()) + (user.location_name ? " · " + esc(user.location_name) : "") + '</span></div>';
 
     if (!d) {
       html += '<div class="tdy-head"><h1>' + (state.error ? "Today could not be loaded." : "Loading…") + '</h1></div></div>';
@@ -236,7 +290,7 @@
     var before = d.before_opening || [], waiting = d.customers_waiting || [], attention = d.attention || [];
     var nBefore = d.counts.before_opening, nWait = waiting.length;
     var h1;
-    var hr = parseInt(String(d.time || hm()).split(":")[0], 10); if (isNaN(hr)) hr = new Date().getHours();
+    var hr = parseInt(String(d.time || mt()).split(":")[0], 10); if (isNaN(hr)) hr = new Date().getHours();
     var part = hr < 12 ? "morning" : hr < 17 ? "afternoon" : "evening";
     if (nBefore === 0 && nWait === 0) h1 = "A quiet " + part + ". <span>" + (hr < 12 ? "Nothing needs you yet." : "Everything is done.") + "</span>";
     else if (nBefore === 0) h1 = plural(nWait, "customer") + " waiting. <span>The registers are done.</span>";
@@ -254,12 +308,21 @@
     html += '<div class="tdy-head"><h1>' + h1 + '</h1><div class="tdy-legend">' + leg.join("") + '</div></div>';
 
     html += '<div class="tdy-col">';
+    html += setupCard(before);
     html += '<div class="tdy-lab">Before opening <b>' + nBefore + '</b></div>';
+    // A fridge or room outside its limits yesterday is the first thing to see in the morning, in words and colour.
+    var yOut = before.filter(function (r) { return r.kind === "temperature" && yesterdayOut(r); });
+    if (yOut.length) html += '<div class="tdy-warn" role="alert">' + yOut.map(function (r) {
+      var yo = yesterdayOut(r), name = String(r.title || "").replace(/ · reading$/, "");
+      return '<p><b>' + esc(name) + ' was ' + esc(yo.reading) + ' yesterday</b>, outside its limits of ' + esc(yo.limits) + '. Add a note saying what was done.' +
+        ' <a href="#tempreg" data-yday="' + esc(r.device_id) + '">See yesterday ›</a></p>';
+    }).join("") + '</div>';
     var orderKind = { temperature: 0, daily_register: 1, cleaning: 2 };
     var sorted = before.slice().sort(function (a, b) {
       var sa = a.status === "overdue" ? 0 : a.status === "todo" ? 1 : a.status === "ok" ? 2 : 3;
       var sb = b.status === "overdue" ? 0 : b.status === "todo" ? 1 : b.status === "ok" ? 2 : 3;
-      return sa - sb || (orderKind[a.kind] - orderKind[b.kind]);
+      var ya = a.kind === "temperature" && yesterdayOut(a) ? 0 : 1, yb = b.kind === "temperature" && yesterdayOut(b) ? 0 : 1;
+      return sa - sb || ya - yb || (orderKind[a.kind] - orderKind[b.kind]);
     });
     html += '<div class="tdy-list">' + sorted.map(function (r) {
       if (r.kind === "temperature") return rowTemp(r);
@@ -314,7 +377,7 @@
     html += '</div>';
 
     if (E.setRailBadge) { try { E.setRailBadge("today", before.filter(function (r) { return r.status === "todo" || r.status === "overdue"; }).length); E.setRailBadge("customers", nWait); E.setRailBadge("stock", attention.filter(function (a) { return a.kind === "near_expiry" || a.kind === "returns" || a.kind === "alert"; }).length); } catch (eB) {} }
-    html += '<div class="tdy-foot"><span>Updated ' + esc(state.loadedAt ? hm(state.loadedAt) : "–") + ' · refreshes every minute</span><a class="right" data-open="#dashboard">Old dashboard ›</a></div>';
+    html += '<div class="tdy-foot"><span>Updated ' + esc(state.loadedAt ? mt(state.loadedAt) : "–") + ' · refreshes every minute</span><a class="right" data-open="#dashboard">Old dashboard ›</a></div>';
     html += '</div>';
     m.innerHTML = html;
     bind();
@@ -352,6 +415,13 @@
         if (row) markCleaning(row, rowEl);
       });
     });
+    m.querySelectorAll("[data-yday]").forEach(function (a) {
+      a.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        try { sessionStorage.setItem("eikon_tempreg_day", JSON.stringify({ day: yesterdayYmd(), device: a.getAttribute("data-yday") })); } catch (e) {}
+        window.location.hash = "#tempreg";
+      });
+    });
     var q = m.querySelector("#tdy-q");
     if (q) q.addEventListener("input", function () { state.search = q.value; });
     // The search that acts (eikon.search.js): screens, people, open orders and today's bookings, under the box.
@@ -385,6 +455,9 @@
     if (state.onVis) document.removeEventListener("visibilitychange", state.onVis);
     state.onVis = function () { if (!document.hidden && E.state.activeModuleId === "today" && state.loadedAt && Date.now() - state.loadedAt.getTime() > 60000) load({ silent: true, background: true }); };
     document.addEventListener("visibilitychange", state.onVis);
+    // A phone turned sideways (or a window resized) gets the placeholder that fits, without waiting for the next refresh.
+    if (!state.mq) { try { state.mq = window.matchMedia(NARROW); var upd = function () { var q = state.mount && state.mount.querySelector("#tdy-q"); if (q) q.placeholder = placeholder(); };
+      if (state.mq.addEventListener) state.mq.addEventListener("change", upd); else if (state.mq.addListener) state.mq.addListener(upd); } catch (e) {} }
   }
   function destroy() { if (state.timer) { clearInterval(state.timer); state.timer = null; } if (state.onVis) { document.removeEventListener("visibilitychange", state.onVis); state.onVis = null; } }
 

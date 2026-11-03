@@ -93,6 +93,7 @@
         '<datalist id="cdp-names">' + S.known.names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>" +
         '<datalist id="cdp-agents">' + S.known.agents.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
     }
+    h += E.months.bar(S.month, { label: "Controlled drugs received" });
     if (S.loading && !S.entries.length) h += '<div class="cdp-quiet">Opening the register…</div>';
     else if (S.error) h += '<div class="cdp-quiet">' + esc(S.error) + "</div>";
     else {
@@ -101,9 +102,9 @@
       h += g.length ? g.map(function (x) {
         return '<div class="cdp-inv"><div class="h"><b>' + esc(x.agent) + "</b><span>Invoice " + esc(x.inv) + " · " + esc(dmy(x.date)) + "</span></div>" +
           x.lines.map(function (e) { return '<div class="cdp-ln"><span>' + esc(e.dda_name_dose) + "</span><em>" + esc(e.quantity) + "</em></div>"; }).join("") + "</div>";
-      }).join("") : '<div class="cdp-quiet">Nothing received this month yet.</div>';
+      }).join("") : '<div class="cdp-quiet" data-empty>' + esc(E.months.empty(S.month, "Nothing received this month yet.")) + "</div>";
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Correcting or deleting an entry, other months and the inspector\'s report are in the <a href="#" data-act="classic" style="color:var(--accent)">classic register</a>.</p></div>';
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Correcting or deleting an entry is in the <a href="#" data-act="classic" style="color:var(--accent)">classic register</a>.</p></div>';
     m.innerHTML = h;
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
@@ -115,8 +116,19 @@
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "cdpreg"); } catch (x) {} E.openClassic("dda-purchases"); }
       });
     });
+    E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; load(); }, paint: paint, print: printMonth });
     var f = m.querySelector("#cdp-add"); if (f) f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
     if (f && E.ddaMedSuggest) f.querySelectorAll("input.n").forEach(function (el) { E.ddaMedSuggest(el, { path: "/dda-purchases", field: "dda_name_dose", known: function () { return S.known.names; }, back: [2] }); }); // generic or brand, and what was written before
+  }
+
+  // The legal register as the classic screen prints it (its DDA purchases report): the month, then Date, DDA Name & Dose,
+  // Qty, Agent, Invoice Number, oldest first (the report's order: date, then the order typed).
+  function printMonth() {
+    var MB = E.months, m = S.month, rows = S.entries.slice().sort(function (a, b) { return String(a.entry_date).localeCompare(String(b.entry_date)) || Number(a.id) - Number(b.id); });
+    MB.print({ register: "DDA Purchases Report", month: m, sections: [{ heading: m, sub: "Range: " + MB.first(m) + " to " + MB.last(m),
+      cols: ["Date", "DDA Name & Dose", "Qty", "Agent", "Invoice Number"],
+      rows: rows.map(function (r) { return [r.entry_date || "", r.dda_name_dose || "", r.quantity == null ? "" : String(r.quantity), r.agent || "", r.invoice_number || ""]; }),
+      empty: "No entries for the selected date range." }] });
   }
 
   function keep() { // what is typed survives every repaint
@@ -168,7 +180,7 @@
 
   E.registerModule({
     id: "cdpreg", title: "Controlled drugs received", order: 3, icon: "℞", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.adding = null; S.err = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); S.adding = null; S.err = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("cdpreg") < 0) E.UI2_DESTINATIONS.push("cdpreg");
   if (E.UI2_PARENT) E.UI2_PARENT.cdpreg = "registers";

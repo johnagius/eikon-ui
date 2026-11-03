@@ -360,3 +360,25 @@ test("isolation, group sharing kept: POS catalogue 'all_org' reads the group's l
   ok(br.text.includes("Groupprod") && !br.text.includes("Chainprod"), "branch reads the group's catalogue");
   ok(!(await api("GET", "/emergency-pos/catalog", { token: T.branch })).text.includes("Groupprod"), "without all_org a branch reads its own");
 });
+
+test("isolation: team sign-ins (/team/users) are per pharmacy: Branch and Stranger see and change none of A's people", async (app) => {
+  const T = await world(app);
+  const staff = await app.addUser({ orgId: 1, locationId: 1, email: "iso-staff@example.com", name: "Iso Staff", role: "staff" });
+  await app.api("GET", "/team/users", { token: T.A }); // the column exists before the snapshot
+  const snapUsers = () => JSON.stringify(app.DB.db.prepare("SELECT * FROM users WHERE org_id = 1 AND default_location_id = 1 ORDER BY id").all());
+  const before = snapUsers();
+  const bad = [];
+  for (const [who, tok] of [["Branch", T.branch], ["Stranger", T.stranger]]) {
+    const l = await app.api("GET", "/team/users", { token: tok });
+    if (l.text.includes("admin@example.com") || l.text.includes("iso-staff@example.com")) bad.push(who + " list shows A's people");
+    for (const id of [1, staff.user.id]) {
+      for (const [p, b] of [["password"], ["active", { active: false }], ["role", { role: "staff" }]]) {
+        const r = await app.api("POST", "/team/users/" + id + "/" + p, { token: tok, body: b });
+        if (r.status !== 404) bad.push(who + " " + p + " on " + id + " -> " + r.status);
+      }
+    }
+  }
+  eq(bad, []);
+  eq(snapUsers(), before, "A's users unchanged");
+  eq((await app.api("GET", "/auth/me", { token: staff.token })).status, 200, "A's staff still signed in");
+});

@@ -65,7 +65,8 @@
     shifts: "Plan the rota: add or change shifts, answer leave requests.",
     instructions: "What the last shift left you, and what you leave the next one.",
     messageboard: "Messages between pharmacies, kept for six months.",
-    contacts: "Suppliers, reps, doctors, head office, one list."
+    contacts: "Suppliers, reps, doctors, head office, one list.",
+    teamreg: "Add a person, give a new password, switch off someone who has left."
   };
 
   // Each screen has one home tab (E.UI2_PARENT in core.js): the rail lights it and the back button returns to it.
@@ -108,7 +109,8 @@
       groups: [
         { label: "Today", ids: ["rotreg", "shifts", "instructions", "messageboard"] },
         { label: "Locums", ids: ["locumregister", "locumreceipts"] },
-        { label: "People we call", ids: ["contacts"] }
+        { label: "People we call", ids: ["contacts"] },
+        { label: "Sign-ins", ids: ["teamreg"] } // admin only (the module says adminOnly)
       ]
     },
     settings: {
@@ -122,9 +124,12 @@
         ] },
         { label: "You", actions: [
           { title: "Password", desc: "Change the password you sign in with.", run: function () { E.showChangePassword(); } },
+          { title: "Add to desktop or home screen", desc: "Open Eikon with one tap, in its own window, like an app.", run: function () { if (E.install) E.install.open(); } },
           { title: "Sign out", desc: "Sign out on this device.", run: function () { E.logout(); } }
         ] },
-        { label: "This pharmacy", ids: ["audit", "expreg", "contacts"] },
+        { label: "This pharmacy", ids: ["audit", "expreg", "contacts", "teamreg"], actions: [
+          { title: "Lock when idle", desc: "Cover this computer's screen after a few quiet minutes; off unless you turn it on.", run: function () { E.showIdleLockSettings(); } }
+        ] },
         { label: "Help", actions: [
           { title: "Help & guides", desc: "Short guides for every register.", run: function () { E.showHelpGuide(); } },
           { title: "Classic layout", desc: "The previous look, with the old sidebar. The link you were given brings you back here.", run: function () { try { localStorage.setItem("eikon_ui2", "0"); } catch (e) {} var u = new URL(window.location.href); u.searchParams.set("ui", "1"); u.hash = "#dashboard"; window.location.href = u.toString(); } },
@@ -213,7 +218,9 @@
     Object.keys(HUBS).forEach(function (hid) {
       HUBS[hid].groups.forEach(function (g) {
         (g.ids || []).forEach(function (mid) {
-          var mod = E.modules[mid]; if (!mod || seen[mid]) return; seen[mid] = 1;
+          var mod = E.modules[mid]; if (!mod || seen[mid]) return;
+          if (mod.adminOnly && E.state.user && E.state.user.role && E.state.user.role !== "admin") return; // not offered to staff
+          seen[mid] = 1;
           var nat = (E.UI2_NATIVE || {})[mid], shown = (nat && E.modules[nat] && E.modules[nat].title) || mod.title || mid;
           out.push({ key: mid, title: sentence(shown), old: mod.title || "", desc: DESC[mid] || "", hub: HUBS[hid].title, open: function () { openCard(mid, hid); } });
         });

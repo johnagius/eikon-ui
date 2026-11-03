@@ -145,6 +145,23 @@
   E.isUi2Paused = function () {
     try { return window.localStorage.getItem("eikon_ui2") !== "0" && window.sessionStorage.getItem("eikon_ui2_pause") === "1"; } catch (e) { return false; }
   };
+  // Malta time for anything shown as a clock or a calendar day: the server's day and the header are Malta time,
+  // so "Updated 14:22" and "signed in" must be too, whatever zone the device's clock is set to.
+  var __mtFmt = null;
+  function maltaParts(d) {
+    d = d instanceof Date ? d : (d == null ? new Date() : new Date(d));
+    if (!isFinite(d.getTime())) return null;
+    try {
+      if (!__mtFmt) __mtFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Malta", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+      var o = {}; __mtFmt.formatToParts(d).forEach(function (p) { o[p.type] = p.value; });
+      return { y: o.year, mo: o.month, d: o.day, h: o.hour === "24" ? "00" : o.hour, mi: o.minute };
+    } catch (e) { // no time-zone data: the device clock is the best there is
+      var pad = function (n) { return String(n).padStart(2, "0"); };
+      return { y: String(d.getFullYear()), mo: pad(d.getMonth() + 1), d: pad(d.getDate()), h: pad(d.getHours()), mi: pad(d.getMinutes()) };
+    }
+  }
+  E.maltaHm = function (d) { var p = maltaParts(d); return p ? p.h + ":" + p.mi : ""; };
+  E.maltaYmd = function (d) { var p = maltaParts(d); return p ? p.y + "-" + p.mo + "-" + p.d : ""; };
   E.openClassic = function (hash) {
     try {
       var u = new URL(window.location.href);
@@ -424,7 +441,7 @@
   // (E.state.activeModuleId), kind, the error's message and stack, scrubbed below (the server scrubs again).
   // Never sent: form values, the address (the bar is bare "/" anyway; queries and #fragments are cut), names typed.
   (function installErrorReports() {
-    var MAX_PER_LOAD = 5, sent = 0, seen = {};
+    var MAX_PER_LOAD = 5, sent = 0, seen = {}, cspSent = 0; // csp: its own 5, so it never takes a real error's place
     var build = "";
     try { var cs = document.currentScript && document.currentScript.src || ""; var mv = /[?&]v=([A-Za-z0-9._-]{1,40})/.exec(cs); if (mv) build = mv[1]; } catch (e) {}
     E._scrubReport = function (v, max) {
@@ -440,7 +457,7 @@
     };
     E.reportError = function (kind, message, err) {
       try {
-        if (sent >= MAX_PER_LOAD) return false;
+        if (kind === "csp" ? cspSent >= MAX_PER_LOAD : sent >= MAX_PER_LOAD) return false;
         var token = E.getToken ? E.getToken() : "";
         if (!token || !E.state || !E.state.user) return false; // signed in only (never from a portal's sign-in screen)
         if (!/^https?:$/.test(String(window.location.protocol || ""))) return false;
@@ -453,12 +470,55 @@
         };
         var key = body.kind + "|" + body.screen + "|" + body.message;
         if (seen[key]) return false;
-        seen[key] = 1; sent++;
+        seen[key] = 1; if (kind === "csp") cspSent++; else sent++;
         fetch((E.apiBase || "") + "/client-log", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token }, body: JSON.stringify(body) })
           .catch(function () {});
         return true;
       } catch (e) { return false; }
     };
+
+    // Content-Security-Policy-Report-Only (backlog 2-9, set by the worker on the app page): what the policy WOULD block
+    // is sent as kind "csp", so it can be enforced only once nothing legitimate trips it. Sent: the directive, the
+    // blocked thing's origin (never its path or query) and the file:line that asked. Before sign-in they wait (up to 5).
+    // A frame: the frames above this page (location.ancestorOrigins, Chrome/Edge/Safari) that frame-ancestors would refuse.
+    // Keep FRAME_OK in step with APP_FRAME_ANCESTORS in the worker (tests/worker/headers.test.mjs checks it).
+    var FRAME_OK = /^https:\/\/((www\.)?eikonhq\.com|eikon-api\.labrint\.workers\.dev|swiftdataautomation\.com|[a-z0-9-]+\.swiftdataautomation\.com)$/i;
+    var cspWaiting = [], framesDone = false;
+    function cspWhere(u) {
+      u = String(u || "");
+      if (!u || /^(inline|eval|wasm-eval|trusted-types-[a-z-]+|data|blob)$/i.test(u)) return u || "inline";
+      try { var x = new URL(u, location.href); return /^https?:$/.test(x.protocol) ? (x.origin === location.origin ? "self" : x.origin) : x.protocol.replace(/:$/, ""); }
+      catch (e) { return u.split(/[?#]/)[0].slice(0, 60); }
+    }
+    function cspFlush() {
+      try {
+        if (!E.state || !E.state.user) return;
+        if (!framesDone) {
+          framesDone = true;
+          var anc = [];
+          try { if (window.top !== window && location.ancestorOrigins) for (var i = 0; i < location.ancestorOrigins.length; i++) anc.push(String(location.ancestorOrigins[i])); } catch (eA) {}
+          anc.forEach(function (o) { if (o !== location.origin && !FRAME_OK.test(o)) cspWaiting.push("CSP frame-ancestors would block " + (/^https?:\/\//.test(o) ? o : "an opaque frame (" + o + ")")); });
+        }
+        while (cspWaiting.length) E.reportError("csp", cspWaiting.shift(), null);
+      } catch (e) {}
+    }
+    E._cspFlush = cspFlush;
+    try {
+      window.addEventListener("securitypolicyviolation", function (ev) {
+        try {
+          var dir = String(ev.effectiveDirective || ev.violatedDirective || "").split(" ")[0];
+          var file = ev.sourceFile ? String(ev.sourceFile).split(/[?#]/)[0] : "";
+          if (file.indexOf(location.origin) === 0) file = file.slice(location.origin.length);
+          var msg = "CSP " + dir + " would block " + cspWhere(ev.blockedURI) + (file ? " (" + file.replace(/^.*\/(?=[^\/]+$)/, "") + ":" + (ev.lineNumber || 0) + ")" : "");
+          if (cspWaiting.length < MAX_PER_LOAD && cspWaiting.indexOf(msg) < 0) cspWaiting.push(msg);
+          cspFlush();
+        } catch (e) {}
+      });
+      window.addEventListener("eikon:modules", cspFlush);
+      window.addEventListener("hashchange", cspFlush);
+      window.addEventListener("popstate", cspFlush);
+      setTimeout(cspFlush, 15000); setTimeout(cspFlush, 60000);
+    } catch (e) {}
   })();
 
   // DOM helpers
@@ -967,8 +1027,11 @@
           E.dbg("[auth] login OK:", resp.user);
           var roles = E.getRolesForUser(resp.user);
           E.dbg("[auth] available roles:", roles);
+          try { E.idleLock.afterSignIn(true); } catch (eI) {}
+          // A sign-in made or reset by the pharmacy's admin chooses its own password first (never an existing account).
+          var gate = (resp.must_change || (resp.user && resp.user.must_change)) ? E.forcePasswordChange(resp.user) : Promise.resolve();
           // The form can appear before every module has loaded; wait for them only if needed.
-          return E.modulesReady.then(function () { return E.renderRoleSelection(roles); });
+          return gate.then(function () { return E.modulesReady; }).then(function () { return E.renderRoleSelection(roles); });
         })
         .catch(function (err) {
           E.error("[auth] login error:", err);
@@ -1273,7 +1336,12 @@
       fsBtn.addEventListener("click", function () {
         var base = isFullscreenHost ? exitBase : enterBase;
         try {
-          var q = window.location.search || "";
+          // Opened from the frame on the other site, the full-screen tab stays on the old address (?stay=1: the worker
+          // and index.html move other browser tabs to eikonhq.com), so "Exit Fullscreen" keeps working; stay=1 is not
+          // handed back to the other site.
+          var sp = new URLSearchParams(window.location.search || "");
+          if (isFullscreenHost) sp.delete("stay"); else if (!isTop) sp.set("stay", "1");
+          var q = sp.toString() ? "?" + sp.toString() : "";
           var h = E.routeHash() || "";
           var target = base + q + h;
 
@@ -1521,7 +1589,7 @@
   E.UI2_RAIL_FOOT = [{ id: "team", title: "Team" }, { id: "settings", title: "Settings" }];
   E.UI2_DESTINATIONS = ["today", "customers", "stock", "registers", "team", "settings", "services", "money"];
   // Screens inside a tab keep that tab lit in the rail.
-  E.UI2_PARENT = { tempreg: "registers", cleanreg: "registers", drreg: "registers", locreg: "registers", certreg: "registers", nexreg: "stock", retreg: "stock", trfreg: "stock", alertreg: "stock", ordreg: "customers", tktreg: "customers", dlvreg: "customers", cdpreg: "registers", cdsreg: "registers", poyreg: "registers", poreg: "money", hndreg: "team", rotreg: "team", shfreg: "team", repreg: "registers", cnreg: "money", lrcreg: "money", odreg: "stock", qtreg: "stock", ssreg: "stock", brdreg: "team", conreg: "team", vaxreg: "services", eodreg: "money", pocreg: "services", scsreg: "stock", audreg: "settings", expreg: "settings", pvreg: "services", scrreg: "services", ocpreg: "services", lblreg: "services", sinreg: "stock", otcreg: "services", eposreg: "money", calreg: "services" };
+  E.UI2_PARENT = { teamreg: "team", tempreg: "registers", cleanreg: "registers", drreg: "registers", locreg: "registers", certreg: "registers", nexreg: "stock", retreg: "stock", trfreg: "stock", alertreg: "stock", ordreg: "customers", tktreg: "customers", dlvreg: "customers", cdpreg: "registers", cdsreg: "registers", poyreg: "registers", poreg: "money", hndreg: "team", rotreg: "team", shfreg: "team", repreg: "registers", cnreg: "money", lrcreg: "money", odreg: "stock", qtreg: "stock", ssreg: "stock", brdreg: "team", conreg: "team", vaxreg: "services", eodreg: "money", pocreg: "services", scsreg: "stock", audreg: "settings", expreg: "settings", pvreg: "services", scrreg: "services", ocpreg: "services", lblreg: "services", sinreg: "stock", otcreg: "services", eposreg: "money", calreg: "services" };
   // Old registers rebuilt for the new layout: any way of reaching the old id (Today, search, a hub, a link) lands on the new screen.
   E.UI2_NATIVE = { temperature: "tempreg", cleaning: "cleanreg", dailyregister: "drreg", locumregister: "locreg", certificates: "certreg", nearexpiry: "nexreg", returns: "retreg", stocktransfers: "trfreg", alerts: "alertreg", clientorders: "ordreg", tickets: "tktreg", deliveries: "dlvreg", "dda-purchases": "cdpreg", "dda-sales": "cdsreg", "dda-poyc": "poyreg", paidout: "poreg", instructions: "hndreg", repeatprescriptions: "repreg", creditnotes: "cnreg", locumreceipts: "lrcreg", "order-diary": "odreg", quotations: "qtreg", messageboard: "brdreg", contacts: "conreg", vaccines: "vaxreg", endofday: "eodreg", shifts: "shfreg", poct: "pocreg", scarcestock: "scsreg", audit: "audreg", pharmacovigilance: "pvreg", screening: "scrreg", ocps: "ocpreg", labels: "lblreg", "supplier-inventory": "sinreg", otcmindmap: "otcreg", "emergency-pos": "eposreg", pharmacycalc: "calreg", dda_stocktakes: "ddstreg" };
   // The tab a rebuilt screen belongs to, for its "‹ Tab" back button: one place decides, so moving a screen moves its way back too.
@@ -1584,7 +1652,7 @@
     E.UI2_RAIL_FOOT.forEach(function (it) { var b = btn(it); if (b) foot.appendChild(b); });
     var who = document.createElement("div"); who.className = "eikon-rail-who";
     var since = E.state.signedInAt || (E.state.signedInAt = new Date());
-    var hm = String(since.getHours()).padStart(2, "0") + ":" + String(since.getMinutes()).padStart(2, "0");
+    var hm = E.maltaHm(since); // Malta time, like the header and Today
     who.innerHTML = '<b>' + E.escapeHtml(String(u.full_name || u.email || "")) + '</b><span>' + E.escapeHtml(u.role === "admin" ? "Pharmacist" : "Staff") + ' · signed in ' + hm + '</span>';
     foot.appendChild(who);
     nav.appendChild(foot);
@@ -1758,12 +1826,245 @@
     } catch (e) {}
   };
 
+  // ─── Sign-in sheets (backlog 2 item 4): forced password change and the idle lock ─────────────────────────
+  // One full-screen sheet over everything: role=dialog, focus kept inside, everything behind inert and hidden
+  // from screen readers, and opaque so nothing behind can be read. What was typed behind it stays in the page.
+  E._signSheet = (function () {
+    var el = null, held = [];
+    function css() {
+      if (document.getElementById("eikon-sheet-css")) return;
+      var st = document.createElement("style"); st.id = "eikon-sheet-css";
+      st.textContent =
+        ".eks{position:fixed;inset:0;z-index:2147483000;background:var(--bg,#F2F2F7);color:var(--text,#000);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;font-family:inherit}" +
+        ".eks-card{width:100%;max-width:400px;background:var(--panel2,#fff);border:1px solid var(--border,rgba(0,0,0,.12));border-radius:16px;padding:22px 20px}" +
+        ".eks h2{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px}.eks p{margin:0 0 14px;font-size:14.5px;line-height:1.45;color:var(--muted,#555)}" +
+        ".eks label{display:block;font-size:13px;font-weight:600;margin:12px 0 5px;color:var(--text,#000)}" +
+        ".eks input{width:100%;box-sizing:border-box;height:44px;border:1px solid var(--border,rgba(0,0,0,.2));border-radius:10px;background:var(--panel,#fff);color:var(--text,#000);font:inherit;font-size:16px;padding:0 12px}" +
+        ".eks input:focus,.eks button:focus-visible{outline:3px solid rgba(10,143,106,.55);outline-offset:1px}" +
+        ".eks-acts{display:flex;gap:10px;justify-content:space-between;align-items:center;margin-top:18px;flex-wrap:wrap}" +
+        ".eks button{font:inherit;font-size:15px;font-weight:600;min-height:44px;padding:0 18px;border-radius:22px;border:1px solid var(--border,rgba(0,0,0,.2));background:var(--panel2,#fff);color:var(--text,#000);cursor:pointer}" +
+        ".eks button.p{background:var(--accent,#0A8F6A);border-color:var(--accent,#0A8F6A);color:#fff}.eks button.t{border:0;background:none;color:var(--accent,#0A8F6A);padding:0 4px}.eks button:disabled{opacity:.6}" +
+        ".eks-err{color:var(--danger,#B42318);font-size:13.5px;margin-top:10px;min-height:1px}.eks-who{font-weight:700;color:var(--text,#000)}" +
+        // light accents in the dark looks need dark text (as the new layout's own buttons): the classic look is always dark
+        "html:not([data-ui2]) .eks button.p{color:#06121F}@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .eks button.p{color:#00160E}}";
+      document.head.appendChild(st);
+    }
+    function trap(e) {
+      if (!el) return;
+      if (e.key !== "Tab") return;
+      var f = Array.prototype.filter.call(el.querySelectorAll("input,button,select,textarea,[tabindex]:not([tabindex='-1'])"), function (x) { return !x.disabled && x.offsetParent !== null; });
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+    function keepIn(e) { if (el && !el.contains(e.target)) { try { var i = el.querySelector("input,button"); if (i) i.focus(); } catch (x) {} } }
+    function open(labelledBy, html) {
+      css();
+      close();
+      el = document.createElement("div");
+      el.className = "eks"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-labelledby", labelledBy);
+      el.innerHTML = html;
+      Array.prototype.forEach.call(document.body.children, function (c) {
+        if (c === el || c.tagName === "SCRIPT" || c.tagName === "STYLE") return;
+        held.push({ c: c, inert: c.inert, aria: c.getAttribute("aria-hidden") });
+        c.inert = true; c.setAttribute("aria-hidden", "true");
+      });
+      document.body.appendChild(el);
+      document.addEventListener("keydown", trap, true);
+      document.addEventListener("focusin", keepIn, true);
+      return el;
+    }
+    function close() {
+      if (!el) return;
+      document.removeEventListener("keydown", trap, true);
+      document.removeEventListener("focusin", keepIn, true);
+      try { el.remove(); } catch (e) {}
+      el = null;
+      held.forEach(function (h) { h.c.inert = !!h.inert; if (h.aria == null) h.c.removeAttribute("aria-hidden"); else h.c.setAttribute("aria-hidden", h.aria); });
+      held = [];
+    }
+    return { open: open, close: close, isOpen: function () { return !!el; }, el: function () { return el; } };
+  })();
+
+  // A sign-in the pharmacy's admin made or reset (user.must_change, from the server) sets its own password before
+  // the app draws. Existing accounts never have the flag, so they never see this. Resolves when changed.
+  E.forcePasswordChange = function (user) {
+    return new Promise(function (resolve) {
+      var name = (user && (user.full_name || user.email)) || "";
+      var sh = E._signSheet.open("eks-fc-t",
+        '<form class="eks-card" id="eks-fc" novalidate autocomplete="on">' +
+        '<input type="text" name="username" autocomplete="username" value="' + E.escapeHtml((user && user.email) || "") + '" style="position:absolute;left:-9999px" tabindex="-1" aria-hidden="true">' +
+        '<h2 id="eks-fc-t">Choose your own password</h2>' +
+        '<p>Welcome, <span class="eks-who">' + E.escapeHtml(name) + '</span>. You signed in with a temporary password. Choose one only you know; it is used every time you sign in.</p>' +
+        '<label for="eks-fc-cur">Temporary password</label><input id="eks-fc-cur" type="password" autocomplete="current-password">' +
+        '<label for="eks-fc-n1">New password (10 characters or more)</label><input id="eks-fc-n1" type="password" autocomplete="new-password">' +
+        '<label for="eks-fc-n2">New password again</label><input id="eks-fc-n2" type="password" autocomplete="new-password">' +
+        '<div class="eks-err" id="eks-fc-err" role="alert"></div>' +
+        '<div class="eks-acts"><button type="button" class="t" id="eks-fc-out">Sign out</button><button type="submit" class="p" id="eks-fc-go">Save and continue</button></div></form>');
+      var f = sh.querySelector("#eks-fc"), err = sh.querySelector("#eks-fc-err"), go = sh.querySelector("#eks-fc-go");
+      function v(id) { return (sh.querySelector("#" + id) || {}).value || ""; }
+      sh.querySelector("#eks-fc-out").addEventListener("click", function () { E._signSheet.close(); E.logout(); });
+      f.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        var cur = v("eks-fc-cur"), n1 = v("eks-fc-n1"), n2 = v("eks-fc-n2");
+        if (!cur || !n1) { err.textContent = "Enter the temporary password and a new one."; return; }
+        if (n1.length < 10) { err.textContent = "The new password needs at least 10 characters."; return; }
+        if (n1 !== n2) { err.textContent = "The two new passwords do not match."; return; }
+        go.disabled = true; err.textContent = "";
+        try {
+          var r = await E.apiFetch("/auth/change-password", { method: "POST", body: JSON.stringify({ current_password: cur, new_password: n1 }) });
+          if (!r || !r.ok) throw new Error((r && r.error) || "Could not change the password");
+          if (user) delete user.must_change;
+          E._signSheet.close();
+          try { E.toast("Password saved. Use it from now on.", "success"); } catch (eT) {}
+          resolve();
+        } catch (x) {
+          err.textContent = x && x.status === 403 ? "The temporary password is not right." : String((x && (x.message || x)) || "Could not change the password");
+          go.disabled = false;
+        }
+      });
+      var first = sh.querySelector("#eks-fc-cur"); if (first) first.focus();
+    });
+  };
+
+  // Idle lock (Settings › This pharmacy): per browser, off by default. After N quiet minutes a sign-in sheet covers
+  // the screen; what was typed stays. The same person carries on with their password; someone else signs in as
+  // themselves and the page reloads as them (the previous session is ended on the server).
+  E.idleLock = (function () {
+    var KEY_MIN = "eikon_idle_lock_min", KEY_AT = "eikon_idle_at", KEY_LOCKED = "eikon_locked", KEY_UID = "eikon_lock_uid";
+    var started = false, timer = null, lastWrite = 0, locked = false;
+    function ls(k, v) { try { if (v === undefined) return window.localStorage.getItem(k); if (v === null) window.localStorage.removeItem(k); else window.localStorage.setItem(k, String(v)); } catch (e) { return null; } }
+    function minutes() { var n = parseInt(ls(KEY_MIN) || "0", 10); return [5, 15, 30].indexOf(n) >= 0 ? n : 0; }
+    function now() { return Date.now(); }
+    function signedIn() { return !!(E.state && E.state.user && E.getToken()); }
+    function activity() {
+      if (locked) return;
+      var t = now();
+      if (t - lastWrite > 2000) { lastWrite = t; ls(KEY_AT, t); }
+    }
+    function lastActive() { var a = Number(ls(KEY_AT) || 0); return Math.max(a, lastWrite); }
+    function check() {
+      if (locked || !signedIn()) return false;
+      var m = minutes(); if (!m) return false;
+      if (ls(KEY_LOCKED) === "1" || now() - lastActive() >= m * 60000) { lock(); return true; }
+      return false;
+    }
+    function lock() {
+      if (locked || !signedIn()) return;
+      locked = true; ls(KEY_LOCKED, "1");
+      var u = E.state.user || {};
+      var sh = E._signSheet.open("eks-lk-t",
+        '<form class="eks-card" id="eks-lk" novalidate autocomplete="on">' +
+        '<h2 id="eks-lk-t">Locked</h2>' +
+        '<p>Signed in as <span class="eks-who">' + E.escapeHtml(u.full_name || u.email || "") + '</span>. Enter the password to carry on where you were, or sign in as yourself.</p>' +
+        '<label for="eks-lk-email">E-mail</label><input id="eks-lk-email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" value="' + E.escapeHtml(u.email || "") + '">' +
+        '<label for="eks-lk-pass">Password</label><input id="eks-lk-pass" type="password" autocomplete="current-password">' +
+        '<div class="eks-err" id="eks-lk-err" role="alert"></div>' +
+        '<div class="eks-acts"><button type="button" class="t" id="eks-lk-other">Someone else</button><button type="submit" class="p" id="eks-lk-go">Unlock</button></div></form>');
+      var f = sh.querySelector("#eks-lk"), err = sh.querySelector("#eks-lk-err"), go = sh.querySelector("#eks-lk-go");
+      var em = sh.querySelector("#eks-lk-email"), pw = sh.querySelector("#eks-lk-pass");
+      sh.querySelector("#eks-lk-other").addEventListener("click", function () { em.value = ""; pw.value = ""; err.textContent = ""; em.focus(); });
+      f.addEventListener("submit", function (e) { e.preventDefault(); unlock(em.value, pw.value, err, go); });
+      pw.focus();
+    }
+    async function unlock(emailIn, pass, err, go) {
+      var u = E.state.user || {};
+      var email = String(emailIn || "").trim().toLowerCase();
+      if (!email || !pass) { err.textContent = "Enter the e-mail and password."; return; }
+      go.disabled = true; err.textContent = "";
+      try {
+        if (email === String(u.email || "").toLowerCase()) {
+          // Same person: the password is checked against this session; nothing else changes.
+          var ok = false;
+          try { var r = await E.apiFetch("/auth/unlock", { method: "POST", body: JSON.stringify({ password: pass }) }); ok = !!(r && r.ok); }
+          catch (x) {
+            if (x && x.status === 404) { // a server without /auth/unlock: sign in again as the same person
+              var L = await E.apiFetch("/auth/login", { method: "POST", body: JSON.stringify({ email: email, password: pass }) });
+              if (L && L.ok && L.token) { await endSession(E.getToken()); E.setToken(L.token); ok = true; }
+            } else throw x;
+          }
+          if (!ok) throw new Error("That password is not right.");
+          done(u.user_id || u.id);
+          if (!document.getElementById("eikon-content")) window.location.reload(); // the session had ended while locked
+          return;
+        }
+        // Someone else: their own session; the previous person's is ended; the page opens as them.
+        var L2 = await E.apiFetch("/auth/login", { method: "POST", body: JSON.stringify({ email: email, password: pass }) });
+        if (!L2 || !L2.ok || !L2.token) throw new Error("That e-mail and password do not match.");
+        var old = E.getToken();
+        await endSession(old);
+        E.setToken(L2.token);
+        done(L2.user && (L2.user.id || L2.user.user_id));
+        E._reload();
+      } catch (x2) {
+        err.textContent = x2 && (x2.status === 401 || x2.status === 403) ? "That e-mail and password do not match." : x2 && x2.status === 429 ? "Too many attempts. Wait 15 minutes and try again." : String((x2 && (x2.message || x2)) || "Could not unlock");
+        go.disabled = false;
+      }
+    }
+    async function endSession(tok) {
+      if (!tok) return;
+      try { await fetch((E.apiBase || "") + "/auth/logout", { method: "POST", headers: { Authorization: "Bearer " + tok } }); } catch (e) {}
+    }
+    function done(uid) {
+      locked = false; lastWrite = now(); ls(KEY_AT, lastWrite); ls(KEY_UID, uid == null ? "" : uid); ls(KEY_LOCKED, null);
+      E._signSheet.close();
+    }
+    function start() {
+      if (started) return; started = true;
+      ["keydown", "pointerdown", "pointermove", "wheel", "touchstart", "scroll"].forEach(function (ev) { document.addEventListener(ev, activity, { capture: true, passive: true }); });
+      document.addEventListener("visibilitychange", function () { if (!document.hidden) check(); });
+      window.addEventListener("storage", function (e) {
+        if (e.key === KEY_LOCKED) {
+          if (e.newValue === "1") { if (signedIn() && minutes()) lock(); }
+          else if (locked) { // unlocked in another tab
+            var me = E.state.user || {};
+            if (String(ls(KEY_UID) || "") !== String(me.user_id || me.id || "")) { E._reload(); return; }
+            locked = false; lastWrite = now(); E._signSheet.close();
+          }
+        }
+      });
+      timer = setInterval(check, 15000);
+    }
+    // At sign-in or page open: count from now, unless the page was already locked or left idle past the limit.
+    function afterSignIn(fresh) {
+      start();
+      if (fresh) { ls(KEY_LOCKED, null); lastWrite = now(); ls(KEY_AT, lastWrite); return; }
+      if (!Number(ls(KEY_AT) || 0)) { lastWrite = now(); ls(KEY_AT, lastWrite); }
+      check();
+    }
+    function setMinutes(n) {
+      n = [5, 15, 30].indexOf(Number(n)) >= 0 ? Number(n) : 0;
+      if (n) ls(KEY_MIN, n); else { ls(KEY_MIN, null); ls(KEY_LOCKED, null); }
+      lastWrite = now(); ls(KEY_AT, lastWrite);
+    }
+    return { minutes: minutes, setMinutes: setMinutes, check: check, lock: lock, afterSignIn: afterSignIn, isLocked: function () { return locked; } };
+  })();
+  E._reload = function () { window.location.reload(); };
+
+  E.showIdleLockSettings = function () {
+    var cur = E.idleLock.minutes();
+    var opts = [[0, "Off"], [5, "After 5 minutes"], [15, "After 15 minutes"], [30, "After 30 minutes"]];
+    var body = '<fieldset style="border:0;margin:0;padding:0"><legend class="eikon-help" style="margin-bottom:8px">On this computer only. When it locks, what was typed stays on the screen; the same person carries on with their password, or someone else signs in as themselves.</legend>' +
+      opts.map(function (o) { return '<label style="display:flex;align-items:center;gap:10px;min-height:40px;font-size:15px"><input type="radio" name="eikon-idle" value="' + o[0] + '"' + (o[0] === cur ? " checked" : "") + '> ' + o[1] + '</label>'; }).join("") + '</fieldset>';
+    E.modal.show("Lock when idle", body, [
+      { label: "Cancel", onClick: function () { E.modal.hide(); } },
+      { label: "Save", primary: true, onClick: function () {
+        var c = document.querySelector('input[name="eikon-idle"]:checked');
+        E.idleLock.setMinutes(c ? c.value : 0);
+        E.modal.hide();
+        E.toast(E.idleLock.minutes() ? "This computer locks after " + E.idleLock.minutes() + " quiet minutes." : "The idle lock is off on this computer.", "success");
+      } }
+    ]);
+  };
+
   E.logout = function () {
     E.dbg("[auth] logout");
     if (E._supplierPollInterval) { clearInterval(E._supplierPollInterval); E._supplierPollInterval = null; }
     // Revoke the session on the server before forgetting the token locally.
     try { if (E.getToken()) { E.apiFetch("/auth/logout", { method: "POST" }).catch(function () {}); } } catch (e) {}
     E.clearToken();
+    try { window.localStorage.removeItem("eikon_locked"); } catch (e) {}
     E.state.user = null;
     E.state.activeModuleId = "";
     E.state.activeRole = "";
@@ -1871,6 +2172,8 @@
     } finally {
       E.markIntroScreenDone();
     }
+    // "Add Eikon to your home screen": offered once after sign-in, on eikonhq.com in the new layout (eikon.install.js).
+    try { if (E.install && E.install.afterSignIn) E.install.afterSignIn(); } catch (eI) {}
   };
 
   E.start = async function () {
@@ -1926,6 +2229,8 @@
       if (!me || !me.ok || !me.user) throw new Error("Invalid /auth/me response");
       E.state.user = me.user;
       E.dbg("[auth] /auth/me OK:", me.user);
+      if (me.user.must_change) await E.forcePasswordChange(me.user);
+      try { E.idleLock.afterSignIn(false); } catch (eI) {}
 
       // Check for saved role
       var savedRole = "";

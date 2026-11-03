@@ -259,6 +259,18 @@
     return showWho && id ? '<button type="button" class="poc-row" data-act="open" data-pid="' + esc(id) + '">' + inner + "</button>" : '<div class="poc-row">' + inner + "</div>";
   }
 
+  function ymOf(iso) { var d = new Date(iso); return isNaN(d) ? "" : d.getFullYear() + "-" + pad(d.getMonth() + 1); }
+  // The tests of any month (from the records already read), and the classic POCT list printout for it:
+  // Date/Time, Test, Patient, Patient ID, Phone, Age, Results, Intervention, Notes; oldest first.
+  var HIST = { local: true, title: "By month", label: "Tests done", nowText: "No test recorded this month yet.", dep: function () { return S.loading ? undefined : S.records; },
+    active: function () { return E.state.activeModuleId === "pocreg" && !S.view; }, paint: function () { paint(); },
+    fetch: function (ym) { return Promise.resolve(S.records.filter(function (r) { return ymOf(r.performedAtIso) === ym; })); },
+    row: function (r) { var p = r.patient || {}; return { t: label(r) + " · " + summary(r), s: [p.name || p.patientId || "No name", when(r.performedAtIso)].join(" · ") }; },
+    print: function (ym, list) { printMonth(ym, list); } };
+  function printMonth(ym, list) {
+    E.months.print({ register: "POCT records", month: ym, landscape: true, sections: [{ cols: ["Date/Time", "Test", "Patient", "Patient ID", "Phone", "Age", "Results", "Intervention", "Notes"],
+      rows: list.slice().reverse().map(function (r) { var p = r.patient || {}; var d = new Date(r.performedAtIso), dt = isNaN(d.getTime()) ? "" : pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear() + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()); return [dt, r.testLabel || label(r), p.name || "", p.patientId || "", p.phone || "", p.age == null ? "" : String(p.age), summary(r), r.intervention || "", r.notes || ""]; }) }] });
+  }
   function homeHtml() {
     var h = '<label class="poc-find"><span class="poc-sr">Find a patient</span><input type="search" id="poc-q" value="' + esc(S.q) + '" placeholder="Find a patient: name, ID card or phone" autocomplete="off"></label>';
     var q = lower(S.q).replace(/\s+/g, "");
@@ -275,6 +287,7 @@
     var recent = S.records.slice(0, 25);
     h += '<div class="poc-lab">Latest tests <b>' + S.records.length + "</b></div>";
     h += recent.length ? '<div class="poc-list">' + recent.map(function (r) { return row(r, true); }).join("") + "</div>" : '<div class="poc-quiet">No tests recorded yet. Press Record a test to add the first one.</div>';
+    h += E.months.history("pocreg", HIST); // every test of a month, any month, and its printout
     return h;
   }
 
@@ -308,12 +321,13 @@
     else if (S.error) h += '<div class="poc-quiet">' + esc(S.error) + "</div>";
     else h += S.view ? patientHtml(S.view) : homeHtml();
     h += '<p class="poc-note">High and low marks are a guide for adults (blood pressure 140/90, fasting glucose 7.0 and random 11.1 mmol/L, HbA1c 48 mmol/mol, total cholesterol 5.0, LDL 3.0, HDL 1.0, BMI 25) and are not saved with the test. ' +
-      'Editing or deleting a test, printing, the patients list with its flags, CSV export and import are in the <a href="#" data-act="classic">classic POCT screen</a>.</p></div>';
+      'Editing or deleting a test, printing one test, the patients list with its flags, CSV export and import are in the <a href="#" data-act="classic">classic POCT screen</a>.</p></div>';
     var ae = document.activeElement, back = ae && m.contains(ae) && ae.closest && ae.closest("#poc-add") && ae.name ? "[name=" + ae.name + "]" : (ae && ae.id === "poc-q" ? "#poc-q" : "");
     var caret = null; if (back) try { caret = typeof ae.selectionStart === "number" ? ae.selectionStart : null; } catch (e) { caret = null; }
     m.innerHTML = h;
     if (back) { var again = m.querySelector(back); if (again) { again.focus(); if (caret != null) try { again.setSelectionRange(caret, caret); } catch (e) {} } } // a lookup filling fields keeps your place
     wire(m);
+    E.months.wireHistory(m, "pocreg");
   }
 
   function focus(sel) { setTimeout(function () { var x = S.mount && S.mount.querySelector(sel); if (x && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) x.focus(); }, 30); }
@@ -452,7 +466,7 @@
 
   E.registerModule({
     id: "pocreg", title: "Point-of-care tests", order: 3, icon: "🩺", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.view = null; S.q = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.view = null; S.q = ""; E.months.historyReset("pocreg"); css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("pocreg") < 0) E.UI2_DESTINATIONS.push("pocreg");
   if (E.UI2_PARENT) E.UI2_PARENT.pocreg = "services";

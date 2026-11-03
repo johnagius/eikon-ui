@@ -77,6 +77,15 @@
     return h + "</div>";
   }
 
+  // Every credit note issued in a month (any month, used up or not), and the classic printout of the list.
+  var HIST = { dep: function () { return S.loading ? undefined : S.entries; }, title: "Issued by month", label: "Credit notes issued", nowText: "No credit note issued this month yet.",
+    active: function () { return E.state.activeModuleId === "cnreg"; }, paint: function () { paint(); },
+    fetch: async function (ym) { return (await fetchAll()).filter(function (cn) { return String(cn.issue_date || "").slice(0, 7) === ym; }).sort(function (a, b) { return String(b.issue_date).localeCompare(String(a.issue_date)) || b.id - a.id; }); },
+    row: function (cn) { return { t: (cn.client_name || "") + " " + (cn.client_surname || ""), s: [E.months.dmy(cn.issue_date), eur(cn.amount), cn.receipt_number ? "Receipt " + cn.receipt_number : "", cn.telephone].filter(Boolean).join(" · "), r: eur(left(cn)) + " left" }; },
+    print: function (ym, rows) {
+      E.months.print({ register: "Credit Notes", month: ym, sections: [{ cols: ["Date", "Client", "Telephone", { h: "Balance / Total", num: true }, "Status"],
+        rows: rows.slice().reverse().map(function (r) { return [E.months.dmy(r.issue_date), (r.client_name || "") + " " + (r.client_surname || ""), r.telephone || "", eur(left(r)) + " / " + eur(r.amount), left(r) > 0.004 ? "Open" : "Closed"]; }) }] });
+    } };
   function paint(fromState) {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "cnreg") return; // left before a reply came back: do not draw over the next screen
@@ -102,10 +111,12 @@
       h += '<div class="cnr-lab">Open <b>' + open.length + "</b></div>" + (open.length ? open.map(card).join("") : '<div class="cnr-quiet">' + (q ? "No open credit note for “" + esc(S.q) + "”." : "No open credit notes.") + "</div>");
       if (old.length) h += '<div class="cnr-lab">Expired with money left <b>' + old.length + "</b></div>" + old.map(card).join("");
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Changing a note, undoing a use, notes and printing are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += E.months.history("cnreg", HIST);
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Changing a note, undoing a use and notes are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
     var ae = document.activeElement, sel = ae && m.contains(ae) ? (ae.id === "cnr-q" ? "#cnr-q" : ae.name ? "[name=" + ae.name + "]" : "") : "";
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) { again.focus(); try { var L = again.value.length; again.setSelectionRange(L, L); } catch (x) {} } }
+    E.months.wireHistory(m, "cnreg");
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
@@ -182,7 +193,7 @@
 
   E.registerModule({
     id: "cnreg", title: "Credit notes", order: 3, icon: "€", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.using = null; S.adding = null; S.err = ""; S.q = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.using = null; S.adding = null; S.err = ""; S.q = ""; E.months.historyReset("cnreg"); css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("cnreg") < 0) E.UI2_DESTINATIONS.push("cnreg");
   if (E.UI2_PARENT) E.UI2_PARENT.cnreg = "money";

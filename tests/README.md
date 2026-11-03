@@ -1,6 +1,6 @@
 # Tests
 
-Two harnesses, no dependencies beyond Node 22 and the Playwright that is
+Three harnesses, no dependencies beyond Node 22 and the Playwright that is
 pre-installed in the cloud container.
 
 ## Worker (`tests/worker/`)
@@ -43,7 +43,29 @@ DDA report escaping).
 node --no-warnings tests/ui/run.mjs
 ```
 
+## Real stack (`tests/real/`)
+
+The regression gate for screens that write. One process starts the real worker on an in-memory SQLite
+(`tests/worker/harness.mjs`) and serves `ui/` on one port (`REAL_PORT`, default 8895), seeds once, and drives
+Chromium (every request that is not to localhost is aborted; email providers are stubbed). For each new-layout
+screen that writes (`tests/real/cases/*.mjs`: Orders, Questions, Deliveries, Daily register, Locum, DDA sales,
+purchases and POYC, Repeat Rx, Temperature via Today, Cleaning, Paid out, Locum receipts, End of day, Credit notes,
+POCT, Vaccines, Emergency POS, Labels, DDA stock-takes, Customers + New) it types the same input into the classic
+screen and the new one (Vaccines: the classic body through the API; Customers has no classic screen), reads both
+stored rows from the database and compares every column. Only the row's id and clock columns, plus differences
+listed in the case with the reason (a generated code, a sequence number), may differ; differences found and not yet
+fixed are listed as `KNOWN` in the tail instead of failing. It prints one line per case and a tail ending
+`real: N passed, M failed`, and exits non-zero on a failure. About 30 seconds with 4 parallel cases.
+
+```bash
+node --no-warnings tests/real/run.mjs              # all cases
+node --no-warnings tests/real/run.mjs ordreg eod   # cases whose file name contains a word
+REAL_JOBS=1 REAL_NOTES=1 REAL_VERBOSE=1 REAL_SHOTS=/some/dir node --no-warnings tests/real/run.mjs   # serial, notes, logs, screenshots on a stuck save
+```
+
+Run it before shipping any UI or worker change, with the worker and UI suites.
+
 ## Safety
 
 Nothing here touches a real database or the deployed worker. The UI harness
-intercepts every network call; the worker harness uses `:memory:` SQLite.
+intercepts every network call; the worker harness and `tests/real` use `:memory:` SQLite.

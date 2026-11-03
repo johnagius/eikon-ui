@@ -85,7 +85,8 @@ export async function makeApp(opts = {}) {
       payload = typeof body === "string" ? body : JSON.stringify(body);
     }
     if (token) h.set("Authorization", "Bearer " + token);
-    const req = new Request(origin + path, { method, headers: h, body: payload });
+    // A full address (https://eikonhq.com/...) is sent as it is: the worker answers some pages by host.
+    const req = new Request(/^https?:\/\//.test(path) ? path : origin + path, { method, headers: h, body: payload });
     return worker.fetch(req, env, ctx);
   }
 

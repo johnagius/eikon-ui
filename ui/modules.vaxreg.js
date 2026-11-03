@@ -9,7 +9,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, orders: [], catalog: [], stock: [], loading: false, error: "", q: "", adding: null, saving: false, err: "", printFor: 0, justSaved: 0 };
+  var S = { mount: null, orders: [], catalog: [], stock: [], loading: false, error: "", q: "", adding: null, saving: false, err: "", printFor: 0, justSaved: 0, vm: "", vmOrders: [], vmLoading: false, vmErr: "" };
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   var F = ["country", "client_first", "client_last", "phone", "email"];
   var COUNTRIES = null, countriesLoading = null; // [{ code, name, nn }] from the same map file the classic screen uses
@@ -112,6 +112,23 @@
     await side;
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
+  async function loadMonth() {
+    var want = S.vm; S.vmLoading = true; S.vmErr = "";
+    try {
+      var r = await E.apiFetch("/vaccines/orders?month=" + encodeURIComponent(want), { method: "GET" });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Could not load vaccine orders");
+      if (want !== S.vm) return;
+      S.vmOrders = (r.orders || r.items || []).slice().sort(function (a, b) { return String(b.created_at).localeCompare(String(a.created_at)) || b.id - a.id; });
+    } catch (e) { if (want === S.vm) S.vmErr = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load vaccine orders"); }
+    if (want !== S.vm) return;
+    S.vmLoading = false; E.whenFormIdle(S.mount, paint);
+  }
+  // The month's orders on paper: one line per order (the classic screen prints one order at a time; this is the list).
+  function printMonth() {
+    var MB = E.months;
+    MB.print({ register: "Vaccine orders", month: S.vm, landscape: true, sections: [{ cols: ["Date", "Client", "Phone", "Email", "For", "Vaccines"],
+      rows: S.vmOrders.slice().reverse().map(function (o) { var its = o.items || []; return [when(o.created_at), client(o), o.phone || "", o.email || "", o.section === "travel" ? "Travel" + (o.country_name ? " to " + o.country_name : "") : o.section === "other" ? "Routine and other" : String(o.section || ""), its.map(function (it) { return it.name + " × " + (it.qty || 1); }).join(", ")]; }) }] });
+  }
   function loadCountries() { // a 3.5 MB map file, fetched once and only when a travel order is being taken
     if (COUNTRIES || countriesLoading) return countriesLoading;
     countriesLoading = (async function () {
@@ -200,10 +217,12 @@
         });
         h += '<div class="vxr-lab">Found <b>' + hit.length + "</b></div>" + (hit.length ? '<div class="vxr-list">' + hit.map(orderRow).join("") + "</div>" : '<div class="vxr-quiet">No order matches.</div>');
       } else {
-        var mon = ym(nowIso()), cur = S.orders.filter(function (o) { return ym(o.created_at) === mon; }), old = S.orders.filter(function (o) { return ym(o.created_at) !== mon; });
-        h += '<div class="vxr-lab">This month <b>' + cur.length + "</b></div>" + (cur.length ? '<div class="vxr-list">' + cur.map(orderRow).join("") + "</div>" : '<div class="vxr-quiet">No vaccine order this month yet.</div>');
-        if (old.length) h += '<div class="vxr-lab">Earlier <b>' + old.length + '</b></div><div class="vxr-list">' + old.slice(0, 30).map(orderRow).join("") + "</div>" +
-          (old.length > 30 ? '<p style="font-size:12.5px;color:var(--muted);margin:8px 2px 0">Showing the latest 30. Search to find the others.</p>' : "");
+        // the orders taken in one month, any month (this month first)
+        var cur = S.vmOrders;
+        h += E.months.bar(S.vm, { label: "Vaccine orders" });
+        if (S.vmLoading && !cur.length) h += '<div class="vxr-quiet">Opening ' + esc(E.months.label(S.vm)) + "…</div>";
+        else if (S.vmErr) h += '<div class="vxr-quiet">' + esc(S.vmErr) + "</div>";
+        else h += '<div class="vxr-lab">' + esc(E.months.label(S.vm)) + " <b>" + cur.length + "</b></div>" + (cur.length ? '<div class="vxr-list">' + cur.map(orderRow).join("") + "</div>" : '<div class="vxr-quiet" data-empty>' + esc(E.months.empty(S.vm, "No vaccine order this month yet.")) + "</div>");
       }
     }
     h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Search covers the latest 200 orders. Stock, batches and expiry, the vaccine database and printed tables are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
@@ -212,6 +231,7 @@
       ae.getAttribute("data-act") ? '[data-act="' + ae.getAttribute("data-act") + '"]' + ["data-sec", "data-v", "data-i", "data-id"].map(function (k) { return ae.hasAttribute(k) ? "[" + k + '="' + ae.getAttribute(k) + '"]' : ""; }).join("") : "";
     m.innerHTML = h;
     if (keepSel) { var again = m.querySelector(keepSel); if (again) { again.focus(); try { var L = again.value.length; again.setSelectionRange(L, L); } catch (x) {} } } // typing keeps its place
+    E.months.wire(m, { month: function () { return S.vm; }, go: function (v) { S.vm = v; S.vmOrders = []; loadMonth(); paint(); }, paint: function () { paint(); }, print: printMonth });
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
@@ -229,7 +249,7 @@
         else if (act === "line") { keep(); S.adding.lines.push({ name: "", qty: "1" }); paint(true); var ins = m.querySelectorAll(".vxr-form .ln input.n"); if (ins.length) ins[ins.length - 1].focus(); }
         else if (act === "rm") { keep(); S.adding.lines.splice(Number(b.getAttribute("data-i")), 1); paint(true); var add = m.querySelector("[data-act=line]"); if (add) add.focus(); }
         else if (act === "print") { S.printFor = id; S.justSaved = 0; paint(); var a4 = m.querySelector('[data-act=print-a4][data-id="' + id + '"]'); if (a4) a4.focus(); }
-        else if (act === "print-a4" || act === "print-rc") { var o = S.orders.find(function (x) { return x.id === id; }); if (o) printOrder(o, act === "print-rc" ? "RECEIPT" : "A4"); S.printFor = 0; S.justSaved = 0; paint(); }
+        else if (act === "print-a4" || act === "print-rc") { var o = S.orders.concat(S.vmOrders).find(function (x) { return x.id === id; }); if (o) printOrder(o, act === "print-rc" ? "RECEIPT" : "A4"); S.printFor = 0; S.justSaved = 0; paint(); }
         else if (act === "print-no") { S.printFor = 0; S.justSaved = 0; paint(); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "vaxreg"); } catch (x) {} E.openClassic("vaccines"); }
       });
@@ -298,7 +318,7 @@
       var oid = r.order && r.order.id; if (oid) { S.printFor = oid; S.justSaved = oid; } // like the classic screen, offer to print it straight away
       S.q = "";
     } catch (x) { S.err = E.saveFailText(x); }
-    S.saving = false; await load();
+    S.saving = false; if (!S.adding) { S.vm = E.months.now(); S.vmOrders = []; loadMonth(); } await load();
     if (S.printFor) { var a4 = S.mount && S.mount.querySelector('[data-act=print-a4][data-id="' + S.printFor + '"]'); if (a4) a4.focus(); } // the form is gone: focus goes to the print offer
   }
 
@@ -336,7 +356,7 @@
 
   E.registerModule({
     id: "vaxreg", title: "Vaccines", order: 3, icon: "✚", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.q = ""; S.printFor = 0; S.justSaved = 0; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.q = ""; S.printFor = 0; S.justSaved = 0; S.vm = E.months.now(); S.vmOrders = []; E.months.reset(); css(); paint(); loadMonth(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("vaxreg") < 0) E.UI2_DESTINATIONS.push("vaxreg");
   if (E.UI2_PARENT) E.UI2_PARENT.vaxreg = "services";

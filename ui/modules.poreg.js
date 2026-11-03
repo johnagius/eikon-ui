@@ -81,12 +81,13 @@
         '<div class="acts"><button type="button" class="por-btn" data-act="add-cancel">Cancel</button><button type="submit" class="por-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div>" +
         '<datalist id="por-names">' + S.names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
     }
+    h += E.months.bar(S.month, { label: "Paid out" });
     if (S.loading && !S.entries.length) h += '<div class="por-quiet">Opening paid outs…</div>';
     else if (S.error) h += '<div class="por-quiet">' + esc(S.error) + "</div>";
     else {
       var tdy = S.entries.filter(function (e) { return e.entry_date === today(); }), sum = function (l) { return l.reduce(function (t, e) { return t + (Number(e.fee) || 0); }, 0); };
-      h += '<div class="por-sum"><div><small>Today</small><b>' + eur(sum(tdy)) + '</b></div><div><small>' + esc(mn) + "</small><b>" + eur(sum(S.entries)) + "</b></div></div>";
-      if (!S.entries.length) h += '<div class="por-quiet">Nothing paid out this month.</div>';
+      h += '<div class="por-sum">' + (E.months.isNow(S.month) ? "<div><small>Today</small><b>" + eur(sum(tdy)) + "</b></div>" : "") + "<div><small>" + esc(mn) + "</small><b>" + eur(sum(S.entries)) + "</b></div></div>";
+      if (!S.entries.length) h += '<div class="por-quiet" data-empty>' + esc(E.months.empty(S.month, "Nothing paid out this month.")) + "</div>";
       var days = []; S.entries.forEach(function (e) { if (days.indexOf(e.entry_date) < 0) days.push(e.entry_date); });
       days.forEach(function (d) {
         var list = S.entries.filter(function (e) { return e.entry_date === d; });
@@ -96,7 +97,7 @@
         }).join("") + "</div>";
       });
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Correcting or deleting a payment, other months and the report are in the <a href="#" data-act="classic" style="color:var(--accent)">classic register</a>.</p></div>';
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Correcting or deleting a payment is in the <a href="#" data-act="classic" style="color:var(--accent)">classic register</a>.</p></div>';
     m.innerHTML = h;
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
@@ -109,6 +110,24 @@
     });
     m.querySelectorAll(".por-seg [data-m]").forEach(function (b) { b.addEventListener("click", function () { keep(); S.adding.payment_method = b.getAttribute("data-m"); paint(true); }); });
     var f = m.querySelector("#por-add"); if (f) f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
+    E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; load(); }, paint: function () { paint(); }, print: printMonth });
+  }
+
+  // The classic month report: by who was paid (A to Z), each with its payments (oldest first) and subtotal, and the total.
+  function printMonth() {
+    var MB = E.months, groups = {}, names = [], tot = 0, f2 = function (v) { var n = Number(v); return (isFinite(n) ? n : 0).toFixed(2); };
+    S.entries.forEach(function (e) { var n = String(e.payee_name || "").trim() || "(No name)"; if (!groups[n]) { groups[n] = []; names.push(n); } groups[n].push(e); tot += Number(e.fee) || 0; });
+    names.sort(function (a, b) { return a.localeCompare(b); });
+    var cols = ["Date", "Time", { h: "Amount", num: true }, "Method", "Invoice", "Cheque", "Reason"];
+    MB.print({ register: "Paid Out — Month Report", month: S.month,
+      intro: '<p class="sub"><b>Total: ' + f2(tot) + "</b> · Items: " + S.entries.length + "</p>",
+      sections: names.length ? names.map(function (n) {
+        var g = groups[n].slice().sort(function (a, b) { return String(a.entry_date).localeCompare(String(b.entry_date)) || String(a.entry_time || "").localeCompare(String(b.entry_time || "")) || Number(a.id) - Number(b.id); });
+        var sub = g.reduce(function (t, e) { return t + (Number(e.fee) || 0); }, 0);
+        return { heading: n, sub: "Items: " + g.length + " · Subtotal: " + f2(sub), cols: cols,
+          rows: g.map(function (e) { return [MB.dmy(e.entry_date), e.entry_time || "", f2(e.fee), String(e.payment_method || "").toLowerCase() === "cheque" ? "Cheque" : "Cash", e.invoice_no || "", e.cheque_no || "", e.reason || ""]; }),
+          foot: ["Subtotal", "", f2(sub), "", "", "", ""] };
+      }) : [{ cols: cols, rows: [] }] });
   }
 
   function keep() {
@@ -147,7 +166,7 @@
 
   E.registerModule({
     id: "poreg", title: "Paid out", order: 3, icon: "€", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.adding = null; S.err = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); S.adding = null; S.err = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("poreg") < 0) E.UI2_DESTINATIONS.push("poreg");
   if (E.UI2_PARENT) E.UI2_PARENT.poreg = "money";

@@ -117,17 +117,18 @@
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "cleanreg") return; // left before a reply came back: do not draw over the next screen
-    var isNow = S.month >= thisMonth(), user = E.state.user || {};
+    var MB = E.months, user = E.state.user || {};
     var h = '<div class="clr"><button class="clr-back" data-act="back">‹ Registers</button>' +
       '<div class="clr-top"><div><h1>Cleaning</h1><p class="clr-sub">Dispensary and fridge, at least once a week.</p></div>' +
-      '<div class="clr-acts">' + (S.form ? "" : '<button class="clr-btn p" data-act="new">Record a cleaning</button>') + '<button class="clr-btn" data-act="print">Print</button></div></div>' +
+      '<div class="clr-acts">' + (S.form ? "" : '<button class="clr-btn p" data-act="new">Record a cleaning</button>') + "</div></div>" +
       '<p class="clr-pmeta">' + esc((user.location_name || "") + " · Cleaning register · " + monthLabel(S.month) + " · printed " + ymd(new Date())) + "</p>";
     if (S.form) h += formHtml();
     h += statusHtml();
-    h += '<div class="clr-month"><button class="clr-arrow" data-act="prev" aria-label="Previous month">‹</button><b>' + esc(monthLabel(S.month)) + '</b><button class="clr-arrow" data-act="next" aria-label="Next month"' + (isNow ? " disabled" : "") + ">›</button></div>";
+    h += MB.bar(S.month, { label: "Cleaning" });
     if (S.loading && !S.entries.length) h += '<div class="clr-quiet">Opening the register…</div>';
     else if (S.error) h += '<div class="clr-quiet">' + esc(S.error) + "</div>";
     else {
+      if (!S.entries.length && S.month < thisMonth()) h += '<div class="clr-quiet" data-empty>' + esc(MB.empty(S.month)) + "</div>";
       weeks().forEach(function (w) {
         var inWeek = S.around.filter(function (e) { return e.entry_date >= w.from && e.entry_date <= w.to; });
         var current = w.to >= ymd(new Date()), last = (S.recent || [])[0], overdue = !last || daysAgo(last.entry_date) > DUE_DAYS;
@@ -148,6 +149,13 @@
     h += "</div>";
     m.innerHTML = h;
     bind(m);
+    MB.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; S.around = []; load(); }, paint: paint, print: printMonth });
+  }
+  // The classic cleaning printout: one line per cleaning, oldest first.
+  function printMonth() {
+    var MB = E.months;
+    MB.print({ register: "Cleaning register", month: S.month, sections: [{ cols: ["Date", "Time in", "Time out", "Cleaner", "Staff", "Notes"],
+      rows: S.entries.slice().reverse().map(function (e) { return [MB.dmy(e.entry_date), e.time_in || "", e.time_out || "", e.cleaner_name || "", e.staff_name || "", e.notes || ""]; }) }] });
   }
 
   function bind(m) {
@@ -155,9 +163,6 @@
       b.addEventListener("click", function () {
         var a = b.getAttribute("data-act");
         if (a === "back") window.location.hash = "#registers";
-        else if (a === "prev") { S.month = shiftMonth(S.month, -1); load(); }
-        else if (a === "next") { if (S.month < thisMonth()) { S.month = shiftMonth(S.month, 1); load(); } }
-        else if (a === "print") window.print();
         else if (a === "new") { S.form = { entry_date: ymd(new Date()), time_in: hmNow(), time_out: "", cleaner_name: "", notes: "", err: "" }; paint(); setTimeout(function () { var c = m.querySelector("[name=cleaner_name]"); if (c && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) c.focus(); }, 30); }
         else if (a === "cancel") { S.form = null; paint(); }
       });
@@ -191,7 +196,7 @@
 
   E.registerModule({
     id: "cleanreg", title: "Cleaning", order: 3, icon: "✓", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; if (!S.month) S.month = thisMonth(); css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.month = thisMonth(); S.entries = []; S.around = []; E.months.reset(); css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("cleanreg") < 0) E.UI2_DESTINATIONS.push("cleanreg");
   if (E.UI2_PARENT) E.UI2_PARENT.cleanreg = "registers";

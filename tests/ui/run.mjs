@@ -31,10 +31,10 @@ function todayPayload() {
   return {
     ok: true, date: t, time: "09:12", timezone: "Europe/Malta", pharmacy: { name: "Demo Pharmacy", location_id: 12, org: "Test" },
     before_opening: [
-      { kind: "temperature", device_id: 7, title: "Fridge 1 · reading", sub: "Yesterday 3.8 to 6.4 · limits 2 to 8", status: todayState.tempDone ? "done" : "todo", out_of_range: false, limits: { min: 2, max: 8 }, yesterday: { min: 3.8, max: 6.4 }, today: todayState.tempDone ? { min: 3.9, max: 6.1 } : null, action: { method: "POST", path: "/temperature/entries", body: { device_id: 7, entry_date: t }, fields: ["min_temp", "max_temp", "notes"], label: "Log" } },
+      { kind: "temperature", device_id: 7, title: "Fridge 1 · reading", sub: "Yesterday 3.8 to 6.4 · limits 2 to 8", status: todayState.tempDone ? "done" : "todo", out_of_range: false, limits: { min: 2, max: 8 }, yesterday: todayState.yOut ? { min: 3.8, max: 9.1 } : { min: 3.8, max: 6.4 }, today: todayState.tempDone ? { min: 3.9, max: 6.1 } : null, action: { method: "POST", path: "/temperature/entries", body: { device_id: 7, entry_date: t }, fields: ["min_temp", "max_temp", "notes"], label: "Log" } },
       { kind: "daily_register", title: "Daily register", sub: "No entry yet today", status: "todo", count_today: 0, action: { type: "open", path: "#dailyregister", label: "Open" } },
       { kind: "cleaning", title: "Cleaning", sub: "Last done 14 days ago by Karl", status: todayState.cleanDone ? "done" : "overdue", days_since: 14, last_date: "2026-10-17", action: { method: "POST", path: "/cleaning/entries", body: { entry_date: t }, fields: ["time_in", "cleaner_name", "staff_name"], label: "Done now" } }
-    ],
+    ].filter((x) => !(todayState.noFridge && x.kind === "temperature")),
     customers_waiting: [
       { kind: "order", id: 1, name: "Grech Carmen", phone: "79123456", detail: "Augmentin 625 ×14", code: "A1B2C3", needed_by: t, pickup_date: t, priority: 1, waiting_days: 0, due_today: true, action: { type: "open", path: "#clientorders", label: "Open" } },
       { kind: "question", id: 2, ref: "TKT-00001", name: "Vella Joseph", phone: "79000000", detail: "do you stock the Omron M3 monitor?", status: "Open", priority: 2, waiting_days: 3, followup_date: null, action: { type: "open", path: "#tickets", label: "Reply" } }
@@ -47,7 +47,8 @@ function todayPayload() {
     takings: { end_of_day_saved: false, end_of_day_locked: false, paid_out_today: 12.5, paid_out_count: 1, action: { type: "open", path: "#endofday", label: "Close the day" } },
     stock: { supplier_orders_pending: 1, supplier_orders_shipped: 0 },
     team: { on_today: [{ name: "Maria", role: "pharmacist", from: "09:00", to: "19:00" }, { name: "Karl", role: "assistant", from: "13:00", to: "19:00" }], handover_incoming: [{ text: "Courier at 16:00, box for Dr Galea", sev: "g" }, { text: "Methadone for Mr Vella at 9", sev: "r" }], notes_today: "" },
-    counts: { before_opening: (todayState.tempDone ? 0 : 1) + 1 + (todayState.cleanDone ? 0 : 1), customers_waiting: 2, attention: 2 }
+    counts: { before_opening: (todayState.tempDone ? 0 : 1) + 1 + (todayState.cleanDone ? 0 : 1), customers_waiting: 2, attention: 2 },
+    ...(teamState.setup && teamState.me.role === "admin" ? { setup: teamState.setup } : {}) // as the worker: admins only, absent on an older server
   };
 }
 let boardState = { msgs: [
@@ -63,11 +64,40 @@ let lblState = { history: [{ patientName: "", drugName: "Amoxicillin 500mg", dos
 let ddstState = { next: 2, nextItem: 3, list: [{ id: 1, created_at: "2026-10-01 09:00:00", closed_at: "2026-10-01 10:00:00", updated_at: "2026-10-01 10:00:00" }],
   items: [{ id: 1, stocktake_id: 1, item_name: "Morphine sulphate", dosage: "10mg", qty_tablets: 30 }, { id: 2, stocktake_id: 1, item_name: "Alprazolam", dosage: "0.5mg", qty_tablets: 56 }] };
 let peopleState = { adopted: false, carmel: { id: 1, name: "Zammit Carmel", id_card: "0012345M", phone: "79123456", alt_phone: "", email: "", address: "1 Triq il-Knisja", doctor_name: "", date_of_birth: "", notes: "", source: "history", version: 1, updated_at: "2026-10-31 09:00:00" } };
+// Team sign-ins (teamreg, forced change, idle lock, first-run list): behaves as the worker's /team routes.
+const teamFresh = () => ({ me: { role: "admin", must_change: false }, next: 5, setup: undefined, users: [
+  { id: 1, email: "p@x.com", full_name: "Maria Borg", role: "admin", is_active: true, must_change_password: false, last_sign_in_at: "2026-11-03 08:00:00", signed_in_devices: 2, protected: false },
+  { id: 2, email: "karl@x.com", full_name: "Karl Vella", role: "staff", is_active: true, must_change_password: false, last_sign_in_at: "2026-11-02 13:00:00", signed_in_devices: 1, protected: false },
+  { id: 3, email: "john@eikon.mt", full_name: "John (Eikon support)", role: "admin", is_active: true, must_change_password: false, last_sign_in_at: null, signed_in_devices: 0, protected: true },
+  { id: 4, email: "leaver@x.com", full_name: "Old Leaver", role: "staff", is_active: false, must_change_password: false, last_sign_in_at: "2026-09-01 09:00:00", signed_in_devices: 0, protected: false }] });
+let teamState = teamFresh();
+function teamMock(req, res, p, body) {
+  const J = (o, st) => { res.writeHead(st || 200, { "content-type": "application/json" }); res.end(JSON.stringify(o)); return true; };
+  if (p === "/auth/me" && req.method === "GET") return J({ ok: true, user: Object.assign({ id: 1, user_id: 1, email: "p@x.com", full_name: "Maria Borg", org_id: 1, location_id: 12, location_name: "Demo Pharmacy", role: teamState.me.role }, teamState.me.must_change ? { must_change: true } : {}) });
+  if (p === "/auth/change-password" && req.method === "POST") { if (!body || body.current_password !== "temp-pass-1") return J({ ok: false, error: "The current password is not right" }, 403); teamState.me.must_change = false; return J({ ok: true }); }
+  if (p === "/auth/unlock" && req.method === "POST") return body && body.password === "maria-pass" ? J({ ok: true }) : J({ ok: false, error: "That password is not right" }, 403);
+  if (p === "/auth/login" && req.method === "POST" && body && body.email === "karl@x.com") return body.password === "karl-pass" ? J({ ok: true, token: "karl-token", user: { id: 2, email: "karl@x.com", full_name: "Karl Vella", role: "staff", location_id: 12, location_name: "Demo Pharmacy" } }) : J({ ok: false, error: "Invalid credentials" }, 401);
+  if (!p.startsWith("/team/users")) return false;
+  if (teamState.me.role !== "admin") return J({ ok: false, error: "Forbidden" }, 403);
+  const m = p.split("/").filter(Boolean);
+  if (m.length === 2 && req.method === "GET") return J({ ok: true, users: teamState.users, me: 1, admins_manage_admins: false });
+  if (m.length === 2 && req.method === "POST") {
+    if (teamState.users.some((u) => u.email === body.email)) return J({ ok: false, error: "That e-mail already has a sign-in" }, 409);
+    const u = { id: teamState.next++, email: body.email, full_name: body.full_name, role: body.role, is_active: true, must_change_password: true, last_sign_in_at: null, signed_in_devices: 0, protected: false };
+    teamState.users.push(u); return J({ ok: true, user: u, temporary_password: "k7mp-q4xa-9rtd" });
+  }
+  const u = teamState.users.find((x) => x.id === Number(m[2]));
+  if (!u) return J({ ok: false, error: "Not found" }, 404);
+  if (m[3] === "password") { u.must_change_password = true; u.signed_in_devices = 0; return J({ ok: true, temporary_password: "w2hn-8cxe-pt3v" }); }
+  if (m[3] === "active") { u.is_active = !!body.active; if (!u.is_active) u.signed_in_devices = 0; return J({ ok: true }); }
+  return J({ ok: false, error: "Not found" }, 404);
+}
 function mockApi(req, res, body) {
   const url = new URL(req.url, "http://x");
   const p = url.pathname;
   calls.push({ method: req.method, path: p, query: url.search, body });
   if (p === "/__test401") { res.writeHead(401, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "Unauthorized" })); }
+  if (teamMock(req, res, p, body)) return;
   if (p === "/people" && req.method === "POST") {
     if (body && body.id) { res.writeHead(409, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "Changed elsewhere", current: Object.assign({}, peopleState.carmel, { notes: "Call after 5", version: 2 }) })); }
     peopleState.adopted = true;
@@ -734,7 +764,7 @@ await page.goto(base + "&ui=2#registers");
 await page.waitForFunction(() => document.querySelector(".hub-card"), null, { timeout: 15000 });
 await page.locator(".hub-card", { hasText: "Temperature" }).first().click();
 await page.waitForFunction(() => document.querySelector(".trg-sum"), null, { timeout: 15000 });
-const trg = await page.evaluate(() => ({ hash: location.hash, classic: location.search.indexOf("ui=classic") >= 0, rail: [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod), cards: document.querySelectorAll(".trg-card").length, sum: document.querySelector(".trg-sum").textContent, next: document.querySelector("[data-act=next]").disabled, cells: document.querySelectorAll(".trg-card .trg-d:not(.pad)").length }));
+const trg = await page.evaluate(() => ({ hash: location.hash, classic: location.search.indexOf("ui=classic") >= 0, rail: [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod), cards: document.querySelectorAll(".trg-card").length, sum: document.querySelector(".trg-sum").textContent, next: document.querySelector(".emb [data-mb=next]").disabled, cells: document.querySelectorAll(".trg-card .trg-d:not(.pad)").length }));
 report("temperature register: opens in the new layout from Registers, rail stays on Registers, month summary shown", trg.hash === "#tempreg" && !trg.classic && trg.rail.join() === "registers" && trg.cards === 1 && /^0 of \d+ days logged/.test(trg.sum) && trg.next === true && trg.cells >= 28, JSON.stringify(trg));
 
 // Cleaning register in the new layout: status from the last clean (even last month), a name is required, then one POST.
@@ -886,12 +916,93 @@ const tkErr = await page.evaluate(() => (document.querySelector(".tkt-err") || {
 await page.fill("#tkt-add [name=client_name]", "Borg Anna"); await page.fill("#tkt-add [name=issue]", "Does Panadol come in syrup?"); await page.click("#tkt-add button[type=submit]"); await page.waitForTimeout(700);
 const tkCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => (c.method === "PUT" || c.method === "POST") && c.path !== "/people"); // the person link after a save is checked in its own test
 const tkNote = tkCalls[0] || {}, tkLog = (() => { try { return JSON.parse(tkNote.body.notes_log); } catch (e) { return []; } })(), tkNew = (tkCalls[2] || {}).body || {};
-report("questions: open in the new layout, high first; a note keeps the old ones; Resolved sends only status; a new one needs a name and gets a category",
+// a note and Resolved send the classic body: the whole question as read again, only the note / the status different
+const TK_KEYS = "assigned_to,category,client_name,email,followup_date,issue,notes_log,open_date,phone,priority,resolved,resolved_at,status,ticket_id";
+const tkRes = (tkCalls[1] || {}).body || {};
+report("questions: open in the new layout, high first; a note keeps the old ones; a note and Resolved send the classic body (the question re-read, only that changed); a new one needs a name and gets a category",
   tk1.rail.join() === "customers" && tk1.names[0] === "Farrugia Tony" && /Called, no answer/.test(tk1.last) && tkCalls.length === 3 &&
-  tkNote.path === "/client-tickets/entries/61" && Object.keys(tkNote.body).join() === "notes_log" && tkLog.length === 2 && tkLog[0].text === "Called, no answer" && tkLog[1].text === "Spoke to her, collecting Friday" &&
-  tkCalls[1].path === "/client-tickets/entries/62" && JSON.stringify(tkCalls[1].body) === JSON.stringify({ status: "Resolved" }) &&
+  tkNote.path === "/client-tickets/entries/61" && Object.keys(tkNote.body).sort().join() === TK_KEYS && tkLog.length === 2 && tkLog[0].text === "Called, no answer" && tkLog[1].text === "Spoke to her, collecting Friday" &&
+  tkNote.body.status === "Open" && tkNote.body.assigned_to === "John" && tkNote.body.email === "rita@x.com" && tkNote.body.resolved === false && tkNote.body.resolved_at === "" && tkNote.body.ticket_id === "TKT-00007" &&
+  tkCalls[1].path === "/client-tickets/entries/62" && Object.keys(tkRes).sort().join() === TK_KEYS && tkRes.status === "Resolved" && tkRes.resolved === true && /^\d{4}-\d\d-\d\dT/.test(tkRes.resolved_at) &&
+  tkRes.issue === "Charged twice" && tkRes.category === "Billing" && tkRes.priority === 1 && tkRes.followup_date === "" && tkRes.notes_log === "[]" &&
   /customer's name/.test(tkErr) && tkCalls[2].path === "/client-tickets/entries" && tkNew.client_name === "Borg Anna" && /^TKT-\d{5}$/.test(tkNew.ticket_id) && tkNew.category === "General Enquiry" && tkNew.status === "Open" && tkNew.notes_log === "[]",
   JSON.stringify({ tk1, tkErr, tkCalls }));
+
+// Orders, changing one (new layout): the order is read again and sent whole, as the classic screen sends it (its names
+// and the server's: client_phone, items_text, pickup_date, deposit_amount), with only what was edited different; a field
+// changed elsewhere since the screen opened is kept. Staff do not see Delete; the pharmacist's delete writes the reason
+// on the order, then deletes it. Done lists ready orders through the server's fulfilled=1 range.
+try {
+  const dT = new Date(), dd = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); };
+  const R = { id: 71, order_date: dd(0), client_name: "Pace Rita", client_phone: "79001122", client_alt_phone: "21000000", client_email: "r@x.mt", client_address: "4 Triq il-Wied", items_text: "Nexium 20mg x28", priority: 2, needed_by: dd(2), pickup_date: dd(3), deposit_amount: 5, fulfilled: 0, fulfilled_at: null, notes: "Prefers mornings", follow_up_status: "called", order_code: "PQ7RT2" };
+  let reads = 0; const doneQs = [];
+  await page.route("**/client-orders/entries?*", (r) => {
+    const u = new URL(r.request().url());
+    if (u.searchParams.get("fulfilled") === "1") { doneQs.push(u.search); return r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: [Object.assign({}, R, { id: 72, client_name: "Done Daniel", fulfilled: 1, fulfilled_at: dd(-1) + "T10:00:00Z" })] }) }); }
+    reads++; const row = reads > 1 ? Object.assign({}, R, { notes: "Changed elsewhere" }) : R; // after the screen opened, someone else changed the notes
+    return r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: [row] }) });
+  });
+  await page.goto(base + "&ui=2#clientorders");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector('[data-act=open][data-id="71"]'), null, { timeout: 15000 });
+  await page.evaluate(() => { window.EIKON.state.user.role = "staff"; });
+  await page.click('[data-act=open][data-id="71"]');
+  const staffDel = await page.evaluate(() => !!document.querySelector("#ord-edit [data-act=del]"));
+  await page.fill("#ord-edit [name=items]", "Nexium 40mg x28"); await page.fill("#ord-edit [name=deposit]", "7,5");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("#ord-edit button[type=submit]"); await page.waitForTimeout(800);
+  const oPut = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT")[0] || {}, ob = oPut.body || {};
+  const want = { order_date: R.order_date, client_name: "Pace Rita", address: R.client_address, contact: "79001122", alternate: "21000000", email: "r@x.mt", items: "Nexium 40mg x28", priority: 2, needed_by: R.needed_by, pick_up_date: R.pickup_date,
+    deposit: "7.50", notes: "Changed elsewhere", fulfilled: false, fulfilled_at: "", follow_up_status: "called", order_code: "PQ7RT2", client_address: R.client_address, client_phone: "79001122", client_alt_phone: "21000000", client_email: "r@x.mt",
+    items_text: "Nexium 40mg x28", pickup_date: R.pickup_date, deposit_amount: "7.50" };
+  const oDiff = Object.keys(want).filter((k) => JSON.stringify(ob[k]) !== JSON.stringify(want[k])).concat(Object.keys(ob).filter((k) => !(k in want)));
+  // the pharmacist: Delete asks for a reason; the reason goes on the order (PUT), then the DELETE
+  await page.evaluate(() => { window.EIKON.state.user.role = "admin"; });
+  await page.click('[data-act=open][data-id="71"]');
+  const adminDel = await page.evaluate(() => !!document.querySelector("#ord-edit [data-act=del]"));
+  await page.click("#ord-edit [data-act=del]"); await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("#ord-edit [data-act=del-go]"); await page.waitForTimeout(300);
+  const noReason = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method !== "GET").length, reasonErr = await page.evaluate(() => (document.querySelector("#ord-edit .ord-err") || {}).textContent || "");
+  await page.fill("#ord-edit [name=del_reason]", "Entered twice"); await page.click("#ord-edit [data-act=del-go]"); await page.waitForTimeout(800);
+  const dCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method !== "GET" && c.path !== "/people");
+  // Done: the server's fulfilled=1 range, and Older goes six months further back
+  await page.click("[data-act=view-done]"); await page.waitForTimeout(600);
+  const doneNames = await page.evaluate(() => [...document.querySelectorAll(".ord-row .t b")].map((e) => e.textContent));
+  await page.click("[data-act=older]"); await page.waitForTimeout(600);
+  await page.unroute("**/client-orders/entries?*");
+  const okDone = doneQs.length >= 2 && /from=\d{4}-\d\d-01&to=\d{4}-\d\d-01&fulfilled=1/.test(doneQs[0]) && doneQs[1] !== doneQs[0];
+  report("orders: a change re-reads the order and sends the classic body with only the edit different (a change made elsewhere is kept); staff see no Delete; the pharmacist's Delete needs a reason, writes it on the order, then deletes; Done lists ready orders, Older pages back",
+    oPut.path === "/client-orders/entries/71" && oDiff.length === 0 && !staffDel && adminDel && noReason === 0 && /why/i.test(reasonErr) &&
+    dCalls.length === 2 && dCalls[0].method === "PUT" && /Deleted \d\d\/\d\d\/\d{4} by Maria Borg: Entered twice/.test(dCalls[0].body.notes) && dCalls[0].body.client_phone === "79001122" && dCalls[1].method === "DELETE" && dCalls[1].path === "/client-orders/entries/71" &&
+    doneNames.join() === "Done Daniel" && okDone, JSON.stringify({ oDiff, ob, staffDel, adminDel, noReason, reasonErr, dCalls, doneNames, doneQs }));
+} catch (e) { report("orders: a change sends the classic body", false, String(e).slice(0, 300)); }
+
+// Questions, changing one: the whole classic body from a fresh read, only the edit different; staff see no Delete; the
+// pharmacist's Delete adds the reason as a note first; Done reads resolved=1.
+try {
+  await page.goto(base + "&ui=2#tickets");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "tktreg" && document.querySelector('[data-act=open][data-id="61"]'), null, { timeout: 15000 });
+  await page.evaluate(() => { window.EIKON.state.user.role = "staff"; });
+  await page.click('[data-act=open][data-id="61"]');
+  const tStaffDel = await page.evaluate(() => !!document.querySelector("#tkt-edit [data-act=del]"));
+  await page.selectOption("#tkt-edit [name=status]", "Awaiting Client"); await page.fill("#tkt-edit [name=issue]", "Is her repeat ready? Two boxes");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("#tkt-edit button[type=submit]"); await page.waitForTimeout(800);
+  const tc = await (await fetch(`http://localhost:${PORT}/__calls`)).json(), tPut = tc.filter((c) => c.method === "PUT")[0] || {}, tb = tPut.body || {};
+  const reRead = tc.some((c) => c.method === "GET" && c.path === "/client-tickets/entries");
+  const tWant = { ticket_id: "TKT-00007", client_name: "Camilleri Rita", phone: "79222333", email: "rita@x.com", category: "Prescription", priority: 2, status: "Awaiting Client", issue: "Is her repeat ready? Two boxes", assigned_to: "John", resolved: false, resolved_at: "" };
+  const tDiff = Object.keys(tWant).filter((k) => JSON.stringify(tb[k]) !== JSON.stringify(tWant[k]));
+  await page.evaluate(() => { window.EIKON.state.user.role = "admin"; });
+  await page.click('[data-act=open][data-id="61"]'); await page.click("#tkt-edit [data-act=del]"); await page.fill("#tkt-edit [name=del_reason]", "Recorded twice");
+  await fetch(`http://localhost:${PORT}/__reset`); await page.click("#tkt-edit [data-act=del-go]"); await page.waitForTimeout(800);
+  const tD = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method !== "GET");
+  const tLog = (() => { try { return JSON.parse(tD[0].body.notes_log); } catch (e) { return []; } })();
+  await fetch(`http://localhost:${PORT}/__reset`); await page.click("[data-act=view-done]"); await page.waitForTimeout(500);
+  const tDone = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "GET" && c.path === "/client-tickets/entries").map((c) => c.query);
+  report("questions: a change re-reads the question and sends the classic body with only the edit different; staff see no Delete; the pharmacist's Delete adds the reason as a note, then deletes; Done reads resolved=1",
+    reRead && tPut.path === "/client-tickets/entries/61" && tDiff.length === 0 && Object.keys(tb).length === 14 && !tStaffDel &&
+    tD.length === 2 && tD[0].method === "PUT" && tLog.length === 2 && tLog[1].text === "Deleted: Recorded twice" && tD[1].method === "DELETE" && tD[1].path === "/client-tickets/entries/61" && tDone.includes("?resolved=1"),
+    JSON.stringify({ tDiff, tb, tStaffDel, tD, tDone }));
+} catch (e) { report("questions: a change sends the classic body", false, String(e).slice(0, 300)); }
 
 // Deliveries in the new layout: overdue in Today, future in Later, done ones hidden; Delivered sends the whole record with only delivery fields changed.
 await page.goto(base + "&ui=2#deliveries");
@@ -1045,10 +1156,10 @@ report("today: the critical handover point comes first in red; Who's in opens th
 
 // Repeat prescriptions: soon-to-expire flagged; Renew sends the same patient, medicine and prescriber, dated today, expiry left to the server.
 await page.goto(base + "&ui=2#repeatprescriptions");
-await page.waitForFunction(() => window.EIKON.state.activeModuleId === "repreg" && document.querySelector(".rep-row"), null, { timeout: 15000 });
-const rep1 = await page.textContent(".rep-row");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "repreg" && document.querySelector(".rep-row, .rep-tbl tbody tr"), null, { timeout: 15000 });
+const rep1 = await page.textContent(".rep-row, .rep-tbl tbody tr"); // 1440 px: the wide table
 await fetch(`http://localhost:${PORT}/__reset`);
-await page.click(".rep-row [data-act=renew]"); await page.click("#rep-add button[type=submit]");
+await page.click(":is(.rep-row, .rep-tbl tbody tr) [data-act=renew]"); await page.click("#rep-add button[type=submit]");
 // The mock's Customers list has Zammit Carmel with 0012345M (after the adopt test) while this prescription says 123456M:
 // that is question C (eikon.people.js), answered here with "Only this prescription" so the renewal itself is what is tested.
 if (await page.waitForSelector(".epc [data-epc=only]", { timeout: 2500 }).then(() => true, () => false)) await page.click(".epc [data-epc=only]");
@@ -1305,9 +1416,24 @@ try {
   await page.click("[data-act=mine]"); await page.waitForFunction(() => !document.querySelector(".eod-note.dn") && !document.querySelector("[data-act=save][disabled]"), null, { timeout: 8000 });
   report("end of day: opens from #endofday; short by €0.70 as typed (commas); one whole-record PUT with staff/staff_name and bov_deposit aligned, no locked_at; a save from another till in between is refused until 'Save mine over theirs'",
     eodOu === "Short by €0.70" && eodDep === "5" && eodPuts.length === 1 && e0.staff === "Maria" && e0.staff_name === "Maria" && e0.float_amount === "100.00" && e0.x[0].amount === "500.40" && e0.paid_outs[0].amount === "12.50" &&
-    e0.cash.coins_total === "117.10" && e0.deposit.n50 === "5" && e0.bov_deposit.n50 === "5" && e0.bag_number === "B-7" && e0.bov_bag_number === "B-7" && !("locked_at" in e0) && e0.action === "SAVE" &&
+    e0.cash.coins_total === "117.10" && e0.deposit.n50 === 5 && e0.bov_deposit.n50 === 5 && e0.deposit.n20 === 1 && e0.deposit.n500 === 0 && e0.bag_number === "B-7" && e0.bov_bag_number === "B-7" && !("locked_at" in e0) && e0.action === "SAVE" &&
     eodRefused && eodState.rec.staff === "Maria B", JSON.stringify({ eodOu, eodDep, n: eodPuts.length, e0, eodRefused, now: eodState.rec && eodState.rec.staff }));
 } catch (e) { report("end of day: ran to the end", false, String(e).slice(0, 300)); }
+
+// End of day: a saved day reads the same whether its bag counts were stored as numbers (classic) or strings (older new-screen saves).
+try {
+  const readBag = async (dep) => {
+    eodState = { rec: { id: 1, date: todayYmd, eod_date: todayYmd, staff: "Maria", float_amount: "100", x: [{ amount: "300" }], epos: [], cheques: [], paid_outs: [],
+      cash: { n50: "4", n20: "5", coins_total: "0" }, deposit: dep, bov_deposit: dep, bag_number: "B-1", deposit_edited: true, updated_at: "2026-11-03 18:00:00" }, n: 0 };
+    await page.goto("about:blank"); await page.goto(base + "&ui=2#endofday");
+    await page.waitForFunction(() => window.EIKON.state.activeModuleId === "eodreg" && document.querySelector('[name="dep:n50"]'), null, { timeout: 15000 });
+    return [await page.inputValue('[name="dep:n50"]'), await page.inputValue('[name="dep:n20"]'), await page.textContent('[data-b="bov"]')];
+  };
+  const asNum = await readBag({ n500: 0, n200: 0, n100: 0, n50: 3, n20: 5, n10: 0, n5: 0 });
+  const asStr = await readBag({ n500: "0", n200: "0", n100: "0", n50: "3", n20: "5", n10: "0", n5: "0" });
+  report("end of day: a saved day's bank bag reads the same stored as numbers or as strings",
+    JSON.stringify(asNum) === JSON.stringify(asStr) && asNum[0] === "3" && asNum[1] === "5" && /250/.test(asNum[2]), JSON.stringify({ asNum, asStr }));
+} catch (e) { report("end of day: bag counts read either form", false, String(e).slice(0, 300)); }
 
 // Plan shifts in the new layout: the old #shifts link lands here; a change sends the whole record (role and note kept);
 // add sends one POST; Remove asks first, then DELETE; Approve sends the classic approve call.
@@ -2085,6 +2211,31 @@ try {
   await page.reload();
   await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user, null, { timeout: 15000 });
 } catch (e) { report("error reports: ran to the end", false, String(e).slice(0, 300)); }
+// CSP report-only (backlog 2-9): a violation event is one POST /client-log, kind "csp", with the directive, the blocked
+// origin only (no path, no query) and file:line; csp reports have their own 5 a load, so real errors are still sent.
+try {
+  await fetch(`http://localhost:${PORT}/__reset`);
+  const fire = (n) => page.evaluate(({ n, port }) => { for (let i = 0; i < n; i++) window.dispatchEvent(new SecurityPolicyViolationEvent("securitypolicyviolation", {
+    blockedURI: "https://tiles" + i + ".example/a/b.png?key=secret0012345M", documentURI: location.href, effectiveDirective: "img-src", violatedDirective: "img-src",
+    originalPolicy: "img-src 'self'", disposition: "report", statusCode: 200, sourceFile: "http://localhost:" + port + "/ui/modules.dlvreg.js?v=2026-11-03.141", lineNumber: 12, columnNumber: 3 })); }, { n, port: PORT });
+  await fire(1);
+  await page.waitForTimeout(400);
+  const logs = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.path === "/client-log");
+  const L1 = await logs(); const b = (L1[0] && L1[0].body) || {};
+  await fire(8);
+  await page.waitForTimeout(400);
+  const L2 = (await logs()).filter((c) => c.body && c.body.kind === "csp");
+  await page.evaluate(() => { setTimeout(() => { throw new Error("Real fault after csp reports"); }, 0); });
+  await page.waitForTimeout(500);
+  const L3 = (await logs()).filter((c) => c.body && c.body.kind === "error");
+  await page.evaluate(() => { const o = document.getElementById("eikon-fatal-overlay"); if (o) o.remove(); });
+  report("csp reports: a report-only violation is one POST /client-log kind csp (directive, origin, file:line; no path or query), 5 a load of their own; a real error is still sent after them",
+    L1.length === 1 && b.kind === "csp" && b.message === "CSP img-src would block https://tiles0.example (modules.dlvreg.js:12)" && !/secret|0012345M|\/a\/b/.test(JSON.stringify(L1)) &&
+    L2.length === 5 && L3.length === 1,
+    JSON.stringify({ n1: L1.length, b, n2: L2.length, n3: L3.length }).slice(0, 600));
+  await page.reload();
+  await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user, null, { timeout: 15000 });
+} catch (e) { report("csp reports: ran to the end", false, String(e).slice(0, 300)); }
 // ---- Registry (ui/registry.js): the new layout lists the classic screens without downloading them.
 // (a) every module file registers exactly what its registry rows say; (b) the CLASSIC list in index.html is the
 // "classic" rows; (c) a signed-in new-layout page downloads no classic file, and E.modules has the same ids, order,
@@ -2570,6 +2721,270 @@ try {
   report("classic layout: 'Use the new layout' shows when classic was chosen, and opens Today in the new layout (remembered)",
     nlShown && nlAfter.ui2 === "1" && nlAfter.attr, JSON.stringify({ nlShown, nlAfter, nlDbg }));
 } catch (e) { report("classic layout: way back to the new layout ran to the end", false, String(e).slice(0, 300)); }
+// Busiest-screen polish (backlog 2 item 7)
+try {
+  const openToday = async (pg) => { await pg.goto(base + "&ui=2#today"); await pg.reload(); await pg.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".tdy-head h1") && !/Loading/.test(document.querySelector(".tdy-head h1").textContent), null, { timeout: 15000 }); await pg.waitForTimeout(300); };
+  // (a) the money tile says what the number is
+  todayState = { tempDone: false, cleanDone: false };
+  await page.setViewportSize({ width: 1440, height: 900 }); await openToday(page);
+  const tile = await page.evaluate(() => { const t = [...document.querySelectorAll(".tdy-tile")].find((x) => /Money today/.test(x.textContent)); return t ? t.innerText.replace(/\s+/g, " ") : ""; });
+  report("today polish (a): the money tile is called Money today and shows the paid out figure as paid out, not as takings", /Money today/i.test(tile) && /€12\.50 ?paid out today/.test(tile) && !/Takings/i.test(tile), tile);
+  // (b) yesterday outside its limits: words and colour at the top of Before opening, and a link to that day
+  todayState = { tempDone: false, cleanDone: false, yOut: true }; await openToday(page); await page.waitForSelector(".tdy-warn", { timeout: 5000 }).catch(() => {});
+  const yb = await page.evaluate(() => {
+    const w = document.querySelector(".tdy-warn"), first = w && w.previousElementSibling, row = document.querySelector('.tdy-row[data-kind=temperature] .tdy-t span');
+    const rgb = (c) => (c.match(/\d+(\.\d+)?/g) || []).slice(0, 3).map(Number), grey = (c) => { const [r, g, b] = rgb(c); return Math.max(r, g, b) - Math.min(r, g, b) < 24; };
+    return { text: w ? w.innerText.replace(/\s+/g, " ") : "", afterLabel: !!(first && /Before opening/.test(first.textContent)), warnGrey: w ? grey(getComputedStyle(w.querySelector("b")).color) : true,
+      rowText: row ? row.textContent : "", rowGrey: row ? grey(getComputedStyle(row).color) : true, rowFirst: (document.querySelector(".tdy-list .tdy-row") || {}).getAttribute && document.querySelector(".tdy-list .tdy-row").getAttribute("data-kind") };
+  });
+  const clicked = await page.evaluate(() => { const a = document.querySelector(".tdy-warn [data-yday]"); if (a) a.click(); return !!a; });
+  if (clicked) await page.waitForFunction(() => location.hash === "#tempreg", null, { timeout: 8000 }).catch(() => {}); await page.waitForTimeout(500);
+  const yMonth = await page.evaluate(() => { const t = new Date(); t.setDate(t.getDate() - 1); return t.toISOString().slice(0, 7); });
+  const tempReqs = calls.filter((c) => c.method === "GET" && c.path === "/temperature/entries" && /month=/.test(c.query || "")).map((c) => c.query);
+  report("today polish (b): yesterday's reading outside its limits is said in words and colour above the list, the row says it too and is not grey, and See yesterday opens the register on that month",
+    /Fridge 1 was 9\.1 °C yesterday/.test(yb.text) && /outside its limits of 2 to 8 °C/.test(yb.text) && yb.afterLabel && !yb.warnGrey && /Outside limits yesterday: 9\.1 °C/.test(yb.rowText) && !yb.rowGrey &&
+    tempReqs.some((u) => u.indexOf("month=" + yMonth) >= 0), JSON.stringify({ yb, clicked, yMonth, tempReqs: tempReqs.slice(-3) }));
+  todayState = { tempDone: false, cleanDone: false };
+  // (c) the search placeholder fits a phone; the full question on a desktop
+  await page.setViewportSize({ width: 402, height: 874 }); await openToday(page);
+  const phPh = await page.evaluate(() => { const q = document.querySelector("#tdy-q"); return { ph: q.placeholder, fits: (() => { const c = document.createElement("canvas").getContext("2d"); const cs = getComputedStyle(q); c.font = cs.fontSize + " " + cs.fontFamily; return c.measureText(q.placeholder).width <= q.clientWidth; })() }; });
+  await page.setViewportSize({ width: 1440, height: 900 }); await page.waitForTimeout(200);
+  const dkPh = await page.evaluate(() => document.querySelector("#tdy-q").placeholder);
+  report("today polish (c): a short search placeholder that fits on a phone, the full one on a desktop (and it follows a resize)", phPh.fits && phPh.ph.length < 32 && /What do you need\?/.test(dkPh), JSON.stringify({ phPh, dkPh }));
+  // (d) one Malta-time clock: "Updated" and "signed in" match Malta time whatever the device's zone
+  const tz = {};
+  for (const zone of ["UTC", "Europe/Malta"]) {
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, timezoneId: zone }); const tp = await ctx.newPage();
+    await tp.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: "window.XLSX={};" }));
+    await tp.goto(base + "&ui=2#today"); await tp.evaluate(() => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); localStorage.setItem("eikon_ui2", "1"); });
+    await openToday(tp);
+    tz[zone] = await tp.evaluate(() => {
+      const mt = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Malta", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
+      const dev = String(new Date().getHours()).padStart(2, "0") + ":" + String(new Date().getMinutes()).padStart(2, "0");
+      const upd = ((document.querySelector(".tdy-foot") || {}).textContent || "").match(/Updated (\d\d:\d\d)/), rail = ((document.querySelector(".eikon-rail-who") || {}).textContent || "").match(/signed in (\d\d:\d\d)/);
+      return { mt, dev, upd: upd && upd[1], rail: rail && rail[1], fn: window.EIKON.maltaHm(new Date("2026-11-03T13:22:00Z")), fnSummer: window.EIKON.maltaHm(new Date("2026-07-01T13:22:00Z")), ymd: window.EIKON.maltaYmd(new Date("2026-11-03T23:30:00Z")) };
+    });
+    await ctx.close();
+  }
+  const near = (a, b) => { if (!a || !b) return false; const m = (x) => Number(x.slice(0, 2)) * 60 + Number(x.slice(3)); return Math.abs(m(a) - m(b)) <= 1; };
+  report("today polish (d): Updated and signed in show Malta time with the device set to UTC (where its own clock differs) and to Europe/Malta; 13:22 UTC is 14:22 in November, 15:22 in July; 23:30 UTC on 3 Nov is 4 Nov in Malta",
+    ["UTC", "Europe/Malta"].every((z) => near(tz[z].upd, tz[z].mt) && near(tz[z].rail, tz[z].mt) && tz[z].fn === "14:22" && tz[z].fnSummer === "15:22" && tz[z].ymd === "2026-11-04") && tz.UTC.dev !== tz.UTC.mt,
+    JSON.stringify(tz));
+} catch (e) { report("today polish: ran to the end", false, String(e).slice(0, 400)); }
+// wide registers: a table at 1200 px and up, the two-line list on a phone
+try {
+  for (const [w, wantTable] of [[1440, true], [402, false]]) {
+    await page.setViewportSize({ width: w, height: 900 });
+    await page.evaluate(() => { location.hash = "#drreg"; }); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "drreg" && document.querySelector(".drr"), null, { timeout: 8000 }); await page.waitForTimeout(500);
+    if (!(await page.evaluate(() => /John Borg/.test(document.querySelector(".drr").textContent)))) { await page.click(".drr .emb [data-mb=prev]"); await page.waitForTimeout(700); } // the mock's line is last month (month bar from eikon.months.js)
+    const r = await page.evaluate(() => ({ table: !!document.querySelector(".drr-tbl"), list: !!document.querySelector(".drr-list"), john: /John Borg/.test(document.querySelector(".drr").textContent), cols: [...document.querySelectorAll(".drr-tbl th")].map((t) => t.textContent) }));
+    report("wide registers: Daily register at " + w + " px shows " + (wantTable ? "a table with the classic's columns" : "the two-line list"), r.john && (wantTable ? r.table && !r.list && r.cols.join("|") === "Date|Client|ID card|Medicine and dose|Posology|Prescriber|Reg no" : r.list && !r.table), JSON.stringify(r));
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+} catch (e) { report("wide registers: ran to the end", false, String(e).slice(0, 400)); }
+// ---- Team sign-ins (backlog 2 item 4): People who sign in, forced change at first sign-in, idle lock, first-run list
+const teamCalls = async (f) => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter(f);
+const modalClick = (pg, label) => pg.evaluate((l) => { const b = [...document.querySelectorAll("#eikon-modal-actions button")].find((x) => x.textContent.trim() === l); if (b) b.click(); return !!b; }, label);
+try {
+  teamState = teamFresh();
+  await page.evaluate(() => { localStorage.setItem("eikon_ui2", "1"); localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); });
+  await page.goto(base + "&ui=2#team");
+  await page.waitForFunction(() => document.querySelector('.hub [data-open="teamreg"]'), null, { timeout: 15000 });
+  await page.click('.hub [data-open="teamreg"]');
+  await page.waitForFunction(() => document.querySelectorAll(".tmr-row[data-user]").length === 4, null, { timeout: 15000 });
+  const t1 = await page.evaluate(() => {
+    const r = (id) => document.querySelector('.tmr-row[data-user="' + id + '"]'), btns = (id) => [...r(id).querySelectorAll("button")].map((b) => b.textContent.trim());
+    return { hash: location.hash, h1: document.querySelector(".tmr h1").textContent, self: btns(1), selfNote: r(1).textContent, john: btns(3), johnNote: r(3).textContent, karl: btns(2), leaver: btns(4), offLab: /Switched off · 1/.test(document.body.textContent), back: document.querySelector(".tmr-back").textContent };
+  });
+  report("team people: Team › People who sign in lists this pharmacy's sign-ins; you, Eikon support and switched-off people are told apart, and only staff can be changed",
+    t1.hash === "#teamreg" && t1.h1 === "People who sign in" && t1.self.length === 0 && /Change your password in Settings/.test(t1.selfNote) && t1.john.length === 0 && /Eikon support/.test(t1.johnNote) &&
+    t1.karl.join() === "New password,Switch off" && t1.leaver.join() === "Switch on" && t1.offLab && /Team/.test(t1.back), JSON.stringify(t1));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('[data-act="add"]');
+  await page.fill("#tmr-name", "Rita Camilleri"); await page.fill("#tmr-email", "Rita@X.com");
+  await page.click('#tmr-add button[type="submit"]');
+  await page.waitForFunction(() => document.querySelector(".tmr-once code"), null, { timeout: 10000 });
+  const t2 = await page.evaluate(() => ({ code: document.querySelector(".tmr-once code").textContent, copy: !!document.querySelector('.tmr-once [data-act="copy"]'), focus: document.activeElement && document.activeElement.id, text: document.querySelector(".tmr-once").textContent }));
+  const addPost = await teamCalls((c) => c.method === "POST" && c.path === "/team/users");
+  await page.click('[data-act="done"]');
+  const t2b = await page.evaluate(() => ({ gone: !document.querySelector(".tmr-once"), leak: document.body.innerHTML.includes("k7mp-q4xa-9rtd"), rita: (document.querySelector('.tmr-row[data-user="5"]') || {}).textContent || "" }));
+  report("team people: Add a person sends name, e-mail (lower case) and staff; the temporary password is shown once with Copy and Done focused; after Done it is gone from the page",
+    addPost.length === 1 && JSON.stringify(addPost[0].body) === JSON.stringify({ email: "rita@x.com", full_name: "Rita Camilleri", role: "staff" }) && t2.code === "k7mp-q4xa-9rtd" && t2.copy && t2.focus === "tmr-done" && /rita@x.com/.test(t2.text) &&
+    t2b.gone && !t2b.leak && /Has not chosen a password yet/.test(t2b.rita), JSON.stringify({ addPost, t2, t2b }));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('[data-act="reset"][data-id="2"]');
+  const askReset = await page.evaluate(() => document.querySelector("#eikon-modal-title").textContent);
+  await modalClick(page, "New password");
+  await page.waitForFunction(() => document.querySelector(".tmr-once code"), null, { timeout: 10000 });
+  const t3 = await page.evaluate(() => document.querySelector(".tmr-once code").textContent);
+  await page.click('[data-act="done"]');
+  await page.click('[data-act="off"][data-id="2"]');
+  const askOff = await page.evaluate(() => document.querySelector("#eikon-modal-body").textContent);
+  await modalClick(page, "Switch off");
+  await page.waitForFunction(() => /Switched off · 2/.test(document.body.textContent), null, { timeout: 10000 });
+  await page.click('[data-act="on"][data-id="4"]');
+  await page.waitForFunction(() => /Switched off · 1/.test(document.body.textContent), null, { timeout: 10000 });
+  const w3 = await teamCalls((c) => c.method === "POST" && c.path.startsWith("/team/users/"));
+  report("team people: New password asks first, then shows the new temporary password once; Switch off asks (signed out of every device) and Switch on does not",
+    /Give Karl Vella a new password\?/.test(askReset) && t3 === "w2hn-8cxe-pt3v" && /signed out of every device/.test(askOff) &&
+    JSON.stringify(w3.map((c) => [c.path, c.body])) === JSON.stringify([["/team/users/2/password", {}], ["/team/users/2/active", { active: false }], ["/team/users/4/active", { active: true }]]), JSON.stringify({ askReset, t3, askOff, w3: w3.map((c) => [c.path, c.body]) }));
+  // staff: no card, no route, no request
+  teamState.me.role = "staff";
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.goto(base + "&ui=2#team"); await page.reload(); await page.waitForFunction(() => window.EIKON.state.user && window.EIKON.state.user.role === "staff" && document.querySelector(".hub h1"), null, { timeout: 15000 }); await page.waitForTimeout(400);
+  const sCard = await page.evaluate(() => !!document.querySelector('[data-open="teamreg"]'));
+  await page.evaluate(() => { location.hash = "#settings"; }); await page.waitForTimeout(500);
+  const sCard2 = await page.evaluate(() => !!document.querySelector('[data-open="teamreg"]'));
+  await page.evaluate(() => { location.hash = "#teamreg"; }); await page.waitForFunction(() => document.querySelector(".tmr"), null, { timeout: 10000 });
+  const sText = await page.evaluate(() => document.querySelector(".tmr").textContent);
+  const sCalls = await teamCalls((c) => c.path.startsWith("/team/"));
+  report("team people: staff see no card (Team or Settings) and the screen, opened by address, says only the admin can; nothing is asked of the server",
+    !sCard && !sCard2 && /Only the pharmacy's admin/.test(sText) && sCalls.length === 0, JSON.stringify({ sCard, sCard2, sText: sText.slice(0, 120), sCalls }));
+  teamState.me.role = "admin";
+  // the server without /team (live worker today): the screen says so instead of failing
+  await page.route("**/team/users", (r) => r.fulfill({ status: 404, contentType: "application/json", body: '{"ok":false,"error":"Not found"}' }));
+  await page.goto(base + "&ui=2#teamreg"); await page.reload(); await page.waitForFunction(() => document.querySelector(".tmr-quiet"), null, { timeout: 15000 });
+  const miss = await page.evaluate(() => document.querySelector(".tmr").textContent);
+  await page.unroute("**/team/users");
+  report("team people: on a server without the Team routes the screen says it needs the next server update (no error)", /next Eikon server update/.test(miss), miss.slice(0, 200));
+} catch (e) { report("team people: ran to the end", false, String(e).slice(0, 400)); }
+
+// First-run list on Today (admin only, only while something is missing; the counts come with GET /today)
+try {
+  const todayFresh = async () => { await page.goto(base + "&ui=2#today"); await page.reload(); await page.waitForFunction(() => document.querySelector(".tdy-head h1") && !/Loading/.test(document.querySelector(".tdy-head h1").textContent), null, { timeout: 15000 }); await page.waitForTimeout(300); };
+  teamState = teamFresh(); teamState.setup = { sign_ins: 1, opening_hours_saved: false }; todayState.noFridge = true;
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await todayFresh();
+  const f1 = await page.evaluate(() => [...document.querySelectorAll(".tdy-setup li")].map((li) => li.getAttribute("data-setup") + ">" + li.querySelector("button").getAttribute("data-open")));
+  const fGets = (await teamCalls((c) => c.method === "GET" && !/^\/(ui|vendor)\//.test(c.path))).map((c) => c.path);
+  await page.click('.tdy-setup [data-setup="people"] button'); await page.waitForTimeout(400);
+  const fOpen = await page.evaluate(() => location.hash);
+  teamState.setup = { sign_ins: 3, opening_hours_saved: false }; todayState.noFridge = false;
+  await todayFresh();
+  const f2 = await page.evaluate(() => [...document.querySelectorAll(".tdy-setup li")].map((li) => li.getAttribute("data-setup")));
+  teamState.setup = { sign_ins: 3, opening_hours_saved: true };
+  await todayFresh();
+  const f3 = await page.evaluate(() => !!document.querySelector(".tdy-setup"));
+  teamState.setup = { sign_ins: 1, opening_hours_saved: false }; teamState.me.role = "staff";
+  await todayFresh();
+  const f4 = await page.evaluate(() => !!document.querySelector(".tdy-setup"));
+  teamState = teamFresh(); todayState.noFridge = true; // an older server: no setup block, so no list even with no fridge
+  await todayFresh();
+  const f5 = await page.evaluate(() => !!document.querySelector(".tdy-setup"));
+  report("today first run: the admin sees fridge, people and opening hours while each is missing (still one request; links to the screens), each line goes when done and the list with the last; staff never; an older server shows nothing",
+    f1.join() === "fridge>#temperature,people>#teamreg,hours>#shifts" && fGets.filter((x) => x !== "/auth/me" && x !== "/today").length === 0 && fOpen === "#teamreg" && f2.join() === "hours" && !f3 && !f4 && !f5, JSON.stringify({ f1, fGets, fOpen, f2, f3, f4, f5 }));
+} catch (e) { report("today first run: ran to the end", false, String(e).slice(0, 400)); }
+todayState.noFridge = false; teamState = teamFresh();
+
+// Forced change at first sign-in, and the idle lock with a fake clock (own browser contexts)
+async function teamPage(clock) {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const pg = await ctx.newPage();
+  if (clock) await pg.clock.install({ time: new Date("2026-11-03T09:00:00") });
+  await pg.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: "window.XLSX={};" }));
+  await pg.route(/cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "application/javascript", body: "" }));
+  const errs = []; pg.on("pageerror", (e) => errs.push(e.message));
+  await pg.goto(base + "&ui=2#today");
+  await pg.evaluate(() => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); localStorage.setItem("eikon_ui2", "1"); });
+  return { ctx, pg, errs };
+}
+const trapCheck = (pg) => pg.evaluate(async () => {
+  const sh = document.querySelector(".eks"); const seen = new Set();
+  for (let i = 0; i < 12; i++) { document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true })); seen.add(sh.contains(document.activeElement)); }
+  const root = document.getElementById("eikon-root"); const bg = getComputedStyle(sh).backgroundColor;
+  return { role: sh.getAttribute("role"), modal: sh.getAttribute("aria-modal"), label: !!document.getElementById(sh.getAttribute("aria-labelledby")), inert: !!(root && root.inert), hidden: root && root.getAttribute("aria-hidden"), opaque: !/rgba\(.*,\s*0(\.\d+)?\)/.test(bg) && bg !== "transparent", focusInside: sh.contains(document.activeElement), allInside: [...seen].every(Boolean) };
+});
+try {
+  teamState = teamFresh(); teamState.me.must_change = true;
+  const { ctx, pg, errs } = await teamPage(false);
+  await pg.reload();
+  await pg.waitForFunction(() => document.querySelector(".eks #eks-fc"), null, { timeout: 15000 });
+  const fc1 = await pg.evaluate(() => ({ app: !!document.getElementById("eikon-content"), title: document.getElementById("eks-fc-t").textContent, focus: document.activeElement && document.activeElement.id }));
+  const fcTrap = await trapCheck(pg);
+  await pg.fill("#eks-fc-cur", "nope"); await pg.fill("#eks-fc-n1", "Rita-own-2026!"); await pg.fill("#eks-fc-n2", "Rita-own-2026!"); await pg.click("#eks-fc-go");
+  await pg.waitForFunction(() => /not right/.test((document.getElementById("eks-fc-err") || {}).textContent || ""), null, { timeout: 10000 });
+  await pg.fill("#eks-fc-cur", "temp-pass-1"); await pg.click("#eks-fc-go");
+  await pg.waitForFunction(() => !document.querySelector(".eks") && document.querySelector(".tdy-head h1"), null, { timeout: 15000 });
+  const fcAfter = await pg.evaluate(() => ({ inert: !!document.getElementById("eikon-root").inert, user: !("must_change" in (window.EIKON.state.user || {})) }));
+  report("forced change: a sign-in that must choose its password gets a sheet before the app draws (dialog, focus kept inside, nothing behind); a wrong temporary password is said plainly; then the app opens",
+    !fc1.app && fc1.title === "Choose your own password" && fc1.focus === "eks-fc-cur" && fcTrap.role === "dialog" && fcTrap.modal === "true" && fcTrap.label && fcTrap.inert && fcTrap.hidden === "true" && fcTrap.opaque && fcTrap.allInside &&
+    !fcAfter.inert && fcAfter.user && errs.length === 0, JSON.stringify({ fc1, fcTrap, fcAfter, errs }));
+  await ctx.close();
+} catch (e) { report("forced change: ran to the end", false, String(e).slice(0, 400)); }
+teamState = teamFresh();
+try {
+  const { ctx, pg, errs } = await teamPage(true);
+  await pg.reload();
+  await pg.waitForFunction(() => window.EIKON && window.EIKON.state.user && document.querySelector("input[data-min]"), null, { timeout: 20000 });
+  const noSheetAtStart = await pg.evaluate(() => !document.querySelector(".eks") && window.EIKON.idleLock.minutes() === 0);
+  await pg.clock.fastForward("02:00:00");
+  const offStill = await pg.evaluate(() => !document.querySelector(".eks"));
+  // Settings › This pharmacy › Lock when idle › 15 minutes
+  await pg.evaluate(() => { location.hash = "#settings"; });
+  await pg.waitForFunction(() => [...document.querySelectorAll(".hub-card[data-action]")].some((b) => /Lock when idle/.test(b.textContent)), null, { timeout: 10000 });
+  await pg.evaluate(() => [...document.querySelectorAll(".hub-card[data-action]")].find((b) => /Lock when idle/.test(b.textContent)).click());
+  await pg.check('input[name="eikon-idle"][value="15"]'); await modalClick(pg, "Save");
+  const saved = await pg.evaluate(() => localStorage.getItem("eikon_idle_lock_min"));
+  await pg.evaluate(() => { location.hash = "#today"; }); await pg.waitForFunction(() => document.querySelector("input[data-min]"), null, { timeout: 10000 });
+  await pg.fill("input[data-min]", "3.4");
+  await pg.clock.fastForward("14:00");
+  const notYet = await pg.evaluate(() => !document.querySelector(".eks"));
+  await pg.clock.fastForward("02:00");
+  await pg.waitForFunction(() => document.querySelector(".eks #eks-lk"), null, { timeout: 10000 });
+  const lk = await trapCheck(pg);
+  const lkText = await pg.evaluate(() => document.querySelector(".eks").textContent);
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await pg.fill("#eks-lk-pass", "wrong"); await pg.click("#eks-lk-go");
+  await pg.waitForFunction(() => /do not match/.test((document.getElementById("eks-lk-err") || {}).textContent || ""), null, { timeout: 10000 });
+  await pg.fill("#eks-lk-pass", "maria-pass"); await pg.click("#eks-lk-go");
+  await pg.waitForFunction(() => !document.querySelector(".eks"), null, { timeout: 10000 });
+  const same = await pg.evaluate(() => ({ kept: document.querySelector("input[data-min]") && document.querySelector("input[data-min]").value, token: localStorage.getItem("eikon_token"), locked: localStorage.getItem("eikon_locked"), inert: !!document.getElementById("eikon-root").inert }));
+  const sameCalls = await teamCalls((c) => c.method === "POST" && /^\/auth\//.test(c.path));
+  // another person
+  await pg.evaluate(() => { window.__reloads = 0; window.EIKON._reload = function () { window.__reloads++; }; });
+  await pg.clock.fastForward("16:00");
+  await pg.waitForFunction(() => document.querySelector(".eks #eks-lk"), null, { timeout: 10000 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await pg.click("#eks-lk-other");
+  await pg.fill("#eks-lk-email", "karl@x.com"); await pg.fill("#eks-lk-pass", "karl-pass"); await pg.click("#eks-lk-go");
+  await pg.waitForFunction(() => window.__reloads > 0, null, { timeout: 10000 });
+  const other = await pg.evaluate(() => ({ reloads: window.__reloads, token: localStorage.getItem("eikon_token"), uid: localStorage.getItem("eikon_lock_uid"), locked: localStorage.getItem("eikon_locked") }));
+  const otherCalls = await teamCalls((c) => c.method === "POST" && /^\/auth\//.test(c.path));
+  report("idle lock: off by default (2 quiet hours, no lock); set to 15 minutes in Settings it locks at 15, not 14: a sign-in sheet (dialog, focus kept inside, nothing readable behind)",
+    noSheetAtStart && offStill && saved === "15" && notYet && lk.role === "dialog" && lk.modal === "true" && lk.inert && lk.hidden === "true" && lk.opaque && lk.allInside && /Signed in as Maria Borg/.test(lkText), JSON.stringify({ noSheetAtStart, offStill, saved, notYet, lk }));
+  report("idle lock: the same person carries on with their password (checked by /auth/unlock, same session, typing kept); a wrong password is refused plainly",
+    same.kept === "3.4" && same.token === "x" && same.locked === null && !same.inert && JSON.stringify(sameCalls.map((c) => c.path)) === JSON.stringify(["/auth/unlock", "/auth/unlock"]), JSON.stringify({ same, sameCalls: sameCalls.map((c) => c.path) }));
+  report("idle lock: someone else signs in as themselves: their own session, the previous one ended with one /auth/logout, and the page reloads as them",
+    other.reloads === 1 && other.token === "karl-token" && other.uid === "2" && other.locked === null && JSON.stringify(otherCalls.map((c) => c.path)) === JSON.stringify(["/auth/login", "/auth/logout"]) && errs.length === 0, JSON.stringify({ other, otherCalls: otherCalls.map((c) => c.path), errs }));
+  await ctx.close();
+} catch (e) { report("idle lock: ran to the end", false, String(e).slice(0, 400)); }
+teamState = teamFresh();
+// Classic pharmacy calculators: Warfarin "Clear" puts every field back (it threw on an undefined preferSel half way through).
+try {
+  const wp = await browser.newPage({ viewport: { width: 1440, height: 900 } }); const wErr = []; wp.on("pageerror", (e) => wErr.push(e.message));
+  await wp.route(/^https?:\/\/(?!localhost[:/])/, (r) => r.abort());
+  await wp.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: "window.XLSX={};" }));
+  await wp.goto(base + "#today");
+  await wp.evaluate(() => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); });
+  await wp.goto(base + "&ui=classic#pharmacycalc");
+  await wp.waitForFunction(() => window.EIKON && window.EIKON.state.activeModuleId === "pharmacycalc" && [...document.querySelectorAll("button")].some((b) => b.textContent === "Warfarin Variable Dosing"), null, { timeout: 15000 });
+  await wp.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent === "Warfarin Variable Dosing").click());
+  await wp.waitForSelector("#war-results", { timeout: 8000 });
+  const card = () => [...document.querySelectorAll(".eikon-card")].find((c) => c.firstChild && c.firstChild.textContent === "Warfarin Variable Dosing");
+  const read = () => wp.evaluate((cs) => { const c = eval(cs)(); const ins = c.querySelectorAll("input"), sel = c.querySelectorAll("select");
+    return { weeks: ins[0].value, mode: sel[0].value, split: sel[1].value, mon: ins[1].value, cycleShown: c.querySelector("input[type=text]").closest("div").style.display, res: document.querySelector("#war-results").textContent }; }, "(" + card.toString() + ")");
+  await wp.evaluate((cs) => { const c = eval(cs)(); const ins = c.querySelectorAll("input"), sel = c.querySelectorAll("select");
+    ins[0].value = "9"; ins[1].value = "7"; sel[0].value = "cycle"; sel[0].dispatchEvent(new Event("change")); sel[1].value = "none";
+    [...c.querySelectorAll("button")].find((b) => b.textContent === "Calculate").click(); }, "(" + card.toString() + ")");
+  const before = await read();
+  await wp.evaluate((cs) => [...eval(cs)().querySelectorAll("button")].find((b) => b.textContent === "Clear").click(), "(" + card.toString() + ")");
+  const after = await read();
+  await wp.close();
+  report("classic pharmacy calculators: Warfarin Clear resets weeks, pattern, splitting, the weekly doses and the result, with no page error",
+    wErr.length === 0 && before.weeks === "9" && after.weeks === "4" && after.mode === "weekly" && after.split === "halves" && after.mon === "5" && after.cycleShown === "none" && /Click Calculate/.test(after.res),
+    JSON.stringify({ wErr, before, after }));
+} catch (e) { report("classic pharmacy calculators: Warfarin Clear ran", false, String(e).slice(0, 300)); }
+
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });
@@ -2578,6 +2993,110 @@ await page.setViewportSize({ width: 1440, height: 900 });
 await page.screenshot({ path: path.join(here, "..", "..", "design", "eikon-reimagined", "prototype", "04 Today, built.png") });
 // leave the flag off for the next run
 await page.evaluate(() => { localStorage.removeItem("eikon_ui2"); });
+
+// ---- "Add Eikon to your desktop / home screen" (ui/eikon.install.js): eikonhq.com, new layout, once after sign-in ----
+// eikonhq.com is answered from this server inside its own browser contexts (Playwright route; nothing leaves the
+// machine): pages get index.html with the worker's clean-address mark, everything else comes from the mock.
+try {
+  const cleanHtml = () => fs.readFileSync(path.join(root, "index.html"), "utf8").replace(/<head[^>]*>/i, (h) => h + '\n  <meta name="eikon-ui-base" content="/ui/" />');
+  const instCtx = async (opts = {}, store = {}) => {
+    const c = await browser.newContext(Object.assign({ viewport: { width: 1280, height: 860 } }, opts));
+    await c.route(/^http:\/\/(www\.)?eikonhq\.com\//, async (r) => {
+      const u = new URL(r.request().url());
+      if (r.request().resourceType() === "document" && (u.pathname === "/" || /^\/[A-Za-z][\w-]*$/.test(u.pathname))) return r.fulfill({ contentType: "text/html", body: cleanHtml() });
+      return r.fulfill({ response: await r.fetch({ url: `http://localhost:${PORT}` + u.pathname + u.search }) });
+    });
+    await c.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: "window.XLSX={};" }));
+    await c.addInitScript((s) => { try { if (location.hostname.endsWith("eikonhq.com") && !localStorage.getItem("eikon_token")) { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); for (const k in s) localStorage.setItem(k, s[k]); } } catch (e) {} }, store);
+    return c;
+  };
+  const instErrs = [];
+  const open = async (c, url = "http://eikonhq.com/", frame) => {
+    const p = await c.newPage(); p.on("pageerror", (e) => instErrs.push(e.message));
+    await p.goto(url);
+    const f = frame ? p.frame({ url: /eikonhq\.com/ }) || p.frames()[1] : p;
+    await f.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && window.EIKON.install && document.getElementById("eikon-content") && document.getElementById("eikon-content").children.length > 0, null, { timeout: 15000 });
+    return { p, f };
+  };
+  const fireBip = (f, outcome = "accepted") => f.evaluate((outcome) => { window.__prompted = 0; const e = new Event("beforeinstallprompt", { cancelable: true }); e.prompt = () => { window.__prompted++; return Promise.resolve(); }; e.userChoice = Promise.resolve({ outcome, platform: "web" }); window.dispatchEvent(e); return !!window.EIKON_BIP; }, outcome);
+  const cardOf = (f) => f.evaluate(() => { const c = document.querySelector(".eik-inst"); if (!c) return null; const r = c.getBoundingClientRect(); return { title: c.querySelector("h2").textContent, text: c.textContent, buttons: [...c.querySelectorAll("button")].map((b) => b.textContent), role: c.getAttribute("role"), label: !!document.getElementById(c.getAttribute("aria-labelledby")), left: r.left, right: r.right, vw: innerWidth, img: c.querySelector("img").complete && c.querySelector("img").naturalWidth > 0, focusIn: c.contains(document.activeElement) }; });
+  const ls = (f, k) => f.evaluate((k) => localStorage.getItem(k), k);
+  const waitCard = (f, t = 4000) => f.waitForSelector(".eik-inst", { timeout: t }).then(() => true, () => false);
+
+  // A. Phone, Chrome-like: our card comes up after sign-in with the browser's prompt behind it; Add calls prompt().
+  let c1 = await instCtx({ viewport: { width: 375, height: 812 }, userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36" });
+  let { p: pA } = await open(c1);
+  const keptA = await fireBip(pA);
+  const shownA = await waitCard(pA); const cA = await cardOf(pA);
+  await pA.click('.eik-inst button[data-act="add"]').catch(() => {}); await pA.waitForTimeout(300);
+  const afterA = { prompted: await pA.evaluate(() => window.__prompted), gone: !(await cardOf(pA)), done: await ls(pA, "eikon_install_done") };
+  report("install offer (phone): the browser prompt is kept, our card comes up once after sign-in (home screen wording, icon, Add / Not now / Don’t ask again, a named dialog inside 375 px); Add calls prompt() and an accepted install is remembered",
+    keptA && shownA && cA && cA.title === "Add Eikon to your home screen" && cA.buttons.join("|") === "Add|Not now|Don’t ask again" && cA.role === "dialog" && cA.label && cA.img && cA.left >= 16 && cA.right <= cA.vw - 16 && !cA.focusIn &&
+    afterA.prompted === 1 && afterA.gone && afterA.done === "1", JSON.stringify({ keptA, shownA, cA, afterA }));
+  // Once installed it is not offered again.
+  const pA2 = (await open(c1)).p; await fireBip(pA2); report("install offer: not offered again once installed", !(await waitCard(pA2, 2500)));
+  await c1.close();
+
+  // B. Desktop: Escape = Not now (30 days); a new visit stays quiet; after 30 days it asks again; Don't ask again is for good; Settings still opens it.
+  const c2 = await instCtx();
+  const pB = (await open(c2)).p; await fireBip(pB);
+  const shownB = await waitCard(pB); const cB = await cardOf(pB);
+  await pB.keyboard.press("Escape"); await pB.waitForTimeout(200);
+  const snooze = Number(await ls(pB, "eikon_install_snooze_until"));
+  const escB = { gone: !(await cardOf(pB)), days: Math.round((snooze - Date.now()) / 864e5) };
+  const pB2 = (await open(c2)).p; await fireBip(pB2); const quietB2 = !(await waitCard(pB2, 2500));
+  await pB2.evaluate(() => localStorage.setItem("eikon_install_snooze_until", String(Date.now() - 1000)));
+  const pB3 = (await open(c2)).p; await fireBip(pB3); const againB3 = await waitCard(pB3);
+  await pB3.click('.eik-inst button[data-act="never"]'); await pB3.waitForTimeout(200);
+  const neverB = await ls(pB3, "eikon_install_never");
+  const pB4 = (await open(c2)).p; const keptB4 = await fireBip(pB4); const quietB4 = !(await waitCard(pB4, 2500));
+  report("install offer (desktop): desktop wording; Escape closes it as Not now for 30 days; the next visit stays quiet; after 30 days it asks again; Don’t ask again is for good (the browser's own prompt is then left alone)",
+    shownB && cB && cB.title === "Add Eikon to your desktop" && escB.gone && escB.days === 30 && quietB2 && againB3 && neverB === "1" && !keptB4 && quietB4,
+    JSON.stringify({ shownB, cB: cB && cB.title, escB, quietB2, againB3, neverB, keptB4, quietB4 }));
+  // Settings still opens it, keyboard first; Escape there just closes.
+  await pB4.evaluate(() => { location.hash = "#settings"; }); await pB4.waitForTimeout(800);
+  const setBtn = await pB4.$('.hub-card:has-text("Add to desktop or home screen")');
+  if (setBtn) await setBtn.click();
+  const cS = await waitCard(pB4) ? await cardOf(pB4) : null;
+  await pB4.keyboard.press("Escape"); await pB4.waitForTimeout(150);
+  report("install offer: reachable from Settings after Don’t ask again (focus moves into the card, browser-menu steps when no prompt is at hand); Escape closes it and nothing changes",
+    !!setBtn && cS && cS.focusIn && /Install Eikon/.test(cS.text) && !(await cardOf(pB4)) && (await ls(pB4, "eikon_install_never")) === "1", JSON.stringify({ setBtn: !!setBtn, cS }));
+  await c2.close();
+
+  // C. Never in an installed app, in a frame, in the classic layout, or on another address.
+  const c3 = await instCtx(); await c3.addInitScript(() => { try { Object.defineProperty(navigator, "standalone", { get: () => true }); } catch (e) {} });
+  const pC = (await open(c3)).p; await fireBip(pC); const noStandalone = !(await waitCard(pC, 2500)); await c3.close();
+  const c3b = await instCtx(); await c3b.addInitScript(() => { const mm = window.matchMedia.bind(window); window.matchMedia = (q) => /display-mode: standalone/.test(q) ? { matches: true, media: q, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} } : mm(q); });
+  const pC2 = (await open(c3b)).p; await fireBip(pC2); const noStandalone2 = !(await waitCard(pC2, 2500)); await c3b.close();
+  const c4 = await instCtx(); const pF = await c4.newPage();
+  await c4.route("http://frame.test/", (r) => r.fulfill({ contentType: "text/html", body: '<!doctype html><title>Host</title><iframe src="http://eikonhq.com/" style="width:1200px;height:800px"></iframe>' }));
+  await pF.goto("http://frame.test/");
+  const fr = await (async () => { for (let i = 0; i < 60; i++) { const f = pF.frames().find((x) => /eikonhq\.com/.test(x.url())); if (f) return f; await pF.waitForTimeout(100); } return null; })();
+  await fr.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && window.EIKON.install, null, { timeout: 15000 });
+  await fireBip(fr); const noFrame = !(await waitCard(fr, 2500)); await c4.close();
+  const c5 = await instCtx({}, { eikon_ui2: "0" }); const pK = await c5.newPage(); await pK.goto("http://eikonhq.com/");
+  await pK.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && window.EIKON.install, null, { timeout: 15000 }); await pK.waitForTimeout(800);
+  const keptK = await fireBip(pK); const noClassic = !(await waitCard(pK, 2500)); await c5.close();
+  const pL = await browser.newPage(); await pL.goto(base + "#today");
+  await pL.evaluate(() => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); }); await pL.reload();
+  await pL.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && window.EIKON.install, null, { timeout: 15000 });
+  await fireBip(pL); const noOther = !(await waitCard(pL, 2500)); const manL = await pL.evaluate(() => document.querySelector('link[rel="manifest"]').getAttribute("href")); await pL.close();
+  report("install offer: never in an installed app (navigator.standalone, display-mode: standalone), inside a frame, in the classic layout (the browser's prompt left alone) or on another address (/ui/index.html keeps its manifest)",
+    noStandalone && noStandalone2 && noFrame && noClassic && !keptK && noOther && manL === "manifest-next.json", JSON.stringify({ noStandalone, noStandalone2, noFrame, noClassic, keptK, noOther, manL }));
+
+  // D. iPhone: two steps (Share, Add to Home Screen), no Add button; Firefox on a computer: nothing.
+  const c6 = await instCtx({ viewport: { width: 390, height: 844 }, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1", hasTouch: true, isMobile: true });
+  const pI = (await open(c6)).p; const shownI = await waitCard(pI); const cI = await cardOf(pI);
+  const manI = await pI.evaluate(() => document.querySelector('link[rel="manifest"]').getAttribute("href"));
+  await pI.click('.eik-inst button[data-act="later"]'); const snoozeI = Number(await ls(pI, "eikon_install_snooze_until")) > Date.now();
+  await c6.close();
+  const c7 = await instCtx({ userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0" });
+  const pX = (await open(c7)).p; const noFx = !(await waitCard(pX, 2500)); await c7.close();
+  report("install offer (iPhone): shown by itself with Share then Add to Home Screen and no Add button, Not now remembered; the clean address installs as eikonhq.com (manifest-clean.json); Firefox on a computer: nothing",
+    shownI && cI && cI.title === "Add Eikon to your home screen" && /Add to Home Screen/.test(cI.text) && /Share/.test(cI.text) && cI.buttons.join("|") === "Not now|Don’t ask again" && snoozeI && manI === "/ui/manifest-clean.json" && noFx,
+    JSON.stringify({ shownI, cI, manI, snoozeI, noFx }));
+  report("install offer: no page errors", instErrs.length === 0, instErrs.slice(0, 3).join(" | "));
+} catch (e) { report("install offer: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
 
 await browser.close();
 server.close();

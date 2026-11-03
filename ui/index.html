@@ -31,10 +31,35 @@
       sessionStorage.setItem("eikon_clean_try", String(Date.now()));
       window.EIKON_LEAVING = true; location.replace("/" + h + location.search);
     } catch (e) {} })();
-    // A home-screen app keeps its own storage, so the new layout installs through next.html.
+    // The old address (eikon-api.labrint.workers.dev) moves a browser TAB to eikonhq.com, same screen and query.
+    // The worker moves /, /ui/ and /today-style paths itself; /ui/index.html is moved here because only the page can
+    // tell a tab from an app installed on a home screen or desktop from the old address (whose start_url it is):
+    // never in a frame (swiftdataautomation.com), never in an installed app, never with ?stay=1.
+    (function () { try {
+      if (window.EIKON_LEAVING || location.hostname !== "eikon-api.labrint.workers.dev") return;
+      if (/[?&]stay=1(&|$)/.test(location.search) || window.top !== window || navigator.standalone === true) return;
+      if (window.matchMedia && window.matchMedia("(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui), (display-mode: window-controls-overlay)").matches) return;
+      var to = location.pathname + location.search + location.hash, h = String(location.hash || "").replace(/^#/, "");
+      if (/^\/ui\/(index\.html)?$/.test(location.pathname) && (!h || /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(h))) to = "/" + h + location.search; // straight to eikonhq.com/endofday
+      window.EIKON_LEAVING = true; location.replace((location.protocol === "http:" ? "http:" : "https:") + "//eikonhq.com" + to);
+    } catch (e) {} })();
+    // A home-screen app keeps its own storage, so the new layout installs through next.html. On eikonhq.com's clean
+    // address the app installs as eikonhq.com itself (start_url and scope "/", manifest-clean.json).
     (function () { var l = document.createElement("link"); l.rel = "manifest"; var n = false;
       try { n = localStorage.getItem("eikon_ui2") !== "0"; } catch (e) {}
-      l.href = (window.EIKON_UI_BASE || "") + (n ? "manifest-next.json" : "manifest.json"); document.head.appendChild(l); })();
+      var clean = !!window.EIKON_UI_BASE && /^(www\.)?eikonhq\.com$/i.test(location.hostname);
+      l.href = (window.EIKON_UI_BASE || "") + (clean ? "manifest-clean.json" : n ? "manifest-next.json" : "manifest.json"); document.head.appendChild(l);
+      // Install offer (eikon.install.js): the browser's install prompt is kept for our own card, which asks once after
+      // sign-in. Only on the clean address in the new layout, and not once the person said "Don't ask again".
+      if (!clean) return;
+      window.addEventListener("beforeinstallprompt", function (ev) { try {
+        var q = new URLSearchParams(location.search).get("ui");
+        var light = q === "2" || (q !== "1" && q !== "classic" && localStorage.getItem("eikon_ui2") !== "0" && sessionStorage.getItem("eikon_ui2_pause") !== "1" && (!localStorage.getItem("eikon_active_role") || localStorage.getItem("eikon_active_role") === "pharmacy"));
+        if (!light || localStorage.getItem("eikon_install_never") === "1") return;
+        ev.preventDefault(); window.EIKON_BIP = ev; window.dispatchEvent(new Event("eikon:installable"));
+      } catch (e) {} });
+      window.addEventListener("appinstalled", function () { try { localStorage.setItem("eikon_install_done", "1"); } catch (e) {} });
+    })();
   </script>
 
   <!-- CSS and scripts are attached dynamically with a build stamp (see BUILD below). -->
@@ -54,7 +79,7 @@
       // browser and the Worker's edge cache can reuse every file (previously every load
       // used Date.now(), so 52 files were re-downloaded on every visit).
       // Bump BUILD on EVERY change to any file in ui/: browsers keep stamped files for a day.
-      var BUILD = "2026-11-03.140";
+      var BUILD = "2026-11-03.141";
       if (window.EIKON_LEAVING) return; // moving to the clean address (see the head)
 
       function log() { try { console.log.apply(console, arguments); } catch (e) {} }
@@ -140,9 +165,11 @@
 
       var MODULES = [
         "./core.js",
+        "./eikon.install.js",
         "./eikon.personpick.js",
         "./eikon.people.js",
         "./eikon.search.js",
+        "./eikon.months.js",
         "./help-content.js",
         "./modules.dashboard.js",
         "./modules.today.js",
@@ -169,6 +196,7 @@
         "./modules.hndreg.js",
         "./modules.rotreg.js",
         "./modules.shfreg.js",
+        "./modules.teamreg.js",
         "./modules.repreg.js",
         "./modules.cnreg.js",
         "./modules.lrcreg.js",
@@ -269,7 +297,7 @@
 
       // New layout: start with what Today needs, then load its other screens in the background.
       // The router waits for a late module if one is asked for early.
-      var FIRST = ["./core.js", "./eikon.people.js", "./eikon.search.js", "./modules.today.js", "./modules.customers.js", "./modules.bookings.js", "./modules.hubs.js", "./main.js"];
+      var FIRST = ["./core.js", "./eikon.install.js", "./eikon.people.js", "./eikon.search.js", "./modules.today.js", "./modules.customers.js", "./modules.bookings.js", "./modules.hubs.js", "./main.js"];
       var LATER = [], ORDER = [];
       if (light) {
         ORDER = FIRST.concat(MODULES.filter(function (m) { return FIRST.indexOf(m) < 0; })); // the order E.modules had with every file loaded

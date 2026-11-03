@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-03-batch-2";
+const WORKER_VERSION = "2026-11-03-batch-3";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -60,6 +60,7 @@ function jsonResponse(data, status = 200, extraHeaders = {}) {
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
       "Pragma": "no-cache",
+      "X-Content-Type-Options": "nosniff", // backlog 2-9
       ...extraHeaders
     }
   });
@@ -1111,6 +1112,10 @@ function auditDetailsJson(detailsObj) {
 async function ensureAuditSchema__impl(env) {
   // Nullable, added once; no existing row is touched (an ADD COLUMN without a default leaves old rows NULL).
   try { await dbRun(env, "ALTER TABLE audit_log ADD COLUMN location_id INTEGER", []); } catch (e) { /* column may already exist */ }
+  // The Audit trail reads newest-first inside a date range (30 days by default): without this every page and its
+  // total read the whole group's history (SCALE-2: 1.2M rows per page at 600k audit rows). The filter columns ride
+  // along so a page with a filter and no dates checks them in the index, not row by row. Additive; no row changes.
+  try { await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_audit_log_org_created ON audit_log (org_id, created_at, location_id, entity_type, action)", []); } catch (e) {}
 }
 
 async function writeAudit(env, orgId, userId, action, entityType, entityId, detailsObj, locationId) {
@@ -1182,9 +1187,7 @@ async function authFromRequest(request, env) {
 
   const tokenHashB64 = await sha256B64FromString(token);
 
-  const sess = await dbFirst(
-    env,
-    `SELECT
+  const SESS_SQL = (extra) => `SELECT
        s.id AS session_id,
        s.user_id,
        s.expires_at,
@@ -1193,12 +1196,18 @@ async function authFromRequest(request, env) {
        u.full_name,
        u.role,
        u.is_active,
-       u.default_location_id
+       u.default_location_id${extra}
      FROM sessions s
      JOIN users u ON u.id = s.user_id
-     WHERE s.token_hash_b64 = ?`,
-    [tokenHashB64]
-  );
+     WHERE s.token_hash_b64 = ?`;
+  // Team sign-ins (backlog 2 item 4): must_change_password is read in the same query. A database that does not have
+  // the column yet (before the first /team call) answers with the query as it always was: nobody is affected.
+  let sess;
+  try { sess = await dbFirst(env, SESS_SQL(",\n       u.must_change_password"), [tokenHashB64]); }
+  catch (e) {
+    sess = await dbFirst(env, SESS_SQL(""), [tokenHashB64]);
+    try { await ensureTeamSchema(env); } catch (e2) {} // adds the column once (default 0), so the next request needs one query again
+  }
 
   if (!sess) return null;
   if (sess.is_active !== 1) return null;
@@ -1215,7 +1224,7 @@ async function authFromRequest(request, env) {
 
   const org = await dbFirst(env, "SELECT id, name FROM orgs WHERE id = ?", [sess.org_id]);
 
-  return {
+  const out = {
     session_id: sess.session_id,
     user_id: sess.user_id,
     org_id: sess.org_id,
@@ -1226,6 +1235,8 @@ async function authFromRequest(request, env) {
     location_id: loc.id,
     location_name: loc.name
   };
+  if (Number(sess.must_change_password) === 1) out.must_change = true; // only ever set for a sign-in made or reset on /team
+  return out;
 }
 
 function htmlPage(title, bodyHtml) {
@@ -1567,6 +1578,7 @@ async function handleChangePassword(request, env, corsOkHeaders, authUser) {
   const iters = 100000;
   const hash = await pbkdf2Hash(next, salt, iters);
   await dbRun(env, "UPDATE users SET pass_salt_b64 = ?, pass_hash_b64 = ?, pass_iters = ? WHERE id = ?", [base64FromBytes(salt), base64FromBytes(hash), iters, user.id]);
+  if (authUser.must_change) { try { await dbRun(env, "UPDATE users SET must_change_password = 0 WHERE id = ?", [user.id]); } catch (e) {} }
   try { await dbRun(env, "DELETE FROM sessions WHERE user_id = ? AND id != ?", [user.id, authUser.session_id]); } catch (e) {}
   await writeAudit(env, authUser.org_id, authUser.user_id, "PASSWORD_CHANGE", "user", String(user.id), { other_sessions_revoked: true }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
@@ -1628,6 +1640,8 @@ async function handleLogin(request, env, corsOkHeaders) {
   );
 
   await writeAudit(env, user.org_id, user.id, "LOGIN", "user", String(user.id), { email: user.email });
+  let mustChange = false; // a sign-in made or reset on /team (the column may not exist yet: then nobody has to)
+  try { const mc = await dbFirst(env, "SELECT must_change_password FROM users WHERE id = ?", [user.id]); mustChange = !!(mc && Number(mc.must_change_password) === 1); } catch (e) {}
 
   return jsonResponse(
     {
@@ -1641,8 +1655,10 @@ async function handleLogin(request, env, corsOkHeaders) {
         role: user.role,
         location_id: loc.id,
         location_name: loc.name,
-        org_name: (await dbFirst(env, "SELECT name FROM orgs WHERE id = ?", [user.org_id]))?.name || ""
-      }
+        org_name: (await dbFirst(env, "SELECT name FROM orgs WHERE id = ?", [user.org_id]))?.name || "",
+        ...(mustChange ? { must_change: true } : {})
+      },
+      ...(mustChange ? { must_change: true } : {})
     },
     200,
     corsOkHeaders
@@ -4278,37 +4294,6 @@ async function handleClientTicketsEntryDelete(request, env, corsOkHeaders, authU
   await dbRun(env, "DELETE FROM client_tickets_entries WHERE org_id = ? AND location_id = ? AND id = ?", [authUser.org_id, authUser.location_id, id]);
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_TICKET_DELETE", "client_tickets_entries", String(id), auditWith({}, __before), authUser.location_id);
-
-
-  // Keep calendar token mapping table in sync for public iCal feed
-  try {
-    const tok = (body && body.calendarToken != null) ? String(body.calendarToken).trim() : "";
-    if (tok === "") {
-      await dbRun(env, `DELETE FROM shift_calendar_tokens WHERE org_id=? AND location_id=?`, [authUser.org_id, authUser.location_id]);
-    } else if (tok) {
-      await dbRun(env,
-        `INSERT INTO shift_calendar_tokens (org_id, location_id, token, updated_at, updated_by) VALUES (?,?,?,datetime('now'),?)
-         ON CONFLICT(org_id, location_id) DO UPDATE SET token=excluded.token, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
-        [authUser.org_id, authUser.location_id, tok, authUser.user_id]);
-    }
-  } catch (e) {
-    console.log("[shifts][settings] token sync failed", e && (e.message || String(e)));
-  }
-  
-  // Keep calendar token mapping table in sync for public iCal feed
-  try {
-    const tok = (body && body.calendarToken != null) ? String(body.calendarToken).trim() : "";
-    if (tok === "") {
-      await dbRun(env, `DELETE FROM shift_calendar_tokens WHERE org_id=? AND location_id=?`, [authUser.org_id, authUser.location_id]);
-    } else if (tok) {
-      await dbRun(env,
-        `INSERT INTO shift_calendar_tokens (org_id, location_id, token, updated_at, updated_by) VALUES (?,?,?,datetime('now'),?)
-         ON CONFLICT(org_id, location_id) DO UPDATE SET token=excluded.token, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
-        [authUser.org_id, authUser.location_id, tok, authUser.user_id]);
-    }
-  } catch (e) {
-    console.log("[shifts][settings] token sync failed", e && (e.message || String(e)));
-  }
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -8120,6 +8105,7 @@ async function handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, 
   const q = (url.searchParams.get("q") || "").trim();
   const hasQ = !!q;
   const qLike = `%${q}%`;
+  const qCardKeys = /^\d{1,7}[A-Za-z]$/.test(q.replace(/\s+/g, "")) ? mtIdCardLookupKeys(q) : []; // 123M, 0000123M and "123 m" are one card
 
   const sql = `
     SELECT
@@ -8150,7 +8136,8 @@ async function handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, 
         OR medicine_name_dose LIKE ?
         OR doctor_name LIKE ?
         OR doctor_reg_no LIKE ?
-        OR prescription_serial_no LIKE ?
+        OR prescription_serial_no LIKE ?${qCardKeys.length ? `
+        OR upper(replace(client_id_card, ' ', '')) IN (${qCardKeys.map(() => "?").join(", ")})` : ""}
       )` : ""}
     ORDER BY entry_date DESC, id DESC
   `;
@@ -8158,6 +8145,7 @@ async function handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, 
   const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
   if (hasQ) {
     bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+    bind.push(...qCardKeys);
   }
 
   const entries = await dbAll(env, sql, bind);
@@ -8167,18 +8155,10 @@ async function handleDdaSalesEntriesList(request, env, corsOkHeaders, authUser, 
 
 
 
-// The ID-card tidy-up rewrites older DDA lines in place; until that stops (backlog item 2), each rewrite leaves
-// one audit row listing the lines and the ID card each had before.
-async function ddaIdCardRewriteAudit(env, authUser, norm, keys) {
-  try {
-    if (!norm || !keys || !keys.length) return;
-    const ph = keys.map(() => "?").join(", ");
-    const rows = await dbAll(env, `SELECT id, client_id_card FROM dda_sales_entries WHERE org_id = ? AND location_id = ? AND upper(replace(client_id_card, ' ', '')) IN (${ph}) AND client_id_card != ?`,
-      [authUser.org_id, authUser.location_id].concat(keys, [norm]));
-    if (!rows.length) return;
-    await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ID_CARD_REWRITE", "dda_sales_entries", "", { to: norm, count: rows.length, before: rows.slice(0, 300) }, authUser.location_id);
-  } catch (e) {}
-}
+// Controlled-drug register lines are kept as they were written. Nothing here rewrites a patient's older lines
+// to a new spelling of their ID card: every reader matches the card through mtIdCardLookupKeys (123M, 0000123M
+// and "123 m" are the same card), and a deliberate change of card on all of a person's records is
+// POST /people/:id/change-id-card, which is confirmed, audited and undoable.
 
 async function handleDdaSalesClientLookup(request, env, corsOkHeaders, authUser, url) {
   if (!requireRole(authUser, ["admin", "staff"])) {
@@ -8207,20 +8187,7 @@ async function handleDdaSalesClientLookup(request, env, corsOkHeaders, authUser,
   );
 
   if (!row) return jsonResponse({ ok: true, found: false, client_id_card: clientIdCard }, 200, corsOkHeaders);
-
-  if (row && row.client_id_card && row.client_id_card !== clientIdCard) {
-    // normalize existing historical records to prevent duplicates going forward
-    await ddaIdCardRewriteAudit(env, authUser, clientIdCard, keys);
-    await dbRun(
-      env,
-      `UPDATE dda_sales_entries
-       SET client_id_card = ?
-       WHERE org_id = ?
-         AND location_id = ?
-         AND upper(replace(client_id_card, ' ', '')) IN (${placeholders})`,
-      [clientIdCard, authUser.org_id, authUser.location_id].concat(keys)
-    );
-  }
+  // A lookup only reads: older lines keep the spelling they were written with.
 
   return jsonResponse(
     { ok: true, found: true, client_id_card: row.client_id_card, client_name: row.client_name, client_address: row.client_address },
@@ -8298,8 +8265,10 @@ async function handleDdaSalesClientsSearch(request, env, corsOkHeaders, authUser
 
   if (qRaw) {
     const q = "%" + qRaw.toLowerCase() + "%";
-    sql += " AND (LOWER(client_name) LIKE ? OR LOWER(client_id_card) LIKE ? OR LOWER(client_address) LIKE ?) ";
-    bind.push(q, q, q);
+    const cardKeys = /^\d{1,7}[A-Za-z]$/.test(qRaw.replace(/\s+/g, "")) ? mtIdCardLookupKeys(qRaw) : [];
+    sql += " AND (LOWER(client_name) LIKE ? OR LOWER(client_id_card) LIKE ? OR LOWER(client_address) LIKE ?" +
+      (cardKeys.length ? " OR upper(replace(client_id_card, ' ', '')) IN (" + cardKeys.map(() => "?").join(", ") + ")" : "") + ") ";
+    bind.push(q, q, q, ...cardKeys);
   }
 
   sql += `
@@ -8307,17 +8276,23 @@ async function handleDdaSalesClientsSearch(request, env, corsOkHeaders, authUser
     ORDER BY last_date DESC
     LIMIT ?
   `;
-  bind.push(limit);
+  bind.push(limit * 3); // spellings of one card are folded together below
 
   const rows = await dbAll(env, sql, bind);
 
+  // Older lines keep the spelling they were written with (123M, 0000123M): one suggestion per name and card.
   const out = [];
+  const seen = new Set();
   for (const r of rows) {
+    const k = String(r.client_name || "").trim().toLowerCase() + "|" + normalizeMtIdCard(r.client_id_card);
+    if (seen.has(k)) continue;
+    seen.add(k);
     out.push({
       client_name: r.client_name || "",
-      client_id_card: r.client_id_card || "",
+      client_id_card: normalizeMtIdCard(r.client_id_card) || r.client_id_card || "",
       client_address: r.client_address || "",
     });
+    if (out.length >= limit) break;
   }
 
   return jsonResponse({ ok: true, clients: out }, 200, corsOkHeaders);
@@ -8365,23 +8340,7 @@ async function handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser) 
   const entryDate = String(body.entry_date || "").trim();
   const clientName = String(body.client_name || "").trim();
   const clientIdCard = String(body.client_id_card || "").trim();
-  const clientIdCardNorm = normalizeMtIdCard(clientIdCard);
-  const keys = mtIdCardLookupKeys(clientIdCard);
-  const placeholders = keys.map(() => "?").join(", ");
-
-  // normalize existing historical records for this client_id_card to prevent duplicates
-  if (clientIdCardNorm && keys.length) {
-  await ddaIdCardRewriteAudit(env, authUser, clientIdCardNorm, keys);
-  await dbRun(
-      env,
-      `UPDATE dda_sales_entries
-       SET client_id_card = ?
-       WHERE org_id = ?
-         AND location_id = ?
-         AND upper(replace(client_id_card, ' ', '')) IN (${placeholders})`,
-      [clientIdCardNorm, authUser.org_id, authUser.location_id].concat(keys)
-    );
-    }
+  const clientIdCardNorm = normalizeMtIdCard(clientIdCard); // this line is saved with the tidy spelling; other lines are not touched
   const clientAddress = String(body.client_address || "").trim();
   const medicineNameDose = String(body.medicine_name_dose || "").trim();
   const quantity = normalizeIntPositive(body.quantity);
@@ -8457,23 +8416,7 @@ async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, 
   const entryDate = String(body.entry_date || "").trim();
   const clientName = String(body.client_name || "").trim();
   const clientIdCard = String(body.client_id_card || "").trim();
-  const clientIdCardNorm = normalizeMtIdCard(clientIdCard);
-  const keys = mtIdCardLookupKeys(clientIdCard);
-  const placeholders = keys.map(() => "?").join(", ");
-
-  // normalize existing historical records for this client_id_card to prevent duplicates
-  if (clientIdCardNorm && keys.length) {
-  await ddaIdCardRewriteAudit(env, authUser, clientIdCardNorm, keys);
-  await dbRun(
-      env,
-      `UPDATE dda_sales_entries
-       SET client_id_card = ?
-       WHERE org_id = ?
-         AND location_id = ?
-         AND upper(replace(client_id_card, ' ', '')) IN (${placeholders})`,
-      [clientIdCardNorm, authUser.org_id, authUser.location_id].concat(keys)
-    );
-    }
+  const clientIdCardNorm = normalizeMtIdCard(clientIdCard); // this line is saved with the tidy spelling; other lines are not touched
   const clientAddress = String(body.client_address || "").trim();
   const medicineNameDose = String(body.medicine_name_dose || "").trim();
   const quantity = normalizeIntPositive(body.quantity);
@@ -8759,6 +8702,7 @@ async function handleDdaPoycEntriesList(request, env, corsOkHeaders, authUser, u
   const q = (url.searchParams.get("q") || "").trim();
   const hasQ = !!q;
   const qLike = `%${q}%`;
+  const qCardKeys = /^\d{1,7}[A-Za-z]$/.test(q.replace(/\s+/g, "")) ? mtIdCardLookupKeys(q) : []; // 123M, 0000123M and "123 m" are one card
 
   const sql = `
     SELECT
@@ -8788,7 +8732,8 @@ async function handleDdaPoycEntriesList(request, env, corsOkHeaders, authUser, u
         OR medicine_name_dose LIKE ?
         OR doctor_name LIKE ?
         OR doctor_reg_no LIKE ?
-        OR prescription_serial_no LIKE ?
+        OR prescription_serial_no LIKE ?${qCardKeys.length ? `
+        OR upper(replace(client_id_card, ' ', '')) IN (${qCardKeys.map(() => "?").join(", ")})` : ""}
       )` : ""}
     ORDER BY entry_date DESC, id DESC
   `;
@@ -8796,6 +8741,7 @@ async function handleDdaPoycEntriesList(request, env, corsOkHeaders, authUser, u
   const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
   if (hasQ) {
     bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+    bind.push(...qCardKeys);
   }
 
   const entries = await dbAll(env, sql, bind);
@@ -10304,6 +10250,43 @@ function isAppPageRequest(request, url) {
   return /^\s*text\/html/i.test(request.headers.get("Accept") || "");
 }
 
+// ------------------------------------------------------------
+// The old address moves to eikonhq.com (owner's decision, 2026-11-03)
+// A person who opens the old workers.dev address in a browser tab is sent to the same path and query on eikonhq.com
+// (the browser keeps the #hash across a redirect). They sign in there once: a browser keeps sign-ins per address.
+// Only a top-level page load, when ALL of these hold:
+//   - the host is exactly OLD_APP_HOST (eikonhq.com and every other host: never);
+//   - GET or HEAD, with no Authorization header;
+//   - Sec-Fetch-Mode: navigate AND Sec-Fetch-Dest: document. Browsers set both themselves and a script cannot. A frame
+//     (the page on swiftdataautomation.com) sends Dest: iframe, fetch()/XHR send Mode: cors/same-origin/no-cors and
+//     Dest: empty, servers and old browsers send neither: none of them is ever moved;
+//   - no ?stay=1 (the opt-out; nothing is remembered here, the query string itself keeps it on reloads);
+//   - the path is "/", "/ui", "/ui/" or a one-word screen path the app page answers (see isAppPageRequest).
+// /ui/index.html is NOT moved here: it is the start_url of apps installed on a home screen or desktop from the old
+// address, and their launch looks exactly like a bookmark (Mode navigate, Dest document, Site none). index.html
+// itself moves a browser tab (it can tell: not in a frame, not display-mode standalone). Booking links (/b/, /book/),
+// /health, /su, every API route and every file under /ui/ answer exactly as before.
+// ------------------------------------------------------------
+const OLD_APP_HOST = "eikon-api.labrint.workers.dev";
+const NEW_APP_ORIGIN = "https://eikonhq.com";
+function oldAddressMove(request, url) {
+  if (url.hostname !== OLD_APP_HOST) return null;
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+  if (request.headers.has("Authorization")) return null;
+  if (request.headers.get("Sec-Fetch-Mode") !== "navigate" || request.headers.get("Sec-Fetch-Dest") !== "document") return null;
+  if (url.searchParams.get("stay") === "1") return null;
+  const p = url.pathname;
+  if (p !== "/" && p !== "/ui" && p !== "/ui/" && !isOneWordScreenPath(p)) return null;
+  return new Response(null, {
+    status: 302,
+    headers: { "Location": NEW_APP_ORIGIN + p + url.search, "Cache-Control": "no-store", "Vary": "Sec-Fetch-Mode, Sec-Fetch-Dest, Authorization" }
+  });
+}
+function isOneWordScreenPath(p) {
+  const m = /^\/([A-Za-z][A-Za-z0-9_-]{0,63})$/.exec(p);
+  return !!m && !APP_PAGE_RESERVED.has(m[1].toLowerCase());
+}
+
 // index.html with a mark that tells it to load its files from /ui/ and to name screens by path. Returns null (and the
 // request goes on as before: "/" redirects to /ui/index.html, a screen path to the API) when the page cannot be had or
 // is an index.html that does not know the mark yet, so a worker deployed ahead of the UI changes nothing.
@@ -10323,7 +10306,8 @@ async function handleAppPage(request, env, url) {
         // not be handed to that call (nor the other way round).
         "Cache-Control": "no-store",
         "Vary": "Accept, Sec-Fetch-Mode, Authorization",
-        "X-Eikon-Page": "app"
+        "X-Eikon-Page": "app",
+        ...(await appSecurityHeaders(out)) // backlog 2-9: nosniff, Referrer-Policy, CSP Report-Only
       }
     });
   } catch (e) {
@@ -10370,7 +10354,7 @@ async function handleUiAsset(request, env, url) {
 
   if (cachingEnabled) {
     const cached = await cache.match(request);
-    if (cached) return cached;
+    if (cached) return withUiSecurityHeaders(cached, rel); // backlog 2-9: security headers
   }
 
   const ghUrl = buildGithubRawUrl(env, rel);
@@ -10418,8 +10402,92 @@ async function handleUiAsset(request, env, url) {
     await cache.put(request, out.clone());
   }
 
+  return withUiSecurityHeaders(out, rel); // backlog 2-9: security headers
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   APP PAGE SECURITY HEADERS (backlog 2, item 9). Self-contained: the only other lines are three hooks
+   (handleAppPage's headers, handleUiAsset's two returns), nosniff in jsonResponse and "csp" in CLIENT_LOG_KINDS.
+   - Every /ui/* file and the app page: X-Content-Type-Options nosniff, Referrer-Policy same-origin.
+   - HTML (the app page at "/" and /<screen>, /ui/index.html, next.html, ...): also Content-Security-Policy-Report-Only.
+     REPORT-ONLY: the browser blocks nothing, it only tells the page (securitypolicyviolation, which core.js sends
+     to /client-log as kind "csp"). Enforce only after a quiet week and John's OK.
+   - script-src: 'self' plus the sha256 of each inline <script> of THAT page, worked out here from the very HTML
+     being sent: index.html's inline script holds BUILD, so a fixed list would go stale on every UI release
+     (the UI ships from GitHub without a worker deploy). 'wasm-unsafe-eval' lets the vendored OCR engine
+     (tesseract, Emergency POS photo search) compile WebAssembly; it does not allow eval() of JavaScript.
+   - style-src 'unsafe-inline': the screens build their markup with style="..." attributes and <style> blocks
+     (index.html's loading screen, every module); removing it means rewriting them. Styles cannot read the token.
+   - No X-Frame-Options: swiftdataautomation.com/eikon frames the app (godaddy/godaddy-loader-htmlcode, core.js
+     PARENT_ORIGIN) and X-Frame-Options cannot name another site. frame-ancestors carries the list instead, in the
+     report-only policy for now: GoDaddy puts custom HTML in a frame of its own, whose origin is not known here.
+   Map tiles: *.tile.openstreetmap.org (Deliveries map, Leaflet); geocoding: geocode.arcgis.com, nominatim.
+   ══════════════════════════════════════════════════════════════════════════════ */
+const APP_FRAME_ANCESTORS = ["'self'", "https://eikonhq.com", "https://www.eikonhq.com", "https://eikon-api.labrint.workers.dev",
+  "https://swiftdataautomation.com", "https://*.swiftdataautomation.com"];
+const APP_CSP_IMG = ["https://tile.openstreetmap.org", "https://*.tile.openstreetmap.org"];
+const APP_CSP_CONNECT = ["https://geocode.arcgis.com", "https://nominatim.openstreetmap.org"];
+
+// The text of every inline <script> (no src) in a page, as the browser hashes it (the HTML parser turns CRLF and CR into LF).
+function appInlineScripts(html) {
+  const out = [];
+  const re = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
+  let m;
+  while ((m = re.exec(String(html || "")))) {
+    if (/\bsrc\s*=/i.test(m[1])) continue;
+    out.push(m[2].replace(/\r\n?/g, "\n"));
+  }
   return out;
 }
+
+async function appCspHashes(html) {
+  const hashes = [];
+  for (const s of appInlineScripts(html)) {
+    const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+    hashes.push("'sha256-" + base64FromBytes(new Uint8Array(d)) + "'");
+  }
+  return hashes;
+}
+
+function appCspPolicy(hashes) {
+  return [
+    "default-src 'self'",
+    "script-src 'self' 'wasm-unsafe-eval'" + (hashes.length ? " " + hashes.join(" ") : ""),
+    "worker-src 'self' blob:",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: " + APP_CSP_IMG.join(" "),
+    "font-src 'self' data:",
+    "connect-src 'self' " + APP_CSP_CONNECT.join(" "),
+    "media-src 'self' blob:",
+    "frame-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors " + APP_FRAME_ANCESTORS.join(" ")
+  ].join("; ");
+}
+
+// Headers for the app page / a /ui/ file. html: the page's text when it is a page (adds the report-only policy).
+async function appSecurityHeaders(html) {
+  const h = { "X-Content-Type-Options": "nosniff", "Referrer-Policy": "same-origin" };
+  if (html != null) h["Content-Security-Policy-Report-Only"] = appCspPolicy(await appCspHashes(html));
+  return h;
+}
+
+// A /ui/ response with the headers above (a new Response: one from the edge cache cannot be changed in place).
+async function withUiSecurityHeaders(res, rel) {
+  try {
+    if (!res || res.status !== 200) return res;
+    const isHtml = /\.html?$/i.test(String(rel || "")) || /^text\/html/i.test(res.headers.get("Content-Type") || "");
+    const add = await appSecurityHeaders(isHtml ? await res.clone().text() : null);
+    const out = new Response(res.body, res);
+    for (const [k, v] of Object.entries(add)) out.headers.set(k, v);
+    return out;
+  } catch (e) {
+    return res;
+  }
+}
+// ── End app page security headers ──────────────────────────────────────────────────────────────────────
 
 
 // ------------------------------------------------------------
@@ -10693,8 +10761,11 @@ async function handlePoctStateGet(request, env, corsOkHeaders, authUser, url) {
 
   const orgId = authUser.org_id;
   const locId = authUser.location_id;
+  // ?part=patients: the patient list only (Possible duplicates reads patients, not every test: SCALE-2 measured
+  // 12.8 MB for a pharmacy with 20k tests). Same shape, records empty. An older worker ignores it and sends both.
+  const patientsOnly = !!(url && url.searchParams && url.searchParams.get("part") === "patients");
 
-  const recRows = await dbAll(
+  const recRows = patientsOnly ? [] : await dbAll(
     env,
     `SELECT record_json FROM poct_records
      WHERE org_id = ? AND location_id = ?
@@ -15914,6 +15985,15 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
     next: bkRows.map((r) => ({ id: r.id, start: r.start_time, end: r.end_time, name: r.person_name, status: r.status, service: r.service || "", provider: r.provider || "" })),
     action: { type: "open", path: "#bookings", label: "Bookings" } };
 
+  // ---- First-run list (backlog 2 item 4), for the pharmacy's admin: how many people can sign in here, and whether
+  // opening hours were ever saved. Two small reads; left out (not guessed) if either cannot be read.
+  let setup;
+  if (authUser.role === "admin") {
+    const [su, sh] = await Promise.all([
+      one("SELECT COUNT(*) AS c FROM users WHERE org_id = ? AND default_location_id = ? AND is_active = 1", [org, loc]),
+      one("SELECT COUNT(*) AS c FROM shift_opening_hours WHERE org_id = ? AND location_id = ?", [org, loc])]);
+    if (su && sh) setup = { sign_ins: Number(su.c) || 0, opening_hours_saved: Number(sh.c) > 0 };
+  }
   const counts = {
     before_opening: before.filter((x) => x.status === "todo" || x.status === "overdue").length,
     customers_waiting: waiting.length,
@@ -15921,7 +16001,7 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
   };
   return jsonResponse({ ok: true, date: today, time: tzHm(), timezone: PHARMACY_TZ,
     pharmacy: { name: authUser.location_name, location_id: loc, org: authUser.org_name },
-    before_opening: before, customers_waiting: waiting, attention, takings, stock, team, bookings, counts },
+    before_opening: before, customers_waiting: waiting, attention, takings, stock, team, bookings, counts, ...(setup ? { setup } : {}) },
     200, { ...corsOkHeaders, "Cache-Control": "private, max-age=10", "Vary": "Origin, Authorization" }); // Authorization: a page load of /today (clean address) must not get this from the browser's cache
 }
 
@@ -15962,6 +16042,8 @@ async function ensurePeopleSchema__impl(env) {
     updated_by INTEGER)`, []);
   await dbRun(env, "CREATE UNIQUE INDEX IF NOT EXISTS idx_people_org_loc_idcard ON people (org_id, location_id, id_card) WHERE id_card <> ''", []);
   await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_people_org_loc_name ON people (org_id, location_id, name)", []);
+  // Only merged records are in it (tiny): finds a person's merged-in records without reading the whole pharmacy.
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_people_merged_into ON people (merged_into) WHERE merged_into IS NOT NULL", []);
 }
 
 // Every legacy table that names a customer, and which of its columns mean what.
@@ -16062,17 +16144,18 @@ async function handlePeopleSearch(request, env, corsOkHeaders, authUser) {
   bind.push(limit);
   const people = (await dbAll(env, "SELECT * FROM people WHERE org_id = ? AND location_id = ? AND merged_into IS NULL AND (" + where.join(" OR ") + ") ORDER BY name ASC LIMIT ?", bind)).map(peopleRowToPerson);
 
-  const rowsByKind = [];
-  for (const src of PEOPLE_SOURCES) {
+  // The eleven sources are independent reads: sent together, so a keystroke waits for one D1 round trip, not eleven.
+  // Results keep PEOPLE_SOURCES order, as before.
+  const rowsByKind = (await Promise.all(PEOPLE_SOURCES.map(async (src) => {
     const conds = ["LOWER(" + src.name + ") LIKE ?"];
     const b = [org, loc, like];
-    if (src.id_card) { conds.push("LOWER(" + src.id_card + ") LIKE ?"); b.push(like); if (idc) { conds.push("upper(replace(" + src.id_card + ", ' ', '')) = ?"); b.push(idc); } }
+    if (src.id_card) { conds.push("LOWER(" + src.id_card + ") LIKE ?"); b.push(like); if (idc) { const ks = mtIdCardLookupKeys(idc); conds.push("upper(replace(" + src.id_card + ", ' ', '')) IN (" + ks.map(() => "?").join(",") + ")"); b.push(...ks); } }
     if (src.phone && phoneLike) { conds.push("replace(replace(" + src.phone + ", ' ', ''), '+', '') LIKE ?"); b.push(phoneLike); }
     try {
       const rows = await dbAll(env, peopleSourceSelect(src) + " WHERE org_id = ? AND location_id = ? AND (" + conds.join(" OR ") + ") ORDER BY " + src.date + " DESC LIMIT 25", b);
-      if (rows.length) rowsByKind.push({ kind: src.kind, rows });
-    } catch (e) { /* table not created yet for this pharmacy */ }
-  }
+      return rows.length ? { kind: src.kind, rows } : null;
+    } catch (e) { return null; /* table not created yet for this pharmacy */ }
+  }))).filter(Boolean);
   const known = new Set();
   for (const p of people) { known.add(personKey(p.id_card, p.name)); known.add(personKey("", p.name)); }
   if (people.length) {
@@ -16080,7 +16163,8 @@ async function handlePeopleSearch(request, env, corsOkHeaders, authUser) {
     const keysInHistory = Array.from(new Set(peopleGroupCandidates(rowsByKind).filter((g) => g.id_card).map((g) => g.id_card)));
     if (keysInHistory.length) {
       // Batched: a broad search can find more ID cards than D1's 100 bound parameters.
-      const owned = await dbAllChunked(env, (ph) => "SELECT id_card FROM people WHERE org_id = ? AND location_id = ? AND id_card IN (" + ph + ")", keysInHistory, [org, loc]);
+      // "id_card <> ''" lets SQLite use the partial unique index (idx_people_org_loc_idcard) instead of reading every person.
+      const owned = await dbAllChunked(env, (ph) => "SELECT id_card FROM people WHERE org_id = ? AND location_id = ? AND id_card <> '' AND id_card IN (" + ph + ")", keysInHistory, [org, loc]);
       for (const o of owned) known.add("id:" + o.id_card);
     }
   }
@@ -16111,23 +16195,29 @@ async function handlePersonGet(request, env, corsOkHeaders, authUser, id) {
   const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit") || 60)));
 
   // Names the person has been recorded under: their own, plus any merged-in record.
-  const aliases = await dbAll(env, "SELECT name, id_card FROM people WHERE org_id = ? AND location_id = ? AND (id = ? OR merged_into = ?)", [org, loc, person.id, person.id]);
+  // Two indexed halves (primary key; idx_people_merged_into) instead of one OR that reads every person of the pharmacy.
+  const aliases = await dbAll(env, "SELECT name, id_card FROM people WHERE id = ? AND org_id = ? AND location_id = ? UNION ALL SELECT name, id_card FROM people WHERE merged_into = ? AND org_id = ? AND location_id = ?", [person.id, org, loc, person.id, org, loc]);
   const names = Array.from(new Set(aliases.map((a) => String(a.name || "").trim().toLowerCase()).filter(Boolean)));
   const idKeys = Array.from(new Set(aliases.flatMap((a) => mtIdCardLookupKeys(a.id_card)).filter(Boolean)));
 
   const activity = [];
   const counts = {};
-  for (const src of PEOPLE_SOURCES) {
+  // Independent reads, sent together (one D1 round trip instead of eleven); collected in PEOPLE_SOURCES order as before.
+  const perSource = await Promise.all(PEOPLE_SOURCES.map(async (src) => {
     const conds = [];
     const b = [org, loc];
     if (names.length) { conds.push("LOWER(TRIM(" + src.name + ")) IN (" + names.map(() => "?").join(",") + ")"); b.push(...names); }
     if (src.id_card && idKeys.length) { conds.push("upper(replace(" + src.id_card + ", ' ', '')) IN (" + idKeys.map(() => "?").join(",") + ")"); b.push(...idKeys); }
-    if (!conds.length) continue;
+    if (!conds.length) return null;
     try {
-      const rows = await dbAll(env, peopleSourceSelect(src) + " WHERE org_id = ? AND location_id = ? AND (" + conds.join(" OR ") + ") ORDER BY " + src.date + " DESC LIMIT ?", b.concat([limit]));
-      counts[src.kind] = rows.length;
-      for (const r of rows) activity.push({ kind: src.kind, label: src.label, table: src.table, id: r.id, date: String(r.date || "").slice(0, 10), title: String(r.title || "").slice(0, 200), ref: r.ref || "", doctor: r.doctor || "" });
-    } catch (e) { /* table not created yet */ }
+      return { src, rows: await dbAll(env, peopleSourceSelect(src) + " WHERE org_id = ? AND location_id = ? AND (" + conds.join(" OR ") + ") ORDER BY " + src.date + " DESC LIMIT ?", b.concat([limit])) };
+    } catch (e) { return null; /* table not created yet */ }
+  }));
+  for (const got of perSource) {
+    if (!got) continue;
+    const { src, rows } = got;
+    counts[src.kind] = rows.length;
+    for (const r of rows) activity.push({ kind: src.kind, label: src.label, table: src.table, id: r.id, date: String(r.date || "").slice(0, 10), title: String(r.title || "").slice(0, 200), ref: r.ref || "", doctor: r.doctor || "" });
   }
   activity.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
 
@@ -16190,7 +16280,7 @@ async function handlePersonSave(request, env, corsOkHeaders, authUser) {
     const next = Object.assign({}, before, clean);
     if (!next.name || next.name.length < 2) return jsonResponse({ ok: false, error: "Enter the person's name" }, 400, corsOkHeaders);
     if (next.id_card && next.id_card !== before.id_card) {
-      const clash = await dbFirst(env, "SELECT id FROM people WHERE org_id = ? AND location_id = ? AND id_card = ? AND id <> ?", [org, loc, next.id_card, id]);
+      const clash = await dbFirst(env, "SELECT id FROM people WHERE org_id = ? AND location_id = ? AND id_card <> '' AND id_card = ? AND id <> ?", [org, loc, next.id_card, id]);
       if (clash) return jsonResponse({ ok: false, error: "Another person already has this ID card", existing: await peopleLoad(env, org, loc, clash.id) }, 409, corsOkHeaders);
     }
     const res = await dbRun(env,
@@ -16205,7 +16295,7 @@ async function handlePersonSave(request, env, corsOkHeaders, authUser) {
 
   if (!clean.name || clean.name.length < 2) return jsonResponse({ ok: false, error: "Enter the person's name" }, 400, corsOkHeaders);
   if (clean.id_card) {
-    const existing = await dbFirst(env, "SELECT * FROM people WHERE org_id = ? AND location_id = ? AND id_card = ?", [org, loc, clean.id_card]);
+    const existing = await dbFirst(env, "SELECT * FROM people WHERE org_id = ? AND location_id = ? AND id_card <> '' AND id_card = ?", [org, loc, clean.id_card]); // non-empty here: uses the partial index
     if (existing) {
       const before = peopleRowToPerson(existing);
       const target = before.merged_into ? (await peopleLoad(env, org, loc, before.merged_into)) || before : before;
@@ -16400,7 +16490,7 @@ async function peopleIdCardPlan(env, org, loc, person, from, to, opts) {
   const mode = from ? "change" : "stamp";
   const fromKeys = from ? mtIdCardLookupKeys(from) : [];
   const toKeys = mtIdCardLookupKeys(to);
-  const aliases = await dbAll(env, "SELECT name FROM people WHERE org_id = ? AND location_id = ? AND (id = ? OR merged_into = ?)", [org, loc, person.id, person.id]);
+  const aliases = await dbAll(env, "SELECT name FROM people WHERE id = ? AND org_id = ? AND location_id = ? UNION ALL SELECT name FROM people WHERE merged_into = ? AND org_id = ? AND location_id = ?", [person.id, org, loc, person.id, org, loc]); // indexed halves
   const names = Array.from(new Set([person.name].concat(aliases.map((a) => a.name)).filter(Boolean)));
   const isHers = (n) => !String(n || "").trim() || names.some((m) => personNamesCompatible(m, n));
   const items = [], skipped = [], conflicts = [], candidates = [];
@@ -16758,6 +16848,10 @@ export default {
     try {
       const url = new URL(request.url);
 
+    // A browser tab on the old workers.dev address moves to eikonhq.com (frames, API calls and installed apps stay).
+    const moved = oldAddressMove(request, url);
+    if (moved) return moved;
+
     // Clean addresses: the bare address and a browser opening a screen (eikonhq.com/today, /endofday) get the app's
     // page itself, which then names screens by path. Never an API call: see isAppPageRequest.
     if (isAppPageRequest(request, url)) {
@@ -16902,6 +16996,15 @@ export default {
 
 const authUser = await authFromRequest(request, env);
     if (!authUser) return jsonResponse({ ok: false, error: "Unauthorized" }, 401, corsOkHeaders);
+    // A sign-in made or reset by the pharmacy's admin sets its own password before anything else (never an existing account).
+    if (authUser.must_change && !["/auth/me", "/auth/change-password", "/auth/logout", "/client-log"].includes(url.pathname)) {
+      return jsonResponse({ ok: false, error: "Set your own password first", must_change: true }, 403, corsOkHeaders);
+    }
+    // Team sign-ins (backlog 2 item 4): the pharmacy's admin, own pharmacy only
+    if (url.pathname === "/team/users" || url.pathname.startsWith("/team/users/")) {
+      if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
+      return await handleTeam(request, env, corsOkHeaders, authUser, url);
+    }
     request = await nameCaseRequest(request, env, url, authUser); // people's names in Title Case on save
     // Client error reports (backlog 7): signed in only
     if (url.pathname === "/client-log" && request.method === "POST") {
@@ -17025,6 +17128,10 @@ const authUser = await authFromRequest(request, env);
     { const m = url.pathname.match(/^\/people\/(\d+)\/change-id-card$/); if (m && request.method === "POST") return await handlePersonChangeIdCard(request, env, corsOkHeaders, authUser, Number(m[1])); } // ID card change (block after handlePeopleBackfill)
     { const m = url.pathname.match(/^\/people\/(\d+)\/id-card-changes$/); if (m && request.method === "GET") return await handlePersonIdCardChanges(request, env, corsOkHeaders, authUser, Number(m[1])); }
     { const m = url.pathname.match(/^\/people\/id-card-changes\/(idc_[0-9a-f-]{36})\/undo$/); if (m && request.method === "POST") return await handlePersonIdCardUndo(request, env, corsOkHeaders, authUser, m[1]); }
+
+    if (url.pathname === "/auth/unlock" && request.method === "POST") {
+      return await handleUnlock(request, env, corsOkHeaders, authUser);
+    }
 
     if (url.pathname === "/auth/change-password" && request.method === "POST") {
       return await handleChangePassword(request, env, corsOkHeaders, authUser);
@@ -18215,7 +18322,7 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
       function addClient(name, idCard, address, phone, altPhone) {
         name = (name || "").trim();
         if (!name) return;
-        const key = name.toLowerCase() + "|" + (idCard || "").toLowerCase().trim();
+        const key = name.toLowerCase() + "|" + normalizeMtIdCard(idCard).toLowerCase();
         if (seen.has(key)) return;
         seen.add(key);
         agg.push({ name: name, id_card: (idCard || "").trim(), address: (address || "").trim(), phone: (phone || "").trim(), alt_phone: (altPhone || "").trim() });
@@ -20046,14 +20153,31 @@ async function handleLabelsStatePut(request, env, corsOkHeaders, authUser) {
     if (!idSet.has(lid)) { idSet.add(lid); cleaned.push(l); }
   }
 
-  const upsertSql = `INSERT INTO label_history (org_id, location_id, label_id, label_json, created_by, updated_by, updated_at)
-    VALUES (?,?,?,?,?,?, datetime('now'))
-    ON CONFLICT(org_id, location_id, label_id) DO UPDATE SET
-      label_json = excluded.label_json, updated_by = excluded.updated_by, updated_at = datetime('now')`;
-  const stmt = env.DB.prepare(upsertSql);
-  for (const l of cleaned) {
-    await stmt.bind(orgId, locId, String(l.id), JSON.stringify(l), userId, userId).run();
+  // The classic screen sends the whole history on every save. Only rows that are new or
+  // whose JSON differs from what is stored are written (one read to compare), several rows
+  // per statement (6 bound values each, under D1's 100) and many statements per batch, so a
+  // save costs a handful of queries instead of one per label ever printed.
+  const storedJson = new Map();
+  for (const r of await dbAll(env, `SELECT label_id, label_json FROM label_history WHERE org_id = ? AND location_id = ?`, [orgId, locId])) {
+    storedJson.set(String(r.label_id), String(r.label_json));
   }
+  const toWrite = [];
+  for (const l of cleaned) {
+    const j = JSON.stringify(l);
+    if (storedJson.get(String(l.id)) !== j) toWrite.push([String(l.id), j]);
+  }
+  const LB_ROWS = 16, LB_STMTS = 50;
+  const lbStmts = [];
+  for (let i = 0; i < toWrite.length; i += LB_ROWS) {
+    const part = toWrite.slice(i, i + LB_ROWS);
+    const binds = [];
+    for (const [lid, j] of part) binds.push(orgId, locId, lid, j, userId, userId);
+    lbStmts.push(env.DB.prepare(`INSERT INTO label_history (org_id, location_id, label_id, label_json, created_by, updated_by, updated_at)
+    VALUES ${part.map(() => "(?,?,?,?,?,?, datetime('now'))").join(",")}
+    ON CONFLICT(org_id, location_id, label_id) DO UPDATE SET
+      label_json = excluded.label_json, updated_by = excluded.updated_by, updated_at = datetime('now')`).bind(...binds));
+  }
+  for (let i = 0; i < lbStmts.length; i += LB_STMTS) await env.DB.batch(lbStmts.slice(i, i + LB_STMTS));
 
   // Label history is an audit trail: nothing is ever deleted by omission. Explicit
   // deletes (deleted_ids) are honoured for the rare correction.
@@ -20073,7 +20197,7 @@ async function handleLabelsStatePut(request, env, corsOkHeaders, authUser) {
       settings_json = excluded.settings_json, updated_by = excluded.updated_by, updated_at = datetime('now')`,
     [orgId, locId, settingsJson, userId]);
 
-  await writeAudit(env, orgId, userId, "LABELS_STATE_PUT", "label_history", "", { historyCount: cleaned.length }, authUser.location_id);
+  await writeAudit(env, orgId, userId, "LABELS_STATE_PUT", "label_history", "", { historyCount: cleaned.length, written: toWrite.length }, authUser.location_id);
   return jsonResponse({ ok: true, saved: cleaned.length }, 200, corsOkHeaders);
 }
 
@@ -22458,7 +22582,7 @@ async function handleNamesAdmin(request, env, corsOkHeaders, authUser, url) {
    ══════════════════════════════════════════════════════════════════════════════ */
 const CLIENT_LOG_MAX_PER_MIN = 20;
 const CLIENT_LOG_MAX_ROWS_PER_DAY = 200;
-const CLIENT_LOG_KINDS = ["error", "rejection", "fatal", "render"];
+const CLIENT_LOG_KINDS = ["error", "rejection", "fatal", "render", "csp"]; // csp: backlog 2-9 (report-only policy)
 async function ensureClientErrorsSchema__impl(env) {
   await dbRun(env, `CREATE TABLE IF NOT EXISTS client_errors (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
     day TEXT NOT NULL, build TEXT NOT NULL DEFAULT '', screen TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'error', message TEXT NOT NULL DEFAULT '',
@@ -22545,4 +22669,180 @@ async function handleSuClientErrors(request, env, corsOkHeaders, url) {
     pharmacies: Number(g.pharmacies) || 0, first_at: g.first_at, last_at: g.last_at, builds: String(g.builds || "").split(",").filter(Boolean),
     stack: g.stack || "", where: by.get(g.screen + "\u0001" + g.message) || [] }));
   return jsonResponse({ ok: true, since, days, groups: out }, 200, corsOkHeaders);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   TEAM SIGN-INS (backlog 2 item 4) — a pharmacy admin manages the sign-ins of their own pharmacy.
+   GET  /team/users                 list this pharmacy's sign-ins
+   POST /team/users                 {email, full_name, role}  -> temporary_password, returned ONCE
+   POST /team/users/:id/password    new temporary password, returned ONCE; every session of that person ends
+   POST /team/users/:id/active      {active: true|false}; switching off ends every session of that person
+   POST /team/users/:id/role        {role: "staff"|"admin"}
+   Admin only. Every query binds the admin's own org_id AND pharmacy (their default_location_id), never the body's:
+   another pharmacy's person, or another group's, is "not found" (404). Never a superuser: an e-mail on
+   SUPERUSER_EMAILS cannot be added here, and such an account is listed but cannot be changed (403).
+   Admin accounts other than your own are changed only when TEAM_ADMINS_MANAGE_ADMINS = "1" (John's decision;
+   off by default): with it off an admin adds and manages staff only. Never your own role or active state, never the
+   last active admin. Creates and resets: 10 an hour per admin. Audited; a password is never logged or stored in clear.
+   Existing accounts are untouched: the new column must_change_password defaults to 0, and only an account made or
+   reset here gets 1 (cleared by /auth/change-password). Session length is unchanged.
+   ══════════════════════════════════════════════════════════════════════════════ */
+const TEAM_RATE_PER_HOUR = 10;
+async function ensureTeamSchema__impl(env) {
+  // Additive: every existing row reads 0, so nobody who signs in today is asked for anything new.
+  try { await dbRun(env, "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0", []); } catch (e) { /* column may already exist */ }
+}
+const ensureTeamSchema = schemaOnce("ensureTeamSchema", ensureTeamSchema__impl);
+
+function teamAdminsManageAdmins(env) { return String((env && env.TEAM_ADMINS_MANAGE_ADMINS) || "") === "1"; }
+function teamIsSuperuserEmail(env, email) {
+  const list = String((env && env.SUPERUSER_EMAILS) || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  return list.includes(String(email || "").trim().toLowerCase());
+}
+// 12 letters and digits a person can read aloud (no 0/O, 1/l/I), in three groups: "k7mp-q4xa-9rtd".
+function teamTempPassword() {
+  const A = "abcdefghjkmnpqrstuvwxyz23456789";
+  const out = []; const r = crypto.getRandomValues(new Uint8Array(24));
+  for (let i = 0; out.length < 12 && i < r.length; i++) { if (r[i] < 248) out.push(A[r[i] % A.length]); }
+  while (out.length < 12) out.push(A[crypto.getRandomValues(new Uint8Array(1))[0] % A.length]);
+  return out.slice(0, 4).join("") + "-" + out.slice(4, 8).join("") + "-" + out.slice(8, 12).join("");
+}
+async function teamHash(password) {
+  const iters = 100000;
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const hash = await pbkdf2Hash(password, salt, iters);
+  return { salt: base64FromBytes(salt), hash: base64FromBytes(hash), iters };
+}
+async function teamRateLimited(env, authUser) {
+  try {
+    await ensureLoginAttemptsSchema(env);
+    const r = await dbFirst(env, "SELECT COUNT(*) AS c FROM login_attempts WHERE email = ? AND ip = '-' AND attempted_at > datetime('now', '-1 hour')", ["team:" + authUser.user_id]);
+    return !!(r && Number(r.c) >= TEAM_RATE_PER_HOUR);
+  } catch (e) { return false; }
+}
+async function teamCountAction(env, authUser) {
+  try { await dbRun(env, "INSERT INTO login_attempts (email, ip) VALUES (?, '-')", ["team:" + authUser.user_id]); } catch (e) {}
+}
+// The person, only if they belong to the admin's own pharmacy (org AND location).
+async function teamTarget(env, authUser, id) {
+  if (!Number.isInteger(id) || id <= 0) return null;
+  return await dbFirst(env, "SELECT id, org_id, email, full_name, role, is_active, default_location_id, COALESCE(must_change_password, 0) AS must_change_password FROM users WHERE id = ? AND org_id = ? AND default_location_id = ?",
+    [id, authUser.org_id, authUser.location_id]);
+}
+async function teamActiveAdmins(env, authUser) {
+  const r = await dbFirst(env, "SELECT COUNT(*) AS c FROM users WHERE org_id = ? AND default_location_id = ? AND role = 'admin' AND is_active = 1", [authUser.org_id, authUser.location_id]);
+  return r ? Number(r.c) || 0 : 0;
+}
+function teamPublic(env, u, lastAt, openSessions) {
+  return { id: u.id, email: u.email, full_name: u.full_name || "", role: u.role, is_active: Number(u.is_active) === 1,
+    must_change_password: Number(u.must_change_password) === 1, created_at: u.created_at || null,
+    last_sign_in_at: lastAt || null, signed_in_devices: Number(openSessions) || 0, protected: teamIsSuperuserEmail(env, u.email) };
+}
+// Refusals shared by reset, active and role: who may be changed by this admin at all.
+function teamMayChange(env, authUser, target, cors) {
+  if (!target) return jsonResponse({ ok: false, error: "Not found" }, 404, cors);
+  if (Number(target.id) === Number(authUser.user_id)) return jsonResponse({ ok: false, error: "You cannot change your own sign-in here. Use Change password." }, 403, cors);
+  if (teamIsSuperuserEmail(env, target.email)) return jsonResponse({ ok: false, error: "This sign-in is managed by Eikon support" }, 403, cors);
+  if (target.role === "admin" && !teamAdminsManageAdmins(env)) return jsonResponse({ ok: false, error: "Another admin's sign-in is changed by Eikon support" }, 403, cors);
+  return null;
+}
+
+async function handleTeam(request, env, cors, authUser, url) {
+  if (!requireRole(authUser, ["admin"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, cors);
+  await ensureTeamSchema(env);
+  const parts = url.pathname.split("/").filter(Boolean); // team, users, :id, action
+  if (parts[1] !== "users") return jsonResponse({ ok: false, error: "Not found" }, 404, cors);
+
+  if (parts.length === 2 && request.method === "GET") {
+    const rows = await dbAll(env, `SELECT u.id, u.email, u.full_name, u.role, u.is_active, u.created_at, COALESCE(u.must_change_password, 0) AS must_change_password,
+        (SELECT MAX(s.created_at) FROM sessions s WHERE s.user_id = u.id) AS last_at,
+        (SELECT COUNT(*) FROM sessions s WHERE s.user_id = u.id AND s.expires_at > ?) AS open_sessions
+      FROM users u WHERE u.org_id = ? AND u.default_location_id = ? ORDER BY u.is_active DESC, lower(u.full_name), u.id`,
+      [new Date().toISOString(), authUser.org_id, authUser.location_id]);
+    return jsonResponse({ ok: true, users: rows.map((u) => teamPublic(env, u, u.last_at, u.open_sessions)), me: authUser.user_id,
+      admins_manage_admins: teamAdminsManageAdmins(env), location_name: authUser.location_name }, 200, cors);
+  }
+
+  if (parts.length === 2 && request.method === "POST") {
+    const body = await readJson(request);
+    const email = String(body.email || "").trim().toLowerCase();
+    const fullName = String(body.full_name || "").trim().replace(/\s+/g, " ").slice(0, 120);
+    const role = String(body.role || "staff").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || email.length > 200) return jsonResponse({ ok: false, error: "Enter a valid e-mail address" }, 400, cors);
+    if (!fullName) return jsonResponse({ ok: false, error: "Enter the person's name" }, 400, cors);
+    if (role !== "staff" && role !== "admin") return jsonResponse({ ok: false, error: "Role must be staff or admin" }, 400, cors);
+    if (role === "admin" && !teamAdminsManageAdmins(env)) return jsonResponse({ ok: false, error: "Only Eikon support can add another admin" }, 403, cors);
+    if (teamIsSuperuserEmail(env, email)) return jsonResponse({ ok: false, error: "This e-mail cannot be added here" }, 403, cors);
+    if (await teamRateLimited(env, authUser)) return jsonResponse({ ok: false, error: "Too many sign-ins added or reset in the last hour. Try again later." }, 429, { ...cors, "Retry-After": "3600" });
+    const dupe = await dbFirst(env, "SELECT id FROM users WHERE lower(email) = lower(?)", [email]);
+    if (dupe) return jsonResponse({ ok: false, error: "That e-mail already has a sign-in" }, 409, cors);
+    const temp = teamTempPassword();
+    const h = await teamHash(temp);
+    await teamCountAction(env, authUser);
+    const row = await dbFirst(env, `INSERT INTO users (org_id, email, full_name, role, pass_salt_b64, pass_hash_b64, pass_iters, is_active, default_location_id, created_at, must_change_password)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'), 1) RETURNING id`, [authUser.org_id, email, fullName, role, h.salt, h.hash, h.iters, authUser.location_id]);
+    const id = row && row.id;
+    await writeAudit(env, authUser.org_id, authUser.user_id, "TEAM_USER_CREATE", "user", String(id || ""), { after: { id, email, full_name: fullName, role, is_active: 1, must_change_password: 1 } }, authUser.location_id);
+    const u = await teamTarget(env, authUser, Number(id));
+    return jsonResponse({ ok: true, user: u ? teamPublic(env, u, null, 0) : { id, email }, temporary_password: temp }, 200, { ...cors, "Cache-Control": "no-store" });
+  }
+
+  const id = Number(parts[2]);
+  const action = parts[3] || "";
+  if (parts.length !== 4 || request.method !== "POST" || !["password", "active", "role"].includes(action)) return jsonResponse({ ok: false, error: "Not found" }, 404, cors);
+  const target = await teamTarget(env, authUser, id);
+  const refused = teamMayChange(env, authUser, target, cors);
+  if (refused) return refused;
+  const before = { id: target.id, email: target.email, role: target.role, is_active: target.is_active, must_change_password: target.must_change_password };
+
+  if (action === "password") {
+    if (await teamRateLimited(env, authUser)) return jsonResponse({ ok: false, error: "Too many sign-ins added or reset in the last hour. Try again later." }, 429, { ...cors, "Retry-After": "3600" });
+    const temp = teamTempPassword();
+    const h = await teamHash(temp);
+    await teamCountAction(env, authUser);
+    await dbRun(env, "UPDATE users SET pass_salt_b64 = ?, pass_hash_b64 = ?, pass_iters = ?, must_change_password = 1 WHERE id = ? AND org_id = ? AND default_location_id = ?",
+      [h.salt, h.hash, h.iters, target.id, authUser.org_id, authUser.location_id]);
+    await dbRun(env, "DELETE FROM sessions WHERE user_id = ?", [target.id]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "TEAM_PASSWORD_RESET", "user", String(target.id), { before, after: { ...before, must_change_password: 1 }, sessions_ended: true }, authUser.location_id);
+    return jsonResponse({ ok: true, temporary_password: temp }, 200, { ...cors, "Cache-Control": "no-store" });
+  }
+
+  const body = await readJson(request);
+  if (action === "active") {
+    if (typeof body.active !== "boolean") return jsonResponse({ ok: false, error: "active must be true or false" }, 400, cors);
+    const val = body.active ? 1 : 0;
+    if (!val && target.role === "admin" && Number(target.is_active) === 1 && (await teamActiveAdmins(env, authUser)) <= 1) return jsonResponse({ ok: false, error: "The pharmacy needs at least one admin" }, 409, cors);
+    await dbRun(env, "UPDATE users SET is_active = ? WHERE id = ? AND org_id = ? AND default_location_id = ?", [val, target.id, authUser.org_id, authUser.location_id]);
+    if (!val) await dbRun(env, "DELETE FROM sessions WHERE user_id = ?", [target.id]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, val ? "TEAM_USER_ON" : "TEAM_USER_OFF", "user", String(target.id), { before, after: { ...before, is_active: val }, sessions_ended: !val }, authUser.location_id);
+    return jsonResponse({ ok: true }, 200, cors);
+  }
+
+  // role
+  const role = String(body.role || "").trim().toLowerCase();
+  if (role !== "staff" && role !== "admin") return jsonResponse({ ok: false, error: "Role must be staff or admin" }, 400, cors);
+  if (role === "admin" && !teamAdminsManageAdmins(env)) return jsonResponse({ ok: false, error: "Only Eikon support can make someone an admin" }, 403, cors);
+  if (target.role === "admin" && role !== "admin" && Number(target.is_active) === 1 && (await teamActiveAdmins(env, authUser)) <= 1) return jsonResponse({ ok: false, error: "The pharmacy needs at least one admin" }, 409, cors);
+  await dbRun(env, "UPDATE users SET role = ? WHERE id = ? AND org_id = ? AND default_location_id = ?", [role, target.id, authUser.org_id, authUser.location_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "TEAM_USER_ROLE", "user", String(target.id), { before, after: { ...before, role } }, authUser.location_id);
+  return jsonResponse({ ok: true }, 200, cors);
+}
+
+// Idle lock (backlog 2 item 4): the person on this session proves their password to carry on. Nothing changes:
+// no new session, the same token. Wrong password: 403 (never 401, which would end the session in the browser),
+// counted like a failed sign-in and throttled the same way.
+async function handleUnlock(request, env, cors, authUser) {
+  const body = await readJson(request);
+  const password = String(body.password || "");
+  if (!password) return jsonResponse({ ok: false, error: "Enter your password" }, 400, cors);
+  const email = String(authUser.email || "").toLowerCase();
+  const ip = clientIp(request);
+  await ensureLoginAttemptsSchema(env);
+  if (await loginIsThrottled(env, email, ip)) return jsonResponse({ ok: false, error: "Too many attempts. Try again in 15 minutes." }, 429, { ...cors, "Retry-After": String(LOGIN_WINDOW_MINUTES * 60) });
+  const u = await dbFirst(env, "SELECT pass_salt_b64, pass_hash_b64, pass_iters FROM users WHERE id = ?", [authUser.user_id]);
+  const good = !!u && constantTimeEqual(await pbkdf2Hash(password, bytesFromBase64(u.pass_salt_b64), u.pass_iters), bytesFromBase64(u.pass_hash_b64));
+  if (!good) { await recordLoginFailure(env, email, ip); return jsonResponse({ ok: false, error: "That password is not right" }, 403, cors); }
+  await clearLoginFailures(env, email);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "UNLOCK", "user", String(authUser.user_id), {}, authUser.location_id);
+  return jsonResponse({ ok: true }, 200, cors);
 }

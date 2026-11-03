@@ -9,7 +9,7 @@ const here = fileURLToPath(new URL(".", import.meta.url));
 const UI = join(here, "..", "..", "ui");
 const WORKER = readFileSync(join(here, "..", "..", "cloudflare-worker", "code"), "utf8");
 
-async function withLocalUi(fn, { indexHtml } = {}) {
+export async function withLocalUi(fn, { indexHtml } = {}) {
   const orig = globalThis.fetch;
   globalThis.fetch = async (u, init) => {
     const s = String(u && u.url || u);
@@ -26,10 +26,10 @@ async function withLocalUi(fn, { indexHtml } = {}) {
 }
 
 // What a browser sends when the person types the address, follows a link, reloads or opens a new tab.
-const NAV = { "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "document", "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" };
+export const NAV = { "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "document", "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" };
 const OLD_BROWSER_NAV = { "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" };
 // What the app's own calls look like (E.apiFetch, the early fetch in index.html), and other clients.
-const API_STYLES = {
+export const API_STYLES = {
   "app fetch with token": (t) => ({ "Authorization": "Bearer " + t, "Sec-Fetch-Mode": "cors", "Sec-Fetch-Dest": "empty", "Accept": "*/*" }),
   "same-origin fetch with token": (t) => ({ "Authorization": "Bearer " + t, "Sec-Fetch-Mode": "same-origin", "Accept": "*/*" }),
   "fetch without token": () => ({ "Sec-Fetch-Mode": "cors", "Sec-Fetch-Dest": "empty", "Accept": "*/*" }),
@@ -41,7 +41,7 @@ const API_STYLES = {
 };
 
 // Every path the worker knows: the literal route strings in its source, with :id-like parts filled in.
-function workerPaths() {
+export function workerPaths() {
   const set = new Set(["/", "/today", "/endofday", "/eod", "/people", "/bookings", "/appointments", "/supplier-orders", "/health", "/bootstrap", "/admin-recover", "/su", "/b", "/book", "/go", "/api", "/auth", "/ui"]);
   for (const m of WORKER.matchAll(/["'`](\/[a-z][a-z0-9_\-\/]*)["'`]/gi)) set.add(m[1]);
   for (const m of WORKER.matchAll(/\/\^\\\/((?:[a-z0-9_-]|\\\/)+)/gi)) set.add("/" + m[1].replace(/\\\//g, "/"));

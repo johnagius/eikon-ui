@@ -76,6 +76,7 @@
     var h = '<div class="lrc"><button class="lrc-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("lrcreg")) + '</button>' +
       '<div class="lrc-top"><div><h1>Locum receipts</h1><p class="lrc-sub">What each locum was paid, ready to print and sign.</p></div>' + (S.adding ? "" : '<button class="lrc-btn p" data-act="add">New receipt</button>') + "</div>";
     if (S.adding) h += formHtml();
+    h += E.months.bar(S.month, { label: "Locum receipts", printLabel: "Print the month" });
     if (S.loading && !S.entries.length) h += '<div class="lrc-quiet">Opening locum receipts…</div>';
     else if (S.error) h += '<div class="lrc-quiet">' + esc(S.error) + "</div>";
     else {
@@ -84,9 +85,9 @@
       h += S.entries.length ? '<div class="lrc-list">' + S.entries.map(function (r) {
         return '<div class="lrc-row"><div class="t"><b>' + esc(r.locum_full_name) + "</b>" + (String(r.day_type || dayType(r.receipt_date)).toLowerCase() === "holiday" ? '<i class="lrc-hol" style="font-style:normal">Holiday rate</i>' : "") +
           "<span>" + esc(dayLabel(r.receipt_date)) + " · " + esc(r.hours) + " h × " + eur(r.fee_per_hour) + " · Reg " + esc(r.registration_number) + "</span></div><em>" + eur(r.total_fee) + '</em><button class="lrc-btn" data-act="print" data-id="' + r.id + '">Print</button></div>';
-      }).join("") + "</div>" : '<div class="lrc-quiet">No locum receipts this month yet.</div>';
+      }).join("") + "</div>" : '<div class="lrc-quiet" data-empty>' + esc(E.months.empty(S.month, "No locum receipts this month yet.")) + "</div>";
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Changing or deleting a receipt, other months and the report are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Changing or deleting a receipt is in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
     var ae = document.activeElement, sel = ae && m.contains(ae) && ae.name ? "[name=" + ae.name + "]" : "";
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) again.focus(); }
@@ -100,6 +101,7 @@
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "lrcreg"); } catch (x) {} E.openClassic("locumreceipts"); }
       });
     });
+    E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; load(); }, paint: function () { paint(); }, print: printMonth });
     var f = m.querySelector("#lrc-add");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
@@ -111,6 +113,24 @@
       });
       var nm = f.querySelector("[name=locum_full_name]"); if (nm) nm.addEventListener("blur", function () { keep(); var k = S.known.find(function (x) { return String(x.name).toLowerCase() === String(S.adding.locum_full_name).toLowerCase(); }); if (k && !S.adding.registration_number) { S.adding.registration_number = k.reg; paint(true); } });
     }
+  }
+  // The classic report for the month: each locum with their days (date, day type, hours, rate, total) and totals,
+  // then all locums together. Worked out here from the month's receipts, with the classic screen's labels and rounding.
+  function printMonth() {
+    var MB = E.months, by = {}, order = [], m2 = function (n) { var x = Number(n); return (isFinite(x) ? x : 0).toFixed(2); };
+    var hf = function (n) { var x = Number(n); return (isFinite(x) ? x : 0).toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1"); };
+    var dl = function (r) { return String(r.day_type || dayType(r.receipt_date)).toLowerCase() === "holiday" ? "Sunday / Public Holiday" : "Normal Day"; };
+    S.entries.forEach(function (r) { var k = String(r.locum_full_name || "").trim().toLowerCase() + "|" + String(r.registration_number || "").trim(); if (!by[k]) { by[k] = { name: r.locum_full_name || "", reg: r.registration_number || "", list: [], h: 0, f: 0 }; order.push(k); } by[k].list.push(r); by[k].h += Number(r.hours) || 0; by[k].f += Number(r.total_fee) || 0; });
+    order.sort(function (a, b) { return String(by[a].name).localeCompare(String(by[b].name)); });
+    var cols = ["Date", "Day Type", { h: "Hours", num: true }, { h: "Fee/Hr", num: true }, { h: "Total", num: true }], H = 0, F = 0;
+    var secs = order.map(function (k) {
+      var L = by[k]; H += L.h; F += L.f;
+      return { heading: L.name + " (" + L.reg + ")", sub: "Total Hours: " + hf(L.h) + " | Total Fees: € " + m2(L.f), cols: cols,
+        rows: L.list.slice().sort(function (a, b) { return String(a.receipt_date).localeCompare(String(b.receipt_date)) || a.id - b.id; }).map(function (r) { return [MB.dmy(r.receipt_date), dl(r), hf(r.hours), "€ " + m2(r.fee_per_hour), "€ " + m2(r.total_fee)]; }) };
+    });
+    secs.push({ heading: "All Locums Summary", sub: "Combined Total Hours: " + hf(H) + " | Combined Total Fees: € " + m2(F), cols: ["Locum", "Reg No", { h: "Total Hours", num: true }, { h: "Total Fees", num: true }],
+      rows: order.map(function (k) { return [by[k].name, by[k].reg, hf(by[k].h), "€ " + m2(by[k].f)]; }) });
+    MB.print({ register: "Locum Receipts Report", month: S.month, sections: secs });
   }
   function totalText() { var a = S.adding || {}, hrs = num(a.hours), rate = num(a.fee_per_hour); return hrs != null && rate != null ? eur(hrs * rate) : "—"; }
   function formHtml() {
@@ -179,7 +199,7 @@
 
   E.registerModule({
     id: "lrcreg", title: "Locum receipts", order: 3, icon: "€", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.adding = null; S.err = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); S.adding = null; S.err = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("lrcreg") < 0) E.UI2_DESTINATIONS.push("lrcreg");
   if (E.UI2_PARENT) E.UI2_PARENT.lrcreg = "money";

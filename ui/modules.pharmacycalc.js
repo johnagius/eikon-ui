@@ -1229,7 +1229,7 @@
     saveAndPrintBtn.addEventListener("click", async function() { await doSaveAndPrint(refs, "war", state.lastModels.war, doPrint, doCalc); });
     clearBtn.addEventListener("click", function() {
       weeksIn.value = "4"; modeSel.value = "weekly"; halvesAllowSel.value = "halves";
-      cycleIn.value = "5,2.5"; strengthsIn.value = "1,3,5"; maxTabsIn.value = "8"; preferSel.value = "simple";
+      cycleIn.value = "5,2.5"; strengthsIn.value = "1,3,5"; maxTabsIn.value = "8";
       [{dow:1,v:"5"},{dow:2,v:"2.5"},{dow:3,v:"5"},{dow:4,v:"2.5"},{dow:5,v:"5"},{dow:6,v:"2.5"},{dow:0,v:"5"}].forEach(function(d){ if(warDaySelects[d.dow]) warDaySelects[d.dow].value=d.v; });
       weeklyWrap.style.display = ""; cycleWrap.style.display = "none";
       buildPackTable();

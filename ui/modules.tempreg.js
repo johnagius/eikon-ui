@@ -6,7 +6,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, month: null, devices: [], entries: [], loading: false, error: "" };
+  var S = { mount: null, month: null, devices: [], entries: [], loading: false, error: "", focus: null };
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -55,7 +55,8 @@
       ".trg-d.ok{background:rgba(10,143,106,.08)}" +
       ".trg-d.bad{background:rgba(215,38,28,.10)}.trg-d.bad b{color:var(--danger)}" +
       ".trg-d.miss{background:transparent;border:1px dashed rgba(201,138,18,.6)}.trg-d.miss b{color:var(--warn,#A06A0E);font-weight:500;font-size:12px}" +
-      ".trg-d.future,.trg-d.pad{background:transparent}.trg-d.today{box-shadow:inset 0 0 0 2px var(--accent)}" +
+      ".trg-d.future,.trg-d.pad{background:transparent}.trg-d.today{box-shadow:inset 0 0 0 2px var(--accent)}.trg-d.focus{box-shadow:inset 0 0 0 2px var(--danger)}" +
+      ".trg-flag{background:rgba(201,138,18,.12);border:1px solid rgba(201,138,18,.45);border-left:4px solid #C98A12;border-radius:12px;padding:10px 14px;margin-top:14px;font-size:13.5px;line-height:1.45}.trg-flag b{color:var(--warn,#A06A0E)}.trg-flag a{color:var(--accent);font-weight:600}" +
       ".trg-note{font-size:12.5px;color:var(--muted);margin-top:10px}" +
       ".trg-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".trg-print,.trg-pmeta{display:none}" +
@@ -96,15 +97,16 @@
         cls = o ? "bad" : "ok"; txt = "<span>" + fmt(e.min_temp) + "</span><span>" + fmt(e.max_temp) + "</span>";
         rows += "<tr><td>" + key + "</td><td" + (o ? ' class="bad"' : "") + ">" + fmt(e.min_temp) + "</td><td" + (o ? ' class="bad"' : "") + ">" + fmt(e.max_temp) + "</td><td>" + (o ? "Outside limits" : "") + (e.notes ? " " + esc(e.notes) : "") + "</td></tr>";
       } else if (key < today) {
-        missed++; cls = "miss"; txt = "Missed";
+        missed++; cls = "miss"; txt = "Not logged";
         rows += "<tr><td>" + key + "</td><td>–</td><td>–</td><td>Not logged</td></tr>";
       } else { cls = "future"; txt = ""; }
       if (key === today) cls += " today";
+      if (S.focus && S.focus.day === key && String(S.focus.device) === String(dv.id)) cls += " focus";
       cells += '<div class="trg-d ' + cls + '" title="' + esc(key) + '"><i>' + d + "</i><b>" + txt + "</b></div>";
     }
     var sum = "<b>" + logged + "</b> of " + n + " days logged" +
       (bad ? ' · <span class="bad">' + bad + " outside the limits</span>" : " · none outside the limits") +
-      (missed ? " · " + missed + " missed" : "");
+      (missed ? " · " + missed + " not logged" : "");
     return '<section class="trg-card" data-device="' + esc(dv.id) + '"><div class="trg-hd"><h2>' + esc(dv.name) + "</h2><span>" +
       esc(dv.device_type === "fridge" ? "Fridge" : dv.device_type === "room" ? "Room" : (dv.device_type || "")) + " · " + esc(limitsText(dv)) + "</span></div>" +
       '<div class="trg-sum">' + sum + "</div>" +
@@ -112,37 +114,77 @@
       '<table class="trg-print"><thead><tr><th>Date</th><th>Min °C</th><th>Max °C</th><th>Note</th></tr></thead><tbody>' + rows + "</tbody></table></section>";
   }
 
+  // Opened from Today's "outside limits yesterday" line: that day is outlined, and the way to add the note is said.
+  function focusNote() {
+    var f = S.focus; if (!f || f.day.slice(0, 7) !== S.month) return "";
+    var dv = S.devices.find(function (d) { return String(d.id) === String(f.device); }); if (!dv) return "";
+    var e = S.entries.find(function (x) { return Number(x.device_id) === Number(dv.id) && x.entry_date === f.day; });
+    if (!e || !outside(e, dv)) return "";
+    var p = f.day.split("-");
+    return '<div class="trg-flag" role="status"><b>' + esc(dv.name) + " on " + Number(p[2]) + " " + MONTHS[Number(p[1]) - 1] + ": " + fmt(e.min_temp) + " to " + fmt(e.max_temp) + " °C</b>, outside " + esc(limitsText(dv)) + "." +
+      (e.notes ? " Note: " + esc(e.notes) : ' No note yet. <a href="#" data-act="note">Add a note in the classic Temperature screen ›</a>') + "</div>";
+  }
+
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "tempreg") return; // left before the data came back: do not draw over the next screen
-    var isNow = S.month >= thisMonth();
+    var MB = E.months;
     var h = '<div class="trg">' +
       '<button class="trg-back" data-act="back">‹ Registers</button>' +
       '<div class="trg-top"><div><h1>Temperature</h1><p class="trg-sub">Fridges and rooms, every day, against their limits.</p></div>' +
-      '<div class="trg-acts"><button class="trg-btn" data-act="print">Print</button><button class="trg-btn" data-act="devices">Devices</button></div></div>' +
+      '<div class="trg-acts"><button class="trg-btn" data-act="devices">Devices</button></div></div>' +
       '<p class="trg-pmeta">' + esc(((E.state.user || {}).location_name || "") + " · " + monthLabel(S.month) + " · printed " + ymd(new Date())) + "</p>" +
-      '<div class="trg-month"><button class="trg-arrow" data-act="prev" aria-label="Previous month">‹</button><b>' + esc(monthLabel(S.month)) + '</b><button class="trg-arrow" data-act="next" aria-label="Next month"' + (isNow ? " disabled" : "") + ">›</button></div>";
+      MB.bar(S.month, { label: "Temperature" });
     if (S.loading && !S.devices.length) h += '<div class="trg-quiet">Opening the register…</div>';
     else if (S.error) h += '<div class="trg-quiet">' + esc(S.error) + "</div>";
     else if (!S.devices.length) h += '<div class="trg-quiet">No fridges or rooms are set up yet. Add them under Devices.</div>';
-    else h += S.devices.map(deviceCard).join("") + '<p class="trg-note">Readings are logged on Today. Each day shows the minimum above the maximum; a dashed day was missed.</p>';
+    else h += focusNote() + (S.month < thisMonth() && !S.entries.length ? '<div class="trg-quiet" data-empty>' + esc(MB.empty(S.month)) + "</div>" : "") +
+      S.devices.map(deviceCard).join("") + '<p class="trg-note">Readings are logged on Today. Each day shows the minimum above the maximum; a dashed day was not logged.</p>';
     h += "</div>";
     m.innerHTML = h;
     m.querySelectorAll("[data-act]").forEach(function (b) {
-      b.addEventListener("click", function () {
+      b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act");
+        if (a === "note") ev.preventDefault();
         if (a === "back") window.location.hash = "#registers";
-        else if (a === "prev") { S.month = shiftMonth(S.month, -1); load(); }
-        else if (a === "next") { if (S.month < thisMonth()) { S.month = shiftMonth(S.month, 1); load(); } }
-        else if (a === "print") window.print();
+        else if (a === "note") { try { sessionStorage.setItem("eikon_ui2_return", "tempreg"); } catch (e) {} E.openClassic("temperature"); }
         else if (a === "devices") { try { sessionStorage.setItem("eikon_ui2_return", "tempreg"); } catch (e) {} E.openClassic("temperature"); }
       });
     });
+    MB.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; load(); }, paint: paint, print: printMonth });
+  }
+
+  // The classic temperature report for one month: a line per day, a column per fridge or room, "min / max" in each,
+  // "Not logged" for a day that has passed without a reading (bold when outside the limits).
+  function printMonth() {
+    var MB = E.months, m = S.month, n = daysIn(m), today = ymd(new Date()), at = {};
+    S.entries.forEach(function (e) { at[e.entry_date + "|" + e.device_id] = e; });
+    var devs = S.devices.slice();
+    S.entries.forEach(function (e) { if (!devs.some(function (d) { return Number(d.id) === Number(e.device_id); })) devs.push({ id: e.device_id, name: e.device_name || ("Device " + e.device_id), device_type: e.device_type, min_limit: e.min_limit, max_limit: e.max_limit }); });
+    var rows = [];
+    for (var d = 1; d <= n; d++) {
+      var key = m + "-" + pad(d); if (key > today) break;
+      rows.push([MB.dmy(key)].concat(devs.map(function (dv) {
+        var e = at[key + "|" + dv.id];
+        if (!e) return key < today ? { html: '<span class="miss">Not logged</span>' } : "";
+        var o = outside(e, dv), t = fmt(e.min_temp) + " / " + fmt(e.max_temp) + (o ? " (outside limits)" : "") + (e.notes ? " · " + e.notes : "");
+        return o ? { html: "<b>" + esc(t) + "</b>" } : t;
+      })));
+    }
+    MB.print({ register: "Temperature", month: m,
+      intro: '<p class="sub">Each day: minimum / maximum °C. Limits: ' + esc(devs.map(function (dv) { return dv.name + " " + limitsText(dv); }).join(" · ")) + ".</p>",
+      sections: [{ cols: [m.slice(0, 4) + "-" + m.slice(5)].concat(devs.map(function (dv) { return dv.name; })), rows: rows, empty: devs.length ? MB.empty(m) : "No fridges or rooms are set up." }] });
   }
 
   E.registerModule({
     id: "tempreg", title: "Temperature", order: 3, icon: "🌡", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; if (!S.month) S.month = thisMonth(); css(); paint(); return load(); }
+    render: function (ctx) {
+      S.mount = ctx && ctx.mount; S.month = thisMonth(); S.entries = []; if (E.months.reset) E.months.reset();
+      S.focus = null;
+      try { var f = JSON.parse(sessionStorage.getItem("eikon_tempreg_day") || "null"); sessionStorage.removeItem("eikon_tempreg_day");
+        if (f && /^\d{4}-\d{2}-\d{2}$/.test(f.day || "")) { S.focus = f; S.month = f.day.slice(0, 7); } } catch (e) {}
+      css(); paint(); return load();
+    }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("tempreg") < 0) E.UI2_DESTINATIONS.push("tempreg");
 })();

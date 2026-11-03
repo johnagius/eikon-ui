@@ -71,6 +71,19 @@
       (nx && g !== "stopped" ? '<button class="rtn-btn' + (g === "arrange" ? " p" : "") + '" data-act="step" data-id="' + e.id + '" data-k="' + nx[0] + '"' + (S.busy[e.id] ? " disabled" : "") + ">" + (S.busy[e.id] ? "Saving…" : ({ return_arranged: "Mark arranged", handed_over: "Mark handed over", collection_note_received: "Got the collection note", credit_note_received: "Got the credit note" })[nx[0]]) + "</button>" : "") + "</div>";
   }
 
+  // Every return recorded in a month (any month), and the classic printout of it.
+  var HIST = { dep: function () { return S.loading ? undefined : S.entries; }, title: "By month", label: "Returns recorded", active: function () { return E.state.activeModuleId === "retreg"; }, paint: function () { paint(); },
+    fetch: async function (ym) { var r = await E.apiFetch("/returns/entries?month=" + encodeURIComponent(ym), { method: "GET" }); if (!r || !r.ok) throw new Error((r && r.error) || "Could not load returns"); return (r.entries || []).slice().sort(function (a, b) { return String(b.entry_date).localeCompare(String(a.entry_date)) || b.id - a.id; }); },
+    row: function (e) { return { t: e.description || "", s: [E.months.dmy(e.entry_date), e.supplier, e.quantity ? "Qty " + e.quantity : "", on(e, "credit_note_received") ? "Credit note received" : on(e, "collection_note_received") ? "Collection note received" : on(e, "handed_over") ? "Handed over" : on(e, "return_arranged") ? "Arranged" : "Not arranged yet"].filter(Boolean).join(" · ") }; },
+    print: function (ym, rows) {
+      var f = function (v) { return String(v) === "1" || v === 1 || v === true; };
+      E.months.print({ register: "Returns", month: ym, landscape: true, sections: [{ cols: ["Date", "Description", "Expiry", "Batch", "Invoice #", "Remarks", "Location stored", "Checklist"],
+        rows: rows.slice().reverse().map(function (r) {
+          var fl = []; if (f(r.return_arranged)) fl.push("Return arranged"); if (f(r.handed_over)) fl.push("Handed over"); if (f(r.collection_note_received)) fl.push("Collection note"); if (f(r.credit_note_received)) fl.push("Credit note");
+          return [E.months.dmy(r.entry_date), { html: "<b>" + esc(r.description || "") + "</b><br>" + (r.quantity ? "Qty: " + esc(r.quantity) + " • " : "") + (r.supplier ? "Supplier: " + esc(r.supplier) + " • " : "") + "ID: " + esc(r.id || "") },
+            r.expiry || "", r.batch || "", r.invoice_number || "", r.remarks || "", r.location_stored || "", fl.join(" • ")];
+        }) }] });
+    } };
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "retreg") return; // left before a reply came back: do not draw over the next screen
@@ -82,8 +95,10 @@
       var list = S.entries.filter(function (e) { return group(e) === g[0]; });
       if (list.length) h += '<div class="rtn-lab">' + g[1] + " <b>" + list.length + '</b></div><div class="rtn-list">' + list.map(rowHtml).join("") + "</div>";
     });
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">New returns, changes, refused or damaged stock and older returns are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += E.months.history("retreg", HIST);
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">New returns, changes and refused or damaged stock are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
     m.innerHTML = h;
+    E.months.wireHistory(m, "retreg");
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act");
@@ -109,7 +124,7 @@
 
   E.registerModule({
     id: "retreg", title: "Returns", order: 3, icon: "↩", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; E.months.historyReset("retreg"); css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("retreg") < 0) E.UI2_DESTINATIONS.push("retreg");
   if (E.UI2_PARENT) E.UI2_PARENT.retreg = "stock";
