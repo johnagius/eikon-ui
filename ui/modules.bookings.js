@@ -124,11 +124,13 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     S.loading = true; S.error = "";
     if (!opts.silent) paint();
     try {
-      if (!S.setup || opts.setup) { var su = await api("/bookings/setup"); S.setup = { services: su.services || [], providers: su.providers || [] }; }
+      // setup, the day (or week) and the waiting list at once: one round trip instead of three
       var to = S.view === "week" ? addDays(S.date, 6) : S.date; // the week is one call too
-      var r = await api("/bookings?from=" + S.date + "&to=" + to);
-      S.bookings = r.bookings || [];
-      try { S.waiting = (await api("/bookings/waitlist")).waiting || []; } catch (e) { S.waiting = []; }
+      var needSetup = !S.setup || opts.setup;
+      var got = await Promise.all([needSetup ? api("/bookings/setup") : null, api("/bookings?from=" + S.date + "&to=" + to), api("/bookings/waitlist").catch(function () { return null; })]);
+      if (needSetup) { var su = got[0]; S.setup = { services: su.services || [], providers: su.providers || [] }; }
+      S.bookings = got[1].bookings || [];
+      S.waiting = (got[2] && got[2].waiting) || [];
     } catch (e) {
       S.error = e && e.status === 404 ? "Bookings is not switched on for this pharmacy yet." : errMsg(e);
     }

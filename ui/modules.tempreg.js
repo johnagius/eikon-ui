@@ -69,8 +69,9 @@
   async function load() {
     var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
-      var dv = await E.apiFetch("/temperature/devices", { method: "GET" });
-      var en = await E.apiFetch("/temperature/entries?month=" + encodeURIComponent(S.month), { method: "GET" });
+      // both at once (they do not depend on each other): one round trip instead of two
+      var both = await Promise.all([E.apiFetch("/temperature/devices", { method: "GET" }), E.apiFetch("/temperature/entries?month=" + encodeURIComponent(S.month), { method: "GET" })]);
+      var dv = both[0], en = both[1];
       S.devices = ((dv && dv.devices) || []).filter(function (d) { return Number(d.active) !== 0; });
       S.entries = (en && en.entries) || [];
     } catch (e) {
