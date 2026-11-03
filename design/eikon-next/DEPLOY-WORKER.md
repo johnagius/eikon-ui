@@ -11,7 +11,8 @@ does not: it changes only when someone runs `wrangler deploy`.
 
 | | Version | Cloudflare version id |
 |---|---|---|
-| Live now (09:45 UTC) | `2026-11-03-bookings-18`: reminders run (cron every 10 min, senders included) | `b611aed2-dd6c-4126-9fb8-54ef66589fbe` |
+| Live now (10:30 UTC) | `2026-11-03-bookings-19`: the bare address, /ui and /ui/ open the app | `20465171-65d0-4b00-b00e-20299be41760` |
+| Before that (09:45) | `2026-11-03-bookings-18`: reminders run (cron every 10 min, senders included) | `b611aed2-dd6c-4126-9fb8-54ef66589fbe` |
 | Before that (09:40) | `2026-11-03-bookings-17`: schema marks + /today reads together (Today ~2.9 s → ~1 s) | `6d6e781e-6f37-408f-8016-e6ac610729c4` |
 | Before that (09:22) | `2026-11-03-bookings-16`: test emails to a typed address (5 a day) | `e684b2f4-763f-424e-bafb-76eee1125bc1` |
 | Before that | `2026-11-03-bookings-15` + `BOOKINGS_KEY` set (08:27 UTC) | `712c756e-f4e8-4554-bf6d-2a0b019df65f` |
