@@ -174,6 +174,11 @@ function mockApi(req, res, body) {
     records: [{ id: "r_1", testType: "bp", testLabel: "Blood Pressure", performedAtIso: "2026-10-01T08:00:00.000Z", performedAtLocal: "2026-10-01T10:00", patient: { name: "Zammit Carmel", patientId: "0012345M", phone: "79123456", age: 64, address: "Zebbug" }, feeDue: 0, notes: "", intervention: "", results: { sys: 150, dia: 95, pulse: 70, arm: "Left", position: "Sitting" }, updatedAtIso: "2026-10-01T08:00:00.000Z" }],
     patients: [{ patientId: "0012345M", name: "Zammit Carmel", phone: "79123456", age: 64, address: "Zebbug", createdAtIso: "2026-10-01T08:00:00.000Z", updatedAtIso: "2026-10-01T08:00:00.000Z", lastSeenIso: "2026-10-01T08:00:00.000Z", conflicts: [] }] } }));
   if (p === "/poct/state" && req.method === "PUT") return res.end(JSON.stringify({ ok: true, patients_upserted: 1, records_upserted: 1, patients_deleted: 0, records_deleted: 0 }));
+  // Scarce stock (scsreg): another pharmacy's line with a request the server keeps private, and one of ours with who asked.
+  if (p === "/scarce-stock/offers" && req.method === "GET") return res.end(JSON.stringify({ ok: true, offers: [
+    { id: 31, org_name: "Sliema Group", location_name: "Sliema Pharmacy", entry_date: todayYmd, item_name: "Shingrix vaccine", description: "Fridge", batch: "B12", expiry_date: "2099-05-01", quantity_available: 5, total_requested: 1, remaining_quantity: 4, is_closed: 0, mine_owner: 0, requests: [{ id: 301, quantity_requested: 1, is_private: 1, requester_display: "", note: "", mine: 0 }] },
+    { id: 32, org_name: "Demo Org", location_name: "Demo Pharmacy", entry_date: todayYmd, item_name: "Ozempic 0.5mg pen", description: "", batch: "", expiry_date: null, quantity_available: 3, total_requested: 2, remaining_quantity: 1, is_closed: 0, mine_owner: 1, requests: [{ id: 302, quantity_requested: 2, is_private: 0, requester_display: "Gozo Group — Victoria Pharmacy", note: "For Mrs Grech", mine: 0 }] }] }));
+  if (/^\/scarce-stock\/offers\/\d+\/requests$/.test(p) && req.method === "POST") return res.end(JSON.stringify({ ok: true, id: 303 }));
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -1150,6 +1155,21 @@ try {
     !!(await page.$(".poc-who")),
     JSON.stringify({ poc1, pocLive, pocPuts }).slice(0, 900));
 } catch (e) { report("poct: new layout flow ran to the end", false, String(e).slice(0, 300)); }
+
+// Scarce stock: the old link opens the new screen; other pharmacies' lines show who has them, our line shows who asked;
+// more than is left is refused on the screen; asking for 2 sends one POST with the quantity and the private note.
+await page.goto(base + "&ui=2#scarcestock");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "scsreg" && document.querySelector(".scs-card"), null, { timeout: 15000 });
+const scs1 = await page.evaluate(() => document.querySelector(".scs").textContent);
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.click('[data-act=ask][data-id="31"]'); await page.fill("#scs-req [name=quantity_requested]", "9"); await page.click("#scs-req button[type=submit]"); await page.waitForTimeout(200);
+const scsRefused = await page.evaluate(() => (document.querySelector(".scs-err") || {}).textContent || "");
+const scsNone = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST").length;
+await page.fill("#scs-req [name=quantity_requested]", "2"); await page.fill("#scs-req [name=note]", "For Mr Borg"); await page.click("#scs-req button[type=submit]");
+let scsPosts = []; for (let i = 0; i < 40 && !scsPosts.length; i++) { await page.waitForTimeout(100); scsPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST"); }
+report("scarce stock: opens from the old link; lines show who has them and who asked; 9 of 4 is refused; asking for 2 sends one POST",
+  /Other pharmacies have\s*1/.test(scs1) && /Sliema Group — Sliema Pharmacy/.test(scs1) && /4 left/.test(scs1) && /You share\s*1/.test(scs1) && /Gozo Group — Victoria Pharmacy/.test(scs1) && /For Mrs Grech/.test(scs1) && /Only 4 can be asked for/.test(scsRefused) && scsNone === 0 &&
+  scsPosts.length === 1 && scsPosts[0].path === "/scarce-stock/offers/31/requests" && JSON.stringify(scsPosts[0].body) === JSON.stringify({ quantity_requested: 2, note: "For Mr Borg" }), JSON.stringify({ scs1: scs1.slice(0, 300), scsRefused, scsNone, scsPosts }));
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
