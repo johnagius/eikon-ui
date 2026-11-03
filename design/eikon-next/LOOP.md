@@ -835,3 +835,9 @@ All of it waits only on the worker deploy.
 - The hub cards now show names in sentence case; acronyms stay as they are (DDA, POYC, POS, OTC, POCT). Only in the new layout's section pages: the classic sidebar keeps the module titles unchanged, so nothing moves for classic users. Familiar names were not renamed (e.g. "DDA purchases" still opens "Controlled drugs received"; the card's line under it says what it is).
 - UI suite 140/140.
 - 100 rounds in this loop. Waiting on John: the worker deploy (bookings-15; DEPLOY-WORKER.md, rehearsal 10/10).
+
+## Round 101 — Skip to content (UI .108)
+
+- .107 confirmed live. Keyboard sweep of the four section pages (not in round 79's list): every stop shows focus, no errors.
+- The new layout had no way past the rail for keyboard users: the screen's first control was 2 to 8 Tabs away on every page (WCAG 2.4.1, bypass blocks). Added a "Skip to content" link as the first stop: hidden until the first Tab, then a green pill at the top left; Enter moves focus to the screen and the next Tab lands on its first control. Readable in dark (near-black on green). Only in the new layout (the classic sidebar never gets it).
+- skip.mjs: on Today, Paid out and Stock, light and dark, from a fresh load: first Tab = Skip to content, visible; Enter + Tab = first control of the screen. axe clean. UI suite 140/140.
