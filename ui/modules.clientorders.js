@@ -1118,7 +1118,7 @@
       ".sticker-items{font-size:14px;font-weight:700;margin:6px 0;padding:6px 0;border-top:1px dashed #ccc;border-bottom:1px dashed #ccc;white-space:pre-wrap;}" +
       "@media print{button.print-btn{display:none!important;}body{padding:0;margin:0;}.sticker{border:2px solid #333;max-width:80mm;margin:0;padding:10px 14px;page-break-inside:avoid;}.sticker-qr canvas{width:80px!important;height:80px!important;}}" +
       "</style>" +
-      "<script src='https://cdn.jsdelivr.net/npm/bwip-js@4/dist/bwip-js-min.js'></" + "script>" +
+      "<script src='" + E.vendorUrl("bwip-js-4.11.4/bwip-js-min.js") + "'></" + "script>" +
       "</head><body>" +
       "<button class='print-btn' onclick='window.print()'>Print</button>" +
       "<div class='sticker'>" +

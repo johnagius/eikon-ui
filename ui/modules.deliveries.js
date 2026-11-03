@@ -1343,23 +1343,12 @@
 
   function dvMapEnsureLeaflet(cb) {
     if (dvMapLeafletReady && window.L) { cb(); return; }
-    // Load Leaflet CSS from cdnjs (no integrity check to avoid hash mismatches)
-    if (!document.getElementById("leaflet-css")) {
-      var lnk = document.createElement("link");
-      lnk.id = "leaflet-css";
-      lnk.rel = "stylesheet";
-      lnk.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
-      document.head.appendChild(lnk);
-    }
-    if (window.L) { dvMapLeafletReady = true; cb(); return; }
-    var s = document.createElement("script");
-    s.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
-    s.onload = function() { dvMapLeafletReady = true; cb(); };
-    s.onerror = function() {
-      warn("Leaflet failed to load from cdnjs");
+    // Leaflet 1.9.4 and its stylesheet (marker images beside it) are pinned in ui/vendor. The map tiles still come
+    // from tile.openstreetmap.org, and address search from ArcGIS / Nominatim: those are services, not code.
+    E.loadVendor("leaflet").then(function() { dvMapLeafletReady = true; cb(); }, function() {
+      warn("Leaflet failed to load");
       dvMapSetStatus("⚠️ Map failed to load. Check your connection.");
-    };
-    document.head.appendChild(s);
+    });
   }
 
   // Malta + Gozo bounding box centre and zoom

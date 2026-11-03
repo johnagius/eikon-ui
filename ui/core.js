@@ -20,6 +20,58 @@
   // tablets, the home-screen app) none of this runs and the #hash works as before.
   E.CLEAN_URLS = !!window.EIKON_UI_BASE;
   E.uiUrl = function (rel) { var b = window.EIKON_UI_BASE || ""; return b ? b + String(rel).replace(/^\.\//, "") : rel; };
+
+  // ---- Third-party libraries: pinned copies in ui/vendor/ (versions, sources, sha256: ui/vendor/VERSIONS.txt) ----
+  // Nothing is loaded from a CDN. Each library loads once, only when a screen asks for it, with the same build stamp
+  // as the app's own files (index.html loads core.js as core.js?v=BUILD; the stamp is read from that address).
+  E.BUILD = (function () { try { var m = /[?&]v=([^&#]+)/.exec((document.currentScript && document.currentScript.src) || ""); return m ? decodeURIComponent(m[1]) : ""; } catch (e) { return ""; } })();
+  // rel is a path inside ui/vendor/. Absolute (a popup window or a Web Worker has no base of its own), from /ui/
+  // with clean addresses too. stamp === false leaves the ?v= off (for a library that adds its own file names).
+  E.vendorUrl = function (rel, stamp) {
+    var u = E.uiUrl("vendor/" + String(rel));
+    try { u = new URL(u, document.baseURI).href; } catch (e) {}
+    return (E.BUILD && stamp !== false) ? u + "?v=" + encodeURIComponent(E.BUILD) : u;
+  };
+  var VENDOR = {
+    xlsx: { js: ["xlsx-0.20.3/xlsx.full.min.js"], ready: function () { return window.XLSX; } },
+    bwipjs: { js: ["bwip-js-4.11.4/bwip-js-min.js"], ready: function () { return window.bwipjs; } },
+    zxing: { js: ["zxing-library-0.19.2/index.min.js"], ready: function () { return window.ZXing; } },
+    tesseract: { js: ["tesseract.js-5.1.1/tesseract.min.js"], ready: function () { return window.Tesseract; } },
+    html2canvas: { js: ["html2canvas-1.4.1/html2canvas.min.js"], ready: function () { return window.html2canvas; } },
+    leaflet: { css: ["leaflet-1.9.4/leaflet.css"], js: ["leaflet-1.9.4/leaflet.js"], ready: function () { return window.L && window.L.map && window.L; } },
+    qrcode: { js: ["qrcode-generator-1.4.4.js"], ready: function () { return window.qrcode; } }
+  };
+  E.VENDOR_FILES = VENDOR;
+  var vendorLoads = {};
+  // E.loadVendor("xlsx").then(function (XLSX) { ... }): resolves once the library is on window. A failed load is
+  // forgotten, so the next ask tries again.
+  E.loadVendor = function (name) {
+    var v = VENDOR[name];
+    if (!v) return Promise.reject(new Error("Unknown library: " + name));
+    (v.css || []).forEach(function (c, i) {
+      var id = "eikon-vendor-css-" + name + "-" + i;
+      if (document.getElementById(id)) return;
+      var l = document.createElement("link"); l.id = id; l.rel = "stylesheet"; l.href = E.vendorUrl(c); document.head.appendChild(l);
+    });
+    if (v.ready()) return Promise.resolve(v.ready());
+    if (vendorLoads[name]) return vendorLoads[name];
+    var p = (v.js || []).reduce(function (chain, js) {
+      return chain.then(function () {
+        return new Promise(function (ok, no) {
+          var s = document.createElement("script"); s.src = E.vendorUrl(js);
+          s.onload = function () { ok(); };
+          s.onerror = function () { try { s.parentNode.removeChild(s); } catch (e) {} no(new Error("Could not load " + name + ". Check the connection and try again.")); };
+          document.head.appendChild(s);
+        });
+      });
+    }, Promise.resolve()).then(function () {
+      if (!v.ready()) throw new Error("Could not start " + name + ". Reload the page and try again.");
+      return v.ready();
+    });
+    vendorLoads[name] = p;
+    p.catch(function () { delete vendorLoads[name]; });
+    return p;
+  };
   var ROUTE_ID = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
   function stateRoute() { try { var s = window.history.state; return s && typeof s.eikonRoute === "string" && ROUTE_ID.test(s.eikonRoute) ? s.eikonRoute : ""; } catch (e) { return ""; } }
   function bare(id) {

@@ -669,7 +669,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       // The QR encoder (MIT, vendored) loads only when asked for.
       var url2 = location.origin + "/book/" + ((S.sheet && S.sheet.msg && S.sheet.msg.publicSlug) || "");
       try {
-        if (!window.qrcode) await new Promise(function (ok, no) { var sc = document.createElement("script"); sc.src = E.uiUrl ? E.uiUrl("vendor/qrcode-generator-1.4.4.js") : "vendor/qrcode-generator-1.4.4.js"; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
+        if (!window.qrcode) await E.loadVendor("qrcode");
         var q = window.qrcode(0, "M"); q.addData(url2); q.make();
         S.sheet.qrSvg = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true });
       } catch (e) { S.sheet.err = "The QR code could not be made. Copy the link instead."; }

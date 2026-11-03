@@ -216,9 +216,12 @@
 
   function parseFile(file, cb) {
     log("parseFile: name=" + file.name + " size=" + file.size + " type=" + file.type);
+    // SheetJS (pinned in ui/vendor) loads the first time a file is read.
     if (!window.XLSX) {
-      warn("parseFile: SheetJS (XLSX) not available on window");
-      cb(null, "SheetJS library not loaded. Please reload the page.");
+      E.loadVendor("xlsx").then(function () { parseFile(file, cb); }, function (e) {
+        warn("parseFile: SheetJS (XLSX) could not be loaded", e && e.message);
+        cb(null, "The spreadsheet reader could not be loaded. Check the connection and try again.");
+      });
       return;
     }
     log("parseFile: SheetJS version=" + (XLSX.version || "unknown"));

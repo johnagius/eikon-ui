@@ -44,6 +44,11 @@
 
   /* ── file parsing ────────────────────────────────────────────────────── */
   function parseFile(file, onDone) {
+    // SheetJS (pinned in ui/vendor) loads the first time a file is read.
+    if (!window.XLSX) {
+      E.loadVendor("xlsx").then(function () { parseFile(file, onDone); }, function (e) { onDone(e, null); });
+      return;
+    }
     var reader = new FileReader();
     reader.onload = function (e) {
       try {

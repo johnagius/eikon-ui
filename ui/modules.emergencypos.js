@@ -4,8 +4,8 @@
    Features:
    • Three tabs: POS (cart builder), Catalog (XLSX import), History (sync)
    • GS1 / FMD DataMatrix full parse: GTIN(AI01), expiry(AI17), batch(AI10), serial(AI21)
-   • Camera barcode scanning via ZXing-js (loaded lazily from CDN)
-   • XLSX product catalog import via SheetJS (loaded lazily from CDN)
+   • Camera barcode scanning via ZXing-js (pinned copy in ui/vendor, loaded when first used)
+   • XLSX product catalog import via SheetJS (pinned copy in ui/vendor, loaded when first used)
    • Fully offline-first: cart & pending sales stored in localStorage
    • Syncs pending sales to server when connectivity returns
    ─────────────────────────────────────────────────────────────────────────────
@@ -527,15 +527,14 @@
   }
 
   // ─── Catalog import (SheetJS) ─────────────────────────────────────────────────
-  var XLSX_CDN = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+  // Pinned copies in ui/vendor/, loaded the first time they are needed (E.loadVendor in core.js).
+  function vendorUrl(rel, stamp) { return E.vendorUrl(rel, stamp); }
+  function loadVendorCb(name, cb, failMsg) {
+    E.loadVendor(name).then(function() { log(name + " loaded"); cb(); }, function(e) { warn(name + " failed to load", e && e.message); showToast(failMsg, "err"); });
+  }
 
   function loadSheetJs(cb) {
-    if (window.XLSX) { cb(); return; }
-    var s = document.createElement("script");
-    s.src = XLSX_CDN;
-    s.onload = function() { log("SheetJS loaded"); cb(); };
-    s.onerror = function() { showToast("Failed to load XLSX library — check internet.", "err"); };
-    document.head.appendChild(s);
+    loadVendorCb("xlsx", cb, "Failed to load XLSX library — check internet.");
   }
 
   function pickXlsx() {
@@ -768,15 +767,8 @@
   // Primary: native BarcodeDetector API (Chrome/Android, Safari 16.4+)
   //   — reliably reads DataMatrix (FMD), QR, EAN-13, Code 128 etc.
   // Fallback: ZXing-js for browsers without BarcodeDetector
-  var ZXING_CDN = "https://cdn.jsdelivr.net/npm/@zxing/library@0.19.2/umd/index.min.js";
-
   function loadZxing(cb) {
-    if (window.ZXing) { cb(); return; }
-    var s = document.createElement("script");
-    s.src = ZXING_CDN;
-    s.onload = function() { log("ZXing loaded"); cb(); };
-    s.onerror = function() { showToast("Failed to load scanner library — check internet.", "err"); };
-    document.head.appendChild(s);
+    loadVendorCb("zxing", cb, "Failed to load scanner library — check internet.");
   }
 
   function hasBarcodeDetector() {
@@ -988,7 +980,19 @@
   }
 
   // ─── Photo OCR + Fuzzy Search ─────────────────────────────────────────────────
-  var TESSERACT_CDN = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+  // OCR: tesseract.js 5.1.1, its engine (tesseract.js-core 5.1.1) and the English data (4.0.0_best_int) are all
+  // in ui/vendor/, so the worker, the engine and the language file never come from a CDN either.
+  var WASM_SIMD = (function() { try { return typeof WebAssembly === "object" && WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11])); } catch (e) { return false; } })();
+  function tesseractOptions() {
+    return {
+      workerPath: vendorUrl("tesseract.js-5.1.1/worker.min.js"),
+      workerBlobURL: false,
+      // A file address must end in "js" for tesseract to use it as given (otherwise it adds a file name): the "#.js" does that.
+      corePath: vendorUrl("tesseract.js-core-5.1.1/" + (WASM_SIMD ? "tesseract-core-simd-lstm.wasm.js" : "tesseract-core-lstm.wasm.js")) + "#.js",
+      // A folder: tesseract adds "/eng.traineddata.gz" itself, so no stamp here (it keeps the file in IndexedDB after the first use).
+      langPath: vendorUrl("tesseract-eng-4.0.0_best_int", false)
+    };
+  }
 
   var STOP_WORDS = { the:1,and:1,for:1,with:1,set:1,new:1,best:1,pack:1,size:1,value:1,
     original:1,each:1,per:1,item:1,one:1,two:1,all:1,are:1,from:1,has:1,have:1,its:1 };
@@ -1019,12 +1023,7 @@
   }
 
   function loadTesseract(cb) {
-    if (window.Tesseract) { cb(); return; }
-    var s = document.createElement("script");
-    s.src = TESSERACT_CDN;
-    s.onload = function() { log("Tesseract.js loaded"); cb(); };
-    s.onerror = function() { showToast("Failed to load OCR library — check internet.", "err"); };
-    document.head.appendChild(s);
+    loadVendorCb("tesseract", cb, "Failed to load OCR library — check internet.");
   }
 
   var _photoStream = null;
@@ -1096,7 +1095,7 @@
       loadTesseract(function() {
         (async function() {
           try {
-            var worker = await window.Tesseract.createWorker("eng");
+            var worker = await window.Tesseract.createWorker("eng", 1, tesseractOptions());
             var result = await worker.recognize(canvasEl);
             await worker.terminate();
             var ocrText = (result && result.data && result.data.text) ? result.data.text : "";
@@ -1325,17 +1324,8 @@
   }
 
   // ─── bwip-js DataMatrix barcode renderer ────────────────────────────────────
-  var BWIPJS_CDN = "https://cdn.jsdelivr.net/npm/bwip-js@4/dist/bwip-js-min.js";
-
   function loadBwipJs() {
-    return new Promise(function(resolve, reject) {
-      if (window.bwipjs) { resolve(); return; }
-      var s = document.createElement("script");
-      s.src = BWIPJS_CDN;
-      s.onload = function() { resolve(); };
-      s.onerror = function() { reject(new Error("Failed to load bwip-js")); };
-      document.head.appendChild(s);
-    });
+    return E.loadVendor("bwipjs");
   }
 
   // Renders all .fmd-barcode-container elements within a root element
@@ -1529,14 +1519,7 @@
   }
 
   function loadHtml2Canvas() {
-    return new Promise(function(resolve, reject) {
-      if (window.html2canvas) { resolve(window.html2canvas); return; }
-      var s = document.createElement("script");
-      s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-      s.onload = function() { resolve(window.html2canvas); };
-      s.onerror = function() { reject(new Error("Failed to load html2canvas")); };
-      document.head.appendChild(s);
-    });
+    return E.loadVendor("html2canvas");
   }
 
   async function renderIframeToCanvas(iframe, w, h) {
@@ -1596,7 +1579,7 @@
           var html = buildFullReceiptDoc();
           // Add bwip-js for DataMatrix rendering, print button, and auto-print
           html = html.replace("</body>",
-            "<script src='" + BWIPJS_CDN + "'><\/script>" +
+            "<script src='" + vendorUrl("bwip-js-4.11.4/bwip-js-min.js") + "'><\/script>" +
             "<script>" +
             "window.onload=function(){" +
               "var cs=document.querySelectorAll('.fmd-barcode-container[data-fmd-raw]');" +

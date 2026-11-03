@@ -54,7 +54,7 @@
       // browser and the Worker's edge cache can reuse every file (previously every load
       // used Date.now(), so 52 files were re-downloaded on every visit).
       // Bump BUILD on EVERY change to any file in ui/: browsers keep stamped files for a day.
-      var BUILD = "2026-11-03.136";
+      var BUILD = "2026-11-03.137";
       if (window.EIKON_LEAVING) return; // moving to the clean address (see the head)
 
       function log() { try { console.log.apply(console, arguments); } catch (e) {} }
@@ -105,18 +105,6 @@
             document.head.appendChild(s);
           });
         });
-      }
-
-      // Spreadsheet library for imports. Loaded in the background and never allowed to
-      // block or break the app: the modules that need it check window.XLSX when used.
-      function loadOptionalScript(src) {
-        try {
-          var s = document.createElement("script");
-          s.src = src;
-          s.async = true;
-          s.onerror = function () { warn("[EIKON][boot] optional script failed (imports disabled until reload):", src); };
-          document.head.appendChild(s);
-        } catch (e) {}
       }
 
       var root = document.getElementById("eikon-root");
@@ -297,8 +285,6 @@
       } else {
         MODULES = MODULES.map(fromUi).map(withParams);
       }
-
-      loadOptionalScript("https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js");
 
       // Stylesheet and scripts download together (they used to wait for each other: one extra round trip).
       // core.js and main.js wait for window.EIKON_CSS_READY before drawing, so nothing appears unstyled.

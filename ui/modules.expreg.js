@@ -170,6 +170,8 @@
     }
     if (cancelled(job)) { if (S.job === job) { S.job = null; S.done = { cancelled: true }; paint(); } return; }
     var out = { kind: kind, range: rg, calls: job.calls, paths: job.paths, results: job.results, at: new Date() };
+    // SheetJS (pinned in ui/vendor) loads only now; if it cannot, save() makes the CSV zip instead.
+    if (kind !== "print" && !window.XLSX && E.loadVendor) { try { await E.loadVendor("xlsx"); } catch (eL) {} }
     try {
       if (kind === "print") printPack(out); else out.file = save(out);
     } catch (e2) { out.error = String((e2 && e2.message) || e2); }

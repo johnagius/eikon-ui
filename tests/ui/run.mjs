@@ -1881,9 +1881,8 @@ try {
 // the same year as CSV files in a zip when the spreadsheet library is missing, at most 2 requests in flight, a month per
 // request, Cancel saves nothing, and a staff account gets a note instead of the screen (and no card in Settings).
 try {
-  // The real SheetJS for reading the workbook back: XLSX_JS=<path>, or a copy in .cache/ (not in git). Without one the
-  // workbook half is skipped and said so; the zip half always runs.
-  const xlsxPath = [process.env.XLSX_JS, path.join(here, "..", "..", ".cache", "xlsx-0.18.5.full.min.js")].find((f) => f && fs.existsSync(f));
+  // The real SheetJS (the pinned copy in ui/vendor, which the screen itself loads; XLSX_JS=<path> to try another).
+  const xlsxPath = [process.env.XLSX_JS, path.join(root, "vendor", "xlsx-0.20.3", "xlsx.full.min.js")].find((f) => f && fs.existsSync(f));
   const XLSX_REAL = xlsxPath ? fs.readFileSync(xlsxPath, "utf8") : "";
   const MONTHLY = { "/temperature/entries": ["entries", "entry_date"], "/cleaning/entries": ["entries", "entry_date"], "/daily-register/entries": ["entries", "entry_date"], "/locumregister/entries": ["entries", "entry_date"],
     "/dda-purchases/entries": ["entries", "entry_date"], "/dda-sales/entries": ["entries", "entry_date"], "/dda-poyc/entries": ["entries", "entry_date"], "/repeat-prescriptions/entries": ["entries", "entry_date"],
@@ -2103,6 +2102,80 @@ try {
     demand.before && !demand.after && demand.classicIn && !classicHasRegistry && nErr.length === 0,
     JSON.stringify({ sameList, sameAfter, n: [newSnap.length, allSnap.length], diff: newSnap.filter((x, i) => x !== want[i]).slice(0, 3), sameSet: JSON.stringify([...newSnap].sort()) === JSON.stringify([...allSnap].sort()), fetchedClassic: fetchedClassic.slice(0, 4), stubs, handOver, demand, classicHasRegistry, nErr: nErr.slice(0, 3) }));
 } catch (e) { report("registry: ran to the end", false, String(e).slice(0, 300)); }
+// ---- Third-party code: pinned in ui/vendor, loaded only when asked for, never from another host.
+{
+  // Source: no script or stylesheet from another host in ui/*.js or ui/*.html (ui/vendor is the libraries themselves).
+  // Links people click (wa.me, maps, OSM attribution) and service calls (geocoding, tiles) are not code and stay.
+  const remoteCode = [];
+  for (const f of fs.readdirSync(root).filter((n) => /\.(js|html)$/.test(n))) {
+    fs.readFileSync(path.join(root, f), "utf8").split("\n").forEach((ln, i) => {
+      if (/<script[^>]*\ssrc\s*=\s*["']?(https?:)?\/\//i.test(ln) || /<link[^>]*\shref\s*=\s*["']?(https?:)?\/\//i.test(ln) ||
+          /\.(src|href)\s*=\s*["'](https?:)?\/\//.test(ln) || /["'](https?:)?\/\/[^"'\s]+\.(m?js|css)(\?[^"']*)?["']/.test(ln) ||
+          /cdn\.jsdelivr|unpkg\.com|cdnjs\.cloudflare|cdn\.sheetjs/i.test(ln)) remoteCode.push(f + ":" + (i + 1) + " " + ln.trim().slice(0, 120));
+    });
+  }
+  report("vendor: no script or stylesheet in ui/*.js or ui/*.html comes from another host", remoteCode.length === 0, remoteCode.slice(0, 6).join("\n       "));
+}
+try {
+  const vp = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+  const vErr = [], foreign = [], vendorReq = [];
+  vp.on("pageerror", (e) => vErr.push("pageerror: " + e.message));
+  vp.on("console", (m) => { if (m.type() === "error") vErr.push("console: " + m.text().slice(0, 200)); });
+  // Anything not on this machine is refused (and listed), so a library that still reaches out would fail here.
+  await vp.route((u) => !/^(localhost|127\.0\.0\.1)$/.test(u.hostname) && /^https?:$/.test(u.protocol), (r) => { foreign.push(r.request().url().slice(0, 120)); return r.abort(); });
+  vp.on("request", (r) => { const u = new URL(r.url()); if (/\/vendor\//.test(u.pathname)) vendorReq.push(u.pathname + u.search); });
+  await vp.goto(base + "#dashboard"); await vp.waitForTimeout(300);
+  await vp.evaluate(() => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); localStorage.removeItem("eikon_ui2"); });
+  // New layout (Today) and classic (dashboard): boot and the background modules, with no request off this machine and no library.
+  await vp.goto(base + "&ui=2#today");
+  await vp.waitForFunction(() => window.EIKON && window.EIKON._lateIn && window.EIKON.state.activeModuleId === "today", null, { timeout: 20000 });
+  await vp.goto(base + "&ui=1#dashboard");
+  await vp.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "dashboard", null, { timeout: 20000 });
+  await vp.waitForTimeout(800);
+  const bootForeign = foreign.slice(), bootVendor = vendorReq.slice();
+  report("vendor: boot (new layout with the background modules, and classic) asks no other host and loads no library (SheetJS is no longer on every load)",
+    bootForeign.length === 0 && bootVendor.length === 0 && vErr.length === 0, JSON.stringify({ bootForeign, bootVendor, vErr: vErr.slice(0, 4) }));
+  // A failed load is not remembered: the next ask tries again.
+  let failOnce = true;
+  await vp.route("**/vendor/html2canvas-1.4.1/**", (r) => failOnce ? (failOnce = false, r.abort()) : r.fallback());
+  vendorReq.length = 0;
+  const retry = await vp.evaluate(async () => { const E = window.EIKON; const a = await E.loadVendor("html2canvas").then(() => "ok", (e) => e.message); const b = await E.loadVendor("html2canvas").then(() => "ok", (e) => e.message); return [a, b]; });
+  report("vendor: a library that fails to load says so, and loads on the next try", /Could not load html2canvas/.test(retry[0]) && retry[1] === "ok", JSON.stringify(retry));
+  // Every library loads from ui/vendor with the build stamp, once, and works.
+  const lib = await vp.evaluate(async () => {
+    const E = window.EIKON, out = { build: E.BUILD };
+    const both = await Promise.all([E.loadVendor("xlsx"), E.loadVendor("xlsx")]);
+    out.xlsxVersion = window.XLSX && window.XLSX.version; out.same = both[0] === both[1];
+    const ws = XLSX.utils.aoa_to_sheet([["Stock Code", "Description"], ["A1", "Panadol 500mg"]]); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "S");
+    const bin = XLSX.write(wb, { type: "array", bookType: "xlsx" }); out.roundTrip = XLSX.utils.sheet_to_json(XLSX.read(new Uint8Array(bin), { type: "array" }).Sheets.S, { header: 1 });
+    for (const n of ["bwipjs", "zxing", "tesseract", "html2canvas", "leaflet", "qrcode"]) { try { out[n] = !!(await E.loadVendor(n)); } catch (e) { out[n] = String(e.message); } }
+    const c = document.createElement("canvas"); try { bwipjs.toCanvas(c, { bcid: "datamatrix", text: "0105000000000000", scale: 2 }); out.dm = c.width > 0; } catch (e) { out.dm = String(e.message); }
+    out.leafletCss = !!document.getElementById("eikon-vendor-css-leaflet-0");
+    out.unknown = await E.loadVendor("nope").then(() => "loaded", (e) => e.message);
+    out.vendorUrl = E.vendorUrl("x/y.js");
+    return out;
+  });
+  const want = "/ui/vendor/xlsx-0.20.3/xlsx.full.min.js?v=" + encodeURIComponent(lib.build);
+  report("vendor: E.loadVendor loads each library once from /ui/vendor with the build stamp; SheetJS 0.20.3 writes and reads an xlsx; DataMatrix draws; no other host",
+    /^\d{4}-\d{2}-\d{2}\.\d+$/.test(lib.build) && lib.xlsxVersion === "0.20.3" && lib.same && JSON.stringify(lib.roundTrip) === JSON.stringify([["Stock Code", "Description"], ["A1", "Panadol 500mg"]]) &&
+    lib.bwipjs === true && lib.zxing === true && lib.tesseract === true && lib.html2canvas === true && lib.leaflet === true && lib.qrcode === true && lib.dm === true && lib.leafletCss &&
+    /Unknown library/.test(lib.unknown) && lib.vendorUrl === `http://localhost:${PORT}/ui/vendor/x/y.js?v=` + encodeURIComponent(lib.build) &&
+    vendorReq.filter((u) => u === want).length === 1 && vendorReq.every((u) => /^\/ui\/vendor\/[^?]+\?v=\d{4}-\d{2}-\d{2}\.\d+$/.test(u)) && foreign.length === 0,
+    JSON.stringify({ lib, vendorReq, foreign: foreign.slice(0, 4) }).slice(0, 900));
+  // Clean addresses (eikonhq.com/today): the libraries still come from /ui/vendor/.
+  const idxHtml = fs.readFileSync(path.join(root, "index.html"), "utf8").replace(/<head[^>]*>/i, (h) => h + '\n  <meta name="eikon-ui-base" content="/ui/" />');
+  await vp.route(/^http:\/\/localhost:\d+\/([A-Za-z][A-Za-z0-9_-]*)?(\?.*)?$/, (r) => r.request().isNavigationRequest()
+    ? r.fulfill({ status: 200, contentType: "text/html; charset=utf-8", headers: { "cache-control": "no-store" }, body: idxHtml }) : r.fallback());
+  vendorReq.length = 0;
+  await vp.goto(`http://localhost:${PORT}/today?intro=0&ui=2`);
+  await vp.waitForFunction(() => window.EIKON && window.EIKON.CLEAN_URLS && window.EIKON.state.activeModuleId === "today", null, { timeout: 20000 });
+  const clean = await vp.evaluate(async () => { await window.EIKON.loadVendor("qrcode"); return { url: window.EIKON.vendorUrl("a.js"), path: location.pathname, qr: typeof window.qrcode }; });
+  report("vendor: at a clean address (opened at /today, bar bare) libraries load from /ui/vendor/",
+    clean.path === "/" && clean.qr === "function" && clean.url.startsWith(`http://localhost:${PORT}/ui/vendor/a.js?v=`) && vendorReq.length === 1 && /^\/ui\/vendor\/qrcode-generator-1\.4\.4\.js\?v=/.test(vendorReq[0]) && foreign.length === 0,
+    JSON.stringify({ clean, vendorReq, foreign }));
+  await vp.evaluate(() => { localStorage.removeItem("eikon_ui2"); });
+  await vp.close();
+} catch (e) { report("vendor: ran to the end", false, String(e).slice(0, 300)); }
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });

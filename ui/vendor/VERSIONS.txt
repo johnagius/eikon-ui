@@ -1,0 +1,37 @@
+Third-party code in ui/vendor/. Every file is byte-identical to the one in the named package; nothing was edited.
+Loaded only through EIKON.loadVendor(name) (ui/core.js), which adds the build stamp (?v=BUILD).
+To update one: new folder <name>-<version>, copy the dist file + licence from the npm tarball, check its
+integrity, update this list and the path in core.js (VENDOR), bump BUILD in index.html.
+
+name         version  source (tarball integrity verified)          licence       file : sha256
+xlsx         0.20.3   @e965/xlsx@0.20.3 (npm mirror of the          Apache-2.0    xlsx-0.20.3/xlsx.full.min.js
+                      cdn.sheetjs.com/xlsx-0.20.3 tarball, SLSA                    cc015130aa8521e7f088f88898eba949ccdcbfb38df0bd129b44b7273c3a6f41
+                      provenance; SheetJS does not publish 0.20.x to npm)
+                      NOT YET compared byte for byte with https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js
+bwip-js      4.11.4   bwip-js@4.11.4                                MIT (+ Inconsolata OFL, canvas-toBlob, FileSaver: LICENSE.*)
+                                                                                   bwip-js-4.11.4/bwip-js-min.js
+                                                                                   7b0d2d1ca2f1cfcbb20383acc9f22991bd0c0aca6fd5b80828d37922cb0c1cd6
+zxing        0.19.2   @zxing/library@0.19.2 (umd/index.min.js)      Apache-2.0    zxing-library-0.19.2/index.min.js
+                                                                                   6b49a8fce823436e83de7f494582f82cc4de4b1f0f5774982afd8ccb9c0e7471
+tesseract    5.1.1    tesseract.js@5.1.1                            Apache-2.0    tesseract.js-5.1.1/tesseract.min.js
+                                                                                   a8e29918d098b2b06e1012bdaeffb4aec0445c5d5654709023e0bd1f442a80e8
+                                                                                   tesseract.js-5.1.1/worker.min.js
+                                                                                   aca1229639fc9907d86f96e825955a2b7c5716d17f3bc3acd71f9c7ab66181fc
+             5.1.1    tesseract.js-core@5.1.1                       Apache-2.0    tesseract.js-core-5.1.1/tesseract-core-simd-lstm.wasm.js
+                                                                                   ce20eda9533cbed1e6c2b4276fbae1e0adc61b6754b5513084be601787b457cf
+                                                                                   tesseract.js-core-5.1.1/tesseract-core-lstm.wasm.js
+                                                                                   8f04aa0cc81e7bde33f80e92fa01a7a665f0b4884d098acf5de9c7104a11dfaa
+             1.0.0    @tesseract.js-data/eng@1.0.0 (4.0.0_best_int) MIT pkg / Apache-2.0 data
+                                                                                   tesseract-eng-4.0.0_best_int/eng.traineddata.gz
+                                                                                   45b4cb346724ac1774f1c36f42f182b887bcdb28ebe63e6fff90ac41f3fcff91
+html2canvas  1.4.1    html2canvas@1.4.1                             MIT           html2canvas-1.4.1/html2canvas.min.js
+                                                                                   e87e550794322e574a1fda0c1549a3c70dae5a93d9113417a429016838eab8cb
+leaflet      1.9.4    leaflet@1.9.4 (dist/leaflet.js, leaflet.css,  BSD-2-Clause  leaflet-1.9.4/leaflet.js
+                      dist/images/*)                                               db49d009c841f5ca34a888c96511ae936fd9f5533e90d8b2c4d57596f4e5641a
+                                                                                   leaflet-1.9.4/leaflet.css
+                                                                                   a7837102824184820dfa198d1ebcd109ff6d0ff9a2672a074b9a1b4d147d04c6
+qrcode       1.4.4    qrcode-generator@1.4.4 (qrcode.js, LOOP r37) MIT (header)  qrcode-generator-1.4.4.js
+                                                                                   18ae399f81182bc9de916e9c77b195df20cc58d6f2d55a62b085a299f1bf1780
+
+Still remote, on purpose (services, not code): map tiles (tile.openstreetmap.org) and address search
+(geocode.arcgis.com, nominatim.openstreetmap.org) on the deliveries map.

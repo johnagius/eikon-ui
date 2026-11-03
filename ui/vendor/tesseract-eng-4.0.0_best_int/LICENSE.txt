@@ -1,0 +1,5 @@
+eng.traineddata.gz: English model "4.0.0_best_int", from the npm package @tesseract.js-data/eng@1.0.0
+(https://github.com/naptha/tessdata; the package is MIT licensed). The model itself is Google's
+tesseract-ocr tessdata (https://github.com/tesseract-ocr/tessdata_best), licensed under the
+Apache License, Version 2.0: https://www.apache.org/licenses/LICENSE-2.0
+This is the same file tesseract.js 5.1.1 fetched from cdn.jsdelivr.net/npm/@tesseract.js-data/eng/4.0.0_best_int.
