@@ -751,7 +751,7 @@
       ".cal-form label,.cal-form .row{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 14px;border-top:.5px solid var(--border)}" +
       ".cal-form label>span{flex:0 0 128px;font-size:15px}.cal-form label>i{font-style:normal;color:var(--muted);font-size:13px;white-space:nowrap}" +
       ".cal-form input,.cal-form select{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
-      ".cal-form .hd{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:16px 14px 5px;border-top:.5px solid var(--border)}.cal-form .hd:first-child{border-top:0;padding-top:10px}" +
+      ".cal-form .hd{font-size:13px;font-weight:600;color:var(--muted);padding:16px 14px 5px;border-top:.5px solid var(--border)}.cal-form .hd:first-child{border-top:0;padding-top:10px}" +
       ".cal-help{font-size:13px;color:var(--muted);padding:2px 14px 10px;line-height:1.45}" +
       ".cal-step{border-top:.5px solid var(--border)}.cal-step .sh{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 0;font-size:13px;font-weight:700}" +
       ".cal-step label{border-top:0}" +
@@ -760,9 +760,9 @@
       ".cal-note{margin:8px 14px 10px;padding:10px 12px;border-radius:10px;background:rgba(201,138,18,.12);font-size:13.5px;line-height:1.45}.cal-note b{font-weight:700}" +
       ".cal-note.big{font-size:15px}" +
       ".cal-out{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;min-width:0}" +
-      ".cal-out h2{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}" +
+      ".cal-out h2{font-size:14px;font-weight:600;color:var(--muted);margin:0 0 8px}" +
       ".cal-big{display:flex;flex-wrap:wrap;gap:10px 18px;margin:4px 0 6px}.cal-big div{min-width:0}.cal-big b{display:block;font-size:34px;font-weight:700;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}.cal-big span{display:block;font-size:13px;color:var(--muted);margin-top:2px}" +
-      ".cal-h3{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 0 6px}" +
+      ".cal-h3{font-size:13px;font-weight:600;color:var(--muted);margin:16px 0 6px}" +
       ".cal-list{border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".cal-li{display:flex;gap:10px;align-items:baseline;padding:9px 12px;border-top:.5px solid var(--border);font-size:14.5px;line-height:1.4}.cal-li:first-child{border-top:0}" +
       ".cal-li .k{flex:0 0 auto;min-width:0;font-weight:600}.cal-li .v{flex:1;min-width:0;text-align:right;overflow-wrap:anywhere}.cal-li .v small,.cal-li .k small{display:block;color:var(--muted);font-size:12.5px;font-weight:400}" +
@@ -774,7 +774,7 @@
       ".cal-wait{color:var(--muted);font-size:14.5px;padding:6px 0}" +
       ".cal-err{color:var(--danger);font-size:14px;margin-top:12px;line-height:1.45}" +
       ".cal-ok{margin:12px 0 0;padding:10px 12px;border-radius:10px;background:rgba(28,138,91,.12);font-size:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}" +
-      ".cal-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:26px 2px 7px;display:flex;gap:8px}.cal-lab b{color:var(--text)}" +
+      ".cal-lab{font-size:13px;font-weight:600;color:var(--muted);margin:26px 2px 7px;display:flex;gap:8px}.cal-lab b{color:var(--text)}" +
       ".cal-find{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:0 12px;margin-bottom:8px}" +
       ".cal-find input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:11px 0}.cal-find:focus-within{border-color:var(--accent)}" +
       ".cal-recs{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
@@ -789,7 +789,7 @@
       ".cal-form label:focus-within{box-shadow:inset 3px 0 0 var(--accent)}" +
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .cal-seg button.on{color:#00160E}html[data-ui2]:not([data-ui2-visit]) :is(.cal-err,.cal-x){color:#FF7A72}}" +
       "@media (max-width:760px){.cal-seg{grid-template-columns:repeat(3,minmax(0,1fr))}}" +
-      "@media (max-width:600px){.cal{padding:4px 16px 0}.cal h1{font-size:32px}.cal-form label>span{flex-basis:104px}.cal-row{padding:10px 14px}.cal-big b{font-size:30px}}";
+      "@media (max-width:600px){.cal-btn{min-height:44px;border-radius:22px;padding:0 18px;font-size:15px}.cal-btn.sm{min-height:44px}.cal-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.cal-seg button{min-height:44px}.cal-x{min-height:44px}.cal{padding:4px 16px 0}.cal h1{font-size:32px}.cal-form label>span{flex-basis:104px}.cal-row{padding:10px 14px}.cal-big b{font-size:30px}}";
     document.head.appendChild(st);
   }
 
@@ -1015,7 +1015,7 @@
   function recordsHtml() {
     var h = '<div class="cal-lab">Saved plans <b>' + S.records.length + "</b></div>";
     if (S.recLoading && !S.records.length) return h + '<div class="cal-quiet">Opening the saved plans…</div>';
-    if (S.recError) return h + '<div class="cal-quiet">' + esc(S.recError) + "</div>";
+    if (S.recError) return h + '<div class="cal-quiet" role="alert">' + esc(S.recError) + ' <button type="button" class="cal-btn sm" data-act="rec-retry" style="margin-left:6px">Try again</button></div>';
     if (!S.records.length) return h + '<div class="cal-quiet">No saved plans yet. Save and print a plan to keep it here.</div>';
     h += '<label class="cal-find"><span class="cal-sr">Find a saved plan</span><input type="search" id="cal-q" value="' + esc(S.q) + '" placeholder="Find by patient name or ID card" autocomplete="off"></label>';
     var q = low(S.q).trim(), rows = S.records.filter(function (r) { return !q || low(r.patient_name).indexOf(q) >= 0 || low(r.id_card).indexOf(q) >= 0 || low(normaliseMalteseId(S.q)) === low(r.id_card); });
@@ -1136,7 +1136,7 @@
       });
     });
     m.querySelectorAll(".cal-seg [data-calc]").forEach(function (b) {
-      b.addEventListener("click", function () { keep(); var c = b.getAttribute("data-calc"); if (c === S.calc) return; S.calc = c; S.err = ""; S.msg = null; S.res = null; paint(true); compute(); var x = S.mount.querySelector('[data-calc="' + c + '"]'); if (x) x.focus(); });
+      b.addEventListener("click", function () { keep(); var c = b.getAttribute("data-calc"); if (c === S.calc) return; S.calc = c; try { localStorage.setItem("eikon_calreg_calc", c); } catch (e0) {} S.err = ""; S.msg = null; S.res = null; paint(true); compute(); var x = S.mount.querySelector('[data-calc="' + c + '"]'); if (x) x.focus(); });
     });
     var f = m.querySelector("#cal-form"); if (!f) return;
     f.addEventListener("submit", function (ev) { ev.preventDefault(); save(); });
@@ -1163,6 +1163,7 @@
     x.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function () {
         var act = b.getAttribute("data-act");
+        if (act === "rec-retry") { load(); return; }
         if (act === "rec") { var id = b.getAttribute("data-id"); if (String(S.open) === id) { S.open = null; paintRecords(); return; } openRecord(id); }
         else if (act === "rec-close") { var was = S.open; S.open = null; paintRecords(); var r = S.mount.querySelector('.cal-row[data-id="' + was + '"]'); if (r) r.focus(); }
         else if (act === "reprint") { if (S.openRec && S.openRec.data) { var html = reprintHtml(S.openRec, S.openRec.data); if (html) openPrintTabWithHtml(html); else E.toast("Printing again is not available for this calculator.", "warning"); } }
@@ -1222,7 +1223,7 @@
     id: "calreg", title: "Pharmacy calculators", order: 3, icon: "🧮", ui2Only: true,
     render: function (ctx) {
       S.mount = ctx && ctx.mount; S.err = ""; S.msg = null; S.q = ""; S.open = null; S.openRec = null; S.saving = false;
-      if (!S.v) S.v = freshValues();
+      if (!S.v) { S.v = freshValues(); try { var lc = localStorage.getItem("eikon_calreg_calc"); if (CALCS.some(function (c) { return c[0] === lc; })) S.calc = lc; } catch (e0) {} } // opens on the calculator this person used last
       S.pat = { name: "", id: "", start: todayYmd(), note: "" }; S.levModeShown = S.v.lev.mode;
       css(); paint(); compute(); loadPatients(); return load();
     }

@@ -36,7 +36,7 @@
     st.id = "eikon-lrcreg-css";
     st.textContent =
       ".lrc{max-width:880px;margin:0 auto}" +
-      ".lrc-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".lrc-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 12px 0 0;min-height:44px;margin:-8px 0 2px;cursor:pointer}" +
       ".lrc-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}" +
       ".lrc h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.lrc-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
       ".lrc-btn{font:inherit;font-size:14px;font-weight:600;height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
@@ -50,9 +50,10 @@
       ".lrc-form label{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 14px;border-top:.5px solid var(--border)}.lrc-form label:first-child{border-top:0}" +
       ".lrc-form label>span{flex:0 0 104px;font-size:15px}.lrc-form input,.lrc-form select{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
       ".lrc-total{display:flex;justify-content:space-between;align-items:baseline;padding:10px 14px;border-top:.5px solid var(--border)}.lrc-total b{font-size:20px;font-variant-numeric:tabular-nums}.lrc-total span{font-size:13px;color:var(--muted)}" +
-      ".lrc-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end}.lrc-err{color:var(--danger);font-size:13px;padding:4px 14px}" +
+      ".lrc-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end}.lrc-err{color:var(--danger);font-size:13.5px;padding:4px 14px}.lrc [aria-invalid=true]{box-shadow:inset 0 -2px 0 var(--danger)}" +
+      ".lrc-done{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;padding:10px 14px;border-radius:12px;background:var(--ok-soft,rgba(28,138,91,.12));font-size:14.5px}.lrc-done span{flex:1;min-width:180px}" +
       ".lrc-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
-      "@media (max-width:600px){.lrc{padding:4px 16px 0}.lrc h1{font-size:32px}.lrc-form label>span{flex-basis:92px}}";
+      "@media (max-width:600px){.lrc{padding:4px 16px 0}.lrc h1{font-size:32px}.lrc-form label>span{flex-basis:92px}.lrc-btn{height:44px;border-radius:22px;padding:0 18px}}";
     document.head.appendChild(st);
   }
 
@@ -76,6 +77,9 @@
     var h = '<div class="lrc"><button class="lrc-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("lrcreg")) + '</button>' +
       '<div class="lrc-top"><div><h1>Locum receipts</h1><p class="lrc-sub">What each locum was paid, ready to print and sign.</p></div>' + (S.adding ? "" : '<button class="lrc-btn p" data-act="add">New receipt</button>') + "</div>";
     if (S.adding) h += formHtml();
+    var just = !S.adding && S.just && S.entries.find(function (r) { return r.id === S.just; });
+    if (just) h += '<div class="lrc-done" role="status"><span>Recorded: ' + esc(eur(just.total_fee)) + " for " + esc(just.locum_full_name) + ". Print it for the locum to sign.</span>" + // the next thing a locum asks for
+      '<button class="lrc-btn p" data-act="print" data-id="' + just.id + '">Print the receipt</button></div>';
     h += E.months.bar(S.month, { label: "Locum receipts", printLabel: "Print the month" });
     if (S.loading && !S.entries.length) h += '<div class="lrc-quiet">Opening locum receipts…</div>';
     else if (S.error) h += '<div class="lrc-quiet">' + esc(S.error) + "</div>";
@@ -95,13 +99,13 @@
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
         if (act === "back") window.location.hash = E.ui2BackHash("lrcreg");
-        else if (act === "add") { var t = today(), ty = dayType(t), r = mem()[ty]; S.adding = { receipt_date: t, day_type: ty, hours: "", fee_per_hour: r != null ? String(r) : "", locum_full_name: "", registration_number: "" }; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=locum_full_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (act === "add") { S.just = null; var t = today(), ty = dayType(t), r = mem()[ty]; S.adding = { receipt_date: t, day_type: ty, hours: "", fee_per_hour: r != null ? String(r) : "", locum_full_name: "", registration_number: "" }; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=locum_full_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
         else if (act === "print") { var row = S.entries.find(function (x) { return x.id === Number(b.getAttribute("data-id")); }); if (row) printReceipt(row); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "lrcreg"); } catch (x) {} E.openClassic("locumreceipts"); }
       });
     });
-    E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; load(); }, paint: function () { paint(); }, print: printMonth });
+    E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; S.just = null; load(); }, paint: function () { paint(); }, print: printMonth });
     var f = m.querySelector("#lrc-add");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
@@ -145,9 +149,9 @@
     var a = S.adding, fld = function (k, label, extra) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] || "") + '"' + (extra || "") + "></label>"; };
     return '<form class="lrc-form" id="lrc-add" autocomplete="off">' + fld("locum_full_name", "Locum", ' list="lrc-names" placeholder="Name and surname"') + fld("registration_number", "Reg no.") +
       fld("receipt_date", "Day", ' type="date" max="' + esc(today()) + '"') +
-      '<label><span>Rate</span><select name="day_type"><option value="normal"' + (a.day_type === "normal" ? " selected" : "") + '>Normal day</option><option value="holiday"' + (a.day_type === "holiday" ? " selected" : "") + ">Sunday / public holiday</option></select></label>" +
+      '<label><span>Kind of day</span><select name="day_type"><option value="normal"' + (a.day_type === "normal" ? " selected" : "") + '>Normal day</option><option value="holiday"' + (a.day_type === "holiday" ? " selected" : "") + ">Sunday / public holiday</option></select></label>" +
       fld("hours", "Hours", ' inputmode="decimal" placeholder="e.g. 8 or 7.5"') + fld("fee_per_hour", "€ per hour", ' inputmode="decimal" placeholder="0.00"') +
-      '<div class="lrc-total"><span>Total</span><b id="lrc-tot">' + esc(totalText()) + "</b></div>" + (S.err ? '<div class="lrc-err">' + esc(S.err) + "</div>" : "") +
+      '<div class="lrc-total"><span>Total</span><b id="lrc-tot">' + esc(totalText()) + "</b></div>" + (S.err ? '<div class="lrc-err" id="lrc-err" role="alert">' + esc(S.err) + "</div>" : "") +
       '<div class="acts"><button type="button" class="lrc-btn" data-act="add-cancel">Cancel</button><button type="submit" class="lrc-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div>" +
       '<datalist id="lrc-names">' + S.known.map(function (k) { return '<option value="' + esc(k.name) + '">'; }).join("") + "</datalist></form>";
   }
@@ -156,16 +160,22 @@
     ["locum_full_name", "registration_number", "receipt_date", "day_type", "hours", "fee_per_hour"].forEach(function (k) { var el = f.querySelector("[name=" + k + "]"); if (el) S.adding[k] = String(el.value || "").trim(); });
   }
 
+  // The box with the problem: marked, tied to the message, and the cursor in it (until something is typed there).
+  function markBad(sel, errId) {
+    var el = S.mount && S.mount.querySelector(sel); if (!el) return;
+    el.setAttribute("aria-invalid", "true"); el.setAttribute("aria-describedby", errId); el.focus();
+    el.addEventListener("input", function () { el.removeAttribute("aria-invalid"); el.removeAttribute("aria-describedby"); }, { once: true });
+  }
   async function add() {
     if (S.saving) return;
     keep();
-    var a = S.adding, hrs = num(a.hours), rate = num(a.fee_per_hour); S.err = "";
-    if (!a.locum_full_name) S.err = "Write the locum's name. Nothing was saved.";
-    else if (!a.registration_number) S.err = "Write the registration number. Nothing was saved.";
-    else if (!/^\d{4}-\d{2}-\d{2}$/.test(a.receipt_date || "") || a.receipt_date > today()) S.err = "Choose the day worked. Nothing was saved.";
-    else if (hrs == null || hrs <= 0 || hrs > 24) S.err = "Write the hours worked (up to 24). Nothing was saved.";
-    else if (rate == null) S.err = "Write the rate per hour, e.g. 15.00. Nothing was saved.";
-    if (S.err) return paint(true);
+    var a = S.adding, hrs = num(a.hours), rate = num(a.fee_per_hour), bad = ""; S.err = "";
+    if (!a.locum_full_name) { S.err = "Write the locum's name. Nothing was saved."; bad = "locum_full_name"; }
+    else if (!a.registration_number) { S.err = "Write the registration number. Nothing was saved."; bad = "registration_number"; }
+    else if (!/^\d{4}-\d{2}-\d{2}$/.test(a.receipt_date || "") || a.receipt_date > today()) { S.err = "Choose the day worked. Nothing was saved."; bad = "receipt_date"; }
+    else if (hrs == null || hrs <= 0 || hrs > 24) { S.err = "Write the hours worked (up to 24). Nothing was saved."; bad = "hours"; }
+    else if (rate == null) { S.err = "Write the rate per hour, e.g. 15.00. Nothing was saved."; bad = "fee_per_hour"; }
+    if (S.err) { paint(true); return markBad("#lrc-add [name=" + bad + "]", "lrc-err"); }
     S.saving = true; paint(true);
     try {
       var monthList = async function () { var r0 = await E.apiFetch("/locumreceipts/receipts?month=" + encodeURIComponent(a.receipt_date.slice(0, 7)), { method: "GET" }); return (r0 && r0.ok && r0.receipts) || []; };
@@ -180,10 +190,15 @@
         if (now <= had) throw x0;
       }
       remember(a.day_type === "holiday" ? "holiday" : "normal", rate);
-      S.adding = null; E.toast(eur(hrs * rate) + " for " + a.locum_full_name + " · Print it from the list", "success");
+      S.adding = null; E.toast(eur(hrs * rate) + " for " + a.locum_full_name, "success");
       if (a.receipt_date.slice(0, 7) !== S.month) S.month = a.receipt_date.slice(0, 7);
+      var saved = true;
     } catch (x) { S.err = E.saveFailText(x); }
-    S.saving = false; return load();
+    S.saving = false; await load();
+    if (saved) { // the receipt just made, offered for printing at once (the newest one that matches)
+      var mine = S.entries.filter(same).sort(function (p, q) { return q.id - p.id; })[0];
+      if (mine) { S.just = mine.id; E.whenFormIdle(S.mount, paint); }
+    }
   }
 
   function printReceipt(row) { // the same layout as the classic screen's receipt
@@ -208,7 +223,7 @@
 
   E.registerModule({
     id: "lrcreg", title: "Locum receipts", order: 3, icon: "€", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); S.adding = null; S.err = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); S.adding = null; S.just = null; S.err = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("lrcreg") < 0) E.UI2_DESTINATIONS.push("lrcreg");
   if (E.UI2_PARENT) E.UI2_PARENT.lrcreg = "money";

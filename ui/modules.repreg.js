@@ -7,7 +7,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, entries: [], loading: false, error: "", q: "", adding: null, saving: false, err: "", mo: "", moEntries: [], moLoading: false, moError: "" };
+  var S = { mount: null, entries: [], loading: false, error: "", q: "", adding: null, saving: false, err: "", bad: {}, mo: "", moEntries: [], moLoading: false, moError: "" };
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   var F = ["entry_date", "client_id", "client_name", "medicine_name_dose", "posology", "prescriber_name", "prescriber_reg_no"];
 
@@ -51,7 +51,7 @@
       ".rep-form label{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 14px;border-top:.5px solid var(--border)}.rep-form label:first-child{border-top:0}" +
       ".rep-form label>span{flex:0 0 104px;font-size:15px}.rep-form input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}.rep-form label small{color:var(--accent);font-size:12px;font-weight:600}" +
       ".rep-form .note{font-size:13px;color:var(--muted);padding:8px 14px 0}.rep-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end}" +
-      ".rep-err{color:var(--danger);font-size:13px;padding:4px 14px}" +
+      ".rep-err{color:var(--danger);font-size:13px;padding:4px 14px}.rep-err:empty{padding:0}.rep-form label.miss>span{color:var(--danger)}.rep-form label.miss:focus-within>span{color:inherit}" +
       ".rep-h2{font-size:20px;font-weight:700;letter-spacing:-.01em;margin:28px 0 0}" +
       ".rep-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       "@media (min-width:1200px){.rep{max-width:1180px}}" +
@@ -102,24 +102,24 @@
     if (E.state.activeModuleId !== "repreg") return; // left before a reply came back: do not draw over the next screen
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var qi = m.querySelector("#rep-q"); if (qi) S.q = qi.value;
-    var h = '<div class="rep"><button class="rep-back" data-act="back">‹ Registers</button>' +
+    var h = '<div class="rep"><button class="rep-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("repreg") : "‹ Registers") + "</button>" +
       '<div class="rep-top"><div><h1>Repeat prescriptions</h1><p class="rep-sub">Prescriptions on file, and when each one runs out.</p></div>' + (S.adding ? "" : '<button class="rep-btn p" data-act="add">Record a prescription</button>') + "</div>";
     if (S.adding) {
-      var a = S.adding, fld = function (k, label, extra, hint) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] || "") + '"' + (extra || "") + ">" + (hint || "") + "</label>"; };
+      var a = S.adding, bad = S.bad || {}, fld = function (k, label, extra, hint) { return "<label" + (bad[k] ? ' class="miss"' : "") + "><span>" + label + '</span><input name="' + k + '" value="' + esc(a[k] || "") + '"' + (extra || "") + (bad[k] ? ' aria-invalid="true"' : "") + ">" + (hint || "") + "</label>"; };
       h += '<form class="rep-form" id="rep-add" autocomplete="off">' + fld("entry_date", "Written", ' type="date" max="' + esc(today()) + '"') + fld("client_id", "ID card", ' placeholder="e.g. 123456M" autocapitalize="characters"', a.known ? "<small>Known</small>" : "") +
         fld("client_name", "Patient", ' placeholder="Name and surname"') + fld("medicine_name_dose", "Medicine", ' placeholder="e.g. Atorvastatin 20mg"') + fld("posology", "Dose", ' placeholder="e.g. 1 at night"') +
         fld("prescriber_name", "Prescriber", ' list="rep-docs" placeholder="Dr name"') + fld("prescriber_reg_no", "Reg no.", ' inputmode="numeric"') +
-        '<div class="note">Valid for six months from the day it was written.</div>' + (S.err ? '<div class="rep-err">' + esc(S.err) + "</div>" : "") +
+        '<div class="note">Valid for six months from the day it was written.</div>' + '<div class="rep-err" role="alert">' + esc(S.err) + "</div>" +
         '<div class="acts"><button type="button" class="rep-btn" data-act="add-cancel">Cancel</button><button type="submit" class="rep-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div>" +
         '<datalist id="rep-docs">' + uniq(S.entries.map(function (e) { return e.prescriber_name; })).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
     }
     if (S.loading && !S.entries.length) h += '<div class="rep-quiet">Opening repeat prescriptions…</div>';
     else if (S.error) h += '<div class="rep-quiet">' + esc(S.error) + "</div>";
     else {
-      h += '<input class="rep-q" id="rep-q" type="search" placeholder="Search patient, ID card or medicine" value="' + esc(S.q) + '">';
+      h += '<input class="rep-q" id="rep-q" type="search" aria-label="Search repeat prescriptions" placeholder="Search patient, ID card or medicine" value="' + esc(S.q) + '">';
       var q = low(S.q).trim(), match = function (e) { return !q || [e.client_name, e.client_id, e.medicine_name_dose, e.prescriber_name].some(function (v) { return low(v).indexOf(q) >= 0; }); };
       var t = today(), list = S.entries.filter(match);
-      var valid = list.filter(function (e) { return e.expires_date >= t; }).sort(function (x, y) { return String(x.expires_date).localeCompare(String(y.expires_date)); });
+      var valid = list.filter(function (e) { return e.expires_date >= t; }).sort(function (x, y) { return (renewedBy(x) ? 1 : 0) - (renewedBy(y) ? 1 : 0) || String(x.expires_date).localeCompare(String(y.expires_date)); }); // already renewed: after the ones still to watch
       var gone = list.filter(function (e) { return e.expires_date < t && e.expires_date >= back(30) && !renewedBy(e); }).sort(function (x, y) { return String(y.expires_date).localeCompare(String(x.expires_date)); });
       var W = wide(), block = function (rows) { return W ? tableHtml(rows) : '<div class="rep-list">' + rows.map(rowHtml).join("") + "</div>"; };
       h += '<div class="rep-lab">Still valid <b>' + valid.length + "</b></div>" + (valid.length ? block(valid) : '<div class="rep-quiet">' + (q ? "No valid prescription matches." : "No repeat prescription on file.") + "</div>");
@@ -137,10 +137,10 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
-        if (act === "back") window.location.hash = "#registers";
-        else if (act === "add") { S.adding = { entry_date: today() }; S.err = ""; paint(true); focus("client_id"); }
+        if (act === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("repreg") : "#registers";
+        else if (act === "add") { S.adding = { entry_date: today() }; S.err = ""; S.bad = {}; paint(true); focus("client_id"); }
         else if (act === "renew") { var e = S.entries.find(function (x) { return x.id === Number(b.getAttribute("data-id")); }); if (!e) return; S.adding = { entry_date: today(), client_id: e.client_id, client_name: e.client_name, medicine_name_dose: e.medicine_name_dose, posology: e.posology, prescriber_name: e.prescriber_name, prescriber_reg_no: e.prescriber_reg_no, known: true }; S.err = ""; paint(true); window.scrollTo({ top: 0, behavior: "smooth" }); focus("entry_date"); }
-        else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
+        else if (act === "add-cancel") { S.adding = null; S.err = ""; S.bad = {}; paint(true); var ab = m.querySelector("[data-act=add]"); if (ab) ab.focus(); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "repreg"); } catch (x) {} E.openClassic("repeatprescriptions"); }
       });
     });
@@ -149,6 +149,10 @@
     var f = m.querySelector("#rep-add");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
+      f.addEventListener("input", function (ev) { // a field being put right stops being red
+        var el = ev.target; if (!el || el.getAttribute("aria-invalid") !== "true") return;
+        el.removeAttribute("aria-invalid"); var lb = el.closest("label"); if (lb) lb.classList.remove("miss"); if (S.bad) delete S.bad[el.name];
+      });
       var idIn = f.querySelector("[name=client_id]"); if (idIn) idIn.addEventListener("blur", function () { fillPatient(); });
       var dn = f.querySelector("[name=prescriber_name]"); if (dn) dn.addEventListener("blur", function () { fillPrescriber(); });
       if (E.personPick) E.personPick.attach({ key: "repreg", form: f, fields: { id: "client_id", name: "client_name" }, idValue: function (v) { return String(v || "").replace(/\s+/g, "").toUpperCase(); },
@@ -217,9 +221,15 @@
     var a = S.adding; S.err = "";
     a.client_id = String(a.client_id || "").replace(/\s+/g, "").toUpperCase();
     var need = [["client_id", "the ID card"], ["client_name", "the patient's name"], ["medicine_name_dose", "the medicine"], ["posology", "the dose"], ["prescriber_name", "the prescriber"], ["prescriber_reg_no", "the prescriber's reg no."]];
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(a.entry_date || "") || a.entry_date > today()) S.err = "Choose the day it was written. Nothing was saved.";
-    else { var miss = need.filter(function (n) { return !a[n[0]]; })[0]; if (miss) S.err = "Write " + miss[1] + ". Nothing was saved."; }
-    if (S.err) return paint(true);
+    // Everything missing is said at once, each field marked; the cursor goes to the first one.
+    var miss = need.filter(function (n) { return !a[n[0]]; });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(a.entry_date || "") || a.entry_date > today()) miss.unshift(["entry_date", "the day it was written (today or earlier)"]);
+    S.bad = {}; miss.forEach(function (n) { S.bad[n[0]] = 1; });
+    if (miss.length) {
+      var w = miss.map(function (n) { return n[1]; });
+      S.err = "Write " + (w.length === 1 ? w[0] : w.slice(0, -1).join(", ") + " and " + w[w.length - 1]).replace(/\.$/, "") + ". Nothing was saved.";
+      paint(true); var fx = S.mount && S.mount.querySelector("#rep-add [name=" + miss[0][0] + "]"); if (fx) fx.focus(); return;
+    }
     // the ID card and the person (E.people.confirmPerson): asked before anything is saved; Go back keeps the form
     var asked = null;
     if (E.people && E.people.confirmPerson) {
@@ -234,7 +244,7 @@
       var r = await E.postOnce("/repeat-prescriptions/entries", body, { list: async function () { var r0 = await E.apiFetch("/repeat-prescriptions/entries?from=" + body.entry_date + "&to=" + body.entry_date, { method: "GET" }); return (r0 && r0.ok && r0.entries) || []; },
         same: function (e) { return e.entry_date === body.entry_date && String(e.client_id || "").trim().toLowerCase() === String(body.client_id || "").trim().toLowerCase() && String(e.medicine_name_dose || "").trim().toLowerCase() === String(body.medicine_name_dose || "").trim().toLowerCase() && String(e.prescriber_reg_no || "").trim().toLowerCase() === String(body.prescriber_reg_no || "").trim().toLowerCase(); } });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.adding = null; E.toast("Recorded for " + a.client_name, "success");
+      S.adding = null; S.bad = {}; E.toast("Recorded for " + a.client_name, "success");
       if (E.linkPerson) E.linkPerson({ name: body.client_name, id_card: body.client_id }, "register:repeat", asked); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false;
@@ -244,7 +254,7 @@
 
   E.registerModule({
     id: "repreg", title: "Repeat prescriptions", order: 3, icon: "℞", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.q = ""; S.mo = E.months.now(); S.moEntries = []; E.months.reset(); css(); watchWidth(); paint(); loadMonth(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.bad = {}; S.q = ""; S.mo = E.months.now(); S.moEntries = []; E.months.reset(); css(); watchWidth(); paint(); loadMonth(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("repreg") < 0) E.UI2_DESTINATIONS.push("repreg");
   if (E.UI2_PARENT) E.UI2_PARENT.repreg = "registers";

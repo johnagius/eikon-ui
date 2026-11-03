@@ -23,7 +23,7 @@
     st.id = "eikon-poreg-css";
     st.textContent =
       ".por{max-width:880px;margin:0 auto}" +
-      ".por-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".por-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 12px 0 0;min-height:44px;margin:-8px 0 2px;cursor:pointer}" +
       ".por-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}" +
       ".por h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.por-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
       ".por-btn{font:inherit;font-size:14px;font-weight:600;height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
@@ -39,9 +39,9 @@
       ".por-form label>span{flex:0 0 96px;font-size:15px}.por-form input,.por-form select{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
       ".por-seg{display:flex;gap:6px;flex:1}.por-seg button{flex:1;font:inherit;font-size:14px;font-weight:600;height:32px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer}.por-seg button.on{background:var(--accent);border-color:var(--accent);color:#fff}" +
       ".por-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end}" +
-      ".por-err{color:var(--danger);font-size:13px;padding:4px 14px}" +
+      ".por-err{color:var(--danger);font-size:13.5px;padding:4px 14px}.por [aria-invalid=true]{box-shadow:inset 0 -2px 0 var(--danger)}" +
       ".por-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
-      "@media (max-width:600px){.por{padding:4px 16px 0}.por h1{font-size:32px}}";
+      "@media (max-width:600px){.por{padding:4px 16px 0}.por h1{font-size:32px}.por-btn{height:44px;border-radius:22px;padding:0 18px}.por-seg button{height:40px}}";
     document.head.appendChild(st);
   }
 
@@ -72,12 +72,12 @@
       h += '<form class="por-form" id="por-add" autocomplete="off">' +
         '<label><span>Paid to</span><input name="payee_name" list="por-names" value="' + esc(a.payee_name) + '" placeholder="Who"></label>' +
         '<label><span>Amount €</span><input name="fee" inputmode="decimal" value="' + esc(a.fee) + '" placeholder="0.00"></label>' +
-        '<label><span>How</span><div class="por-seg"><button type="button" data-m="cash" class="' + (a.payment_method !== "cheque" ? "on" : "") + '">Cash</button><button type="button" data-m="cheque" class="' + (a.payment_method === "cheque" ? "on" : "") + '">Cheque</button></div></label>' +
+        '<label><span>How</span><div class="por-seg"><button type="button" data-m="cash" aria-pressed="' + (a.payment_method !== "cheque") + '" class="' + (a.payment_method !== "cheque" ? "on" : "") + '">Cash</button><button type="button" data-m="cheque" aria-pressed="' + (a.payment_method === "cheque") + '" class="' + (a.payment_method === "cheque" ? "on" : "") + '">Cheque</button></div></label>' +
         (a.payment_method === "cheque" ? '<label><span>Cheque no.</span><input name="cheque_no" value="' + esc(a.cheque_no) + '"></label>' : "") +
         '<label><span>Invoice no.</span><input name="invoice_no" value="' + esc(a.invoice_no) + '" placeholder="Optional"></label>' +
         '<label><span>What for</span><input name="reason" value="' + esc(a.reason) + '" placeholder="Optional, e.g. Delivery to Gozo"></label>' +
         '<label><span>When</span><input name="entry_date" type="date" max="' + esc(today()) + '" value="' + esc(a.entry_date) + '"><input name="entry_time" type="time" value="' + esc(a.entry_time) + '" style="flex:0 0 96px"></label>' +
-        (S.err ? '<div class="por-err">' + esc(S.err) + "</div>" : "") +
+        (S.err ? '<div class="por-err" id="por-err" role="alert">' + esc(S.err) + "</div>" : "") +
         '<div class="acts"><button type="button" class="por-btn" data-act="add-cancel">Cancel</button><button type="submit" class="por-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div>" +
         '<datalist id="por-names">' + S.names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
     }
@@ -92,7 +92,7 @@
       days.forEach(function (d) {
         var list = S.entries.filter(function (e) { return e.entry_date === d; });
         h += '<div class="por-lab"><span>' + esc(dayLabel(d)) + "</span><b>" + eur(sum(list)) + '</b></div><div class="por-list">' + list.map(function (e) {
-          var sub = [e.entry_time, e.payment_method === "cheque" ? "Cheque" + (e.cheque_no ? " " + e.cheque_no : "") : "Cash"]; if (e.invoice_no) sub.push("Inv " + e.invoice_no); if (e.reason) sub.push(e.reason);
+          var sub = [e.entry_time, e.payment_method === "cheque" ? "Cheque" + (e.cheque_no ? " " + e.cheque_no : "") : "Cash"]; if (e.invoice_no) sub.push("Invoice " + e.invoice_no); if (e.reason) sub.push(e.reason);
           return '<div class="por-row"><div class="t"><b>' + esc(e.payee_name) + "</b><span>" + esc(sub.join(" · ")) + "</span></div><em>" + eur(e.fee) + "</em></div>";
         }).join("") + "</div>";
       });
@@ -135,16 +135,22 @@
     ["payee_name", "fee", "cheque_no", "invoice_no", "reason", "entry_date", "entry_time"].forEach(function (k) { var el = f.querySelector("[name=" + k + "]"); if (el) S.adding[k] = String(el.value || "").trim(); });
   }
 
+  // The box with the problem: marked, tied to the message, and the cursor in it (until something is typed there).
+  function markBad(sel, errId) {
+    var el = S.mount && S.mount.querySelector(sel); if (!el) return;
+    el.setAttribute("aria-invalid", "true"); el.setAttribute("aria-describedby", errId); el.focus();
+    el.addEventListener("input", function () { el.removeAttribute("aria-invalid"); el.removeAttribute("aria-describedby"); }, { once: true });
+  }
   async function add() {
     if (S.saving) return;
     keep();
-    var a = S.adding, fee = money(a.fee); S.err = "";
-    if (!a.payee_name) S.err = "Write who was paid. Nothing was saved.";
-    else if (fee == null) S.err = "Write the amount, e.g. 12.50. Nothing was saved.";
-    else if (a.payment_method === "cheque" && !a.cheque_no) S.err = "Write the cheque number. Nothing was saved.";
-    else if (!/^\d{4}-\d{2}-\d{2}$/.test(a.entry_date) || a.entry_date > today()) S.err = "Choose the day it was paid. Nothing was saved.";
-    else if (!/^\d{2}:\d{2}$/.test(a.entry_time)) S.err = "Choose the time it was paid. Nothing was saved.";
-    if (S.err) return paint(true);
+    var a = S.adding, fee = money(a.fee), bad = ""; S.err = "";
+    if (!a.payee_name) { S.err = "Write who was paid. Nothing was saved."; bad = "payee_name"; }
+    else if (fee == null) { S.err = "Write the amount, e.g. 12.50. Nothing was saved."; bad = "fee"; }
+    else if (a.payment_method === "cheque" && !a.cheque_no) { S.err = "Write the cheque number. Nothing was saved."; bad = "cheque_no"; }
+    else if (!/^\d{4}-\d{2}-\d{2}$/.test(a.entry_date) || a.entry_date > today()) { S.err = "Choose the day it was paid. Nothing was saved."; bad = "entry_date"; }
+    else if (!/^\d{2}:\d{2}$/.test(a.entry_time)) { S.err = "Choose the time it was paid. Nothing was saved."; bad = "entry_time"; }
+    if (S.err) { paint(true); return markBad("#por-add [name=" + bad + "]", "por-err"); }
     S.saving = true; paint(true);
     try {
       var monthList = async function () { var r0 = await E.apiFetch("/paid-out/entries?month=" + encodeURIComponent(a.entry_date.slice(0, 7)), { method: "GET" }); return (r0 && r0.ok && r0.entries) || []; };

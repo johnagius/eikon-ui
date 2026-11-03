@@ -11,7 +11,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, reports: [], loading: false, error: "", q: "", view: "list", openId: "", adding: null, base: null, saving: false, err: "", force: "" };
+  var S = { mount: null, reports: [], loading: false, error: "", q: "", view: "list", openId: "", adding: null, base: null, saving: false, err: "", force: "", miss: [] };
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   // The classic screen's lists, word for word (stored as these strings).
   var SERIOUSNESS = ["Non-serious", "Serious – Hospitalisation", "Serious – Life-threatening", "Serious – Disability", "Serious – Congenital anomaly", "Serious – Other medically important", "Fatal"];
@@ -79,7 +79,7 @@
       ".pvr-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.pvr-btn:disabled{opacity:.55;cursor:default}.pvr-btn.t{border:0;background:none;color:var(--accent);padding:0 4px}" +
       ".pvr-q{width:100%;box-sizing:border-box;height:40px;border-radius:12px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font:inherit;font-size:16px;padding:0 12px;outline:0;margin-top:16px}" +
       ".pvr-q:focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:2px}" +
-      ".pvr-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 2px 7px;display:flex;gap:8px;justify-content:space-between}.pvr-lab b{color:var(--text)}" +
+      ".pvr-lab{font-size:13px;font-weight:600;color:var(--muted);margin:20px 2px 7px;display:flex;gap:8px;justify-content:space-between}.pvr-lab b{color:var(--text)}" +
       ".pvr-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".pvr-row{display:flex;gap:12px;align-items:center;width:100%;box-sizing:border-box;text-align:left;font:inherit;color:var(--text);background:none;border:0;border-top:.5px solid var(--border);padding:11px 16px;cursor:pointer}.pvr-row:first-child{border-top:0}" +
       ".pvr-row:hover{background:rgba(118,118,128,.06)}.pvr-row:focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:-3px}" +
@@ -95,16 +95,19 @@
       ".pvr-form textarea{display:block;width:100%;box-sizing:border-box;min-height:72px;resize:vertical;border:1px solid var(--border);border-radius:10px;background:transparent;font:inherit;font-size:16px;color:inherit;padding:8px 10px;outline:0}" +
       ".pvr-form .two{gap:8px}.pvr-form .two>span{flex:0 0 112px;font-size:15px}.pvr-form .two:focus-within{box-shadow:inset 3px 0 0 var(--accent)}" +
       ".pvr-form small{display:block;color:var(--muted);font-size:12.5px;padding:0 14px 8px}" +
-      ".pvr-hd{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:22px 2px 0;display:flex;justify-content:space-between;align-items:center;gap:8px}" +
+      ".pvr-hd{font-size:13px;font-weight:600;color:var(--muted);margin:22px 2px 0;display:flex;justify-content:space-between;align-items:center;gap:8px}" +
       ".pvr-acts{display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-top:14px}.pvr-acts span{display:flex;gap:8px;margin-left:auto}" +
-      ".pvr-err{color:var(--danger);font-size:13.5px;margin-top:12px}" +
+      ".pvr-err{color:var(--danger);font-size:13.5px;margin-top:12px;line-height:1.45}" +
+      ".pvr-form label.miss>span{color:var(--danger);font-weight:600}.pvr-form label.miss{box-shadow:inset 3px 0 0 var(--danger)}" +
+      ".pvr-skel{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:20px}.pvr-skel i{display:block;height:56px;border-top:.5px solid var(--border);background:linear-gradient(90deg,transparent 0,rgba(118,118,128,.10) 50%,transparent 100%) 0 0/200% 100%;animation:eikonSvcSkel 1.3s linear infinite}.pvr-skel i:first-child{border-top:0}" +
+      "@keyframes eikonSvcSkel{from{background-position:100% 0}to{background-position:-100% 0}}@media (prefers-reduced-motion:reduce){.pvr-skel i{animation:none}}" +
       ".pvr-one{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:8px}" +
       ".pvr-one div{display:flex;gap:12px;padding:9px 16px;border-top:.5px solid var(--border);font-size:14.5px}.pvr-one div:first-child{border-top:0}" +
       ".pvr-one dt{flex:0 0 120px;color:var(--muted);margin:0}.pvr-one dd{flex:1;min-width:0;margin:0;overflow-wrap:anywhere;white-space:pre-wrap}" +
       ".pvr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".pvr-note{font-size:12.5px;color:var(--muted);margin-top:14px}" +
-      "@media (max-width:600px){.pvr{padding:4px 16px 0}.pvr h1{font-size:32px}.pvr-form label>span,.pvr-form .two>span{flex-basis:96px}.pvr-one dt{flex-basis:96px}}" +
-      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .pvr-pill.s,html[data-ui2]:not([data-ui2-visit]) .pvr-err{color:#FF7A72}html[data-ui2]:not([data-ui2-visit]) .pvr-pill.w{color:#F2B84B}}";
+      "@media (max-width:600px){.pvr-btn{height:44px;border-radius:22px;padding:0 18px;font-size:15px}.pvr-btn.t{padding:0 4px}.pvr-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.pvr-q{height:44px}.pvr-form .two select{min-height:44px}.pvr{padding:4px 16px 0}.pvr h1{font-size:32px}.pvr-form label>span,.pvr-form .two>span{flex-basis:96px}.pvr-one dt{flex-basis:96px}}" +
+      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .pvr-pill.s,html[data-ui2]:not([data-ui2-visit]) .pvr-err,html[data-ui2]:not([data-ui2-visit]) .pvr-form label.miss>span{color:#FF7A72}html[data-ui2]:not([data-ui2-visit]) .pvr-pill.w{color:#F2B84B}}";
     document.head.appendChild(st);
   }
 
@@ -153,9 +156,10 @@
   }
   function formHtml() {
     var a = S.adding, editing = !!S.base;
-    var fld = function (k, label, extra) { return "<label><span>" + label + '</span><input name="' + k + '" value="' + esc(a[k]) + '"' + (extra || "") + "></label>"; };
+    var bad = function (k) { return S.miss.indexOf(k) >= 0; }, inv = ' aria-invalid="true" aria-describedby="pvr-errmsg"';
+    var fld = function (k, label, extra) { return "<label" + (bad(k) ? ' class="miss"' : "") + "><span>" + label + '</span><input name="' + k + '" value="' + esc(a[k]) + '"' + (bad(k) ? inv : "") + (extra || "") + "></label>"; };
     var sel = function (k, label, list) { return "<label><span>" + label + '</span><select name="' + k + '">' + opts(list, str(a[k])) + "</select></label>"; };
-    var txt = function (k, label, ph) { return '<label class="tx"><span>' + label + '</span><textarea name="' + k + '" placeholder="' + esc(ph || "") + '">' + esc(a[k]) + "</textarea></label>"; };
+    var txt = function (k, label, ph) { return '<label class="tx' + (bad(k) ? " miss" : "") + '"><span>' + label + '</span><textarea name="' + k + '"' + (bad(k) ? inv : "") + ' placeholder="' + esc(ph || "") + '">' + esc(a[k]) + "</textarea></label>"; };
     var days = [["", "Day"]]; for (var i = 1; i <= 31; i++) days.push([String(i), String(i)]);
     var mons = [["", "Month"]].concat(MON.map(function (m, j) { return [String(j + 1), m]; }));
     var h = '<form id="pvr-add" autocomplete="off" novalidate>' +
@@ -167,7 +171,7 @@
       "<small>Day and month; the year is worked out from the age.</small>" +
       fld("pt_id", "Patient ID", ' placeholder="ID card or passport"') + txt("pt_medical_history", "Relevant medical history", "Allergies, conditions, past reactions") + "</div>";
     h += a.drugs.map(function (d, i) {
-      var df = function (k, label, extra) { return "<label><span>" + label + '</span><input data-i="' + i + '" data-k="' + k + '" value="' + esc(d[k]) + '"' + (extra || "") + "></label>"; };
+      var df = function (k, label, extra) { var b = bad("drug" + i + "." + k); return "<label" + (b ? ' class="miss"' : "") + "><span>" + label + '</span><input data-i="' + i + '" data-k="' + k + '" value="' + esc(d[k]) + '"' + (b ? inv : "") + (extra || "") + "></label>"; };
       return '<div class="pvr-hd"><span>Suspected medicine' + (a.drugs.length > 1 ? " " + (i + 1) : "") + "</span>" + (a.drugs.length > 1 ? '<button type="button" class="pvr-btn t" data-act="drug-rm" data-i="' + i + '" aria-label="Remove medicine ' + (i + 1) + '">Remove</button>' : "") + '</div><div class="pvr-form">' +
         df("name", "Medicine", ' placeholder="e.g. Amoxicillin 500mg"') + df("dose", "Dose", ' placeholder="e.g. 500mg"') +
         '<label><span>Route</span><select data-i="' + i + '" data-k="route">' + opts(ROUTES, str(d.route)) + "</select></label>" +
@@ -186,7 +190,7 @@
       fld("reporter_email", "Email", ' type="email" placeholder="Optional"') + fld("reporter_phone", "Phone", ' type="tel" placeholder="+356 …"') +
       fld("reporter_institution", "Pharmacy", ' placeholder="Pharmacy or institution"') + fld("reporter_address", "Address", ' placeholder="Business address"') +
       txt("notes", "Additional notes", "Anything else") + "</div>";
-    h += (S.err ? '<div class="pvr-err" role="alert">' + esc(S.err) + "</div>" : "") +
+    h += (S.err ? '<div class="pvr-err" id="pvr-errmsg" role="alert">' + esc(S.err) + "</div>" : "") +
       '<div class="pvr-acts"><span><button type="button" class="pvr-btn" data-act="form-cancel">Cancel</button><button type="submit" class="pvr-btn p"' + (S.saving ? " disabled" : "") + ">" +
       (S.saving ? "Saving…" : S.force ? "Save mine over it" : editing ? "Save changes" : "Record") + "</button></span></div>" +
       '<datalist id="pvr-meddra">' + MEDDRA.map(function (t) { return '<option value="' + esc(t) + '">'; }).join("") + "</datalist></form>";
@@ -219,8 +223,8 @@
         '<span style="display:flex;gap:8px"><button class="pvr-btn" data-act="list">All reports</button><button class="pvr-btn p" data-act="edit" data-id="' + esc(one.id) + '">Correct</button></span></div>' + oneHtml(one);
     } else {
       h += '<div class="pvr-top"><div><h1>Adverse reactions</h1><p class="pvr-sub">Reactions to medicines reported here, and where each report stands.</p></div><button class="pvr-btn p" data-act="add">Record a reaction</button></div>';
-      if (S.loading && !S.reports.length) h += '<div class="pvr-quiet">Opening the reports…</div>';
-      else if (S.error) h += '<div class="pvr-quiet">' + esc(S.error) + "</div>";
+      if (S.loading && !S.reports.length) h += '<div class="pvr-skel" role="status" aria-busy="true"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Opening the reports</span><i></i><i></i><i></i><i></i></div>';
+      else if (S.error) h += '<div class="pvr-quiet" role="alert">' + esc(S.error) + ' <button type="button" class="pvr-btn" data-act="retry" style="margin-left:6px">Try again</button></div>';
       else if (!S.reports.length) h += '<div class="pvr-quiet">No reaction reported yet. When a patient has a reaction to a medicine, record it here.</div>';
       else {
         h += '<input class="pvr-q" id="pvr-q" type="search" aria-label="Search reports" placeholder="Search initials, medicine, reaction" value="' + esc(S.q) + '">';
@@ -244,23 +248,28 @@
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
         if (act === "back") window.location.hash = E.ui2BackHash("pvreg");
-        else if (act === "add") { S.adding = fresh(); S.base = null; S.err = ""; S.force = ""; S.view = "form"; paint(true); window.scrollTo(0, 0); focus("pt_initials"); }
+        else if (act === "add") { S.adding = fresh(); S.base = null; S.err = ""; S.miss = []; S.force = ""; S.view = "form"; paint(true); window.scrollTo(0, 0); focus("pt_initials"); }
         else if (act === "open") { S.openId = b.getAttribute("data-id"); S.view = "one"; paint(true); window.scrollTo(0, 0); focusSel("[data-act=list]"); }
         else if (act === "list") { var id = S.openId; S.view = "list"; paint(true); focusSel('.pvr-row[data-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]'); }
         else if (act === "edit") { startEdit(b.getAttribute("data-id")); }
-        else if (act === "form-cancel") { S.err = ""; S.force = ""; S.view = S.base ? "one" : "list"; S.adding = null; S.base = null; paint(true); }
+        else if (act === "form-cancel") { S.err = ""; S.miss = []; S.force = ""; S.view = S.base ? "one" : "list"; S.adding = null; S.base = null; paint(true); }
         else if (act === "drug-add") { keep(); S.adding.drugs.push(blankDrug()); paint(true); focusSel('[data-i="' + (S.adding.drugs.length - 1) + '"][data-k=name]'); }
         else if (act === "drug-rm") { keep(); S.adding.drugs.splice(Number(b.getAttribute("data-i")), 1); paint(true); }
+        else if (act === "retry") load();
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "pvreg"); } catch (x) {} E.openClassic("pharmacovigilance"); }
       });
     });
-    var qn = m.querySelector("#pvr-q"); if (qn) qn.addEventListener("input", function () { paint(); });
-    var f = m.querySelector("#pvr-add"); if (f) f.addEventListener("submit", function (ev) { ev.preventDefault(); save(); });
+    var qn = m.querySelector("#pvr-q"); if (qn) qn.addEventListener("input", function () { clearTimeout(S.qT); S.qT = setTimeout(function () { paint(); }, 120); }); // one redraw when typing pauses, not one per key
+    var f = m.querySelector("#pvr-add"); if (f) { f.addEventListener("submit", function (ev) { ev.preventDefault(); save(); }); f.addEventListener("input", function (ev) { unmark(ev.target); }); }
   }
   function focusSel(sel) { setTimeout(function () { var x = S.mount && S.mount.querySelector(sel); if (x && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) x.focus(); }, 30); }
   function focus(n) { focusSel("[name=" + n + "]"); }
   function showErr() { var x = S.mount && S.mount.querySelector(".pvr-err"); if (x && x.scrollIntoView) try { x.scrollIntoView({ block: "center" }); } catch (e) {} } // the message sits under a long form
 
+  function unmark(el) { // a field being corrected loses its red mark at once; the message stays until the next save
+    if (!el) return; var k = el.name || (el.getAttribute("data-k") ? "drug" + el.getAttribute("data-i") + "." + el.getAttribute("data-k") : ""), i = k ? S.miss.indexOf(k) : -1; if (i < 0) return;
+    S.miss.splice(i, 1); el.removeAttribute("aria-invalid"); el.removeAttribute("aria-describedby"); var l = el.closest("label"); if (l) l.classList.remove("miss");
+  }
   function keep() {
     var f = S.mount && S.mount.querySelector("#pvr-add"); if (!f || !S.adding) return;
     FIELDS.forEach(function (k) { var el = f.querySelector("[name=" + k + "]"); if (el) S.adding[k] = String(el.value == null ? "" : el.value); });
@@ -282,7 +291,7 @@
   }
   function startEdit(id) {
     var r = S.reports.filter(function (x) { return String(x.id) === String(id); })[0]; if (!r) return;
-    S.base = copy(r); S.adding = copy(r); S.err = ""; S.force = ""; S.openId = String(r.id);
+    S.base = copy(r); S.adding = copy(r); S.err = ""; S.miss = []; S.force = ""; S.openId = String(r.id);
     FIELDS.forEach(function (k) { S.adding[k] = str(S.adding[k]); });
     if (!Array.isArray(S.adding.drugs) || !S.adding.drugs.length) S.adding.drugs = [blankDrug()];
     S.adding.drugs = S.adding.drugs.map(function (d) { var o = Object.assign({}, d || {}); DRUG.forEach(function (k) { o[k] = str(o[k]); }); return o; });
@@ -305,12 +314,12 @@
   async function save() {
     if (S.saving) return;
     keep();
-    var a = S.adding; S.err = "";
-    // the classic screen's three checks
-    if (!str(a.pt_initials).trim() && !str(a.pt_age).trim()) S.err = "Write the patient's initials or age. Nothing was saved.";
-    else if (!a.drugs.some(function (d) { return str(d.name).trim(); })) S.err = "Write at least one suspected medicine. Nothing was saved.";
-    else if (!str(a.reaction_description).trim() && !str(a.reaction_meddra).trim()) S.err = "Describe the reaction or choose a MedDRA term. Nothing was saved.";
-    if (S.err) { paint(true); return showErr(); }
+    var a = S.adding, errs = [], mk = []; S.err = ""; S.miss = [];
+    // the classic screen's three checks, all shown at once, each field marked and the first one focused
+    if (!str(a.pt_initials).trim() && !str(a.pt_age).trim()) { errs.push("Write the patient's initials or age."); mk.push("pt_initials", "pt_age"); }
+    if (!a.drugs.some(function (d) { return str(d.name).trim(); })) { errs.push("Write at least one suspected medicine."); mk.push("drug0.name"); }
+    if (!str(a.reaction_description).trim() && !str(a.reaction_meddra).trim()) { errs.push("Describe the reaction or choose a MedDRA term."); mk.push("reaction_meddra", "reaction_description"); }
+    if (errs.length) { S.miss = mk; S.err = errs.join(" ") + " Nothing was saved."; paint(true); var first = S.mount && S.mount.querySelector("#pvr-add [aria-invalid=true]"); if (first) first.focus(); else showErr(); return; }
     var rec = build(), editing = !!S.base;
     S.saving = true; paint(true);
     try {
@@ -336,7 +345,7 @@
     S.saving = false; return load();
   }
   function done(rec, editing) {
-    S.adding = null; S.base = null; S.force = ""; S.err = "";
+    S.miss = []; S.adding = null; S.base = null; S.force = ""; S.err = "";
     S.openId = String(rec.id); S.view = "one";
     var i = -1; S.reports.forEach(function (x, j) { if (String(x.id) === String(rec.id)) i = j; });
     if (i >= 0) S.reports[i] = rec; else S.reports.unshift(rec);
@@ -345,7 +354,7 @@
 
   E.registerModule({
     id: "pvreg", title: "Adverse reactions", order: 3, icon: "!", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; E.months.historyReset("pvreg"); S.view = "list"; S.openId = ""; S.adding = null; S.base = null; S.err = ""; S.force = ""; S.q = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; E.months.historyReset("pvreg"); S.view = "list"; S.openId = ""; S.adding = null; S.base = null; S.err = ""; S.miss = []; S.force = ""; S.q = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("pvreg") < 0) E.UI2_DESTINATIONS.push("pvreg");
   if (E.UI2_PARENT) E.UI2_PARENT.pvreg = "services";

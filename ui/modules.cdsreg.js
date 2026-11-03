@@ -13,7 +13,7 @@
   // flag, in how the ID card is stored (sales pads it like the server does; POYC keeps it as typed) and in where
   // earlier patients and prescribers are looked up (sales has lookup routes; POYC searches its own recent months).
   function make(C) {
-  var S = { mount: null, month: "", entries: [], doctors: [], loading: false, error: "", adding: null, saving: false, err: "", dup: null, dupOk: "" };
+  var S = { mount: null, month: "", entries: [], doctors: [], loading: false, error: "", adding: null, saving: false, err: "", bad: {}, dup: null, dupOk: "" };
   var MON = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var TEXT = ["entry_date", "client_id_card", "client_name", "client_address", "doctor_name", "doctor_reg_no", "prescription_serial_no"];
 
@@ -52,7 +52,7 @@
       ".cds-form .row.ok{opacity:.55}.cds-form .row small{color:var(--accent);font-size:12px;font-weight:600}" +
       ".cds-form .hd{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:12px 14px 4px;border-top:.5px solid var(--border);display:flex;justify-content:space-between}" +
       ".cds-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:space-between;align-items:center}" +
-      ".cds-err{color:var(--danger);font-size:13px;padding:4px 14px}" +
+      ".cds-err{color:var(--danger);font-size:13px;padding:4px 14px}.cds-err:empty{padding:0}.cds-form label.miss>span{color:var(--danger)}.cds-form label.miss:focus-within>span{color:inherit}.cds-form .row.miss input.n::placeholder{color:var(--danger)}.cds-form .row .q[aria-invalid=true]{color:var(--danger)}" +
       ".cds-dup{margin:6px 14px;padding:10px 12px;border-radius:10px;background:rgba(201,138,18,.12);font-size:13.5px}.cds-dup b{display:block;margin-bottom:4px}.cds-dup div{color:var(--muted);font-size:12.5px}" +
       ".cds-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       "@media (max-width:600px){.cds{padding:4px 16px 0}.cds h1{font-size:32px}.cds-form label>span{flex-basis:92px}}";
@@ -90,11 +90,12 @@
     if (E.state.activeModuleId !== C.id) return; // left before a reply came back: do not draw over the next screen
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var mn = MON[Number(S.month.slice(5)) - 1] + " " + S.month.slice(0, 4);
-    var h = '<div class="cds"><button class="cds-back" data-act="back">‹ Registers</button>' +
+    var h = '<div class="cds"><button class="cds-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel(C.id) : "‹ Registers") + "</button>" +
       '<div class="cds-top"><div><h1>' + esc(C.title) + '</h1><p class="cds-sub">' + esc(C.sub) + '</p></div>' + (S.adding ? "" : '<button class="cds-btn p" data-act="add">Record a prescription</button>') + "</div>";
     if (S.adding) {
       var a = S.adding, saved = a.lines.some(function (l) { return l.saved; }), lock = saved ? " disabled" : "";
-      var fld = function (k, label, extra, hint) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k]) + '"' + (extra || "") + lock + ">" + (hint || "") + "</label>"; };
+      var bad = S.bad || {}, inv = function (k) { return bad[k] ? ' aria-invalid="true"' : ""; };
+      var fld = function (k, label, extra, hint) { return '<label' + (bad[k] ? ' class="miss"' : "") + '><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k]) + '"' + (extra || "") + inv(k) + lock + ">" + (hint || "") + "</label>"; };
       h += '<form class="cds-form" id="cds-add" autocomplete="off">' +
         fld("entry_date", "Supplied", ' type="date" max="' + esc(today()) + '"') +
         fld("client_id_card", "ID card", ' placeholder="e.g. 123456M" autocapitalize="characters"', a.found ? "<small>Known</small>" : "") +
@@ -106,12 +107,13 @@
         (C.urgent ? '<label><span>Urgent</span><input type="checkbox" name="urgent"' + (a.urgent ? " checked" : "") + lock + "></label>" : "") +
         '<div class="hd"><span>Medicine, strength and form</span><span>Qty</span></div>' +
         a.lines.map(function (l, i) {
-          return '<div class="row' + (l.saved ? " ok" : "") + '"><input class="n" data-i="' + i + '" data-k="medicine_name_dose" list="cds-meds" value="' + esc(l.medicine_name_dose) + '" placeholder="e.g. Morphine 10mg tablets"' + (l.saved ? " disabled" : "") + ">" +
-            (l.saved ? "<small>Saved</small>" : '<input class="q" data-i="' + i + '" data-k="quantity" inputmode="numeric" value="' + esc(l.quantity) + '" placeholder="0">') + "</div>";
+          var ln = a.lines.length > 1 ? ", line " + (i + 1) : "";
+          return '<div class="row' + (l.saved ? " ok" : "") + (bad["n" + i] ? " miss" : "") + '"><input class="n" data-i="' + i + '" data-k="medicine_name_dose" list="cds-meds" value="' + esc(l.medicine_name_dose) + '" placeholder="e.g. Morphine 10mg tablets" aria-label="Medicine, strength and form' + ln + '"' + inv("n" + i) + (l.saved ? " disabled" : "") + ">" +
+            (l.saved ? "<small>Saved</small>" : '<input class="q" data-i="' + i + '" data-k="quantity" inputmode="numeric" value="' + esc(l.quantity) + '" placeholder="0" aria-label="Quantity' + ln + '"' + inv("q" + i) + ">") + "</div>";
         }).join("");
       if (S.dup) h += '<div class="cds-dup"><b>Serial ' + esc(a.prescription_serial_no) + " already has " + S.dup.entries.length + (S.dup.entries.length === 1 ? " entry" : " entries") + " (" + esc(S.dup.total_qty) + " given). If this is the rest of the prescription, press Yes, record.</b>" +
         S.dup.entries.slice(0, 4).map(function (e) { return "<div>" + esc(dmy(e.entry_date)) + " · " + esc(e.client_name) + " · " + esc(e.medicine_name_dose) + " × " + esc(e.quantity) + "</div>"; }).join("") + "</div>";
-      h += (S.err ? '<div class="cds-err">' + esc(S.err) + "</div>" : "") +
+      h += '<div class="cds-err" role="alert">' + esc(S.err) + "</div>" +
         '<div class="acts"><button type="button" class="cds-btn t" data-act="line">Add a medicine</button><span style="display:flex;gap:8px"><button type="button" class="cds-btn" data-act="add-cancel">' + (saved ? "Close" : "Cancel") + '</button><button type="submit" class="cds-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : S.dup ? "Yes, record" : "Record") + "</button></span></div>" +
         '<datalist id="cds-docs">' + uniq(S.doctors.map(function (d) { return d.doctor_name; })).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>" +
         '<datalist id="cds-meds">' + uniq(S.entries.map(function (e) { return e.medicine_name_dose; })).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
@@ -133,9 +135,9 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
-        if (act === "back") window.location.hash = "#registers";
-        else if (act === "add") { S.adding = blank(); S.err = ""; S.dup = null; S.dupOk = ""; paint(); if (!S.doctors.length) loadDoctors(); var f = m.querySelector("[name=client_id_card]"); if (f) f.focus(); }
-        else if (act === "add-cancel") { S.adding = null; S.err = ""; S.dup = null; paint(); }
+        if (act === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash(C.id) : "#registers";
+        else if (act === "add") { S.adding = blank(); S.err = ""; S.bad = {}; S.dup = null; S.dupOk = ""; paint(); if (!S.doctors.length) loadDoctors(); var f = m.querySelector("[name=client_id_card]"); if (f) f.focus(); }
+        else if (act === "add-cancel") { S.adding = null; S.err = ""; S.bad = {}; S.dup = null; paint(); var ab = m.querySelector("[data-act=add]"); if (ab) ab.focus(); }
         else if (act === "line") { keep(); S.adding.lines.push({ medicine_name_dose: "", quantity: "" }); paint(); var ins = m.querySelectorAll(".cds-form .row input.n"); if (ins.length) ins[ins.length - 1].focus(); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", C.id); } catch (x) {} E.openClassic(C.classic); }
       });
@@ -144,6 +146,7 @@
     var f = m.querySelector("#cds-add");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
+      f.addEventListener("input", function (ev) { unmark(ev.target); }); // a field being put right stops being red
       if (E.ddaMedSuggest) f.querySelectorAll("input.n").forEach(function (el) { E.ddaMedSuggest(el, { path: C.path, field: "medicine_name_dose", known: function () { return S.entries.map(function (e) { return e.medicine_name_dose; }); } }); }); // generic or brand, and what was written before
       // lookups run as the ID card is completed and when the prescriber field is left (a repaint can swallow a "change" event)
       var idIn = f.querySelector("[name=client_id_card]"); if (idIn) { idIn.addEventListener("input", function () { clearTimeout(S.idT); S.idT = setTimeout(function () { lookupPatient(idIn.value); }, 300); }); idIn.addEventListener("blur", function () { lookupPatient(idIn.value); }); }
@@ -156,6 +159,13 @@
     }
   }
 
+  function unmark(el) {
+    if (!el || el.getAttribute("aria-invalid") !== "true") return;
+    el.removeAttribute("aria-invalid");
+    var k = el.name || (el.getAttribute("data-k") === "quantity" ? "q" : "n") + el.getAttribute("data-i"), box = el.closest("label, .row");
+    if (S.bad) delete S.bad[k];
+    if (box && !box.querySelector("[aria-invalid=true]")) box.classList.remove("miss");
+  }
   function keep() {
     var f = S.mount && S.mount.querySelector("#cds-add"); if (!f || !S.adding) return;
     TEXT.forEach(function (k) { var el = f.querySelector("[name=" + k + "]"); if (el && !el.disabled) S.adding[k] = String(el.value || "").trim(); });
@@ -215,12 +225,23 @@
     var a = S.adding; S.err = "";
     a.client_id_card = idCard(a.client_id_card);
     var todo = a.lines.filter(function (l) { return !l.saved && (l.medicine_name_dose || l.quantity); });
-    var need = [["client_id_card", "the ID card"], ["client_name", "the patient's name"], ["client_address", "the address"], ["doctor_name", "the prescriber"], ["doctor_reg_no", "the prescriber's reg no."], ["prescription_serial_no", "the prescription serial no."]];
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(a.entry_date) || a.entry_date > today()) S.err = "Choose the day it was supplied. Nothing was saved.";
-    else { var miss = need.filter(function (n) { return !a[n[0]]; })[0]; if (miss) S.err = "Write " + miss[1] + ". Nothing was saved."; }
-    if (!S.err && !todo.length) S.err = "Write at least one medicine and its quantity. Nothing was saved.";
-    if (!S.err) { var bad = todo.filter(function (l) { return !l.medicine_name_dose || !/^\d+$/.test(l.quantity) || Number(l.quantity) < 1; })[0]; if (bad) S.err = (bad.medicine_name_dose ? "Write how many of " + bad.medicine_name_dose + " (a whole number)." : "Write the medicine for quantity " + bad.quantity + ".") + " Nothing was saved."; }
-    if (S.err) return paint();
+    // Everything that is missing or wrong is said at once, each field marked; the cursor goes to the first one.
+    var need = [["client_id_card", "the ID card"], ["client_name", "the patient's name"], ["client_address", "the address"], ["doctor_name", "the prescriber"], ["doctor_reg_no", "the prescriber's reg no."], ["prescription_serial_no", "the serial no."]];
+    var bad = {}, say = [], first = "";
+    var flag = function (k, sel, words) { bad[k] = 1; if (words) say.push(words); if (!first) first = sel; };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(a.entry_date) || a.entry_date > today()) flag("entry_date", "[name=entry_date]", "the day it was supplied (today or earlier)");
+    need.forEach(function (n) { if (!a[n[0]]) flag(n[0], "[name=" + n[0] + "]", n[1]); });
+    var lineSay = [];
+    if (!todo.length) { flag("n0", '[data-i="0"][data-k=medicine_name_dose]', "at least one medicine and its quantity"); }
+    else todo.forEach(function (l) {
+      var i = a.lines.indexOf(l);
+      if (!l.medicine_name_dose) { bad["n" + i] = 1; if (!first) first = '[data-i="' + i + '"][data-k=medicine_name_dose]'; lineSay.push("the medicine for quantity " + l.quantity); }
+      else if (!/^\d+$/.test(l.quantity) || Number(l.quantity) < 1) { bad["q" + i] = 1; if (!first) first = '[data-i="' + i + '"][data-k=quantity]'; lineSay.push("how many of " + l.medicine_name_dose + " (a whole number)"); }
+    });
+    say = say.concat(lineSay);
+    S.bad = bad;
+    if (say.length) S.err = "Write " + (say.length === 1 ? say[0] : say.slice(0, -1).join(", ") + " and " + say[say.length - 1]).replace(/\.$/, "") + ". Nothing was saved.";
+    if (S.err) { paint(true); var fx = first && S.mount && S.mount.querySelector("#cds-add " + first); if (fx && !fx.disabled) fx.focus(); return; }
     // a serial already in the register: show it once and ask for a second press (part-dispense), like the classic warning
     if (!a.lines.some(function (l) { return l.saved; }) && S.dupOk !== a.prescription_serial_no) {
       S.saving = true; paint();
@@ -264,14 +285,14 @@
     }
     S.saving = false;
     if (done && E.linkPerson) E.linkPerson({ name: a.client_name, id_card: a.client_id_card, address: a.client_address, doctor_name: a.doctor_name }, C.id === "poyreg" ? "register:poyc" : "register:dda-sales", asked); // one person in Customers, found or added
-    if (!failed) { S.adding = null; S.dup = null; S.dupOk = ""; E.toast(done === 1 ? "Recorded" : done + " medicines recorded", "success"); if (a.entry_date.slice(0, 7) !== S.month) S.month = a.entry_date.slice(0, 7); }
+    if (!failed) { S.adding = null; S.bad = {}; S.dup = null; S.dupOk = ""; E.toast(done === 1 ? "Recorded" : done + " medicines recorded", "success"); if (a.entry_date.slice(0, 7) !== S.month) S.month = a.entry_date.slice(0, 7); }
     else S.err = (done ? done + " saved. " : "") + "Not saved from " + (todo[done] || {}).medicine_name_dose + ": " + String(failed).replace(/\.$/, "") + ". Press Record to try the rest again.";
     return load();
   }
 
   E.registerModule({
     id: C.id, title: C.title, order: 3, icon: "℞", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); S.adding = null; S.err = ""; S.dup = null; S.dupOk = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); S.adding = null; S.err = ""; S.bad = {}; S.dup = null; S.dupOk = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf(C.id) < 0) E.UI2_DESTINATIONS.push(C.id);
   if (E.UI2_PARENT) E.UI2_PARENT[C.id] = "registers";

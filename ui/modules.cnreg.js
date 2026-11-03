@@ -27,7 +27,7 @@
     st.id = "eikon-cnreg-css";
     st.textContent =
       ".cnr{max-width:880px;margin:0 auto}" +
-      ".cnr-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".cnr-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 12px 0 0;min-height:44px;margin:-8px 0 2px;cursor:pointer}" +
       ".cnr-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}" +
       ".cnr h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.cnr-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
       ".cnr-btn{font:inherit;font-size:14px;font-weight:600;height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
@@ -44,9 +44,9 @@
       ".cnr-in label>span,.cnr-form label>span{flex:0 0 96px;font-size:15px}.cnr-in input,.cnr-form input:not([type=checkbox]){flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
       ".cnr-in .acts,.cnr-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end;align-items:center}.cnr-in .acts .all{margin-right:auto;border:0;background:none;color:var(--accent);font:inherit;font-size:14px;font-weight:600;cursor:pointer;padding:0}" +
       ".cnr-form{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:6px 0;margin-top:16px}" +
-      ".cnr-err{color:var(--danger);font-size:13px;padding:4px 14px}" +
+      ".cnr-err{color:var(--danger);font-size:13.5px;padding:4px 14px}.cnr [aria-invalid=true]{box-shadow:inset 0 -2px 0 var(--danger)}" +
       ".cnr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
-      "@media (max-width:600px){.cnr{padding:4px 16px 0}.cnr h1{font-size:32px}}";
+      "@media (max-width:600px){.cnr{padding:4px 16px 0}.cnr h1{font-size:32px}.cnr-btn{height:44px;border-radius:22px;padding:0 18px}.cnr-q{height:44px}.cnr-in .acts .all{min-height:44px}}";
     document.head.appendChild(st);
   }
 
@@ -71,7 +71,7 @@
     var h = '<div class="cnr-card' + (old ? " old" : "") + '"><div class="h"><b>' + esc(cn.client_name) + " " + esc(cn.client_surname) + "</b><em>" + eur(rem) + ' left</em></div><div class="s">' + sub.join(" · ") + "</div>";
     if (S.using === cn.id) {
       h += '<form class="cnr-in" id="cnr-use" autocomplete="off"><label><span>Using €</span><input name="amount" inputmode="decimal" value="' + esc(S.draft.amount || "") + '" placeholder="0.00"></label>' +
-        '<label><span>Receipt no.</span><input name="receipt_number" value="' + esc(S.draft.receipt_number || "") + '" placeholder="Optional"></label>' + (S.err ? '<div class="cnr-err">' + esc(S.err) + "</div>" : "") +
+        '<label><span>Receipt no.</span><input name="receipt_number" value="' + esc(S.draft.receipt_number || "") + '" placeholder="Optional"></label>' + (S.err ? '<div class="cnr-err" id="cnr-err" role="alert">' + esc(S.err) + "</div>" : "") +
         '<div class="acts"><button type="button" class="all" data-act="all">Use all ' + eur(rem) + '</button><button type="button" class="cnr-btn" data-act="cancel">Cancel</button><button type="submit" class="cnr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Use") + "</button></div></form>";
     } else if (rem > 0 && !old) h += '<div class="a"><button class="cnr-btn p" data-act="use" data-id="' + cn.id + '">Use</button></div>';
     return h + "</div>";
@@ -81,11 +81,20 @@
   var HIST = { dep: function () { return S.loading ? undefined : S.entries; }, title: "Issued by month", label: "Credit notes issued", nowText: "No credit note issued this month yet.",
     active: function () { return E.state.activeModuleId === "cnreg"; }, paint: function () { paint(); },
     fetch: async function (ym) { return (await fetchAll()).filter(function (cn) { return String(cn.issue_date || "").slice(0, 7) === ym; }).sort(function (a, b) { return String(b.issue_date).localeCompare(String(a.issue_date)) || b.id - a.id; }); },
-    row: function (cn) { return { t: (cn.client_name || "") + " " + (cn.client_surname || ""), s: [E.months.dmy(cn.issue_date), eur(cn.amount), cn.receipt_number ? "Receipt " + cn.receipt_number : "", cn.telephone].filter(Boolean).join(" · "), r: eur(left(cn)) + " left" }; },
+    row: function (cn) { return { t: (cn.client_name || "") + " " + (cn.client_surname || ""), s: [dm(cn.issue_date), eur(cn.amount), cn.receipt_number ? "Receipt " + cn.receipt_number : "", cn.telephone].filter(Boolean).join(" · "), r: eur(left(cn)) + " left" }; },
     print: function (ym, rows) {
       E.months.print({ register: "Credit Notes", month: ym, sections: [{ cols: ["Date", "Client", "Telephone", { h: "Balance / Total", num: true }, "Status"],
         rows: rows.slice().reverse().map(function (r) { return [E.months.dmy(r.issue_date), (r.client_name || "") + " " + (r.client_surname || ""), r.telephone || "", eur(left(r)) + " / " + eur(r.amount), left(r) > 0.004 ? "Open" : "Closed"]; }) }] });
     } };
+  function listHtml() { // what the search narrows: redrawn on its own while typing, so nothing else moves
+    var h = "", q = low(S.q).trim(), match = function (cn) { return !q || [cn.client_name + " " + cn.client_surname, cn.client_surname + " " + cn.client_name, cn.telephone, cn.receipt_number].some(function (v) { return low(v).indexOf(q) >= 0; }); };
+    var withMoney = S.entries.filter(function (cn) { return left(cn) > 0; });
+    var open = withMoney.filter(function (cn) { return !expired(cn) && match(cn); }), old = withMoney.filter(function (cn) { return expired(cn) && match(cn); });
+    if (!q) h += '<p class="cnr-sum"><b>' + withMoney.filter(function (cn) { return !expired(cn); }).length + "</b> open, <b>" + eur(withMoney.filter(function (cn) { return !expired(cn); }).reduce(function (t, cn) { return t + left(cn); }, 0)) + "</b> owed to customers.</p>";
+    h += '<div class="cnr-lab">Open <b>' + open.length + "</b></div>" + (open.length ? open.map(card).join("") : '<div class="cnr-quiet">' + (q ? "No open credit note for “" + esc(S.q) + "”." : "No open credit notes.") + "</div>");
+    if (old.length) h += '<div class="cnr-lab">Expired with money left <b>' + old.length + "</b></div>" + old.map(card).join("");
+    return h;
+  }
   function paint(fromState) {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "cnreg") return; // left before a reply came back: do not draw over the next screen
@@ -97,19 +106,14 @@
       var a = S.adding, fld = function (k, label, extra) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] || "") + '"' + (extra || "") + "></label>"; };
       h += '<form class="cnr-form" id="cnr-add" autocomplete="off">' + fld("client_name", "Name") + fld("client_surname", "Surname") + fld("telephone", "Phone", ' type="tel"') + fld("amount", "Amount €", ' inputmode="decimal" placeholder="0.00"') +
         fld("receipt_number", "Receipt no.", ' placeholder="Optional"') + fld("issue_date", "Issued", ' type="date" max="' + esc(today()) + '"') + fld("expiry_date", "Expires", ' type="date" min="' + esc(a.issue_date || today()) + '"') +
-        (S.err && !S.using ? '<div class="cnr-err">' + esc(S.err) + "</div>" : "") +
+        (S.err && !S.using ? '<div class="cnr-err" id="cnr-err" role="alert">' + esc(S.err) + "</div>" : "") +
         '<div class="acts"><span style="margin-right:auto;font-size:12.5px;color:var(--muted)">Leave Expires empty for no end date.</span><button type="button" class="cnr-btn" data-act="add-cancel">Cancel</button><button type="submit" class="cnr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div></form>";
     }
     if (S.loading && !S.entries.length) h += '<div class="cnr-quiet">Opening credit notes…</div>';
     else if (S.error) h += '<div class="cnr-quiet">' + esc(S.error) + "</div>";
     else {
-      h += '<input class="cnr-q" id="cnr-q" type="search" placeholder="Customer name, phone or receipt" value="' + esc(S.q) + '">';
-      var q = low(S.q).trim(), match = function (cn) { return !q || [cn.client_name + " " + cn.client_surname, cn.client_surname + " " + cn.client_name, cn.telephone, cn.receipt_number].some(function (v) { return low(v).indexOf(q) >= 0; }); };
-      var withMoney = S.entries.filter(function (cn) { return left(cn) > 0; });
-      var open = withMoney.filter(function (cn) { return !expired(cn) && match(cn); }), old = withMoney.filter(function (cn) { return expired(cn) && match(cn); });
-      if (!q) h += '<p class="cnr-sum"><b>' + withMoney.filter(function (cn) { return !expired(cn); }).length + "</b> open, <b>" + eur(withMoney.filter(function (cn) { return !expired(cn); }).reduce(function (t, cn) { return t + left(cn); }, 0)) + "</b> owed to customers.</p>";
-      h += '<div class="cnr-lab">Open <b>' + open.length + "</b></div>" + (open.length ? open.map(card).join("") : '<div class="cnr-quiet">' + (q ? "No open credit note for “" + esc(S.q) + "”." : "No open credit notes.") + "</div>");
-      if (old.length) h += '<div class="cnr-lab">Expired with money left <b>' + old.length + "</b></div>" + old.map(card).join("");
+      h += '<input class="cnr-q" id="cnr-q" type="search" aria-label="Find a customer by name, phone or receipt number" aria-controls="cnr-list" placeholder="Customer name, phone or receipt" value="' + esc(S.q) + '">';
+      h += '<div id="cnr-list">' + listHtml() + "</div>";
     }
     h += E.months.history("cnreg", HIST);
     h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Changing a note, undoing a use and notes are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
@@ -117,7 +121,17 @@
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) { again.focus(); try { var L = again.value.length; again.setSelectionRange(L, L); } catch (x) {} } }
     E.months.wireHistory(m, "cnreg");
-    m.querySelectorAll("[data-act]").forEach(function (b) {
+    wireActs(m);
+    var qn = m.querySelector("#cnr-q"); if (qn) qn.addEventListener("input", function () { // only the list follows the typing
+      S.q = qn.value; keep(); var L = m.querySelector("#cnr-list"); if (!L) return paint();
+      L.innerHTML = listHtml(); wireActs(L); var fu2 = L.querySelector("#cnr-use"); if (fu2) fu2.addEventListener("submit", function (ev) { ev.preventDefault(); use(); });
+    });
+    var fu = m.querySelector("#cnr-use"); if (fu) fu.addEventListener("submit", function (ev) { ev.preventDefault(); use(); });
+    var fa = m.querySelector("#cnr-add"); if (fa) fa.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
+  }
+  function wireActs(root) {
+    var m = S.mount;
+    root.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
         if (act === "back") window.location.hash = E.ui2BackHash("cnreg");
@@ -129,9 +143,6 @@
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "cnreg"); } catch (x) {} E.openClassic("creditnotes"); }
       });
     });
-    var qn = m.querySelector("#cnr-q"); if (qn) qn.addEventListener("input", function () { paint(); });
-    var fu = m.querySelector("#cnr-use"); if (fu) fu.addEventListener("submit", function (ev) { ev.preventDefault(); use(); });
-    var fa = m.querySelector("#cnr-add"); if (fa) fa.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
   }
 
   function keep() {
@@ -140,11 +151,17 @@
     var fa = m.querySelector("#cnr-add"); if (fa && S.adding) ["client_name", "client_surname", "telephone", "amount", "receipt_number", "issue_date", "expiry_date"].forEach(function (k) { var el = fa.querySelector("[name=" + k + "]"); if (el) S.adding[k] = String(el.value || "").trim(); });
   }
 
+  // The box with the problem: marked, tied to the message, and the cursor in it (until something is typed there).
+  function markBad(sel) {
+    var el = S.mount && S.mount.querySelector(sel); if (!el) return;
+    el.setAttribute("aria-invalid", "true"); el.setAttribute("aria-describedby", "cnr-err"); el.focus();
+    el.addEventListener("input", function () { el.removeAttribute("aria-invalid"); el.removeAttribute("aria-describedby"); }, { once: true });
+  }
   async function use() {
     if (S.saving) return;
     keep();
     var amt = money(S.draft.amount); S.err = "";
-    if (amt == null) { S.err = "Write the amount used, e.g. 12.50. Nothing was saved."; return paint(true); }
+    if (amt == null) { S.err = "Write the amount used, e.g. 12.50. Nothing was saved."; paint(true); return markBad("#cnr-use [name=amount]"); }
     S.saving = true; paint(true);
     try {
       var fresh = await fetchAll(); S.entries = fresh; // what is left right now, not when the screen opened
@@ -173,14 +190,14 @@
   async function add() {
     if (S.saving) return;
     keep();
-    var a = S.adding, amt = money(a.amount); S.err = "";
-    if (!a.client_name) S.err = "Write the customer's name. Nothing was saved.";
-    else if (!a.client_surname) S.err = "Write the customer's surname. Nothing was saved.";
-    else if (!a.telephone) S.err = "Write a phone number. Nothing was saved.";
-    else if (amt == null) S.err = "Write the amount, e.g. 15.00. Nothing was saved.";
-    else if (!/^\d{4}-\d{2}-\d{2}$/.test(a.issue_date || "")) S.err = "Choose the day it was issued. Nothing was saved.";
-    else if (a.expiry_date && a.expiry_date < a.issue_date) S.err = "The end date is before the day it was issued. Nothing was saved.";
-    if (S.err) return paint(true);
+    var a = S.adding, amt = money(a.amount), bad = ""; S.err = "";
+    if (!a.client_name) { S.err = "Write the customer's name. Nothing was saved."; bad = "client_name"; }
+    else if (!a.client_surname) { S.err = "Write the customer's surname. Nothing was saved."; bad = "client_surname"; }
+    else if (!a.telephone) { S.err = "Write a phone number. Nothing was saved."; bad = "telephone"; }
+    else if (amt == null) { S.err = "Write the amount, e.g. 15.00. Nothing was saved."; bad = "amount"; }
+    else if (!/^\d{4}-\d{2}-\d{2}$/.test(a.issue_date || "")) { S.err = "Choose the day it was issued. Nothing was saved."; bad = "issue_date"; }
+    else if (a.expiry_date && a.expiry_date < a.issue_date) { S.err = "The end date is before the day it was issued. Nothing was saved."; bad = "expiry_date"; }
+    if (S.err) { paint(true); return markBad("#cnr-add [name=" + bad + "]"); }
     S.saving = true; paint(true);
     try {
       var r = await E.apiFetch("/creditnotes/entries", { method: "POST", body: JSON.stringify({ issue_date: a.issue_date, client_name: a.client_name, client_surname: a.client_surname, telephone: a.telephone, email: "", receipt_number: a.receipt_number || "", amount: amt, expiry_date: a.expiry_date || "", no_expiry: 0 }) });

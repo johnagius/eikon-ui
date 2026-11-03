@@ -8,7 +8,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, month: "", entries: [], known: { names: [], agents: [] }, loading: false, error: "", adding: null, saving: false, err: "" };
+  var S = { mount: null, month: "", entries: [], known: { names: [], agents: [] }, loading: false, error: "", adding: null, saving: false, err: "", bad: {} };
   var MON = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
@@ -42,7 +42,7 @@
       ".cdp-form .row.ok{opacity:.55}.cdp-form .row small{color:var(--accent);font-size:12px;font-weight:600}" +
       ".cdp-form .hd{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:12px 14px 4px;border-top:.5px solid var(--border);display:flex;justify-content:space-between}" +
       ".cdp-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:space-between;align-items:center}" +
-      ".cdp-err{color:var(--danger);font-size:13px;padding:4px 14px}" +
+      ".cdp-err{color:var(--danger);font-size:13px;padding:4px 14px}.cdp-err:empty{padding:0}.cdp-form label.miss>span{color:var(--danger)}.cdp-form label.miss:focus-within>span{color:inherit}.cdp-form .row.miss input.n::placeholder{color:var(--danger)}.cdp-form .row .q[aria-invalid=true]{color:var(--danger)}" +
       ".cdp-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       "@media (max-width:600px){.cdp{padding:4px 16px 0}.cdp h1{font-size:32px}}";
     document.head.appendChild(st);
@@ -75,20 +75,21 @@
     if (E.state.activeModuleId !== "cdpreg") return; // left before a reply came back: do not draw over the next screen
     if (S.adding && !S.saving) keep(); // a reply landing while someone types must not wipe the form
     var mn = MON[Number(S.month.slice(5)) - 1] + " " + S.month.slice(0, 4);
-    var h = '<div class="cdp"><button class="cdp-back" data-act="back">‹ Registers</button>' +
+    var h = '<div class="cdp"><button class="cdp-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("cdpreg") : "‹ Registers") + "</button>" +
       '<div class="cdp-top"><div><h1>Controlled drugs received</h1><p class="cdp-sub">Every delivery of a controlled drug, by invoice.</p></div>' + (S.adding ? "" : '<button class="cdp-btn p" data-act="add">Record a delivery</button>') + "</div>";
     if (S.adding) {
-      var a = S.adding;
+      var a = S.adding, bad = S.bad || {}, inv = function (k) { return bad[k] ? ' aria-invalid="true"' : ""; }, lab = function (k) { return "<label" + (bad[k] ? ' class="miss"' : "") + ">"; };
       h += '<form class="cdp-form" id="cdp-add" autocomplete="off">' +
-        '<label><span>Received</span><input name="entry_date" type="date" max="' + esc(today()) + '" value="' + esc(a.entry_date) + '"></label>' +
-        '<label><span>Supplier</span><input name="agent" list="cdp-agents" value="' + esc(a.agent) + '" placeholder="Agent"></label>' +
-        '<label><span>Invoice no.</span><input name="invoice_number" value="' + esc(a.invoice_number) + '"></label>' +
+        lab("entry_date") + '<span>Received</span><input name="entry_date" type="date" max="' + esc(today()) + '" value="' + esc(a.entry_date) + '"' + inv("entry_date") + "></label>" +
+        lab("agent") + '<span>Supplier</span><input name="agent" list="cdp-agents" value="' + esc(a.agent) + '" placeholder="Wholesaler or agent"' + inv("agent") + "></label>" +
+        lab("invoice_number") + '<span>Invoice no.</span><input name="invoice_number" value="' + esc(a.invoice_number) + '" placeholder="From the invoice"' + inv("invoice_number") + "></label>" +
         '<div class="hd"><span>Drug, strength and form</span><span>Qty</span></div>' +
         a.lines.map(function (l, i) {
-          return '<div class="row' + (l.saved ? " ok" : "") + '"><input class="n" data-i="' + i + '" data-k="dda_name_dose" list="cdp-names" value="' + esc(l.dda_name_dose) + '" placeholder="e.g. Morphine 10mg tablets"' + (l.saved ? " disabled" : "") + ">" +
-            (l.saved ? "<small>Saved</small>" : '<input class="q" data-i="' + i + '" data-k="quantity" inputmode="numeric" value="' + esc(l.quantity) + '" placeholder="0">') + "</div>";
+          var ln = ", line " + (i + 1);
+          return '<div class="row' + (l.saved ? " ok" : "") + (bad["n" + i] ? " miss" : "") + '"><input class="n" data-i="' + i + '" data-k="dda_name_dose" list="cdp-names" value="' + esc(l.dda_name_dose) + '" placeholder="e.g. Morphine 10mg tablets" aria-label="Drug, strength and form' + ln + '"' + inv("n" + i) + (l.saved ? " disabled" : "") + ">" +
+            (l.saved ? "<small>Saved</small>" : '<input class="q" data-i="' + i + '" data-k="quantity" inputmode="numeric" value="' + esc(l.quantity) + '" placeholder="0" aria-label="Quantity' + ln + '"' + inv("q" + i) + ">") + "</div>";
         }).join("") +
-        (S.err ? '<div class="cdp-err">' + esc(S.err) + "</div>" : "") +
+        '<div class="cdp-err" role="alert">' + esc(S.err) + "</div>" +
         '<div class="acts"><button type="button" class="cdp-btn t" data-act="line">Add a line</button><span style="display:flex;gap:8px"><button type="button" class="cdp-btn" data-act="add-cancel">' + (a.lines.some(function (l) { return l.saved; }) ? "Close" : "Cancel") + '</button><button type="submit" class="cdp-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></span></div>" +
         '<datalist id="cdp-names">' + S.known.names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>" +
         '<datalist id="cdp-agents">' + S.known.agents.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
@@ -109,15 +110,15 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
-        if (act === "back") window.location.hash = "#registers";
-        else if (act === "add") { S.adding = blank(); S.err = ""; paint(); }
-        else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(); }
+        if (act === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("cdpreg") : "#registers";
+        else if (act === "add") { S.adding = blank(); S.err = ""; S.bad = {}; paint(); var ag = m.querySelector("#cdp-add [name=agent]"); if (ag) ag.focus(); } // the date is today: start at the supplier
+        else if (act === "add-cancel") { S.adding = null; S.err = ""; S.bad = {}; paint(); var ab = m.querySelector("[data-act=add]"); if (ab) ab.focus(); }
         else if (act === "line") { keep(); S.adding.lines.push({ dda_name_dose: "", quantity: "" }); paint(); var ins = m.querySelectorAll(".cdp-form .row input.n"); if (ins.length) ins[ins.length - 1].focus(); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "cdpreg"); } catch (x) {} E.openClassic("dda-purchases"); }
       });
     });
     E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; load(); }, paint: paint, print: printMonth });
-    var f = m.querySelector("#cdp-add"); if (f) f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
+    var f = m.querySelector("#cdp-add"); if (f) { f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); }); f.addEventListener("input", function (ev) { unmark(ev.target); }); }
     if (f && E.ddaMedSuggest) f.querySelectorAll("input.n").forEach(function (el) { E.ddaMedSuggest(el, { path: "/dda-purchases", field: "dda_name_dose", known: function () { return S.known.names; }, back: [2] }); }); // generic or brand, and what was written before
   }
 
@@ -131,6 +132,13 @@
       empty: "No entries for the selected date range." }] });
   }
 
+  function unmark(el) { // a field being put right stops being red
+    if (!el || el.getAttribute("aria-invalid") !== "true") return;
+    el.removeAttribute("aria-invalid");
+    var k = el.name || (el.getAttribute("data-k") === "quantity" ? "q" : "n") + el.getAttribute("data-i"), box = el.closest("label, .row");
+    if (S.bad) delete S.bad[k];
+    if (box && !box.querySelector("[aria-invalid=true]")) box.classList.remove("miss");
+  }
   function keep() { // what is typed survives every repaint
     var f = S.mount && S.mount.querySelector("#cdp-add"); if (!f || !S.adding) return;
     ["entry_date", "agent", "invoice_number"].forEach(function (k) { var el = f.querySelector("[name=" + k + "]"); if (el) S.adding[k] = String(el.value || "").trim(); });
@@ -142,15 +150,21 @@
     keep();
     var a = S.adding; S.err = "";
     var todo = a.lines.filter(function (l) { return !l.saved && (l.dda_name_dose || l.quantity); });
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(a.entry_date) || a.entry_date > today()) S.err = "Choose the day it came in. Nothing was saved.";
-    else if (!a.agent) S.err = "Write the supplier. Nothing was saved.";
-    else if (!a.invoice_number) S.err = "Write the invoice number. Nothing was saved.";
-    else if (!todo.length) S.err = "Write at least one drug and its quantity. Nothing was saved.";
-    else {
-      var bad = todo.filter(function (l) { return !l.dda_name_dose || !/^\d+$/.test(l.quantity) || Number(l.quantity) < 1; })[0];
-      if (bad) S.err = (bad.dda_name_dose ? "Write how many of " + bad.dda_name_dose + " (a whole number)." : "Write the drug for quantity " + bad.quantity + ".") + " Nothing was saved.";
-    }
-    if (S.err) return paint();
+    // Everything that is missing or wrong is said at once, each field marked; the cursor goes to the first one.
+    var bad = {}, say = [], first = "";
+    var flag = function (k, sel, words) { bad[k] = 1; say.push(words); if (!first) first = sel; };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(a.entry_date) || a.entry_date > today()) flag("entry_date", "[name=entry_date]", "the day it came in (today or earlier)");
+    if (!a.agent) flag("agent", "[name=agent]", "the supplier");
+    if (!a.invoice_number) flag("invoice_number", "[name=invoice_number]", "the invoice number");
+    if (!todo.length) flag("n0", '[data-i="0"][data-k=dda_name_dose]', "at least one drug and its quantity");
+    else todo.forEach(function (l) {
+      var i = a.lines.indexOf(l);
+      if (!l.dda_name_dose) flag("n" + i, '[data-i="' + i + '"][data-k=dda_name_dose]', "the drug for quantity " + l.quantity);
+      else if (!/^\d+$/.test(l.quantity) || Number(l.quantity) < 1) flag("q" + i, '[data-i="' + i + '"][data-k=quantity]', "how many of " + l.dda_name_dose + " (a whole number)");
+    });
+    S.bad = bad;
+    if (say.length) S.err = "Write " + (say.length === 1 ? say[0] : say.slice(0, -1).join(", ") + " and " + say[say.length - 1]).replace(/\.$/, "") + ". Nothing was saved.";
+    if (S.err) { paint(); var fx = first && S.mount && S.mount.querySelector("#cdp-add " + first); if (fx && !fx.disabled) fx.focus(); return; }
     S.saving = true; paint();
     var done = 0, failed = "", lost = null;
     // count what the register already holds for these lines, so a save whose answer is lost can be checked afterwards
@@ -173,14 +187,14 @@
       } catch (e1) { failed = "the connection dropped. Check the register below before pressing Record again"; }
     }
     S.saving = false;
-    if (!failed) { S.adding = null; E.toast(done === 1 ? "1 line recorded" : done + " lines recorded", "success"); if (monthOf(a.entry_date) !== S.month) S.month = monthOf(a.entry_date); }
+    if (!failed) { S.adding = null; S.bad = {}; E.toast(done === 1 ? "1 line recorded" : done + " lines recorded", "success"); if (monthOf(a.entry_date) !== S.month) S.month = monthOf(a.entry_date); }
     else S.err = (done ? done + " saved. " : "") + "Not saved from " + (todo[done] || {}).dda_name_dose + ": " + String(failed).replace(/\.$/, "") + ". Press Record to try the rest again.";
     return load();
   }
 
   E.registerModule({
     id: "cdpreg", title: "Controlled drugs received", order: 3, icon: "℞", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); S.adding = null; S.err = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); S.adding = null; S.err = ""; S.bad = {}; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("cdpreg") < 0) E.UI2_DESTINATIONS.push("cdpreg");
   if (E.UI2_PARENT) E.UI2_PARENT.cdpreg = "registers";

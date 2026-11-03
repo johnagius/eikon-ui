@@ -304,7 +304,7 @@
     if (document.getElementById("eikon-expreg-css")) return;
     var st = document.createElement("style"); st.id = "eikon-expreg-css";
     st.textContent =
-      ".exp{max-width:880px;margin:0 auto}.exp-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".exp{max-width:880px;margin:0 auto}.exp-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 12px 0 0;min-height:44px;margin:-8px 0 2px;cursor:pointer}" +
       ".exp h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.exp-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0;line-height:1.5}" +
       ".exp-safe{margin:14px 0 0;padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:var(--panel2);font-size:14px;font-weight:600}" +
       ".exp-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 2px 8px}" +
@@ -312,7 +312,7 @@
       ".exp-chips{display:flex;gap:6px;flex-wrap:wrap}.exp-chips button{font:inherit;font-size:14px;font-weight:600;min-height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer}" +
       ".exp-chips button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}" +
       ".exp-f{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}.exp-f label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted);min-width:150px}" +
-      ".exp-f input,.exp-f select{height:38px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font:inherit;font-size:15px;padding:0 10px}" +
+      ".exp-f input,.exp-f select{height:44px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font:inherit;font-size:16px;padding:0 10px}" +
       ".exp-days{font-size:13.5px;color:var(--muted);margin:10px 0 0}" +
       ".exp-g{border:0;margin:0;padding:0}.exp-g+.exp-g{margin-top:12px}.exp-g legend{font-size:13px;font-weight:700;padding:0;margin-bottom:6px}" +
       ".exp-ck{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:4px 12px}.exp-ck label{display:flex;align-items:center;gap:8px;font-size:15px;min-height:32px;cursor:pointer}.exp-ck input{width:18px;height:18px;accent-color:var(--accent)}" +
@@ -325,7 +325,7 @@
       ".exp-err{color:var(--danger)}.exp-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".exp-foot{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.5}" +
       "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .exp-chips button[aria-pressed=true]{color:#00160E}}" + // dark accent is light: dark text on it, as the audit trail does
-      "@media (max-width:600px){.exp{padding:0 16px}.exp h1{font-size:28px}.exp-f label{flex:1 1 100%}}";
+      "@media (max-width:600px){.exp{padding:0 16px}.exp h1{font-size:28px}.exp-f label{flex:1 1 100%}.exp-chips button,.exp-btn,.exp-link,.exp-ck label{min-height:44px}}";
     document.head.appendChild(st);
   }
 
@@ -344,7 +344,7 @@
     h += '<h2 class="exp-lab" id="exp-days-h">Days</h2><div class="exp-box" role="group" aria-labelledby="exp-days-h"><div class="exp-chips">' + chip("this", "This month") + chip("last", "Last month") + chip("year", "A year") + chip("custom", "Choose days") + "</div>";
     if (S.range === "year") h += '<div class="exp-f"><label for="exp-year">Year<select id="exp-year"' + (busy ? " disabled" : "") + ">" + years.map(function (y) { return "<option" + ((S.year || years[0]) === y ? " selected" : "") + ">" + y + "</option>"; }).join("") + "</select></label></div>";
     if (S.range === "custom") h += '<div class="exp-f"><label for="exp-from">First day<input type="date" id="exp-from" value="' + esc(S.from) + '" max="' + t + '"' + (busy ? " disabled" : "") + '></label><label for="exp-to">Last day<input type="date" id="exp-to" value="' + esc(S.to) + '" max="' + t + '"' + (busy ? " disabled" : "") + "></label></div>";
-    h += '<p class="exp-days" aria-live="polite">' + (rg ? esc(rangeText(rg)) + " · about " + estimate(rg) + " requests to the server" + (S.picked.endofday ? ", and one more for each day End of day was closed" : "") : "Choose a first and a last day.") + "</p></div>";
+    h += '<p class="exp-days" aria-live="polite">' + (rg ? esc(rangeText(rg)) + (estimate(rg) > 40 ? ". A whole year takes a minute or two; keep this page open." : "") : "Choose a first and a last day.") + "</p></div>";
     h += '<h2 class="exp-lab">Registers</h2><div class="exp-box">';
     var groups = []; REGS.forEach(function (r) { if (groups.indexOf(r.group) < 0) groups.push(r.group); });
     picked();
@@ -354,21 +354,21 @@
       }).join("") + "</div></fieldset>";
     });
     h += '<div class="exp-all"><button type="button" class="exp-link" data-act="all"' + (busy ? " disabled" : "") + '>Tick all</button><button type="button" class="exp-link" data-act="legal"' + (busy ? " disabled" : "") + ">Legal registers only</button></div></div>";
-    h += '<div class="exp-acts"><button class="exp-btn p" data-act="download"' + (busy ? " disabled" : "") + '>Download</button><button class="exp-btn" data-act="print"' + (busy ? " disabled" : "") + ">Print inspection pack</button>" +
+    h += '<div class="exp-acts"><button class="exp-btn p" data-act="download"' + (busy ? " disabled" : "") + '>Download spreadsheet</button><button class="exp-btn" data-act="print"' + (busy ? " disabled" : "") + ">Print inspection pack</button>" +
       (busy ? '<button class="exp-btn" data-act="cancel">Cancel</button>' : "") + "</div>";
     if (S.error) h += '<p class="exp-err" role="alert">' + esc(S.error) + "</p>";
     h += '<div class="exp-live" aria-live="polite">';
-    if (busy) h += '<div class="exp-prog"><b>Reading register ' + S.job.i + " of " + S.job.n + "</b>" + esc(S.job.now) + " · " + S.job.calls + " requests so far</div>";
+    if (busy) h += '<div class="exp-prog"><b>Reading register ' + S.job.i + " of " + S.job.n + "</b>" + esc(S.job.now) + "</div>";
     else if (S.done && S.done.cancelled) h += '<div class="exp-prog"><b>Cancelled.</b>Nothing was saved.</div>';
     else if (S.done) {
       var d = S.done, failed = d.results.filter(function (r) { return r.error; }).length;
       h += '<div class="exp-res"><div class="exp-prog"><b>' + (d.error ? "The file could not be made: " + esc(d.error) : d.kind === "print" ? "The inspection pack opened in a new tab." : "Saved " + esc(d.file.name) + (d.format === "zip" ? " (a CSV file per register)" : "")) + "</b>" +
-        esc(rangeText(d.range)) + " · " + d.calls + " requests" + (failed ? ' · <span class="exp-err">' + failed + " not exported</span>" : "") + "</div>" +
+        esc(rangeText(d.range)) + (failed ? ' · <span class="exp-err">' + failed + " not exported</span>" : "") + "</div>" +
         "<table><caption class='exp-lab' style='text-align:left'>What is in it</caption><thead><tr><th scope='col'>Register</th><th scope='col' style='text-align:right'>Rows</th></tr></thead><tbody>" +
         d.results.map(function (r) { return "<tr><td>" + esc(r.reg.title) + "</td><td class='n'>" + (r.error ? '<span class="exp-err">' + esc(r.error) + "</span>" : r.rows.length + (r.extra && r.extra.capped ? " (at most " + r.extra.capped + ")" : "")) + "</td></tr>"; }).join("") + "</tbody></table></div>";
     }
     h += "</div>";
-    h += '<p class="exp-foot">One register at a time, a month per request, so the pharmacy\'s day is not slowed. Dates are dd/mm/yyyy, money in euro with two decimals; "Record no." is the number Eikon gave the line, as in the audit trail. Stock-takes, certificates and the other screens are not in this file yet.</p></div>';
+    h += '<p class="exp-foot">Dates are dd/mm/yyyy and money is in euro with two decimals. "Record no." is the number Eikon gave each line, the same number the audit trail shows. The registers are read one at a time, so the rest of Eikon stays quick while it works. Stock takes, certificates and the other screens are not in this file yet.</p></div>';
     var ae = document.activeElement, had = ae && m.contains(ae), sel = "";
     if (had) ["data-act", "data-range", "data-reg"].forEach(function (k) { if (!sel && ae.getAttribute(k)) sel = "[" + k + '="' + ae.getAttribute(k) + '"]'; });
     if (had && !sel && ae.id) sel = "#" + ae.id;

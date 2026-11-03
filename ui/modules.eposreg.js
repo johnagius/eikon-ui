@@ -262,7 +262,7 @@
     st.textContent =
       ".epr{max-width:1180px;margin:0 auto;padding-bottom:8px}" +
       ".epr [hidden]{display:none!important}" +
-      ".epr-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".epr-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 12px 0 0;min-height:44px;margin:-8px 0 2px;cursor:pointer}" +
       ".epr h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.epr-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
       ".epr h2{font-size:17px;font-weight:700;margin:0;letter-spacing:-.01em}" +
       ".epr :is(button,input,select){font:inherit}" +
@@ -307,7 +307,7 @@
       ".epr-done .c{display:block;font-size:24px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums}" +
       ".epr-done.q{background:var(--warn-soft,rgba(201,138,18,.13))}" +
       ".epr-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:26px 2px 8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}" +
-      ".epr-lab input{font-size:15px;letter-spacing:0;text-transform:none;font-weight:500;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:10px;height:36px;padding:0 10px}" +
+      ".epr-lab input{font-size:16px;letter-spacing:0;text-transform:none;font-weight:500;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:10px;height:36px;padding:0 10px}" +
       ".epr-sum{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.epr-sum div{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;min-width:0}" +
       ".epr-sum small{display:block;font-size:12px;color:var(--muted)}.epr-sum b{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}.epr-sum .tt{grid-column:span 1}" +
       ".epr-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:10px}" +
@@ -324,7 +324,8 @@
       ".epr-note{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.5}" +
       ".epr :focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:2px}" +
       "@media (max-width:900px){.epr-grid{grid-template-columns:minmax(0,1fr)}.epr-bask{position:static}.epr-sum{grid-template-columns:repeat(2,minmax(0,1fr))}.epr-sum .tt{grid-column:1/-1}}" +
-      "@media (max-width:600px){.epr{padding:4px 16px 0}.epr h1{font-size:30px}.epr-f>label{flex-basis:100%}.epr-big b{font-size:34px}}" +
+      "@media (max-width:600px){.epr{padding:4px 16px 0}.epr h1{font-size:30px}.epr-f>label{flex-basis:100%}.epr-big b{font-size:34px}" +
+      ".epr-btn,.epr-seg button,.epr-f input,.epr-lab input{min-height:44px}.epr-qty button{width:44px;height:44px;border-radius:22px}.epr-qty input{height:44px}.epr-qty .x{width:auto}}" +
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .epr-seg button.on{color:#00160E}" +
       "html[data-ui2]:not([data-ui2-visit]) :is(.epr-err,.epr-btn.red,.epr-qty .x,.epr-vd){color:#FF7A72}" +
       "html[data-ui2]:not([data-ui2-visit]) .epr-wait b{color:#FFB340}html[data-ui2]:not([data-ui2-visit]) .epr-hit:hover{background:rgba(118,118,128,.2)}}";
@@ -356,6 +357,10 @@
         '<button type="button" data-act="inc" data-id="' + esc(l.id) + '" data-k="inc:' + esc(l.id) + '" aria-label="One more ' + esc(l.product.name) + '">+</button>' +
         '<button type="button" class="x" data-act="rm" data-id="' + esc(l.id) + '" data-k="rm:' + esc(l.id) + '" aria-label="Remove ' + esc(l.product.name) + '">Remove</button></div></div>';
     });
+    if (!n) { // nothing to pay for yet: no totals or payment buttons, just the last sale's change if there was one
+      if (S.done) h += doneHtml();
+      return h + "</section>";
+    }
     h += '<div class="epr-tot"><div class="m"><span>Subtotal</span><span data-b="sub">' + eur(t.subtotal) + "</span></div>" +
       '<div class="m" data-b="discrow"' + (t.discountAmt > 0 ? "" : " hidden") + '><span data-b="disclab">Discount ' + t.discountPct + '%</span><span data-b="disc">−' + eur(t.discountAmt) + "</span></div>" +
       '<div class="m"><span>VAT included</span><span data-b="vat">' + eur(t.vatTotal) + "</span></div></div>" +
@@ -371,12 +376,12 @@
     else h += '<div class="epr-acts">' + (n ? '<button type="button" class="epr-btn big" data-act="clear" data-k="clear">Clear</button>' : "") +
       '<button type="submit" class="epr-btn big p" data-k="take"' + (S.saving || !n ? " disabled" : "") + '><span data-b="take">' + (S.saving ? "Saving…" : "Take " + eur(t.total)) + "</span></button></div>";
     h += "</form>";
-    if (S.done && !n) {
-      var d = S.done;
-      h += '<div class="epr-done' + (d.queued ? " q" : "") + '">' + (d.queued ? "No connection. The sale of <b>" + eur(d.total) + "</b> waits on this device and is sent when the connection is back." : "Saved: <b>" + eur(d.total) + "</b> " + esc(d.method) + " · " + esc(d.receipt)) +
-        (d.method === "cash" && d.change != null ? '<span class="c">Change ' + eur(d.change) + "</span>" : "") + "</div>";
-    }
     return h + "</section>";
+  }
+  function doneHtml() { // the sale just taken, with the change to hand back
+    var d = S.done;
+    return '<div class="epr-done' + (d.queued ? " q" : "") + '">' + (d.queued ? "No connection. The sale of <b>" + eur(d.total) + "</b> waits on this device and is sent when the connection is back." : "Saved: <b>" + eur(d.total) + "</b> " + esc(d.method) + " · " + esc(d.receipt)) +
+      (d.method === "cash" && d.change != null ? '<span class="c">Change ' + eur(d.change) + "</span>" : "") + "</div>";
   }
 
   function itemsOf(s) { try { var a = JSON.parse(s.items_json || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
@@ -389,13 +394,13 @@
     var h = '<div class="epr-lab"><span>' + (isToday ? "Today’s sales" : "Sales on " + esc(S.date)) + '</span><label><span class="epr-sr">Day</span><input type="date" id="epr-day" data-k="day" max="' + esc(todayYmd()) + '" value="' + esc(S.date) + '"></label></div>';
     if (S.salesErr) return h + '<div class="epr-quiet">' + esc(S.salesErr) + ' <button type="button" class="epr-btn" data-act="reload">Try again</button></div>';
     if (S.salesLoading && !S.sales.length) return h + '<div class="epr-quiet">Opening the sales…</div>';
+    if (!S.sales.length) return h + '<div class="epr-quiet">No sales on this day.</div>'; // no row of €0.00 boxes
     var live = S.sales.filter(function (s) { return s.voided !== 1; });
     var sum = function (l, k) { return l.reduce(function (t, s) { return t + (Number(s[k]) || 0); }, 0); }; // as the classic day report adds them
     var by = function (m) { return sum(live.filter(function (s) { return String(s.payment_method || "") === m; }), "total"); };
     h += '<div class="epr-sum"><div class="tt"><small>Total, ' + live.length + (live.length === 1 ? " sale" : " sales") + '</small><b data-b="daytotal">' + eur(sum(live, "total")) + "</b></div>" +
       '<div><small>Cash</small><b data-b="daycash">' + eur(by("cash")) + '</b></div><div><small>Card</small><b data-b="daycard">' + eur(by("card")) + '</b></div><div><small>Other</small><b data-b="dayother">' + eur(by("other")) + "</b></div>" +
       '<div><small>VAT included</small><b data-b="dayvat">' + eur(sum(live, "vat_total")) + "</b></div></div>";
-    if (!S.sales.length) return h + '<div class="epr-quiet">No sales on this day.</div>';
     h += '<div class="epr-list">' + S.sales.map(function (s) {
       var it = itemsOf(s), vd = s.voided === 1, open = S.open === s.id;
       var names = it.slice(0, 3).map(function (x) { return x.name; }).join(", ") + (it.length > 3 ? " +" + (it.length - 3) + " more" : "");

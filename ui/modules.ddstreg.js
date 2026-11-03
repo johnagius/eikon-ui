@@ -68,7 +68,8 @@
       ".dst-form .t{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:8px 14px 4px}" +
       ".dst-form label{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 14px;border-top:.5px solid var(--border)}" +
       ".dst-form label>span{flex:0 0 96px;font-size:15px}.dst-form input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
-      ".dst-form input.q{flex:0 0 112px;text-align:right;font-size:20px;font-weight:600}" +
+      ".dst-form input.q{flex:0 0 112px;margin-left:auto;text-align:right;font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}" +
+      ".dst-form input[aria-invalid=true]::placeholder{color:var(--danger)}.dst-form label:has(input[aria-invalid=true]):not(:focus-within)>span{color:var(--danger)}" +
       ".dst-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end;align-items:center;flex-wrap:wrap}" +
       ".dst-err{color:var(--danger);font-size:13px;padding:4px 14px}.dst-top .dst-err{padding:4px 0}" +
       ".dst-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
@@ -190,17 +191,17 @@
         var status = r.state === "saving" ? "Saving…" : r.state === "saved" ? "Saved" : r.state === "bad" ? r.msg : "";
         return '<div class="row"><div class="nm"><b id="dst-n-' + esc(id) + '">' + esc(it.item_name) + "</b>" + (it.dosage ? "<span>" + esc(it.dosage) + "</span>" : "") +
           '<small role="status" id="dst-s-' + esc(id) + '"' + (r.state === "bad" ? ' class="bad"' : "") + ">" + esc(status) + "</small></div>" +
-          '<input class="dst-cnt" data-id="' + esc(id) + '" data-i="' + i + '" data-fk="cnt-' + esc(id) + '" inputmode="decimal" enterkeyhint="next" value="' + esc(v) + '"' +
+          '<input class="dst-cnt" data-id="' + esc(id) + '" data-i="' + i + '" data-fk="cnt-' + esc(id) + '" inputmode="numeric" enterkeyhint="next" value="' + esc(v) + '"' +
           ' aria-label="Tablets counted, ' + esc(it.item_name + (it.dosage ? " " + it.dosage : "")) + '" aria-describedby="dst-s-' + esc(id) + '"' + (r.state === "bad" ? ' aria-invalid="true"' : "") + ">" +
           '<button type="button" class="dst-btn t" data-act="edit" data-id="' + esc(id) + '" data-fk="edit-' + esc(id) + '" aria-label="Change ' + esc(it.item_name) + '">Change</button></div>';
       }).join("") + "</form>";
     }
 
-    var a = S.adding || (S.adding = { item_name: "", dosage: "", qty_tablets: "" });
+    var a = S.adding || (S.adding = { item_name: "", dosage: "", qty_tablets: "" }), ab = S.addErr ? S.addBad : "", inv = function (k) { return ab === k ? ' aria-invalid="true"' : ""; };
     h += '<form class="dst-form" id="dst-add" autocomplete="off" novalidate><div class="t">Add an item</div>' +
-      '<label><span>Name</span><input name="item_name" data-fk="add-name" value="' + esc(a.item_name) + '" placeholder="e.g. Morphine sulphate" aria-label="Name"></label>' +
+      '<label><span>Name</span><input name="item_name" data-fk="add-name" value="' + esc(a.item_name) + '" placeholder="e.g. Morphine sulphate" aria-label="Name"' + inv("add-name") + '></label>' +
       '<label><span>Dosage</span><input name="dosage" data-fk="add-dosage" list="dst-dosages" value="' + esc(a.dosage) + '" placeholder="e.g. 10mg"></label>' +
-      '<label><span>Tablets</span><input class="q" name="qty_tablets" data-fk="add-qty" inputmode="decimal" enterkeyhint="done" value="' + esc(a.qty_tablets) + '" placeholder="0"></label>' +
+      '<label><span>Tablets</span><input class="q" name="qty_tablets" data-fk="add-qty" inputmode="numeric" enterkeyhint="done" value="' + esc(a.qty_tablets) + '" placeholder="0"' + inv("add-qty") + '></label>' +
       (S.addErr ? '<div class="dst-err" role="alert">' + esc(S.addErr) + "</div>" : "") +
       '<div class="acts"><button type="submit" class="dst-btn p" data-fk="add-go"' + (S.addSaving ? " disabled" : "") + ">" + (S.addSaving ? "Adding…" : "Add item") + "</button></div>" +
       '<datalist id="dst-dosages">' + known("dosage").map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
@@ -210,9 +211,9 @@
   function editHtml(it) {
     var e = S.edit, id = String(it.id);
     return '<div id="dst-edit" class="dst-form" style="margin:8px 10px;border-radius:12px" role="group" aria-label="Change ' + esc(it.item_name) + '"><div class="t">Change this line</div>' +
-      '<label><span>Name</span><input name="item_name" data-fk="ed-name" value="' + esc(e.item_name) + '"></label>' +
+      '<label><span>Name</span><input name="item_name" data-fk="ed-name" value="' + esc(e.item_name) + '"' + (S.editErr && /^Write the name/.test(S.editErr) ? ' aria-invalid="true"' : "") + '></label>' +
       '<label><span>Dosage</span><input name="dosage" data-fk="ed-dosage" value="' + esc(e.dosage) + '"></label>' +
-      '<label><span>Tablets</span><input class="q" name="qty_tablets" data-fk="ed-qty" inputmode="decimal" value="' + esc(e.qty_tablets) + '"></label>' +
+      '<label><span>Tablets</span><input class="q" name="qty_tablets" data-fk="ed-qty" inputmode="numeric" value="' + esc(e.qty_tablets) + '"' + (S.editErr && /^Write (the number|a whole number) of tablets/.test(S.editErr) ? ' aria-invalid="true"' : "") + '></label>' +
       (S.editErr ? '<div class="dst-err" role="alert">' + esc(S.editErr) + "</div>" : "") +
       '<div class="acts"><button type="button" class="dst-btn" data-act="edit-cancel" data-fk="ed-cancel">Cancel</button><button type="button" class="dst-btn p" data-act="edit-save" data-id="' + esc(id) + '" data-fk="ed-save"' + (S.editSaving ? " disabled" : "") + ">" + (S.editSaving ? "Saving…" : "Save") + "</button></div></div>";
   }
@@ -338,7 +339,8 @@
     keep();
     var a = S.adding, name = String(a.item_name || "").trim(), dosage = String(a.dosage || "").trim(), n = whole(a.qty_tablets);
     S.addErr = !name ? "Write the name. Nothing was added." : n === null ? "Write the number of tablets (0 if none). Nothing was added." : isNaN(n) ? "Write a whole number of tablets. Nothing was added." : "";
-    if (S.addErr) { paint(); return focusSoon(!name ? '[data-fk="add-name"]' : '[data-fk="add-qty"]'); }
+    S.addBad = !name ? "add-name" : "add-qty";
+    if (S.addErr) { paint(); return focusSoon('[data-fk="' + S.addBad + '"]'); }
     var body = { item_name: name, dosage: dosage, qty_tablets: Math.floor(n) }, stId = S.openId;
     S.addSaving = true; paint();
     try {

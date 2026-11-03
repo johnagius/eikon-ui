@@ -101,7 +101,7 @@
       title: "Money", lead: "The till and what the pharmacy owes or holds for others.",
       groups: [
         { label: "Till", ids: ["endofday", "paidout", "emergency-pos"] },
-        { label: "Owed", ids: ["creditnotes", "locumreceipts"] }
+        { label: "Customers and locums", ids: ["creditnotes", "locumreceipts"] } // was "Owed": a locum receipt is money paid, not owed
       ]
     },
     team: {
@@ -114,13 +114,13 @@
       ]
     },
     settings: {
-      title: "Settings", lead: "Your account, this pharmacy, and the way back.",
+      title: "Settings", lead: "Your account, this pharmacy, help, and the classic layout.",
       groups: [
         // Phones: the bottom bar has room for six words, so Team, Services and Money are reached from here ("More").
         { label: "More", phoneOnly: true, actions: [
           { title: "Team", desc: "Who is in, handover, shifts and contacts.", run: function () { window.location.hash = "#team"; } },
           { title: "Services", desc: "Tests, vaccines, screening and counter tools.", run: function () { window.location.hash = "#services"; } },
-          { title: "Money", desc: "End of day, paid out, credit notes and locum receipts.", run: function () { window.location.hash = "#money"; } }
+          { title: "Money", desc: "End of day, paid out, the emergency till, credit notes and locum receipts.", run: function () { window.location.hash = "#money"; } }
         ] },
         { label: "You", actions: [
           { title: "Password", desc: "Change the password you sign in with.", run: function () { E.showChangePassword(); } },
@@ -155,7 +155,9 @@
       ".hub-card.missing{opacity:.5;cursor:default}" +
       "@media (max-width:600px){.hub{padding:4px 16px 0}.hub h1{font-size:32px;margin-top:8px}.hub-grid{display:block;background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".hub-card{border:0;border-radius:0;min-height:0;padding:12px 40px 12px 16px;border-top:.5px solid var(--border)}.hub-card:first-child{border-top:0}.hub-card b{font-size:16px;font-weight:600}.hub-card span{font-size:13px}}" +
-      ".hub-note{font-size:13px;color:var(--muted2,#8A94A3)}";
+      ".hub-note{font-size:13px;color:var(--muted2,#8A94A3)}" +
+      // Services: group names in sentence case like its screens (the other hubs keep theirs until their owners move them)
+      ".hub[data-hub=services] .hub-lab{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none}";
     document.head.appendChild(st);
   }
 
@@ -172,7 +174,7 @@
     function render(ctx) {
       var m = ctx && ctx.mount; if (!m) return;
       injectCss();
-      var html = '<div class="hub"><h1>' + esc(cfg.title) + '</h1><p class="lead">' + esc(cfg.lead) + '</p>' +
+      var html = '<div class="hub" data-hub="' + esc(id) + '"><h1>' + esc(cfg.title) + '</h1><p class="lead">' + esc(cfg.lead) + '</p>' +
         '';
       cfg.groups.forEach(function (g, gi) {
         var cards = "";

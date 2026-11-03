@@ -22,5 +22,8 @@ export default {
     const fresh = t.since(T, m)[0];
     t.has("receipts(new)", fresh, { locum_full_name: IN.name, registration_number: IN.reg, receipt_date: IN.date, hours: 7.5, fee_per_hour: 18 });
     t.same("receipts", classic, fresh);
+    // The next thing asked for, right there: the receipt just recorded, offered for printing (that receipt, not another).
+    const done = await p.waitForSelector(".lrc-done [data-act=print]", { timeout: 8000 }).then(() => p.evaluate(() => { const b = document.querySelector(".lrc-done [data-act=print]"); return { id: Number(b.getAttribute("data-id")), text: document.querySelector(".lrc-done").textContent }; })).catch(() => null);
+    t.ok(done && fresh && done.id === fresh.id && /€135\.00/.test(done.text), "after recording, 'Print the receipt' is offered for that receipt " + JSON.stringify(done));
   },
 };

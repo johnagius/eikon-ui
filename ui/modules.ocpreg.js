@@ -97,7 +97,7 @@
       ".ocp-find:focus-within{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}" +
       ".ocp-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}" +
       ".ocp-form{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:4px 0;min-width:0}" +
-      ".ocp-form .hd{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:10px 14px 4px}" +
+      ".ocp-form .hd{font-size:13px;font-weight:600;color:var(--muted);padding:10px 14px 4px}" +
       ".ocp-form label,.ocp-form .row{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border-top:.5px solid var(--border);min-width:0}" +
       ".ocp-form label:focus-within{box-shadow:inset 3px 0 0 var(--accent)}" +
       ".ocp-form label>span,.ocp-form .row>span{flex:0 0 52px;font-size:15px}" +
@@ -107,7 +107,7 @@
       ".ocp-unit button{font:inherit;font-size:13.5px;font-weight:600;min-width:44px;min-height:32px;border:0;background:transparent;color:var(--text);cursor:pointer;padding:0 8px}" +
       ".ocp-unit button.on{background:var(--accent);color:#fff}" +
       ".ocp-unit button:focus-visible{outline-offset:-3px}" +
-      ".ocp-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 2px 7px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.ocp-lab b{color:var(--text)}" +
+      ".ocp-lab{font-size:13px;font-weight:600;color:var(--muted);margin:20px 2px 7px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.ocp-lab b{color:var(--text)}" +
       ".ocp-lab .ocp-clear{margin-left:auto;text-transform:none;letter-spacing:0;font-size:14px;font-weight:600;border:0;background:none;color:var(--accent);cursor:pointer;padding:4px 2px}" +
       ".ocp-like{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-top:14px;font-size:14px;overflow-wrap:anywhere}.ocp-like b{font-weight:600}" +
       ".ocp-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
@@ -122,7 +122,7 @@
       ".ocp-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted)}" +
       ".ocp-note{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5}.ocp-note a{color:var(--accent)}" +
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .ocp-unit button.on,html[data-ui2]:not([data-ui2-visit]) .ocp-btn.p{color:#00160E}}" +
-      "@media (max-width:600px){.ocp{padding:4px 16px 0}.ocp h1{font-size:32px}.ocp-grid{grid-template-columns:minmax(0,1fr)}.ocp-row{padding:10px 14px}}";
+      "@media (max-width:600px){.ocp-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.ocp-find input{padding:13px 0}.ocp-unit button{min-height:40px}.ocp-lab .ocp-clear{min-height:44px;padding:0 4px}.ocp{padding:4px 16px 0}.ocp h1{font-size:32px}.ocp-grid{grid-template-columns:minmax(0,1fr)}.ocp-row{padding:10px 14px}}";
     document.head.appendChild(st);
   }
 

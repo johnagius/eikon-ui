@@ -22,7 +22,7 @@
     return ((p[0] || "?")[0] + (p[1] ? p[1][0] : "")).toUpperCase();
   }
   function hue(name) { var h = 0; for (var i = 0; i < String(name).length; i++) h = (h * 31 + String(name).charCodeAt(i)) % 360; return h; }
-  function av(name, cls) { return '<span class="cus-av ' + (cls || "") + '" style="background:hsl(' + hue(name) + ' 55% 42%)">' + esc(initials(name)) + '</span>'; }
+  function av(name, cls) { return '<span class="cus-av ' + (cls || "") + '" style="background:hsl(' + hue(name) + ' 45% 32%)">' + esc(initials(name)) + '</span>'; }
   function when(ymd) {
     if (!ymd) return "";
     var t = new Date(); var today = t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0");
@@ -57,7 +57,8 @@
     st.id = "eikon-customers-css";
     st.textContent =
       ".cus{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:360px minmax(0,1fr);gap:18px;align-items:start}" +
-      ".cus-back{display:none}@media (max-width:900px){.cus{grid-template-columns:minmax(0,1fr)}.cus-side,.cus-detail{min-width:0}.cus-detail{order:-1}.cus-pick{display:none}.cus.has-sel .cus-side{display:none}.cus-back{display:inline-block;border:0;background:none;color:var(--accent);font:inherit;font-size:16px;font-weight:500;padding:4px 0 12px;cursor:pointer}}@media (max-width:600px){.cus{padding:0 16px}}" +
+      ".cus-back{display:none}@media (max-width:900px){.cus{grid-template-columns:minmax(0,1fr)}.cus-side,.cus-detail{min-width:0}.cus-detail{order:-1}.cus-pick{display:none}.cus.has-sel .cus-side{display:none}.cus-back{display:inline-block;border:0;background:none;color:var(--accent);font:inherit;font-size:16px;font-weight:500;padding:4px 0 12px;cursor:pointer}}@media (max-width:600px){.cus{padding:0 16px}.cus-search input,.cus-form input,.cus-form textarea{font-size:16px}.cus-form input{height:44px}}" +
+      ".cus-ferr{display:block;font-size:12.5px;font-weight:600;color:var(--danger);margin-top:4px}.cus-form [aria-invalid=true],.cus-form [aria-invalid=true]:focus{border-color:var(--danger)}" +
       ".cus-search{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:0 14px;height:48px}" +
       ".cus-search input{flex:1;border:0;outline:0;background:transparent;color:var(--text);font-size:15.5px;min-width:0}.cus-search input::placeholder{color:var(--muted)}" +
       ".cus-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 2px 7px;display:flex;gap:8px;align-items:center}.cus-lab b{color:var(--text)}.cus-lab a{margin-left:auto;color:var(--accent);font-weight:600;text-transform:none;letter-spacing:0;font-size:12.5px;cursor:pointer}" +
@@ -86,14 +87,30 @@
   }
 
   // ---------- data ----------
+  // The server compares names with SQLite's LOWER(), which only knows A to Z: "ħabela" never found "Ħabela", nor "Ġorġ"
+  // anyone. A search with ċ ġ ħ ż asks the server for its longest stretch without them ("abela"), then keeps here only
+  // the people whose name has every word typed, compared with the browser's own lower case, which knows Maltese.
+  var MT = /[ċġħżĊĠĦŻ]/;
+  function serverQ(q) {
+    if (!MT.test(q)) return q;
+    var best = String(q).split(/[\sċġħżĊĠĦŻ]+/).reduce(function (a, b) { return b.length > a.length ? b : a; }, "");
+    return best.length >= 2 ? best : q;
+  }
+  function hasAll(row, q) {
+    var hay = [row.name, row.id_card, row.phone, row.alt_phone, row.email].join(" ").toLowerCase();
+    return String(q).toLowerCase().split(/\s+/).filter(Boolean).every(function (w) { return hay.indexOf(w) >= 0; });
+  }
+  E.customersServerQ = serverQ; // for the tests
   async function search(q) {
     var mySeq = ++state.seq;
     state.loading = true; state.error = "";
     renderList();
     try {
-      var r = await E.apiFetch("/people?q=" + encodeURIComponent(q) + "&limit=30", { method: "GET", timeoutMs: 12000 });
+      var wq = serverQ(q);
+      var r = await E.apiFetch("/people?q=" + encodeURIComponent(wq) + "&limit=30", { method: "GET", timeoutMs: 12000 });
       if (mySeq !== state.seq) return;
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not search");
+      if (wq !== q) r = Object.assign({}, r, { q: q, people: (r.people || []).filter(function (x) { return hasAll(x, q); }), history: (r.history || []).filter(function (x) { return hasAll(x, q); }) });
       state.results = r;
     } catch (e) {
       if (mySeq !== state.seq) return;
@@ -130,8 +147,19 @@
       open(r.person.id);
     } catch (e) {
       if (btn) { btn.disabled = false; btn.textContent = "Add"; }
-      E.toast("Not added: " + String(e && (e.message || e) || "error"), "error");
+      E.toast(E.saveFailText ? E.saveFailText(e) : "Not added: " + String(e && (e.message || e) || "error"), "error");
     }
+  }
+
+  // A missing name is said under the field (and read out), the field is marked and focused; nothing typed is lost.
+  function fieldError(form, name, msg) {
+    var el = form.querySelector("[name=" + name + "]"); if (!el) return;
+    var id = el.id + "-err", e = form.querySelector("#" + id);
+    if (!msg) { if (e) e.remove(); el.removeAttribute("aria-invalid"); el.removeAttribute("aria-describedby"); return; }
+    if (!e) { e = document.createElement("span"); e.className = "cus-ferr"; e.id = id; e.setAttribute("role", "alert"); el.parentNode.appendChild(e); }
+    e.textContent = msg; el.setAttribute("aria-invalid", "true"); el.setAttribute("aria-describedby", id);
+    try { el.focus(); } catch (x) {}
+    el.addEventListener("input", function once() { el.removeEventListener("input", once); fieldError(form, name, ""); });
   }
 
   async function save(form) {
@@ -139,7 +167,7 @@
     var p = state.detail.person;
     var body = { id: p.id, version: p.version };
     ["name", "id_card", "phone", "alt_phone", "email", "address", "doctor_name", "date_of_birth", "notes"].forEach(function (k) { var el = form.querySelector("[name=" + k + "]"); if (el) body[k] = el.value; });
-    if (!String(body.name || "").trim()) return E.toast("Enter the person's name. Nothing was saved.", "warn");
+    if (!String(body.name || "").trim()) return fieldError(form, "name", "Write the customer's name. Nothing was saved yet.");
     state.saving = true;
     var btn = form.querySelector("[data-act=save]"); if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
     // a changed ID card: on their details only, or on all their records too (E.people.confirmCardEdit); Go back keeps the form
@@ -169,7 +197,7 @@
         state.conflictExisting = j.existing;
         renderDetail();
       } else {
-        E.toast("Not saved: " + String(e && (e.message || e) || "error"), "error");
+        E.toast(E.saveFailText ? E.saveFailText(e) : "Not saved: " + String(e && (e.message || e) || "error"), "error");
         if (btn) { btn.disabled = false; btn.textContent = "Save"; }
       }
     } finally { state.saving = false; }
@@ -178,7 +206,7 @@
   async function createNew(form) {
     var body = {};
     ["name", "id_card", "phone", "email", "address"].forEach(function (k) { var el = form.querySelector("[name=" + k + "]"); if (el) body[k] = el.value; });
-    if (!String(body.name || "").trim()) return E.toast("Enter the person's name. Nothing was saved.", "warn");
+    if (!String(body.name || "").trim()) return fieldError(form, "name", "Write the customer's name. Nothing was saved yet.");
     var btn = form.querySelector("[data-act=create]"); if (btn) { btn.disabled = true; btn.textContent = "Adding…"; }
     try {
       // The same person typed again without an ID card (same name and phone or e-mail, or the one person with this
@@ -191,7 +219,7 @@
       await search(state.q);
       open(r.person.id);
     } catch (e) {
-      E.toast("Not added: " + String(e && (e.message || e) || "error"), "error");
+      E.toast(E.saveFailText ? E.saveFailText(e) : "Not added: " + String(e && (e.message || e) || "error"), "error");
       if (btn) { btn.disabled = false; btn.textContent = "Add customer"; }
     }
   }
@@ -209,7 +237,7 @@
     if (E.state.activeModuleId !== "customers") return; // left before a reply came back: do not draw over the next screen
     var m = state.mount; if (!m) return;
     m.innerHTML = '<div class="cus"><div class="cus-side">' +
-      '<div class="cus-search"><span aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:rgba(60,60,67,.55);flex:none;display:block"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><input id="cus-q" type="search" autocomplete="off" placeholder="Name, ID card or phone" value="' + esc(state.q) + '"></div>' +
+      '<div class="cus-search"><span aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:rgba(60,60,67,.55);flex:none;display:block"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><input id="cus-q" type="search" autocomplete="off" aria-label="Find a customer by name, ID card or phone" placeholder="Name, ID card or phone" value="' + esc(state.q) + '"></div>' +
       '<div id="cus-list"></div>' +
       '<div class="cus-regs"><span>Registers</span>' + [["clientorders", "Orders"], ["tickets", "Questions"], ["deliveries", "Deliveries"], ["appointments", "Appointments"], ["loyalty", "Loyalty"]].filter(function (x) { return E.modules[x[0]] || (window.EIKON_LATE && !E._lateIn); }).map(function (x) { return '<a data-reg="' + x[0] + '">' + x[1] + '</a>'; }).join("") + '</div>' +
       (E.modules.dupreg || (window.EIKON_LATE && !E._lateIn) ? '<div class="cus-regs"><span>Tidy up</span><a href="#dupreg" data-dupes>Possible duplicates</a></div>' : "") +
@@ -261,12 +289,12 @@
     } else if (qq && !state.loading && !hist.length) {
       html += '<div class="cus-quiet">No one called “' + esc(qq) + '” yet.<br><a data-act="new" style="color:var(--accent);font-weight:600;cursor:pointer">Add them as a new customer ›</a></div>';
     } else if (!qq && !state.loading) {
-      html += '<div class="cus-quiet">Type a name, an ID card or a phone number. Customers who only exist in older registers appear under <b>From history</b> and join with one tap.</div>';
+      html += '<div class="cus-quiet">Type a name, an ID card or a phone number. People found only in the registers show under <b>From history</b>: tap <b>Add</b> to give them a customer card.</div>';
     }
     if (hist.length) {
       html += '<div class="cus-lab">From history <b>' + hist.length + '</b></div><div class="cus-list">' + hist.map(function (h, i) {
         var sub = [h.phone, h.id_card].filter(Boolean).join(" · ");
-        return '<div class="cus-item" data-hist="' + i + '">' + av(h.name, "ghost") + '<span class="cus-t"><b>' + esc(h.name) + '</b><span>' + esc(sub ? sub + " · " : "") + esc(sourceWords(h.sources)) + (h.last_date ? ", last " + esc(when(h.last_date)) : "") + '</span></span><button class="cus-btn sm p" data-adopt="' + i + '">Add</button></div>';
+        return '<div class="cus-item" data-hist="' + i + '">' + av(h.name, "ghost") + '<span class="cus-t"><b>' + esc(h.name) + '</b><span>' + esc(sub ? sub + " · " : "") + esc(sourceWords(h.sources)) + (h.last_date ? ", last " + esc(when(h.last_date)) : "") + '</span></span><button class="cus-btn sm p" data-adopt="' + i + '" aria-label="Add ' + esc(h.name) + ' as a customer">Add</button></div>';
       }).join("") + '</div>';
     }
     box.innerHTML = html;
@@ -282,8 +310,10 @@
     m.querySelectorAll('[data-act="new"]').forEach(function (el) { el.addEventListener("click", function () { state.creating = true; state.selected = null; state.detail = null; renderList(); renderDetail(); }); });
   }
 
+  // The right keyboard for each field on a phone: capitals for an ID card, digits for a phone, @ for an e-mail.
+  var KB = { id_card: ' autocapitalize="characters" spellcheck="false"', phone: ' inputmode="tel"', alt_phone: ' inputmode="tel"', email: ' inputmode="email" autocapitalize="off" spellcheck="false"', name: ' autocapitalize="words"' };
   function field(label, name, value, type, wide) {
-    return '<div' + (wide ? ' class="w"' : "") + '><label for="cus-f-' + name + '">' + label + '</label>' + (type === "textarea" ? '<textarea id="cus-f-' + name + '" name="' + name + '">' + esc(value) + '</textarea>' : '<input id="cus-f-' + name + '" name="' + name + '" type="' + (type || "text") + '" value="' + esc(value) + '" autocomplete="off">') + '</div>';
+    return '<div' + (wide ? ' class="w"' : "") + '><label for="cus-f-' + name + '">' + label + '</label>' + (type === "textarea" ? '<textarea id="cus-f-' + name + '" name="' + name + '">' + esc(value) + '</textarea>' : '<input id="cus-f-' + name + '" name="' + name + '" type="' + (type || "text") + '" value="' + esc(value) + '" autocomplete="off"' + (KB[name] || "") + '>') + '</div>';
   }
 
   // On narrow screens an open customer replaces the list (iOS style), with "‹ Customers" to go back.

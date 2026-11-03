@@ -85,8 +85,9 @@
       ".tdy-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:12px;padding:22px;color:var(--muted);font-size:14px}" +
       ".tdy-off{max-width:1180px;margin:0 auto 10px;box-sizing:border-box;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:rgba(201,138,18,.14);border:1px solid rgba(201,138,18,.35);color:var(--warn,#A06A0E);border-radius:10px;padding:8px 12px;font-size:13px}.tdy-off span{flex:1 1 220px}.tdy-off .tdy-btn{padding:6px 12px}" +
       ".tdy-sr{position:absolute;left:-9999px}" +
+      ".tdy-err{display:block;font-size:12.5px;font-weight:600;color:var(--danger);white-space:normal;margin-top:2px}.tdy-err:empty{display:none}.tdy-inl input[aria-invalid=true]{border-color:var(--danger);box-shadow:0 0 0 3px rgba(191,59,46,.16)}" +
       "@media (max-width:980px){.tdy{grid-template-columns:minmax(0,1fr)}.tdy-side{grid-column:1;grid-row:auto}.tdy-date{grid-column:1;grid-row:auto}}" +
-      "@media (max-width:600px){.tdy-off{margin:0 16px 10px}.tdy{padding:0 16px}.tdy-date{order:-1;margin:0 0 10px}.tdy-head h1{font-size:28px}.tdy-search .hint{display:none}.tdy-row{flex-wrap:wrap;row-gap:8px}.tdy-t{flex:1 1 calc(100% - 90px)}.tdy-t+*{margin-left:60px}.tdy-row>.tdy-btn{margin-left:auto}.tdy-inl{flex:1 1 0;min-width:0}.tdy-inl:empty{display:none}.tdy-inl input{flex:1 1 0;width:0;min-width:0}}";
+      "@media (max-width:600px){.tdy-off{margin:0 16px 10px}.tdy{padding:0 16px}.tdy-date{order:-1;margin:0 0 10px}.tdy-head h1{font-size:28px}.tdy-search .hint{display:none}.tdy-row{flex-wrap:wrap;row-gap:8px}.tdy-t{flex:1 1 calc(100% - 90px)}.tdy-t+*{margin-left:60px}.tdy-row>.tdy-btn{margin-left:auto}.tdy-inl{flex:1 1 0;min-width:0}.tdy-inl:empty{display:none}.tdy-inl input{flex:1 1 0;width:0;min-width:0;height:44px;font-size:16px}.tdy-row>.tdy-btn{min-height:44px}}";
     document.head.appendChild(st);
   }
 
@@ -114,21 +115,34 @@
     var m = state.mount; if (!m) return false;
     var ae = document.activeElement;
     if (ae && m.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return true;
-    return Array.prototype.some.call(m.querySelectorAll("input[data-min],input[data-max],input[data-cleaner]"), function (i) { return String(i.value || "").trim() !== ""; });
+    return Array.prototype.some.call(m.querySelectorAll("input[data-min],input[data-max],input[data-cleaner]"), function (i) { return String(i.value || "").trim() !== "" && i.value !== i.defaultValue; });
   }
 
   // ---------- actions ----------
+  // A mistake is said under the row it belongs to (and read out), the field is marked and focused, and what was typed stays.
+  function rowError(rowEl, msg, bad) {
+    var t = rowEl.querySelector(".tdy-t"), e = rowEl.querySelector(".tdy-err");
+    if (!e && t) { e = document.createElement("span"); e.className = "tdy-err"; e.setAttribute("role", "alert"); e.id = "tdy-err-" + (rowEl.getAttribute("data-device") || rowEl.getAttribute("data-kind") || "x"); t.appendChild(e); }
+    rowEl.querySelectorAll("input").forEach(function (i) { i.removeAttribute("aria-invalid"); if (e && i.getAttribute("aria-describedby") === e.id) i.removeAttribute("aria-describedby"); });
+    if (e) e.textContent = msg || "";
+    (bad || []).forEach(function (i) { if (!i) return; i.setAttribute("aria-invalid", "true"); if (e) i.setAttribute("aria-describedby", e.id); });
+    if (bad && bad[0]) try { bad[0].focus(); bad[0].select(); } catch (x) {}
+  }
+  // The cleaner's name is remembered on this device for this pharmacy: next week it is one tap (it is usually the same person).
+  function cleanerKey() { var u = E.state.user || {}; return "eikon_tdy_cleaner:" + (u.location_id || ""); }
+  function lastCleaner() { try { return localStorage.getItem(cleanerKey()) || ""; } catch (e) { return ""; } }
   async function logTemperature(row, rowEl) {
     var minEl = rowEl.querySelector("[data-min]"), maxEl = rowEl.querySelector("[data-max]");
     // Some keyboards type a decimal comma ("3,4"): read it as 3.4.
     var minS = (minEl.value || "").trim().replace(",", "."), maxS = (maxEl.value || "").trim().replace(",", ".");
     var name = row.title.replace(/ · reading$/, "");
-    if (!minS || !maxS) return E.toast("Enter both min and max for " + name + ". Nothing was saved.", "warn");
+    if (!minS || !maxS) return rowError(rowEl, "Write both the lowest and the highest reading, then press Log.", [!minS ? minEl : null, !maxS ? maxEl : null].filter(Boolean));
     var minV = Number(minS), maxV = Number(maxS);
-    if (!isFinite(minV) || !isFinite(maxV)) return E.toast("Min and max must be numbers. Nothing was saved.", "warn");
+    if (!isFinite(minV) || !isFinite(maxV)) return rowError(rowEl, "Write the readings as numbers, like 3.4.", [!isFinite(minV) ? minEl : null, !isFinite(maxV) ? maxEl : null].filter(Boolean));
     minV = Math.round(minV * 10) / 10; maxV = Math.round(maxV * 10) / 10; // one decimal, as the Temperature register stores it
-    if (minV > maxV) return E.toast("Min is greater than max for " + name + ". Nothing was saved.", "warn");
-    if (minV < -40 || maxV > 60) return E.toast("That reading is outside -40 to 60 °C. Nothing was saved.", "warn");
+    if (minV > maxV) return rowError(rowEl, "The lowest reading is higher than the highest. Check which is which.", [minEl, maxEl]);
+    if (minV < -40 || maxV > 60) return rowError(rowEl, "Check the reading: it is outside -40 to 60 °C.", [minV < -40 ? minEl : maxEl]);
+    rowError(rowEl, "");
     var key = "temp" + row.device_id;
     if (state.busy[key]) return;
     state.busy[key] = true; setRowBusy(rowEl, true);
@@ -140,7 +154,7 @@
       E.toast(name + " logged " + minV + " to " + maxV + " °C · " + mt() + (out ? " · outside the limits, add a note in the register" : ""), out ? "warn" : "success");
       await load({ silent: true });
     } catch (e) {
-      E.toast("Not saved: " + String(e && (e.message || e) || "error"), "error");
+      setRowBusy(rowEl, false); rowError(rowEl, E.saveFailText ? E.saveFailText(e) : "Not saved: " + String(e && (e.message || e) || "error")); // the readings stay typed
     } finally { state.busy[key] = false; }
   }
 
@@ -152,22 +166,27 @@
     if (!who) { // first click reveals the one field we need
       var inl = rowEl.querySelector(".tdy-inl");
       if (inl && !inl.querySelector("[data-cleaner]")) {
-        inl.innerHTML = '<small>cleaned by</small><input data-cleaner placeholder="Name" style="width:120px" aria-label="Cleaned by">';
-        inl.querySelector("[data-cleaner]").focus();
+        inl.innerHTML = '<small>cleaned by</small><input data-cleaner placeholder="Name" style="width:120px" aria-label="Cleaned by" autocomplete="off" enterkeyhint="done">';
+        var ci = inl.querySelector("[data-cleaner]");
+        ci.defaultValue = lastCleaner(); // last time's cleaner (a default, so the minute refresh still runs while it sits there untouched): Enter (or Done now) records it; typing replaces it
+        ci.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); markCleaning(row, rowEl); } });
+        ci.focus(); try { ci.select(); } catch (x) {}
         return;
       }
-      return E.toast("Who did the cleaning? Type the name, then press Done.", "warn");
+      return rowError(rowEl, "Write who did the cleaning, then press Done now.", [rowEl.querySelector("[data-cleaner]")]);
     }
+    rowError(rowEl, "");
     state.busy[key] = true; setRowBusy(rowEl, true);
     try {
       var d = new Date();
       var body = Object.assign({}, row.action.body, { time_in: hm(d), time_out: "", cleaner_name: who, staff_name: user.full_name || "", notes: "" });
       var r = await E.apiFetch(row.action.path, { method: row.action.method, body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      try { localStorage.setItem(cleanerKey(), who); } catch (e0) {}
       E.toast("Cleaning recorded · " + mt() + " · " + who, "success");
       await load({ silent: true });
     } catch (e) {
-      E.toast("Not saved: " + String(e && (e.message || e) || "error"), "error");
+      setRowBusy(rowEl, false); rowError(rowEl, E.saveFailText ? E.saveFailText(e) : "Not saved: " + String(e && (e.message || e) || "error"));
     } finally { state.busy[key] = false; }
   }
 
@@ -222,7 +241,7 @@
     var cls = done ? (r.out_of_range ? "red" : (yo ? "amb" : "grn")) : "amb";
     var pill = done ? (r.out_of_range ? '<span class="tdy-pill red">Outside limits</span>' : '<span class="tdy-pill grn">Logged ' + esc(r.today.min) + " to " + esc(r.today.max) + "</span>") : "";
     var inl = done ? "" :
-      '<div class="tdy-inl"><small>min</small><input data-min inputmode="decimal" aria-label="Minimum temperature"><small>max</small><input data-max inputmode="decimal" aria-label="Maximum temperature"></div>' +
+      '<div class="tdy-inl"><small>min</small><input data-min inputmode="decimal" enterkeyhint="next" autocomplete="off" aria-label="Lowest temperature, °C"><small>max</small><input data-max inputmode="decimal" enterkeyhint="done" autocomplete="off" aria-label="Highest temperature, °C"><small>°C</small></div>' +
       '<button class="tdy-btn p" data-act="temp">Log</button>';
     return '<div class="tdy-row ' + cls + '" data-kind="temperature" data-device="' + esc(r.device_id) + '">' +
       '<div class="tdy-av sq nt">' + (r.limits && r.limits.max != null && r.limits.max <= 10 ? ICO.fridge : ICO.room) + '</div>' +
@@ -405,8 +424,9 @@
     });
     m.querySelectorAll(".tdy-row[data-kind=temperature] input").forEach(function (inp) {
       inp.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") { var b = inp.closest(".tdy-row").querySelector('[data-act="temp"]'); if (b) b.click(); }
+        if (e.key === "Enter") { e.preventDefault(); var b = inp.closest(".tdy-row").querySelector('[data-act="temp"]'); if (b) b.click(); }
       });
+      inp.addEventListener("input", function () { inp.removeAttribute("aria-invalid"); });
     });
     m.querySelectorAll('[data-act="clean"]').forEach(function (btn) {
       btn.addEventListener("click", function () {

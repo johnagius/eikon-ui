@@ -14,7 +14,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, campaigns: [], loading: false, error: "", q: "", pq: "", view: "list", campId: "", partId: "", adding: null, kind: "", saving: false, err: "" };
+  var S = { mount: null, campaigns: [], loading: false, error: "", q: "", pq: "", view: "list", campId: "", partId: "", adding: null, kind: "", saving: false, err: "", miss: [] };
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   // ---- the classic screen's lists, word for word (stored as these strings) ----
@@ -103,7 +103,7 @@
       ".scr-acts-top{display:flex;gap:8px;flex-wrap:wrap}" +
       ".scr-q{width:100%;box-sizing:border-box;height:40px;border-radius:12px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font:inherit;font-size:16px;padding:0 12px;outline:0;margin-top:16px}" +
       ".scr-q:focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:2px}" +
-      ".scr-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 2px 7px;display:flex;gap:8px;justify-content:space-between}.scr-lab b{color:var(--text)}" +
+      ".scr-lab{font-size:13px;font-weight:600;color:var(--muted);margin:20px 2px 7px;display:flex;gap:8px;justify-content:space-between}.scr-lab b{color:var(--text)}" +
       ".scr-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".scr-row{display:flex;gap:12px;align-items:center;width:100%;box-sizing:border-box;text-align:left;font:inherit;color:var(--text);background:none;border:0;border-top:.5px solid var(--border);padding:11px 16px;min-height:52px}.scr-list>.scr-row:first-child{border-top:0}" +
       "button.scr-row{cursor:pointer}button.scr-row:hover{background:rgba(118,118,128,.06)}.scr-row:focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:-3px}" +
@@ -124,17 +124,20 @@
       ".scr-form label.tx{display:block;padding:10px 14px}.scr-form label.tx>span{display:block;margin-bottom:4px}" +
       ".scr-form textarea{display:block;width:100%;box-sizing:border-box;min-height:72px;resize:vertical;border:1px solid var(--border);border-radius:10px;background:transparent;font:inherit;font-size:16px;color:inherit;padding:8px 10px;outline:0}" +
       ".scr-form .hint{display:block;color:var(--muted);font-size:12.5px;padding:0 14px 8px}" +
-      ".scr-hd{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:22px 2px 0}" +
+      ".scr-hd{font-size:13px;font-weight:600;color:var(--muted);margin:22px 2px 0}" +
       ".scr-acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px}" +
-      ".scr-err{color:var(--danger);font-size:13.5px;margin-top:12px}" +
+      ".scr-err{color:var(--danger);font-size:13.5px;margin-top:12px;line-height:1.45}" +
+      ".scr-form label.miss>span{color:var(--danger);font-weight:600}.scr-form label.miss{box-shadow:inset 3px 0 0 var(--danger)}" +
+      ".scr-skel{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:20px}.scr-skel i{display:block;height:64px;border-top:.5px solid var(--border);background:linear-gradient(90deg,transparent 0,rgba(118,118,128,.10) 50%,transparent 100%) 0 0/200% 100%;animation:eikonSvcSkel 1.3s linear infinite}.scr-skel i:first-child{border-top:0}" +
+      "@keyframes eikonSvcSkel{from{background-position:100% 0}to{background-position:-100% 0}}@media (prefers-reduced-motion:reduce){.scr-skel i{animation:none}}" +
       ".scr-info{margin-top:10px;padding:10px 12px;border-radius:10px;background:rgba(201,138,18,.12);font-size:13.5px}" +
       ".scr-one{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:8px 0 0}" +
       ".scr-one div{display:flex;gap:12px;padding:9px 16px;border-top:.5px solid var(--border);font-size:14.5px}.scr-one div:first-child{border-top:0}" +
       ".scr-one dt{flex:0 0 130px;color:var(--muted);margin:0}.scr-one dd{flex:1;min-width:0;margin:0;overflow-wrap:anywhere;white-space:pre-wrap}" +
       ".scr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".scr-note{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.5}.scr-note a{color:var(--accent)}" +
-      "@media (max-width:600px){.scr{padding:4px 16px 0}.scr h1{font-size:32px}.scr-form label>span{flex-basis:100px}.scr-one dt{flex-basis:100px}.scr-row{padding:10px 14px}.scr-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}" +
-      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .scr-pill.s,html[data-ui2]:not([data-ui2-visit]) .scr-err{color:#FF7A72}html[data-ui2]:not([data-ui2-visit]) .scr-pill.w{color:#F2B84B}}";
+      "@media (max-width:600px){.scr-btn{height:44px;border-radius:22px;padding:0 18px;font-size:15px}.scr-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.scr-q{height:44px}.scr{padding:4px 16px 0}.scr h1{font-size:32px}.scr-form label>span{flex-basis:100px}.scr-one dt{flex-basis:100px}.scr-row{padding:10px 14px}.scr-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}" +
+      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .scr-pill.s,html[data-ui2]:not([data-ui2-visit]) .scr-err,html[data-ui2]:not([data-ui2-visit]) .scr-form label.miss>span{color:#FF7A72}html[data-ui2]:not([data-ui2-visit]) .scr-pill.w{color:#F2B84B}}";
     document.head.appendChild(st);
   }
 
@@ -186,8 +189,8 @@
 
   function listHtml() {
     var h = '<div class="scr-top"><div><h1>Screening campaigns</h1><p class="scr-sub">Health checks run as events, and the people screened at each.</p></div><button class="scr-btn p" data-act="newcamp">New campaign</button></div>';
-    if (S.loading && !S.campaigns.length) return h + '<div class="scr-quiet">Opening the campaigns…</div>';
-    if (S.error) return h + '<div class="scr-quiet">' + esc(S.error) + "</div>";
+    if (S.loading && !S.campaigns.length) return h + '<div class="scr-skel" role="status" aria-busy="true"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Opening the campaigns</span><i></i><i></i><i></i></div>';
+    if (S.error) return h + '<div class="scr-quiet" role="alert">' + esc(S.error) + ' <button type="button" class="scr-btn" data-act="retry" style="margin-left:6px">Try again</button></div>';
     if (!S.campaigns.length) return h + '<div class="scr-quiet">No campaign yet. Press New campaign to plan the first one, for example a blood pressure check day.</div>';
     h += '<input class="scr-q" id="scr-q" type="search" aria-label="Search campaigns" placeholder="Search campaigns by name or type" value="' + esc(S.q) + '">';
     var q = low(S.q).trim(), list = S.campaigns.filter(function (c) { return !q || low(c.name).indexOf(q) >= 0 || low(c.type).indexOf(q) >= 0; });
@@ -220,7 +223,7 @@
   function partHtml(c, p) {
     var t = testOf(c), def = t ? FIELDS[t] : null, r = p.poctResults || {};
     var h = '<div class="scr-top"><div><h1>' + esc(p.name || p.idCard || "No name") + '</h1><p class="scr-sub">' + esc([c.name, dm(p.date)].filter(Boolean).join(" · ")) + "</p></div>" +
-      '<span class="scr-acts-top"><button class="scr-btn" data-act="camp" data-id="' + esc(c.id) + '">Back to the campaign</button></span></div>';
+      '<span class="scr-acts-top"><button class="scr-btn" data-act="camp" data-id="' + esc(c.id) + '">Back to the campaign</button><button class="scr-btn p" data-act="add">Record the next person</button></span></div>';
     h += '<div class="scr-hd">Person</div>' + dl([["ID card", p.idCard], ["Name", p.name], ["Phone", p.phone], ["Email", p.email], ["Date of birth", dm(p.dob)], ["Type", p.type], ["Screened on", dm(p.date)]]);
     if (def) {
       var rows = def.f.map(function (f) { return [f[1], has(r[f[0]]) ? r[f[0]] + (f[2] === "%" ? "%" : f[2] ? " " + f[2] : "") : ""]; });
@@ -239,7 +242,8 @@
 
   function fld(k, label, extra, unit) {
     var a = S.adding;
-    return "<label><span>" + esc(label) + '</span><input name="' + k + '" value="' + esc(a[k]) + '"' + (extra || "") + ">" + (unit || "") + "</label>";
+    var bad = S.miss.indexOf(k) >= 0;
+    return "<label" + (bad ? ' class="miss"' : "") + "><span>" + esc(label) + '</span><input name="' + k + '" value="' + esc(a[k]) + '"' + (bad ? ' aria-invalid="true" aria-describedby="scr-errmsg"' : "") + (extra || "") + ">" + (unit || "") + "</label>";
   }
   function sel(k, label, list, blank) { return "<label><span>" + esc(label) + '</span><select name="' + k + '">' + opts(list, str(S.adding[k]), blank) + "</select></label>"; }
   function txt(k, label, ph) { return '<label class="tx"><span>' + esc(label) + '</span><textarea name="' + k + '" placeholder="' + esc(ph || "") + '">' + esc(S.adding[k]) + "</textarea></label>"; }
@@ -263,7 +267,7 @@
     }
     h += '<div class="scr-hd">Assessment</div><div class="scr-form">' + txt("resultNotes", "Result notes", "Describe the screening results") +
       sel("resultCategory", "Category", RESULT_CATEGORIES, "Not chosen") + sel("referral", "Referral", REFERRAL_OPTIONS) + txt("referralNotes", "Referral notes", "Optional") + "</div>";
-    h += (S.err ? '<div class="scr-err" role="alert">' + esc(S.err) + "</div>" : "") +
+    h += (S.err ? '<div class="scr-err" id="scr-errmsg" role="alert">' + esc(S.err) + "</div>" : "") +
       '<div class="scr-acts"><button type="button" class="scr-btn" data-act="cancel">Cancel</button><button type="submit" class="scr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div></form>";
     return h;
   }
@@ -275,7 +279,7 @@
       sel("location", "Location", CAMPAIGN_LOCATIONS, "Not chosen") + fld("targetScreenings", "Goal", ' inputmode="numeric" placeholder="People to screen, optional"') +
       fld("startDate", "Starts", ' type="date"') + fld("endDate", "Ends", ' type="date"') + txt("notes", "Notes", "What the campaign is for, its goals") + "</div>" +
       '<p class="scr-note" style="margin-top:8px">The type sets which results are written for each person: blood pressure, HbA1c, cholesterol, glucose, BMI or urine.</p>' +
-      (S.err ? '<div class="scr-err" role="alert">' + esc(S.err) + "</div>" : "") +
+      (S.err ? '<div class="scr-err" id="scr-errmsg" role="alert">' + esc(S.err) + "</div>" : "") +
       '<div class="scr-acts"><button type="button" class="scr-btn" data-act="cancel">Cancel</button><button type="submit" class="scr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Create campaign") + "</button></div></form>";
     return h;
   }
@@ -312,9 +316,10 @@
         else if (act === "list") { var was = S.campId; S.view = "list"; S.campId = ""; S.partId = ""; S.pq = ""; paint(true); focusSel('.scr-row[data-id="' + cssId(was) + '"]'); }
         else if (act === "camp") { var from = S.view === "part" ? S.partId : ""; S.campId = b.getAttribute("data-id"); S.partId = ""; S.view = "camp"; if (!from) S.pq = ""; paint(true); window.scrollTo(0, 0); focusSel(from ? '.scr-row[data-id="' + cssId(from) + '"]' : "[data-act=add]"); }
         else if (act === "part") { S.partId = b.getAttribute("data-id"); S.view = "part"; paint(true); window.scrollTo(0, 0); focusSel(".scr-acts-top [data-act=camp]"); }
-        else if (act === "add") { var c = campOf(S.campId); if (!c) return; S.adding = fresh(c); S.err = ""; S.view = "add"; paint(true); window.scrollTo(0, 0); focusSel("[name=idCard]"); }
-        else if (act === "newcamp") { S.adding = freshCamp(); S.err = ""; S.view = "newcamp"; paint(true); window.scrollTo(0, 0); focusSel("[name=name]"); }
-        else if (act === "cancel") { var nc = S.view === "newcamp"; S.adding = null; S.err = ""; S.view = nc ? "list" : "camp"; paint(true); focusSel(nc ? "[data-act=newcamp]" : "[data-act=add]"); }
+        else if (act === "add") { var c = campOf(S.campId); if (!c) return; S.adding = fresh(c); S.err = ""; S.miss = []; S.view = "add"; paint(true); window.scrollTo(0, 0); focusSel("[name=idCard]"); }
+        else if (act === "newcamp") { S.adding = freshCamp(); S.err = ""; S.miss = []; S.view = "newcamp"; paint(true); window.scrollTo(0, 0); focusSel("[name=name]"); }
+        else if (act === "cancel") { var nc = S.view === "newcamp"; S.adding = null; S.err = ""; S.miss = []; S.view = nc ? "list" : "camp"; paint(true); focusSel(nc ? "[data-act=newcamp]" : "[data-act=add]"); }
+        else if (act === "retry") load();
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "scrreg"); } catch (x) {} E.openClassic("screening"); }
       });
     });
@@ -323,6 +328,7 @@
     var f = m.querySelector("#scr-add");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); saveScreening(); });
+      f.addEventListener("input", function (ev) { unmark(ev.target); });
       var idIn = f.querySelector("[name=idCard]");
       if (idIn) idIn.addEventListener("blur", function () { var v = idIn.value; setTimeout(function () { lookup(v); }, 0); }); // after the blur: focus has moved on, and the redraw puts it back there
       if (E.personPick) E.personPick.attach({ key: "scrreg", form: f, fields: { id: "idCard", name: "name", phone: "phone", dob: "dob" }, idValue: pid, onFill: function () { keep(); },
@@ -343,9 +349,18 @@
         w.addEventListener("input", auto); ht.addEventListener("input", auto);
       }
     }
-    var fc = m.querySelector("#scr-camp"); if (fc) fc.addEventListener("submit", function (ev) { ev.preventDefault(); saveCampaign(); });
+    var fc = m.querySelector("#scr-camp"); if (fc) { fc.addEventListener("submit", function (ev) { ev.preventDefault(); saveCampaign(); }); fc.addEventListener("input", function (ev) { unmark(ev.target); }); }
   }
 
+  function unmark(el) { // a field being corrected loses its red mark at once; the message stays until the next save
+    var i = el && el.name ? S.miss.indexOf(el.name) : -1; if (i < 0) return;
+    S.miss.splice(i, 1); el.removeAttribute("aria-invalid"); el.removeAttribute("aria-describedby"); var l = el.closest("label"); if (l) l.classList.remove("miss");
+  }
+  // Every problem at once: the message lists them all, the fields are marked, the first one is focused.
+  function stop(errs, miss) {
+    S.miss = miss; S.err = errs.join(" ") + " Nothing was saved."; paint(true);
+    var first = S.mount && S.mount.querySelector("form [aria-invalid=true]"); if (first) first.focus(); else showErr();
+  }
   function keep() {
     var f = S.mount && (S.mount.querySelector("#scr-add") || S.mount.querySelector("#scr-camp")); if (!f || !S.adding) return;
     f.querySelectorAll("input[name],select[name],textarea[name]").forEach(function (el) { S.adding[el.name] = String(el.value == null ? "" : el.value); });
@@ -402,15 +417,14 @@
   async function saveScreening() {
     if (S.saving) return;
     keep();
-    var a = S.adding, t = testOf(a.camp); S.err = "";
-    if (!pid(a.idCard) && !str(a.name).trim()) S.err = "Write the ID card or the name.";
-    else if (t) {
-      var miss = FIELDS[t].f.filter(function (f) { return f[4] && !str(a["r_" + f[0]]).trim(); })[0];
-      var bad = FIELDS[t].f.filter(function (f) { var v = str(a["r_" + f[0]]).trim(); return !f[3] && v && !numOk(v); })[0];
-      if (miss) S.err = "Write the " + low(miss[1]) + (miss[2] ? " (" + miss[2] + ")" : "") + ".";
-      else if (bad) S.err = "The " + low(bad[1]) + " is not a number. Check it.";
-    }
-    if (S.err) { S.err += " Nothing was saved."; paint(true); return showErr(); }
+    var a = S.adding, t = testOf(a.camp), errs = [], mk = []; S.err = ""; S.miss = [];
+    if (!pid(a.idCard) && !str(a.name).trim()) { errs.push("Write the ID card or the name."); mk.push("idCard", "name"); }
+    if (t) FIELDS[t].f.forEach(function (f) {
+      var v = str(a["r_" + f[0]]).trim();
+      if (f[4] && !v) { errs.push("Write the " + low(f[1]) + (f[2] ? " (" + f[2] + ")" : "") + "."); mk.push("r_" + f[0]); }
+      else if (!f[3] && v && !numOk(v)) { errs.push("The " + low(f[1]) + " is not a number. Check it."); mk.push("r_" + f[0]); }
+    });
+    if (errs.length) return stop(errs, mk);
     // the ID card and the person (E.people.confirmPerson): asked before anything is saved; Go back keeps the form
     if (E.people && E.people.confirmPerson && pid(a.idCard)) {
       S.saving = true; paint(true);
@@ -440,6 +454,7 @@
     S.saving = false; return load();
   }
   function doneScreening(rec, cid) {
+    S.miss = [];
     if (E.linkPerson) E.linkPerson({ name: rec.name, id_card: rec.idCard, phone: rec.phone, email: rec.email, date_of_birth: rec.dob }, "register:screening", S.asked); S.asked = null; // one person in Customers, found or added
     S.adding = null; S.err = ""; S.view = "part"; S.campId = String(cid); S.partId = String(rec.id);
     var c = campOf(cid); if (c && !parts(c).some(function (p) { return String(p.id) === String(rec.id); })) c.participants = parts(c).concat([rec]);
@@ -450,11 +465,11 @@
   async function saveCampaign() {
     if (S.saving) return;
     keep();
-    var a = S.adding; S.err = "";
-    if (!str(a.name).trim()) S.err = "Write the campaign's name.";
-    else if (has(a.targetScreenings) && !/^\d+$/.test(str(a.targetScreenings).trim())) S.err = "Write the goal as a number of people, or leave it empty.";
-    else if (a.startDate && a.endDate && a.endDate < a.startDate) S.err = "The end date is before the start date.";
-    if (S.err) { S.err += " Nothing was saved."; paint(true); return showErr(); }
+    var a = S.adding, errs = [], mk = []; S.err = ""; S.miss = [];
+    if (!str(a.name).trim()) { errs.push("Write the campaign's name."); mk.push("name"); }
+    if (has(a.targetScreenings) && !/^\d+$/.test(str(a.targetScreenings).trim())) { errs.push("Write the goal as a number of people, or leave it empty."); mk.push("targetScreenings"); }
+    if (a.startDate && a.endDate && a.endDate < a.startDate) { errs.push("The end date is before the start date."); mk.push("endDate"); }
+    if (errs.length) return stop(errs, mk);
     var rec = { id: a.id, name: str(a.name).trim(), type: str(a.type), startDate: str(a.startDate), endDate: str(a.endDate), notes: str(a.notes).trim(), status: str(a.status), location: str(a.location), targetScreenings: str(a.targetScreenings).trim(), participants: [] };
     S.saving = true; paint(true);
     var there = function (list) { return list.some(function (x) { return String(x.id) === String(rec.id); }); };
@@ -470,6 +485,7 @@
     S.saving = false; return load();
   }
   function doneCampaign(rec) {
+    S.miss = [];
     S.adding = null; S.err = ""; S.view = "camp"; S.campId = String(rec.id); S.partId = ""; S.pq = "";
     if (!campOf(rec.id)) S.campaigns.unshift(rec);
     E.toast("Campaign created", "success");
@@ -478,7 +494,7 @@
 
   E.registerModule({
     id: "scrreg", title: "Screening campaigns", order: 3, icon: "🩺", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.view = "list"; S.campId = ""; S.partId = ""; S.adding = null; S.err = ""; S.q = ""; S.pq = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.view = "list"; S.campId = ""; S.partId = ""; S.adding = null; S.err = ""; S.miss = []; S.q = ""; S.pq = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("scrreg") < 0) E.UI2_DESTINATIONS.push("scrreg");
   if (E.UI2_PARENT) E.UI2_PARENT.scrreg = "services";

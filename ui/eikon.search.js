@@ -180,7 +180,15 @@
     var ok = /\d/.test(s) ? s.replace(/\s+/g, "").length >= 3 : s.replace(/[^A-Za-zÀ-ɏ]/g, "").length >= 2;
     if (!ok) return Promise.resolve([]);
     var pp = E.personPick ? Promise.resolve(E.personPick) : Promise.resolve(window.EIKON_LATE).then(function () { return E.personPick; }); // loads with the late files
-    return pp.then(function (p) { return p && p.find ? p.find(s, PER) : []; }).catch(function () { return []; });
+    // ċ ġ ħ ż: the server's LOWER() knows only A to Z, so "ħabela" found nobody. Ask for the longest stretch without them
+    // ("abela") and keep here the names that have every word typed (the browser's lower case knows Maltese).
+    var MT = /[ċġħżĊĠĦŻ]/, wq = s;
+    if (MT.test(s) && !/\d/.test(s)) { var best = s.split(/[\sċġħżĊĠĦŻ]+/).reduce(function (a, b) { return b.length > a.length ? b : a; }, ""); if (best.length >= 2) wq = best; }
+    return pp.then(function (p) {
+      if (!p || !p.find) return [];
+      if (wq === s) return p.find(s, PER);
+      return Promise.resolve(p.find(wq, 30)).then(function (list) { var ws = words(s); return (list || []).filter(function (c) { var n = low(c.name); return ws.every(function (w) { return n.indexOf(w) >= 0; }); }).slice(0, PER); });
+    }).catch(function () { return []; });
   }
 
   // ---- Where each result goes ----

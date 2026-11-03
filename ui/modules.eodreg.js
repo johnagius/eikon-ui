@@ -159,6 +159,7 @@
       var rec = both[0];
       if (!keepDraft || !S.w) { // a draft kept from a moment ago stays as typed, still measured against what it was based on
         S.base = rec; S.w = working(rec); S.dirty = false; S.conflict = null; S.ask = null;
+        if (!rec) S.w.staff = String(user().full_name || "").trim(); // a new day: the person signed in, changed by typing over it
         S.autoDep = !rec || sameDeposit(rec.deposit || rec.bov_deposit, autoDeposit(S.w));
         if (S.autoDep) S.w.deposit = autoDeposit(S.w);
       }
@@ -175,10 +176,10 @@
     st.id = "eikon-eodreg-css";
     st.textContent =
       ".eod{max-width:880px;margin:0 auto;padding-bottom:8px}" +
-      ".eod-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".eod-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 12px 0 0;min-height:44px;margin:-8px 0 2px;cursor:pointer}" +
       ".eod-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}" +
       ".eod h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.eod-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
-      ".eod-day{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}.eod-day input{font:inherit;font-size:15px;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:10px;height:36px;padding:0 10px}" +
+      ".eod-day{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}.eod .eod-day input{font:inherit;font-size:16px;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:10px;height:44px;padding:0 10px}" +
       ".eod-day input:focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:2px}" +
       ".eod-st{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;font-size:13.5px;color:var(--muted)}" +
       ".eod-chip{font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(118,118,128,.12);color:var(--text)}" +
@@ -213,7 +214,8 @@
       ".eod-hint.wn{color:var(--warn,#8A5A08)}" +
       ".eod-note{background:var(--warn-soft,rgba(201,138,18,.16));color:var(--text);border-radius:12px;padding:12px 14px;margin-top:14px;font-size:14px;line-height:1.45}.eod-note .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}" +
       ".eod-note.dn{background:var(--danger-soft,rgba(191,59,46,.12))}" +
-      ".eod-acts{margin:20px 0 0;padding:12px 0 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border)}" +
+      ".eod-acts{margin:20px 0 0;padding:12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border);position:sticky;bottom:0;z-index:5;background:var(--bg)}" + // Save stays in reach while the long form scrolls
+      ".eod-acts .eod-btn{min-height:44px}.eod [aria-invalid=true]{box-shadow:inset 0 -2px 0 var(--danger)}" +
       ".eod-acts .ou{flex:1;min-width:120px;font-size:13px;color:var(--muted)}.eod-acts .ou b{display:block;font-size:16px;color:var(--text);font-variant-numeric:tabular-nums}" +
       ".eod-err{color:var(--danger);font-size:13.5px;margin-top:10px}" +
       ".eod-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
@@ -221,6 +223,7 @@
       ".eod .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .eod-chip.ok{color:#5FD3A0}html[data-ui2]:not([data-ui2-visit]) .eod-big b.ok{color:#5FD3A0}html[data-ui2]:not([data-ui2-visit]) .eod-big b.dn{color:#FF7A72}" +
       "html[data-ui2]:not([data-ui2-visit]) .eod-chip.wn,html[data-ui2]:not([data-ui2-visit]) .eod-big b.wn,html[data-ui2]:not([data-ui2-visit]) .eod-hint.wn{color:#F2B84B}html[data-ui2]:not([data-ui2-visit]) .eod-err{color:#FF7A72}}" +
+      "@media (max-width:760px){.eod-acts{position:fixed;left:0;right:0;bottom:calc(84px + env(safe-area-inset-bottom,0px));margin:0;padding:8px 16px;border-top:.5px solid var(--border);box-shadow:0 -6px 16px rgba(0,0,0,.06)}.eod-foot{padding-bottom:72px}.eod :is(input,select,button){scroll-margin-bottom:150px}}" + // phones: pinned just above the tab bar (the page itself scrolls there)
       "@media (max-width:600px){.eod{padding:4px 16px 0}.eod h1{font-size:32px}.eod-f>span{flex-basis:88px}.eod-pr .amt{flex-basis:82px}.eod-cr em{min-width:72px}.eod-big b{font-size:24px}}";
     document.head.appendChild(st);
   }
@@ -321,7 +324,7 @@
       h += '<div class="eod-note" role="alertdialog" aria-label="Figures not saved"><b>Your figures for ' + esc(dayLabel(S.date)) + " are not saved.</b> Open " + esc(dayLabel(S.pendingDate || today())) + " anyway?" +
         '<div class="acts"><button class="eod-btn" data-act="ask-no">Stay</button><button class="eod-btn" data-act="leave-yes">Leave without saving</button></div></div>';
     }
-    if (S.err) h += '<div class="eod-err" role="alert">' + esc(S.err) + "</div>";
+    if (S.err) h += '<div class="eod-err" id="eod-err" role="alert">' + esc(S.err) + "</div>";
     if (!locked) {
       h += '<div class="eod-acts"><div class="ou">Over / under<b data-b="ouBar">' + esc(ouText(c)) + "</b></div>" +
         '<button class="eod-btn" data-act="lock"' + (S.saving ? " disabled" : "") + ">Save and lock</button>" +
@@ -446,22 +449,29 @@
   function markDirty() { var st = S.mount && S.mount.querySelector(".eod-st"); if (st && !st.querySelector(".eod-chip.dirty")) { var s = document.createElement("span"); s.className = "eod-chip wn dirty"; s.textContent = "Not saved"; if (!/Not saved/.test(st.textContent)) st.appendChild(s); } }
 
   // ---- saving: the whole record, as the server replaces it
-  function check(w) {
+  function check(w) { // the first problem, and (S.bad) the box it is in, so the cursor goes straight to it
+    S.bad = "";
+    var no = function (msg, name) { S.bad = name; return msg; };
     var money = /^\d+([.,]\d{1,2})?$/, count = /^\d+$/;
     var bad = function (v, re) { var s = String(v == null ? "" : v).trim(); return s !== "" && !re.test(s); };
-    if (!String(w.staff || "").trim()) return "Write who is closing (Staff). Nothing was saved.";
-    if (String(w.float_amount || "").trim() === "" || bad(w.float_amount, money)) return "Write the float, e.g. 1000 or 1000.00. Nothing was saved.";
+    if (!String(w.staff || "").trim()) return no("Write who is closing (Staff). Nothing was saved.", "staff");
+    if (String(w.float_amount || "").trim() === "" || bad(w.float_amount, money)) return no("Write the float, e.g. 1000 or 1000.00. Nothing was saved.", "float_amount");
     for (var i = 0; i < LISTS.length; i++) {
       var L = LISTS[i];
-      for (var j = 0; j < w[L.k].length; j++) if (bad(w[L.k][j].amount, money)) return "Check " + L.one + " " + (j + 1) + ": write an amount like 25.50 (no minus, at most two decimals). Nothing was saved.";
+      for (var j = 0; j < w[L.k].length; j++) if (bad(w[L.k][j].amount, money)) return no("Check " + L.one + " " + (j + 1) + ": write an amount like 25.50 (no minus, at most two decimals). Nothing was saved.", "row:" + L.k + ":" + j + ":amount");
     }
     for (var k = 0; k < DEN.length; k++) {
-      if (bad(w.cash["n" + DEN[k]], count)) return "Check the count of €" + DEN[k] + " notes in the till: whole numbers only. Nothing was saved.";
-      if (bad(w.deposit["n" + DEN[k]], count)) return "Check the count of €" + DEN[k] + " notes in the bag: whole numbers only. Nothing was saved.";
+      if (bad(w.cash["n" + DEN[k]], count)) return no("Check the count of €" + DEN[k] + " notes in the till: whole numbers only. Nothing was saved.", "cash:n" + DEN[k]);
+      if (bad(w.deposit["n" + DEN[k]], count)) return no("Check the count of €" + DEN[k] + " notes in the bag: whole numbers only. Nothing was saved.", "dep:n" + DEN[k]);
     }
-    if (bad(w.cash.coins_total, money)) return "Check the coins: write the total like 12.40. Nothing was saved.";
-    if ((calc(w).bov > 0 || String(w.bag_number || "").trim()) && !String(w.bag_number || "").trim()) return "Write the bag number: there are notes in the bank bag. Nothing was saved.";
+    if (bad(w.cash.coins_total, money)) return no("Check the coins: write the total like 12.40. Nothing was saved.", "cash:coins_total");
+    if ((calc(w).bov > 0 || String(w.bag_number || "").trim()) && !String(w.bag_number || "").trim()) return no("Write the bag number: there are notes in the bank bag. Nothing was saved.", "bag_number");
     return "";
+  }
+  function toBad() { // the box with the problem: marked, tied to the message, and the cursor in it
+    var el = S.bad && S.mount && S.mount.querySelector('#eod-form [name="' + S.bad + '"]'); if (!el) return;
+    el.setAttribute("aria-invalid", "true"); el.setAttribute("aria-describedby", "eod-err"); el.focus();
+    el.addEventListener("input", function () { el.removeAttribute("aria-invalid"); el.removeAttribute("aria-describedby"); }, { once: true });
   }
   function payload(w, lock) {
     var amt = function (v) { return (Math.round(mnum(v) * 100) / 100).toFixed(2); };
@@ -481,7 +491,7 @@
   async function save(lock) {
     if (S.saving || !S.w || (S.base && S.base.locked_at)) return;
     keep();
-    S.err = check(S.w); if (S.err) return paint(true);
+    S.err = check(S.w); if (S.err) { paint(true); return toBad(); }
     var body = payload(S.w, lock), mine = fullSig(body);
     S.saving = true; S.conflict = null; paint(true);
     try {

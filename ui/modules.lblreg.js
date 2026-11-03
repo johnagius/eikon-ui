@@ -216,7 +216,7 @@
       ".lbl-form input:not([type=checkbox]),.lbl-form select,.lbl-form textarea{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
       ".lbl-form textarea{resize:vertical;min-height:44px;line-height:1.4}" +
       ".lbl-form label.chk{justify-content:space-between}.lbl-form label.chk input{width:20px;height:20px;accent-color:var(--accent);margin:0}" +
-      ".lbl-form .hd{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:14px 14px 5px;border-top:.5px solid var(--border)}" +
+      ".lbl-form .hd{font-size:13px;font-weight:600;color:var(--muted);padding:14px 14px 5px;border-top:.5px solid var(--border)}" +
       ".lbl-seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;min-width:0;padding:6px 0}" +
       ".lbl-seg button,.lbl-chip{font:inherit;font-size:13.5px;font-weight:600;min-height:36px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;padding:4px 8px;line-height:1.2}" +
       ".lbl-seg button.on,.lbl-chip.on{background:var(--accent);border-color:var(--accent);color:#fff}" +
@@ -224,19 +224,21 @@
       ".lbl-var{padding:8px 14px 10px;border-top:.5px solid var(--border)}.lbl-var p{margin:0 0 6px;font-size:13px;color:var(--muted)}.lbl-var div{display:flex;flex-wrap:wrap;gap:6px}" +
       ".lbl-acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding:10px 14px 6px;border-top:.5px solid var(--border)}" +
       ".lbl-err{color:var(--danger);font-size:13px;padding:6px 14px 0}.lbl-ok{color:var(--muted);font-size:13px;padding:6px 14px 0}" +
-      ".lbl-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 2px 7px}" +
+      ".lbl-lab{font-size:13px;font-weight:600;color:var(--muted);margin:0 2px 7px}" +
       ".lbl-paper{background:#fff;color:#000;border:1px solid var(--border);border-radius:10px;padding:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}" +
       ".lbl-paper>.in{width:46mm;max-width:100%;padding:0.8mm 1mm 0.5mm 1.5mm;box-sizing:border-box;zoom:1.75;margin:0 auto;overflow-wrap:anywhere}" +
       ".lbl-cap{font-size:12.5px;color:var(--muted);margin:8px 2px 0;line-height:1.45}" +
-      ".lbl-mt{margin-top:12px;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-size:13.5px;line-height:1.5}.lbl-mt b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}.lbl-mt p{margin:2px 0}" +
+      ".lbl-mt{margin-top:12px;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-size:13.5px;line-height:1.5}.lbl-mt b{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:4px}.lbl-mt p{margin:2px 0}" +
       ".lbl-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".lbl-row{display:flex;gap:10px;align-items:center;padding:10px 14px;border-top:.5px solid var(--border)}.lbl-row:first-child{border-top:0}" +
       ".lbl-row .t{flex:1;min-width:0}.lbl-row b{display:block;font-size:15px;font-weight:600;overflow-wrap:anywhere}.lbl-row span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}" +
+      ".lbl-skel{background:var(--panel2);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-top:16px;max-width:640px}.lbl-skel i{display:block;height:44px;border-top:.5px solid var(--border);background:linear-gradient(90deg,transparent 0,rgba(118,118,128,.10) 50%,transparent 100%) 0 0/200% 100%;animation:eikonSvcSkel 1.3s linear infinite}.lbl-skel i:first-child{border-top:0}" +
+      "@keyframes eikonSvcSkel{from{background-position:100% 0}to{background-position:-100% 0}}@media (prefers-reduced-motion:reduce){.lbl-skel i{animation:none}}" +
       ".lbl-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".lbl-note{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5}" +
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) :is(.lbl-seg button.on,.lbl-chip.on){color:#00160E}html[data-ui2]:not([data-ui2-visit]) .lbl-err{color:#FF7A72}}" +
       "@media (max-width:860px){.lbl-grid{grid-template-columns:minmax(0,1fr)}.lbl-side{position:static}}" +
-      "@media (max-width:600px){.lbl{padding:4px 16px 0}.lbl h1{font-size:32px}.lbl-form label>span,.lbl-form .row>span{flex-basis:92px}}";
+      "@media (max-width:600px){.lbl-btn{min-height:44px;border-radius:22px;padding:0 18px;font-size:15px}.lbl-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.lbl-seg button,.lbl-chip{min-height:44px}.lbl-form label.chk input{width:24px;height:24px}.lbl{padding:4px 16px 0}.lbl h1{font-size:32px}.lbl-form label>span,.lbl-form .row>span{flex-basis:92px}}";
     document.head.appendChild(st);
   }
 
@@ -316,8 +318,8 @@
     if (S.f && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var h = '<div class="lbl"><button class="lbl-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("lblreg")) + '</button>' +
       '<h1>Dispensing labels</h1><p class="lbl-sub">Fill in the label, check it, print it.</p>';
-    if (S.loading && !S.f) h += '<div class="lbl-quiet">Opening labels…</div>';
-    else if (S.error && !S.f) h += '<div class="lbl-quiet">' + esc(S.error) + "</div>";
+    if (S.loading && !S.f) h += '<div class="lbl-skel" role="status" aria-busy="true"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Opening labels</span><i></i><i></i><i></i><i></i><i></i></div>';
+    else if (S.error && !S.f) h += '<div class="lbl-quiet" role="alert">' + esc(S.error) + ' <button type="button" class="lbl-btn" data-act="reload" style="margin-left:6px">Try again</button></div>';
     else if (S.f) {
       h += '<div class="lbl-grid"><div style="min-width:0">' + formHtml() + "</div>" + '<div class="lbl-side" id="lbl-side">' + previewHtml() + "</div></div>";
       var recent = S.history.slice(0, 8);
@@ -355,6 +357,7 @@
         else if (act === "again") { var l = S.history[Number(b.getAttribute("data-i"))]; if (!l) return; S.f = { patientName: l.patientName, drugName: l.drugName, dose: l.dose, frequency: l.frequency, route: l.route, customInstructions: l.customInstructions, selectedWarnings: (l.selectedWarnings || []).slice(), templateId: l.templateId || (S.templates[0] || {}).id };
           if (l.patientName) S.inc = true; S.variants = null; S.done = ""; if (!S.pending.length) S.err = ""; paint(true); var pb = m.querySelector("#lbl-add button[type=submit]"); if (pb) pb.focus(); try { m.querySelector("#lbl-add").scrollIntoView({ block: "start", behavior: "smooth" }); } catch (x2) {} }
         else if (act === "retry") flush();
+        else if (act === "reload") load().then(function () { focus("[name=drugName]"); });
       });
     });
     var f = m.querySelector("#lbl-add"); if (!f) return;

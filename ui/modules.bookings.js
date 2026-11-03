@@ -100,7 +100,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
 .bkx-f{background:var(--sf);border-radius:16px;overflow:hidden;margin-bottom:16px}\
 .bkx-f label{display:flex;align-items:center;min-height:50px;padding:0 16px;gap:12px;position:relative}.bkx-f label+label::before{content:'';position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}\
 .bkx-f label:focus-within{background:var(--ts)}.bkx-f label span{width:92px;font-size:17px;font-weight:500;flex:none}.bkx-f input,.bkx-f select{flex:1;min-width:0;border:0;outline:0;font:inherit;font-size:17px;background:transparent;padding:12px 0;color:inherit}\
-.bkx-note{font-size:13px;color:var(--l2);text-align:center;margin-top:10px}.bkx-err{color:var(--red);font-size:15px;font-weight:600;margin:0 4px 12px}\
+.bkx-note{font-size:13px;color:var(--l2);text-align:center;margin-top:10px}.bkx-err{color:var(--red);font-size:15px;font-weight:600;margin:0 4px 12px}.bkx-f .epp-list,.bkx-f .epp-note{margin:0 16px}\
 .bkx-acts{display:grid;gap:8px}\
 .bkx-seg{display:flex;background:rgba(118,118,128,.12);border-radius:10px;padding:2px;margin-bottom:16px}.bkx-seg button{flex:1;height:32px;border-radius:8px;font-size:14px;font-weight:600;color:rgba(60,60,67,.8)}\
 .bkx-seg button.on{background:#fff;color:#000;box-shadow:0 1px 3px rgba(0,0,0,.12)}\
@@ -204,6 +204,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
   function paint() {
     if (!S.mount) return;
     if (E.state.activeModuleId !== "bookings") return; // left before a reply came back: do not draw over the next screen
+    keepFields(); // a name typed while the free times were still loading used to be wiped by the redraw they caused
     var isToday = S.date === todayStr(), now = nowHM();
     // With several practitioners (or rooms), the day can be narrowed to one; the choice is kept while you move between days.
     var provsAll = (S.setup && S.setup.providers || []).filter(function (p) { return p.active !== false; });
@@ -239,6 +240,8 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       (hasSetup ? '<div class="bkx-seg bkx-view"><button class="' + (S.view === "day" ? "on" : "") + '" data-act="view" data-v="day">Day</button><button class="' + (S.view === "week" ? "on" : "") + '" data-act="view" data-v="week">Week</button></div>' : "") +
       (hasSetup && S.view === "day" ? daysHtml() : "") + body + "</div>" + sheetHtml();
     try { afterPaint(hadSheet, fk, sel); } catch (e) {}
+    var shEl = S.sheet && S.sheet.kind === "new" && S.mount.querySelector(".bkx-sheet");
+    if (shEl && E.personPick) try { E.personPick.attach({ key: "bookings", form: shEl, fields: { name: "personName", phone: "personPhone" }, onFill: function () { keepFields(); } }); } catch (e) {}
   }
 
   // The address in "Test to" (kept across redraws of the sheet); empty means the sign-in email.
@@ -275,6 +278,12 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     if (!S.mount || !S.sheet || E.state.activeModuleId !== "bookings") return;
     var sheet = S.mount.querySelector(".bkx-sheet"); if (!sheet) return;
     if (ev.key === "Escape") { ev.preventDefault(); S.sheet = null; paint(); return; }
+    if (ev.key === "Enter" && !ev.isComposing && ev.target && ev.target.tagName === "INPUT" && sheet.contains(ev.target)) {
+      // Enter in a field does what the big button says: book, add to the waiting list, or cancel (a choice in the people list is taken first, by the list)
+      var go = sheet.querySelector('[data-act="docancel"]') || sheet.querySelector('[data-act="book"]');
+      if (go && !go.disabled && (ev.target.id === "bkx-reason" || /^bkx-(name|phone|email)$/.test(ev.target.id))) { ev.preventDefault(); go.click(); }
+      return;
+    }
     if (ev.key !== "Tab") return;
     var f = focusables(sheet); if (!f.length) return;
     var a = document.activeElement, first = f[0], last = f[f.length - 1];
@@ -298,10 +307,10 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
           var on = sh.slot && sh.slot.date === x.date && sh.slot.time === x.time && sh.slot.providerId === x.providerId;
           return '<button class="bkx-slot' + (on ? " on" : "") + '" data-act="slot" data-i="' + i + '">' + esc(x.time) + "<small>" + esc(dayShort(x.date)) + "</small></button>"; }).join("") : '<span class="sub">No free times in the next three weeks.</span>') + "</div>" +
         '<div class="bkx-lab">Who</div><div class="bkx-f">' +
-        '<label><span>Name</span><input id="bkx-name" autocomplete="off" value="' + esc(sh.name || "") + '" placeholder="Full name"></label>' +
-        '<label><span>Mobile</span><input id="bkx-phone" inputmode="tel" value="' + esc(sh.phone || "") + '" placeholder="Optional"></label>' +
-        '<label><span>Email</span><input id="bkx-email" inputmode="email" value="' + esc(sh.email || "") + '" placeholder="Optional"></label></div>' +
-        (sh.err ? '<div class="bkx-err">' + esc(sh.err) + "</div>" : "") +
+        '<label><span>Name</span><input id="bkx-name" name="personName" autocomplete="off" autocapitalize="words" enterkeyhint="done" value="' + esc(sh.name || "") + '" placeholder="Full name"></label>' +
+        '<label><span>Mobile</span><input id="bkx-phone" name="personPhone" type="tel" inputmode="tel" autocomplete="off" enterkeyhint="done" value="' + esc(sh.phone || "") + '" placeholder="Optional"></label>' +
+        '<label><span>Email</span><input id="bkx-email" name="personEmail" type="email" inputmode="email" autocapitalize="off" spellcheck="false" autocomplete="off" enterkeyhint="done" value="' + esc(sh.email || "") + '" placeholder="Optional"></label></div>' +
+        (sh.err ? '<div class="bkx-err" role="alert">' + esc(sh.err) + "</div>" : "") +
         '<button class="bkx-btn fill lg" data-act="book"' + (sh.saving ? " disabled" : "") + ">" + (sh.saving ? "Booking…" : sh.slot ? "Book " + esc(dayShort(sh.slot.date)) + " at " + esc(sh.slot.time) : "Book " + esc(chosen ? chosen.name.toLowerCase() : "")) /* the service is chosen just above: the button says when, on one line */ + "</button>" +
         (sh.waitlistId ? "" : '<button class="bkx-btn lg" data-act="wl-add" style="margin-top:8px">No time suits? Add to the waiting list</button>');
     }
@@ -312,9 +321,9 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
         '<div class="bkx-g" style="padding:16px 18px;margin-bottom:16px"><div style="font-size:20px;font-weight:700">' + esc(b.personName) + '</div><div class="sub">' +
         [b.personPhone, b.personEmail].filter(Boolean).map(esc).join(" · ") + (b.notes ? "<br>" + esc(b.notes) : "") + '</div><div class="sub" style="margin-top:6px">Ref ' + esc(b.ref) + " · " + money(b.priceCents) + "</div></div>" +
         (sh.cancelling
-          ? '<div class="bkx-f"><label><span>Reason</span><input id="bkx-reason" placeholder="e.g. Called to cancel" value=""></label></div>' + (sh.err ? '<div class="bkx-err">' + esc(sh.err) + "</div>" : "") +
+          ? '<div class="bkx-f"><label><span>Reason</span><input id="bkx-reason" placeholder="e.g. Called to cancel" value="" enterkeyhint="done"></label></div>' + (sh.err ? '<div class="bkx-err" role="alert">' + esc(sh.err) + "</div>" : "") +
             '<div class="bkx-acts"><button class="bkx-btn red lg" data-act="docancel">Cancel this booking</button><button class="bkx-btn lg" data-act="nocancel">Keep it</button></div>'
-          : (sh.err ? '<div class="bkx-err">' + esc(sh.err) + "</div>" : "") + '<div class="bkx-acts">' +
+          : (sh.err ? '<div class="bkx-err" role="alert">' + esc(sh.err) + "</div>" : "") + '<div class="bkx-acts">' +
             (b.status !== "arrived" && b.status !== "done" ? '<button class="bkx-btn fill lg" data-act="st" data-s="arrived">Arrived</button>' : "") +
             (b.status !== "done" ? '<button class="bkx-btn tint lg" data-act="st" data-s="done">Done</button>' : "") +
             (b.status === "booked" || b.status === "confirmed" ? '<button class="bkx-btn lg" data-act="st" data-s="no_show">No-show</button>' : "") +
@@ -336,7 +345,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     var tabs = [["services", "Services"], ["hours", "People"], ["rooms", "Rooms"], ["messages", "Messages"]];
     var h = '<div class="bkx-sh"><button class="bkx-btn" data-act="close">Done</button><b>Bookings settings</b><span style="width:60px"></span></div>' +
       '<div class="bkx-seg">' + tabs.map(function (t) { return '<button class="' + (sh.tab === t[0] ? "on" : "") + '" data-act="tab" data-t="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
-    if (sh.err) h += '<div class="bkx-err">' + esc(sh.err) + "</div>";
+    if (sh.err) h += '<div class="bkx-err" role="alert">' + esc(sh.err) + "</div>";
     if (sh.okMsg) h += '<div class="bkx-ok">' + esc(sh.okMsg) + "</div>";
     var provs = S.setup.providers;
     if (sh.tab === "services") {
@@ -533,8 +542,9 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     if (act === "slot") { S.sheet.slot = S.sheet.slots[Number(t.getAttribute("data-i"))]; S.sheet.err = ""; return paint(); }
     if (act === "book") {
       var sh = S.sheet;
-      if (!sh.slot) { sh.err = "Pick a time."; return paint(); }
-      if (!String(sh.name || "").trim()) { sh.err = "Type the person's name."; return paint(); }
+      var noName = !String(sh.name || "").trim();
+      if (!sh.slot) { sh.err = noName ? "Pick a time and type the person's name." : "Pick a time."; return paint(); }
+      if (noName) { sh.err = "Type the person's name."; paint(); var nm = document.getElementById("bkx-name"); if (nm) nm.focus(); return; }
       sh.saving = true; sh.err = ""; paint();
       try {
         var r = await api("/bookings", { method: "POST", body: JSON.stringify({ serviceId: sh.serviceId, providerId: sh.slot.providerId, date: sh.slot.date, start: sh.slot.time, personName: sh.name, personPhone: sh.phone, personEmail: sh.email, waitlistId: sh.waitlistId || undefined }) });

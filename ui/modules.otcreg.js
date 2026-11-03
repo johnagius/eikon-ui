@@ -32,7 +32,7 @@
       ".otc-grid{display:grid;grid-template-columns:380px minmax(0,1fr);gap:18px;align-items:start;margin-top:16px}.otc-side,.otc-detail{min-width:0}" +
       ".otc-q{width:100%;box-sizing:border-box;height:42px;border-radius:12px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font:inherit;font-size:16px;padding:0 12px;outline:0}" +
       ".otc-q:focus-visible{outline:2px solid var(--accent);outline-offset:1px}" +
-      ".otc-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:18px 2px 7px;display:flex;gap:8px;justify-content:space-between}.otc-lab b{color:var(--text);font-variant-numeric:tabular-nums}" +
+      ".otc-lab{font-size:13px;font-weight:600;color:var(--muted);margin:18px 2px 7px;display:flex;gap:8px;justify-content:space-between}.otc-lab b{color:var(--text);font-variant-numeric:tabular-nums}" +
       ".otc-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".otc-row{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;text-align:left;border:0;border-top:.5px solid var(--border);background:none;font:inherit;color:var(--text);padding:10px 14px;cursor:pointer}" +
       ".otc-list>.otc-row:first-child{border-top:0}.otc-row:hover{background:rgba(127,127,127,.07)}.otc-row.on{background:rgba(10,143,106,.08)}" +
@@ -51,9 +51,12 @@
       ".otc-caution .otc-list{margin-top:6px}" +
       ".otc-dback{display:inline-block;border:0;background:none;color:var(--accent);font:inherit;font-size:16px;font-weight:500;padding:4px 0 12px;cursor:pointer;text-align:left;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
       "@media (min-width:901px){.otc-dback.root{display:none}}" +
+      ".otc-skel{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:16px;max-width:380px}.otc-skel i{display:block;height:48px;border-top:.5px solid var(--border);background:linear-gradient(90deg,transparent 0,rgba(118,118,128,.10) 50%,transparent 100%) 0 0/200% 100%;animation:eikonSvcSkel 1.3s linear infinite}.otc-skel i:first-child{border-top:0}" +
+      "@keyframes eikonSvcSkel{from{background-position:100% 0}to{background-position:-100% 0}}@media (prefers-reduced-motion:reduce){.otc-skel i{animation:none}}" +
+      ".otc-retry{font:inherit;font-size:14px;font-weight:600;min-height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;margin-left:6px}" +
       ".otc-foot{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.5}.otc-foot a{color:var(--accent)}" +
       "@media (max-width:900px){.otc-grid{grid-template-columns:minmax(0,1fr)}.otc.has-sel .otc-side,.otc.has-sel .otc-head{display:none}.otc.has-sel .otc-grid{margin-top:0}.otc-pick{display:none}}" +
-      "@media (max-width:600px){.otc{padding:4px 16px 0}.otc h1{font-size:32px}.otc-card{padding:16px}}" +
+      "@media (max-width:600px){.otc-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.otc-q{height:44px}.otc-dback{min-height:44px;padding:0 0 4px}.otc-more,.otc-retry{min-height:44px}.otc{padding:4px 16px 0}.otc h1{font-size:32px}.otc-card{padding:16px}}" +
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .otc-row.on{background:rgba(43,196,138,.14)}html[data-ui2]:not([data-ui2-visit]) .otc-caution h3{color:#FF7A72}html[data-ui2]:not([data-ui2-visit]) .otc-caution{border-left-color:#FF7A72}}";
     document.head.appendChild(st);
   }
@@ -156,27 +159,30 @@
     if (by.guardrail && by.guardrail.length) {
       var acts = []; by.guardrail.forEach(function (g) { var a = g.link.meta && g.link.meta.posAction; if (a && acts.indexOf(a) < 0) acts.push(a); });
       var gl = S.more.guardrail ? by.guardrail : by.guardrail.slice(0, SHOW);
-      h += '<section class="otc-caution" aria-labelledby="otc-caut"><h3 id="otc-caut"><span aria-hidden="true">⚠</span> Caution: ' + by.guardrail.length + " guardrail" + (by.guardrail.length === 1 ? "" : "s") + "</h3>" +
+      h += '<section class="otc-caution" aria-labelledby="otc-caut"><h3 id="otc-caut"><span aria-hidden="true">⚠</span> Caution: ' + by.guardrail.length + (by.guardrail.length === 1 ? " product" : " products") + " to check before selling together</h3>" +
         acts.map(function (a) { return "<p>" + esc(a) + "</p>"; }).join("") +
         '<div class="otc-list" data-sec="guardrail">' + gl.map(function (g) { return row(g.node, linkSub(g.link), ""); }).join("") +
         (by.guardrail.length > gl.length ? '<button type="button" class="otc-more" data-more="guardrail">Show all ' + by.guardrail.length + "</button>" : "") + "</div></section>";
     }
     if (c.nodeType === "product") {
-      h += section("similar", "Alternatives (similar)", by.similar) + section("complement", "Goes well with (complements)", by.complement) +
+      h += section("similar", "Alternatives", by.similar) + section("complement", "Goes well with", by.complement) +
         section("symptom", "Symptoms", by.symptom) + section("usecase", "Use cases", by.usecase) + section("bundle", "Bundles", by.bundle);
     } else {
       var prodTitle = c.nodeType === "symptom" ? "Products for this symptom" : c.nodeType === "usecase" ? "Products for this use case" : "Products in this bundle";
       h += section(c.nodeType, prodTitle, by[c.nodeType]);
-      ["usecase", "bundle", "symptom", "similar", "complement"].forEach(function (k) { if (k !== c.nodeType) h += section(k, k === "usecase" ? "Related use cases" : k === "bundle" ? "Bundles" : k === "symptom" ? "Symptoms" : k === "similar" ? "Alternatives (similar)" : "Goes well with (complements)", by[k]); });
+      ["usecase", "bundle", "symptom", "similar", "complement"].forEach(function (k) { if (k !== c.nodeType) h += section(k, k === "usecase" ? "Related use cases" : k === "bundle" ? "Bundles" : k === "symptom" ? "Symptoms" : k === "similar" ? "Alternatives" : "Goes well with", by[k]); });
     }
     if (!(d.links || []).length) h += '<div class="otc-quiet" style="margin-top:16px">Nothing linked to this yet.</div>';
     return h;
   }
 
   function side() {
-    var h = '<label for="otc-q" class="otc-lab" style="margin-top:0"><span>Search a symptom or a product</span></label>' +
-      '<input id="otc-q" class="otc-q" type="search" autocomplete="off" spellcheck="false" placeholder="e.g. cough, heartburn, ibuprofen" value="' + esc(S.q) + '">';
-    var sel = S.stack.length ? S.stack[0] : "";
+    return '<label for="otc-q" class="otc-lab" style="margin-top:0"><span>Search a symptom or a product</span></label>' +
+      '<input id="otc-q" class="otc-q" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search" placeholder="e.g. cough, heartburn, ibuprofen" value="' + esc(S.q) + '">' +
+      '<div id="otc-side-res">' + sideList() + "</div>";
+  }
+  function sideList() {
+    var h = "", sel = S.stack.length ? S.stack[0] : "";
     if (S.q.trim().length >= 2) {
       var res = doSearch(S.q);
       h += '<div class="otc-lab"><span>Results</span><b>' + res.length + "</b></div>";
@@ -205,8 +211,8 @@
     var sel = S.stack.length > 0;
     var h = '<div class="otc' + (sel ? " has-sel" : "") + '"><div class="otc-head"><button type="button" class="otc-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("otcreg")) + '</button>' +
       '<h1>Over the counter</h1><p class="otc-sub">What to recommend, by symptom. Search, or pick a symptom, then follow a product to its cautions and alternatives.</p></div>';
-    if (S.loading && !S.idx) h += '<div class="otc-quiet" style="margin-top:16px">Opening the OTC guide…</div>';
-    else if (S.error) h += '<div class="otc-quiet" style="margin-top:16px">' + esc(S.error) + "</div>";
+    if (S.loading && !S.idx) h += '<div class="otc-skel" role="status" aria-busy="true"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Opening the OTC guide</span><i></i><i></i><i></i><i></i><i></i></div>';
+    else if (S.error) h += '<div class="otc-quiet" style="margin-top:16px" role="alert">' + esc(S.error) + ' <button type="button" class="otc-retry" data-act="retry">Try again</button></div>';
     else {
       h += '<div class="otc-grid"><div class="otc-side">' + side() + '</div><div class="otc-detail" aria-live="polite">' +
         (S.openErr ? '<div class="otc-quiet">' + esc(S.openErr) + "</div>" : "") +
@@ -222,12 +228,11 @@
         var act = b.getAttribute("data-act");
         if (act === "back") window.location.hash = E.ui2BackHash("otcreg");
         else if (act === "close") back();
+        else if (act === "retry") load();
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "otcreg"); } catch (x) {} E.openClassic("otcmindmap"); }
       });
     });
-    m.querySelectorAll("[data-open]").forEach(function (b) {
-      b.addEventListener("click", function () { open(b.getAttribute("data-open"), !!b.closest(".otc-detail")); });
-    });
+    wireOpen(m);
     m.querySelectorAll("[data-more]").forEach(function (b) {
       b.addEventListener("click", function () {
         var k = b.getAttribute("data-more"), n = b.parentNode.querySelectorAll(".otc-row").length; S.more[k] = true; paint();
@@ -236,7 +241,7 @@
     });
     var qn = m.querySelector("#otc-q");
     if (qn) {
-      qn.addEventListener("input", function () { keep(); paint(); });
+      qn.addEventListener("input", function () { keep(); var box = m.querySelector("#otc-side-res"); if (!box) return paint(); box.innerHTML = sideList(); wireOpen(box); }); // only the list under the box is redrawn: the box itself is never replaced while typing
       qn.addEventListener("keydown", function (e) {
         if (e.key === "Enter") { e.preventDefault(); var first = m.querySelector("#otc-res .otc-row"); if (first) first.click(); }
         else if (e.key === "ArrowDown") { var f = m.querySelector(".otc-side .otc-list .otc-row"); if (f) { e.preventDefault(); f.focus(); } }
@@ -244,6 +249,11 @@
     }
   }
 
+  function wireOpen(root) {
+    root.querySelectorAll("[data-open]").forEach(function (b) {
+      b.addEventListener("click", function () { open(b.getAttribute("data-open"), !!b.closest(".otc-detail")); });
+    });
+  }
   function keep() { var qn = S.mount && S.mount.querySelector("#otc-q"); if (qn) S.q = String(qn.value || ""); }
   function top() { try { if (window.matchMedia("(max-width:900px)").matches) window.scrollTo(0, 0); } catch (e) {} }
   function focusTitle() { setTimeout(function () { var x = S.mount && S.mount.querySelector("#otc-title"); var a = document.activeElement; if (x && !(a && a.id === "otc-q")) x.focus(); }, 30); }

@@ -12,7 +12,8 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, records: [], patients: [], loading: false, error: "", q: "", view: null, adding: null, saving: false, err: "" };
+  var S = { mount: null, records: [], patients: [], loading: false, error: "", q: "", view: null, adding: null, saving: false, err: "", miss: [], lastType: "" };
+  try { S.lastType = localStorage.getItem("eikon_pocreg_type") || ""; } catch (e) { S.lastType = ""; } // the test this person records most opens first
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   var TYPES = [["bp", "Blood pressure"], ["bg", "Glucose"], ["hba1c", "HbA1c"], ["chol", "Cholesterol"], ["bmi", "Weight / BMI"], ["urine", "Urine"]];
   // The label each record carries, exactly as the classic screen writes it
@@ -135,7 +136,7 @@
       ".poc-find{display:flex;align-items:center;gap:8px;margin-top:16px;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:0 12px}" +
       ".poc-find input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:11px 0}" +
       ".poc-find:focus-within{border-color:var(--accent)}" +
-      ".poc-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 2px 7px;display:flex;gap:8px}.poc-lab b{color:var(--text)}" +
+      ".poc-lab{font-size:13px;font-weight:600;color:var(--muted);margin:20px 2px 7px;display:flex;gap:8px}.poc-lab b{color:var(--text)}" +
       ".poc-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".poc-row{display:flex;gap:10px;align-items:center;width:100%;text-align:left;font:inherit;color:inherit;background:transparent;border:0;border-top:.5px solid var(--border);padding:10px 16px;min-height:52px}" +
       ".poc-list>.poc-row:first-child{border-top:0}button.poc-row{cursor:pointer}button.poc-row:hover{background:rgba(118,118,128,.06)}" +
@@ -152,18 +153,21 @@
       ".poc-form label>span{flex:0 0 108px;font-size:15px}.poc-form label>i{font-style:normal;color:var(--muted);font-size:13px;white-space:nowrap}" +
       ".poc-form input,.poc-form select{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
       ".poc-form label small{color:var(--accent);font-size:12px;font-weight:600;white-space:nowrap}" +
-      ".poc-form .hd{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:14px 14px 5px;border-top:.5px solid var(--border)}.poc-form .hd:first-child{border-top:0}" +
+      ".poc-form .hd{font-size:13px;font-weight:600;color:var(--muted);padding:14px 14px 5px;border-top:.5px solid var(--border)}.poc-form .hd:first-child{border-top:0}" +
       ".poc-seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:4px 14px 10px}" +
       ".poc-seg button{font:inherit;font-size:13.5px;font-weight:600;min-height:36px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;padding:4px 6px;line-height:1.15;overflow-wrap:anywhere}" +
       ".poc-seg button.on{background:var(--accent);border-color:var(--accent);color:#fff}" +
       ".poc-live{padding:8px 14px;font-size:13.5px;color:var(--muted);border-top:.5px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:20px}.poc-live b{color:var(--text);font-weight:600}" +
       ".poc-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end}" +
-      ".poc-err{color:var(--danger);font-size:13px;padding:4px 14px}" +
+      ".poc-err{color:var(--danger);font-size:13.5px;padding:6px 14px;line-height:1.45}" +
+      ".poc-form label.miss>span{color:var(--danger);font-weight:600}.poc-form label.miss{box-shadow:inset 3px 0 0 var(--danger)}" +
+      ".poc-skel{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:20px}.poc-skel i{display:block;height:52px;border-top:.5px solid var(--border);background:linear-gradient(90deg,transparent 0,rgba(118,118,128,.10) 50%,transparent 100%) 0 0/200% 100%;animation:eikonSvcSkel 1.3s linear infinite}.poc-skel i:first-child{border-top:0}" +
+      "@keyframes eikonSvcSkel{from{background-position:100% 0}to{background-position:-100% 0}}@media (prefers-reduced-motion:reduce){.poc-skel i{animation:none}}" +
       ".poc-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".poc-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       ".poc-note{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5}" +
-      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .poc-seg button.on{color:#00160E}}" +
-      "@media (max-width:600px){.poc{padding:4px 16px 0}.poc h1{font-size:32px}.poc-form label>span{flex-basis:92px}.poc-row{padding:10px 14px}}";
+      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .poc-seg button.on{color:#00160E}html[data-ui2]:not([data-ui2-visit]) :is(.poc-err,.poc-form label.miss>span){color:#FF7A72}}" +
+      "@media (max-width:600px){.poc-btn{height:44px;border-radius:22px;padding:0 18px;font-size:15px}.poc-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.poc-seg button{min-height:44px}.poc{padding:4px 16px 0}.poc h1{font-size:32px}.poc-form label>span{flex-basis:92px}.poc-row{padding:10px 14px}}";
     document.head.appendChild(st);
   }
 
@@ -182,7 +186,7 @@
   }
 
   function blank(p) {
-    var a = { type: (S.adding && S.adding.type) || "bp", dt: nowLocal(), patientId: "", name: "", phone: "", age: "", address: "", intervention: "", notes: "", recId: "" };
+    var a = { type: (S.adding && S.adding.type) || (TYPES.some(function (t) { return t[0] === S.lastType; }) ? S.lastType : "bp"), dt: nowLocal(), patientId: "", name: "", phone: "", age: "", address: "", intervention: "", notes: "", recId: "" };
     a.arm = "Left"; a.position = "Sitting"; a.timing = "Random"; a.fasting = ""; a.appearance = "";
     URINE.forEach(function (u) { a[u[0]] = u[3]; });
     if (p) { a.patientId = p.id; a.name = p.name; a.phone = p.phone; a.age = has(p.age) ? String(p.age) : ""; a.address = p.address; a.found = true; }
@@ -191,7 +195,8 @@
 
   function field(k, lab, extra, unit) {
     var a = S.adding;
-    return "<label><span>" + lab + '</span><input name="' + k + '" value="' + esc(a[k]) + '"' + (extra || "") + ">" + (unit ? "<i>" + unit + "</i>" : "") + "</label>";
+    var bad = S.miss.indexOf(k) >= 0;
+    return "<label" + (bad ? ' class="miss"' : "") + "><span>" + lab + '</span><input name="' + k + '" value="' + esc(a[k]) + '"' + (bad ? ' aria-invalid="true" aria-describedby="poc-errmsg"' : "") + (extra || "") + ">" + (unit ? "<i>" + unit + "</i>" : "") + "</label>";
   }
   function pick(k, lab, opts) {
     var a = S.adding;
@@ -245,7 +250,7 @@
       field("dt", "Done at", ' type="datetime-local"') +
       field("intervention", "Intervention", ' placeholder="Optional, e.g. lifestyle advice, referred"') +
       field("notes", "Notes", ' placeholder="Optional"') +
-      (S.err ? '<div class="poc-err" role="alert">' + esc(S.err) + "</div>" : "") +
+      (S.err ? '<div class="poc-err" id="poc-errmsg" role="alert">' + esc(S.err) + "</div>" : "") +
       '<div class="acts"><button type="button" class="poc-btn" data-act="add-cancel">Cancel</button><button type="submit" class="poc-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div></form>";
   }
 
@@ -317,8 +322,8 @@
     var h = '<div class="poc"><button class="poc-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("pocreg")) + '</button>' +
       '<div class="poc-top"><div><h1>Point-of-care tests</h1><p class="poc-sub">Blood pressure, glucose, cholesterol and other tests, per patient.</p></div>' + (S.adding || S.view ? "" : '<button class="poc-btn p" data-act="add">Record a test</button>') + "</div>";
     if (S.adding) h += formHtml();
-    if (S.loading && !S.records.length && !S.patients.length) h += '<div class="poc-quiet">Opening the tests…</div>';
-    else if (S.error) h += '<div class="poc-quiet">' + esc(S.error) + "</div>";
+    if (S.loading && !S.records.length && !S.patients.length) h += '<div class="poc-skel" role="status" aria-busy="true"><span class="poc-sr">Opening the tests</span><i></i><i></i><i></i><i></i><i></i></div>';
+    else if (S.error) h += '<div class="poc-quiet" role="alert">' + esc(S.error) + ' <button type="button" class="poc-btn" data-act="retry" style="margin-left:6px">Try again</button></div>';
     else h += S.view ? patientHtml(S.view) : homeHtml();
     h += '<p class="poc-note">High and low marks are a guide for adults (blood pressure 140/90, fasting glucose 7.0 and random 11.1 mmol/L, HbA1c 48 mmol/mol, total cholesterol 5.0, LDL 3.0, HDL 1.0, BMI 25) and are not saved with the test. ' +
       'Editing or deleting a test, printing one test, the patients list with its flags, CSV export and import are in the <a href="#" data-act="classic">classic POCT screen</a>.</p></div>';
@@ -337,12 +342,13 @@
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
         if (act === "back") window.location.hash = E.ui2BackHash("pocreg");
-        else if (act === "add") { S.adding = blank(null); S.err = ""; paint(true); focus("[name=patientId]"); }
-        else if (act === "add-q") { var q = S.q; S.adding = blank(null); if (/\d/.test(q) && !/\s/.test(q.trim()) && !/^[+\d\s]{8,}$/.test(q.trim())) S.adding.patientId = pid(q); else if (/^[+\d\s]{8,}$/.test(q.trim())) S.adding.phone = q.trim(); else S.adding.name = q.trim(); S.err = ""; paint(true); focus("[name=patientId]"); }
-        else if (act === "add-for") { var p = people()[b.getAttribute("data-pid")]; S.adding = blank(p); S.err = ""; paint(true); focus("[name=sys],[name=glucose],[name=pct],[name=tc],[name=weight],[name=leu]"); }
-        else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
+        else if (act === "add") { S.adding = blank(null); S.err = ""; S.miss = []; paint(true); focus("[name=patientId]"); }
+        else if (act === "add-q") { var q = S.q; S.adding = blank(null); S.miss = []; if (/\d/.test(q) && !/\s/.test(q.trim()) && !/^[+\d\s]{8,}$/.test(q.trim())) S.adding.patientId = pid(q); else if (/^[+\d\s]{8,}$/.test(q.trim())) S.adding.phone = q.trim(); else S.adding.name = q.trim(); S.err = ""; paint(true); focus("[name=patientId]"); }
+        else if (act === "add-for") { var p = people()[b.getAttribute("data-pid")]; S.adding = blank(p); S.err = ""; S.miss = []; paint(true); focus("[name=sys],[name=glucose],[name=pct],[name=tc],[name=weight],[name=leu]"); }
+        else if (act === "add-cancel") { S.adding = null; S.err = ""; S.miss = []; paint(true); }
         else if (act === "open") { S.view = b.getAttribute("data-pid"); paint(); window.scrollTo(0, 0); }
         else if (act === "home") { S.view = null; paint(); }
+        else if (act === "retry") load();
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "pocreg"); } catch (x) {} E.openClassic("poct"); }
       });
     });
@@ -351,7 +357,7 @@
     var f = m.querySelector("#poc-add");
     if (!f) return;
     f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
-    f.querySelectorAll(".poc-seg [data-type]").forEach(function (b) { b.addEventListener("click", function () { keep(); S.adding.type = b.getAttribute("data-type"); S.err = ""; paint(true); var x = S.mount.querySelector('.poc-seg [data-type="' + S.adding.type + '"]'); if (x) x.focus(); }); });
+    f.querySelectorAll(".poc-seg [data-type]").forEach(function (b) { b.addEventListener("click", function () { keep(); S.adding.type = b.getAttribute("data-type"); S.err = ""; S.miss = []; paint(true); var x = S.mount.querySelector('.poc-seg [data-type="' + S.adding.type + '"]'); if (x) x.focus(); }); });
     var idIn = f.querySelector("[name=patientId]");
     if (idIn) { idIn.addEventListener("input", function () { clearTimeout(S.idT); S.idT = setTimeout(function () { lookup(idIn.value); }, 300); }); idIn.addEventListener("blur", function () { var v = idIn.value; setTimeout(function () { lookup(v); }, 0); }); } // after the blur: focus has moved on, and the redraw puts it back there
     if (E.personPick) E.personPick.attach({ key: "pocreg", form: f, fields: { id: "patientId", name: "name", phone: "phone", address: "address" }, idValue: pid, onFill: function () { keep(); },
@@ -362,10 +368,14 @@
       mm.addEventListener("input", function () { var v = num(mm.value); pct.value = v === null ? "" : String(mmolToPct(v)); });
     }
     var live = f.querySelector("#poc-live"), upd = function () { keep(); if (live) live.innerHTML = liveHtml(S.adding); };
-    f.addEventListener("input", function (ev) { if (ev.target && RES[S.adding.type].indexOf(ev.target.name) >= 0) upd(); });
+    f.addEventListener("input", function (ev) { unmark(ev.target); if (ev.target && RES[S.adding.type].indexOf(ev.target.name) >= 0) upd(); });
     f.addEventListener("change", function (ev) { if (ev.target && ev.target.tagName === "SELECT") upd(); });
   }
 
+  function unmark(el) { // a field being corrected loses its red mark at once; the message stays until the next Record
+    var i = el && el.name ? S.miss.indexOf(el.name) : -1; if (i < 0) return;
+    S.miss.splice(i, 1); el.removeAttribute("aria-invalid"); el.removeAttribute("aria-describedby"); var l = el.closest("label"); if (l) l.classList.remove("miss");
+  }
   function keep() {
     var f = S.mount && S.mount.querySelector("#poc-add"); if (!f || !S.adding) return;
     f.querySelectorAll("input[name],select[name]").forEach(function (el) { S.adding[el.name] = el.tagName === "SELECT" ? el.value : String(el.value || "").trim(); });
@@ -418,19 +428,24 @@
     keep();
     var a = S.adding; S.err = "";
     var d = new Date(a.dt), res = results(a), t = a.type;
-    if (!a.dt || isNaN(d.getTime())) S.err = "Choose when the test was done.";
-    else if (d.getTime() > Date.now() + 10 * 60000) S.err = "The time is in the future. Choose when the test was done.";
-    else if (!a.patientId) S.err = "Write the patient's ID card (or passport).";
-    else if (!a.name) S.err = "Write the patient's name.";
-    else if (!a.phone) S.err = "Write a contact number.";
-    else if (has(a.age) && (num(a.age) === null || num(a.age) < 0)) S.err = "Write the age in years, or leave it empty.";
-    else if (t === "bp" && (res.sys === null || res.dia === null)) S.err = "Write the systolic and the diastolic.";
-    else if (t === "bg" && res.glucose === null) S.err = "Write the glucose reading.";
-    else if (t === "hba1c" && res.pct === "" && res.mmol === "") S.err = "Write the HbA1c in % or mmol/mol.";
-    else if (t === "chol" && res.tc === "" && res.hdl === "" && res.ldl === "" && res.tg === "") S.err = "Write at least one cholesterol value.";
-    else if (t === "bmi" && (res.weight === null || res.height === null)) S.err = "Write the weight and the height.";
-    else { var bad = RES[t].filter(function (k) { return ["sys", "dia", "pulse", "glucose", "pct", "mmol", "tc", "hdl", "ldl", "tg", "weight", "height", "waist"].indexOf(k) >= 0 && has(a[k]) && (num(a[k]) === null || num(a[k]) < 0); })[0]; if (bad) S.err = "One of the values is not a number. Check it and press Record again."; }
-    if (S.err) { S.err += " Nothing was saved."; return paint(true); }
+    // every problem at once, each field marked, the first one focused (the words as before, one sentence each)
+    var errs = [], miss = [], say = function (keys, msg) { errs.push(msg); keys.forEach(function (k) { if (miss.indexOf(k) < 0) miss.push(k); }); };
+    if (!a.dt || isNaN(d.getTime())) say(["dt"], "Choose when the test was done.");
+    else if (d.getTime() > Date.now() + 10 * 60000) say(["dt"], "The time is in the future. Choose when the test was done.");
+    if (!a.patientId) say(["patientId"], "Write the patient's ID card (or passport).");
+    if (!a.name) say(["name"], "Write the patient's name.");
+    if (!a.phone) say(["phone"], "Write a contact number.");
+    if (has(a.age) && (num(a.age) === null || num(a.age) < 0)) say(["age"], "Write the age in years, or leave it empty.");
+    var resBefore = errs.length;
+    if (t === "bp" && (res.sys === null || res.dia === null)) say([res.sys === null ? "sys" : "", res.dia === null ? "dia" : ""].filter(Boolean), "Write the systolic and the diastolic.");
+    else if (t === "bg" && res.glucose === null) say(["glucose"], "Write the glucose reading.");
+    else if (t === "hba1c" && res.pct === "" && res.mmol === "") say(["pct", "mmol"], "Write the HbA1c in % or mmol/mol.");
+    else if (t === "chol" && res.tc === "" && res.hdl === "" && res.ldl === "" && res.tg === "") say(["tc", "hdl", "ldl", "tg"], "Write at least one cholesterol value.");
+    else if (t === "bmi" && (res.weight === null || res.height === null)) say([res.weight === null ? "weight" : "", res.height === null ? "height" : ""].filter(Boolean), "Write the weight and the height.");
+    var bad = RES[t].filter(function (k) { return ["sys", "dia", "pulse", "glucose", "pct", "mmol", "tc", "hdl", "ldl", "tg", "weight", "height", "waist"].indexOf(k) >= 0 && has(a[k]) && (num(a[k]) === null || num(a[k]) < 0); });
+    if (bad.length) { if (errs.length > resBefore) { errs.pop(); } say(bad, "One of the values is not a number. Check it and press Record again."); }
+    S.miss = miss;
+    if (errs.length) { S.err = errs.join(" ") + " Nothing was saved."; paint(true); var first = S.mount && S.mount.querySelector("#poc-add [aria-invalid=true]"); if (first) first.focus(); return; }
     // the ID card and the person (E.people.confirmPerson): asked before anything is saved; Go back keeps the form
     var asked = null;
     if (E.people && E.people.confirmPerson) {
@@ -461,7 +476,7 @@
         var got = ((st && st.state && st.state.records) || (st && st.records) || []).some(function (x) { return x && x.id === rec.id; });
         if (!got) throw x0;
       }
-      S.adding = null; S.view = pt.patientId; S.q = "";
+      S.adding = null; S.miss = []; S.view = pt.patientId; S.q = ""; S.lastType = t; try { localStorage.setItem("eikon_pocreg_type", t); } catch (e2) {}
       if (E.linkPerson) E.linkPerson({ name: pt.name, id_card: pt.patientId, phone: pt.phone, address: pt.address }, "register:poct", asked); // one person in Customers, found or added
       E.toast(mc.conflict ? "Recorded. This ID card was on file with a different name or phone; the patient's details were kept." : NICE[t] + " recorded for " + pt.name, mc.conflict ? "warning" : "success");
     } catch (x) { S.err = E.saveFailText(x); }
@@ -470,7 +485,7 @@
 
   E.registerModule({
     id: "pocreg", title: "Point-of-care tests", order: 3, icon: "🩺", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.view = null; S.q = ""; E.months.historyReset("pocreg"); css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.miss = []; S.view = null; S.q = ""; E.months.historyReset("pocreg"); css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("pocreg") < 0) E.UI2_DESTINATIONS.push("pocreg");
   if (E.UI2_PARENT) E.UI2_PARENT.pocreg = "services";

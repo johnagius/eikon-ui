@@ -6,7 +6,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, month: null, entries: [], history: [], q: "", loading: false, error: "", form: null, saving: false };
+  var S = { mount: null, month: null, entries: [], history: [], q: "", loading: false, error: "", form: null, saving: false, last: null };
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   var WDN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -19,6 +19,8 @@
     ["prescriber_name", "Prescriber", "text", "e.g. Dr Abela"],
     ["prescriber_reg_no", "Reg no", "text", "Prescriber's registration number"]
   ];
+  // How a missing field is named in the message ("Write the ID card and the posology. Nothing was saved.")
+  var SAY = { entry_date: "the date (today or earlier)", client_id: "the ID card", client_name: "the client's name", medicine_name_dose: "the medicine and dose", posology: "the posology", prescriber_name: "the prescriber", prescriber_reg_no: "the prescriber's reg no" };
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
   function pad(n) { return (n < 10 ? "0" : "") + n; }
@@ -62,9 +64,10 @@
       ".drr-form{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:6px 0;margin-top:16px}" +
       ".drr-form label{display:flex;align-items:center;gap:12px;min-height:48px;padding:0 16px;border-top:.5px solid var(--border)}.drr-form label:first-child{border-top:0}" +
       ".drr-form label>span{flex:0 0 96px;font-size:15px}.drr-form input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
-      ".drr-form label.miss>span{color:var(--danger)}" +
+      ".drr-form label.miss>span{color:var(--danger)}.drr-form label.miss:focus-within>span{color:inherit}" +
+      ".drr-btn.again{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
       ".drr-form .acts{display:flex;gap:8px;padding:10px 16px 8px;justify-content:flex-end;align-items:center}.drr-form .acts small{margin-right:auto;color:var(--muted);font-size:12.5px}" +
-      ".drr-err{color:var(--danger);font-size:13px;padding:2px 16px 4px}" +
+      ".drr-err{color:var(--danger);font-size:13px;padding:2px 16px 4px}.drr-err:empty{padding:0}" +
       ".drr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".drr-print,.drr-pmeta{display:none}" +
       "@media (min-width:1200px){.drr{max-width:1180px}}" +
@@ -106,28 +109,50 @@
     var h = '<form class="drr-form" id="drr-form" autocomplete="off">';
     FIELDS.forEach(function (fd) {
       var k = fd[0], list = k === "prescriber_name" ? ' list="drr-presc"' : k === "client_id" ? ' list="drr-ids"' : "";
-      h += '<label' + ((f.missing || []).indexOf(k) >= 0 ? ' class="miss"' : "") + "><span>" + fd[1] + '</span><input name="' + k + '" type="' + fd[2] + '"' + list +
+      var miss = (f.missing || []).indexOf(k) >= 0;
+      h += '<label' + (miss ? ' class="miss"' : "") + "><span>" + fd[1] + '</span><input name="' + k + '" type="' + fd[2] + '"' + list + (miss ? ' aria-invalid="true"' : "") +
         (k === "entry_date" ? ' max="' + esc(ymd(new Date())) + '"' : "") + ' placeholder="' + esc(fd[3]) + '" value="' + esc(f[k] || "") + '"></label>';
     });
     h += '<datalist id="drr-presc">' + Object.keys(prescribers).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>";
     h += '<datalist id="drr-ids">' + Object.keys(ids).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>";
-    if (f.err) h += '<div class="drr-err">' + esc(f.err) + "</div>";
+    h += '<div class="drr-err" role="alert">' + esc(f.err || "") + "</div>";
     h += '<div class="acts"><small>Every line is needed for the register.</small><button type="button" class="drr-btn" data-act="cancel">Cancel</button><button type="submit" class="drr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Add to register") + "</button></div></form>";
     return h;
   }
 
+  // What is typed in the form survives every repaint (a month change, a list arriving, Print). It used to be redrawn
+  // from the values the form was opened with, so typing a search or changing month with the form open emptied it.
+  function keep() {
+    var f = S.mount && S.mount.querySelector("#drr-form"); if (!f || !S.form) return;
+    FIELDS.forEach(function (fd) { var el = f.querySelector("[name=" + fd[0] + "]"); if (el) S.form[fd[0]] = String(el.value || ""); });
+  }
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "drreg") return; // left before a reply came back: do not draw over the next screen
+    keep();
+    var ae = document.activeElement, back = ae && m.contains(ae) && ae.closest && ae.closest("#drr-form") && ae.name ? ae.name : "";
     var MB = E.months, user = E.state.user || {};
-    var h = '<div class="drr"><button class="drr-back" data-act="back">‹ Registers</button>' +
+    var h = '<div class="drr"><button class="drr-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("drreg") : "‹ Registers") + '</button>' +
       '<div class="drr-top"><div><h1>Daily register</h1><p class="drr-sub">Prescription medicines supplied, one line each.</p></div>' +
-      '<div class="drr-acts">' + (S.form ? "" : '<button class="drr-btn p" data-act="new">New entry</button>') + "</div></div>" +
+      '<div class="drr-acts">' + (S.form ? "" : (S.last ? '<button class="drr-btn again" data-act="again" aria-label="' + esc("Another medicine for " + S.last.client_name + ", same prescriber") + '">' + esc("Another for " + S.last.client_name) + "</button>" : "") + '<button class="drr-btn p" data-act="new">New entry</button>') + "</div></div>" +
       '<p class="drr-pmeta">' + esc((user.location_name || "") + " · Daily register · " + monthLabel(S.month) + " · printed " + ymd(new Date())) + "</p>";
     if (S.form) h += formHtml();
     h += MB.bar(S.month, { label: "Daily register" }) +
       '<div class="drr-bar"><input class="drr-q" id="drr-q" type="search" aria-label="Search this month" placeholder="Search client, ID, medicine or prescriber" value="' + esc(S.q) + '"></div>';
-    var shown = S.entries.filter(matches);
+    h += '<div id="drr-res">' + resultsHtml() + "</div>";
+    h += '<p class="drr-note" style="font-size:12.5px;color:var(--muted);margin-top:12px">To correct or remove a line, open it in the <a href="#" data-act="classic" style="color:var(--accent)">classic register</a>.</p>';
+    h += '<table class="drr-print"><thead><tr><th>Date</th><th>Client</th><th>ID card</th><th>Medicine and dose</th><th>Posology</th><th>Prescriber</th><th>Reg no</th></tr></thead><tbody>' +
+      (S.entries.length ? S.entries.slice().reverse().map(function (e) {
+        return "<tr><td>" + esc(e.entry_date) + "</td><td>" + esc(e.client_name) + "</td><td>" + esc(e.client_id) + "</td><td>" + esc(e.medicine_name_dose) + "</td><td>" + esc(e.posology) + "</td><td>" + esc(e.prescriber_name) + "</td><td>" + esc(e.prescriber_reg_no) + "</td></tr>";
+      }).join("") : '<tr><td colspan="7">Nothing recorded this month.</td></tr>') + "</tbody></table></div>";
+    m.innerHTML = h;
+    if (back) { var again = m.querySelector("#drr-form [name=" + back + "]"); if (again) again.focus(); } // a repaint keeps your place in the form
+    bind(m);
+    MB.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; load(); }, paint: paint, print: printMonth });
+  }
+  // The list (or table) under the search: redrawn alone as a search is typed, so the form and the bar stay as they are.
+  function resultsHtml() {
+    var MB = E.months, h = "", shown = S.entries.filter(matches);
     if (S.loading && !S.entries.length) h += '<div class="drr-quiet">Opening the register…</div>';
     else if (S.error) h += '<div class="drr-quiet">' + esc(S.error) + "</div>";
     else if (!S.entries.length) h += '<div class="drr-quiet" data-empty>' + esc(MB.empty(S.month)) + "</div>";
@@ -153,14 +178,7 @@
       });
       h += "</div>";
     }
-    h += '<p class="drr-note" style="font-size:12.5px;color:var(--muted);margin-top:12px">To correct or remove a line, open it in the <a href="#" data-act="classic" style="color:var(--accent)">classic register</a>.</p>';
-    h += '<table class="drr-print"><thead><tr><th>Date</th><th>Client</th><th>ID card</th><th>Medicine and dose</th><th>Posology</th><th>Prescriber</th><th>Reg no</th></tr></thead><tbody>' +
-      (S.entries.length ? S.entries.slice().reverse().map(function (e) {
-        return "<tr><td>" + esc(e.entry_date) + "</td><td>" + esc(e.client_name) + "</td><td>" + esc(e.client_id) + "</td><td>" + esc(e.medicine_name_dose) + "</td><td>" + esc(e.posology) + "</td><td>" + esc(e.prescriber_name) + "</td><td>" + esc(e.prescriber_reg_no) + "</td></tr>";
-      }).join("") : '<tr><td colspan="7">Nothing recorded this month.</td></tr>') + "</tbody></table></div>";
-    m.innerHTML = h;
-    bind(m);
-    MB.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; load(); }, paint: paint, print: printMonth });
+    return h;
   }
   // The classic daily register printout (its columns, in its order), oldest first; the whole month, whatever the search.
   function printMonth() {
@@ -173,20 +191,25 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act");
-        if (a === "back") window.location.hash = "#registers";
+        if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("drreg") : "#registers";
+        else if (a === "again") { var L = S.last; S.form = { entry_date: L.entry_date, client_id: L.client_id, client_name: L.client_name, prescriber_name: L.prescriber_name, prescriber_reg_no: L.prescriber_reg_no }; paint(); var md = m.querySelector("#drr-form [name=medicine_name_dose]"); if (md) md.focus(); }
         else if (a === "new") { S.form = { entry_date: ymd(new Date()) }; paint(); setTimeout(function () { var c = m.querySelector("[name=client_id]"); if (c && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) c.focus(); }, 30); }
-        else if (a === "cancel") { S.form = null; paint(); }
+        else if (a === "cancel") { S.form = null; paint(); var nb = m.querySelector("[data-act=new]"); if (nb) nb.focus(); }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "drreg"); } catch (e) {} E.openClassic("dailyregister"); }
       });
     });
     var q = m.querySelector("#drr-q");
-    if (q) q.addEventListener("input", function () {
-      S.q = q.value; var pos = q.selectionStart; paint();
-      var q2 = S.mount.querySelector("#drr-q"); if (q2) { q2.focus(); try { q2.setSelectionRange(pos, pos); } catch (e) {} }
+    if (q) q.addEventListener("input", function () { // only the list is redrawn: the search box and the form are left alone
+      S.q = q.value; var res = S.mount.querySelector("#drr-res"); if (res) res.innerHTML = resultsHtml();
     });
     var f = m.querySelector("#drr-form");
     if (!f) return;
     f.addEventListener("submit", function (ev) { ev.preventDefault(); save(f); });
+    f.addEventListener("input", function (ev) { // a field being put right stops being red
+      var el = ev.target; if (!el || el.getAttribute("aria-invalid") !== "true") return;
+      el.removeAttribute("aria-invalid"); var lb = el.closest("label"); if (lb) lb.classList.remove("miss");
+      if (S.form && S.form.missing) S.form.missing = S.form.missing.filter(function (k) { return k !== el.name; });
+    });
     // A known prescriber brings their registration number; a known ID card brings the client's name.
     var g = function (n) { return f.querySelector("[name=" + n + "]"); };
     g("prescriber_name").addEventListener("change", function () {
@@ -207,15 +230,20 @@
     FIELDS.forEach(function (fd) { var el = f.querySelector("[name=" + fd[0] + "]"); body[fd[0]] = el ? String(el.value || "").trim() : ""; });
     var missing = FIELDS.filter(function (fd) { return !body[fd[0]]; }).map(function (fd) { return fd[0]; });
     S.form = Object.assign({}, body, { err: "", missing: missing });
-    if (missing.length) { S.form.err = "Fill in " + missing.map(function (k) { return FIELDS.find(function (fd) { return fd[0] === k; })[1].toLowerCase(); }).join(", ") + ". Nothing was saved."; return paint(); }
-    if (body.entry_date > ymd(new Date())) { S.form.err = "The date is in the future. Nothing was saved."; return paint(); }
+    if (body.entry_date > ymd(new Date())) missing.unshift("entry_date");
+    S.form.missing = missing;
+    if (missing.length) {
+      var w = missing.map(function (k) { return SAY[k]; });
+      S.form.err = "Write " + (w.length === 1 ? w[0] : w.slice(0, -1).join(", ") + " and " + w[w.length - 1]) + ". Nothing was saved.";
+      paint(); var fx = S.mount && S.mount.querySelector("#drr-form [name=" + missing[0] + "]"); if (fx) fx.focus(); return;
+    }
     // the ID card and the person (E.people.confirmPerson): asked before anything is saved; Go back keeps the form
     if (E.people && E.people.confirmPerson) {
       S.saving = true; paint();
       var asked = await E.people.confirmPerson({ name: body.client_name, id_card: body.client_id }, { key: "drreg", record: "register entry" });
       S.saving = false;
       if (asked.action !== "save") {
-        if (asked.action === "fill") S.form[asked.field === "name" ? "client_name" : "client_id"] = asked.value;
+        if (asked.action === "fill") { var fk = asked.field === "name" ? "client_name" : "client_id", fe = f.querySelector("[name=" + fk + "]"); S.form[fk] = asked.value; if (fe) fe.value = asked.value; } // the repaint keeps what the form shows
         paint(); var back = S.mount && S.mount.querySelector("#drr-form [name=" + (asked.field === "name" ? "client_name" : "client_id") + "]"); if (back) back.focus();
         return;
       }
@@ -226,6 +254,7 @@
         same: function (e) { return e.entry_date === body.entry_date && String(e.client_id || "").trim().toLowerCase() === String(body.client_id || "").trim().toLowerCase() && String(e.medicine_name_dose || "").trim().toLowerCase() === String(body.medicine_name_dose || "").trim().toLowerCase() && String(e.prescriber_reg_no || "").trim().toLowerCase() === String(body.prescriber_reg_no || "").trim().toLowerCase() && String(e.client_name || "").trim().toLowerCase() === String(body.client_name || "").trim().toLowerCase(); } });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.form = null; E.toast("Added · " + body.medicine_name_dose + " · " + body.client_name, "success");
+      S.last = { entry_date: body.entry_date, client_id: body.client_id, client_name: body.client_name, prescriber_name: body.prescriber_name, prescriber_reg_no: body.prescriber_reg_no }; // "Another for …": the next line of the same prescription
       S.month = body.entry_date.slice(0, 7);
     } catch (e) {
       S.form.err = E.saveFailText(e);
@@ -236,7 +265,7 @@
 
   E.registerModule({
     id: "drreg", title: "Daily register", order: 3, icon: "Rx", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.month = thisMonth(); S.entries = []; E.months.reset(); css(); watchWidth(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.last = null; S.month = thisMonth(); S.entries = []; E.months.reset(); css(); watchWidth(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("drreg") < 0) E.UI2_DESTINATIONS.push("drreg");
   if (E.UI2_PARENT) E.UI2_PARENT.drreg = "registers";

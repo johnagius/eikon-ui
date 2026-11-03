@@ -1888,7 +1888,9 @@
     var btns = E.qa(".eikon-nav-btn", document);
     btns.forEach(function (b) {
       var id = b.getAttribute("data-mod") || "";
-      b.classList.toggle("active", id === active || (E.UI2_PARENT && E.UI2_PARENT[active] === id));
+      var lit = id === active || (E.UI2_PARENT && E.UI2_PARENT[active] === id);
+      b.classList.toggle("active", lit);
+      if (b.classList.contains("eikon-rail-btn")) { if (lit) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); } // a screen reader hears which tab you are on, not only sees the tint
       if (id === "settings" && E.UI2_MORE) b.classList.toggle("more-on", E.UI2_MORE.indexOf((E.UI2_PARENT && E.UI2_PARENT[active]) || active) >= 0);
     });
 
