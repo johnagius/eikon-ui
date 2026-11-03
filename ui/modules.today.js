@@ -363,8 +363,12 @@
     if (state.timer) clearInterval(state.timer);
     state.timer = setInterval(function () { if (document.hidden) return; // no polling while the tab is hidden
       if (E.state.activeModuleId === "today") load({ silent: true, background: true }); }, 60000);
+    // Back on the tab after a while (lunch, another screen): bring Today up to date at once, not at the next tick.
+    if (state.onVis) document.removeEventListener("visibilitychange", state.onVis);
+    state.onVis = function () { if (!document.hidden && E.state.activeModuleId === "today" && state.loadedAt && Date.now() - state.loadedAt.getTime() > 60000) load({ silent: true, background: true }); };
+    document.addEventListener("visibilitychange", state.onVis);
   }
-  function destroy() { if (state.timer) { clearInterval(state.timer); state.timer = null; } }
+  function destroy() { if (state.timer) { clearInterval(state.timer); state.timer = null; } if (state.onVis) { document.removeEventListener("visibilitychange", state.onVis); state.onVis = null; } }
 
   E.registerModule({ id: "today", title: "Today", order: 0, icon: "☀", render: render0, destroy: destroy });
 })();

@@ -1466,6 +1466,7 @@
       btn.classList.toggle("nav-flash", count > 0);
     }
     function poll() {
+      E._supplierPolledAt = Date.now();
       E.apiFetch("/supplier-orders/feedback", { method: "GET" }).then(function (resp) {
         var entries = resp.entries || [];
         var count = 0;
@@ -1482,7 +1483,15 @@
       }).catch(function () {});
     }
     poll();
-    E._supplierPollInterval = setInterval(poll, 30000);
+    // Not while the tab is hidden (a supplier's tab can stay open all day); back on the tab, at once if it is due.
+    E._supplierPollInterval = setInterval(function () { if (!document.hidden) poll(); }, 30000);
+    E._supplierPoll = poll;
+    if (!E._supplierVisHook) {
+      E._supplierVisHook = true;
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden && E._supplierPollInterval && E._supplierPoll && Date.now() - (E._supplierPolledAt || 0) > 30000) E._supplierPoll();
+      });
+    }
   };
 
   E.showChangePassword = function () {
