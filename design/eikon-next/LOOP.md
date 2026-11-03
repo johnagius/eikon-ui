@@ -627,3 +627,8 @@ All of it waits only on the worker deploy.
 - The worker source check for String(x !== undefined ? x : existing.x) used single spaces; three column-aligned
   lines in the order diary update slipped past. Pattern now \s+; lines fall back to "". Order diary columns are
   NOT NULL DEFAULT '' → no stored data affected (defensive). Worker 99/99. WORKER_VERSION bookings-14.
+
+## Round 69 — Order diary rebuilt
+- modules.odreg.js: day view by supplier; status-only PUTs (PARTIAL endpoint); add via postOnce; carry-over
+  (server idempotent) with the banner switching to "on tomorrow's list" once carried (caught in screenshot).
+  Real worker checked. UI 133/133. BUILD .84. 22 screens rebuilt.
