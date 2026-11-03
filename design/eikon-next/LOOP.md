@@ -583,3 +583,9 @@ All of it waits only on the worker deploy.
   than is left (server has no check; classic allowed overspend; server left unchanged); Use all; new note.
 - A flaky UI failure (Paid out POST missing) traced to the payee-suggestions fetch repainting the whole form while
   the Record click landed. Paid out and DDA sales/POYC now update only the datalist. UI 128/128 twice. BUILD .78.
+
+## Round 62 — Today's minute refresh vs typing
+- Live: BUILD .78. Bug: load({silent}) every 60 s re-rendered Today unconditionally → typed fridge min/max or
+  cleaner name lost (and focus). Now the timer passes background:true and skips the render while typing / boxes
+  hold text; action reloads still render (first attempt broke that — caught by the suite). Test: value, element
+  and focus kept on a background refresh; idle refresh redraws. UI 129/129. BUILD .79.
