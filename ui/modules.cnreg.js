@@ -234,7 +234,7 @@
 
   E.registerModule({
     id: "cnreg", title: "Credit notes", order: 3, icon: "€", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.using = null; S.adding = null; S.err = ""; S.q = ""; E.months.historyReset("cnreg"); E.correct.reset("cnreg"); css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.using = null; S.adding = null; S.err = ""; S.q = ""; E.months.historyReset("cnreg"); E.correct.reset("cnreg"); css(); paint(); return E.takeOpenForm("cnreg", S.mount, load(), { btn: "[data-act=add]", form: "#cnr-add" }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("cnreg") < 0) E.UI2_DESTINATIONS.push("cnreg");
   if (E.UI2_PARENT) E.UI2_PARENT.cnreg = "money";

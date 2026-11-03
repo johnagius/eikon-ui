@@ -293,7 +293,7 @@
 
   E.registerModule({
     id: "drreg", title: "Daily register", order: 3, icon: "Rx", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.last = null; S.month = E.months.take("drreg") || thisMonth(); S.entries = []; E.months.reset(); E.correct.reset("drreg"); css(); watchWidth(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.last = null; S.month = E.months.take("drreg") || thisMonth(); S.entries = []; E.months.reset(); E.correct.reset("drreg"); css(); watchWidth(); paint(); return E.takeOpenForm("drreg", S.mount, load(), { btn: "[data-act=new]", form: "#drr-form", fill: { id_card: "client_id", name: "client_name" } }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("drreg") < 0) E.UI2_DESTINATIONS.push("drreg");
   if (E.UI2_PARENT) E.UI2_PARENT.drreg = "registers";

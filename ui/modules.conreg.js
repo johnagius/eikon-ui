@@ -377,7 +377,7 @@
 
   E.registerModule({
     id: "conreg", title: "Contacts", order: 3, icon: "☎", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.sel = null; S.err = ""; S.fe = {}; S.q = ""; S.filter = "all"; S.saving = false; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.sel = null; S.err = ""; S.fe = {}; S.q = ""; S.filter = "all"; S.saving = false; css(); paint(); return E.takeOpenForm("conreg", S.mount, load(), { btn: ".con-top [data-act=add]", form: "#con-form" }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("conreg") < 0) E.UI2_DESTINATIONS.push("conreg");
   if (E.UI2_PARENT) E.UI2_PARENT.conreg = "team";

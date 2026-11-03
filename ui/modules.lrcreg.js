@@ -248,7 +248,7 @@
 
   E.registerModule({
     id: "lrcreg", title: "Locum receipts", order: 3, icon: "€", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); E.correct.reset("lrcreg"); S.adding = null; S.just = null; S.err = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); E.correct.reset("lrcreg"); S.adding = null; S.just = null; S.err = ""; css(); paint(); return E.takeOpenForm("lrcreg", S.mount, load(), { btn: "[data-act=add]", form: "#lrc-add" }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("lrcreg") < 0) E.UI2_DESTINATIONS.push("lrcreg");
   if (E.UI2_PARENT) E.UI2_PARENT.lrcreg = "money";

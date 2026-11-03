@@ -19,6 +19,25 @@
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function today() { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  // Quick days under a date field (b4-4): Today · Tomorrow · the working day after (a Sunday is skipped). A tap only
+  // writes that date into the field, exactly as typing it would; nothing is chosen until one is tapped.
+  function dayChips(name, cur, what) {
+    var h = "", d = new Date(), n = 0, WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    for (var i = 0; n < 3 && i < 8; i++, d.setDate(d.getDate() + 1)) {
+      if (i > 0 && d.getDay() === 0) continue;
+      var v = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+      h += '<button type="button" data-day="' + n++ + '" data-ymd="' + v + '" aria-pressed="' + (cur === v) + '">' + (i === 0 ? "Today" : i === 1 ? "Tomorrow" : WD[d.getDay()] + " " + d.getDate()) + "</button>";
+    }
+    return '<div class="q44-days" role="group" aria-label="' + esc(what) + ', in one tap" data-for="' + name + '">' + h + "</div>";
+  }
+  function wireDays(form) {
+    if (form) form.querySelectorAll(".q44-days").forEach(function (g) {
+      var el = form.querySelector('[name="' + g.getAttribute("data-for") + '"]'); if (!el) return;
+      var sync = function () { g.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-ymd") === el.value)); }); };
+      g.addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest("button[data-ymd]"); if (!b || el.disabled) return; el.value = b.getAttribute("data-ymd"); el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); sync(); });
+      el.addEventListener("input", sync); el.addEventListener("change", sync);
+    });
+  }
   function daysUntil(s) { var p = String(s).split("-"); var t = new Date(); return Math.round((new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])) - new Date(t.getFullYear(), t.getMonth(), t.getDate())) / 86400000); }
   function when(s) { var n = daysUntil(s); if (n === 0) return "today"; if (n === 1) return "tomorrow"; if (n === -1) return "yesterday"; var p = s.split("-"); return Number(p[2]) + " " + MON[Number(p[1]) - 1]; }
   function notes(e) { try { var a = typeof e.notes_log === "string" ? JSON.parse(e.notes_log || "[]") : e.notes_log; return Array.isArray(a) ? a : []; } catch (x) { return []; } }
@@ -267,7 +286,7 @@
       '<label><span>Question</span><input name="issue" value="' + esc(a.issue || "") + '" placeholder="What they asked"' + inv(fe, "issue") + ">" + ferr(fe, "issue") + "</label>" +
       '<label><span>About</span><select name="category">' + cs.map(function (c) { return '<option' + (c === cat ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + "</select></label>" +
       '<label><span>Priority</span><select name="priority"><option value="2">Medium</option><option value="1"' + (String(a.priority) === "1" ? " selected" : "") + '>High</option><option value="3"' + (String(a.priority) === "3" ? " selected" : "") + ">Low</option></select></label>" +
-      '<label><span>Follow up</span><input name="followup_date" type="date" min="' + esc(today()) + '" value="' + esc(a.followup_date || "") + '"></label>' +
+      '<label><span>Follow up</span><input name="followup_date" type="date" min="' + esc(today()) + '" value="' + esc(a.followup_date || "") + '"></label>' + dayChips("followup_date", a.followup_date, "Follow up") +
       (S.err && !S.noting ? '<div class="tkt-err" role="alert">' + esc(S.err) + "</div>" : "") +
       '<div class="acts"><button type="button" class="tkt-btn" data-act="add-cancel">Cancel</button><button type="submit" class="tkt-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save question") + "</button></div></form>";
   }
@@ -365,6 +384,7 @@
     var fa = root.querySelector("#tkt-add");
     if (fa) {
       fa.addEventListener("submit", function (ev) { ev.preventDefault(); add(fa); });
+      wireDays(fa);
       fa.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !document.querySelector(".epp-list:not([hidden])")) { var typed = ["client_name", "phone", "issue", "followup_date"].some(function (k) { var el = fa.querySelector("[name=" + k + "]"); return el && String(el.value || "").trim(); }); if (!typed || (S.carry && onlyCarried(fa))) { ev.preventDefault(); closeAdd(); } } });
     }
     if (fa && E.personPick) E.personPick.attach({ key: "tktreg", form: fa, fields: { name: "client_name", phone: "phone" },

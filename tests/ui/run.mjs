@@ -96,12 +96,51 @@ function teamMock(req, res, p, body) {
   if (m[3] === "active") { u.is_active = !!body.active; if (!u.is_active) u.signed_in_devices = 0; return J({ ok: true }); }
   return J({ ok: false, error: "Not found" }, 404);
 }
+// Backlog 4 item 7 (a first day that never dead-ends): a brand-new pharmacy, on while globalThis.__b47 is set.
+// Devices, rota people and the product list behave as the worker's handlers; b47.fail makes the next write a 500.
+let b47 = null;
+const b47Fresh = () => ({ devices: [{ id: 1, name: "Pharmacy", device_type: "room", min_limit: 15, max_limit: 25, active: 1 }, { id: 2, name: "Pharmacy Fridge", device_type: "fridge", min_limit: 2, max_limit: 8, active: 1 }],
+  next: 3, staff: [], nextStaff: 1, products: [], fail: false });
+function b47Mock(req, res, p, body, url) {
+  if (!globalThis.__b47 || !b47) return false;
+  const J = (o, st) => { res.writeHead(st || 200, { "content-type": "application/json" }); res.end(JSON.stringify(o)); return true; };
+  const W = req.method !== "GET";
+  if (W && b47.fail && /^\/(temperature\/devices|shifts\/staff|emergency-pos\/catalog)/.test(p)) { b47.fail = false; return J({ ok: false, error: "Database is busy" }, 500); }
+  const on = b47.devices.filter((d) => d.active === 1);
+  if (p === "/today") {
+    const t = todayPayload();
+    t.before_opening = on.map((d) => ({ kind: "temperature", device_id: d.id, title: d.name + " · reading", sub: "No reading yesterday · limits " + d.min_limit + " to " + d.max_limit, status: "todo", out_of_range: false, limits: { min: d.min_limit, max: d.max_limit }, yesterday: null, today: null,
+      action: { method: "POST", path: "/temperature/entries", body: { device_id: d.id, entry_date: todayYmd }, fields: ["min_temp", "max_temp", "notes"], label: "Log" } }))
+      .concat([{ kind: "daily_register", title: "Daily register", sub: "No entry yet today", status: "todo", count_today: 0, action: { type: "open", path: "#dailyregister", label: "Open" } },
+        { kind: "cleaning", title: "Cleaning", sub: "Never recorded", status: "overdue", days_since: null, last_date: null, action: { method: "POST", path: "/cleaning/entries", body: { entry_date: todayYmd }, fields: ["time_in", "cleaner_name", "staff_name"], label: "Done now" } }]);
+    t.customers_waiting = []; t.attention = []; t.setup = { sign_ins: 1, opening_hours_saved: true };
+    t.counts = { before_opening: t.before_opening.length, customers_waiting: 0, attention: 0 };
+    return J(t);
+  }
+  if (p === "/temperature/devices" && req.method === "GET") return J({ ok: true, devices: url.searchParams.get("include_inactive") === "1" ? b47.devices : on });
+  if (p === "/temperature/devices" && req.method === "POST") { const d = { id: b47.next++, name: body.name, device_type: body.device_type, min_limit: body.min_limit, max_limit: body.max_limit, active: 1 }; b47.devices.push(d); return J({ ok: true, device_id: d.id }); }
+  if (/^\/temperature\/devices\/\d+$/.test(p) && req.method === "PUT") {
+    const d = b47.devices.find((x) => x.id === Number(p.split("/")[3])); if (!d) return J({ ok: false, error: "Not found" }, 404);
+    ["name", "device_type", "min_limit", "max_limit"].forEach((k) => { if (body[k] !== undefined) d[k] = body[k]; }); if (body.active !== undefined) d.active = body.active ? 1 : 0; return J({ ok: true });
+  }
+  if (p === "/temperature/entries" && req.method === "GET") return J({ ok: true, entries: [] });
+  if (p === "/shifts/staff" && req.method === "GET") return J({ ok: true, staff: b47.staff });
+  if (p === "/shifts/staff" && req.method === "POST") { const st = Object.assign({}, body, { id: b47.nextStaff++ }); b47.staff.push(st); return J({ ok: true, staff_id: st.id }); }
+  if (p === "/shifts/assignments-range") return J({ ok: true, shifts: [] });
+  if (p === "/shifts/leaves") return J({ ok: true, leaves: [] });
+  if (p === "/emergency-pos/catalog" && req.method === "GET") return J({ ok: true, total: b47.products.length, next_offset: null, products: b47.products });
+  if (p === "/emergency-pos/catalog" && req.method === "POST") { if (body.wipe) b47.products = []; body.products.forEach((x, i) => b47.products.push(Object.assign({ id: b47.products.length + 1 }, x))); return J({ ok: true, inserted: body.products.length }); }
+  if (p === "/emergency-pos/sales" && req.method === "GET") return J({ ok: true, sales: [] });
+  if (p === "/returns/entries" && req.method === "GET") return J({ ok: true, entries: [] });
+  return false;
+}
 function mockApi(req, res, body) {
   const url = new URL(req.url, "http://x");
   const p = url.pathname;
   calls.push({ method: req.method, path: p, query: url.search, body });
   if (p === "/__test401") { res.writeHead(401, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "Unauthorized" })); }
   if (teamMock(req, res, p, body)) return;
+  if (b47Mock(req, res, p, body, url)) return;
   if (p === "/people" && req.method === "POST") {
     if (body && body.id) { res.writeHead(409, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "Changed elsewhere", current: Object.assign({}, peopleState.carmel, { notes: "Call after 5", version: 2 }) })); }
     peopleState.adopted = true;
@@ -596,10 +635,8 @@ posts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter(
 const afterLog = await page.evaluate(() => ({ h1: document.querySelector(".tdy-head h1").textContent, pill: (document.querySelector('.tdy-row[data-kind="temperature"] .tdy-pill') || {}).textContent, inputs: document.querySelectorAll('.tdy-row[data-kind="temperature"] input').length }));
 report("today: min (typed with a comma), max, Enter logs the fridge in one request and the row turns done", posts.length === 1 && posts[0].body && posts[0].body.device_id === 7 && posts[0].body.min_temp === 3.9 && posts[0].body.max_temp === 6.1 && /Logged 3.9 to 6.1/.test(afterLog.pill || "") && afterLog.inputs === 0 && /1 thing before/.test(afterLog.h1), JSON.stringify({ posts, afterLog }));
 
-// cleaning: Done now asks for one name, then records
+// cleaning: the name is in the row already (b4-4); typed over, Done now records it
 await fetch(`http://localhost:${PORT}/__reset`);
-await page.click('.tdy-row[data-kind="cleaning"] [data-act="clean"]');
-await page.waitForTimeout(200);
 await page.fill('.tdy-row[data-kind="cleaning"] [data-cleaner]', "Karl");
 await page.click('.tdy-row[data-kind="cleaning"] [data-act="clean"]');
 await page.waitForTimeout(900);
@@ -1234,6 +1271,7 @@ try {
   await page.click('.dlv-name[data-id="72"]'); await page.waitForSelector("#dlv-edit [data-act=del]");
   await fetch(`http://localhost:${PORT}/__reset`);
   await page.click("#dlv-edit [data-act=del]"); await page.waitForSelector("#dlv-edit [name=del_reason]");
+  await page.waitForFunction(() => document.activeElement && document.activeElement.name === "del_reason", null, { timeout: 3000 }).catch(() => {}); // the screen focuses the reason one tick after drawing it
   const edFocus = await page.evaluate(() => document.activeElement.name);
   await page.click("#dlv-edit [data-act=del-go]"); await page.waitForTimeout(150);
   const edNo = { calls: (await C()).filter((c) => c.method !== "GET").length, err: await page.evaluate(() => (document.querySelector("#dlv-edit [role=alert]") || {}).textContent || "") };
@@ -1879,19 +1917,21 @@ try {
     /lowest reading is higher/.test(q1t.err || "") && q1t.role === "alert" && q1t.inv === "true" && q1t.desc && q1t.kept === "7/3" && q1t.focus && q1tPosts.length === 0, JSON.stringify({ q1t, q1tPosts }));
   // the cleaner: Enter in the name records it; next time the same name is offered, selected, so Enter alone records it again (same body)
   await page.evaluate(() => { try { localStorage.removeItem("eikon_tdy_cleaner:12"); } catch (e) {} });
-  await page.click('.tdy-row[data-kind="cleaning"] [data-act="clean"]'); await page.waitForTimeout(150);
+  // the readings typed above hold the minute refresh back (as they should): empty them so the row is drawn again
+  todayState.cleanDone = false; await page.evaluate(() => { document.activeElement && document.activeElement.blur(); document.querySelectorAll("[data-min],[data-max]").forEach((i) => { i.value = ""; }); return window.EIKON.__todayRefresh(); }); await page.waitForTimeout(500);
   const q1c0 = await page.evaluate(() => document.querySelector("[data-cleaner]").value);
+  await page.fill("[data-cleaner]", ""); await page.focus("[data-cleaner]");
   await page.keyboard.type("Ġużeppi"); await page.keyboard.press("Enter"); await page.waitForTimeout(700);
   let q1cPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/cleaning/entries");
   todayState.cleanDone = false; await page.evaluate(() => window.EIKON.__todayRefresh()); await page.waitForTimeout(500);
   await fetch(`http://localhost:${PORT}/__reset`);
-  await page.click('.tdy-row[data-kind="cleaning"] [data-act="clean"]'); await page.waitForTimeout(150);
+  await page.focus("[data-cleaner]"); await page.evaluate(() => document.querySelector("[data-cleaner]").select());
   const q1c1 = await page.evaluate(() => { const i = document.querySelector("[data-cleaner]"); return { v: i.value, sel: i.selectionEnd - i.selectionStart, focus: document.activeElement === i }; });
   await page.keyboard.press("Enter"); await page.waitForTimeout(700);
   const q1cPosts2 = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/cleaning/entries");
   const strip = (b) => JSON.stringify(Object.assign({}, b, { time_in: "" }));
   report("quality today: Enter in 'cleaned by' records it; the name is remembered on this device and offered selected next time, so Enter alone records the same body",
-    q1c0 === "" && q1cPosts.length === 1 && q1cPosts[0].body.cleaner_name === "Ġużeppi" && q1c1.v === "Ġużeppi" && q1c1.sel === 7 && q1c1.focus && q1cPosts2.length === 1 && strip(q1cPosts2[0].body) === strip(q1cPosts[0].body),
+    q1c0 === "Maria Borg" && q1cPosts.length === 1 && q1cPosts[0].body.cleaner_name === "Ġużeppi" && q1c1.v === "Ġużeppi" && q1c1.sel === 7 && q1c1.focus && q1cPosts2.length === 1 && strip(q1cPosts2[0].body) === strip(q1cPosts[0].body),
     JSON.stringify({ q1c0, q1cPosts, q1c1, q1cPosts2 }));
   todayState = { tempDone: false, cleanDone: false };
 
@@ -2030,7 +2070,7 @@ try {
   eodState = { rec: null, n: 0 };
   await page.goto(base + "&ui=2#endofday");
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "eodreg" && document.querySelector("#eod-form"), null, { timeout: 15000 });
-  await page.fill("[name=staff]", "Maria"); await page.fill("[name=float_amount]", "100");
+  await page.click("[data-act=who]"); await page.fill("[name=staff]", "Maria"); await page.fill("[name=float_amount]", "100");
   await page.fill('[name="row:x:0:amount"]', "500,40"); await page.fill('[name="row:epos:0:amount"]', "200.10"); await page.fill('[name="row:paid_outs:0:amount"]', "12,5");
   await page.fill('[name="cash:n50"]', "5"); await page.fill('[name="cash:n20"]', "1"); await page.fill('[name="cash:coins_total"]', "117,10");
   const eodOu = await page.textContent('[data-b="ouBig"]'), eodDep = await page.inputValue('[name="dep:n50"]');
@@ -2077,10 +2117,10 @@ try {
   await page.goto("about:blank"); await page.goto(base + "&ui=2#endofday"); // a fresh page: the test before ends on this same address
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "eodreg" && document.querySelector("#eod-form"), null, { timeout: 15000 });
   const inReach = () => page.evaluate(() => { const b = document.querySelector("[data-act=save]").getBoundingClientRect(), bar = document.querySelector(".eikon-sidebar").getBoundingClientRect(); return b.top >= 0 && b.bottom <= Math.min(innerHeight, bar.top + 1) && !!document.querySelector(".eod-acts [data-b=ouBar]"); });
-  const mStaff = await page.inputValue("[name=staff]"), mWho = await page.evaluate(() => (window.EIKON.state.user || {}).full_name), mReach0 = await inReach();
+  const mStaff = (/^Today · (.+?) · AM · float/.exec(await page.textContent(".eod-who span")) || [])[1], mWho = await page.evaluate(() => (window.EIKON.state.user || {}).full_name), mReach0 = await inReach();
   await page.evaluate(() => window.scrollTo(0, 1500)); await page.waitForTimeout(100); const mReach1 = await inReach();
   await fetch(`http://localhost:${PORT}/__reset`);
-  await page.fill("[name=float_amount]", ""); await page.click("[data-act=save]"); await page.waitForTimeout(300);
+  await page.click("[data-act=who]"); await page.fill("[name=float_amount]", ""); await page.click("[data-act=save]"); await page.waitForTimeout(300);
   const mEod = await page.evaluate(() => { const a = document.activeElement; return { name: a && a.name, inv: a && a.getAttribute("aria-invalid"), by: a && a.getAttribute("aria-describedby"), alert: (document.querySelector("#eod-err[role=alert]") || {}).textContent || "" }; });
   const mEodPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT").length;
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -2115,6 +2155,116 @@ try {
     JSON.stringify({ mStaff, mWho, mReach0, mReach1, mEod, mEodPuts, mPo, mPoPosts, mCn, mCnUse, mPos0, mPos1, mHub, mExp }));
 } catch (e) { report("money screens: ran to the end", false, String(e).slice(0, 300)); }
 await page.setViewportSize({ width: 1440, height: 900 }).catch(() => {});
+
+// b4-4 counter forms with sensible defaults. Orders / Deliveries / Questions: Today · Tomorrow · the working day after
+// (Sunday skipped) under the date; a tap writes that date into the field and is what is sent; Orders has no hidden
+// default (no tap, no date: still refused). Today's cleaning: the name is already there, the team is suggested, one tap
+// or Enter records. End of day: one summary line for day/staff/shift/float, Tab from it lands on the first X reading,
+// Enter goes on to the next amount, "Nothing counted yet" until a figure is typed; an untouched summary saves the same.
+try {
+  const calls4 = async (path) => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === path).map((c) => c.body);
+  const wantDays = () => { const out = [], d = new Date(); for (let i = 0; out.length < 3 && i < 8; i++, d.setDate(d.getDate() + 1)) { if (i > 0 && d.getDay() === 0) continue; out.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")); } return out; };
+  const W = wantDays();
+  const chips = (form) => page.evaluate((f) => [...document.querySelectorAll(f + " .q44-days button")].map((b) => ({ t: b.textContent, ymd: b.dataset.ymd, on: b.getAttribute("aria-pressed") })), form);
+  // Orders
+  await page.goto("about:blank"); await page.goto(base + "&ui=2#clientorders");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector(".ord-top [data-act=add]"), null, { timeout: 15000 });
+  await page.click(".ord-top [data-act=add]"); await page.waitForTimeout(150);
+  const oc0 = await chips("#ord-add"), oHint = await page.textContent("#ord-pu-hint");
+  await page.fill("#ord-add [name=client_name]", "Borġ Ċensina"); await page.fill("#ord-add [name=contact]", "79112233"); await page.fill("#ord-add [name=items]", "Augmentin 625 x14");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("#ord-add button[type=submit]"); await page.waitForTimeout(250);
+  const oNo = { posts: (await calls4("/client-orders/entries")).length, inv: await page.getAttribute("#ord-add [name=needed_by]", "aria-invalid") };
+  await page.click('#ord-add .q44-days [data-day="1"]');
+  const oc1 = { v: await page.inputValue("#ord-add [name=needed_by]"), chips: await chips("#ord-add"), inv: await page.getAttribute("#ord-add [name=needed_by]", "aria-invalid"), focus: await page.evaluate(() => document.activeElement.dataset.day) };
+  await page.click("#ord-add button[type=submit]"); await page.waitForTimeout(500);
+  const oPost = (await calls4("/client-orders/entries"))[0] || {};
+  // Deliveries: today by default (its chip shows it); the third day by one tap
+  await page.goto(base + "&ui=2#deliveries");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "dlvreg" && document.querySelector(".dlv-top [data-act=add]"), null, { timeout: 15000 });
+  await page.click(".dlv-top [data-act=add]"); await page.waitForTimeout(150);
+  const dc0 = await chips("#dlv-add");
+  await page.fill("#dlv-add [name=client_name]", "Żammit Ġużi"); await page.fill("#dlv-add [name=phone]", "79001122"); await page.fill("#dlv-add [name=delivery_address]", "4 Triq il-Ħamrun");
+  await page.click('#dlv-add .q44-days [data-day="2"]'); const dVal = await page.inputValue("#dlv-add [name=scheduled_date]");
+  await fetch(`http://localhost:${PORT}/__reset`); await page.click("#dlv-add button[type=submit]"); await page.waitForTimeout(500);
+  const dPost = (await calls4("/client-deliveries/entries"))[0] || {};
+  // Questions: follow up tomorrow in one tap
+  await page.goto(base + "&ui=2#tickets");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "tktreg" && document.querySelector("[data-act=add]"), null, { timeout: 15000 });
+  await page.click("[data-act=add]"); await page.waitForTimeout(150);
+  const tc0 = await chips("#tkt-add");
+  await page.fill("#tkt-add [name=client_name]", "Grech Ħelena"); await page.fill("#tkt-add [name=phone]", "79333444"); await page.fill("#tkt-add [name=issue]", "Omron M3 back in stock?");
+  await page.click('#tkt-add .q44-days [data-day="1"]');
+  await fetch(`http://localhost:${PORT}/__reset`); await page.click("#tkt-add button[type=submit]"); await page.waitForTimeout(500);
+  const tPost = (await calls4("/client-tickets/entries"))[0] || {};
+  report("counter forms: Today · Tomorrow · next working day (Sunday skipped) under Needed by, Deliver on and Follow up; nothing chosen on Orders until tapped (still refused, nothing sent); a tap sets the field and is exactly what is sent; clearer pick-up help",
+    JSON.stringify(oc0.map((c) => c.ymd)) === JSON.stringify(W) && oc0[0].t === "Today" && oc0.every((c) => c.on === "false") && oHint === "Leave empty if they collect the same day" &&
+    oNo.posts === 0 && oNo.inv === "true" && oc1.v === W[1] && oc1.chips[1].on === "true" && oc1.chips[0].on === "false" && oc1.inv === null && oc1.focus === "1" &&
+    oPost.needed_by === W[1] && oPost.pick_up_date === W[1] && oPost.pickup_date === W[1] && oPost.client_name === "Borġ Ċensina" &&
+    dc0[0].on === "true" && dVal === W[2] && dPost.scheduled_date === W[2] && dPost.client_name === "Żammit Ġużi" &&
+    tc0.every((c) => c.on === "false") && tPost.followup_date === W[1] && tPost.issue === "Omron M3 back in stock?",
+    JSON.stringify({ W, oc0, oHint, oNo, oc1, oPost: { n: oPost.needed_by, p: oPost.pick_up_date }, dc0, dVal, dPost: dPost.scheduled_date, tc0, tPost: tPost.followup_date }));
+} catch (e) { report("counter forms: quick days ran to the end", false, String(e).slice(0, 300)); }
+
+try {
+  // Today's cleaning, on a phone: the name of the person signed in is already there, full width; the team is suggested
+  await page.evaluate(() => { try { localStorage.removeItem("eikon_tdy_cleaner:12"); } catch (e) {} });
+  todayState = { tempDone: false, cleanDone: false };
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("about:blank"); await page.goto(base + "&ui=2#today");
+  await page.waitForSelector('.tdy-row[data-kind="cleaning"] [data-cleaner]', { timeout: 15000 });
+  const cl0 = await page.evaluate(() => { const i = document.querySelector("[data-cleaner]"), r = i.getBoundingClientRect(), row = i.closest(".tdy-row").getBoundingClientRect(), btn = document.querySelector('.tdy-row[data-kind="cleaning"] [data-act=clean]').getBoundingClientRect(); return { v: i.value, w: Math.round(r.width), h: Math.round(r.height), ownLine: btn.top >= r.bottom - 1, rowW: Math.round(row.width) }; });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.fill("[data-cleaner]", ""); await page.focus("[data-cleaner]"); await page.keyboard.type("ka"); await page.waitForTimeout(600);
+  const sug = await page.evaluate(() => [...document.querySelectorAll(".tdy-who .epp-opt b")].map((b) => b.textContent));
+  await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter"); await page.waitForTimeout(150);
+  const picked = { v: await page.inputValue("[data-cleaner]"), posts: (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST").length };
+  await page.keyboard.press("Enter"); await page.waitForTimeout(700);
+  const cPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/cleaning/entries").map((c) => c.body);
+  const staffReads = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "GET" && c.path === "/shifts/staff").length;
+  // and with the name left as it is, one tap on Done now records it
+  todayState = { tempDone: false, cleanDone: false }; await page.evaluate(() => { try { localStorage.removeItem("eikon_tdy_cleaner:12"); } catch (e) {} window.EIKON.__todayRefresh(); }); await page.waitForTimeout(500);
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('.tdy-row[data-kind="cleaning"] [data-act=clean]'); await page.waitForTimeout(700);
+  const oneTap = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/cleaning/entries").map((c) => c.body);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  todayState = { tempDone: false, cleanDone: false };
+  report("today's cleaning: 'cleaned by' already holds the person signed in, full width on its own line on a phone; typing suggests the team (Enter picks, sends nothing); Enter records; untouched, one tap on Done now records that name",
+    cl0.v === "Maria Borg" && cl0.w >= 200 && cl0.h >= 44 && cl0.ownLine && sug.includes("Karl Vella") && picked.v === "Karl Vella" && picked.posts === 0 &&
+    cPosts.length === 1 && cPosts[0].cleaner_name === "Karl Vella" && cPosts[0].staff_name === "Maria Borg" && staffReads >= 1 &&
+    oneTap.length === 1 && oneTap[0].cleaner_name === "Maria Borg",
+    JSON.stringify({ cl0, sug, picked, cPosts, staffReads, oneTap }));
+} catch (e) { await page.setViewportSize({ width: 1440, height: 900 }).catch(() => {}); report("today's cleaning: ran to the end", false, String(e).slice(0, 300)); }
+
+try {
+  // End of day: the summary line, Tab, Enter, "Nothing counted yet", and an untouched summary saves what it shows
+  eodState = { rec: null, n: 0 };
+  await page.goto("about:blank"); await page.goto(base + "&ui=2#endofday");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "eodreg" && document.querySelector("#eod-form"), null, { timeout: 15000 });
+  const e0 = await page.evaluate(() => ({ line: (document.querySelector(".eod-who span") || {}).textContent, day: !!document.querySelector("#eod-day"), staff: !!document.querySelector("[name=staff]"), ou: document.querySelector('[data-b="ouBig"]').textContent, cls: document.querySelector('[data-b="ouBig"]').className, bar: document.querySelector('[data-b="ouBar"]').textContent }));
+  await page.focus("[data-act=who]"); await page.keyboard.press("Tab");
+  const tab1 = await page.evaluate(() => document.activeElement.name);
+  await page.keyboard.type("500"); await page.keyboard.press("Enter");
+  const ent1 = await page.evaluate(() => document.activeElement.name);
+  await page.keyboard.press("Enter"); const ent2 = await page.evaluate(() => document.activeElement.name); // the remark is skipped: on to the next amount
+  await page.focus('[name="dep:n5"]'); await page.keyboard.press("Enter"); const entLast = await page.evaluate(() => document.activeElement.getAttribute("data-act"));
+  const e1 = await page.evaluate(() => ({ ou: document.querySelector('[data-b="ouBig"]').textContent, puts: 0 }));
+  await page.fill('[name="cash:n100"]', "15"); await page.fill("[name=bag_number]", "B-1");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  const putsBefore = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT").length;
+  await page.click("[data-act=save]");
+  await page.waitForFunction(() => /Saved/.test(document.querySelector(".eod-st").textContent) && !document.querySelector("[data-act=save][disabled]"), null, { timeout: 8000 });
+  const ePut = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT" && c.path === "/endofday/record").map((c) => c.body.record)[0] || {};
+  // Change opens the four fields, the cursor in the day
+  await page.click("[data-act=who]"); await page.waitForTimeout(100);
+  const e2 = await page.evaluate(() => ({ day: !!document.querySelector("#eod-day"), staff: (document.querySelector("[name=staff]") || {}).value, focus: document.activeElement.id }));
+  report("end of day: day/staff/shift/float are one summary line with Change, so Tab from it lands on X reading 1; Enter goes to the next amount (remarks skipped) and after the last to Save, never saving; 'Nothing counted yet' (not a green Exact) until a figure; untouched, the save sends the signed-in name, AM and the float shown",
+    /^Today · Maria Borg · AM · float €1000\.00$/.test(e0.line || "") && !e0.day && !e0.staff && e0.ou === "Nothing counted yet" && e0.cls === "" && e0.bar === "Nothing counted yet" &&
+    tab1 === "row:x:0:amount" && ent1 === "row:epos:0:amount" && ent2 === "row:cheques:0:amount" && entLast === "save" && /^Short by/.test(e1.ou) && putsBefore === 0 &&
+    ePut.staff === "Maria Borg" && ePut.staff_name === "Maria Borg" && ePut.time_of_day === "AM" && ePut.float_amount === "1000.00" && ePut.x[0].amount === "500.00" && ePut.date === todayYmd &&
+    e2.day && e2.staff === "Maria Borg" && e2.focus === "eod-day",
+    JSON.stringify({ e0, tab1, ent1, ent2, entLast, e1, putsBefore, ePut: { staff: ePut.staff, tod: ePut.time_of_day, f: ePut.float_amount, x: ePut.x }, e2 }));
+} catch (e) { report("end of day: summary line ran to the end", false, String(e).slice(0, 300)); }
 
 // Plan shifts in the new layout: the old #shifts link lands here; a change sends the whole record (role and note kept);
 // add sends one POST; Remove asks first, then DELETE; Approve sends the classic approve call.
@@ -3471,6 +3621,133 @@ try {
   report("search: the classic layout is untouched: no dialog, no scanning", !cl.dlg && !cl.scan && cl.mod === "temperature" && !cl.ui2, JSON.stringify(cl));
   await page.goto(base + "&ui=2#today"); await ui2Ready("today");
 } catch (e) { report("search: ran to the end", false, String(e).slice(0, 400)); }
+// ---- Search that does things (BACKLOG4 item 3): a verb, or a person and a noun, opens the screen with its form open ----
+try {
+  peopleState.adopted = true;
+  const ready = (id) => page.waitForFunction((m) => window.EIKON && window.EIKON.state && window.EIKON.state.user && window.EIKON.state.activeModuleId === m && window.EIKON._lateIn, id, { timeout: 15000 });
+  const ask = async (q) => {
+    await page.evaluate(() => { if (window.EIKON.searchIsOpen()) window.EIKON.searchClose(false); document.activeElement && document.activeElement.blur && document.activeElement.blur(); });
+    await page.keyboard.press("Control+k"); await page.waitForSelector("#esr-q"); await page.fill("#esr-q", q);
+    await page.waitForFunction(() => !document.querySelector(".esr-wait"), null, { timeout: 6000 });
+    return page.evaluate(() => ({ groups: [...document.querySelectorAll(".esr-grp")].map((g) => g.getAttribute("aria-label")), first: ((document.querySelector(".esr-opt") || {}).innerText || "").replace(/\s+/g, " ").trim() }));
+  };
+  // the screen's own button puts the cursor in its first field at once; the hand-over's fill and focus come 40 ms after
+  const landed = (focusIn) => page.waitForFunction((s) => { const a = document.activeElement; return !document.querySelector(".esr-ov") && a && a !== document.body && !!a.closest(s); }, focusIn, { timeout: 8000 }).then(() => page.waitForTimeout(350)).then(() => page.evaluate((s) => { const a = document.activeElement; return !!(a && a !== document.body && a.closest(s)); }, focusIn));
+  await page.goto(base + "&ui=2#registers"); await ready("registers");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  // 1. Each verb: the first result says what it does, Enter opens the screen with its form open and the cursor in it
+  const VERB = [
+    ["new order", "ordreg", "#ord-add", /^New order Orders · opens the form/],
+    ["add order", "ordreg", "#ord-add", /^New order/],
+    ["ask", "tktreg", "#tkt-add", /^New question Questions · opens the form/],
+    ["deliver", "dlvreg", "#dlv-add", /^New delivery/],
+    ["record dda", "cdsreg", "#cds-add", /^New prescription Controlled drugs supplied · opens the form/],
+    ["supply", "cdsreg", "#cds-add", /^New prescription/],
+    ["receive dda", "cdpreg", "#cdp-add", /^New invoice/],
+    ["new poyc", "poyreg", "#cds-add", /^New prescription/],
+    ["record a repeat", "repreg", "#rep-add", /^New prescription Repeat/],
+    ["new pom", "drreg", "#drr-form", /^New entry/],
+    ["log cleaning", "cleanreg", "#clr-form", /^New cleaning/],
+    ["record paid out", "poreg", "#por-add", /^New payment/],
+    ["new credit note", "cnreg", "#cnr-add", /^New credit note/],
+    ["record bp", "pocreg", "#poc-add", /^New test/],
+    ["add to order diary", "odreg", "#odr-add", /^Add an item Order diary/],
+    ["record a recall", "alertreg", "#alr-add", /^New alert/],
+    ["log a locum", "locreg", "#lcr-form", /^New locum/],
+    ["new contact", "conreg", "#con-form", /^Add a contact/],
+    ["close", "eodreg", "#eod-form", /^Close the day End of day · the first figure/],
+    ["count dda", "ddstreg", "[data-act=new]", /^Start a stock take/]
+  ];
+  const vres = [];
+  for (const [q, scr, inForm, re] of VERB) {
+    const r = await ask(q);
+    await page.keyboard.press("Enter");
+    const ok = await landed(inForm);
+    const where = await page.evaluate(() => ({ mod: window.EIKON.state.activeModuleId, focus: document.activeElement && (document.activeElement.name || document.activeElement.getAttribute("data-act") || document.activeElement.className), classic: location.search.indexOf("ui=classic") >= 0, left: sessionStorage.getItem("eikon_cus_hand") }));
+    vres.push({ q, ok: ok && where.mod === scr && re.test(r.first) && r.groups[0] === "Actions" && !where.classic && !where.left, first: r.first.slice(0, 70), where });
+  }
+  const vbad = vres.filter((x) => !x.ok);
+  report("search does things: each verb (new, add, record, log, close, ask, deliver, supply, count, receive) shows the action first in words and Enter opens that screen with its form open and the cursor in it; nothing left behind",
+    vbad.length === 0, JSON.stringify(vbad.length ? vbad : vres.map((x) => x.q + " → " + x.where.mod + ":" + x.where.focus)));
+
+  // 2. "log fridge": Today, the cursor in the first reading box (the screen where readings are logged)
+  const lf = await ask("log fridge"); await page.keyboard.press("Enter");
+  const lfOk = await landed(".tdy-inl");
+  const lfW = await page.evaluate(() => ({ mod: window.EIKON.state.activeModuleId, aria: document.activeElement && document.activeElement.getAttribute("aria-label") }));
+  report("search does things: 'log fridge' says 'Log today's readings' and opens Today with the cursor in the first reading box", lfOk && /^Log today.s readings Today/.test(lf.first) && lfW.mod === "today", JSON.stringify({ lf, lfW }));
+
+  // 3. No verb, no change: nouns and names are searched exactly as before (no Actions group, same first result)
+  const plain = {};
+  for (const q of ["fridge", "DDA", "order", "orders", "end of day", "repeat", "morphine", "vella", "zammit", "credit note", "zammit te", "clean"]) {
+    const r = await ask(q); plain[q] = { acts: r.groups.includes("Actions"), first: r.first.slice(0, 40), doing: await page.evaluate((x) => window.EIKON.searchDoing(x), q) };
+  }
+  const pbad = Object.entries(plain).filter(([, v]) => v.acts || v.doing);
+  report("search does things: no verb, no change: a noun or a name alone ('fridge', 'DDA', 'order', 'end of day', 'vella', 'zammit te' while typing) gives no action and the same results as before",
+    pbad.length === 0 && plain.fridge.first.startsWith("Temperature") && /Orders/.test(plain.orders.first), JSON.stringify(pbad.length ? pbad : plain));
+
+  // 4. A person and a noun: "zammit order" offers the order for each Zammit; Enter fills the first one in (name, ID card, phone)
+  const z = await ask("zammit order");
+  const zOpts = await page.evaluate(() => [...document.querySelectorAll('.esr-grp[aria-label="Actions"] .esr-opt b')].map((b) => b.textContent));
+  const pplQ = (await callsNow()).filter((c) => c.path === "/people" && c.method === "GET" && /zammit/i.test(c.query)).map((c) => c.query);
+  await page.keyboard.press("Enter");
+  const zOk = await landed("#ord-add");
+  const zf = await page.evaluate(() => { const f = document.querySelector("#ord-add"); const v = (n) => f.querySelector("[name=" + n + "]").value; return { name: v("client_name"), id: v("id_card"), phone: v("contact"), focus: document.activeElement.name }; });
+  report("search does things: 'zammit order' offers 'New order for Zammit Carmel' (one /people request, for 'zammit'); Enter opens Orders with her name, ID card and phone filled and the cursor in the first empty field",
+    zOk && /^New order for Zammit Carmel/.test(z.first) && zOpts.length >= 1 && pplQ.length >= 1 && pplQ.every((x) => /q=zammit(&|$)/.test(x)) && zf.name === "Zammit Carmel" && zf.id === "0012345M" && zf.phone === "79123456" && zf.focus === "items", JSON.stringify({ z, zOpts, pplQ, zf }));
+  // an ID card and "dda": the controlled-drug form with the card, name and address
+  const idq = await ask("0012345M dda"); await page.keyboard.press("Enter");
+  const idOk = await landed("#cds-add");
+  const idf = await page.evaluate(() => { const f = document.querySelector("#cds-add"); const v = (n) => f.querySelector("[name=" + n + "]").value; return { id: v("client_id_card"), name: v("client_name"), addr: v("client_address"), focus: document.activeElement.name }; });
+  report("search does things: '0012345M dda' opens the controlled-drug form with the ID card, name and address filled, the cursor on the prescriber",
+    idOk && /^New prescription for Zammit Carmel/.test(idq.first) && idf.id === "0012345M" && idf.name === "Zammit Carmel" && idf.addr === "1 Triq il-Knisja" && idf.focus === "doctor_name", JSON.stringify({ idq, idf }));
+  // a verb and a name nobody has: the name typed goes in
+  const nq = await ask("new order for Abela Rita"); await page.keyboard.press("Enter"); await landed("#ord-add");
+  const nf = await page.evaluate(() => ({ name: document.querySelector("#ord-add [name=client_name]").value, focus: document.activeElement.name }));
+  report("search does things: 'new order for Abela Rita' (nobody by that name) opens the order with the name typed filled in", /^New order for “Abela Rita”/.test(nq.first) && nf.name === "Abela Rita" && nf.focus === "items", JSON.stringify({ nq, nf }));
+
+  // 5. The fill never overwrites: a form already open with a name typed keeps it; only empty fields are filled
+  await page.evaluate(() => { location.hash = "#registers"; }); await ready("registers");
+  await page.evaluate(() => { location.hash = "#cdsreg"; }); await ready("cdsreg"); await page.waitForSelector(".cds-top [data-act=add]");
+  await page.click(".cds-top [data-act=add]"); await page.fill("#cds-add [name=client_name]", "Typed By Hand");
+  const keep = await page.evaluate(async () => {
+    const E = window.EIKON, m = document.querySelector("#cds-add").closest(".cds").parentNode;
+    E.customerHandoff("cdsreg", "new", { name: "Zammit Carmel", id_card: "0012345M", phone: "79123456" }, "");
+    await E.takeOpenForm("cdsreg", m, Promise.resolve(), { btn: "[data-act=add]", form: "#cds-add", fill: { id_card: "client_id_card", name: "client_name", address: "client_address" } });
+    await new Promise((r) => setTimeout(r, 300));
+    const f = document.querySelector("#cds-add"); return { name: f.querySelector("[name=client_name]").value, id: f.querySelector("[name=client_id_card]").value, forms: document.querySelectorAll("#cds-add").length, left: sessionStorage.getItem("eikon_cus_hand") };
+  });
+  // a hand-over for another screen is left for it; one older than a minute is dropped; "find" is not a form to open
+  const other = await page.evaluate(async () => {
+    const E = window.EIKON, m = document.querySelector("#eikon-content") || document.body, K = "eikon_cus_hand";
+    E.customerHandoff("tktreg", "new", { name: "X" }, ""); await E.takeOpenForm("cdsreg", m, Promise.resolve(), {}); const kept = !!sessionStorage.getItem(K);
+    sessionStorage.setItem(K, JSON.stringify({ to: "cdsreg", mode: "new", at: Date.now() - 120000, person: {} }));
+    const v = await E.takeOpenForm("cdsreg", m, Promise.resolve(7), { btn: "[data-act=add]" }); const dropped = !sessionStorage.getItem(K);
+    return { kept, dropped, v };
+  });
+  await page.evaluate(() => sessionStorage.removeItem("eikon_cus_hand"));
+  report("search does things: the fill never overwrites what was typed (the name stays, the empty ID card is filled, the form is not reopened); a hand-over for another screen is left; a stale one is dropped; the load's answer passes through",
+    keep.name === "Typed By Hand" && keep.id === "0012345M" && keep.forms === 1 && !keep.left && other.kept && other.dropped && other.v === 7, JSON.stringify({ keep, other }));
+
+  // 6. Escape cancels a form opened from the search, and focus returns to the screen's button; nothing was written
+  await page.goto(base + "&ui=2#registers"); await ready("registers");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await ask("new question"); await page.keyboard.press("Enter"); await landed("#tkt-add");
+  await page.keyboard.press("Escape"); await page.waitForTimeout(150);
+  const esc1 = await page.evaluate(() => ({ form: !!document.querySelector("#tkt-add"), focus: document.activeElement && document.activeElement.getAttribute("data-act") }));
+  const w6 = (await callsNow()).filter((c) => c.method !== "GET");
+  report("search does things: Escape closes a form opened from the search (nothing typed) and focus goes back to its button; opening it wrote nothing", !esc1.form && esc1.focus === "add" && w6.length === 0, JSON.stringify({ esc1, w6 }));
+
+  // 7. Arrows choose between actions; the footer names the trick; a phone shows the same rows, 44 px tall
+  const two = await ask("record dda");
+  await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter"); const twoOk = await landed("#cdp-add");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await ask("new order"); const ph = await page.evaluate(() => ({ h: Math.round(document.querySelector('.esr-grp[aria-label="Actions"] .esr-opt').getBoundingClientRect().height), wide: document.documentElement.scrollWidth > window.innerWidth + 1 }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await ask("x"); const foot = await page.evaluate(() => (document.querySelector(".esr-foot") || {}).textContent || "");
+  await page.evaluate(() => window.EIKON.searchClose(false));
+  report("search does things: ArrowDown picks the second action ('record dda' → received); action rows are 44 px tall on a phone with no sideways scroll",
+    twoOk && ph.h >= 44 && !ph.wide, JSON.stringify({ two, ph, foot }));
+} catch (e) { report("search does things: ran to the end", false, String(e && e.stack || e).slice(0, 500)); }
 // The ID card on a record and its person (E.people.confirmPerson in ui/eikon.people.js), in DDA sales, Orders and
 // Repeat prescriptions: A (the person has no card: asked to add it, then their card-less records offered to tick),
 // B (the card is someone else's: stopped, never saved under the wrong name), C (the person has another card: asked to
@@ -3802,7 +4079,7 @@ try {
   await todayFresh();
   const f5 = await page.evaluate(() => !!document.querySelector(".tdy-setup"));
   report("today first run: the admin sees fridge, people and opening hours while each is missing (still one request; links to the screens), each line goes when done and the list with the last; staff never; an older server shows nothing",
-    f1.join() === "fridge>#temperature,people>#teamreg,hours>#shifts" && fGets.filter((x) => x !== "/auth/me" && x !== "/today").length === 0 && fOpen === "#teamreg" && f2.join() === "hours" && !f3 && !f4 && !f5, JSON.stringify({ f1, fGets, fOpen, f2, f3, f4, f5 }));
+    f1.join() === "fridge>#tempreg,people>#teamreg,hours>#shifts" && fGets.filter((x) => x !== "/auth/me" && x !== "/today").length === 0 && fOpen === "#teamreg" && f2.join() === "hours" && !f3 && !f4 && !f5, JSON.stringify({ f1, fGets, fOpen, f2, f3, f4, f5 }));
 } catch (e) { report("today first run: ran to the end", false, String(e).slice(0, 400)); }
 todayState.noFridge = false; teamState = teamFresh();
 
@@ -4604,6 +4881,139 @@ try {
   });
   report("whatsnew.json: valid, dated (real dates, none in the future), newest first, unique ids, a title and text each, no technical words", !problems.length, problems.slice(0, 5).join(" | "));
 }
+// Backlog 4 item 7: a brand-new pharmacy's first hour never dead-ends. Today shows never-recorded cleaning as "Not done
+// yet" (amber, not red Overdue) and asks to name the fridges and rooms; Fridges and rooms, the first rota people and the
+// product import all happen in the new layout and send exactly the classic bodies; Returns' empty state points somewhere.
+try {
+  globalThis.__b47 = true; b47 = b47Fresh();
+  const bx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await bx.route(/cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "application/javascript", body: "" }));
+  await bx.addInitScript(() => { try { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); localStorage.setItem("eikon_install_never", "1"); } catch (e) {} });
+  const bp = await bx.newPage(); const bErr = []; bp.on("pageerror", (e) => bErr.push(e.message));
+  const on = (mod) => bp.waitForFunction((m) => window.EIKON && window.EIKON.state.activeModuleId === m, mod, { timeout: 15000 });
+  const writes = async (re) => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method !== "GET" && re.test(c.path)).map((c) => c.method + " " + c.path + " " + JSON.stringify(c.body));
+  const focusIs = () => bp.evaluate(() => { const a = document.activeElement; return a ? (a.getAttribute("data-k") || a.getAttribute("name") || a.id || a.tagName) : ""; });
+  const main = () => bp.evaluate(() => document.querySelector("#eikon-content").innerText);
+
+  // Today on day one
+  await bp.goto(base + "&ui=2#today"); await on("today"); await bp.waitForSelector("[data-kind=cleaning]");
+  const t1 = await bp.evaluate(() => { const r = document.querySelector("[data-kind=cleaning]"), pill = r.querySelector(".tdy-pill");
+    return { cls: r.className, pill: pill && pill.textContent, pillCls: pill && pill.className, legend: document.querySelector(".tdy-legend").textContent, setup: [...document.querySelectorAll("[data-setup]")].map((e) => e.getAttribute("data-setup")), red: document.querySelectorAll(".tdy-row.red,.tdy-pill.red,.tdy-t .u").length }; });
+  report("first day: never-recorded cleaning is amber 'Not done yet' (no red, no 'overdue'); Getting ready asks to name the fridges and rooms",
+    /amb/.test(t1.cls) && t1.pill === "Not done yet" && /amb/.test(t1.pillCls) && !/overdue/i.test(t1.legend) && t1.red === 0 && t1.setup.indexOf("names") >= 0 && !/classic/i.test(await main()), JSON.stringify(t1));
+
+  // Name them: Fridges and rooms opens in the new layout, focus on its heading
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await bp.click('[data-setup="names"] button'); await on("tempreg"); await bp.waitForSelector('form.trg-dv[data-dv="2"]');
+  const d1 = await bp.evaluate(() => ({ hash: location.hash, classic: /ui=classic/.test(location.search), h1: document.querySelector(".trg h1").textContent, focus: document.activeElement && document.activeElement.id }));
+  // rename the fridge, a decimal comma in its lowest limit; Enter saves
+  await bp.fill('form[data-dv="2"] [name=name]', "Main fridge ċ"); await bp.fill('form[data-dv="2"] [name=min_limit]', "2,5"); await bp.fill('form[data-dv="2"] [name=max_limit]', "7.5");
+  await bp.press('form[data-dv="2"] [name=max_limit]', "Enter"); await bp.waitForTimeout(500);
+  const w1 = await writes(/temperature\/devices/), f1 = await focusIs();
+  report("fridges and rooms: opens from Today in the new layout; a rename sends the classic body (decimal comma read) and focus stays on its Save",
+    d1.hash === "#tempreg" && !d1.classic && d1.h1 === "Fridges and rooms" && d1.focus === "trg-dv-h" && w1.length === 1 && w1[0] === 'PUT /temperature/devices/2 {"name":"Main fridge ċ","device_type":"fridge","min_limit":2.5,"max_limit":7.5}' && f1 === "dv-save:2", JSON.stringify({ d1, w1, f1 }));
+
+  // add one: a fridge starts at 2 to 8, a room at 15 to 25 while untouched; Enter twice adds once; ready for the next
+  await fetch(`http://localhost:${PORT}/__reset`);
+  const pre = [await bp.inputValue("#trg-add [name=min_limit]"), await bp.inputValue("#trg-add [name=max_limit]")];
+  await bp.selectOption("#trg-add [name=device_type]", "room"); const preRoom = [await bp.inputValue("#trg-add [name=min_limit]"), await bp.inputValue("#trg-add [name=max_limit]")];
+  await bp.selectOption("#trg-add [name=device_type]", "fridge");
+  await bp.fill("#trg-add [name=name]", "Vaccine fridġ"); await bp.press("#trg-add [name=name]", "Enter"); await bp.press("#trg-add [name=name]", "Enter").catch(() => {}); await bp.waitForTimeout(600);
+  const w2 = await writes(/temperature\/devices/), f2 = await focusIs(), nameAfter = await bp.inputValue("#trg-add [name=name]");
+  report("fridges and rooms: Add starts a fridge at 2 to 8 °C (a room at 15 to 25), sends the classic body once, and leaves the name box ready for the next",
+    pre.join() === "2,8" && preRoom.join() === "15,25" && w2.length === 1 && w2[0] === 'POST /temperature/devices {"name":"Vaccine fridġ","device_type":"fridge","min_limit":2,"max_limit":8}' && f2 === "name" && nameAfter === "" && (await bp.$$('form.trg-dv[data-dv]')).length === 3,
+    JSON.stringify({ pre, preRoom, w2, f2, nameAfter }));
+
+  // mistakes: said once under the boxes, the box marked and focused, nothing sent; a failed save keeps what was typed
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await bp.fill('form[data-dv="1"] [name=name]', ""); await bp.fill('form[data-dv="1"] [name=min_limit]', "abc"); await bp.click('[data-k="dv-save:1"]'); await bp.waitForTimeout(200);
+  const e1 = await bp.evaluate(() => ({ err: document.querySelector("#trg-err-1").textContent, role: document.querySelector("#trg-err-1").getAttribute("role"), inv: [...document.querySelectorAll('form[data-dv="1"] [aria-invalid=true]')].map((e) => e.name), focus: document.activeElement.name }));
+  await bp.fill('form[data-dv="1"] [name=name]', "Dispensary"); await bp.fill('form[data-dv="1"] [name=min_limit]', "15");
+  b47.fail = true; await bp.click('[data-k="dv-save:1"]'); await bp.waitForTimeout(500);
+  const e2 = await bp.evaluate(() => ({ err: document.querySelector("#trg-err-1").textContent, name: document.querySelector('form[data-dv="1"] [name=name]').value }));
+  const w3 = await writes(/temperature\/devices/);
+  report("fridges and rooms: a missing name or a non-number limit is said under the boxes and nothing is sent; a failed save keeps the typed name",
+    /Write a name/.test(e1.err) && e1.role === "alert" && e1.inv.join() === "name,min_limit" && e1.focus === "name" && w3.length === 1 && /Not saved/.test(e2.err) && e2.name === "Dispensary", JSON.stringify({ e1, e2, w3 }));
+
+  // stop logging asks once (Escape keeps it), sends {active:false}; Log it again sends {active:true}
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await bp.click('[data-k="dv-stop:3"]'); const askF = await focusIs(); await bp.keyboard.press("Escape"); await bp.waitForTimeout(150); const escF = await focusIs();
+  await bp.click('[data-k="dv-stop:3"]'); await bp.click('[data-k="dv-stop-yes"]'); await bp.waitForTimeout(500);
+  const offList = await bp.evaluate(() => [...document.querySelectorAll(".trg-dv.off b")].map((b) => b.textContent));
+  await bp.click('[data-k="dv-again:3"]'); await bp.waitForTimeout(500);
+  const w4 = await writes(/temperature\/devices/);
+  report("fridges and rooms: Stop logging asks once (Escape keeps logging, focus back on it), then {active:false}; Log it again sends {active:true}",
+    askF === "dv-keep" && escF === "dv-stop:3" && offList.join() === "Vaccine fridġ" && w4.join("|") === 'PUT /temperature/devices/3 {"active":false}|PUT /temperature/devices/3 {"active":true}', JSON.stringify({ askF, escF, offList, w4 }));
+
+  // Escape goes back to the month, onto the button that opened it; Today no longer asks to name them
+  await bp.keyboard.press("Escape"); await bp.waitForTimeout(500);
+  const back = { focus: await focusIs(), view: await bp.evaluate(() => !!document.querySelector(".trg-month, .em-bar, [data-months]") || !document.querySelector("#trg-add")) };
+  await bp.evaluate(() => { location.hash = "#today"; }); await on("today"); await bp.waitForSelector("[data-kind=cleaning]");
+  const setup2 = await bp.evaluate(() => [...document.querySelectorAll("[data-setup]")].map((e) => e.getAttribute("data-setup")));
+  report("fridges and rooms: Escape returns to the month with focus on 'Fridges and rooms'; once saved, Today stops asking to name them",
+    back.focus === "devices" && back.view && setup2.indexOf("names") < 0, JSON.stringify({ back, setup2 }));
+
+  // someone who is not the admin sees the list, no boxes
+  const staffView = await bp.evaluate(async () => { const E = window.EIKON, was = E.state.user.role; E.state.user.role = "staff"; sessionStorage.setItem("eikon_tempreg_view", "devices"); location.hash = "#tempreg";
+    await new Promise((r) => setTimeout(r, 900)); const out = { inputs: document.querySelectorAll(".trg-dv input").length, lines: document.querySelectorAll(".trg-dv .ln").length, note: /Only the pharmacy/.test(document.querySelector(".trg").textContent) }; E.state.user.role = was; return out; });
+  report("fridges and rooms: someone who is not the admin sees each one and its limits, with no boxes to change them", staffView.inputs === 0 && staffView.lines === 3 && staffView.note, JSON.stringify(staffView));
+
+  // Plan shifts with nobody on the rota: who works here, in place
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await bp.evaluate(() => { location.hash = "#shifts"; }); await on("shfreg"); await bp.waitForSelector("#shf-who");
+  const s0 = { text: await main(), role: await bp.inputValue("#shf-who [name=designation]") };
+  await bp.click("#shf-who [data-k=who-add]"); await bp.waitForTimeout(150);
+  const s1 = await bp.evaluate(() => ({ err: (document.querySelector("#shf-who-err") || {}).textContent, focus: document.activeElement.name }));
+  await bp.fill("#shf-who [name=full_name]", "Ġorġ Borġ"); await bp.press("#shf-who [name=full_name]", "Enter"); await bp.waitForTimeout(600);
+  const s2 = { focus: await focusIs(), role: await bp.inputValue("#shf-who [name=designation]"), said: await bp.evaluate(() => (document.querySelector(".shf-who .ok") || {}).textContent || ""), adds: (await bp.$$('.shf-add[data-act="add"]')).length };
+  await bp.fill("#shf-who [name=full_name]", "Marija Żammit"); await bp.press("#shf-who [name=full_name]", "Enter"); await bp.waitForTimeout(600);
+  await bp.click("[data-k=who-done]"); await bp.waitForTimeout(200); const s3 = await focusIs();
+  const w5 = await writes(/shifts\/staff/);
+  const cls = (b) => '{"full_name":"' + b[0] + '","designation":"' + b[1] + '","employment_type":"fulltime","contracted_hours":40,"email":"","phone":"","registration_number":"","is_active":1,"patterns_json":"{\\"patterns\\":[],\\"provisionalId\\":null}"}';
+  report("plan shifts, empty rota: 'Who works here?' in place (no classic), name required, each person sent with the classic Add Employee body; the next defaults to assistant; Done lands on '+ Add a person'",
+    !/classic Shifts screen first/.test(s0.text) && s0.role === "pharmacist" && /Write the person/.test(s1.err || "") && s1.focus === "full_name" && s2.focus === "full_name" && s2.role === "assistant" && /Ġorġ Borġ is on the rota/.test(s2.said) && s2.adds === 7 &&
+    w5.join("|") === "POST /shifts/staff " + cls(["Ġorġ Borġ", "pharmacist"]) + "|POST /shifts/staff " + cls(["Marija Żammit", "assistant"]) && s3 === "who", JSON.stringify({ s0: s0.role, s1, s2, s3, w5 }));
+
+  // Emergency POS with no products: import here (the real SheetJS, the classic mapping and upload); Today lists it until then
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await bp.evaluate(() => { location.hash = "#emergency-pos"; }); await on("eposreg"); await bp.waitForSelector("[data-k=import]");
+  const hits0 = await bp.evaluate(() => document.querySelector("#epr-hits").innerText);
+  await bp.evaluate(() => { location.hash = "#today"; }); await on("today"); await bp.waitForSelector("[data-kind=cleaning]");
+  const setup3 = await bp.evaluate(() => [...document.querySelectorAll("[data-setup]")].map((e) => e.getAttribute("data-setup")));
+  await bp.click('[data-setup="products"] button'); await on("eposreg"); await bp.waitForSelector("[data-k=import]");
+  const csv = "Barcode,Description,Retail Price,VAT,Category\n5012345678900,Paracetamol 500mg,2.35,0,Pain\n,Cough syrup,4.10,18,Cough\n";
+  const fc = bp.waitForEvent("filechooser"); await bp.click("[data-k=import]"); await (await fc).setFiles({ name: "list.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+  await bp.waitForFunction(() => /2 products/.test((document.querySelector("#epr-hits") || {}).textContent || ""), null, { timeout: 15000 });
+  const w6 = await writes(/emergency-pos\/catalog/);
+  let h = 0; for (const ch of "Cough syrup") { h = ((h << 5) - h) + ch.charCodeAt(0); h |= 0; }
+  const want = 'POST /emergency-pos/catalog {"products":[{"barcode":"5012345678900","name":"Paracetamol 500mg","price":2.35,"vat_rate":0,"category":"Pain","unit":""},{"barcode":"NOBAR-' + Math.abs(h) + '-2","name":"Cough syrup","price":4.1,"vat_rate":18,"category":"Cough","unit":""}],"wipe":true,"file_name":"list.csv","total_rows":2,"chunk_index":1}';
+  await bp.evaluate(() => { location.hash = "#today"; }); await on("today"); await bp.waitForSelector("[data-kind=cleaning]");
+  const setup4 = await bp.evaluate(() => [...document.querySelectorAll("[data-setup]")].map((e) => e.getAttribute("data-setup")));
+  report("emergency POS, no products: Import here (no classic), the classic rows and batch body; Today lists 'Add your products' only until then",
+    !/classic/i.test(hits0) && setup3.indexOf("products") >= 0 && w6.length === 1 && w6[0] === want && setup4.indexOf("products") < 0, JSON.stringify({ hits0, setup3, w6, setup4 }));
+
+  // Returns, nothing going back: the next step, not the classic screen
+  await bp.evaluate(() => { location.hash = "#returns"; }); await on("retreg"); await bp.waitForSelector(".rtn-quiet");
+  const rq = await bp.evaluate(() => { const q = document.querySelector(".rtn-quiet"); return { t: q.textContent, a: (q.querySelector("a") || {}).getAttribute && q.querySelector("a").getAttribute("href") }; });
+  report("returns, empty: says how to send stock back (Near expiry, Send back), not 'the classic screen'", !/classic/i.test(rq.t) && rq.a === "#nearexpiry" && /Send back/.test(rq.t), JSON.stringify(rq));
+
+  // Phone: 44 px targets, nothing sideways at 360 px (Fridges and rooms, Who works here, the import)
+  b47 = b47Fresh(); await bp.setViewportSize({ width: 390, height: 844 });
+  const ph = {};
+  for (const [h2, mod, sel, pre2] of [["tempreg", "tempreg", "#trg-add", "devices"], ["shifts", "shfreg", "#shf-who", ""], ["emergency-pos", "eposreg", "[data-k=import]", ""]]) {
+    await bp.goto("about:blank"); await bp.goto(base + "&ui=2#today"); await on("today");
+    await bp.evaluate(([h3, v]) => { if (v) sessionStorage.setItem("eikon_tempreg_view", v); location.hash = "#" + h3; }, [h2, pre2]); await on(mod); await bp.waitForSelector(sel); await bp.waitForTimeout(300);
+    const small = await bp.evaluate((s) => [...document.querySelectorAll("#eikon-content :is(" + s + ") :is(button, input, select), #eikon-content " + s + ":is(button)")].filter((e) => e.offsetParent && (e.closest("label") || e).getBoundingClientRect().height < 44).map((e) => e.name || e.textContent.trim()), sel.startsWith("#trg") ? ".trg-dv" : sel);
+    await bp.setViewportSize({ width: 360, height: 800 }); await bp.waitForTimeout(150);
+    const wide = await bp.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    await bp.setViewportSize({ width: 390, height: 844 });
+    ph[mod] = { small, wide };
+  }
+  report("first day on a phone: Fridges and rooms, Who works here and Import have 44 px targets and no sideways scroll at 360 px", Object.values(ph).every((v) => !v.small.length && !v.wide), JSON.stringify(ph));
+  report("first day: no page errors", bErr.length === 0, bErr.slice(0, 3).join(" | "));
+  await bx.close();
+} catch (e) { report("first day: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
+globalThis.__b47 = false; b47 = null;
 
 await browser.close();
 server.close();

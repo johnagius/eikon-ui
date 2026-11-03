@@ -214,7 +214,7 @@
 
   E.registerModule({
     id: "locreg", title: "Locum register", order: 3, icon: "◷", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.month = E.months.take("locreg") || thisMonth(); S.entries = []; E.months.reset(); E.correct.reset("locreg"); css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.month = E.months.take("locreg") || thisMonth(); S.entries = []; E.months.reset(); E.correct.reset("locreg"); css(); paint(); return E.takeOpenForm("locreg", S.mount, load(), { btn: "[data-act=new]", form: "#lcr-form" }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("locreg") < 0) E.UI2_DESTINATIONS.push("locreg");
   if (E.UI2_PARENT) E.UI2_PARENT.locreg = "registers";

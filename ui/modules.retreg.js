@@ -94,7 +94,7 @@
     var h = '<div class="rtn"><button class="rtn-back" data-act="back">' + esc(E.ui2BackLabel("retreg")) + '</button><h1>Returns</h1><p class="rtn-sub">Stock going back to suppliers, step by step until the credit note.</p>';
     if (S.loading && !S.entries.length) h += '<div class="rtn-quiet">Opening returns…</div>';
     else if (S.error) h += '<div class="rtn-quiet" role="alert">' + esc(S.error) + '<button class="rtn-btn" data-act="retry">Try again</button></div>';
-    else if (!S.entries.length) h += '<div class="rtn-quiet">Nothing is going back. Send something back from Near expiry, or add a return in the classic screen.</div>';
+    else if (!S.entries.length) h += '<div class="rtn-quiet">Nothing is going back. To send stock back, open <a href="#nearexpiry" style="color:var(--accent);font-weight:600">Near expiry</a> and press Send back on its line.</div>';
     else GROUPS.forEach(function (g) {
       var list = S.entries.filter(function (e) { return group(e) === g[0]; });
       if (list.length) h += '<div class="rtn-lab">' + g[1] + " <b>" + list.length + '</b></div><div class="rtn-list">' + list.map(rowHtml).join("") + "</div>";

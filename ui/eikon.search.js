@@ -20,6 +20,60 @@
   var E = window.EIKON;
   if (!E) return;
 
+  // ---- Open a screen with its form open: Customers' hand-over (modules.customers.js), mode "new" ----
+  // One note for the whole app: sessionStorage "eikon_cus_hand" = { to, mode: "new" | "find", person, back, at }, written
+  // by E.customerHandoff (a customer's page, and the search below) and taken once by the screen (E.takeCustomerHandoff).
+  // Orders, Questions and Deliveries read it themselves (they also take "find", and Cancel goes back to the person).
+  // Every other rebuilt screen reads it with one line in its render:
+  //   return E.takeOpenForm("poreg", S.mount, load(), { btn: "[data-act=add]", form: "#por-add", fill: { name: "client_name", ... } });
+  // (a screen that has already taken the note passes it as the fifth argument). When its first load is in, the
+  // screen's own main button is pressed (the same path as a tap: nothing is saved), the person goes into the fields
+  // that are still empty (E.fillEmpty: nothing typed is overwritten), and focus goes to the first empty field (or to
+  // o.focus, for a screen whose form is always there). Returns `ready`, so the render still returns its load.
+  E.takeOpenForm = function (screen, mount, ready, o, hand) {
+    var h = hand !== undefined ? hand : (E.takeCustomerHandoff ? E.takeCustomerHandoff(screen) : null);
+    if (!h || h.mode !== "new" || !mount) return ready;
+    o = o || {};
+    var here = function () { return document.body.contains(mount) && (!E.state || E.state.activeModuleId === screen); };
+    var vis = function (el) { return !!el && !el.disabled && el.type !== "hidden" && (el.offsetParent !== null || el.getClientRects().length > 0); };
+    var put = function (el) { if (!el) return; try { el.focus({ preventScroll: false }); } catch (e) { el.focus(); } if (el.scrollIntoView) try { el.scrollIntoView({ block: "center" }); } catch (e) {} };
+    var later = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+    var waitFor = async function (fn, ms) { var t = Date.now(); while (Date.now() - t < ms) { if (!here()) return null; var x = fn(); if (x) return x; await later(40); } return null; };
+    var run = async function () {
+      if (!here()) return;
+      if (o.btn) { // the form may be open already (then it is filled, never reopened)
+        var b = await waitFor(function () { var x = (o.form && mount.querySelector(o.form)) || mount.querySelector(o.btn); return x && !x.disabled ? x : null; }, 4000);
+        if (!b) return; if (!(o.form && b.matches(o.form))) b.click();
+      }
+      var f = o.form ? await waitFor(function () { return mount.querySelector(o.form); }, 3000) : null;
+      await later(40); // after the screen's own "focus the first field" (30 ms), so ours is the last word
+      if (!here()) return;
+      if (f && f.isConnected === false) f = o.form ? mount.querySelector(o.form) : null;
+      var p = h.person || {}, map = {};
+      if (f && o.fill) Object.keys(o.fill).forEach(function (k) { if (p[k] != null && String(p[k]).trim()) map[o.fill[k]] = String(p[k]).trim(); });
+      if (f && E.fillEmpty) E.fillEmpty(f, map);
+      var target = null;
+      if (o.focus) target = await waitFor(function () { var x = mount.querySelector(o.focus); return vis(x) ? x : null; }, 3000);
+      if (!target && f) {
+        var all = Array.prototype.filter.call(f.querySelectorAll("input,select,textarea"), function (x) { return vis(x) && !x.readOnly && !/^(checkbox|radio|button|submit)$/.test(x.type); });
+        target = all.filter(function (x) { return !String(x.value || "").trim(); })[0] || all[0] || null;
+      }
+      if (!target) return;
+      put(target);
+      // A late redraw (a second list arriving) can replace the form: put focus back on the same field, once, within 1.5 s.
+      var name = target.getAttribute("name"), sel = o.focus && target.matches(o.focus) ? o.focus : null, until = Date.now() + 1500;
+      (function guard() {
+        if (Date.now() > until || !here()) return;
+        if (document.activeElement === document.body || !document.activeElement) {
+          var again = sel ? mount.querySelector(sel) : (name && f ? (mount.querySelector(o.form) || f).querySelector('[name="' + name + '"]') : null);
+          if (vis(again)) { put(again); return; }
+        }
+        setTimeout(guard, 100);
+      })();
+    };
+    return Promise.resolve(ready).then(function (v) { run().catch(function () {}); return v; }, function (e) { run().catch(function () {}); throw e; });
+  };
+
   // ---- Synonyms: the words people use for a screen. One list, keyed by the card id (old id) or the tab id. ----
   var SYN = {
     today: ["home", "start", "dashboard"],
@@ -141,6 +195,106 @@
       .slice(0, PER).map(function (x) { return x.s; });
   }
 
+  // ---- Doing things: a verb names a form ("new order", "record dda", "log fridge", "deliver"), and so does a person
+  // with a noun ("grech order", "0456789M dda"). Enter opens that screen with its form open (E.takeOpenForm above).
+  // A query with no verb and no person is searched exactly as before.
+  // id: the rebuilt screen; key: its card (an admin-only card is not offered to staff); label: the screen's own button;
+  // words: what people call it; verbs: verbs that name it on their own; fill: it takes a person; note: when it is not a
+  // form that opens (End of day, a stock take: the screen opens at its first figure or its button).
+  var VERBS = ["new", "add", "record", "log", "enter", "make", "start", "create", "write", "close", "ask", "deliver", "supply", "count", "receive"];
+  var FILLER = ["for", "a", "an", "the", "of", "to", "with", "from"];
+  var DDA = ["dda", "cd", "cds", "controlled", "controlled drug", "controlled drugs"];
+  var ACTS = [
+    { id: "ordreg", key: "clientorders", label: "New order", fill: true, words: ["order", "orders", "customer order", "client order", "special order"] },
+    { id: "tktreg", key: "tickets", label: "New question", fill: true, verbs: ["ask"], words: ["question", "questions", "query", "ticket"] },
+    { id: "dlvreg", key: "deliveries", label: "New delivery", fill: true, verbs: ["deliver"], words: ["delivery", "deliveries", "home delivery"] },
+    { id: "cdsreg", key: "dda-sales", label: "New prescription", fill: true, verbs: ["supply"], words: DDA.concat(["dda sale", "dda sales", "cd sale", "cd sales", "sale", "morphine", "methadone", "fentanyl", "oxycodone", "pethidine"]) },
+    { id: "poyreg", key: "dda-poyc", label: "New prescription", fill: true, words: ["poyc", "dda poyc", "cd poyc"] },
+    { id: "cdpreg", key: "dda-purchases", label: "New invoice", verbs: ["receive"], words: DDA.concat(["dda purchase", "dda purchases", "cd purchase", "cd purchases", "dda received", "cd received", "dda delivery", "cd delivery", "dda invoice", "cd invoice", "invoice", "purchase", "purchases"]) },
+    { id: "ddstreg", key: "dda_stocktakes", label: "Start a stock take", note: "the button is ready", verbs: ["count"], words: ["stock take", "stocktake", "stock-take", "dda count", "cd count"] },
+    { id: "repreg", key: "repeatprescriptions", label: "New prescription", fill: true, words: ["repeat", "repeats", "repeat prescription", "repeat prescriptions", "rx", "prescription", "script"] },
+    { id: "drreg", key: "dailyregister", label: "New entry", fill: true, words: ["daily register", "pom", "prescription only", "day book"] },
+    { id: "today", key: "temperature", label: "Log today’s readings", note: "the first reading", words: ["fridge", "fridges", "temperature", "temperatures", "temp", "temps", "reading", "readings", "thermometer", "cold chain", "room"] },
+    { id: "cleanreg", key: "cleaning", label: "New cleaning", words: ["cleaning", "clean", "hygiene"] },
+    { id: "eodreg", key: "endofday", label: "Close the day", note: "the first figure", verbs: ["close"], words: ["end of day", "eod", "the day", "day", "till", "takings", "z reading", "x reading", "cash up", "bank bag"] },
+    { id: "poreg", key: "paidout", label: "New payment", words: ["paid out", "petty cash", "payment", "courier", "cash out"] },
+    { id: "cnreg", key: "creditnotes", label: "New credit note", words: ["credit note", "credit notes", "credit", "voucher", "refund"] },
+    { id: "pocreg", key: "poct", label: "New test", fill: true, words: ["test", "tests", "bp", "blood pressure", "glucose", "cholesterol", "poct", "inr"] },
+    { id: "odreg", key: "order-diary", label: "Add an item", words: ["order diary", "supplier order", "wholesaler order", "to order"] },
+    { id: "qtreg", key: "quotations", label: "New quote", words: ["quote", "quotes", "quotation", "price check"] },
+    { id: "alertreg", key: "alerts", label: "New alert", words: ["alert", "alerts", "recall", "quarantine", "drug alert"] },
+    { id: "nexreg", key: "nearexpiry", label: "Add an item", words: ["expiry", "near expiry", "short dated", "short expiry", "expiring"] },
+    { id: "pvreg", key: "pharmacovigilance", label: "New report", words: ["reaction", "adverse reaction", "adr", "side effect", "yellow card"] },
+    { id: "lrcreg", key: "locumreceipts", label: "New receipt", words: ["locum receipt", "locum receipts", "locum pay", "receipt"] },
+    { id: "locreg", key: "locumregister", label: "New locum", words: ["locum", "locum register", "pharmacist in charge", "pic"] },
+    { id: "conreg", key: "contacts", label: "Add a contact", words: ["contact", "contacts", "phone number"] }
+  ];
+  E.SEARCH_ACTIONS = ACTS;
+  function actOk(a) {
+    if (!E.modules[a.id]) return false;
+    var card = E.modules[a.key], u = user();
+    return !(card && card.adminOnly && u.role && u.role !== "admin");
+  }
+  function actScreen(a) { return a.id === "today" ? "Today" : ((E.modules[a.id] && E.modules[a.id].title) || ""); }
+  // Which phrase of `words` sits in the tokens (the last token may still be being typed: a start of 2+ letters will do).
+  function phraseAt(tk, i, ph, part) {
+    var w = ph.split(" ");
+    if (i + w.length > tk.length) return false;
+    for (var j = 0; j < w.length; j++) {
+      var t = tk[i + j], last = i + j === tk.length - 1 && j === w.length - 1;
+      if (t !== w[j] && !(part && last && t.length >= 2 && w[j].indexOf(t) === 0)) return false;
+    }
+    return true;
+  }
+  function personish(s) { s = str(s).trim(); if (!s) return false; var d = s.replace(/\D/g, ""); if (ID_RE.test(s.replace(/\s+/g, ""))) return true; if (/\d/.test(s)) return d.length >= 6 && /^[\d\s+]+$/.test(s); return s.replace(/[^A-Za-zÀ-ɏ]/g, "").length >= 2; }
+  // { acts: the best forms, verb: a verb was typed, who: what is left (a person) } — or null.
+  function doing(q) {
+    var raw = str(q).trim().split(/\s+/).filter(Boolean), tk = raw.map(function (x) { return low(x).replace(/[.,;:!?]+$/, ""); });
+    if (!tk.length) return null;
+    var used = {}, verb = false, scored = [];
+    tk.forEach(function (t, i) { if (VERBS.indexOf(t) >= 0) { used[i] = 1; verb = true; } });
+    var part = verb; // a word still being typed ("new ord") counts only after a verb: "abela te" is a name being typed
+    ACTS.forEach(function (a, ai) {
+      if (!actOk(a)) return;
+      var mine = {}, sc = 0;
+      (a.verbs || []).forEach(function (v) { tk.forEach(function (t, i) { if (t === v) { mine[i] = 1; sc += 2; } }); });
+      var ph = a.words.slice().sort(function (x, y) { return y.split(" ").length - x.split(" ").length; });
+      for (var i = 0; i < tk.length; i++) {
+        if (mine[i]) continue;
+        for (var k = 0; k < ph.length; k++) {
+          if (phraseAt(tk, i, ph[k], part)) { var n = ph[k].split(" ").length; for (var j = 0; j < n; j++) mine[i + j] = 1; sc += n; i += n - 1; break; }
+        }
+      }
+      if (sc) scored.push({ a: a, sc: sc, ai: ai, mine: mine });
+    });
+    if (!scored.length) return null;
+    scored.forEach(function (x) { Object.keys(x.mine).forEach(function (i) { used[i] = 1; }); });
+    var best = Math.max.apply(null, scored.map(function (x) { return x.sc; }));
+    var acts = scored.filter(function (x) { return x.sc === best; }).sort(function (x, y) { return x.ai - y.ai; }).slice(0, 3).map(function (x) { return x.a; });
+    var who = raw.filter(function (x, i) { return !used[i] && FILLER.indexOf(tk[i]) < 0; }).join(" ");
+    if (!verb && !acts.some(function (a) { return (a.verbs || []).some(function (v) { return tk.indexOf(v) >= 0; }); })) {
+      // no verb: only a person with a noun ("grech order") does something; a noun alone is searched as before
+      if (!personish(who)) return null;
+      acts = acts.filter(function (a) { return a.fill; });
+      if (!acts.length) return null;
+      return { acts: acts, verb: false, who: who };
+    }
+    return { acts: acts, verb: true, who: personish(who) ? who : "" };
+  }
+  E.searchDoing = doing; // for the tests
+  function doRow(a, c) {
+    var scr = actScreen(a), what = a.note || "opens the form";
+    if (!c) return { a: a, title: a.label, sub: scr + " · " + what };
+    if (c.typed) return { a: a, c: c, title: a.label + " for " + (c.id_card || "“" + c.name + "”"), sub: scr + " · opens the form, " + (c.id_card ? "the ID card" : "the name") + " filled in" };
+    return { a: a, c: c, title: a.label + " for " + c.name, sub: scr + " · opens the form, filled in" + (c.id_card ? " · " + c.id_card : "") };
+  }
+  function doIt(r) {
+    var c = r.c, p = c ? { name: c.typed && c.id_card ? "" : str(c.name), id_card: str(c.id_card), phone: str(c.phone), address: str(c.address) } : null;
+    // person id 0: Cancel stays on the screen (a customer's page passes its id, and Cancel goes back there)
+    if (E.customerHandoff) E.customerHandoff(r.a.id, "new", p, ""); else hand("eikon_cus_hand", { to: r.a.id, mode: "new", at: Date.now(), back: "", person: p || {} });
+    go("#" + r.a.id);
+  }
+
   // ---- Orders still open, and today's bookings: read once, filtered here ----
   function openOrders() {
     return cached("orders", async function () {
@@ -232,18 +386,28 @@
     var self = this, q = str(this.input.value).trim();
     this.q = q; clearTimeout(this.timer); this.note = null;
     if (!q) { this.groups = {}; this.draw(); return; }
-    this.groups = { screens: screens(q), people: this.groups.people && this.groups.q === q ? this.groups.people : null, orders: null, bookings: null, q: q, pending: true };
+    var dg = doing(q), keepActs = this.groups.q === q && this.groups.acts;
+    this.groups = { acts: keepActs || (dg && dg.verb ? dg.acts.map(function (a) { return doRow(a); }) : []), doing: dg, screens: screens(q), people: this.groups.people && this.groups.q === q ? this.groups.people : null, orders: null, bookings: null, q: q, pending: true };
     this.draw();
     this.timer = setTimeout(function () { self.remote(q); }, now ? 0 : WAIT);
   };
   Engine.prototype.remote = async function (q) {
     var my = ++this.seq, self = this;
-    var res = await Promise.all([people(q), q.length >= 2 ? openOrders() : null, q.length >= 2 ? todaysBookings() : null]);
+    var dg = doing(q), who = dg && dg.who && dg.acts.some(function (a) { return a.fill; }) ? dg.who : ""; // "grech order": the people are Grech
+    var res = await Promise.all([dg && dg.verb && !dg.who ? [] : people(who || q), q.length >= 2 ? openOrders() : null, q.length >= 2 ? todaysBookings() : null]);
     if (my !== this.seq || str(this.input.value).trim() !== q || !document.body.contains(this.input)) return;
+    var acts = [];
+    if (dg) {
+      var fillers = dg.acts.filter(function (a) { return a.fill; }), found = (res[0] || []).slice(0, 3);
+      if (who) found.forEach(function (c) { fillers.forEach(function (a) { acts.push(doRow(a, c)); }); });
+      if (who && !found.length && dg.verb) { var card = ID_RE.test(who.replace(/\s+/g, "")); fillers.forEach(function (a) { acts.push(doRow(a, card ? { typed: true, id_card: who.replace(/\s+/g, "").toUpperCase(), name: "" } : { typed: true, name: who })); }); }
+      if (dg.verb) dg.acts.forEach(function (a) { acts.push(doRow(a)); });
+      acts = acts.slice(0, PER);
+    }
     var ords = (res[1] || []).map(function (e) { return { e: e, m: orderMatch(e, q) }; }).filter(function (x) { return x.m >= 0; })
       .sort(function (a, b) { return a.m - b.m || (str(a.e.needed_by || "9") < str(b.e.needed_by || "9") ? -1 : 1); }).slice(0, PER).map(function (x) { return x.e; });
     var bks = (res[2] || []).filter(function (b) { return bookingMatch(b, q); }).slice(0, PER);
-    this.groups = { screens: screens(q), people: res[0] || [], orders: ords, bookings: bks, q: q, pending: false };
+    this.groups = { acts: acts, doing: dg, screens: screens(q), people: res[0] || [], orders: ords, bookings: bks, q: q, pending: false };
     this.draw();
     var n = this.items.length - (this.items.length && this.items[this.items.length - 1].kind === "more" ? 1 : 0);
     self.sr.textContent = n ? n + (n === 1 ? " result" : " results") + ". Arrow down to choose, Enter opens." : "Nothing found.";
@@ -258,6 +422,7 @@
     }
     if (this.note) group(this.note.label, [this.note], "note", function (n) { return [esc(n.title), esc(n.sub || "")]; });
     if (q) {
+      group("Actions", g.acts, "do", function (r) { return [esc(r.title), esc(r.sub)]; });
       group("Screens", g.screens, "screen", function (s) { return [esc(s.title), esc([s.hub && s.hub !== "Tab" ? s.hub : "", s.desc].filter(Boolean).join(" · "))]; });
       group("People", g.people, "person", function (c) { return [esc(c.name), esc([c.id_card, c.phone, c.pid ? "Customers" : "In the registers"].filter(Boolean).join(" · "))]; });
       group("Open orders", g.orders, "order", function (e) { return [esc(e.client_name), esc([e.items_text || e.items, e.order_code ? "Code " + e.order_code : "", e.needed_by ? "Needed " + e.needed_by : ""].filter(Boolean).join(" · "))]; });
@@ -308,6 +473,7 @@
     else if (it.kind === "booking") openBooking(it.x);
     else if (it.kind === "note" && it.x.run) it.x.run();
     else if (it.kind === "more") toCustomers(it.x.q);
+    else if (it.kind === "do") doIt(it.x);
   };
   // A scanned card nobody has: one choice, add them (Customers, the card filled in).
   Engine.prototype.offer = function (note) { this.note = note; this.groups = { screens: [], people: [], orders: [], bookings: [], q: this.q, pending: false }; this.act = 0; this.draw(); this.act = 0; this.mark(); this.sr.textContent = note.title; };

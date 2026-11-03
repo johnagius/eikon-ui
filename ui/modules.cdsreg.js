@@ -329,7 +329,7 @@
 
   E.registerModule({
     id: C.id, title: C.title, order: 3, icon: "℞", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = E.months.take(C.id) || today().slice(0, 7); S.entries = []; E.months.reset(); E.correct.reset(C.id); S.adding = null; S.err = ""; S.bad = {}; S.dup = null; S.dupOk = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = E.months.take(C.id) || today().slice(0, 7); S.entries = []; E.months.reset(); E.correct.reset(C.id); S.adding = null; S.err = ""; S.bad = {}; S.dup = null; S.dupOk = ""; css(); paint(); return E.takeOpenForm(C.id, S.mount, load(), { btn: "[data-act=add]", form: "#cds-add", fill: { id_card: "client_id_card", name: "client_name", address: "client_address" } }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf(C.id) < 0) E.UI2_DESTINATIONS.push(C.id);
   if (E.UI2_PARENT) E.UI2_PARENT[C.id] = "registers";

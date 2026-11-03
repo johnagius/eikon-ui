@@ -226,7 +226,9 @@
       ".tdy-err{display:block;font-size:12.5px;font-weight:600;color:var(--danger);white-space:normal;margin-top:2px}.tdy-err:empty{display:none}.tdy-inl input[aria-invalid=true]{border-color:var(--danger);box-shadow:0 0 0 3px rgba(191,59,46,.16)}" +
       ".tdy-note{padding:2px 14px 12px 63px;border-left:3px solid var(--danger)}.tdy-warn .tnote{margin-top:6px}.tdy-row:focus{outline:2px solid var(--accent);outline-offset:-2px}" +
       "@media (max-width:980px){.tdy{grid-template-columns:minmax(0,1fr)}.tdy-side{grid-column:1;grid-row:auto}.tdy-date{grid-column:1;grid-row:auto}}" +
-      "@media (max-width:600px){.tdy-note{padding:2px 12px 12px}.tdy-off{margin:0 16px 10px}.tdy{padding:0 16px}.tdy-date{order:-1;margin:0 0 10px}.tdy-head h1{font-size:28px}.tdy-search .hint{display:none}.tdy-row{flex-wrap:wrap;row-gap:8px}.tdy-t{flex:1 1 calc(100% - 90px)}.tdy-t+*{margin-left:60px}.tdy-row>.tdy-btn{margin-left:auto}.tdy-inl{flex:1 1 0;min-width:0}.tdy-inl:empty{display:none}.tdy-inl input{flex:1 1 0;width:0;min-width:0;height:44px;font-size:16px}.tdy-row>.tdy-btn{min-height:44px}}";
+      "@media (max-width:600px){.tdy-note{padding:2px 12px 12px}.tdy-off{margin:0 16px 10px}.tdy{padding:0 16px}.tdy-date{order:-1;margin:0 0 10px}.tdy-head h1{font-size:28px}.tdy-search .hint{display:none}.tdy-row{flex-wrap:wrap;row-gap:8px}.tdy-t{flex:1 1 calc(100% - 90px)}.tdy-t+*{margin-left:60px}.tdy-row>.tdy-btn{margin-left:auto}.tdy-inl{flex:1 1 0;min-width:0}.tdy-inl:empty{display:none}.tdy-inl input{flex:1 1 0;width:0;min-width:0;height:44px;font-size:16px}.tdy-row>.tdy-btn{min-height:44px}.tdy-row[data-kind=cleaning]>.tdy-who{flex:1 1 calc(100% - 60px);margin-left:60px}.tdy-row[data-kind=cleaning]>.tdy-pill,.tdy-row[data-kind=cleaning]>.tdy-btn{order:1}.tdy-who input{width:0}}" +
+      // b4-4: "cleaned by" holds a whole name; the team is suggested under it (eikon.personpick.js)
+      ".tdy-who{flex-wrap:wrap}.tdy-who label{display:flex;align-items:center;gap:6px;flex:1 1 auto;min-width:0}.tdy-inl.tdy-who input{width:170px;flex:1 1 auto}.tdy-who .epp-list,.tdy-who .epp-note{flex-basis:100%;margin-left:0;margin-right:0}";
     document.head.appendChild(st);
   }
 
@@ -318,6 +320,13 @@
   // The cleaner's name is remembered on this device for this pharmacy: next week it is one tap (it is usually the same person).
   function cleanerKey() { var u = E.state.user || {}; return "eikon_tdy_cleaner:" + (u.location_id || ""); }
   function lastCleaner() { try { return localStorage.getItem(cleanerKey()) || ""; } catch (e) { return ""; } }
+  function cleanerDefault() { return lastCleaner() || String((E.state.user || {}).full_name || "").trim(); }
+  function teamNames() { // for the suggestions under "cleaned by": the team on the rota (asked once, when the field is first used)
+    var u = E.state.user || {}, out = [], at = "L" + (u.location_id || "");
+    if (state.teamFor !== at) { state.teamFor = at; state.team = []; E.apiFetch("/shifts/staff", { method: "GET", timeoutMs: 8000 }).then(function (r) { if (state.teamFor === at) state.team = ((r && r.ok && r.staff) || []).map(function (x) { return x.full_name; }); }).catch(function () { state.teamFor = null; }); }
+    [lastCleaner(), u.full_name].concat(state.team || []).forEach(function (n) { n = String(n || "").trim(); if (n && out.indexOf(n) < 0) out.push(n); });
+    return out;
+  }
   async function logTemperature(row, rowEl) {
     var minEl = rowEl.querySelector("[data-min]"), maxEl = rowEl.querySelector("[data-max]");
     // Some keyboards type a decimal comma ("3,4"): read it as 3.4.
@@ -353,18 +362,7 @@
     if (state.busy[key]) return;
     var user = E.state.user || {};
     var who = rowEl.querySelector("[data-cleaner]") ? (rowEl.querySelector("[data-cleaner]").value || "").trim() : "";
-    if (!who) { // first click reveals the one field we need
-      var inl = rowEl.querySelector(".tdy-inl");
-      if (inl && !inl.querySelector("[data-cleaner]")) {
-        inl.innerHTML = '<small>cleaned by</small><input data-cleaner placeholder="Name" style="width:120px" aria-label="Cleaned by" autocomplete="off" enterkeyhint="done">';
-        var ci = inl.querySelector("[data-cleaner]");
-        ci.defaultValue = lastCleaner(); // last time's cleaner (a default, so the minute refresh still runs while it sits there untouched): Enter (or Done now) records it; typing replaces it
-        ci.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); markCleaning(row, rowEl); } });
-        ci.focus(); try { ci.select(); } catch (x) {}
-        return;
-      }
-      return rowError(rowEl, "Write who did the cleaning, then press Done now.", [rowEl.querySelector("[data-cleaner]")]);
-    }
+    if (!who) return rowError(rowEl, "Write who did the cleaning, then press Done now.", [rowEl.querySelector("[data-cleaner]")]);
     rowError(rowEl, "");
     state.busy[key] = true; setRowBusy(rowEl, true);
     try {
@@ -392,11 +390,21 @@
   // First-run list (backlog 2 item 4), for the pharmacy's admin only, and only while something is missing: no fridge or
   // room to log, nobody else signs in, opening hours never set. Each line goes when it is done; the list goes with the last.
   // Counted by GET /today itself (still one request); an older server sends no "setup" and nothing is shown.
+  // The two a new pharmacy is given (the server's own first names): "Pharmacy" (the room) and "Pharmacy Fridge".
+  var FIRST_NAMES = { "Pharmacy": 1, "Pharmacy Fridge": 1 };
+  function locKey(k) { return k + ":" + ((E.state.user || {}).location_id || ""); }
+  function flag(k) { try { return localStorage.getItem(locKey(k)) === "1"; } catch (e) { return false; } }
   function setupItems(before) {
     var s = (state.data && state.data.setup) || {}, out = []; // from GET /today (an older server sends none: no list)
-    if (!before.some(function (r) { return r.kind === "temperature"; })) out.push({ k: "fridge", t: "Add the fridge and room you log", go: "#temperature", b: "Add" });
+    var temps = before.filter(function (r) { return r.kind === "temperature"; });
+    if (!temps.length) out.push({ k: "fridge", t: "Add the fridge and room you log", go: "#tempreg", view: "add", b: "Add" });
+    // Still called what they were given, and nobody has looked at them in Fridges and rooms (saving anything there counts).
+    else if (!flag("eikon_trg_named") && temps.some(function (r) { return FIRST_NAMES[String(r.title || "").replace(/ · reading$/, "")]; }))
+      out.push({ k: "names", t: "Name your fridges and rooms, and check their limits", go: "#tempreg", view: "devices", b: "Name them" });
     if (s.sign_ins === 1) out.push({ k: "people", t: "Add the people who work here, so each signs in as themselves", go: "#teamreg", b: "Add people" });
     if (s.opening_hours_saved === false) out.push({ k: "hours", t: "Set your opening hours", go: "#shifts", b: "Set hours" });
+    // Only where Emergency POS is used: it was opened here and found no product list (eposreg keeps that note).
+    if (flag("eikon_epos_empty")) out.push({ k: "products", t: "Add your products to Emergency POS", go: "#eposreg", b: "Import" });
     return out;
   }
   function setupCard(before) {
@@ -405,7 +413,7 @@
     var items = setupItems(before);
     if (!items.length) return "";
     return '<section class="tdy-setup" aria-labelledby="tdy-setup-t"><h2 id="tdy-setup-t">Getting this pharmacy ready</h2><p>' + plural(items.length, "thing") + ' left. Each goes from this list once it is done.</p><ul>' +
-      items.map(function (i) { return '<li data-setup="' + i.k + '"><span>' + esc(i.t) + '</span><button class="tdy-btn" data-open="' + esc(i.go) + '">' + esc(i.b) + '</button></li>'; }).join("") + '</ul></section>';
+      items.map(function (i) { return '<li data-setup="' + i.k + '"><span>' + esc(i.t) + '</span><button class="tdy-btn" data-open="' + esc(i.go) + '"' + (i.view ? ' data-view="' + esc(i.view) + '"' : "") + '>' + esc(i.b) + '</button></li>'; }).join("") + '</ul></section>';
   }
 
   // ---------- render ----------
@@ -468,14 +476,19 @@
       (done ? '<span class="tdy-pill grn">Done</span>' : "") +
       '<button class="tdy-btn" data-open="' + esc(r.action.path) + '">Open</button></div>';
   }
+  // Never recorded is not late: a pharmacy's first day shows "Not done yet" in amber until the first line exists.
+  function neverDone(r) { return !!r && r.kind === "cleaning" && r.status === "overdue" && (r.last_date === null || String(r.sub || "") === "Never recorded"); }
+  function rowStatus(r) { return neverDone(r) ? "todo" : r.status; }
   function rowClean(r) {
-    var cls = r.status === "done" ? "grn" : r.status === "overdue" ? "red" : "amb";
-    var pill = r.status === "done" ? '<span class="tdy-pill grn">Done today</span>' : r.status === "overdue" ? '<span class="tdy-pill red">Overdue</span>' : '<span class="tdy-pill gry">Due weekly</span>';
-    var sub = r.status === "overdue" ? '<span class="u">' + esc(r.sub) + " · due weekly</span>" : "<span>" + esc(r.sub) + "</span>";
+    var st = rowStatus(r);
+    var cls = st === "done" ? "grn" : st === "overdue" ? "red" : "amb";
+    var pill = st === "done" ? '<span class="tdy-pill grn">Done today</span>' : st === "overdue" ? '<span class="tdy-pill red">Overdue</span>' : neverDone(r) ? '<span class="tdy-pill amb">Not done yet</span>' : '<span class="tdy-pill gry">Due weekly</span>';
+    var sub = st === "overdue" ? '<span class="u">' + esc(r.sub) + " · due weekly</span>" : neverDone(r) ? "<span>Never recorded · due weekly</span>" : "<span>" + esc(r.sub) + "</span>";
     return '<div class="tdy-row ' + cls + '" data-kind="cleaning">' +
       '<div class="tdy-av sq nt">' + ICO.clean + '</div>' +
       '<div class="tdy-t"><b>Cleaning · dispensary and fridge</b>' + sub + '</div>' + pill +
-      (r.status === "done" ? "" : '<div class="tdy-inl"></div><button class="tdy-btn" data-act="clean">Done now</button>') + '</div>';
+      (r.status === "done" ? "" : '<div class="tdy-inl tdy-who"><label><small>cleaned by</small><input data-cleaner name="cleaner" value="' + esc(cleanerDefault()) + '" placeholder="Name" aria-label="Cleaned by" autocomplete="off" autocapitalize="words" enterkeyhint="done"></label></div>' +
+        '<button class="tdy-btn" data-act="clean">Done now</button>') + '</div>';
   }
   function rowCustomer(c) {
     if (c.kind === "order") {
@@ -528,8 +541,8 @@
     else if (nBefore === 0) h1 = plural(nWait, "customer") + " waiting. <span>The registers are done.</span>";
     else h1 = (hr < 12 ? plural(nBefore, "thing") + " before the doors open" : plural(nBefore, "check") + " still to do today") + (nWait ? "<span>, " + plural(nWait, "customer") + " waiting.</span>" : "<span>.</span>");
     var leg = [];
-    var overdue = before.filter(function (x) { return x.status === "overdue"; }).length;
-    var todo = before.filter(function (x) { return x.status === "todo" && owed(x, d); }).length;
+    var overdue = before.filter(function (x) { return rowStatus(x) === "overdue"; }).length;
+    var todo = before.filter(function (x) { return rowStatus(x) === "todo" && owed(x, d); }).length;
     if (overdue) leg.push('<span><i style="background:var(--danger)"></i>' + plural(overdue, "register") + " overdue</span>");
     if (todo) leg.push('<span><i style="background:#C98A12"></i>' + todo + " to fill</span>");
     if (miss.length) leg.push('<span><i style="background:var(--danger)"></i>' + plural(miss.length, "note") + " to write</span>");
@@ -558,8 +571,8 @@
     var orderKind = { temperature: 0, daily_register: 1, cleaning: 2 };
     var noteDue = function (r) { return r.kind === "temperature" && miss.some(function (x) { return x.when === "today" && x.row === r; }); };
     var sorted = before.slice().sort(function (a, b) {
-      var sa = a.status === "overdue" ? 0 : (a.status === "todo" && owed(a, d)) || noteDue(a) ? 1 : a.status === "ok" || a.status === "todo" ? 2 : 3;
-      var sb = b.status === "overdue" ? 0 : (b.status === "todo" && owed(b, d)) || noteDue(b) ? 1 : b.status === "ok" || b.status === "todo" ? 2 : 3;
+      var sa = rowStatus(a) === "overdue" ? 0 : (rowStatus(a) === "todo" && owed(a, d)) || noteDue(a) ? 1 : a.status === "ok" || a.status === "todo" ? 2 : 3;
+      var sb = rowStatus(b) === "overdue" ? 0 : (rowStatus(b) === "todo" && owed(b, d)) || noteDue(b) ? 1 : b.status === "ok" || b.status === "todo" ? 2 : 3;
       var ya = a.kind === "temperature" && yesterdayOut(a) ? 0 : 1, yb = b.kind === "temperature" && yesterdayOut(b) ? 0 : 1;
       return sa - sb || ya - yb || (orderKind[a.kind] - orderKind[b.kind]);
     });
@@ -639,7 +652,7 @@
       el.addEventListener("click", function () { var x = (state.repItems || [])[Number(el.getAttribute("data-rep-tell"))]; if (x && typeof E.tellCustomer === "function") E.tellCustomer({ kind: x.s.kind === "runout" ? "repeat_running_out" : "repeat_due", name: x.e.client_name, id_card: x.e.client_id, detail: x.e.medicine_name_dose, date: x.s.kind === "runout" ? x.e.expires_date : x.s.next }); });
     });
     m.querySelectorAll("[data-open]").forEach(function (el) {
-      el.addEventListener("click", function () { openPath(el.getAttribute("data-open")); });
+      el.addEventListener("click", function () { var v = el.getAttribute("data-view"); if (v) { try { sessionStorage.setItem("eikon_tempreg_view", v); } catch (e) {} } openPath(el.getAttribute("data-open")); });
     });
     m.querySelectorAll('[data-act="temp"]').forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -660,6 +673,15 @@
         var rowEl = btn.closest(".tdy-row");
         var row = (state.data.before_opening || []).find(function (r) { return r.kind === "cleaning"; });
         if (row) markCleaning(row, rowEl);
+      });
+    });
+    m.querySelectorAll(".tdy-row[data-kind=cleaning] [data-cleaner]").forEach(function (ci) { // Enter records it (unless a suggestion is being chosen)
+      var rowEl = ci.closest(".tdy-row");
+      ci.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && !ci.getAttribute("aria-activedescendant")) { ev.preventDefault(); var b = rowEl.querySelector('[data-act="clean"]'); if (b) b.click(); } });
+      ci.addEventListener("input", function () { ci.removeAttribute("aria-invalid"); });
+      ci.addEventListener("focus", function () { // the team, asked for once before the first letter; the suggestions are set up here, as Today can draw before eikon.personpick.js has run
+        teamNames();
+        if (E.personPick) E.personPick.attach({ key: "today-cleaner", form: rowEl, fields: { name: "cleaner" }, sources: [], local: function () { return teamNames().map(function (n) { return { name: n, from: "team" }; }); } });
       });
     });
     m.querySelectorAll("[data-yday]").forEach(function (a) {
@@ -726,7 +748,7 @@
     state.search = "";
     injectCss();
     render();
-    await load();
+    await E.takeOpenForm("today", state.mount, load(), { focus: ".tdy-inl input" });
     if (state.timer) clearInterval(state.timer);
     state.timer = setInterval(function () { if (document.hidden) return; // no polling while the tab is hidden
       if (E.state.activeModuleId === "today") load({ silent: true, background: true }); }, 60000);

@@ -1081,3 +1081,11 @@ html:not([data-ui2]) .eikon-skip{display:none}
 @media (prefers-color-scheme: dark){ html[data-ui2] .eikon-skip{color:#00160E} }
 /* Small red buttons in Bookings (Remove) sit on the grey fill: a lighter red there keeps 5:1 in dark mode. */
 @media (prefers-color-scheme: dark){ html[data-ui2]:not([data-ui2-visit]) .bkx-mini.red{color:#FF7A72} }
+/* q4-4: quick days under a date field (Orders "Needed by", Deliveries "Deliver on", Questions "Follow up"). A tap writes the date into the field. */
+html[data-ui2] .q44-days{display:flex;flex-wrap:wrap;gap:8px;padding:0 14px 10px 122px}
+html[data-ui2] .ord-form .q44-days{padding:0 16px 10px 124px}
+html[data-ui2] .q44-days button{font:inherit;font-size:14px;font-weight:600;height:32px;padding:0 14px;border-radius:16px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}
+html[data-ui2] .q44-days button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+html[data-ui2] .q44-days button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (max-width:600px){ html[data-ui2] .q44-days{padding-left:14px} html[data-ui2] .ord-form .q44-days{padding-left:16px} html[data-ui2] .q44-days button{height:44px;border-radius:22px;flex:1 1 0} }
+@media (prefers-color-scheme: dark){ html[data-ui2]:not([data-ui2-visit]) .q44-days button[aria-pressed="true"]{color:#00160E} }

@@ -1,6 +1,7 @@
 /* Temperature register, new layout: the month at a glance for each fridge and room,
    what is missing, what was outside the limits, and a clean printout for an inspector.
-   Reads the same endpoints as the classic screen; device settings stay in the classic screen.
+   Reads the same endpoints as the classic screen. "Fridges and rooms" (add one, rename it, set its limits, stop or
+   start logging it) is here too, with the classic Devices tab's endpoints and the same bodies.
    Tapping a day opens it: its readings, limits and note; the note is added or changed there, and a past day that was
    never logged can be logged late with a reason (E.tempNote, in modules.today.js, does the saving and holds the words).
    Correct (the pharmacist only, eikon.correct.js): in an open day with a reading, Correct opens that reading (read
@@ -11,7 +12,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, month: null, devices: [], entries: [], loading: false, error: "", focus: null, open: null, mode: "", drafts: {}, msgs: {} };
+  var S = { mount: null, month: null, devices: [], entries: [], loading: false, error: "", focus: null, open: null, mode: "", drafts: {}, msgs: {}, view: "", dv: null };
   // open: { device, day } the day shown under its device's month; mode: "note" or "late" when its form is open.
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var FIX = { reasonPh: "e.g. Maximum read as 6.6, the display said 8.6", entity: "temperature_entries", action: "TEMP_ENTRY_UPSERT", method: "POST", markIf: function (a) { return !!(a.details && a.details.before); }, // an upsert over an existing reading
@@ -87,10 +88,21 @@
       ".trg-flag{background:rgba(201,138,18,.12);border:1px solid rgba(201,138,18,.45);border-left:4px solid #C98A12;border-radius:12px;padding:10px 14px;margin-top:14px;font-size:13.5px;line-height:1.45}.trg-flag b{color:var(--warn,#A06A0E)}.trg-flag a{color:var(--accent);font-weight:600}" +
       ".trg-note{font-size:12.5px;color:var(--muted);margin-top:10px}" +
       ".trg-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}.trg-quiet .trg-btn{margin-left:8px}" +
+      ".trg-dv{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:12px 16px;margin-top:12px}.trg-dv.off{opacity:.85}" +
+      ".trg-dv h2{font-size:17px;font-weight:700;margin:0 0 8px}.trg-dv .f{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:10px}" +
+      ".trg-dv label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--muted);min-width:0}" +
+      ".trg-dv input,.trg-dv select{font:inherit;font-size:16px;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:10px;min-height:44px;padding:0 10px;width:100%;box-sizing:border-box;min-width:0}" +
+      ".trg-dv input:focus,.trg-dv select:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px rgba(10,143,106,.18)}.trg-dv input[aria-invalid=true]{border-color:var(--danger)}" +
+      ".trg-dv .acts{display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:10px}.trg-dv .acts .q{flex:1 1 220px;font-size:14px}" +
+      ".trg-dv .ln{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.trg-dv .ln b{font-size:15.5px}.trg-dv .ln span{display:block;color:var(--muted);font-size:13px;font-weight:400}" +
+      ".trg-err{color:var(--danger);font-size:13.5px;font-weight:600;margin:8px 0 0}.trg-err:empty{display:none}" +
+      ".trg-lab{font-size:13px;font-weight:700;color:var(--muted);margin:22px 2px 0}" +
+      ".trg-btn.x{color:var(--danger);border-color:var(--danger);background:transparent}" +
+      "@media (max-width:600px){.trg-dv .f{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.trg-dv .f label:nth-child(-n+2){grid-column:1/-1}}" +
       ".trg-print,.trg-pmeta{display:none}.trg-sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       "@media (max-width:600px){.trg{padding:4px 16px 0}.trg h1{font-size:32px}.trg-grid{gap:4px}.trg-d{min-height:50px;padding:5px;border-radius:8px}.trg-d b{font-size:11.5px}.trg-d i{font-size:10.5px}.trg-d.miss b{font-size:10px}.trg-d.today.future b{font-size:10px}.trg-card{padding:14px 12px}}" +
       "@media print{.trg-day{display:none!important}}" +
-      "@media print{.eikon-sidebar,.eikon-topbar,.trg-back,.trg-acts,.trg-due,.trg-month,.trg-grid,.trg-wd,.eikon-toast{display:none!important}" +
+      "@media print{.eikon-sidebar,.eikon-topbar,.trg-back,.trg-acts,.trg-due,.trg-month,.trg-grid,.trg-wd,.trg-dv,.eikon-toast{display:none!important}" +
       ".eikon-content{padding:0!important}.trg-card{border:0;padding:0;break-inside:avoid;margin-top:18px}.trg-pmeta{display:block;font-size:12px;margin:2px 0 0}.trg-print{display:table;width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}" +
       ".trg-print th,.trg-print td{border:1px solid #999;padding:3px 6px;text-align:left}.trg-print td.bad{font-weight:700}}";
     document.head.appendChild(st);
@@ -242,16 +254,17 @@
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "tempreg") return; // left before the data came back: do not draw over the next screen
+    if (S.view === "devices") return E.repaintKeepingFocus(m, paintDevices); // a list arriving never moves you
     var MB = E.months;
     var h = '<div class="trg">' +
       '<button class="trg-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("tempreg") : "‹ Registers") + "</button>" +
       '<div class="trg-top"><div><h1>Temperature</h1><p class="trg-sub">Fridges and rooms, every day, against their limits.</p></div>' +
-      '<div class="trg-acts"><button class="trg-btn" data-act="devices">Fridges and rooms</button></div></div>' +
+      '<div class="trg-acts"><button class="trg-btn" data-act="devices" data-k="devices">Fridges and rooms</button></div></div>' +
       '<p class="trg-pmeta">' + esc(((E.state.user || {}).location_name || "") + " · " + monthLabel(S.month) + " · printed " + ymd(new Date())) + "</p>" +
       MB.bar(S.month, { label: "Temperature" });
     if (S.loading && !S.devices.length) h += '<div class="trg-quiet">Opening the register…</div>';
     else if (S.error) h += '<div class="trg-quiet" role="alert">' + esc(S.error) + ' <button class="trg-btn" data-act="retry">Try again</button></div>';
-    else if (!S.devices.length) h += '<div class="trg-quiet">No fridges or rooms are set up yet. <button class="trg-btn p" data-act="devices">Add a fridge or room</button></div>';
+    else if (!S.devices.length) h += '<div class="trg-quiet">No fridges or rooms are set up yet. <button class="trg-btn p" data-act="devices" data-k="devices-empty">Add a fridge or room</button></div>';
     else h += dueToday() + (S.month < thisMonth() && !S.entries.length ? '<div class="trg-quiet" data-empty>' + esc(MB.empty(S.month)) + "</div>" : "") +
       S.devices.map(deviceCard).join("") + '<p class="trg-note">Each day shows the minimum above the maximum. Red with ! is outside the limits; a dashed day was not logged. Tap a day to see it, add a note, or log a missed day.' + (E.correct.can() ? " To correct a reading, open its day and press Correct, saying what was wrong; the audit keeps what it said before." : " A wrong reading is corrected by the pharmacist.") + "</p>";
     h += "</div>";
@@ -275,11 +288,166 @@
         else if (a === "late" && S.open) { openDay(S.open.device, S.open.day, "late"); var mi = S.mount.querySelector("form[data-tlate] [name=min]"); if (mi) mi.focus(); }
         else if (a === "today") window.location.hash = "#today";
         else if (a === "addnote" || a === "late") return;
-        else if (a === "devices") { try { sessionStorage.setItem("eikon_ui2_return", "tempreg"); } catch (e) {} E.openClassic("temperature"); }
+        else if (a === "devices") openDevices();
       });
     });
     E.correct.wire(m, "tempreg", FIX);
     MB.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; E.correct.reset("tempreg"); load(); }, paint: paint, print: printMonth });
+  }
+
+  // ---------- Fridges and rooms ----------
+  // Add one, rename it, set its limits, stop logging it (its readings are kept) or log it again. The classic Devices
+  // tab's endpoints and bodies, unchanged: POST /temperature/devices {name, device_type, min_limit, max_limit};
+  // PUT /temperature/devices/:id with the same four, or {active}. Only the pharmacy's admin may change them (the server
+  // says so too), so everyone else sees the list without the boxes.
+  var TYPES = [["fridge", "Fridge"], ["room", "Room"], ["other", "Other"]];
+  var DEF = { fridge: ["2", "8"], room: ["15", "25"], other: ["", ""] }; // a new fridge or room starts with the limits the server gives a new pharmacy
+  function isAdmin() { var u = E.state && E.state.user; return !u || !u.role || u.role === "admin"; } // unknown: the server decides
+  function parseNum(n) { var s = String(n || "").trim(); if (!s) return null; s = s.replace(/,/g, "."); var v = Number(s); if (!isFinite(v)) return null; return Math.round(v * 10) / 10; } // the classic's, unchanged
+  function typeWord(t) { return t === "fridge" ? "Fridge" : t === "room" ? "Room" : t === "other" ? "Other" : (t || ""); }
+  // Today asks "Name your fridges and rooms" while the two a new pharmacy is given still carry their first names;
+  // once anything is saved here the pharmacy has seen them, and the line goes.
+  function namedKey() { return "eikon_trg_named:" + (((E.state && E.state.user) || {}).location_id || ""); }
+  function markNamed() { try { localStorage.setItem(namedKey(), "1"); } catch (e) {} }
+  function newAdd(type) { type = type || "fridge"; return { name: "", device_type: type, min_limit: DEF[type][0], max_limit: DEF[type][1] }; }
+  function openDevices(fromToday) {
+    S.view = "devices"; S.dv = { list: S.dv && S.dv.list || null, loading: true, error: "", draft: {}, err: {}, bad: {}, busy: {}, ask: null, add: newAdd(), addErr: "", addBad: [], adding: false };
+    // The screen says where you are: focus on its heading (again after the redraws that follow, unless you moved on).
+    var lost = function () { var a = document.activeElement; return !a || a === document.body || !(S.mount && S.mount.contains(a)) || a.id === "trg-dv-h"; };
+    var head = function () { var h = S.view === "devices" && lost() && S.mount && S.mount.querySelector("#trg-dv-h"); if (h && document.activeElement !== h) h.focus(); };
+    paint(); head(); setTimeout(head, 0);
+    return loadDevices().then(function () { // nothing to log yet, or opened to add one: straight into the name box
+      var on = ((S.dv && S.dv.list) || []).some(function (d) { return Number(d.active) !== 0; });
+      if ((fromToday === "add" || !on) && lost()) { var n = S.mount && S.mount.querySelector('#trg-add [name="name"]'); if (n) n.focus(); } else head();
+    });
+  }
+  async function loadDevices() {
+    var D = S.dv; if (!D) return; D.loading = true;
+    try { var r = await E.apiFetch("/temperature/devices?include_inactive=1", { method: "GET" }); D.list = (r && r.devices) || []; D.error = ""; }
+    catch (e) { D.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the fridges and rooms"); }
+    D.loading = false; if (S.view === "devices") E.whenFormIdle(S.mount, function () { E.repaintKeepingFocus(S.mount, paint); });
+  }
+  function val(id, k, dv) { var d = S.dv.draft[id]; return d && d[k] != null ? d[k] : (dv[k] == null ? "" : (k === "min_limit" || k === "max_limit" ? fmt(dv[k]) : String(dv[k]))); }
+  function fields(id, v, dis) {
+    var bad = (id === "add" ? S.dv.addBad : S.dv.bad[id]) || [];
+    var inp = function (k, label, extra) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(v[k]) + '" autocomplete="off"' + extra + (bad.indexOf(k) >= 0 ? ' aria-invalid="true" aria-describedby="trg-err-' + id + '"' : "") + (dis ? " disabled" : "") + "></label>"; };
+    return '<div class="f">' + inp("name", "Name", ' enterkeyhint="next" placeholder="Vaccine fridge"') +
+      '<label><span>Type</span><select name="device_type"' + (dis ? " disabled" : "") + ">" + TYPES.map(function (t) { return '<option value="' + t[0] + '"' + (v.device_type === t[0] ? " selected" : "") + ">" + t[1] + "</option>"; }).join("") + "</select></label>" +
+      inp("min_limit", "Lowest °C", ' inputmode="decimal" enterkeyhint="next"') + inp("max_limit", "Highest °C", ' inputmode="decimal" enterkeyhint="done"') + "</div>";
+  }
+  function paintDevices() {
+    var m = S.mount, D = S.dv, admin = isAdmin();
+    var list = (D.list || []).slice(), on = list.filter(function (d) { return Number(d.active) !== 0; }), off = list.filter(function (d) { return Number(d.active) === 0; });
+    var h = '<div class="trg"><button class="trg-back" data-act="dv-back" data-k="dv-back">‹ Temperature</button>' +
+      '<div class="trg-top"><div><h1 tabindex="-1" id="trg-dv-h">Fridges and rooms</h1><p class="trg-sub">Each one is logged every day on Today and checked against its limits.</p></div></div>';
+    if (!admin) h += '<p class="trg-note">Only the pharmacy’s admin can add or change these.</p>';
+    if (D.loading && !D.list) h += '<div class="trg-quiet" role="status">Opening the list…</div>';
+    else if (D.error && !D.list) h += '<div class="trg-quiet" role="alert">' + esc(D.error) + ' <button class="trg-btn" data-act="dv-retry">Try again</button></div>';
+    else {
+      if (!on.length) h += '<div class="trg-quiet">Nothing is logged yet. Add the fridge and the room you check each day.</div>';
+      h += on.map(function (dv) {
+        var id = dv.id, v = { name: val(id, "name", dv), device_type: val(id, "device_type", dv), min_limit: val(id, "min_limit", dv), max_limit: val(id, "max_limit", dv) }, busy = D.busy[id];
+        if (!admin) return '<section class="trg-dv"><div class="ln"><div><b>' + esc(dv.name) + "</b><span>" + esc(typeWord(dv.device_type) + " · " + limitsText(dv)) + "</span></div></div></section>";
+        var acts = D.ask === id
+          ? '<span class="q" role="alert">Stop logging ' + esc(dv.name) + "? Its readings are kept, and it can be logged again.</span>" +
+            '<button type="button" class="trg-btn" data-act="dv-keep" data-id="' + id + '" data-k="dv-keep">Keep logging</button><button type="button" class="trg-btn x" data-act="dv-stop-yes" data-id="' + id + '" data-k="dv-stop-yes"' + (busy ? " disabled" : "") + ">" + (busy ? "Saving…" : "Stop logging") + "</button>"
+          : '<button type="button" class="trg-btn" data-act="dv-stop" data-id="' + id + '" data-k="dv-stop:' + id + '"' + (busy ? " disabled" : "") + ">Stop logging</button>" +
+            '<button type="submit" class="trg-btn p" data-k="dv-save:' + id + '"' + (busy ? " disabled" : "") + ">" + (busy === "save" ? "Saving…" : "Save") + "</button>";
+        return '<form class="trg-dv" data-dv="' + id + '" novalidate aria-label="' + esc(dv.name) + '">' + fields(id, v, !!busy) + '<p class="trg-err" role="alert" id="trg-err-' + id + '">' + esc(D.err[id] || "") + '</p><div class="acts">' + acts + "</div></form>";
+      }).join("");
+      if (off.length) h += '<p class="trg-lab">Not logged any more</p>' + off.map(function (dv) {
+        return '<section class="trg-dv off"><div class="ln"><div><b>' + esc(dv.name) + "</b><span>" + esc(typeWord(dv.device_type) + " · " + limitsText(dv)) + "</span></div>" +
+          (admin ? '<button type="button" class="trg-btn" data-act="dv-again" data-id="' + dv.id + '" data-k="dv-again:' + dv.id + '"' + (D.busy[dv.id] ? " disabled" : "") + ">" + (D.busy[dv.id] ? "Saving…" : "Log it again") + "</button>" : "") +
+          '</div><p class="trg-err" role="alert">' + esc(D.err[dv.id] || "") + "</p></section>";
+      }).join("");
+      if (admin) h += '<form class="trg-dv" id="trg-add" novalidate aria-labelledby="trg-add-t"><h2 id="trg-add-t">Add a fridge or room</h2>' + fields("add", D.add, D.adding) +
+        '<p class="trg-err" role="alert" id="trg-err-add">' + esc(D.addErr) + '</p><div class="acts"><button type="submit" class="trg-btn p" data-k="dv-add"' + (D.adding ? " disabled" : "") + ">" + (D.adding ? "Adding…" : "Add") + "</button></div></form>";
+    }
+    h += "</div>";
+    m.innerHTML = h;
+    m.querySelectorAll("[data-act]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var a = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
+        if (a === "dv-back") closeDevices();
+        else if (a === "dv-retry") loadDevices();
+        else if (a === "dv-stop") { D.ask = id; D.err[id] = ""; E.repaintKeepingFocus(m, paint); var k = m.querySelector('[data-k="dv-keep"]'); if (k) k.focus(); }
+        else if (a === "dv-keep") { D.ask = null; paint(); var s = m.querySelector('[data-k="dv-stop:' + id + '"]'); if (s) s.focus(); }
+        else if (a === "dv-stop-yes") setActive(id, false);
+        else if (a === "dv-again") setActive(id, true);
+      });
+    });
+    m.querySelectorAll("form.trg-dv").forEach(function (f) {
+      var id = f.id === "trg-add" ? "add" : Number(f.getAttribute("data-dv"));
+      f.addEventListener("submit", function (ev) { ev.preventDefault(); if (id === "add") addDevice(f); else saveDevice(id, f); });
+      f.addEventListener("input", function (ev) { var t = ev.target; if (!t.name) return; t.removeAttribute("aria-invalid");
+        if (id === "add") D.add[t.name] = t.value; else { D.draft[id] = D.draft[id] || {}; D.draft[id][t.name] = t.value; } });
+      var ty = f.querySelector('[name="device_type"]');
+      if (id === "add" && ty) ty.addEventListener("change", function () { // a fridge starts at 2 to 8 °C, a room at 15 to 25: changed only while the limits are still the last type's
+        var was = DEF[D.add.prev || "fridge"] || ["", ""], lo = f.querySelector('[name="min_limit"]'), hi = f.querySelector('[name="max_limit"]'), now = DEF[ty.value] || ["", ""];
+        if (lo.value === was[0] && hi.value === was[1]) { lo.value = now[0]; hi.value = now[1]; D.add.min_limit = now[0]; D.add.max_limit = now[1]; }
+        D.add.device_type = ty.value; D.add.prev = ty.value; });
+    });
+  }
+  // What the classic Save sends, from what is typed; a mistake is said once, under the boxes, and nothing is sent.
+  function bodyFrom(f, idKey) {
+    var g = function (k) { return String((f.querySelector('[name="' + k + '"]') || {}).value || ""); };
+    var name = g("name").trim(), lo = g("min_limit").trim(), hi = g("max_limit").trim(), bad = [], msg = "";
+    if (!name) { bad.push("name"); msg = "Write a name, like Vaccine fridge."; }
+    if (lo && parseNum(lo) === null) bad.push("min_limit"); if (hi && parseNum(hi) === null) bad.push("max_limit");
+    if (!msg && bad.length) msg = "Write each limit as a number, like 2 or 8.5, or leave it empty.";
+    if (!bad.length && lo && hi && parseNum(lo) > parseNum(hi)) { bad = ["min_limit", "max_limit"]; msg = "The lowest limit is above the highest. Check which is which."; }
+    if (bad.length) return { err: msg, bad: bad };
+    return { body: { name: name, device_type: String(g("device_type") || "").trim() || "room", min_limit: lo ? parseNum(lo) : null, max_limit: hi ? parseNum(hi) : null } };
+  }
+  function said(b) { return b.name + (b.min_limit == null && b.max_limit == null ? ", no limits" : ", " + (b.min_limit == null ? "–" : b.min_limit) + " to " + (b.max_limit == null ? "–" : b.max_limit) + " °C"); }
+  function showErr(id, f, msg, bad) {
+    var D = S.dv; if (id === "add") { D.addErr = msg; D.addBad = bad || []; } else { D.err[id] = msg; D.bad[id] = bad || []; }
+    paint(); var nf = id === "add" ? S.mount.querySelector("#trg-add") : S.mount.querySelector('form[data-dv="' + id + '"]');
+    var first = nf && bad && bad[0] ? nf.querySelector('[name="' + bad[0] + '"]') : null; if (first) { first.focus(); try { first.select(); } catch (e) {} }
+  }
+  async function saveDevice(id, f) {
+    var D = S.dv; if (D.busy[id]) return;
+    var x = bodyFrom(f); if (x.err) return showErr(id, f, x.err, x.bad);
+    D.err[id] = ""; D.bad[id] = []; D.busy[id] = "save"; paint();
+    try {
+      var r = await E.apiFetch("/temperature/devices/" + encodeURIComponent(String(id)), { method: "PUT", body: JSON.stringify(x.body) });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      delete D.draft[id]; markNamed(); D.busy[id] = false; E.toast("Saved · " + said(x.body), "success");
+      await loadDevices(); paint(); var b = S.mount.querySelector('[data-k="dv-save:' + id + '"]'); if (b) b.focus();
+    } catch (e) { D.busy[id] = false; showErr(id, f, E.saveFailText(e), []); var s = S.mount.querySelector('[data-k="dv-save:' + id + '"]'); if (s) s.focus(); }
+  }
+  async function addDevice(f) {
+    var D = S.dv; if (D.adding) return;
+    var x = bodyFrom(f); if (x.err) return showErr("add", f, x.err, x.bad);
+    D.addErr = ""; D.addBad = []; D.adding = true; paint();
+    try {
+      await E.postOnce("/temperature/devices", x.body, { list: async function () { var r = await E.apiFetch("/temperature/devices?include_inactive=1", { method: "GET" }); return (r && r.devices) || []; },
+        same: function (d) { return d.name === x.body.name && d.device_type === x.body.device_type; } });
+      markNamed(); D.adding = false; D.add = newAdd(x.body.device_type); D.add.prev = x.body.device_type; E.toast("Added · " + said(x.body), "success");
+      await loadDevices(); paint(); var n = S.mount.querySelector('#trg-add [name="name"]'); if (n) n.focus(); // ready for the next one
+    } catch (e) { D.adding = false; showErr("add", f, E.saveFailText(e), []); var a = S.mount.querySelector('[data-k="dv-add"]'); if (a) a.focus(); }
+  }
+  async function setActive(id, on) {
+    var D = S.dv; if (D.busy[id]) return; D.busy[id] = "active"; D.err[id] = ""; paint();
+    var dv = (D.list || []).filter(function (d) { return Number(d.id) === id; })[0] || { name: "" };
+    try {
+      var r = await E.apiFetch("/temperature/devices/" + encodeURIComponent(String(id)), { method: "PUT", body: JSON.stringify({ active: on }) });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      D.busy[id] = false; D.ask = null; markNamed(); E.toast(dv.name + (on ? " is logged again" : " is no longer logged. Its readings are kept."), "success");
+      await loadDevices(); paint();
+      var b = S.mount.querySelector(on ? '[data-k="dv-stop:' + id + '"]' : '[data-k="dv-again:' + id + '"]') || S.mount.querySelector(".trg h1"); if (b) b.focus();
+    } catch (e) { D.busy[id] = false; D.err[id] = E.saveFailText(e); paint(); var k = S.mount.querySelector(on ? '[data-k="dv-again:' + id + '"]' : '[data-k="dv-stop-yes"]'); if (k) k.focus(); }
+  }
+  function closeDevices() {
+    S.view = ""; S.dv = null; S.entries = S.entries || []; paint(); var b = S.mount && S.mount.querySelector('[data-k="devices"]'); if (b) b.focus();
+    return load().then(function () { var a = document.activeElement; if (!a || a === document.body) { var x = S.mount && S.mount.querySelector('[data-k="devices"]'); if (x) x.focus(); } });
+  }
+  function onKey(ev) {
+    if (ev.key !== "Escape" || ev.defaultPrevented || E.state.activeModuleId !== "tempreg" || S.view !== "devices" || !S.mount || !document.body.contains(S.mount)) return;
+    if (document.querySelector(".eikon-modal-overlay[style*='flex'], .eks")) return;
+    ev.preventDefault();
+    if (S.dv && S.dv.ask != null) { var id = S.dv.ask; S.dv.ask = null; paint(); var s = S.mount.querySelector('[data-k="dv-stop:' + id + '"]'); if (s) s.focus(); return; }
+    closeDevices();
   }
 
   // The classic temperature report for one month: a line per day, a column per fridge or room, "min / max" in each,
@@ -308,11 +476,15 @@
     id: "tempreg", title: "Temperature", order: 3, icon: "🌡", ui2Only: true,
     render: function (ctx) {
       S.mount = ctx && ctx.mount; S.month = thisMonth(); S.entries = []; if (E.months.reset) E.months.reset(); E.correct.reset("tempreg");
-      S.focus = null; S.open = null; S.mode = ""; S.drafts = {}; S.msgs = {}; S.busy = false;
+      S.focus = null; S.open = null; S.mode = ""; S.drafts = {}; S.msgs = {}; S.busy = false; S.view = ""; S.dv = null;
+      document.removeEventListener("keydown", onKey); document.addEventListener("keydown", onKey);
+      var want = ""; try { want = sessionStorage.getItem("eikon_tempreg_view") || ""; sessionStorage.removeItem("eikon_tempreg_view"); } catch (e) {} // Today's "Name your fridges and rooms"
+      if (want === "devices" || want === "add") { css(); load(); return openDevices(want); }
       try { var f = JSON.parse(sessionStorage.getItem("eikon_tempreg_day") || "null"); sessionStorage.removeItem("eikon_tempreg_day");
         if (f && /^\d{4}-\d{2}-\d{2}$/.test(f.day || "")) { S.focus = f; S.month = f.day.slice(0, 7); S.open = { device: String(f.device), day: f.day }; S.focusPanel = true; } } catch (e) {}
       css(); paint(); return load();
-    }
+    },
+    destroy: function () { document.removeEventListener("keydown", onKey); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("tempreg") < 0) E.UI2_DESTINATIONS.push("tempreg");
 })();

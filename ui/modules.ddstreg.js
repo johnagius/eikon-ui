@@ -421,7 +421,7 @@
       S.mount = ctx && ctx.mount; S.createErr = ""; S.editId = null; S.edit = null; css();
       if (S.openId && S.cur && S.cur.stocktake.closed_at) { S.openId = null; S.cur = null; S.rows = {}; } // a closed one is not reopened by itself
       if (S.openId) { paint(); return Promise.all([loadOne(S.openId, true), getList().then(function (l) { S.list = l; }).catch(function () {})]); } // back to the one still being counted
-      paint(); return loadList();
+      paint(); return E.takeOpenForm(ID, S.mount, loadList(), { focus: "[data-act=new]" });
     },
     destroy: function () { keep(); }
   });

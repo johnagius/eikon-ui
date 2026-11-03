@@ -17,6 +17,7 @@ export default {
     t.db.prepare(`DELETE FROM ${T} WHERE id > ?`).run(m);
     m = t.maxId(T);
     await t.open(p, "2", "endofday", "eodreg", "#eod-form");
+    await p.click("[data-act=who]"); // b4-4: day, staff, shift and float sit behind the summary line's Change
     await t.fill(p, "#eod-form", { staff: DAY.staff, float_amount: DAY.float, '[name="row:x:0:amount"]': DAY.x[0], '[name="row:x:0:remark"]': DAY.x[1], '[name="row:epos:0:amount"]': DAY.epos[0],
       '[name="row:cheques:0:amount"]': DAY.chq[0], '[name="row:cheques:0:remark"]': DAY.chq[1], '[name="row:paid_outs:0:amount"]': DAY.po[0], '[name="row:paid_outs:0:remark"]': DAY.po[1],
       ...Object.fromEntries(Object.entries(DAY.cash).map(([k, v]) => [`[name="cash:${k}"]`, v])), '[name="cash:coins_total"]': DAY.coins, bag_number: DAY.bag });

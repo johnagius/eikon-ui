@@ -17,7 +17,7 @@ export default {
     m = t.maxId(T);
     await p.click("[data-act=add]"); await p.waitForSelector("#tkt-add");
     await p.fill("#tkt-add [name=client_name]", IN.name); await p.fill("#tkt-add [name=phone]", IN.phone); await p.fill("#tkt-add [name=issue]", IN.issue);
-    await p.selectOption("#tkt-add [name=category]", IN.cat); await p.selectOption("#tkt-add [name=priority]", IN.priority); await p.fill("#tkt-add [name=followup_date]", IN.follow);
+    await p.selectOption("#tkt-add [name=category]", IN.cat); await p.selectOption("#tkt-add [name=priority]", IN.priority); const chip = p.locator(`#tkt-add .q44-days [data-ymd="${IN.follow}"]`); if (await chip.count()) await chip.click(); else await p.fill("#tkt-add [name=followup_date]", IN.follow); /* b4-4 */
     await t.write(p, /\/client-tickets\/entries$/, () => p.click("#tkt-add button[type=submit]"));
     const fresh = t.since(T, m).filter((r) => r.client_name === IN.name)[0];
     t.has("questions(new)", fresh, { client_name: IN.name, phone: IN.phone, issue: IN.issue, category: IN.cat, priority: 1, followup_date: IN.follow, status: "Open" });

@@ -485,7 +485,7 @@
 
   E.registerModule({
     id: "pocreg", title: "Point-of-care tests", order: 3, icon: "🩺", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.miss = []; S.view = null; S.q = ""; E.months.historyReset("pocreg"); css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.miss = []; S.view = null; S.q = ""; E.months.historyReset("pocreg"); css(); paint(); return E.takeOpenForm("pocreg", S.mount, load(), { btn: "[data-act=add]", form: "#poc-add", fill: { name: "name", phone: "phone", address: "address" } }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("pocreg") < 0) E.UI2_DESTINATIONS.push("pocreg");
   if (E.UI2_PARENT) E.UI2_PARENT.pocreg = "services";

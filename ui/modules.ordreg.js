@@ -24,6 +24,25 @@
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function ymd(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
   function today() { return ymd(new Date()); }
+  // Quick days under a date field (b4-4): Today · Tomorrow · the working day after (a Sunday is skipped). A tap only
+  // writes that date into the field, exactly as typing it would; nothing is chosen until one is tapped.
+  function dayChips(name, cur, what) {
+    var h = "", d = new Date(), n = 0, WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    for (var i = 0; n < 3 && i < 8; i++, d.setDate(d.getDate() + 1)) {
+      if (i > 0 && d.getDay() === 0) continue;
+      var v = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+      h += '<button type="button" data-day="' + n++ + '" data-ymd="' + v + '" aria-pressed="' + (cur === v) + '">' + (i === 0 ? "Today" : i === 1 ? "Tomorrow" : WD[d.getDay()] + " " + d.getDate()) + "</button>";
+    }
+    return '<div class="q44-days" role="group" aria-label="' + esc(what) + ', in one tap" data-for="' + name + '">' + h + "</div>";
+  }
+  function wireDays(form) {
+    if (form) form.querySelectorAll(".q44-days").forEach(function (g) {
+      var el = form.querySelector('[name="' + g.getAttribute("data-for") + '"]'); if (!el) return;
+      var sync = function () { g.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-ymd") === el.value)); }); };
+      g.addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest("button[data-ymd]"); if (!b || el.disabled) return; el.value = b.getAttribute("data-ymd"); el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); sync(); });
+      el.addEventListener("input", sync); el.addEventListener("change", sync);
+    });
+  }
   function shiftMonth(k) { var d = new Date(); d = new Date(d.getFullYear(), d.getMonth() + k, 1); return d.getFullYear() + "-" + pad(d.getMonth() + 1); }
   function daysUntil(s) { var p = String(s).split("-"); var t = new Date(); return Math.round((new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])) - new Date(t.getFullYear(), t.getMonth(), t.getDate())) / 86400000); }
   function when(s) { if (!s) return ""; var n = daysUntil(s); if (n === 0) return "today"; if (n === 1) return "tomorrow"; if (n === -1) return "yesterday"; var p = s.split("-"); return Number(p[2]) + " " + MON[Number(p[1]) - 1]; }
@@ -110,7 +129,7 @@
       // while loading, and 44 px targets on a phone.
       ".ord-lab{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none}.ord-list,.ord-lab b,.ord-pill{font-variant-numeric:tabular-nums}" +
       ".ord-form label{flex-wrap:wrap}.ord-ferr{flex-basis:100%;margin:-6px 0 8px 108px;color:var(--danger);font-size:13px;font-weight:500}" +
-      ".ord-hint{color:var(--muted);font-size:13px;white-space:nowrap}" +
+      ".ord-form label>.ord-hint{flex:0 1 auto;color:var(--muted);font-size:13px;white-space:nowrap}" +
       ".ord-ph{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-basis:100%;padding:8px 10px;border-radius:10px;background:rgba(201,138,18,.10)}.ord-ph label{font-size:14px;font-weight:600}" +
       ".ord-ph input{flex:1;min-width:140px;height:36px;border:1px solid var(--border);border-radius:10px;background:var(--panel2);color:var(--text);font:inherit;font-size:16px;padding:0 10px}" +
       ".ord-skel{display:block;height:58px;border-top:.5px solid var(--border);background:linear-gradient(90deg,rgba(118,118,128,.06),rgba(118,118,128,.14),rgba(118,118,128,.06));background-size:200% 100%;animation:ordsk 1.2s linear infinite}.ord-skel:first-child{border-top:0}" +
@@ -120,7 +139,7 @@
       ".ord-dia{border-color:var(--accent)}.ord-dia .ord-meta{color:var(--text);font-size:14.5px;padding:8px 16px 4px}" +
       ".ord-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       "@media (max-width:600px){.ord{padding:4px 16px 0}.ord h1{font-size:32px}.ord-row{flex-wrap:wrap;row-gap:8px}.ord-row .t{flex-basis:100%}.ord-row .ord-btn{margin-left:auto}" +
-      ".ord-btn,.ord-tabs button{height:44px;border-radius:22px}.ord-tabs button{border-radius:9px}.ord-ferr{margin-left:0}.ord-form label>span{flex-basis:88px}.ord-q{height:44px;font-size:16px}.ord-ph input{height:44px}}";
+      ".ord-btn,.ord-tabs button{height:44px;border-radius:22px}.ord-tabs button{border-radius:9px}.ord-ferr{margin-left:0}.ord-form label>span{flex-basis:88px}.ord-form label>.ord-hint{flex-basis:100%;white-space:normal;margin:-8px 0 8px 100px}.ord-q{height:44px;font-size:16px}.ord-ph input{height:44px}}";
     document.head.appendChild(st);
   }
 
@@ -266,8 +285,8 @@
       f("id_card", "ID card", ' placeholder="Optional, kept on their details" autocapitalize="characters"') +
       f("contact", "Phone", ' type="tel" inputmode="tel" placeholder="To call when it is in"') +
       f("items", "Items", ' placeholder="e.g. Augmentin 625 x14"') +
-      f("needed_by", "Needed by", ' type="date" min="' + esc(today()) + '"') +
-      f("pick_up_date", "Pick up", ' type="date" min="' + esc(today()) + '" aria-describedby="ord-pu-hint"', '<span class="ord-hint" id="ord-pu-hint">Empty: same day</span>') +
+      f("needed_by", "Needed by", ' type="date" min="' + esc(today()) + '"') + dayChips("needed_by", a.needed_by, "Needed by") +
+      f("pick_up_date", "Pick up", ' type="date" min="' + esc(today()) + '" aria-describedby="ord-pu-hint"', '<span class="ord-hint" id="ord-pu-hint">Leave empty if they collect the same day</span>') +
       f("deposit", "Deposit €", ' inputmode="decimal" placeholder="Optional"') +
       '<label><span>Priority</span><select name="priority"><option value="2">Normal</option><option value="1"' + (String(a.priority) === "1" ? " selected" : "") + '>Urgent</option><option value="3"' + (String(a.priority) === "3" ? " selected" : "") + ">Low</option></select></label>" +
       f("notes", "Notes", ' placeholder="Optional"') +
@@ -374,6 +393,7 @@
     var f = root.querySelector("#ord-add");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(f); });
+      wireDays(f);
       f.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !document.querySelector(".epp-list:not([hidden])")) { keepAdd(); if (addEmpty() || (S.carry && onlyCarried())) { ev.preventDefault(); closeAdd(); } } }); // Escape closes an empty form; typing is never thrown away
     }
     if (f && E.personPick) E.personPick.attach({ key: "ordreg", form: f, fields: { id: "id_card", name: "client_name", phone: "contact" },

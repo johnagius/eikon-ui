@@ -40,6 +40,7 @@
   function eur(n) { var v = Number(n || 0); return (v < 0 ? "−€" : "€") + Math.abs(v).toFixed(2); }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
   function user() { return (E.state && E.state.user) || {}; }
+  function whoOpen() { return !S.w || !!S.whoOpen; } // b4-4: day, staff, shift and float are one summary line until "Change"
 
   // ---- the classic screen's number rules, unchanged, so the totals are the same to the cent
   function mnum(raw) { var s = String(raw == null ? "" : raw).trim(); if (!s) return 0; if (s.indexOf(",") >= 0 && s.indexOf(".") === -1) s = s.replace(/,/g, "."); if (s === ".") return 0; var v = Number(s); return isFinite(v) ? v : 0; }
@@ -164,6 +165,7 @@
       if (!keepDraft || !S.w) { // a draft kept from a moment ago stays as typed, still measured against what it was based on
         S.base = rec; S.w = working(rec); S.dirty = false; S.conflict = null; S.ask = null;
         if (!rec) S.w.staff = String(user().full_name || "").trim(); // a new day: the person signed in, changed by typing over it
+        if (!String(S.w.staff || "").trim()) S.whoOpen = true; // nobody to name in the summary line: the fields are shown
         S.autoDep = !rec || sameDeposit(rec.deposit || rec.bov_deposit, autoDeposit(S.w));
         if (S.autoDep) S.w.deposit = autoDeposit(S.w);
       }
@@ -185,6 +187,7 @@
       ".eod h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.eod-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
       ".eod-day{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}.eod .eod-day input{font:inherit;font-size:16px;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:10px;height:44px;padding:0 10px}" +
       ".eod-day input:focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:2px}" +
+      ".eod-who{display:flex;align-items:center;gap:12px;min-height:46px;padding:4px 8px 4px 14px;font-size:15px}.eod-who span{flex:1;min-width:0}" + // b4-4: the summary line
       ".eod-st{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;font-size:13.5px;color:var(--muted)}" +
       ".eod-chip{font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(118,118,128,.12);color:var(--text)}" +
       ".eod-chip.ok{background:var(--ok-soft,rgba(28,138,91,.14));color:var(--ok,#1C8A5B)}.eod-chip.wn{background:var(--warn-soft,rgba(201,138,18,.16));color:var(--warn,#8A5A08)}" +
@@ -232,8 +235,9 @@
     document.head.appendChild(st);
   }
 
-  function ouText(c) { var v = Math.round(c.OU * 100) / 100; return v > 0 ? "Over by " + eur(v) : v < 0 ? "Short by " + eur(-v) : "Exact"; }
-  function ouCls(c) { var v = Math.round(c.OU * 100) / 100; return v === 0 ? "ok" : v < 0 ? "dn" : "wn"; }
+  function counted(c) { return !!(c.A || c.B || c.C || c.D || c.till); } // b4-4: no figure typed yet is not "Exact"
+  function ouText(c) { var v = Math.round(c.OU * 100) / 100; if (!counted(c)) return "Nothing counted yet"; return v > 0 ? "Over by " + eur(v) : v < 0 ? "Short by " + eur(-v) : "Exact"; }
+  function ouCls(c) { var v = Math.round(c.OU * 100) / 100; if (!counted(c)) return ""; return v === 0 ? "ok" : v < 0 ? "dn" : "wn"; }
   function shown(v, int) { var s = String(v == null ? "" : v); return (int ? inum(s) === 0 && /^\s*0*\s*$/.test(s) : /^\s*0*(\.0*)?\s*$/.test(s)) ? "" : s; } // a zero shows as an empty box with 0 behind it
 
   function paint(fromState) {
@@ -243,7 +247,7 @@
     var locked = !!(S.base && S.base.locked_at), ro = locked || S.saving;
     var h = '<div class="eod"><button class="eod-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("eodreg")) + '</button>' +
       '<div class="eod-top"><div><h1>End of day</h1><p class="eod-sub">Close the till: X readings, cash, cheques and the bank bag.</p></div>' +
-      '<label class="eod-day"><span>Day</span><input type="date" id="eod-day" max="' + esc(today()) + '" value="' + esc(S.date) + '"></label></div>';
+      (whoOpen() ? '<label class="eod-day"><span>Day</span><input type="date" id="eod-day" max="' + esc(today()) + '" value="' + esc(S.date) + '"></label>' : "") + "</div>";
     if (S.loading && !S.w) h += '<div class="eod-quiet">Opening ' + esc(dayLabel(S.date).toLowerCase() === "today" ? "today" : dayLabel(S.date)) + "…</div>";
     else if (S.error && !S.w) h += '<div class="eod-quiet">' + esc(S.error) + ' <button class="eod-btn" data-act="retry" style="margin-left:8px">Try again</button></div>';
     else if (S.w) h += dayHtml(locked, ro);
@@ -308,7 +312,9 @@
     }
     h += '<form id="eod-form" autocomplete="off" novalidate>';
     // who and when
-    h += '<div class="eod-lab"><span>Who and when</span></div><div class="eod-card">' +
+    if (!whoOpen()) h += '<div class="eod-lab"><span>Who and when</span></div><div class="eod-card"><div class="eod-who"><span>' + esc([dayLabel(S.date), String(w.staff || "").trim(), w.time_of_day === "PM" ? "PM" : "AM", "float " + eur(mnum(w.float_amount))].join(" · ")) +
+      '</span><button type="button" class="eod-btn" data-act="who" aria-label="Change the day, staff, shift or float">Change</button></div></div>';
+    else h += '<div class="eod-lab"><span>Who and when</span></div><div class="eod-card">' +
       '<label class="eod-f"><span>Staff</span><input name="staff" value="' + esc(w.staff) + '" placeholder="Who is closing"' + RO + "></label>" +
       '<label class="eod-f"><span>Shift</span><select name="time_of_day"' + (ro ? " disabled" : "") + '><option value="AM"' + (w.time_of_day !== "PM" ? " selected" : "") + '>AM</option><option value="PM"' + (w.time_of_day === "PM" ? " selected" : "") + ">PM</option></select></label>" +
       '<label class="eod-f"><span>Float €</span><input name="float_amount" inputmode="decimal" value="' + esc(w.float_amount) + '" placeholder="0.00"' + RO + "></label></div>";
@@ -457,6 +463,7 @@
         else if (act === "fix") { S.fix = { reason: "", err: "", busy: false, date: S.date }; paint(true); var fr = m.querySelector("[name=fix_reason]"); if (fr) fr.focus(); }
         else if (act === "fix-no") { S.fix = null; paint(true); var fb = m.querySelector("[data-act=fix]"); if (fb) fb.focus(); }
         else if (act === "fix-go") unlockToFix();
+        else if (act === "who") { keep(); S.whoOpen = true; paint(true); var dy = m.querySelector("#eod-day"); if (dy) dy.focus(); }
         else if (act === "lock") { keep(); S.ask = "lock"; S.err = ""; paint(true); setTimeout(function () { var y = m.querySelector("[data-act=lock-yes]"); if (y) y.focus(); }, 30); }
         else if (act === "lock-yes") { S.ask = null; save(true); }
         else if (act === "ask-no") { keep(); S.ask = null; S.pendingDate = ""; paint(true); var di = m.querySelector("#eod-day"); if (di) di.value = S.date; }
@@ -475,6 +482,12 @@
     var f = m.querySelector("#eod-form");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); save(false); });
+      f.addEventListener("keydown", function (ev) { // b4-4: Enter goes on to the next amount (after the last one, to Save); it never saves by itself
+        var t = ev.target; if (ev.key !== "Enter" || ev.isComposing || !t || t.tagName !== "INPUT" || t.type === "radio") return;
+        ev.preventDefault();
+        var nx = Array.prototype.filter.call(f.querySelectorAll("input[inputmode]:not([readonly])"), function (x) { return t.compareDocumentPosition(x) & 4; })[0];
+        if (nx) { nx.focus(); try { nx.select(); } catch (x) {} } else { var sv = m.querySelector("[data-act=save]"); if (sv) sv.focus(); }
+      });
       f.addEventListener("input", function (ev) {
         var t = ev.target; if (!t || !t.name || !S.w || (S.base && S.base.locked_at)) return;
         if (t.name === "eod-unit") return;
@@ -536,7 +549,7 @@
   async function save(lock) {
     if (S.saving || !S.w || (S.base && S.base.locked_at)) return;
     keep();
-    S.err = check(S.w); if (S.err) { paint(true); return toBad(); }
+    S.err = check(S.w); if (S.err) { if (S.bad === "staff" || S.bad === "float_amount") S.whoOpen = true; paint(true); return toBad(); }
     var body = payload(S.w, lock), mine = fullSig(body);
     S.saving = true; S.conflict = null; paint(true);
     try {
@@ -573,8 +586,8 @@
     render: function (ctx) {
       S.mount = ctx && ctx.mount; S.err = ""; S.ask = null; css();
       var draft = S.dirty && S.w && S.date; // figures typed and not saved stay, as in the classic screen
-      if (!draft) { S.date = today(); S.w = null; S.base = null; S.month = null; S.conflict = null; }
-      paint(); return load({ keepDraft: !!draft });
+      if (!draft) { S.date = today(); S.w = null; S.base = null; S.month = null; S.conflict = null; S.whoOpen = false; }
+      paint(); return E.takeOpenForm("eodreg", S.mount, load({ keepDraft: !!draft }), { focus: "#eod-form input.amt" });
     }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("eodreg") < 0) E.UI2_DESTINATIONS.push("eodreg");

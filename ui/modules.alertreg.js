@@ -172,7 +172,7 @@
 
   E.registerModule({
     id: "alertreg", title: "Alerts", order: 3, icon: "!", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; E.months.historyReset("alertreg"); css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; E.months.historyReset("alertreg"); css(); paint(); return E.takeOpenForm("alertreg", S.mount, load(), { btn: "[data-act=add]", form: "#alr-add" }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("alertreg") < 0) E.UI2_DESTINATIONS.push("alertreg");
   if (E.UI2_PARENT) E.UI2_PARENT.alertreg = "stock";

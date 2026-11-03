@@ -247,7 +247,8 @@
     try { h = JSON.parse(sessionStorage.getItem(HAND) || "null"); } catch (e) { h = null; }
     if (!h || h.to !== to) return null; // meant for another screen: left for it
     try { sessionStorage.removeItem(HAND); } catch (e) {}
-    if (!h.at || Date.now() - Number(h.at) > 60000 || !h.person || !String(h.person.name || "").trim()) return null; // an old hand-over is ignored
+    h.person = h.person || {};
+    if (!h.at || Date.now() - Number(h.at) > 60000 || (h.mode !== "new" && !String(h.person.name || "").trim())) return null; // an old hand-over is ignored; "new" may come with nobody (the search's "new order")
     return h;
   };
   // Back to the person's page, with focus on the button that was pressed (Escape or Cancel on a form opened from it).

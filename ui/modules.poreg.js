@@ -205,7 +205,7 @@
 
   E.registerModule({
     id: "poreg", title: "Paid out", order: 3, icon: "€", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); E.correct.reset("poreg"); S.adding = null; S.err = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); E.correct.reset("poreg"); S.adding = null; S.err = ""; css(); paint(); return E.takeOpenForm("poreg", S.mount, load(), { btn: "[data-act=add]", form: "#por-add" }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("poreg") < 0) E.UI2_DESTINATIONS.push("poreg");
   if (E.UI2_PARENT) E.UI2_PARENT.poreg = "money";

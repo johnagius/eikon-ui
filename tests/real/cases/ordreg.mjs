@@ -22,7 +22,7 @@ export default {
     m = t.maxId(T);
     await p.click("[data-act=add]"); await p.waitForSelector("#ord-add");
     await p.fill("#ord-add [name=client_name]", IN.name); await p.fill("#ord-add [name=contact]", IN.phone); await p.fill("#ord-add [name=items]", IN.items);
-    await p.fill("#ord-add [name=needed_by]", IN.needed); await p.fill("#ord-add [name=pick_up_date]", IN.pickup); await p.fill("#ord-add [name=deposit]", IN.deposit);
+    const chip = p.locator(`#ord-add .q44-days [data-ymd="${IN.needed}"]`); if (await chip.count()) await chip.click(); else await p.fill("#ord-add [name=needed_by]", IN.needed); /* b4-4: one tap when offered */ await p.fill("#ord-add [name=pick_up_date]", IN.pickup); await p.fill("#ord-add [name=deposit]", IN.deposit);
     await p.selectOption("#ord-add [name=priority]", IN.priority); await p.fill("#ord-add [name=notes]", IN.notes);
     await t.write(p, /\/client-orders\/entries$/, () => p.click("#ord-add button[type=submit]"));
     const fresh = t.since(T, m).filter((r) => r.client_name === IN.name)[0];

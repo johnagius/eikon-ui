@@ -3,14 +3,15 @@
    the same checks as the classic Shifts screen: end after start, nobody planned on a day of approved leave, a warning
    before two pharmacists overlap, a warning before approving a pharmacist's leave with no one to cover.
    A change sends the shift's whole record (the server writes start, end, role and note together), so the role a
-   pattern set is kept. Patterns, opening hours, new leave requests, staff, balances and the calendar link stay in the
-   classic Shifts screen. */
+   pattern set is kept. A person can be added to the rota here (the classic "Add Employee" body, with its defaults), so a
+   new pharmacy's empty rota is never a dead end. Patterns, opening hours, new leave requests, changing a person's
+   details, balances and the calendar link stay in the classic Shifts screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, monday: null, staff: {}, shifts: [], leaves: [], hours: null, loading: false, error: "", leaveErr: "", form: null, saving: false, ask: null, busy: 0, lvMsg: "", last: null };
+  var S = { mount: null, monday: null, staff: {}, shifts: [], leaves: [], hours: null, loading: false, error: "", leaveErr: "", form: null, saving: false, ask: null, busy: 0, lvMsg: "", last: null, who: null };
   var DAY = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   var DESIG = { pharmacist: "Pharmacist", locum: "Locum pharmacist", assistant: "Pharmacy assistant", dispenser: "Dispenser", cashier: "Cashier", manager: "Manager", cleaner: "Cleaner", other: "Other" };
@@ -98,6 +99,7 @@
       ".shf-lv .acts{display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:8px}.shf-lv .acts .q{flex:1 1 100%;font-size:14px}" +
       ".shf-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".shf-note{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.6}.shf-note a{color:var(--accent)}.shf-quiet .shf-btn{display:block;margin-top:12px}" +
+      ".shf-who{margin-top:14px}.shf-who h2{font-size:17px;font-weight:700;margin:0;padding:12px 14px 2px}.shf-who p{margin:0;padding:0 14px 8px;font-size:13.5px;color:var(--muted)}.shf-who .ok{color:var(--ok);font-weight:600}" +
       ".shf-sk{height:150px;margin-top:10px;border-radius:12px;background:rgba(118,118,128,.1)}.shf-sk+.shf-sk{height:110px}" +
       // A wide desktop shows the week in two columns (Monday to Sunday reading across), so most of it is seen without scrolling.
       "@media (min-width:1280px){.shf{max-width:1180px}.shf-week{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;align-items:start}}" +
@@ -196,7 +198,8 @@
         if (pending.length) h += '<div class="shf-card">' + pending.map(leaveHtml).join("") + "</div>";
       }
       if (S.leaveErr) h += '<p class="shf-note">' + esc(S.leaveErr) + "</p>";
-      if (!active().length) h += '<div class="shf-quiet">No staff on the rota yet. Add the team in the <a href="#" data-act="classic">classic Shifts screen</a> first.</div>';
+      if (!active().length && !S.who) S.who = newWho(); // an empty rota opens on the one thing to do: add the people who work here
+      if (S.who) h += whoHtml();
       h += '<div class="shf-nav"><button data-act="prev" aria-label="Previous week" title="Previous week (←)">‹</button><b>' + esc(label) + "</b>" + (thisWeek ? "" : '<button class="now" data-act="now">This week</button>') + '<button data-act="next" aria-label="Next week" title="Next week (→)">›</button></div>';
       var today = ymd(new Date());
       h += '<div class="shf-week">';
@@ -221,8 +224,9 @@
         h += "</section>";
       }
       h += "</div>";
+      if (!S.who && active().length) h += '<div class="shf-card" style="margin-top:10px"><button class="shf-add" style="border-top:0" data-act="who" data-k="who">+ Add a person to the rota</button></div>';
     }
-    h += '<p class="shf-note">Patterns, opening hours, new leave requests, staff, leave balances and the calendar link are in the <a href="#" data-act="classic">classic Shifts screen</a>.</p></div>';
+    h += '<p class="shf-note">Patterns, opening hours, new leave requests, changing a person’s details, leave balances and the calendar link are in the <a href="#" data-act="classic">classic Shifts screen</a>.</p></div>';
     m.innerHTML = h;
     if (keepAct && /^(prev|next|now)$/.test(keepAct)) { var kb = m.querySelector('[data-act="' + keepAct + '"]') || m.querySelector('[data-act="next"]'); if (kb) kb.focus(); }
     m.querySelectorAll("[data-act]").forEach(function (b) {
@@ -243,13 +247,62 @@
         else if (a === "lv-refuse-yes") answer(id, "reject");
         else if (a === "lv-keep") { S.ask = null; paint(); }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "shfreg"); } catch (x2) {} E.openClassic("shifts"); }
+        else if (a === "who") { S.who = newWho(); paint(true); var n = m.querySelector('#shf-who [name="full_name"]'); if (n) n.focus(); }
+        else if (a === "who-done") closeWho();
       });
     });
+    var w = m.querySelector("#shf-who"); if (w) {
+      w.addEventListener("submit", function (ev) { ev.preventDefault(); addPerson(w); });
+      w.addEventListener("input", function (ev) { var t = ev.target; if (t && t.name && S.who) { S.who[t.name] = t.value; t.removeAttribute("aria-invalid"); } });
+      w.addEventListener("change", function (ev) { var t = ev.target; if (t && t.name && S.who) S.who[t.name] = t.value; });
+      w.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && S.who && !S.who.saving && active().length) { ev.preventDefault(); ev.stopPropagation(); closeWho(); } });
+    }
     var f = m.querySelector("#shf-form"); if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); save(); });
       f.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !S.saving) { ev.preventDefault(); ev.stopPropagation(); if (S.form && S.form.confirmDel) { S.form.confirmDel = false; paint(true); } else closeForm(); } }); // Escape closes, as everywhere
     }
   }
+  // ---- Add a person to the rota: the classic "Add Employee" with what it sends for a name and a role ----
+  // POST /shifts/staff {full_name, designation, employment_type, contracted_hours, email, phone, registration_number,
+  // is_active, patterns_json}: full time 40 h (a locum is external, as the classic sets it), the rest empty. Hours, contact
+  // details and patterns are changed in the classic screen, as before.
+  function newWho() { return { full_name: "", designation: active().some(isPharm) ? "assistant" : "pharmacist", err: "", saving: false, added: [] }; }
+  function whoHtml() {
+    var w = S.who, first = !active().length;
+    return '<div class="shf-card shf-who"><h2 id="shf-who-t">' + (first ? "Who works here?" : "Add a person to the rota") + "</h2>" +
+      "<p>" + (first ? "Add each person once. Then plan their shifts on the week below." : "They can then be given shifts on any day.") + "</p>" +
+      (w.added.length ? '<p class="ok" role="status">' + esc(w.added.join(", ")) + (w.added.length === 1 ? " is" : " are") + " on the rota. Add the next person, or press Done.</p>" : "") +
+      '<form class="shf-form" id="shf-who" novalidate aria-labelledby="shf-who-t">' +
+      '<label><span>Name</span><input name="full_name" value="' + esc(w.full_name) + '" autocomplete="off" enterkeyhint="done"' + (w.err ? ' aria-invalid="true" aria-describedby="shf-who-err"' : "") + (w.saving ? " disabled" : "") + "></label>" +
+      '<label><span>Role</span><select name="designation"' + (w.saving ? " disabled" : "") + ">" + Object.keys(DESIG).map(function (k) { return '<option value="' + k + '"' + (w.designation === k ? " selected" : "") + ">" + DESIG[k] + "</option>"; }).join("") + "</select></label>" +
+      (w.err ? '<div class="shf-err" role="alert" id="shf-who-err">' + esc(w.err) + "</div>" : "") +
+      '<div class="acts">' + (w.added.length || !first ? '<button type="button" class="shf-btn" data-act="who-done" data-k="who-done">Done</button>' : "") +
+      '<button type="submit" class="shf-btn p" data-k="who-add"' + (w.saving ? " disabled" : "") + ">" + (w.saving ? "Adding…" : "Add to the rota") + "</button></div></form></div>";
+  }
+  function closeWho() { S.who = null; paint(true); var b = S.mount && (S.mount.querySelector('[data-act="who"]') || S.mount.querySelector('[data-act="add"]')); if (b) b.focus(); }
+  async function addPerson(form) {
+    var w = S.who; if (!w || w.saving) return;
+    var nm = form.querySelector('[name="full_name"]'), ds = form.querySelector('[name="designation"]');
+    w.full_name = String(nm.value || ""); w.designation = ds.value;
+    var name = w.full_name.trim();
+    if (!name) { w.err = "Write the person’s name, as it should show on the rota."; paint(true); var n0 = S.mount.querySelector('#shf-who [name="full_name"]'); if (n0) n0.focus(); return; }
+    var body = { full_name: name, designation: w.designation, employment_type: w.designation === "locum" ? "external" : "fulltime", contracted_hours: 40,
+      email: "", phone: "", registration_number: "", is_active: 1, patterns_json: JSON.stringify({ patterns: [], provisionalId: null }) };
+    w.err = ""; w.saving = true; paint(true);
+    try {
+      await E.postOnce("/shifts/staff", body, { list: async function () { var r = await E.apiFetch("/shifts/staff?include_inactive=1", { method: "GET" }); return (r && r.staff) || []; },
+        same: function (p) { return String(p.full_name) === name; } });
+      w.saving = false; w.added.push(name); w.full_name = ""; w.designation = isPharm({ designation: w.designation }) ? "assistant" : w.designation;
+      E.toast(name + " added to the rota", "success");
+      try { var st = await E.apiFetch("/shifts/staff?include_inactive=1", { method: "GET" }); if (st && st.ok) { S.staff = {}; (st.staff || []).forEach(function (p) { S.staff[p.id] = p; }); } } catch (e1) {} // just the people: the week stays as it is
+      paint(true);
+      var n = S.mount && S.mount.querySelector('#shf-who [name="full_name"]'); if (n) n.focus(); // ready for the next person
+    } catch (e) {
+      w.saving = false; w.err = E.saveFailText(e); paint(true);
+      var b = S.mount && S.mount.querySelector('[data-k="who-add"]'); if (b) b.focus();
+    }
+  }
+
   // A new shift starts from what was last added here (the same person and hours, as a rota repeats across the week)
   // when that person is free that day; otherwise from the day's opening hours with nobody chosen.
   function addDefaults(key) {
@@ -342,7 +395,7 @@
 
   // ← and → move a week, as the arrows do, whenever no shift is open and the keys are not typing somewhere.
   function onKey(ev) {
-    if (E.state.activeModuleId !== "shfreg" || !S.mount || !document.body.contains(S.mount) || S.form || S.saving || ev.altKey || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.defaultPrevented) return;
+    if (E.state.activeModuleId !== "shfreg" || !S.mount || !document.body.contains(S.mount) || S.form || S.who || S.saving || ev.altKey || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.defaultPrevented) return;
     if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
     var a = document.activeElement; if (a && a !== document.body && !S.mount.contains(a)) return;
     if (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return;
@@ -351,7 +404,7 @@
   }
   E.registerModule({
     id: "shfreg", title: "Plan shifts", order: 3, icon: "◷", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.monday = mondayOf(new Date()); S.shifts = []; S.form = null; S.ask = null; S.lvMsg = ""; S.busy = 0; S.saving = false; css(); paint(); document.removeEventListener("keydown", onKey); document.addEventListener("keydown", onKey); return load(); },
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.monday = mondayOf(new Date()); S.shifts = []; S.form = null; S.ask = null; S.lvMsg = ""; S.busy = 0; S.saving = false; S.who = null; css(); paint(); document.removeEventListener("keydown", onKey); document.addEventListener("keydown", onKey); return load(); },
     destroy: function () { document.removeEventListener("keydown", onKey); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("shfreg") < 0) E.UI2_DESTINATIONS.push("shfreg");

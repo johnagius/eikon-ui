@@ -354,7 +354,7 @@
 
   E.registerModule({
     id: "pvreg", title: "Adverse reactions", order: 3, icon: "!", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; E.months.historyReset("pvreg"); S.view = "list"; S.openId = ""; S.adding = null; S.base = null; S.err = ""; S.miss = []; S.force = ""; S.q = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; E.months.historyReset("pvreg"); S.view = "list"; S.openId = ""; S.adding = null; S.base = null; S.err = ""; S.miss = []; S.force = ""; S.q = ""; css(); paint(); return E.takeOpenForm("pvreg", S.mount, load(), { btn: "[data-act=add]", form: "#pvr-add" }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("pvreg") < 0) E.UI2_DESTINATIONS.push("pvreg");
   if (E.UI2_PARENT) E.UI2_PARENT.pvreg = "services";

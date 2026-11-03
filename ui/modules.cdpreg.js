@@ -217,7 +217,7 @@
 
   E.registerModule({
     id: "cdpreg", title: "Controlled drugs received", order: 3, icon: "℞", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = E.months.take("cdpreg") || today().slice(0, 7); S.entries = []; E.months.reset(); E.correct.reset("cdpreg"); S.adding = null; S.err = ""; S.bad = {}; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = E.months.take("cdpreg") || today().slice(0, 7); S.entries = []; E.months.reset(); E.correct.reset("cdpreg"); S.adding = null; S.err = ""; S.bad = {}; css(); paint(); return E.takeOpenForm("cdpreg", S.mount, load(), { btn: "[data-act=add]", form: "#cdp-add" }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("cdpreg") < 0) E.UI2_DESTINATIONS.push("cdpreg");
   if (E.UI2_PARENT) E.UI2_PARENT.cdpreg = "registers";

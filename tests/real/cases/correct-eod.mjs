@@ -9,6 +9,7 @@ export default {
   async run(t) {
     const T = "end_of_day", D = ymd(-1), p = await t.page();
     await t.open(p, "2", "endofday", "eodreg", "#eod-form");
+    await p.click("[data-act=who]"); // b4-4: the day sits behind the summary line's Change
     const openDay = async () => { await p.fill("#eod-day", D); await p.dispatchEvent("#eod-day", "change"); await p.waitForFunction((d) => document.querySelector("#eod-day") && document.querySelector("#eod-day").value === d && !/Opening/.test(document.querySelector(".eod").textContent), D); await p.waitForTimeout(300); };
     await openDay();
     await t.fill(p, "#eod-form", { staff: DAY.staff, float_amount: DAY.float, '[name="row:x:0:amount"]': DAY.x[0], '[name="row:x:0:remark"]': DAY.x[1], '[name="row:epos:0:amount"]': DAY.epos[0],
@@ -42,6 +43,7 @@ export default {
     if (t.stack.staff) {
       const q = await t.page(); await q.context().addInitScript((tok) => { try { localStorage.setItem("eikon_token", tok); } catch (e) {} }, t.stack.staff.token);
       await t.open(q, "2", "endofday", "eodreg", "#eod-form");
+      await q.click("[data-act=who]"); // b4-4: the day sits behind the summary line's Change
       await q.fill("#eod-day", D); await q.dispatchEvent("#eod-day", "change"); await q.waitForTimeout(800);
       t.ok(await q.locator("[data-act=fix]").count() === 0 && /Locked/.test(await q.textContent(".eod-st")), "correct eod: staff see Correct this day, or the day is not shown locked");
     }

@@ -238,7 +238,7 @@
 
   E.registerModule({
     id: "cleanreg", title: "Cleaning", order: 3, icon: "✓", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.month = E.months.take("cleanreg") || thisMonth(); S.entries = []; S.around = []; E.months.reset(); E.correct.reset("cleanreg"); css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.month = E.months.take("cleanreg") || thisMonth(); S.entries = []; S.around = []; E.months.reset(); E.correct.reset("cleanreg"); css(); paint(); return E.takeOpenForm("cleanreg", S.mount, load(), { btn: "[data-act=new]", form: "#clr-form" }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("cleanreg") < 0) E.UI2_DESTINATIONS.push("cleanreg");
   if (E.UI2_PARENT) E.UI2_PARENT.cleanreg = "registers";

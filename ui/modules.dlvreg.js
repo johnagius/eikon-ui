@@ -24,6 +24,25 @@
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function today() { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  // Quick days under a date field (b4-4): Today · Tomorrow · the working day after (a Sunday is skipped). A tap only
+  // writes that date into the field, exactly as typing it would; nothing is chosen until one is tapped.
+  function dayChips(name, cur, what) {
+    var h = "", d = new Date(), n = 0, WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    for (var i = 0; n < 3 && i < 8; i++, d.setDate(d.getDate() + 1)) {
+      if (i > 0 && d.getDay() === 0) continue;
+      var v = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+      h += '<button type="button" data-day="' + n++ + '" data-ymd="' + v + '" aria-pressed="' + (cur === v) + '">' + (i === 0 ? "Today" : i === 1 ? "Tomorrow" : WD[d.getDay()] + " " + d.getDate()) + "</button>";
+    }
+    return '<div class="q44-days" role="group" aria-label="' + esc(what) + ', in one tap" data-for="' + name + '">' + h + "</div>";
+  }
+  function wireDays(form) {
+    if (form) form.querySelectorAll(".q44-days").forEach(function (g) {
+      var el = form.querySelector('[name="' + g.getAttribute("data-for") + '"]'); if (!el) return;
+      var sync = function () { g.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-ymd") === el.value)); }); };
+      g.addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest("button[data-ymd]"); if (!b || el.disabled) return; el.value = b.getAttribute("data-ymd"); el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); sync(); });
+      el.addEventListener("input", sync); el.addEventListener("change", sync);
+    });
+  }
   function nowHm() { var d = new Date(); return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
   function daysUntil(s) { var p = String(s).split("-"); var t = new Date(); return Math.round((new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])) - new Date(t.getFullYear(), t.getMonth(), t.getDate())) / 86400000); }
   function when(s) { var n = daysUntil(s); if (n === 0) return "today"; if (n === 1) return "tomorrow"; if (n === -1) return "yesterday"; var p = s.split("-"); return Number(p[2]) + " " + MON[Number(p[1]) - 1]; }
@@ -221,7 +240,7 @@
         fld("delivery_address", "Address", a.delivery_address, ' placeholder="Street, number, town"') +
         fld("address_notes", "Directions", a.address_notes, ' placeholder="Optional, e.g. blue door, 2nd floor"') +
         fld("items", "Items", a.itemsText, ' placeholder="Optional, e.g. Augmentin 625, Panadol"') +
-        fld("scheduled_date", "Deliver on", a.scheduled_date || today(), ' type="date"') +
+        fld("scheduled_date", "Deliver on", a.scheduled_date || today(), ' type="date"') + dayChips("scheduled_date", a.scheduled_date || today(), "Deliver on") +
         fld("scheduled_time_slot", "Time", a.scheduled_time_slot, ' placeholder="Optional, e.g. Afternoon"') +
         '<label><span>Fridge item</span><input type="checkbox" name="cold_chain_required"' + (a.cold_chain_required ? " checked" : "") + "></label>" +
         '<label><span>Controlled drug</span><input type="checkbox" name="contains_controlled"' + (a.contains_controlled ? " checked" : "") + "></label>" +
@@ -276,6 +295,7 @@
     var fa = m.querySelector("#dlv-add");
     if (fa) {
       fa.addEventListener("submit", function (ev) { ev.preventDefault(); add(fa); });
+      wireDays(fa);
       fa.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !document.querySelector(".epp-list:not([hidden])")) { keep(); var a0 = S.adding || {}; if (!["client_name", "id_doc_ref", "phone", "delivery_address", "address_notes", "itemsText", "scheduled_time_slot"].some(function (k) { return String(a0[k] || "").trim(); }) || (S.carry && onlyCarried(a0))) { ev.preventDefault(); closeAdd(); } } }); // Escape closes an empty form; typing is never thrown away
       fa.addEventListener("input", function (ev) { var el = ev.target; if (el && el.getAttribute && el.getAttribute("aria-invalid") === "true") { el.removeAttribute("aria-invalid"); if (S.fe) delete S.fe[el.name]; var s0 = el.parentNode && el.parentNode.querySelector(".dlv-ferr"); if (s0) s0.remove(); } });
     }

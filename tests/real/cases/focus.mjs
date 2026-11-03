@@ -84,7 +84,8 @@ export default {
     } else t.note("today: every reading already logged; Log not tried");
     const done = p.locator(".tdy-row[data-kind=cleaning] [data-act=clean]");
     if (await done.count()) {
-      await done.focus(); await p.keyboard.press("Enter"); await p.waitForSelector("[data-cleaner]"); await p.keyboard.press("ControlOrMeta+A"); await p.keyboard.type("Karla Sweep");
+      // b4-4: the name is in the row already and Done now records it at once; so the name is typed over in the field, and Enter there records
+      await p.focus("[data-cleaner]"); await p.keyboard.press("ControlOrMeta+A"); await p.keyboard.type("Karla Sweep");
       await t.write(p, /\/cleaning\/entries$/, () => p.keyboard.press("Enter"));
       await p.waitForTimeout(1200);
       const f2 = await p.evaluate(() => { const a = document.activeElement; return a === document.body ? "BODY" : (a.className || a.tagName) + ":" + (a.getAttribute("data-kind") || ""); });

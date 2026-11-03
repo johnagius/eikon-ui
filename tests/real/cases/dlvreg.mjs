@@ -22,7 +22,7 @@ export default {
     await p.click("[data-act=add]"); await p.waitForSelector("#dlv-add");
     const f = (n, v) => p.fill("#dlv-add [name=" + n + "]", v);
     await f("client_name", IN.name); await f("phone", IN.phone); await f("delivery_address", IN.addr); await f("address_notes", IN.notes);
-    await f("items", IN.items.join(", ")); await f("scheduled_date", IN.day); await f("scheduled_time_slot", IN.slot);
+    await f("items", IN.items.join(", ")); const chip = p.locator(`#dlv-add .q44-days [data-ymd="${IN.day}"]`); if (await chip.count()) await chip.click(); else await f("scheduled_date", IN.day); /* b4-4 */ await f("scheduled_time_slot", IN.slot);
     await p.check("#dlv-add [name=cold_chain_required]"); if (!(await p.isChecked("#dlv-add [name=signature_required]"))) await p.check("#dlv-add [name=signature_required]");
     await t.write(p, /\/client-deliveries\/entries$/, () => p.click("#dlv-add button[type=submit]"));
     const fresh = t.since(T, m).filter((r) => r.client_name === IN.name)[0];

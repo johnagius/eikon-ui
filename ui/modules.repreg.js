@@ -338,7 +338,7 @@
       // From the count on a customer's page (modules.customers.js): their repeat prescriptions, by ID card when known.
       var hand = E.takeCustomerHandoff ? E.takeCustomerHandoff("repreg") : null;
       if (hand && hand.mode === "find") S.q = String(hand.person.id_card || hand.person.name);
-      css(); watchWidth(); paint(); loadMonth(); return load();
+      css(); watchWidth(); paint(); loadMonth(); return E.takeOpenForm("repreg", S.mount, load(), { btn: "[data-act=add]", form: "#rep-add", fill: { id_card: "client_id", name: "client_name" } }, hand);
     }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("repreg") < 0) E.UI2_DESTINATIONS.push("repreg");

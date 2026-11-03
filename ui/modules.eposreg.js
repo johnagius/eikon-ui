@@ -10,7 +10,8 @@
    saved; not there, it comes off the queue and the basket stays as it was, and pressing Take again sends the same
    offline_id, so a retry can never make a second sale. A lost connection queues the sale, as in the classic screen.
    Scanning with the camera, photo search, a barcode per line, importing and clearing the product list and printing the
-   day's receipts stay in the classic screen. */
+   day's receipts stay in the classic screen. A pharmacy with no product list imports it here, with the classic's own
+   reading of the file and the same upload (batches, retries, the first batch replacing the list). */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -21,7 +22,8 @@
   var S = {
     mount: null, catalog: [], catLoading: false, catNote: "", cart: [], payment: { method: "cash", tendered: "" }, discount: 0,
     q: "", sales: [], date: "", salesLoading: false, salesErr: "", salesSeq: 0, saving: false, err: "", attempt: null, inflight: {},
-    syncing: false, syncErr: "", done: null, askClear: false, voidId: null, voidReason: "", voiding: false, voidErr: "", open: null, said: ""
+    syncing: false, syncErr: "", done: null, askClear: false, voidId: null, voidReason: "", voiding: false, voidErr: "", open: null, said: "",
+    imp: { busy: false, msg: "", err: "" }
   };
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
@@ -143,6 +145,7 @@
       }
       if (all.length) { S.catalog = all; lsSet(LS.CATALOG, all); }
       else S.catalog = [];
+      emptyNote(!all.length);
     } catch (e) {
       var cached = lsGet(LS.CATALOG);
       if (cached && cached.length) { S.catalog = cached; S.catNote = "The server cannot be reached: using the product list saved on this device."; }
@@ -334,7 +337,7 @@
 
   function hitsHtml() {
     if (S.catLoading && !S.catalog.length) return '<div class="epr-hint">Opening the product list…</div>';
-    if (!S.catalog.length) return '<div class="epr-hint">No products yet. The product list is imported in the <a href="#" data-act="classic">classic Emergency POS</a> (Catalog).</div>';
+    if (!S.catalog.length) return importHtml();
     var list = filteredCatalog();
     if (!S.q) return '<div class="epr-hint">' + S.catalog.length + " products. Type a name or a barcode, or scan into this box, then Enter.</div>";
     if (!list.length) return '<div class="epr-hint">No product matches “' + esc(S.q) + "”.</div>";
@@ -437,13 +440,92 @@
       '<input type="search" id="epr-q" class="epr-q" data-k="q" placeholder="Name or barcode, then Enter" autocomplete="off" value="' + esc(S.q) + '" aria-controls="epr-hits">' +
       '<div class="epr-hits" id="epr-hits">' + hitsHtml() + "</div></section>" + basketHtml() + "</div>";
     h += salesHtml();
-    h += '<p class="epr-note">Scanning with the camera, photo search, setting a barcode per line, importing or clearing the product list and printing the day’s receipts are in the <a href="#" data-act="classic">classic Emergency POS</a>.</p>' +
+    h += '<p class="epr-note">Scanning with the camera, photo search, setting a barcode per line, importing a new product list or clearing it, and printing the day’s receipts are in the <a href="#" data-act="classic">classic Emergency POS</a>.</p>' +
       '<div class="epr-sr" role="status" aria-live="polite" id="epr-said">' + esc(S.said) + "</div></div>";
     var ae = document.activeElement, back = ae && m.contains(ae) && ae.getAttribute ? ae.getAttribute("data-k") : null, caret = null;
     if (back) try { caret = typeof ae.selectionStart === "number" ? ae.selectionStart : null; } catch (e) { caret = null; }
     m.innerHTML = h;
     if (back) { var again = m.querySelector('[data-k="' + back + '"]'); if (again && !again.disabled) { again.focus(); if (caret != null) try { again.setSelectionRange(caret, caret); } catch (e) {} } else if (/^(dec|inc|rm|clear)/.test(back)) { var q = m.querySelector("#epr-q"); if (q) q.focus(); } } // a redraw keeps your place
     wire(m);
+  }
+
+  // ---- the product list, imported here (the classic Catalog tab's import, unchanged) ----
+  // Today lists "Add your products" for a pharmacy whose Emergency POS was opened and had no products.
+  function emptyKey() { return "eikon_epos_empty:" + (((E.state && E.state.user) || {}).location_id || ""); }
+  function emptyNote(on) { try { if (on) localStorage.setItem(emptyKey(), "1"); else localStorage.removeItem(emptyKey()); } catch (e) {} }
+  function importHtml() {
+    var I = S.imp;
+    return '<div class="epr-hint"><b>No products yet.</b> Import the product list from an Excel or CSV file: one column with the product name, and, if you have them, barcode, price, VAT, category and unit.</div>' +
+      '<div class="epr-hint" role="status" id="epr-imp-said">' + esc(I.msg) + "</div>" + (I.err ? '<div class="epr-err" role="alert">' + esc(I.err) + "</div>" : "") +
+      '<div style="padding:8px 4px 4px"><button type="button" class="epr-btn p" data-act="import" data-k="import"' + (I.busy ? " disabled" : "") + ">" + (I.busy ? "Importing…" : "Import the product list") + "</button></div>";
+  }
+  function impSay(t) { S.imp.msg = t; var el = S.mount && S.mount.querySelector("#epr-imp-said"); if (el) el.textContent = t; }
+  function pickFile() {
+    if (S.imp.busy) return;
+    var input = document.createElement("input"); input.type = "file"; input.accept = ".xlsx,.xls,.csv"; input.style.display = "none";
+    input.addEventListener("change", function () { var file = input.files && input.files[0]; input.remove(); if (file) importFile(file); });
+    document.body.appendChild(input); input.click();
+  }
+  async function importFile(file) {
+    var I = S.imp; I.busy = true; I.err = ""; I.msg = "Reading " + file.name + "…"; paint();
+    try {
+      var XLSX = await E.loadVendor("xlsx");
+      var data = await new Promise(function (ok, no) { var r = new FileReader(); r.onload = function (ev) { ok(ev.target.result); }; r.onerror = function () { no(new Error("The file could not be read. Choose it again.")); }; r.readAsArrayBuffer(file); });
+      var wb = XLSX.read(data, { type: "array" }), ws = wb.Sheets[wb.SheetNames[0]], rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+      if (!rows.length) throw new Error("The file has no rows. Check it is the product list and choose it again.");
+      var m = mapRows(rows); if (m.err) throw new Error(m.err);
+      if (!m.products.length) throw new Error("No row has a product name. Check the file and choose it again.");
+      await upload(m.products, file);
+      I.busy = false; I.msg = ""; E.toast("Product list imported: " + m.products.length + (m.products.length === 1 ? " product" : " products"), "success");
+      await loadCatalog(); paint(); focus("#epr-q");
+    } catch (e) {
+      I.busy = false; I.msg = ""; I.err = (e && e.status) || (e && e.network) ? E.saveFailText(e) + " The list may be only partly in: import the file again." : String((e && e.message) || e);
+      paint(); focus('[data-k="import"]');
+    }
+  }
+  // The classic's column guess, placeholder barcode and rows, unchanged (modules.emergencypos.js mapXlsxRows).
+  function mapRows(rows) {
+    var keys = Object.keys(rows[0]), headers = keys.map(function (h) { return norm(h); });
+    function pick(c) { for (var i = 0; i < c.length; i++) for (var j = 0; j < headers.length; j++) if (headers[j].indexOf(c[i]) >= 0) return keys[j]; return null; }
+    var colBarcode = pick(["barcode", "ean", "gtin", "code", "sku", "ref"]), colName = pick(["name", "description", "product", "item", "desc"]), colPrice = pick(["retail", "price", "sell", "sale"]),
+      colVat = pick(["vat", "tax"]), colCategory = pick(["category", "cat", "group", "dept"]), colUnit = pick(["unit", "pack", "size", "uom"]);
+    if (!colName) return { err: "No column with the product name was found. The columns are: " + keys.join(", ") + ". Name one of them Name or Description and import it again." };
+    function toBarcode(v) { if (v == null) return ""; if (typeof v === "number") { if (!isFinite(v)) return ""; return String(Math.trunc(v)); } return String(v).trim(); }
+    function pseudoBarcode(name, idx) { var base = String(name || "").trim(); if (!base) base = "ITEM"; var h = 0; for (var i = 0; i < base.length; i++) { h = ((h << 5) - h) + base.charCodeAt(i); h |= 0; } h = Math.abs(h); return "NOBAR-" + String(h) + "-" + String(idx + 1); }
+    return { products: rows.map(function (r, idx) {
+      var b = colBarcode ? toBarcode(r[colBarcode]) : ""; if (!b) b = pseudoBarcode(r[colName], idx);
+      return { barcode: b, name: String(r[colName] || "").trim(), price: parseFloat(r[colPrice] || 0) || 0, vat_rate: parseFloat(r[colVat] || 0) || 0,
+        category: colCategory ? String(r[colCategory] || "").trim() : "", unit: colUnit ? String(r[colUnit] || "").trim() : "" };
+    }).filter(function (p) { return p.name && p.barcode; }) };
+  }
+  // The classic upload, unchanged: batches of 250 (halved on a 503 or a worker limit, never under 50), up to six tries
+  // each, the first batch replacing the list (wipe), with the same file name, total and batch number in each body.
+  async function upload(products, file) {
+    var batchSize = 250, minBatchSize = 50, yieldMs = 40, total = products.length, done = 0;
+    var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+    if (!total) return;
+    impSay("Sending 0 of " + total + "…");
+    while (done < total) {
+      var end = Math.min(total, done + batchSize), chunk = products.slice(done, end), offset = done, file_name = (file && file.name) ? file.name : "", chunk_index = Math.floor(offset / batchSize) + 1;
+      var attempt = 0, lastErr = null;
+      while (attempt < 6) {
+        try {
+          var resp = await E.apiFetch("/emergency-pos/catalog", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ products: chunk, wipe: (offset === 0), file_name: file_name, total_rows: total, chunk_index: chunk_index }) });
+          if (resp && resp.ok) { done += chunk.length; impSay("Sending " + done + " of " + total + "…"); await sleep(yieldMs); break; }
+          throw new Error("Upload failed: unexpected response");
+        } catch (err) {
+          lastErr = err;
+          var st = err && err.status ? Number(err.status) : 0, bt = String((err && (err.bodyText || err.message)) || ""), looksLike1102 = bt.indexOf("Worker exceeded resource limits") >= 0 || bt.indexOf("1102") >= 0;
+          var retryable = !st || st === 429 || st === 503 || (st >= 500 && st < 600) || looksLike1102;
+          if (!retryable) break;
+          if (st === 503 || looksLike1102) { var newSize = Math.max(minBatchSize, Math.floor(batchSize / 2)); if (newSize < batchSize) { batchSize = newSize; end = Math.min(total, done + batchSize); chunk = products.slice(done, end); } }
+          attempt += 1; if (attempt >= 6) break;
+          var wait2 = Math.min(8000, 500 * Math.pow(2, attempt));
+          impSay("The server did not take it. Trying again (" + attempt + " of 5)…"); await sleep(wait2);
+        }
+      }
+      if (done < end) throw lastErr || new Error("Upload failed.");
+    }
   }
 
   // Just the numbers, while typing (no redraw under the fingers)
@@ -491,6 +573,7 @@
   }
 
   function wireHits(root) {
+    root.querySelectorAll("[data-act=import]").forEach(function (b) { b.addEventListener("click", pickFile); });
     root.querySelectorAll("[data-act=add]").forEach(function (b) {
       b.addEventListener("click", function () { addHit(Number(b.getAttribute("data-i"))); });
       b.addEventListener("keydown", function (ev) {
