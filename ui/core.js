@@ -30,20 +30,24 @@
       var u = new URL(window.location.href);
       var v = u.searchParams.get("ui");
       if (v === "2") { window.localStorage.setItem("eikon_ui2", "1"); window.sessionStorage.removeItem("eikon_ui2_pause"); }
-      else if (v === "1") window.localStorage.removeItem("eikon_ui2");
+      else if (v === "1") window.localStorage.setItem("eikon_ui2", "0"); // the classic layout, remembered
       else if (v === "classic") window.sessionStorage.setItem("eikon_ui2_pause", "1"); // one visit to an old screen
     } catch (e) {}
   })();
   // The new shell shows only rebuilt screens. An old module opens in the classic layout
   // for this visit (sessionStorage), with one button back; the preference itself is kept.
+  // The new layout is the default for pharmacies (since 2026-11-03); "Classic layout" in Settings or ?ui=1 keeps the
+  // old one for this browser (eikon_ui2 = "0"). Supplier and company-admin portals always use the classic look.
   E.isUi2 = function () {
     try { if (window.sessionStorage.getItem("eikon_ui2_pause") === "1") return false; } catch (e) {}
-    try { return window.localStorage.getItem("eikon_ui2") === "1"; } catch (e) { return false; }
+    try { if (window.localStorage.getItem("eikon_ui2") === "0") return false; } catch (e) { return false; }
+    try { var r = window.localStorage.getItem("eikon_active_role"); if (r && r !== "pharmacy") return false; } catch (e) {}
+    return true;
   };
   // Light look from the very first screen (sign-in, portal picker), not only after sign-in.
   try { document.documentElement.toggleAttribute("data-ui2", E.isUi2()); } catch (e) {}
   E.isUi2Paused = function () {
-    try { return window.localStorage.getItem("eikon_ui2") === "1" && window.sessionStorage.getItem("eikon_ui2_pause") === "1"; } catch (e) { return false; }
+    try { return window.localStorage.getItem("eikon_ui2") !== "0" && window.sessionStorage.getItem("eikon_ui2_pause") === "1"; } catch (e) { return false; }
   };
   E.openClassic = function (hash) {
     try {
@@ -935,6 +939,7 @@
 
   // Boot a non-pharmacy section
   E.bootSection = async function (section) {
+    try { document.documentElement.removeAttribute("data-ui2"); document.documentElement.removeAttribute("data-ui2-visit"); } catch (e) {} // portals keep the classic look
     if (section === "supplier") {
       E._activeSidebarCategories = E.SUPPLIER_CATEGORIES;
       E._sectionDashboardId = "supplier-dashboard";

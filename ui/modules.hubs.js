@@ -104,7 +104,7 @@
         { label: "This pharmacy", ids: ["certificates", "contacts", "audit"] },
         { label: "Help", actions: [
           { title: "Help & guides", desc: "Short guides for every register.", run: function () { E.showHelpGuide(); } },
-          { title: "Classic layout", desc: "The previous look, with the old sidebar. The link you were given brings you back here.", run: function () { try { localStorage.removeItem("eikon_ui2"); } catch (e) {} var u = new URL(window.location.href); u.searchParams.set("ui", "1"); u.hash = "#dashboard"; window.location.href = u.toString(); } },
+          { title: "Classic layout", desc: "The previous look, with the old sidebar. The link you were given brings you back here.", run: function () { try { localStorage.setItem("eikon_ui2", "0"); } catch (e) {} var u = new URL(window.location.href); u.searchParams.set("ui", "1"); u.hash = "#dashboard"; window.location.href = u.toString(); } },
           { title: "Old dashboard", desc: "The previous home screen, unchanged.", run: function () { window.location.hash = "#dashboard"; } }
         ] }
       ]

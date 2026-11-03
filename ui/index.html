@@ -14,7 +14,7 @@
   <script>
     // A home-screen app keeps its own storage, so the new layout installs through next.html.
     (function () { var l = document.createElement("link"); l.rel = "manifest"; var n = false;
-      try { n = localStorage.getItem("eikon_ui2") === "1"; } catch (e) {}
+      try { n = localStorage.getItem("eikon_ui2") !== "0"; } catch (e) {}
       l.href = n ? "manifest-next.json" : "manifest.json"; document.head.appendChild(l); })();
   </script>
 
@@ -35,7 +35,7 @@
       // browser and the Worker's edge cache can reuse every file (previously every load
       // used Date.now(), so 52 files were re-downloaded on every visit).
       // Bump BUILD on EVERY change to any file in ui/: browsers keep stamped files for a day.
-      var BUILD = "2026-11-03.119";
+      var BUILD = "2026-11-03.120";
 
       function log() { try { console.log.apply(console, arguments); } catch (e) {} }
       function warn() { try { console.warn.apply(console, arguments); } catch (e) {} }
@@ -102,7 +102,7 @@
         var uiParam = new URLSearchParams(location.search).get("ui");
         if (uiParam === "2") light = true;
         else if (uiParam === "1" || uiParam === "classic") light = false;
-        else light = localStorage.getItem("eikon_ui2") === "1" && sessionStorage.getItem("eikon_ui2_pause") !== "1";
+        else { var role0 = localStorage.getItem("eikon_active_role"); light = localStorage.getItem("eikon_ui2") !== "0" && sessionStorage.getItem("eikon_ui2_pause") !== "1" && (!role0 || role0 === "pharmacy"); }
       } catch (e) {}
       // Signed in and opening on Today: ask who this is and for Today's data now, while the scripts download,
       // instead of after them (one round trip saved). core.js uses these answers once; anything odd and it asks again.
