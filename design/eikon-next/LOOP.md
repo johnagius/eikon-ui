@@ -559,3 +559,7 @@ All of it waits only on the worker deploy.
   scarce-stock needs/offers (pharmacy-to-pharmacy network, shows group names), board suggestions (product ideas),
   public booking by slug, reminder sweep.
 - Nothing else to fix. The board fix (bookings-13) is still the one that needs deploying.
+
+## Round 57 — focus visible in forms
+- Rebuilt forms set outline:0 on inputs (iOS grouped rows); buttons had a ring but text fields had no focus sign.
+- app.css: form label/.row :focus-within tint (light .07, dark .14), bordered fields turn accent on focus. UI 121/121. BUILD .73.
