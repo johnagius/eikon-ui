@@ -952,3 +952,9 @@ All of it waits only on the worker deploy.
 
 - John: serve from main, carefully, without losing branch work. main had one commit not on the working branch (#217, two Cannabis lines for DDA sales — already on the branch in both the classic list and the new layout's suggestions). Merged main into the branch (no content change), suites green (worker 172, UI 258 ×2, real 21), pushed the branch and fast-forwarded main (20ffe17 → edceb06, no force). Set UI_GITHUB_BRANCH = "main" and deployed (code identical to batch-3) → 0c89cc74. Live: .141 served, old-address move, demo /today 200. Both branches now 736910e.
 - Agents keep working in their own copies (git archive of a commit) and never push; integrators merge onto a fresh copy of live HEAD; nothing in their copies depends on the branch name.
+
+## Round 128 — Batch 4 LIVE (worker batch-4 f368bd4b, UI .142 on main)
+
+- Integrator merged: whole-state saves write only new/changed rows (POCT re-save 2,507 → 6 statements; PV/screening likewise; POCT deletes >98 ids fixed), bulk routes in multi-row statements with caps (supplier 5,000 rows 10,034 → 328), people link table + find-or-create + 5 read-only sources (Link UI behind E.FEATURES.peopleLinks = false), CSP-safe print tabs (E.printTab/E.openPrint; months printouts included).
+- Checks: worker 192/192, UI 259/259, real 21/21, enforcing-CSP print harness 56/56, predeploy 10/10 (236,444 rows unchanged, rollback 54/54).
+- John said deploy → f368bd4b (17:35 UTC), restore point recorded. Live: health batch-4; signed-out 401s (incl. /people/links); old-address move; demo me/today/poct?part=patients/screening/pv/people search 200. UI .142 pushed to main (and the old branch kept equal).
