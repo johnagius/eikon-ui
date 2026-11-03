@@ -23,7 +23,7 @@ const SCREENS = [
   { id: "drreg", open: "New entry", form: "#drr-form" },
   { id: "cdpreg", open: "Record a delivery", form: "#cdp-add", values: { agent: "Sweep Pharma Ltd" } },
   { id: "lrcreg", open: "New receipt", form: "#lrc-add", values: { locum_full_name: LOCUM.name, registration_number: LOCUM.reg, hours: "7.5", fee_per_hour: "18" }, filled: { registration_number: LOCUM.reg } },
-  { id: "locreg", open: "New entry", form: "#lcr-form", values: { locum_full_name: LOCUM.name, registration_number: LOCUM.reg } },
+  { id: "locreg", open: "Record a locum", form: "#lcr-form", values: { locum_full_name: LOCUM.name, registration_number: LOCUM.reg } },
   { id: "odreg", open: "Add an item", form: "#odr-add", values: { item_name: ITEM.name, supplier: "Other Supplier Ltd", qty: "3" }, filled: { supplier: ITEM.supplier } },
   { id: "cleanreg", open: "Record a cleaning", form: "#clr-form" },
   { id: "nexreg", open: "Add an item", form: "#nex-add" },

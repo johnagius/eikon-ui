@@ -16,7 +16,7 @@
   function today() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
   function left(it) { return it.remaining_quantity != null ? Number(it.remaining_quantity) : Number(it.quantity_available || 0); }
   function itemLine(it) {
-    var a = []; if (it.batch) a.push("Batch " + it.batch); if (it.expiry_date) a.push("Exp " + nice(it.expiry_date)); a.push(left(it) + " left");
+    var a = []; if (it.batch) a.push("Batch " + it.batch); if (it.expiry_date) a.push("Expires " + nice(it.expiry_date)); a.push(left(it) + " left");
     return a.join(" · ");
   }
 
@@ -44,7 +44,11 @@
       ".trf-form .acts,.trf-in .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end}" +
       ".trf-err{color:var(--danger);font-size:13px;padding:2px 14px 4px}" +
       ".trf-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
-      "@media (max-width:600px){.trf{padding:4px 16px 0}.trf h1{font-size:32px}.trf-row .t{flex-basis:100%}}";
+      "@media (max-width:600px){.trf{padding:4px 16px 0}.trf h1{font-size:32px}.trf-row .t{flex-basis:100%}}" +
+      // Stock group: a 44 px way back, a pressed state on every button, 44 px buttons on a phone, a retry under a failed load.
+      ".trf-back{display:inline-flex;align-items:center;min-height:44px;padding:0 8px 0 0;margin:-8px 0 -2px}.trf-btn:active:not(:disabled){filter:brightness(.9)}" +
+      ".trf-quiet .trf-btn{margin-top:12px;display:block}" +
+      "@media (max-width:600px){.trf-btn,.trf-btn.s{height:44px;border-radius:22px}}";
     document.head.appendChild(st);
   }
 
@@ -74,19 +78,19 @@
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "trfreg") return; // left before a reply came back: do not draw over the next screen
-    var h = '<div class="trf"><button class="trf-back" data-act="back">‹ Stock</button>' +
+    var h = '<div class="trf"><button class="trf-back" data-act="back">' + esc(E.ui2BackLabel("trfreg")) + '</button>' +
       '<div class="trf-top"><div><h1>Transfers</h1><p class="trf-sub">Stock moving between your pharmacies.</p></div>' + (S.offering ? "" : '<button class="trf-btn p" data-act="offer">Offer an item</button>') + "</div>";
     if (S.offering) {
       var o = S.offering;
       h += '<form class="trf-form" id="trf-offer" autocomplete="off"><label><span>Item</span><input name="item_description" value="' + esc(o.item_description || "") + '" placeholder="e.g. Augmentin 1g"></label>' +
         '<label><span>Quantity</span><input name="quantity_available" inputmode="numeric" value="' + esc(o.quantity_available || "") + '"></label>' +
         '<label><span>Batch</span><input name="batch" value="' + esc(o.batch || "") + '" placeholder="Optional"></label>' +
-        '<label><span>Expires</span><input name="expiry_date" type="date" value="' + esc(o.expiry_date || "") + '"></label>' +
-        (S.err ? '<div class="trf-err">' + esc(S.err) + "</div>" : "") +
-        '<div class="acts"><button type="button" class="trf-btn" data-act="offer-cancel">Cancel</button><button type="submit" class="trf-btn p"' + (S.busy ? " disabled" : "") + '>Offer to the group</button></div></form>';
+        '<label><span>Expires</span><input name="expiry_date" type="date" min="' + today() + '" value="' + esc(o.expiry_date || "") + '"></label>' +
+        (S.err ? '<div class="trf-err" role="alert">' + esc(S.err) + "</div>" : "") +
+        '<div class="acts"><button type="button" class="trf-btn" data-act="offer-cancel">Cancel</button><button type="submit" class="trf-btn p"' + (S.busy ? " disabled" : "") + ">" + (S.busy ? "Saving…" : "Offer to the group") + "</button></div></form>";
     }
     if (S.loading && !S.items.length) h += '<div class="trf-quiet">Opening transfers…</div>';
-    else if (S.error) h += '<div class="trf-quiet">' + esc(S.error) + "</div>";
+    else if (S.error) h += '<div class="trf-quiet" role="alert">' + esc(S.error) + '<button class="trf-btn" data-act="retry">Try again</button></div>';
     else {
       var tk = tasks(), mine = S.items.filter(function (it) { return it.mine_owner; }), others = S.items.filter(function (it) { return !it.mine_owner && !it._expired && left(it) > 0; });
       var myReqs = []; S.items.forEach(function (it) { (it.requests || []).forEach(function (rq) { if (rq.mine) myReqs.push({ it: it, rq: rq }); }); });
@@ -103,8 +107,8 @@
         var row = '<div class="trf-row"><div class="t"><b>' + esc(it.item_description) + "</b><span>" + esc((it.location_name || "") + " · " + itemLine(it)) + "</span></div>" +
           (asked ? '<span class="trf-pill go">Asked</span>' : S.asking === it.id ? "" : '<button class="trf-btn" data-act="ask" data-id="' + it.id + '">Ask for it</button>');
         if (S.asking === it.id) row += '<form class="trf-in" id="trf-ask" autocomplete="off"><label><span>How many</span><input name="quantity_requested" inputmode="numeric" value="' + esc((S.askDraft || {}).quantity_requested || "") + '" placeholder="Up to ' + left(it) + '"></label>' +
-          '<label><span>Note</span><input name="note" value="' + esc((S.askDraft || {}).note || "") + '" placeholder="Optional"></label>' + (S.err ? '<div class="trf-err">' + esc(S.err) + "</div>" : "") +
-          '<div class="acts"><button type="button" class="trf-btn" data-act="ask-cancel">Cancel</button><button type="submit" class="trf-btn p"' + (S.busy ? " disabled" : "") + ">Ask</button></div></form>";
+          '<label><span>Note</span><input name="note" value="' + esc((S.askDraft || {}).note || "") + '" placeholder="Optional"></label>' + (S.err ? '<div class="trf-err" role="alert">' + esc(S.err) + "</div>" : "") +
+          '<div class="acts"><button type="button" class="trf-btn" data-act="ask-cancel">Cancel</button><button type="submit" class="trf-btn p"' + (S.busy ? " disabled" : "") + ">" + (S.busy ? "Sending…" : "Ask") + "</button></div></form>";
         return row + "</div>";
       }).join("") + "</div>" : '<div class="trf-quiet" style="margin-top:0">No other pharmacy in your group is offering stock right now.</div>');
       if (myReqs.length) h += '<div class="trf-lab">Your requests <b>' + myReqs.length + '</b></div><div class="trf-list">' + myReqs.map(function (x) {
@@ -120,18 +124,22 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act"), rq = b.getAttribute("data-rq");
-        if (a === "back") window.location.hash = "#stock";
-        else if (a === "offer") { S.offering = {}; S.err = ""; paint(); }
-        else if (a === "offer-cancel") { S.offering = null; S.err = ""; paint(); }
-        else if (a === "ask") { S.asking = Number(b.getAttribute("data-id")); S.askDraft = null; S.err = ""; paint(); }
-        else if (a === "ask-cancel") { S.asking = null; S.err = ""; paint(); }
+        if (a === "back") window.location.hash = E.ui2BackHash("trfreg");
+        else if (a === "retry") load();
+        else if (a === "offer") { S.offering = {}; S.err = ""; paint(); focusSoon("#trf-offer [name=item_description]"); }
+        else if (a === "offer-cancel") { S.offering = null; S.err = ""; paint(); focusSoon('[data-act="offer"]'); }
+        else if (a === "ask") { S.asking = Number(b.getAttribute("data-id")); S.askDraft = null; S.err = ""; paint(); focusSoon("#trf-ask [name=quantity_requested]"); }
+        else if (a === "ask-cancel") { var was = S.asking; S.asking = null; S.err = ""; paint(); focusSoon('[data-act="ask"][data-id="' + was + '"]'); }
         else if (a === "accept" || a === "reject" || a === "dispatch" || a === "deliver") step(rq, a);
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "trfreg"); } catch (e) {} E.openClassic("stocktransfers"); }
       });
     });
     var fo = m.querySelector("#trf-offer"); if (fo) fo.addEventListener("submit", function (ev) { ev.preventDefault(); offer(fo); });
     var fa = m.querySelector("#trf-ask"); if (fa) fa.addEventListener("submit", function (ev) { ev.preventDefault(); ask(fa); });
+    // Escape closes the open form (what is typed in it is dropped, as with Cancel) and puts you back where you were.
+    m.querySelectorAll("form").forEach(function (f) { f.addEventListener("keydown", function (ev) { if (ev.key !== "Escape") return; var c = f.querySelector('[data-act$="-cancel"]'); if (c) { ev.preventDefault(); c.click(); } }); });
   }
+  function focusSoon(sel) { setTimeout(function () { var f = S.mount && S.mount.querySelector(sel); if (f) f.focus(); }, 30); }
   var val = function (f, n) { var el = f.querySelector("[name=" + n + "]"); return el ? String(el.value || "").trim() : ""; };
 
   async function run(fn, okText) {

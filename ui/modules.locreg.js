@@ -29,12 +29,14 @@
     // Shares the look of the other rebuilt registers; only what differs is here.
     st.textContent =
       ".lcr{max-width:860px;margin:0 auto}" +
-      ".lcr-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".lcr-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;min-height:44px;padding:0;margin:-10px 0 0;cursor:pointer}" +
       ".lcr-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}" +
       ".lcr h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.lcr-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
       ".lcr-acts{display:flex;gap:8px}" +
-      ".lcr-btn{font:inherit;font-size:14px;font-weight:600;height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer}" +
-      ".lcr-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.lcr-btn:disabled{opacity:.55;cursor:default}" +
+      ".lcr-btn{font:inherit;font-size:14px;font-weight:600;min-height:44px;padding:0 16px;border-radius:22px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer}" +
+      ".lcr-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.lcr-btn:disabled{opacity:.55;cursor:default}.lcr-btn:active:not(:disabled){opacity:.7}" +
+      "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .lcr-btn.p{color:#00160E}}" +
+      ".lcr-form :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}.lcr-quiet .lcr-btn{margin-left:8px}" +
       ".lcr-month{display:flex;align-items:center;gap:6px;margin:18px 0 6px}.lcr-month b{font-size:17px;min-width:150px;text-align:center}" +
       ".lcr-arrow{width:34px;height:34px;border-radius:50%;border:0;background:rgba(118,118,128,.12);color:var(--text);font-size:18px;cursor:pointer}.lcr-arrow:disabled{opacity:.35;cursor:default}" +
       ".lcr-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 2px 7px}" +
@@ -44,13 +46,13 @@
       ".lcr-row .tm{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted);white-space:nowrap}" +
       ".lcr-form{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:6px 0;margin-top:16px}" +
       ".lcr-form label{display:flex;align-items:center;gap:12px;min-height:48px;padding:0 16px;border-top:.5px solid var(--border)}.lcr-form label:first-child{border-top:0}" +
-      ".lcr-form label>span{flex:0 0 96px;font-size:15px}.lcr-form label.miss>span{color:var(--danger)}" +
+      ".lcr-form label>span{flex:0 0 108px;font-size:15px;white-space:nowrap}.lcr-form label.miss{box-shadow:inset 3px 0 0 var(--danger)}.lcr-form label.miss>span{font-weight:700}.lcr-form label.miss>span::after{content:' *';color:var(--danger)}" +
       ".lcr-form input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
       ".lcr-form .acts{display:flex;gap:8px;padding:10px 16px 8px;justify-content:flex-end}" +
       ".lcr-err{color:var(--danger);font-size:13px;padding:2px 16px 4px}" +
       ".lcr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".lcr-print,.lcr-pmeta{display:none}" +
-      "@media (max-width:600px){.lcr{padding:4px 16px 0}.lcr h1{font-size:32px}.lcr-form label>span{flex-basis:84px}}" +
+      "@media (max-width:600px){.lcr{padding:4px 16px 0}.lcr h1{font-size:32px}.lcr-form label>span{flex-basis:100px}}" +
       "@media print{.eikon-sidebar,.eikon-topbar,.lcr-back,.lcr-acts,.lcr-month,.lcr-lab,.lcr-list,.lcr-form,.lcr-note,.eikon-toast{display:none!important}" +
       ".eikon-content{padding:0!important}.lcr-pmeta{display:block;font-size:12px;margin:2px 0 8px}.lcr-print{display:table;width:100%;border-collapse:collapse;font-size:11px}" +
       ".lcr-print th,.lcr-print td{border:1px solid #999;padding:3px 6px;text-align:left}}";
@@ -74,16 +76,17 @@
     var f = S.form, names = {}, miss = f.missing || [];
     S.history.forEach(function (e) { if (e.locum_full_name) names[e.locum_full_name] = 1; });
     var row = function (k, label, type, ph, extra) {
-      return '<label' + (miss.indexOf(k) >= 0 ? ' class="miss"' : "") + "><span>" + label + '</span><input name="' + k + '" type="' + type + '" placeholder="' + esc(ph) + '" value="' + esc(f[k] || "") + '"' + (extra || "") + "></label>";
+      var b = miss.indexOf(k) >= 0;
+      return '<label' + (b ? ' class="miss"' : "") + "><span>" + label + '</span><input name="' + k + '" type="' + type + '" placeholder="' + esc(ph) + '" value="' + esc(f[k] || "") + '"' + (extra || "") + (b ? ' aria-invalid="true" aria-describedby="lcr-err"' : "") + "></label>";
     };
-    return '<form class="lcr-form" id="lcr-form" autocomplete="off">' +
+    return '<form class="lcr-form" id="lcr-form" novalidate autocomplete="off" aria-label="Record a locum">' +
       row("entry_date", "Date", "date", "", ' max="' + esc(ymd(new Date())) + '"') +
       row("time_in", "Time in", "time", "") +
       row("time_out", "Time out", "time", "Optional") +
       row("locum_full_name", "Pharmacist", "text", "Name and surname", ' list="lcr-names"') +
       row("registration_number", "Reg no", "text", "Registration number") +
       '<datalist id="lcr-names">' + Object.keys(names).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>" +
-      (f.err ? '<div class="lcr-err">' + esc(f.err) + "</div>" : "") +
+      (f.err ? '<div class="lcr-err" id="lcr-err" role="alert">' + esc(f.err) + "</div>" : "") +
       '<div class="acts"><button type="button" class="lcr-btn" data-act="cancel">Cancel</button><button type="submit" class="lcr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Add to register") + "</button></div></form>";
   }
 
@@ -91,14 +94,14 @@
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "locreg") return; // left before a reply came back: do not draw over the next screen
     var MB = E.months, user = E.state.user || {};
-    var h = '<div class="lcr"><button class="lcr-back" data-act="back">‹ Registers</button>' +
+    var h = '<div class="lcr"><button class="lcr-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("locreg") : "‹ Registers") + "</button>" +
       '<div class="lcr-top"><div><h1>Locum register</h1><p class="lcr-sub">Which pharmacist was in charge, and when.</p></div>' +
-      '<div class="lcr-acts">' + (S.form ? "" : '<button class="lcr-btn p" data-act="new">New entry</button>') + "</div></div>" +
+      '<div class="lcr-acts">' + (S.form ? "" : '<button class="lcr-btn p" data-act="new">Record a locum</button>') + "</div></div>" +
       '<p class="lcr-pmeta">' + esc((user.location_name || "") + " · Locum register · " + monthLabel(S.month) + " · printed " + ymd(new Date())) + "</p>";
     if (S.form) h += formHtml();
     h += MB.bar(S.month, { label: "Locum register" });
     if (S.loading && !S.entries.length) h += '<div class="lcr-quiet">Opening the register…</div>';
-    else if (S.error) h += '<div class="lcr-quiet">' + esc(S.error) + "</div>";
+    else if (S.error) h += '<div class="lcr-quiet" role="alert">' + esc(S.error) + ' <button class="lcr-btn" data-act="retry">Try again</button></div>';
     else if (!S.entries.length) h += '<div class="lcr-quiet" data-empty>' + esc(MB.empty(S.month)) + "</div>";
     else {
       var day = null;
@@ -129,9 +132,10 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act");
-        if (a === "back") window.location.hash = "#registers";
+        if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("locreg") : "#registers";
+        else if (a === "retry") load();
         else if (a === "new") { S.form = { entry_date: ymd(new Date()), time_in: hmNow() }; paint(); setTimeout(function () { var c = m.querySelector("[name=locum_full_name]"); if (c && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) c.focus(); }, 30); }
-        else if (a === "cancel") { S.form = null; paint(); }
+        else if (a === "cancel") { S.form = null; paint(); var nb = m.querySelector("[data-act=new]"); if (nb) nb.focus(); }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "locreg"); } catch (e) {} E.openClassic("locumregister"); }
       });
     });
@@ -139,10 +143,16 @@
     if (!f) return;
     f.addEventListener("submit", function (ev) { ev.preventDefault(); save(f); });
     var nm = f.querySelector("[name=locum_full_name]"), rg = f.querySelector("[name=registration_number]");
-    nm.addEventListener("change", function () { // a locum who worked here before brings their registration number
+    // a locum who worked here before brings their registration number: on leaving the name, or as soon as a suggestion
+    // is picked; only into an empty field, never over what was typed (E.fillEmpty)
+    var fillReg = function () {
       var hit = S.history.find(function (e) { return norm(e.locum_full_name) === norm(nm.value) && e.registration_number; });
-      if (hit && !rg.value) rg.value = hit.registration_number;
-    });
+      if (!hit) return;
+      if (E.fillEmpty) E.fillEmpty(f, { registration_number: hit.registration_number }); else if (!rg.value) rg.value = hit.registration_number;
+    };
+    nm.addEventListener("change", fillReg);
+    nm.addEventListener("input", function (ev) { if (!ev.inputType || ev.inputType === "insertReplacementText") fillReg(); }); // a datalist pick
+    f.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !S.saving) { ev.preventDefault(); S.form = null; paint(); var nb = m.querySelector("[data-act=new]"); if (nb) nb.focus(); } });
   }
 
   async function save(f) {
@@ -150,11 +160,15 @@
     var v = function (n) { var el = f.querySelector("[name=" + n + "]"); return el ? String(el.value || "").trim() : ""; };
     var body = { entry_date: v("entry_date"), time_in: v("time_in"), time_out: v("time_out"), locum_full_name: v("locum_full_name"), registration_number: v("registration_number") };
     var need = { entry_date: "the date", time_in: "the time in", locum_full_name: "the pharmacist", registration_number: "the registration number" };
-    var missing = Object.keys(need).filter(function (k) { return !body[k]; });
+    var missing = Object.keys(need).filter(function (k) { return !body[k]; }), errs = [];
+    if (missing.length) errs.push("Fill in " + missing.map(function (k) { return need[k]; }).join(", "));
+    if (body.entry_date && body.entry_date > ymd(new Date())) { errs.push("the date is in the future: choose today or earlier"); missing.push("entry_date"); }
+    if (body.time_in && body.time_out && body.time_out < body.time_in) { errs.push("time out is before time in"); missing.push("time_out"); }
     S.form = Object.assign({}, body, { err: "", missing: missing });
-    if (missing.length) { S.form.err = "Fill in " + missing.map(function (k) { return need[k]; }).join(", ") + ". Nothing was saved."; return paint(); }
-    if (body.entry_date > ymd(new Date())) { S.form.err = "The date is in the future. Nothing was saved."; return paint(); }
-    if (body.time_out && body.time_out < body.time_in) { S.form.err = "Time out is before time in. Nothing was saved."; return paint(); }
+    if (errs.length) { // every problem at once, each field marked, the first one focused
+      S.form.err = errs.join("; ").replace(/^./, function (c) { return c.toUpperCase(); }) + ". Nothing was saved."; paint();
+      var first = S.mount.querySelector('#lcr-form [name="' + missing[0] + '"]'); if (first) first.focus(); return;
+    }
     S.saving = true; paint();
     try {
       var r = await E.postOnce("/locumregister/entries", body, { list: async function () { var r0 = await E.apiFetch("/locumregister/entries?month=" + body.entry_date.slice(0, 7), { method: "GET" }); return (r0 && r0.ok && r0.entries) || []; },
@@ -166,7 +180,9 @@
       S.form.err = E.saveFailText(e);
     }
     S.saving = false;
-    return load();
+    var saved = !S.form;
+    await load();
+    if (saved && S.mount && (!document.activeElement || document.activeElement === document.body)) { var nb = S.mount.querySelector("[data-act=new]"); if (nb) nb.focus({ preventScroll: true }); }
   }
 
   E.registerModule({

@@ -77,12 +77,12 @@
       groups: [
         { label: "Watch", ids: ["alerts", "nearexpiry", "ssreg", "scarcestock"] },
         { label: "Order", ids: ["order-diary", "supplier-inventory"] },
-        { label: "Send on", ids: ["returns", "stocktransfers"] },
+        { label: "Send back or move", ids: ["returns", "stocktransfers"] },
         { label: "Price", ids: ["quotations", "creditnotes"] } // credit notes live in Money; this second door stays where staff know it
       ]
     },
     registers: {
-      title: "Registers", lead: "The books an inspector asks for. Each one is filled in where the work happens; this is where you read them.",
+      title: "Registers", lead: "The books an inspector asks for: fill them in, see what is missing, and print any month.",
       groups: [
         { label: "Every day", ids: ["temperature", "cleaning", "dailyregister", "locumregister"] },
         { label: "Controlled drugs", ids: ["dda-purchases", "dda-sales", "dda-poyc", "dda_stocktakes"] },

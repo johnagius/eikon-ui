@@ -42,7 +42,7 @@
       ".scs-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:10px;min-width:0}" +
       ".scs-card .h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;min-width:0}.scs-card .h b{font-size:15.5px;font-weight:600;min-width:0;overflow-wrap:anywhere}" +
       ".scs-card .h em{font-style:normal;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}" +
-      ".scs-card .s{font-size:12.5px;color:var(--muted);margin-top:3px;overflow-wrap:anywhere}.scs-card .d{font-size:14px;margin-top:4px;white-space:pre-wrap;overflow-wrap:anywhere}" +
+      ".scs-card div.s{font-size:12.5px;color:var(--muted);margin-top:3px;overflow-wrap:anywhere}.scs-card .d{font-size:14px;margin-top:4px;white-space:pre-wrap;overflow-wrap:anywhere}" +
       ".scs-line{display:flex;align-items:center;gap:10px;padding:8px 0 0;margin-top:8px;border-top:.5px solid var(--border);font-size:14px;flex-wrap:wrap}.scs-line .t{flex:1;min-width:150px;overflow-wrap:anywhere}.scs-line small{display:block;color:var(--muted);font-size:12px;white-space:pre-wrap}" +
       ".scs-pill{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:rgba(127,127,127,.14);color:var(--muted);white-space:nowrap;margin-left:6px}.scs-pill.bad{background:rgba(215,0,21,.10);color:var(--danger)}" +
       ".scs-card .a{display:flex;justify-content:flex-end;gap:8px;margin-top:8px;flex-wrap:wrap}" +
@@ -54,7 +54,11 @@
       ".scs-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:18px;color:var(--muted)}" +
       ".scs-foot{font-size:12.5px;color:var(--muted);margin-top:12px}.scs-foot a{color:var(--accent)}" +
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) :is(.scs-err,.scs-btn.red,.scs-pill.bad){color:#FF7A72}}" +
-      "@media (max-width:600px){.scs{padding:4px 16px 0}.scs h1{font-size:32px}.scs-in label>span,.scs-form label>span{flex-basis:84px}}";
+      "@media (max-width:600px){.scs{padding:4px 16px 0}.scs h1{font-size:32px}.scs-in label>span,.scs-form label>span{flex-basis:84px}}" +
+      // Stock group: a 44 px way back, a pressed state on every button, 44 px buttons on a phone, a retry under a failed load.
+      ".scs-back{display:inline-flex;align-items:center;min-height:44px;padding:0 8px 0 0;margin:-8px 0 -2px}.scs-btn:active:not(:disabled){filter:brightness(.9)}" +
+      ".scs-quiet .scs-btn{margin-top:12px;display:block}" +
+      "@media (max-width:600px){.scs-btn,.scs-btn.s{height:44px;border-radius:22px}.scs-q{height:44px}}";
     document.head.appendChild(st);
   }
 
@@ -136,7 +140,7 @@
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "scsreg") return; // left before a reply came back: do not draw over the next screen
     if (!fromState) keep();
-    var h = '<div class="scs"><button class="scs-back" data-act="back">‹ Stock</button>' +
+    var h = '<div class="scs"><button class="scs-back" data-act="back">' + esc(E.ui2BackLabel("scsreg")) + '</button>' +
       '<div class="scs-top"><div><h1>Scarce stock</h1><p class="scs-sub">Hard-to-get lines pharmacies have spare, and who asked for them.</p></div>' + (S.adding ? "" : '<button class="scs-btn p" data-act="add">Share stock</button>') + "</div>";
     if (S.adding) {
       var a = S.adding;
@@ -149,7 +153,7 @@
     }
     h += '<input class="scs-q" id="scs-q" type="search" aria-label="Search scarce stock" placeholder="Search item, pharmacy or batch" value="' + esc(S.q) + '">';
     if (S.loading && !S.offers.length) h += '<div class="scs-quiet" style="margin-top:14px">Opening scarce stock…</div>';
-    else if (S.error) h += '<div class="scs-quiet" style="margin-top:14px">' + esc(S.error) + "</div>";
+    else if (S.error) h += '<div class="scs-quiet" style="margin-top:14px" role="alert">' + esc(S.error) + '<button class="scs-btn" data-act="retry">Try again</button></div>';
     else {
       var list = S.offers.filter(function (o) { return !(o.is_closed === 1 || o.is_closed === true) && matches(o); });
       var mine = list.filter(function (o) { return o.mine_owner; }), others = list.filter(function (o) { return !o.mine_owner; });
@@ -166,26 +170,29 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
-        if (act === "back") window.location.hash = "#stock";
+        if (act === "back") window.location.hash = E.ui2BackHash("scsreg");
+        else if (act === "retry") load();
         else if (act === "add") { reset(); S.adding = {}; paint(true); focusSoon("#scs-add [name=item_name]"); }
-        else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
+        else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); focusSoon('[data-act="add"]'); }
         else if (act === "ask") { reset(); S.asking = id; paint(true); focusSoon("#scs-req [name=quantity_requested]"); }
         else if (act === "req-change") {
           var o = S.offers.find(function (x) { return x.id === Number(b.getAttribute("data-offer")); }), r = o && myReqs(o).find(function (x) { return x.id === id; });
           if (!r) return; reset(); S.asking = o.id; S.changingReq = id; S.draft = { quantity_requested: String(r.quantity_requested), note: r.note || "" }; paint(true); focusSoon("#scs-req [name=quantity_requested]");
         }
-        else if (act === "req-cancel") { S.asking = null; S.changingReq = null; S.err = ""; paint(true); }
+        else if (act === "req-cancel") { var wasO = S.asking, wasR = S.changingReq; S.asking = null; S.changingReq = null; S.err = ""; paint(true); focusSoon(wasR ? '[data-act="req-change"][data-id="' + wasR + '"]' : '[data-act="ask"][data-id="' + wasO + '"]'); }
         else if (act === "req-withdraw") withdraw(id);
         else if (act === "edit") {
           var e = S.offers.find(function (x) { return x.id === id; }); if (!e) return;
           reset(); S.editing = id; S.draft = { item_name: e.item_name || "", quantity_available: String(Number(e.quantity_available) || 0), expiry_date: isYmd(e.expiry_date) ? e.expiry_date : "", batch: e.batch || "", description: e.description || "" }; paint(true); focusSoon("#scs-edit [name=quantity_available]");
         }
-        else if (act === "edit-cancel") { S.editing = null; S.err = ""; paint(true); }
+        else if (act === "edit-cancel") { var wasE = S.editing; S.editing = null; S.err = ""; paint(true); focusSoon('[data-act="edit"][data-id="' + wasE + '"]'); }
         else if (act === "close-line") saveLine(true);
         else if (act === "shortages") { ev.preventDefault(); window.location.hash = "#ssreg"; }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "scsreg"); } catch (x) {} E.openClassic("scarcestock"); }
       });
     });
+    // Escape closes the open form (what is typed in it is dropped, as with Cancel) and puts you back where you were.
+    m.querySelectorAll("form").forEach(function (f) { f.addEventListener("keydown", function (ev) { if (ev.key !== "Escape") return; var c = f.querySelector('[data-act$="-cancel"]'); if (c) { ev.preventDefault(); c.click(); } }); });
     var q = m.querySelector("#scs-q"); if (q) q.addEventListener("input", function () { S.q = q.value; paint(); });
     var fr = m.querySelector("#scs-req"); if (fr) fr.addEventListener("submit", function (ev) { ev.preventDefault(); ask(); });
     var fe = m.querySelector("#scs-edit"); if (fe) fe.addEventListener("submit", function (ev) { ev.preventDefault(); saveLine(false); });

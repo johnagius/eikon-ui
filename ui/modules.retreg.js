@@ -45,7 +45,11 @@
       ".rtn-steps{display:flex;gap:4px;margin-top:7px;flex-wrap:wrap}.rtn-steps i{font-style:normal;font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:999px;background:rgba(127,127,127,.12);color:var(--muted)}" +
       ".rtn-steps i.ok{background:rgba(10,143,106,.12);color:var(--accent)}.rtn-steps i.bad{background:rgba(215,38,28,.12);color:var(--danger)}" +
       ".rtn-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
-      "@media (max-width:600px){.rtn{padding:4px 16px 0}.rtn h1{font-size:32px}.rtn-row{flex-wrap:wrap;row-gap:8px}.rtn-row .t{flex-basis:100%}.rtn-row .rtn-btn{margin-left:auto}}";
+      "@media (max-width:600px){.rtn{padding:4px 16px 0}.rtn h1{font-size:32px}.rtn-row{flex-wrap:wrap;row-gap:8px}.rtn-row .t{flex-basis:100%}.rtn-row .rtn-btn{margin-left:auto}}" +
+      // Stock group: a 44 px way back, a pressed state on every button, 44 px buttons on a phone, a retry under a failed load.
+      ".rtn-back{display:inline-flex;align-items:center;min-height:44px;padding:0 8px 0 0;margin:-8px 0 -2px}.rtn-btn:active:not(:disabled){filter:brightness(.9)}" +
+      ".rtn-quiet .rtn-btn{margin-top:12px;display:block}" +
+      "@media (max-width:600px){.rtn-btn,.rtn-btn.s{height:44px;border-radius:22px}}";
     document.head.appendChild(st);
   }
 
@@ -64,7 +68,7 @@
 
   function rowHtml(e) {
     var nx = nextStep(e), g = group(e), sub = [];
-    if (e.supplier) sub.push(e.supplier); if (e.quantity) sub.push("Qty " + e.quantity); if (e.expiry) sub.push("Exp " + nice(e.expiry)); sub.push("Added " + nice(e.entry_date));
+    if (e.supplier) sub.push(e.supplier); if (e.quantity) sub.push("Qty " + e.quantity); if (e.expiry) sub.push("Expires " + nice(e.expiry)); sub.push("Added " + nice(e.entry_date));
     var steps = STEPS.map(function (s) { return '<i class="' + (on(e, s[0]) ? "ok" : "") + '">' + (on(e, s[0]) ? "✓ " : "") + s[1] + "</i>"; }).join("");
     if (on(e, "supplier_refused")) steps += '<i class="bad">Supplier refused</i>'; if (on(e, "damaged")) steps += '<i class="bad">Damaged</i>';
     return '<div class="rtn-row"><div class="t"><b>' + esc(e.description) + "</b><span>" + esc(sub.join(" · ")) + '</span><div class="rtn-steps">' + steps + "</div></div>" +
@@ -87,9 +91,9 @@
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "retreg") return; // left before a reply came back: do not draw over the next screen
-    var h = '<div class="rtn"><button class="rtn-back" data-act="back">‹ Stock</button><h1>Returns</h1><p class="rtn-sub">Stock going back to suppliers, step by step until the credit note.</p>';
+    var h = '<div class="rtn"><button class="rtn-back" data-act="back">' + esc(E.ui2BackLabel("retreg")) + '</button><h1>Returns</h1><p class="rtn-sub">Stock going back to suppliers, step by step until the credit note.</p>';
     if (S.loading && !S.entries.length) h += '<div class="rtn-quiet">Opening returns…</div>';
-    else if (S.error) h += '<div class="rtn-quiet">' + esc(S.error) + "</div>";
+    else if (S.error) h += '<div class="rtn-quiet" role="alert">' + esc(S.error) + '<button class="rtn-btn" data-act="retry">Try again</button></div>';
     else if (!S.entries.length) h += '<div class="rtn-quiet">Nothing is going back. Send something back from Near expiry, or add a return in the classic screen.</div>';
     else GROUPS.forEach(function (g) {
       var list = S.entries.filter(function (e) { return group(e) === g[0]; });
@@ -99,16 +103,22 @@
     h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">New returns, changes and refused or damaged stock are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
     m.innerHTML = h;
     E.months.wireHistory(m, "retreg");
+    applyRefocus();
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act");
-        if (a === "back") window.location.hash = "#stock";
+        if (a === "back") window.location.hash = E.ui2BackHash("retreg");
+        else if (a === "retry") load();
         else if (a === "step") tick(Number(b.getAttribute("data-id")), b.getAttribute("data-k"));
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "retreg"); } catch (e) {} E.openClassic("returns"); }
       });
     });
   }
 
+  // After a one-tap save the list is redrawn: a keyboard user stays on that item (the same button, or the one now in its place).
+  // Later redraws (the month list arriving) keep it there for a few seconds, unless focus has moved on by then.
+  function refocus(sel) { S.refocus = { sel: sel, until: Date.now() + 4000 }; applyRefocus(); }
+  function applyRefocus() { var r = S.refocus, a = document.activeElement; if (!r || Date.now() > r.until || !S.mount || (a && a !== document.body)) return; var b = null; r.sel.forEach(function (q) { if (!b && q) b = S.mount.querySelector(q); }); if (b && !b.disabled) b.focus(); }
   async function tick(id, key) {
     var e = S.entries.find(function (x) { return x.id === id; }); if (!e || S.busy[id]) return;
     var body = {}; FIELDS.forEach(function (k) { body[k] = e[k] == null ? "" : e[k]; });
@@ -119,7 +129,7 @@
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       E.toast(e.description + " · " + (STEPS.find(function (s) { return s[0] === key; }) || ["", "done"])[1].toLowerCase(), "success");
     } catch (x) { E.toast(E.saveFailText(x), "error"); }
-    S.busy[id] = false; return load();
+    S.busy[id] = false; await load(); refocus(['[data-act="step"][data-id="' + id + '"]']);
   }
 
   E.registerModule({

@@ -107,7 +107,17 @@
       "@media (max-width:900px){.con-grid{grid-template-columns:minmax(0,1fr)}.con-pick{display:none}.con.has-sel .con-side,.con.has-sel .con-head{display:none}.con.has-sel .con-grid{margin-top:0}" +
       ".con-dback{display:inline-block;border:0;background:none;color:var(--accent);font:inherit;font-size:16px;font-weight:500;padding:4px 0 12px;cursor:pointer}}" +
       "@media (max-width:600px){.con{padding:4px 16px 0}.con h1{font-size:32px}.con-card{padding:16px}.con-form label>span{flex-basis:96px}.con-facts div{grid-template-columns:104px minmax(0,1fr)}}" +
-      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .con-row.on{background:rgba(43,196,138,.14)}}";
+      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .con-row.on{background:rgba(43,196,138,.14)}}" +
+      // Quality pass (2026-11-03): sentence-case headings, errors beside their fields, a skeleton while loading, 44 px targets
+      // on a phone (the type chips become one row that slides sideways, inside the screen).
+      ".con-lab{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none}.con-lab b,.con-open span,.con-facts dd{font-variant-numeric:tabular-nums}" +
+      ".con-form label{flex-wrap:wrap}.con-ferr{flex-basis:100%;margin:-6px 0 8px 124px;color:var(--danger);font-size:13px;font-weight:500}" +
+      ".con-skel{display:block;height:56px;border-top:.5px solid var(--border);background:linear-gradient(90deg,rgba(118,118,128,.06),rgba(118,118,128,.14),rgba(118,118,128,.06));background-size:200% 100%;animation:consk 1.2s linear infinite}.con-skel:first-of-type{border-top:0}" +
+      "@keyframes consk{to{background-position:-200% 0}}@media (prefers-reduced-motion:reduce){.con-skel{animation:none}}" +
+      "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .con-ferr{color:#FF7A72}}" + // 5:1 on the tinted row being typed in
+      ".con-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
+      "@media (max-width:600px){.con-btn{height:44px;border-radius:22px}.con-call{height:44px;border-radius:22px;padding:0 16px}.con-q{height:44px}.con-ferr{margin-left:0}" +
+      ".con-chips{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding:0 16px 2px}.con-chips::-webkit-scrollbar{display:none}.con-chips button{height:44px;border-radius:22px;padding:0 14px;flex:none}}";
     document.head.appendChild(st);
   }
 
@@ -168,8 +178,8 @@
       (n && digits(n) ? '<a class="con-call" href="' + esc(telHref(n)) + '" aria-label="Call ' + esc(name) + '">Call</a>' : "") + "</div>";
   }
   function listHtml() {
-    if (S.loading && !Object.keys(S.rows).length) return '<div class="con-quiet" style="margin-top:14px">Opening contacts…</div>';
-    if (S.error) return '<div class="con-quiet" style="margin-top:14px">' + esc(S.error) + ' <button type="button" class="con-btn" data-act="retry" style="margin-top:8px">Try again</button></div>';
+    if (S.loading && !Object.keys(S.rows).length) return '<div class="con-list" aria-busy="true" style="margin-top:14px"><span class="con-sr" role="status">Opening contacts</span><i class="con-skel"></i><i class="con-skel"></i><i class="con-skel"></i><i class="con-skel"></i></div>';
+    if (S.error) return '<div class="con-quiet" role="alert" style="margin-top:14px">' + esc(S.error) + ' <button type="button" class="con-btn" data-act="retry" style="margin-top:8px">Try again</button></div>';
     var q = low(S.q).trim(), f = S.filter, h = "";
     var items = all().filter(function (c) {
       if (f !== "all" && c.t !== f) return false;
@@ -178,7 +188,7 @@
     });
     if (S.failed.length) h += '<div class="con-warn">Could not open ' + esc(S.failed.join(", ")) + '. <button type="button" class="con-btn" data-act="retry" style="height:28px;margin-left:4px">Try again</button></div>';
     if (!items.length) {
-      return h + '<div class="con-quiet" style="margin-top:14px">' + (q ? "No contact matches “" + esc(S.q.trim()) + "”." : f === "all" ? "No contacts yet." : "No " + esc((TYPE[f] || {}).many || "contacts").toLowerCase() + " yet.") +
+      return h + '<div class="con-quiet" style="margin-top:14px">' + (q ? "No contact matches “" + esc(S.q.trim()) + "”." + (f !== "all" ? " Try All." : "") : f === "all" ? "No contacts yet." : "No " + esc((TYPE[f] || {}).many || "contacts").toLowerCase() + " yet.") +
         (f !== "emergency" ? '<br><button type="button" class="con-btn" data-act="add" style="margin-top:10px">Add a contact</button>' : "") + "</div>";
     }
     var shown = 0, groups = TYPES.map(function (t) { return { key: t.key, label: t.many }; }).concat([{ key: "emergency", label: "Emergency and health centres" }]);
@@ -220,14 +230,14 @@
   }
   function formHtml() {
     var F = S.form, t = TYPE[F.type], v = F.vals;
-    var h = '<button type="button" class="con-dback" data-act="form-cancel">‹ Contacts</button><form class="con-form" id="con-form" autocomplete="off" novalidate><h2>' + (F.id ? "Change contact" : "New contact") + "</h2>";
+    var h = '<button type="button" class="con-dback" data-act="form-cancel">‹ Contacts</button><form class="con-form" id="con-form" autocomplete="off" novalidate aria-labelledby="con-form-h"><h2 id="con-form-h">' + (F.id ? "Change contact" : "New contact") + "</h2>";
     if (!F.id) h += '<label><span>Type</span><select name="type">' + TYPES.map(function (x) { return '<option value="' + x.key + '"' + (x.key === F.type ? " selected" : "") + ">" + esc(x.one) + "</option>"; }).join("") + "</select></label>";
     t.cols.forEach(function (k) {
       var label = k === "name" ? (t.nameLabel || "Name") : LABEL[k];
       if (k === "specialty") {
         var opts = SPECIALTIES.slice(); if (v.specialty && opts.indexOf(v.specialty) < 0) opts.unshift(v.specialty); // keep a value the list does not have
         h += '<label><span>' + label + '</span><select name="specialty"><option value="">Choose…</option>' + opts.map(function (s) { return '<option value="' + esc(s) + '"' + (s === v.specialty ? " selected" : "") + ">" + esc(s) + "</option>"; }).join("") + "</select></label>";
-      } else h += '<label><span>' + esc(label) + '</span><input name="' + k + '" value="' + esc(v[k] || "") + '"' + (INPUT[k] || "") + (HINT[k] ? ' placeholder="' + esc(HINT[k]) + '"' : "") + "></label>";
+      } else { var fe = S.fe || {}; h += '<label><span>' + esc(label) + '</span><input name="' + k + '" value="' + esc(v[k] || "") + '"' + (INPUT[k] || "") + (HINT[k] ? ' placeholder="' + esc(HINT[k]) + '"' : "") + (fe[k] ? ' aria-invalid="true" aria-describedby="con-e-' + k + '"' : "") + ">" + (fe[k] ? '<small class="con-ferr" id="con-e-' + k + '">' + esc(fe[k]) + "</small>" : "") + "</label>"; }
     });
     h += '<div class="note">' + (t.local ? "Seen by this pharmacy only." : "Shared: every pharmacy in your group sees this contact and any change to it.") + "</div>";
     if (S.err) h += '<div class="con-err" role="alert">' + esc(S.err) + "</div>";
@@ -243,7 +253,7 @@
     var qi = m.querySelector("#con-q"); if (qi) S.q = qi.value;
     var open = !!(S.sel || S.form);
     var chips = [["all", "All"]].concat(TYPES.map(function (t) { return [t.key, t.many]; })).concat([["emergency", "Emergency"]]);
-    var h = '<div class="con' + (open ? " has-sel" : "") + '"><div class="con-head"><button type="button" class="con-back" data-act="back">‹ Team</button>' +
+    var h = '<div class="con' + (open ? " has-sel" : "") + '"><div class="con-head"><button type="button" class="con-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("conreg") : "‹ Team") + "</button>" +
       '<div class="con-top"><div><h1>Contacts</h1><p class="con-sub">Suppliers, reps, doctors and everyone else the pharmacy calls.</p></div>' + (S.form && !S.form.id ? "" : '<button type="button" class="con-btn p" data-act="add">Add a contact</button>') + "</div></div>" +
       '<div class="con-grid"><div class="con-side">' +
       '<input class="con-q" id="con-q" type="search" autocomplete="off" aria-label="Search contacts" placeholder="Name, number or email" value="' + esc(S.q) + '">' +
@@ -254,35 +264,42 @@
     var ae = document.activeElement, keepSel = ae && m.contains(ae) ? (ae.id === "con-q" ? "#con-q" : ae.name ? "#con-form [name=" + ae.name + "]" : "") : "";
     m.innerHTML = h;
     if (keepSel) { var again = m.querySelector(keepSel); if (again) { again.focus(); try { if (again.setSelectionRange && again.type !== "email") { var L = again.value.length; again.setSelectionRange(L, L); } } catch (x) {} } } // typing keeps its place
-    bind();
+    bind(m);
   }
-  function bind() {
+  // A search changes only the list: the search box is never rebuilt under the fingers.
+  function paintList() { var box = S.mount && S.mount.querySelector("#con-list"); if (!box) return paint(); box.innerHTML = listHtml(); bind(box); }
+  function bind(root) {
     var m = S.mount;
-    m.querySelectorAll("[data-act]").forEach(function (b) {
+    root.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
-        if (act === "back") window.location.hash = "#team";
+        if (act === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("conreg") : "#team";
         else if (act === "retry") load();
-        else if (act === "add") { var ty = TYPE[S.filter] ? S.filter : "suppliers"; S.form = { type: ty, id: null, vals: prefill(ty) }; S.err = ""; S.sel = null; paint(true); top(); focus(); }
-        else if (act === "edit") { var c = find(S.sel); if (!c || c.fixed || c.agg) return; var vals = {}; TYPE[c.t].cols.forEach(function (k) { vals[k] = String(c.r[k] == null ? "" : c.r[k]); }); S.form = { type: c.t, id: c.r.id, vals: vals, snap: Object.assign({}, vals), key: c.k }; S.err = ""; paint(true); top(); focus(); }
-        else if (act === "form-cancel") { var back = S.form && S.form.key; S.form = null; S.err = ""; S.sel = back || null; paint(true); if (back) focusTitle(); }
+        else if (act === "add") { var ty = TYPE[S.filter] ? S.filter : "suppliers"; S.form = { type: ty, id: null, vals: prefill(ty) }; S.err = ""; S.fe = {}; S.sel = null; paint(true); top(); focus(); }
+        else if (act === "edit") { var c = find(S.sel); if (!c || c.fixed || c.agg) return; var vals = {}; TYPE[c.t].cols.forEach(function (k) { vals[k] = String(c.r[k] == null ? "" : c.r[k]); }); S.form = { type: c.t, id: c.r.id, vals: vals, snap: Object.assign({}, vals), key: c.k }; S.err = ""; S.fe = {}; paint(true); top(); focus(); }
+        else if (act === "form-cancel") cancelForm();
         else if (act === "close") { var was = S.sel; S.sel = null; paint(true); var row = was && m.querySelector('[data-open="' + was + '"]'); if (row) row.focus(); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "conreg"); } catch (x) {} E.openClassic("contacts"); }
       });
     });
-    m.querySelectorAll("[data-filter]").forEach(function (b) { b.addEventListener("click", function () { S.filter = b.getAttribute("data-filter"); paint(); }); });
-    m.querySelectorAll("[data-open]").forEach(function (b) { b.addEventListener("click", function () { if (S.form && !confirmLeave()) return; S.form = null; S.err = ""; S.sel = b.getAttribute("data-open"); paint(true); top(); focusTitle(); }); });
-    var qn = m.querySelector("#con-q");
+    root.querySelectorAll("[data-filter]").forEach(function (b) { b.addEventListener("click", function () { S.filter = b.getAttribute("data-filter"); paint(); var again = S.mount.querySelector('[data-filter="' + S.filter + '"]'); if (again) again.focus(); }); });
+    root.querySelectorAll("[data-open]").forEach(function (b) { b.addEventListener("click", function () { if (S.form && !confirmLeave()) return; S.form = null; S.err = ""; S.sel = b.getAttribute("data-open"); paint(true); top(); focusTitle(); }); });
+    var qn = root.querySelector("#con-q");
     if (qn) {
-      qn.addEventListener("input", function () { paint(); });
-      qn.addEventListener("keydown", function (e) { if (e.key === "Escape" && qn.value) { qn.value = ""; paint(); } });
+      qn.addEventListener("input", function () { S.q = qn.value; paintList(); });
+      qn.addEventListener("keydown", function (e) { if (e.key === "Escape" && qn.value) { e.preventDefault(); qn.value = ""; S.q = ""; paintList(); } });
     }
-    var f = m.querySelector("#con-form");
+    var card = root.querySelector(".con-card");
+    if (card) card.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { var c = card.parentNode && card.parentNode.querySelector("[data-act=close]"); if (c) { ev.preventDefault(); c.click(); } } }); // Escape goes back to the list, on the row it came from
+    var f = root.querySelector("#con-form");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); save(); });
-      var ts = f.querySelector("[name=type]"); if (ts) ts.addEventListener("change", function () { keep(); var nv = prefill(ts.value); Object.keys(S.form.vals).forEach(function (k) { if (TYPE[ts.value].cols.indexOf(k) >= 0 && S.form.vals[k]) nv[k] = S.form.vals[k]; }); S.form.type = ts.value; S.form.vals = nv; S.err = ""; E.repaintKeepingFocus(m, function () { paint(true); }); }); // the fields change with the type; focus stays where it was going
+      f.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !S.saving) { keep(); var F0 = S.form; var dirty = F0 && Object.keys(F0.vals).some(function (k) { return String(F0.vals[k] || "") !== String((F0.snap || prefill(F0.type))[k] || ""); }); if (!dirty) { ev.preventDefault(); cancelForm(); } } }); // Escape closes an untouched form; typing is never thrown away
+      f.addEventListener("input", function (ev) { var el = ev.target; if (el && el.getAttribute && el.getAttribute("aria-invalid") === "true") { el.removeAttribute("aria-invalid"); if (S.fe) delete S.fe[el.name]; var s0 = el.parentNode && el.parentNode.querySelector(".con-ferr"); if (s0) s0.remove(); } });
+      var ts = f.querySelector("[name=type]"); if (ts) ts.addEventListener("change", function () { keep(); var nv = prefill(ts.value); Object.keys(S.form.vals).forEach(function (k) { if (TYPE[ts.value].cols.indexOf(k) >= 0 && S.form.vals[k]) nv[k] = S.form.vals[k]; }); S.form.type = ts.value; S.form.vals = nv; S.err = ""; S.fe = {}; E.repaintKeepingFocus(m, function () { paint(true); }); }); // the fields change with the type; focus stays where it was going
     }
   }
+  function cancelForm() { var back = S.form && S.form.key, wasNew = S.form && !S.form.id; S.form = null; S.err = ""; S.fe = {}; S.sel = back || null; paint(true); if (back) focusTitle(); else if (wasNew) setTimeout(function () { var b = S.mount && S.mount.querySelector(".con-head [data-act=add]"); if (b) b.focus(); }, 0); }
   function prefill(type) { // what was searched for starts the new contact: a name, or a number
     var v = {}, q = String(S.q || "").trim(); TYPE[type].cols.forEach(function (k) { v[k] = ""; });
     if (q) { if (/^[\d\s+\-()]+$/.test(q)) { var pk = TYPE[type].cols.filter(function (k) { return k === "phone" || k === "phone_patient"; })[0]; if (pk) v[pk] = q; } else if (q.indexOf("@") > 0 && "email" in v) v.email = q; else v.name = q; }
@@ -306,10 +323,12 @@
     keep();
     var F = S.form, t = TYPE[F.type], body = {}; S.err = "";
     t.cols.forEach(function (k) { body[k] = String(F.vals[k] || "").trim(); });
-    if (body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) S.err = "That email address does not look right. Nothing was saved.";
-    else if (!F.id && !body.name) S.err = "Write a name. Nothing was saved.";
-    else if (F.id && !t.cols.some(function (k) { return body[k]; })) S.err = "Write at least a name or a number. Nothing was saved.";
-    if (S.err) return paint(true);
+    var fe = {};
+    if (!F.id && !body.name) fe.name = "Write a name.";
+    else if (F.id && !t.cols.some(function (k) { return body[k]; })) fe.name = "Write at least a name or a number.";
+    if (body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) fe.email = "Check the email: it should look like name@example.com.";
+    S.fe = fe; S.err = Object.keys(fe).length ? Object.keys(fe).map(function (k) { return fe[k]; }).join(" ") + " Nothing was saved." : "";
+    if (S.err) { paint(true); var fx = S.mount.querySelector('#con-form [name="' + Object.keys(fe)[0] + '"]'); if (fx) fx.focus(); return; }
     // a client's ID card and the person (E.people.confirmPerson): asked before anything is saved; Go back keeps the form
     var asked = null;
     if (F.type === "clients" && body.id_card && E.people && E.people.confirmPerson) {
@@ -358,7 +377,7 @@
 
   E.registerModule({
     id: "conreg", title: "Contacts", order: 3, icon: "☎", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.sel = null; S.err = ""; S.q = ""; S.filter = "all"; S.saving = false; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.sel = null; S.err = ""; S.fe = {}; S.q = ""; S.filter = "all"; S.saving = false; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("conreg") < 0) E.UI2_DESTINATIONS.push("conreg");
   if (E.UI2_PARENT) E.UI2_PARENT.conreg = "team";

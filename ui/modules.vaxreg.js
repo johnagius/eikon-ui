@@ -94,7 +94,16 @@
       ".vxr-form .note{font-size:13px;color:var(--muted);padding:8px 14px 0}.vxr-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:space-between;align-items:center;flex-wrap:wrap}" +
       ".vxr-err{color:var(--danger);font-size:13px;padding:4px 14px}" +
       ".vxr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
-      "@media (max-width:600px){.vxr{padding:4px 16px 0}.vxr h1{font-size:32px}.vxr-form label>span{flex-basis:92px}.vxr-row{flex-wrap:wrap}.vxr-row .a{width:100%;justify-content:flex-start}.vxr-row .a i{text-align:left}}";
+      // Quality pass (2026-11-03): sentence-case headings, figures that line up, errors beside their fields, a skeleton
+      // while loading, and 44 px targets on a phone.
+      ".vxr-lab,.vxr-form .hd{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none}.vxr-lab b,.vxr-row .m,.vxr-form .ln input.q,.vxr-form .ln .hint{font-variant-numeric:tabular-nums}" +
+      ".vxr-form label{flex-wrap:wrap}.vxr-ferr{flex-basis:100%;margin:-6px 0 8px 116px;color:var(--danger);font-size:13px;font-weight:500}.vxr-form .ln .vxr-ferr{margin:0 0 8px}" +
+      ".vxr-skel{display:block;height:64px;border-top:.5px solid var(--border);background:linear-gradient(90deg,rgba(118,118,128,.06),rgba(118,118,128,.14),rgba(118,118,128,.06));background-size:200% 100%;animation:vxrsk 1.2s linear infinite}.vxr-skel:first-of-type{border-top:0}" +
+      "@keyframes vxrsk{to{background-position:-200% 0}}@media (prefers-reduced-motion:reduce){.vxr-skel{animation:none}}" +
+      "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .vxr-ferr{color:#FF7A72}}" + // 5:1 on the tinted row being typed in
+      ".vxr-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
+      "@media (max-width:600px){.vxr{padding:4px 16px 0}.vxr h1{font-size:32px}.vxr-form label>span{flex-basis:92px}.vxr-row{flex-wrap:wrap}.vxr-row .a{width:100%;justify-content:flex-start}.vxr-row .a i{text-align:left}" +
+      ".vax-btn{height:44px;border-radius:22px}.vxr-chips .vax-btn{min-height:44px}.vxr-form .ln .x{flex-basis:44px;height:44px;border-radius:22px}.vxr-q{height:44px}.vxr-ferr{margin-left:0}}";
     document.head.appendChild(st);
   }
 
@@ -166,6 +175,31 @@
       esc(when(o.created_at)) + " · " + esc(sec) + (o.phone ? " · " + esc(o.phone) : "") + (o.email ? " · " + esc(o.email) : "") + '</span></div><div class="a">' + acts + "</div></div>";
   }
 
+  function skel(what) { return '<div class="vxr-list" aria-busy="true" style="margin-top:16px"><span class="vxr-sr" role="status">Opening ' + what + '</span><i class="vxr-skel"></i><i class="vxr-skel"></i><i class="vxr-skel"></i></div>'; }
+  function trouble(msg) { return '<div class="vxr-quiet" role="alert">' + esc(msg) + ' <button type="button" class="vax-btn" data-act="retry" style="margin-left:6px">Try again</button></div>'; }
+  // What a search changes: redrawn on its own while typing, so the search box is never rebuilt under the fingers.
+  function resultsHtml() {
+    var h = "", q = low(S.q);
+    if (q) {
+      var hit = S.orders.filter(function (o) {
+        return [o.client_first, o.client_last, client(o), o.phone, o.email, o.country_name, o.country_code, o.section].concat((o.items || []).map(function (it) { return it.name; })).some(function (v) { return low(v).indexOf(q) >= 0; });
+      });
+      return h + '<div class="vxr-lab">Found <b>' + hit.length + "</b></div>" + (hit.length ? '<div class="vxr-list">' + hit.map(orderRow).join("") + "</div>" : '<div class="vxr-quiet">No order matches “' + esc(S.q.trim()) + '”. Try part of the surname, the phone number or the vaccine.</div>');
+    }
+    // the orders taken in one month, any month (this month first)
+    var cur = S.vmOrders;
+    h += E.months.bar(S.vm, { label: "Vaccine orders" });
+    if (S.vmLoading && !cur.length) h += skel(E.months.label(S.vm));
+    else if (S.vmErr) h += trouble(S.vmErr);
+    else h += '<div class="vxr-lab">' + esc(E.months.label(S.vm)) + " <b>" + cur.length + "</b></div>" + (cur.length ? '<div class="vxr-list">' + cur.map(orderRow).join("") + "</div>" : '<div class="vxr-quiet" data-empty>' + esc(E.months.empty(S.vm, "No vaccine order this month yet. Press New order when a client asks for one.")) + "</div>");
+    return h;
+  }
+  function paintResults() {
+    var m = S.mount, box = m && m.querySelector("#vxr-res"); if (!box) return paint();
+    box.innerHTML = resultsHtml(); wireMonths(box); bind(box);
+  }
+  function wireMonths(root) { E.months.wire(root, { month: function () { return S.vm; }, go: function (v) { S.vm = v; S.vmOrders = []; loadMonth(); paint(); }, paint: function () { paint(); }, print: printMonth }); }
+
   function paint(fromState) {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "vaxreg") return; // left before a reply came back: do not draw over the next screen
@@ -175,7 +209,8 @@
       '<div class="vxr-top"><div><h1>Vaccines</h1><p class="vxr-sub">Vaccines ordered for clients, for travel or routine.</p></div>' + (S.adding ? "" : '<button class="vax-btn p" data-act="add">New order</button>') + "</div>";
     if (S.adding) {
       var a = S.adding, travel = a.section === "travel";
-      var fld = function (k, label, extra, hint) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] || "") + '"' + (extra || "") + ">" + (hint || "") + "</label>"; };
+      var fe = S.fe || {};
+      var fld = function (k, label, extra, hint) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] || "") + '"' + (extra || "") + (fe[k] ? ' aria-invalid="true" aria-describedby="vxr-e-' + k + '"' : "") + ">" + (hint || "") + (fe[k] ? '<small class="vxr-ferr" id="vxr-e-' + k + '">' + esc(fe[k]) + "</small>" : "") + "</label>"; };
       h += '<form class="vxr-form" id="vxr-add" autocomplete="off">' +
         '<div class="vxr-seg" role="group" aria-label="Kind of order"><button type="button" class="vax-btn' + (travel ? " p" : "") + '" data-act="sec" data-sec="travel" aria-pressed="' + travel + '">Travel</button><button type="button" class="vax-btn' + (travel ? "" : " p") + '" data-act="sec" data-sec="other" aria-pressed="' + !travel + '">Routine and other</button></div>';
       if (travel) {
@@ -191,39 +226,27 @@
         if (rt.length) h += '<div class="hd"><span>Routine in Malta</span></div><div class="vxr-chips">' + rt.map(function (v) { return chip(v, hasLine(v.brand_name)); }).join("") + "</div>";
       }
       h += '<div class="hd"><span>Vaccines</span><span>Qty</span></div>' + a.lines.map(function (l, i) {
-        var s = l.name ? stockFor(l.name) : null;
-        return '<div class="ln"><div class="row"><input class="n" data-i="' + i + '" data-k="name" list="vxr-names" value="' + esc(l.name) + '" placeholder="Vaccine name" aria-label="Vaccine ' + (i + 1) + '">' +
-          '<input class="q" data-i="' + i + '" data-k="qty" inputmode="numeric" value="' + esc(l.qty) + '" aria-label="Quantity of vaccine ' + (i + 1) + '">' +
+        var s = l.name ? stockFor(l.name) : null, le = fe["line" + i];
+        return '<div class="ln"><div class="row"><input class="n" data-i="' + i + '" data-k="name" list="vxr-names" value="' + esc(l.name) + '" placeholder="Vaccine name" aria-label="Vaccine ' + (i + 1) + '"' + (fe.items && i === 0 ? ' aria-invalid="true" aria-describedby="vxr-e-items"' : "") + ">" +
+          '<input class="q" data-i="' + i + '" data-k="qty" inputmode="numeric" value="' + esc(l.qty) + '" aria-label="Quantity of vaccine ' + (i + 1) + '"' + (le ? ' aria-invalid="true" aria-describedby="vxr-e-line' + i + '"' : "") + ">" +
           (a.lines.length > 1 ? '<button type="button" class="vax-btn x" data-act="rm" data-i="' + i + '" aria-label="Remove vaccine ' + (i + 1) + '">✕</button>' : "") + "</div>" +
-          (s ? '<div class="hint' + (s.qty <= 0 ? " lo" : "") + '">' + (s.qty <= 0 ? "None in stock" : s.qty + " in stock") + (s.exp ? " · earliest expiry " + esc(dmy(s.exp)) : "") + "</div>" : "") + "</div>";
+          (s ? '<div class="hint' + (s.qty <= 0 ? " lo" : "") + '">' + (s.qty <= 0 ? "None in stock" : s.qty + " in stock") + (s.exp ? " · earliest expiry " + esc(dmy(s.exp)) : "") + "</div>" : "") +
+          (le ? '<small class="vxr-ferr" id="vxr-e-line' + i + '">' + esc(le) + "</small>" : "") + (fe.items && i === 0 ? '<small class="vxr-ferr" id="vxr-e-items">' + esc(fe.items) + "</small>" : "") + "</div>";
       }).join("") +
         '<div class="acts" style="padding-top:2px"><button type="button" class="vax-btn t" data-act="line">Add a vaccine</button></div>' +
         '<div class="hd"><span>Client</span></div>' +
         fld("client_first", "Name", ' autocapitalize="words" autocomplete="off"') + fld("client_last", "Surname", ' autocapitalize="words"') +
-        fld("phone", "Phone", ' type="tel" inputmode="tel"') + fld("email", "Email", ' type="email" placeholder="Optional"') +
+        fld("phone", "Phone", ' type="tel" inputmode="tel"') + fld("email", "Email", ' type="email" inputmode="email" autocapitalize="off" placeholder="Optional"') +
         '<div class="note">Saving takes these vaccines off stock.</div>' + (S.err ? '<div class="vxr-err" role="alert">' + esc(S.err) + "</div>" : "") +
         '<div class="acts" style="justify-content:flex-end"><button type="button" class="vax-btn" data-act="add-cancel">Cancel</button><button type="submit" class="vax-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save order") + "</button></div>" +
         '<datalist id="vxr-names">' + uniq(S.catalog.map(function (v) { return v.brand_name; }).concat(S.stock.map(function (r) { return r.vaccine_name; }))).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>" +
         '<datalist id="vxr-countries">' + (COUNTRIES || []).map(function (c) { return '<option value="' + esc(c.name) + '">'; }).join("") + "</datalist></form>";
     }
-    if (S.loading && !S.orders.length) h += '<div class="vxr-quiet">Opening vaccine orders…</div>';
-    else if (S.error) h += '<div class="vxr-quiet">' + esc(S.error) + "</div>";
+    if (S.loading && !S.orders.length && !S.vmOrders.length) h += skel("vaccine orders");
+    else if (S.error) h += trouble(S.error);
     else {
-      h += '<input class="vxr-q" id="vxr-q" type="search" aria-label="Search orders" placeholder="Name, phone, country or vaccine" value="' + esc(S.q) + '">';
-      var q = low(S.q);
-      if (q) {
-        var hit = S.orders.filter(function (o) {
-          return [o.client_first, o.client_last, client(o), o.phone, o.email, o.country_name, o.country_code, o.section].concat((o.items || []).map(function (it) { return it.name; })).some(function (v) { return low(v).indexOf(q) >= 0; });
-        });
-        h += '<div class="vxr-lab">Found <b>' + hit.length + "</b></div>" + (hit.length ? '<div class="vxr-list">' + hit.map(orderRow).join("") + "</div>" : '<div class="vxr-quiet">No order matches.</div>');
-      } else {
-        // the orders taken in one month, any month (this month first)
-        var cur = S.vmOrders;
-        h += E.months.bar(S.vm, { label: "Vaccine orders" });
-        if (S.vmLoading && !cur.length) h += '<div class="vxr-quiet">Opening ' + esc(E.months.label(S.vm)) + "…</div>";
-        else if (S.vmErr) h += '<div class="vxr-quiet">' + esc(S.vmErr) + "</div>";
-        else h += '<div class="vxr-lab">' + esc(E.months.label(S.vm)) + " <b>" + cur.length + "</b></div>" + (cur.length ? '<div class="vxr-list">' + cur.map(orderRow).join("") + "</div>" : '<div class="vxr-quiet" data-empty>' + esc(E.months.empty(S.vm, "No vaccine order this month yet.")) + "</div>");
-      }
+      h += '<input class="vxr-q" id="vxr-q" type="search" autocomplete="off" aria-label="Search orders" placeholder="Name, phone, country or vaccine" value="' + esc(S.q) + '">';
+      h += '<div id="vxr-res">' + resultsHtml() + "</div>";
     }
     h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Search covers the latest 200 orders. Stock, batches and expiry, the vaccine database and printed tables are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
     var ae = document.activeElement, keepSel = "";
@@ -231,13 +254,18 @@
       ae.getAttribute("data-act") ? '[data-act="' + ae.getAttribute("data-act") + '"]' + ["data-sec", "data-v", "data-i", "data-id"].map(function (k) { return ae.hasAttribute(k) ? "[" + k + '="' + ae.getAttribute(k) + '"]' : ""; }).join("") : "";
     m.innerHTML = h;
     if (keepSel) { var again = m.querySelector(keepSel); if (again) { again.focus(); try { var L = again.value.length; again.setSelectionRange(L, L); } catch (x) {} } } // typing keeps its place
-    E.months.wire(m, { month: function () { return S.vm; }, go: function (v) { S.vm = v; S.vmOrders = []; loadMonth(); paint(); }, paint: function () { paint(); }, print: printMonth });
-    m.querySelectorAll("[data-act]").forEach(function (b) {
+    wireMonths(m);
+    bind(m);
+  }
+  function bind(root) {
+    var m = S.mount;
+    root.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
         if (act === "back") window.location.hash = E.ui2BackHash("vaxreg");
+        else if (act === "retry") { if (S.error) load(); else { S.vmOrders = []; loadMonth(); paint(); } }
         else if (act === "add") { S.adding = { section: "travel", country: "", cc: "", lines: [{ name: "", qty: "1" }] }; S.err = ""; S.printFor = 0; S.justSaved = 0; paint(true); loadCountries(); focus("[name=country]"); }
-        else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
+        else if (act === "add-cancel") closeAdd();
         else if (act === "sec") { keep(); S.adding.section = b.getAttribute("data-sec"); if (S.adding.section === "travel") loadCountries(); paint(true); var sb = m.querySelector('[data-act=sec][data-sec="' + S.adding.section + '"]'); if (sb) sb.focus(); }
         else if (act === "pick") {
           keep(); var v = S.catalog[Number(b.getAttribute("data-v"))]; if (!v) return;
@@ -254,10 +282,16 @@
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "vaxreg"); } catch (x) {} E.openClassic("vaccines"); }
       });
     });
-    var qn = m.querySelector("#vxr-q"); if (qn) qn.addEventListener("input", function () { paint(); });
-    var f = m.querySelector("#vxr-add");
+    var qn = root.querySelector("#vxr-q");
+    if (qn) {
+      qn.addEventListener("input", function () { S.q = qn.value; paintResults(); });
+      qn.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && qn.value) { ev.preventDefault(); qn.value = ""; S.q = ""; paintResults(); } });
+    }
+    var f = root.querySelector("#vxr-add");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
+      f.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !document.querySelector(".epp-list:not([hidden])")) { keep(); var a0 = S.adding || {}; var typed = F.some(function (k) { return a0[k]; }) || a0.lines.some(function (l) { return l.name; }); if (!typed) { ev.preventDefault(); closeAdd(); } } }); // Escape closes an empty form; typing is never thrown away
+      f.addEventListener("input", function (ev) { var el = ev.target; if (el && el.getAttribute && el.getAttribute("aria-invalid") === "true") { el.removeAttribute("aria-invalid"); var s0 = el.closest("label,.ln"); s0 = s0 && s0.querySelector(".vxr-ferr"); if (s0) s0.remove(); } });
       var cn = f.querySelector("[name=country]");
       if (cn) {
         cn.addEventListener("focus", function () { loadCountries(); });
@@ -281,6 +315,7 @@
     var best = COUNTRIES.filter(function (c) { return low(c.name) === low(a.country); })[0] || countryMatches(a.country)[0];
     if (best && (best.code !== a.cc || best.name !== a.country)) { a.cc = best.code; a.country = best.name; paint(true); }
   }
+  function closeAdd() { S.adding = null; S.err = ""; S.fe = {}; paint(true); setTimeout(function () { var b = S.mount && S.mount.querySelector(".vxr-top [data-act=add]"); if (b) b.focus(); }, 0); }
   function focus(sel) { setTimeout(function () { var x = S.mount && S.mount.querySelector(sel); var ae = document.activeElement; if (x && !(ae && ae !== document.body && S.mount.contains(ae) && ae.closest && ae.closest("form"))) x.focus(); }, 30); }
   function uniq(a) { var seen = {}, out = []; a.forEach(function (x) { var k = String(x || "").trim(); if (k && !seen[low(k)]) { seen[low(k)] = 1; out.push(k); } }); return out.sort(function (x, y) { return x.localeCompare(y); }); }
 
@@ -295,13 +330,15 @@
     keep(); resolveCountry();
     var a = S.adding; S.err = "";
     var travel = a.section === "travel", items = buildItems(a.lines);
-    var bad = a.lines.filter(function (l) { return l.name && (!/^\d+$/.test(l.qty) || Number(l.qty) < 1); })[0]; // a line with no vaccine is left out
-    if (bad) S.err = "Write how many of " + bad.name + " (a whole number). Nothing was saved.";
-    else if (!items.length) S.err = "Add at least one vaccine. Nothing was saved.";
-    else if (travel && a.country && !a.cc) S.err = (COUNTRIES ? "Choose the country from the list" : "The country list is still loading. Wait a moment") + ", or leave it empty. Nothing was saved.";
-    else if (!a.client_first || !a.client_last) S.err = "Write the client's name and surname. Nothing was saved.";
-    else if (!a.phone) S.err = "Write the client's phone number. Nothing was saved.";
-    if (S.err) return paint(true);
+    var fe = {}, first = "";
+    a.lines.forEach(function (l, i) { if (l.name && (!/^\d+$/.test(l.qty) || Number(l.qty) < 1)) { fe["line" + i] = "Write how many of " + l.name + " (a whole number)."; first = first || '[data-i="' + i + '"][data-k=qty]'; } }); // a line with no vaccine is left out
+    if (!items.length && !Object.keys(fe).length) { fe.items = "Add at least one vaccine."; first = first || '[data-i="0"][data-k=name]'; }
+    if (travel && a.country && !a.cc) { fe.country = (COUNTRIES ? "Choose the country from the list" : "The country list is still loading. Wait a moment") + ", or leave it empty."; first = first || "[name=country]"; }
+    if (!a.client_first) { fe.client_first = "Write the client's name."; first = first || "[name=client_first]"; }
+    if (!a.client_last) { fe.client_last = "Write the client's surname."; first = first || "[name=client_last]"; }
+    if (!a.phone) { fe.phone = "Write the client's phone number."; first = first || "[name=phone]"; }
+    S.fe = fe; S.err = Object.keys(fe).length ? Object.keys(fe).map(function (k) { return fe[k]; }).join(" ") + " Nothing was saved." : "";
+    if (S.err) { paint(true); var fx = S.mount.querySelector("#vxr-add " + first); if (fx) fx.focus(); return; }
     // the same body the classic screen sends
     var body = { section: travel ? "travel" : "other", country_code: travel ? (a.cc || "") : "", country_name: travel ? (a.country || "") : "", client_first: a.client_first, client_last: a.client_last, phone: a.phone, email: a.email || "", items: items };
     S.saving = true; paint(true);
@@ -313,7 +350,7 @@
           JSON.stringify((o.items || []).map(function (it) { return [low(it.name), toInt(it.qty, 1)]; }).sort()) === JSON.stringify(JSON.parse(sig).sort()); }
       });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.adding = null; E.toast("Order saved for " + body.client_first + " " + body.client_last, "success");
+      S.adding = null; S.fe = {}; E.toast("Order saved for " + body.client_first + " " + body.client_last, "success");
       if (E.linkPerson) E.linkPerson({ name: body.client_first + " " + body.client_last, phone: body.phone, email: body.email }, "register:vaccines"); // one person in Customers, found or added
       var oid = r.order && r.order.id; if (oid) { S.printFor = oid; S.justSaved = oid; } // like the classic screen, offer to print it straight away
       S.q = "";
@@ -352,7 +389,7 @@
 
   E.registerModule({
     id: "vaxreg", title: "Vaccines", order: 3, icon: "✚", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.q = ""; S.printFor = 0; S.justSaved = 0; S.vm = E.months.now(); S.vmOrders = []; E.months.reset(); css(); paint(); loadMonth(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.fe = {}; S.q = ""; S.printFor = 0; S.justSaved = 0; S.vm = E.months.now(); S.vmOrders = []; E.months.reset(); css(); paint(); loadMonth(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("vaxreg") < 0) E.UI2_DESTINATIONS.push("vaxreg");
   if (E.UI2_PARENT) E.UI2_PARENT.vaxreg = "services";

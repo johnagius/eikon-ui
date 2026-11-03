@@ -30,14 +30,16 @@
     st.id = "eikon-cleanreg-css";
     st.textContent =
       ".clr{max-width:860px;margin:0 auto}" +
-      ".clr-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".clr-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;min-height:44px;padding:0;margin:-10px 0 0;cursor:pointer}" +
       ".clr-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}" +
       ".clr h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}" +
       ".clr-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
       ".clr-acts{display:flex;gap:8px}" +
-      ".clr-btn{font:inherit;font-size:14px;font-weight:600;height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer}" +
-      ".clr-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.clr-btn:disabled{opacity:.55;cursor:default}" +
-      ".clr-status{display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-top:16px}" +
+      ".clr-btn{font:inherit;font-size:14px;font-weight:600;min-height:44px;padding:0 16px;border-radius:22px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer}" +
+      ".clr-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.clr-btn:disabled{opacity:.55;cursor:default}.clr-btn:active:not(:disabled){opacity:.7}" +
+      "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .clr-btn.p{color:#00160E}}" +
+      ".clr-form label.miss{box-shadow:inset 3px 0 0 var(--danger)}.clr-form label.miss>span{font-weight:700}.clr-form label.miss>span::after{content:' *';color:var(--danger)}.clr-form :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}.clr-quiet .clr-btn{margin-left:8px}" +
+      ".clr-status{display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-top:16px}.clr-status.late{border-left:4px solid var(--danger)}" +
       ".clr-dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--ok)}.clr-status.late .clr-dot{background:var(--danger)}" +
       ".clr-status b{font-size:15.5px}.clr-status span{display:block;color:var(--muted);font-size:13px}" +
       ".clr-month{display:flex;align-items:center;gap:6px;margin:18px 0 6px}.clr-month b{font-size:17px;min-width:150px;text-align:center}" +
@@ -103,14 +105,17 @@
   }
 
   function formHtml() {
-    var f = S.form;
-    return '<form class="clr-form" id="clr-form">' +
-      '<label><span>Date</span><input type="date" name="entry_date" value="' + esc(f.entry_date) + '" max="' + esc(ymd(new Date())) + '"></label>' +
-      '<label><span>Time in</span><input type="time" name="time_in" value="' + esc(f.time_in) + '"></label>' +
-      '<label><span>Time out</span><input type="time" name="time_out" value="' + esc(f.time_out) + '"></label>' +
-      '<label><span>Cleaner</span><input name="cleaner_name" autocomplete="off" placeholder="Who cleaned" value="' + esc(f.cleaner_name) + '"></label>' +
-      '<label><span>Notes</span><input name="notes" autocomplete="off" placeholder="Optional" value="' + esc(f.notes) + '"></label>' +
-      (f.err ? '<div class="clr-err">' + esc(f.err) + "</div>" : "") +
+    var f = S.form, bad = f.bad || [], names = [];
+    (S.recent || []).forEach(function (e) { var n = String(e.cleaner_name || "").trim(); if (n && names.indexOf(n) < 0) names.push(n); }); // newest first
+    var lab = function (k, label, input) { var b = bad.indexOf(k) >= 0; return "<label" + (b ? ' class="miss"' : "") + "><span>" + label + "</span>" + input.replace("<input", "<input" + (b ? ' aria-invalid="true" aria-describedby="clr-err"' : "")) + "</label>"; };
+    return '<form class="clr-form" id="clr-form" novalidate aria-label="Record a cleaning">' +
+      lab("entry_date", "Date", '<input type="date" name="entry_date" value="' + esc(f.entry_date) + '" max="' + esc(ymd(new Date())) + '">') +
+      lab("time_in", "Time in", '<input type="time" name="time_in" value="' + esc(f.time_in) + '">') +
+      lab("time_out", "Time out", '<input type="time" name="time_out" placeholder="Optional" value="' + esc(f.time_out) + '">') +
+      lab("cleaner_name", "Cleaner", '<input name="cleaner_name" autocomplete="off" placeholder="Who cleaned" list="clr-names" value="' + esc(f.cleaner_name) + '">') +
+      '<datalist id="clr-names">' + names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>" +
+      lab("notes", "Notes", '<input name="notes" autocomplete="off" placeholder="Optional" value="' + esc(f.notes) + '">') +
+      (f.err ? '<div class="clr-err" id="clr-err" role="alert">' + esc(f.err) + "</div>" : "") +
       '<div class="acts"><button type="button" class="clr-btn" data-act="cancel">Cancel</button><button type="submit" class="clr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div></form>";
   }
 
@@ -118,7 +123,7 @@
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "cleanreg") return; // left before a reply came back: do not draw over the next screen
     var MB = E.months, user = E.state.user || {};
-    var h = '<div class="clr"><button class="clr-back" data-act="back">‹ Registers</button>' +
+    var h = '<div class="clr"><button class="clr-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("cleanreg") : "‹ Registers") + "</button>" +
       '<div class="clr-top"><div><h1>Cleaning</h1><p class="clr-sub">Dispensary and fridge, at least once a week.</p></div>' +
       '<div class="clr-acts">' + (S.form ? "" : '<button class="clr-btn p" data-act="new">Record a cleaning</button>') + "</div></div>" +
       '<p class="clr-pmeta">' + esc((user.location_name || "") + " · Cleaning register · " + monthLabel(S.month) + " · printed " + ymd(new Date())) + "</p>";
@@ -126,7 +131,7 @@
     h += statusHtml();
     h += MB.bar(S.month, { label: "Cleaning" });
     if (S.loading && !S.entries.length) h += '<div class="clr-quiet">Opening the register…</div>';
-    else if (S.error) h += '<div class="clr-quiet">' + esc(S.error) + "</div>";
+    else if (S.error) h += '<div class="clr-quiet" role="alert">' + esc(S.error) + ' <button class="clr-btn" data-act="retry">Try again</button></div>';
     else {
       if (!S.entries.length && S.month < thisMonth()) h += '<div class="clr-quiet" data-empty>' + esc(MB.empty(S.month)) + "</div>";
       weeks().forEach(function (w) {
@@ -162,13 +167,17 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function () {
         var a = b.getAttribute("data-act");
-        if (a === "back") window.location.hash = "#registers";
+        if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("cleanreg") : "#registers";
+        else if (a === "retry") load();
         else if (a === "new") { S.form = { entry_date: ymd(new Date()), time_in: hmNow(), time_out: "", cleaner_name: "", notes: "", err: "" }; paint(); setTimeout(function () { var c = m.querySelector("[name=cleaner_name]"); if (c && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) c.focus(); }, 30); }
-        else if (a === "cancel") { S.form = null; paint(); }
+        else if (a === "cancel") { S.form = null; paint(); var nb = m.querySelector("[data-act=new]"); if (nb) nb.focus(); }
       });
     });
     var f = m.querySelector("#clr-form");
-    if (f) f.addEventListener("submit", function (ev) { ev.preventDefault(); save(f); });
+    if (f) {
+      f.addEventListener("submit", function (ev) { ev.preventDefault(); save(f); });
+      f.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !S.saving) { ev.preventDefault(); S.form = null; paint(); var nb = m.querySelector("[data-act=new]"); if (nb) nb.focus(); } }); // Escape closes, focus back on the button that opened it
+    }
   }
 
   async function save(f) {
@@ -176,11 +185,15 @@
     var v = function (n) { var el = f.querySelector("[name=" + n + "]"); return el ? String(el.value || "").trim() : ""; };
     var body = { entry_date: v("entry_date"), time_in: v("time_in"), time_out: v("time_out"), cleaner_name: v("cleaner_name"), staff_name: (E.state.user || {}).full_name || "", notes: v("notes") };
     S.form = Object.assign({}, S.form, body, { err: "" });
-    if (!body.entry_date) { S.form.err = "Choose the date. Nothing was saved."; return paint(); }
-    if (body.entry_date > ymd(new Date())) { S.form.err = "The date is in the future. Nothing was saved."; return paint(); }
-    if (!body.cleaner_name) { S.form.err = "Write who cleaned. Nothing was saved."; return paint(); }
-    if (!body.time_in) { S.form.err = "Fill in the time in. Nothing was saved."; return paint(); }
-    if (body.time_in && body.time_out && body.time_out < body.time_in) { S.form.err = "Time out is before time in. Nothing was saved."; return paint(); }
+    // every problem at once, each field marked, the first one focused
+    var errs = [], bad = [];
+    if (!body.entry_date) { errs.push("choose the date"); bad.push("entry_date"); }
+    else if (body.entry_date > ymd(new Date())) { errs.push("the date is in the future: choose today or earlier"); bad.push("entry_date"); }
+    if (!body.cleaner_name) { errs.push("write who cleaned"); bad.push("cleaner_name"); }
+    if (!body.time_in) { errs.push("fill in the time in"); bad.push("time_in"); }
+    else if (body.time_out && body.time_out < body.time_in) { errs.push("time out is before time in"); bad.push("time_out"); }
+    S.form.bad = bad;
+    if (errs.length) { S.form.err = errs.join(", ").replace(/^./, function (c) { return c.toUpperCase(); }) + ". Nothing was saved."; paint(); var first = S.mount.querySelector('#clr-form [name="' + bad[0] + '"]'); if (first) first.focus(); return; }
     S.saving = true; paint();
     try {
       var r = await E.apiFetch("/cleaning/entries", { method: "POST", body: JSON.stringify(body) });
@@ -191,7 +204,9 @@
       S.form.err = E.saveFailText(e);
     }
     S.saving = false;
-    return load();
+    var saved = !S.form;
+    await load();
+    if (saved && S.mount && (!document.activeElement || document.activeElement === document.body)) { var nb = S.mount.querySelector("[data-act=new]"); if (nb) nb.focus({ preventScroll: true }); } // keyboard users carry on from where they were
   }
 
   E.registerModule({

@@ -45,7 +45,11 @@
       ".odr-form label>span{flex:0 0 96px;font-size:15px}.odr-form input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
       ".odr-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end}.odr-err{color:var(--danger);font-size:13px;padding:4px 14px}" +
       ".odr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
-      "@media (max-width:600px){.odr{padding:4px 16px 0}.odr h1{font-size:32px}}";
+      "@media (max-width:600px){.odr{padding:4px 16px 0}.odr h1{font-size:32px}}" +
+      // Stock group: a 44 px way back, a pressed state on every button, 44 px buttons on a phone, a retry under a failed load.
+      ".odr-back{display:inline-flex;align-items:center;min-height:44px;padding:0 8px 0 0;margin:-8px 0 -2px}.odr-btn:active:not(:disabled){filter:brightness(.9)}" +
+      ".odr-quiet .odr-btn{margin-top:12px;display:block}" +
+      "@media (max-width:600px){.odr-btn,.odr-btn.s{height:44px;border-radius:22px}.odr-nav button{width:44px;height:44px}.odr-nav button.now{width:auto}}";
     document.head.appendChild(st);
   }
 
@@ -60,7 +64,8 @@
   }
   async function loadItems() {
     try { var r = await E.apiFetch("/order-diary/items", { method: "GET" }); S.items = (r && r.ok && r.items) || []; } catch (e) { S.items = []; }
-    var dl = S.mount && S.mount.querySelector("#odr-items"); if (dl) dl.innerHTML = S.items.map(function (i) { return '<option value="' + esc(i.item_name) + '">'; }).join(""); // the list only: no redraw under a tap
+    var dl = S.mount && S.mount.querySelector("#odr-items"); if (dl) dl.innerHTML = S.items.map(function (i) { return '<option value="' + esc(i.item_name) + '">'; }).join("");
+    var ds = S.mount && S.mount.querySelector("#odr-sups"); if (ds) ds.innerHTML = supList().map(function (s) { return '<option value="' + esc(s) + '">'; }).join(""); // the list only: no redraw under a tap
   }
 
   function rowHtml(e) {
@@ -75,18 +80,18 @@
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "odreg") return; // left before a reply came back: do not draw over the next screen
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
-    var h = '<div class="odr"><button class="odr-back" data-act="back">‹ Stock</button>' +
+    var h = '<div class="odr"><button class="odr-back" data-act="back">' + esc(E.ui2BackLabel("odreg")) + '</button>' +
       '<div class="odr-top"><div><h1>Order diary</h1><p class="odr-sub">What to order, by supplier, and what came in.</p></div>' + (S.adding ? "" : '<button class="odr-btn p" data-act="add">Add an item</button>') + "</div>" +
       '<div class="odr-nav"><button data-act="prev" aria-label="Day before">‹</button><b>' + esc(label(S.day)) + "</b>" + (S.day === today() ? "" : '<button class="now" data-act="today">Today</button>') + '<button data-act="next" aria-label="Day after">›</button></div>';
     if (S.adding) {
       var a = S.adding, fld = function (k, label, extra) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] || "") + '"' + (extra || "") + "></label>"; };
-      h += '<form class="odr-form" id="odr-add" autocomplete="off">' + fld("item_name", "Item", ' list="odr-items" placeholder="e.g. Augmentin 625 x14"') + fld("qty", "How many", ' inputmode="numeric" placeholder="1"') + fld("supplier", "Supplier", ' placeholder="Optional"') + fld("notes", "Note", ' placeholder="Optional, e.g. for Mrs Borg"') +
-        (S.err ? '<div class="odr-err">' + esc(S.err) + "</div>" : "") +
+      h += '<form class="odr-form" id="odr-add" autocomplete="off">' + fld("item_name", "Item", ' list="odr-items" placeholder="e.g. Augmentin 625 x14"') + fld("qty", "How many", ' inputmode="numeric" placeholder="1"') + fld("supplier", "Supplier", ' list="odr-sups" placeholder="Optional"') + fld("notes", "Note", ' placeholder="Optional, e.g. for Mrs Borg"') +
+        (S.err ? '<div class="odr-err" role="alert">' + esc(S.err) + "</div>" : "") +
         '<div class="acts"><button type="button" class="odr-btn" data-act="add-cancel">Cancel</button><button type="submit" class="odr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Add to " + esc(label(S.day).toLowerCase() === "today" ? "today" : label(S.day))) + "</button></div>" +
-        '<datalist id="odr-items">' + S.items.map(function (i) { return '<option value="' + esc(i.item_name) + '">'; }).join("") + "</datalist></form>";
+        '<datalist id="odr-items">' + S.items.map(function (i) { return '<option value="' + esc(i.item_name) + '">'; }).join("") + '</datalist><datalist id="odr-sups">' + supList().map(function (s) { return '<option value="' + esc(s) + '">'; }).join("") + "</datalist></form>";
     }
     if (S.loading && !S.entries.length) h += '<div class="odr-quiet">Opening the order diary…</div>';
-    else if (S.error) h += '<div class="odr-quiet">' + esc(S.error) + "</div>";
+    else if (S.error) h += '<div class="odr-quiet" role="alert">' + esc(S.error) + '<button class="odr-btn" data-act="retry">Try again</button></div>';
     else if (!S.entries.length) h += '<div class="odr-quiet">Nothing in the order diary for ' + esc(label(S.day).toLowerCase() === "today" ? "today" : label(S.day)) + ".</div>";
     else {
       var nextName = label(shift(S.day, 1)).toLowerCase() === "tomorrow" ? "tomorrow" : label(shift(S.day, 1));
@@ -105,24 +110,34 @@
     var ae = document.activeElement, sel = ae && m.contains(ae) && ae.name ? "[name=" + ae.name + "]" : "";
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) again.focus(); }
+    applyRefocus();
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
-        if (act === "back") window.location.hash = "#stock";
+        if (act === "back") window.location.hash = E.ui2BackHash("odreg");
+        else if (act === "retry") load();
         else if (act === "prev" || act === "next" || act === "today") { S.day = act === "today" ? today() : shift(S.day, act === "next" ? 1 : -1); S.entries = []; S.adding = null; load(); }
         else if (act === "add") { S.adding = { qty: "1" }; S.err = ""; paint(true); if (!S.items.length) loadItems(); setTimeout(function () { var f = m.querySelector("[name=item_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
-        else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
+        else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); setTimeout(function () { var b = m.querySelector('[data-act="add"]'); if (b) b.focus(); }, 30); }
         else if (act === "carry") carry();
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "odreg"); } catch (x) {} E.openClassic("order-diary"); }
       });
     });
     m.querySelectorAll("[data-st]").forEach(function (b) { b.addEventListener("click", function () { setStatus(Number(b.getAttribute("data-id")), b.getAttribute("data-st")); }); });
+    // Escape closes the open form (what is typed in it is dropped, as with Cancel) and puts you back where you were.
+    m.querySelectorAll("form").forEach(function (f) { f.addEventListener("keydown", function (ev) { if (ev.key !== "Escape") return; var c = f.querySelector('[data-act$="-cancel"]'); if (c) { ev.preventDefault(); c.click(); } }); });
     var f = m.querySelector("#odr-add");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
       var it = f.querySelector("[name=item_name]"); if (it) it.addEventListener("blur", function () { keep(); var hit = S.items.find(function (i) { return String(i.item_name).toLowerCase() === String(S.adding.item_name || "").toLowerCase(); }); if (hit && hit.preferred_supplier && !S.adding.supplier && E.fillEmpty(f, { supplier: hit.preferred_supplier }).length) S.adding.supplier = hit.preferred_supplier; }); // in place: a redraw as the field is left with Tab lost the next field
     }
   }
+  // Suppliers already used (today's list, then the usual supplier of items ordered before), for the Supplier field.
+  function supList() { var seen = {}, out = []; S.entries.map(function (e) { return e.supplier; }).concat(S.items.map(function (i) { return i.preferred_supplier; })).forEach(function (s) { s = String(s || "").trim(); if (s && !seen[s.toLowerCase()]) { seen[s.toLowerCase()] = 1; out.push(s); } }); return out.slice(0, 60); }
+  // After a one-tap save the list is redrawn: a keyboard user stays on that item (the same button, or the one now in its place).
+  // Later redraws (the month list arriving) keep it there for a few seconds, unless focus has moved on by then.
+  function refocus(sel) { S.refocus = { sel: sel, until: Date.now() + 4000 }; applyRefocus(); }
+  function applyRefocus() { var r = S.refocus, a = document.activeElement; if (!r || Date.now() > r.until || !S.mount || (a && a !== document.body)) return; var b = null; r.sel.forEach(function (q) { if (!b && q) b = S.mount.querySelector(q); }); if (b && !b.disabled) b.focus(); }
   function keep() {
     var f = S.mount && S.mount.querySelector("#odr-add"); if (!f || !S.adding) return;
     ["item_name", "qty", "supplier", "notes"].forEach(function (k) { var el = f.querySelector("[name=" + k + "]"); if (el) S.adding[k] = String(el.value || "").trim(); });
@@ -135,7 +150,7 @@
       var r = await E.apiFetch("/order-diary/entries/" + encodeURIComponent(String(id)), { method: "PUT", body: JSON.stringify({ status: status }) }); // only the status: the update keeps the rest
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
     } catch (x) { E.toast(E.saveFailText(x), "error"); }
-    S.busy[id] = false; return load();
+    S.busy[id] = false; await load(); refocus(['[data-id="' + id + '"]']);
   }
   async function carry() {
     if (S.saving) return;

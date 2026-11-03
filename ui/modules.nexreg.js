@@ -48,7 +48,11 @@
       ".nex-form .acts,.nex-in .acts{display:flex;gap:8px;padding:10px 16px;justify-content:flex-end}" +
       ".nex-err{color:var(--danger);font-size:13px;padding:2px 16px 4px}" +
       ".nex-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
-      "@media (max-width:600px){.nex{padding:4px 16px 0}.nex h1{font-size:32px}.nex-row{flex-wrap:wrap;row-gap:8px}.nex-row .t{flex-basis:100%}.nex-row .nex-btn{margin-left:auto;height:32px}}";
+      "@media (max-width:600px){.nex{padding:4px 16px 0}.nex h1{font-size:32px}.nex-row{flex-wrap:wrap;row-gap:8px}.nex-row .t{flex-basis:100%}.nex-row .nex-btn{margin-left:auto;height:32px}}" +
+      // Stock group: a 44 px way back, a pressed state on every button, 44 px buttons on a phone, a retry under a failed load.
+      ".nex-back{display:inline-flex;align-items:center;min-height:44px;padding:0 8px 0 0;margin:-8px 0 -2px}.nex-btn:active:not(:disabled){filter:brightness(.9)}" +
+      ".nex-quiet .nex-btn{margin-top:12px;display:block}.nex-q{box-sizing:border-box;font-size:16px}" +
+      "@media (max-width:600px){.nex-btn,.nex-row .nex-btn,.nex-q{height:44px}.nex-btn{border-radius:22px}}";
     document.head.appendChild(st);
   }
 
@@ -62,17 +66,21 @@
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
+  // Suppliers this device sent stock back to, most recent first: the last one is filled in, the rest are offered.
+  function sups() { try { var a = JSON.parse(localStorage.getItem("eikon_nex_suppliers") || "[]"); return Array.isArray(a) ? a.filter(function (x) { return typeof x === "string" && x; }).slice(0, 8) : []; } catch (e) { return []; } }
+  function rememberSup(s) { try { var a = sups().filter(function (x) { return x.toLowerCase() !== s.toLowerCase(); }); a.unshift(s); localStorage.setItem("eikon_nex_suppliers", JSON.stringify(a.slice(0, 8))); } catch (e) {} }
+
   function rowHtml(e) {
     var g = group(e), n = daysUntil(e.expiry_date);
-    var pill = g === "back" ? (RET[e.return_status] || "Sent back") : n < 0 ? "Expired " + (-n) + (n === -1 ? " day" : " days") : n === 0 ? "Expires today" : "In " + n + (n === 1 ? " day" : " days");
+    var pill = g === "back" ? (RET[e.return_status] || "Sent back") : n === -1 ? "Expired yesterday" : n < 0 ? "Expired " + (-n) + " days ago" : n === 0 ? "Expires today" : n === 1 ? "Expires tomorrow" : "In " + n + " days";
     var sub = ["Expires " + nice(e.expiry_date)]; if (e.location) sub.push(e.location); if (e.notes) sub.push(e.notes);
     var h = '<div class="nex-row ' + g + '"><div class="t"><b>' + esc(e.product_name) + "</b><span>" + esc(sub.join(" · ")) + "</span></div>" +
       '<span class="nex-pill ' + g + '">' + esc(pill) + "</span>" + (g !== "back" && S.returning !== e.id ? '<button class="nex-btn" data-act="ret" data-id="' + e.id + '">Send back</button>' : "") + "</div>";
     if (S.returning === e.id) {
-      var d = S.retDraft || {};
+      var d = S.retDraft || { supplier: sups()[0] || "" };
       h += '<form class="nex-in" id="nex-ret" autocomplete="off"><label><span>Supplier</span><input name="supplier" list="nex-sup" value="' + esc(d.supplier || "") + '" placeholder="Who it goes back to"></label>' +
         '<label><span>Quantity</span><input name="quantity" inputmode="numeric" value="' + esc(d.quantity || "") + '" placeholder="Optional"></label>' +
-        (S.err ? '<div class="nex-err">' + esc(S.err) + "</div>" : "") +
+        (S.err ? '<div class="nex-err" role="alert">' + esc(S.err) + "</div>" : "") +
         '<div class="acts"><button type="button" class="nex-btn" data-act="ret-cancel">Cancel</button><button type="submit" class="nex-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Add to returns") + "</button></div></form>";
     }
     return h;
@@ -82,7 +90,7 @@
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "nexreg") return; // left before a reply came back: do not draw over the next screen
     var locs = {}; S.entries.forEach(function (e) { if (e.location) locs[e.location] = 1; });
-    var h = '<div class="nex"><button class="nex-back" data-act="back">‹ Stock</button>' +
+    var h = '<div class="nex"><button class="nex-back" data-act="back">' + esc(E.ui2BackLabel("nexreg")) + "</button>" +
       '<div class="nex-top"><div><h1>Near expiry</h1><p class="nex-sub">What expires soon, nearest first.</p></div>' +
       '<div class="nex-acts">' + (S.adding ? "" : '<button class="nex-btn p" data-act="add">Add an item</button>') + "</div></div>";
     if (S.adding) {
@@ -92,41 +100,52 @@
         '<label><span>Where</span><input name="location" list="nex-locs" value="' + esc(a.location || "") + '" placeholder="e.g. Shelf A3, Fridge"></label>' +
         '<label><span>Notes</span><input name="notes" value="' + esc(a.notes || "") + '" placeholder="Optional, e.g. 10 boxes"></label>' +
         '<datalist id="nex-locs">' + Object.keys(locs).map(function (l) { return '<option value="' + esc(l) + '">'; }).join("") + "</datalist>" +
-        (S.err ? '<div class="nex-err">' + esc(S.err) + "</div>" : "") +
-        '<div class="acts"><button type="button" class="nex-btn" data-act="add-cancel">Cancel</button><button type="submit" class="nex-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Add") + "</button></div></form>";
+        (S.err ? '<div class="nex-err" role="alert">' + esc(S.err) + "</div>" : "") +
+        '<div class="acts"><button type="button" class="nex-btn" data-act="add-cancel">' + (S.added ? "Done" : "Cancel") + '</button><button type="submit" class="nex-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : S.added ? "Add another" : "Add") + "</button></div></form>";
     }
-    if (S.entries.length > 6) h += '<input class="nex-q" id="nex-q" type="search" placeholder="Search product, place or notes" value="' + esc(S.q) + '">';
-    var q = S.q.trim().toLowerCase();
+    if (S.entries.length > 6) h += '<input class="nex-q" id="nex-q" type="search" aria-label="Search near expiry" placeholder="Search product, place or notes" value="' + esc(S.q) + '">';
+    h += '<div id="nex-res">' + listHtml() + "</div>";
+    h += '<datalist id="nex-sup">' + sups().map(function (s) { return '<option value="' + esc(s) + '">'; }).join("") + '</datalist><p style="font-size:12.5px;color:var(--muted);margin-top:12px">Supplier refused, damaged stock and offers to other pharmacies are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    m.innerHTML = h;
+    bind(m);
+  }
+
+  // The list alone: searching redraws only this, never the box being typed in.
+  function listHtml() {
+    var h = "", q = S.q.trim().toLowerCase();
     var shown = S.entries.filter(function (e) { return !q || [e.product_name, e.location, e.notes].some(function (v) { return String(v || "").toLowerCase().indexOf(q) >= 0; }); });
-    if (S.loading && !S.entries.length) h += '<div class="nex-quiet">Opening the list…</div>';
-    else if (S.error) h += '<div class="nex-quiet">' + esc(S.error) + "</div>";
+    if (S.loading && !S.entries.length) h += '<div class="nex-quiet" aria-busy="true">Opening the list…</div>';
+    else if (S.error) h += '<div class="nex-quiet" role="alert">' + esc(S.error) + '<button class="nex-btn" data-act="retry">Try again</button></div>';
     else if (!S.entries.length) h += '<div class="nex-quiet">Nothing on the list. Add an item when you spot a short date on the shelf.</div>';
     else if (!shown.length) h += '<div class="nex-quiet">Nothing matches “' + esc(S.q) + "”.</div>";
     else GROUPS.forEach(function (g) {
       var list = shown.filter(function (e) { return group(e) === g[0]; });
       if (list.length) h += '<div class="nex-lab">' + g[1] + " <b>" + list.length + '</b></div><div class="nex-list">' + list.map(rowHtml).join("") + "</div>";
     });
-    h += '<datalist id="nex-sup"></datalist><p style="font-size:12.5px;color:var(--muted);margin-top:12px">Supplier refused, damaged stock and offers to other pharmacies are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
-    m.innerHTML = h;
-    bind(m);
+    return h;
   }
+  function focusSoon(sel) { setTimeout(function () { var f = S.mount && S.mount.querySelector(sel); if (f) { f.focus(); if (f.tagName === "INPUT" && f.value) try { f.select(); } catch (e) {} } }, 30); }
 
   function bind(m) {
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act");
-        if (a === "back") window.location.hash = "#stock";
-        else if (a === "add") { S.adding = {}; S.err = ""; paint(); setTimeout(function () { var f = m.querySelector("[name=product_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
-        else if (a === "add-cancel") { S.adding = null; S.err = ""; paint(); }
-        else if (a === "ret") { S.returning = Number(b.getAttribute("data-id")); S.retDraft = null; S.err = ""; paint(); }
-        else if (a === "ret-cancel") { S.returning = null; S.err = ""; paint(); }
+        if (a === "back") window.location.hash = E.ui2BackHash("nexreg");
+        else if (a === "retry") load();
+        else if (a === "add") { S.adding = {}; S.added = 0; S.err = ""; paint(); setTimeout(function () { var f = m.querySelector("[name=product_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (a === "add-cancel") { S.adding = null; S.added = 0; S.err = ""; paint(); focusSoon('[data-act="add"]'); }
+        else if (a === "ret") { S.returning = Number(b.getAttribute("data-id")); S.retDraft = null; S.err = ""; paint(); focusSoon("#nex-ret [name=supplier]"); }
+        else if (a === "ret-cancel") { var id = S.returning; S.returning = null; S.err = ""; paint(); focusSoon('[data-act="ret"][data-id="' + id + '"]'); }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "nexreg"); } catch (e) {} E.openClassic("nearexpiry"); }
       });
     });
+    if (m !== S.mount) return; // a redrawn list: its buttons only
     var q = m.querySelector("#nex-q");
-    if (q) q.addEventListener("input", function () { var pos = q.selectionStart; S.q = q.value; paint(); var q2 = S.mount.querySelector("#nex-q"); if (q2) { q2.focus(); try { q2.setSelectionRange(pos, pos); } catch (e) {} } });
+    if (q) q.addEventListener("input", function () { S.q = q.value; var res = m.querySelector("#nex-res"); if (res) { res.innerHTML = listHtml(); bind(res); } });
     var fa = m.querySelector("#nex-add"); if (fa) fa.addEventListener("submit", function (ev) { ev.preventDefault(); add(fa); });
     var fr = m.querySelector("#nex-ret"); if (fr) fr.addEventListener("submit", function (ev) { ev.preventDefault(); sendBack(fr); });
+    // Escape closes the open form (what is typed in it is dropped, as with Cancel) and puts you back where you were.
+    m.querySelectorAll("form").forEach(function (f) { f.addEventListener("keydown", function (ev) { if (ev.key !== "Escape") return; var c = f.querySelector('[data-act$="-cancel"]'); if (c) { ev.preventDefault(); c.click(); } }); });
   }
 
   var val = function (f, n) { var el = f.querySelector("[name=" + n + "]"); return el ? String(el.value || "").trim() : ""; };
@@ -142,9 +161,11 @@
     try {
       var r = await E.apiFetch("/near-expiry/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.adding = null; E.toast("Added · " + body.product_name + " · expires " + nice(body.expiry_date), "success");
+      // A shelf check finds several: the form stays open for the next one, keeping where it was found.
+      S.adding = { location: body.location }; S.added = (S.added || 0) + 1; E.toast("Added · " + body.product_name + " · expires " + nice(body.expiry_date), "success");
     } catch (e) { S.err = E.saveFailText(e); }
-    S.saving = false; return load();
+    S.saving = false; await load();
+    if (S.adding && !S.err) { var f = S.mount && S.mount.querySelector("#nex-add [name=product_name]"); if (f) f.focus(); }
   }
 
   async function sendBack(f) {
@@ -157,14 +178,15 @@
     try {
       var r = await E.apiFetch("/near-expiry/entries/create-return", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.returning = null; E.toast(e.product_name + " added to Returns for " + body.supplier, "success");
+      S.returning = null; rememberSup(body.supplier); E.toast(e.product_name + " added to Returns for " + body.supplier, "success");
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }
 
   E.registerModule({
     id: "nexreg", title: "Near expiry", order: 3, icon: "⏳", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.returning = null; S.err = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.added = 0; S.returning = null; S.err = ""; css(); paint(); return load(); }
+
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("nexreg") < 0) E.UI2_DESTINATIONS.push("nexreg");
   if (E.UI2_PARENT) E.UI2_PARENT.nexreg = "stock";

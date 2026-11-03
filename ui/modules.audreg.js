@@ -186,10 +186,10 @@
     st.id = "eikon-audreg-css";
     st.textContent =
       ".aud{max-width:880px;margin:0 auto}" +
-      ".aud-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".aud-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;min-height:44px;padding:0;margin:-10px 0 0;cursor:pointer}" +
       ".aud-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}" +
       ".aud h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.aud-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
-      ".aud-btn{font:inherit;font-size:14px;font-weight:600;height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
+      ".aud-btn{font:inherit;font-size:14px;font-weight:600;min-height:44px;padding:0 16px;border-radius:22px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
       ".aud-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.aud-btn:disabled{opacity:.55;cursor:default}" +
       ".aud :focus-visible{outline:2px solid var(--accent);outline-offset:2px}" +
       ".aud-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:16px}" +
@@ -223,7 +223,7 @@
       ".aud-foot{font-size:12.5px;color:var(--muted);margin-top:14px}.aud-foot a{color:var(--accent)}" +
       "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .aud-chips button[aria-pressed=true]{color:#00160E}}" + // the bright dark-mode accent takes dark text, like every primary button
       "@media (max-width:760px){.aud-f{grid-template-columns:repeat(2,minmax(0,1fr))}.aud-f .wide{grid-column:1/-1}}" +
-      "@media (max-width:600px){.aud{padding:4px 16px 0}.aud h1{font-size:32px}.aud-row{padding:11px 14px}.aud-det{padding:4px 14px 14px 14px}}";
+      "@media (max-width:600px){.aud{padding:4px 16px 0}.aud h1{font-size:32px}.aud-chips button{height:44px;border-radius:22px;padding:0 14px}.aud-f input,.aud-f select{height:44px;font-size:16px}.aud-row{padding:11px 14px}.aud-det{padding:4px 14px 14px 14px}}";
     document.head.appendChild(st);
   }
 
@@ -295,7 +295,7 @@
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "audreg") return; // left before a reply came back: do not draw over the next screen
     keep();
-    var h = '<div class="aud"><button class="aud-back" data-act="back">‹ Settings</button>' +
+    var h = '<div class="aud"><button class="aud-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("audreg") : "‹ Settings") + "</button>" +
       '<div class="aud-top"><div><h1>Audit trail</h1><p class="aud-sub">Who changed what, across the whole system. Times are Malta time.</p></div>' +
       (S.denied ? "" : '<button class="aud-btn" data-act="print"' + (S.entries.length ? "" : " disabled") + ">Print</button>") + "</div>";
     if (S.denied) {
@@ -316,7 +316,7 @@
       "</div>";
     h += '<input class="aud-q" id="aud-q" type="search" aria-label="Search the changes" placeholder="Search name, record, action or detail" value="' + esc(S.q) + '">';
     if (S.loading && !S.entries.length) h += '<div class="aud-quiet">Opening the audit trail…</div>';
-    else if (S.error && !S.entries.length) h += '<div class="aud-quiet">' + esc(S.error) + ' <button class="aud-btn" data-act="retry">Try again</button></div>';
+    else if (S.error && !S.entries.length) h += '<div class="aud-quiet" role="alert">' + esc(S.error) + ' <button class="aud-btn" data-act="retry">Try again</button></div>';
     else {
       var list = shown(), narrowed = !!(S.person || low(S.q).trim() || (S.kind && list.length !== S.entries.length)), more = S.entries.length < S.total;
       h += '<div class="aud-count" role="status"><span>' + (narrowed
@@ -335,7 +335,7 @@
             "<em>" + esc(isNaN(ms) ? "" : mHm(ms)) + "</em></button>" + (open ? detailHtml(r) : "") + "</div>";
         }).join("") + "</div>";
       });
-      if (S.error) h += '<div class="aud-quiet">' + esc(S.error) + "</div>";
+      if (S.error) h += '<div class="aud-quiet" role="alert">' + esc(S.error) + ' <button class="aud-btn" data-act="' + (more ? "older" : "retry") + '">Try again</button></div>';
       if (more) h += '<div class="aud-more"><button class="aud-btn" data-act="older"' + (S.more ? " disabled" : "") + ">" + (S.more ? "Loading…" : "Show older") + "</button></div>";
     }
     h += '<p class="aud-foot">The same list is in the <a href="#" data-act="classic">classic audit trail</a>, with a filter for any action code.</p></div>';
@@ -350,7 +350,7 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act");
-        if (a === "back") window.location.hash = "#settings";
+        if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("audreg") : "#settings";
         else if (a === "older") load(true);
         else if (a === "retry") load(false);
         else if (a === "print") printList();
@@ -375,23 +375,22 @@
   // ── Print: the rows on screen, as the classic prints its page.
   function printList() {
     var list = shown(), sub = [];
-    if (S.from || S.to) sub.push("Days: " + (S.from || "…") + " to " + (S.to || "…") + " (Malta time)");
     if (S.area) { var o = areaOptions(), all = o.groups.concat(o.rest), hit = all.filter(function (x) { return x[0] === S.area; })[0]; sub.push("Area: " + (hit ? hit[1] : S.area)); }
     if (S.kind) sub.push("Change: " + KINDS.filter(function (k) { return k[0] === S.kind; })[0][1]);
     if (S.person) sub.push("Person: " + S.person.split("|").slice(1).join("|"));
     if (low(S.q).trim()) sub.push("Search: " + S.q.trim());
     var rows = list.map(function (r) {
       var ms = utcMs(r.created_at), d = isObj(r.details) ? r.details : {}, det = Object.keys(d).map(function (k) { var v = d[k]; return v === "" || v == null ? "" : humanize(k) + ": " + (typeof v === "object" ? JSON.stringify(v) : String(v)); }).filter(Boolean).join("; ");
-      return "<tr><td style='white-space:nowrap'>" + esc(isNaN(ms) ? r.created_at : mFull(ms)) + "</td><td>" + esc(r.user_name || "") + "</td><td>" + esc(areaLabel(r.entity_type)) + "</td><td>" + esc(actionName(r.action)) + "<br><small>" + esc(r.action) + "</small></td><td>" + esc(r.entity_id || "") + "</td><td style='font-size:10px'>" + esc(det) + "</td></tr>";
-    }).join("");
-    var html = "<!doctype html><html><head><meta charset='utf-8'><title>Audit trail</title><style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:24px;color:#000}h1{margin:0 0 6px;font-size:22px}.sub{margin:0 0 18px;color:#333;font-size:13px}" +
-      "table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #000;padding:6px 8px;vertical-align:top;font-size:11px;overflow-wrap:anywhere}th{background:#f2f2f2;font-size:10px;text-align:left}small{color:#444}@media print{body{margin:12mm}tr{page-break-inside:avoid}}</style></head><body>" +
-      "<h1>Audit trail</h1><p class='sub'>" + esc(sub.join(" | ")) + " | " + list.length + " rows</p><table><thead><tr><th>When</th><th>Who</th><th>Area</th><th>Action</th><th>Record</th><th>Details</th></tr></thead><tbody>" + rows + "</tbody></table>" +
-      "</body></html>";
-    var url = URL.createObjectURL(new Blob([html], { type: "text/html" })), w = null;
-    w = E.openPrintUrl(url, { delay: 80 });
-    if (!w) { try { var a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener"; a.style.display = "none"; document.body.appendChild(a); a.click(); a.remove(); } catch (e2) {} }
-    setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e3) {} }, 60000);
+      return [isNaN(ms) ? String(r.created_at || "") : mFull(ms), r.user_name || "", areaLabel(r.entity_type), { html: esc(actionName(r.action)) + "<br><small>" + esc(r.action) + "</small>" }, r.entity_id == null ? "" : String(r.entity_id), { html: '<span style="font-size:9.5px">' + esc(det) + "</span>" }];
+    });
+    var nice = function (v) { var a = String(v || "").split("-"); return a.length === 3 ? Number(a[2]) + " " + MON[+a[1] - 1] + " " + a[0] : "…"; };
+    // E.months.print: the pharmacy's name, the period, page numbers, black on white, as every register prints
+    if (E.months && E.months.print) {
+      E.months.print({ register: "Audit trail", period: (S.from || S.to ? nice(S.from) + " to " + nice(S.to) : "All days") + " · Malta time", landscape: true,
+        sections: [{ sub: sub.concat([list.length + (list.length === 1 ? " row" : " rows")]).join(" | "), cols: ["When", "Who", "Area", "Action", "Record", "Details"], rows: rows, empty: "No changes in these days." }] });
+      return;
+    }
+    window.print();
   }
 
   E.registerModule({

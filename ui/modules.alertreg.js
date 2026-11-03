@@ -44,7 +44,11 @@
       ".alr-form .acts{display:flex;gap:8px;padding:10px 16px;justify-content:flex-end}" +
       ".alr-err{color:var(--danger);font-size:13px;padding:2px 16px 4px}" +
       ".alr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
-      "@media (max-width:600px){.alr{padding:4px 16px 0}.alr h1{font-size:32px}}";
+      "@media (max-width:600px){.alr{padding:4px 16px 0}.alr h1{font-size:32px}}" +
+      // Stock group: a 44 px way back, a pressed state on every button, 44 px buttons on a phone, a retry under a failed load.
+      ".alr-back{display:inline-flex;align-items:center;min-height:44px;padding:0 8px 0 0;margin:-8px 0 -2px}.alr-btn:active:not(:disabled){filter:brightness(.9)}" +
+      ".alr-quiet .alr-btn{margin-top:12px;display:block}" +
+      "@media (max-width:600px){.alr-btn,.alr-btn.s{height:44px;border-radius:22px}.alr-chk button{min-height:44px;border-radius:22px}}";
     document.head.appendChild(st);
   }
 
@@ -62,12 +66,12 @@
 
   function cardHtml(e) {
     var closed = e.status === "closed", sub = [];
-    if (e.batch) sub.push("Batch " + e.batch); if (e.expiry) sub.push("Exp " + nice(e.expiry)); if (e.quantity) sub.push("Qty " + e.quantity);
+    if (e.batch) sub.push("Batch " + e.batch); if (e.expiry) sub.push("Expires " + nice(e.expiry)); if (e.quantity) sub.push("Qty " + e.quantity);
     sub.push(e.storage_location === "fridge" ? "Fridge" : "Room"); if (e.supplier) sub.push(e.supplier); sub.push("Recorded " + nice(e.entry_date));
     return '<div class="alr-card' + (e.alert_type === "quarantine" ? " q" : "") + (closed ? " closed" : "") + '"><div class="k">' + (e.alert_type === "quarantine" ? "Quarantine" : "Recall") + (closed ? " · closed" : e.status === "in_progress" ? " · in progress" : "") + "</div>" +
       "<b>" + esc(e.item_name) + '</b><div class="s">' + esc(sub.join(" · ")) + "</div>" + (e.reason ? '<div class="s">' + esc(e.reason) + "</div>" : "") +
       '<div class="alr-chk">' + CHECK.map(function (c) { return '<button class="' + (on(e, c[0]) ? "on" : "") + '" data-act="tick" data-id="' + e.id + '" data-k="' + c[0] + '" aria-pressed="' + on(e, c[0]) + '"' + (S.busy[e.id] || closed ? " disabled" : "") + ">" + (on(e, c[0]) ? "✓ " : "") + c[1] + "</button>"; }).join("") + "</div>" +
-      (closed ? "" : '<div class="alr-foot"><button class="alr-btn" data-act="close" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ">Close alert</button></div>") + "</div>";
+      (closed ? "" : '<div class="alr-foot"><button class="alr-btn' + (CHECK.every(function (c) { return on(e, c[0]); }) ? " p" : "") + '" data-act="close" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ">Close alert</button></div>") + "</div>";
   }
 
   // Every alert recorded in a month (any month), and the classic printout of it.
@@ -88,7 +92,7 @@
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "alertreg") return; // left before a reply came back: do not draw over the next screen
-    var h = '<div class="alr"><button class="alr-back" data-act="back">‹ Stock</button>' +
+    var h = '<div class="alr"><button class="alr-back" data-act="back">' + esc(E.ui2BackLabel("alertreg")) + '</button>' +
       '<div class="alr-top"><div><h1>Alerts</h1><p class="alr-sub">Recalls and quarantines, with each step ticked off.</p></div>' + (S.adding ? "" : '<button class="alr-btn p" data-act="add">Record an alert</button>') + "</div>";
     if (S.adding) {
       var a = S.adding;
@@ -100,11 +104,11 @@
         '<label><span>Why</span><input name="reason" value="' + esc(a.reason || "") + '" placeholder="e.g. Manufacturer recall notice"></label>' +
         '<label><span>Kept in</span><select name="storage_location"><option value="room">Room</option><option value="fridge"' + (a.storage_location === "fridge" ? " selected" : "") + ">Fridge</option></select></label>" +
         '<label><span>Supplier</span><input name="supplier" value="' + esc(a.supplier || "") + '" placeholder="Optional"></label>' +
-        (S.err ? '<div class="alr-err">' + esc(S.err) + "</div>" : "") +
+        (S.err ? '<div class="alr-err" role="alert">' + esc(S.err) + "</div>" : "") +
         '<div class="acts"><button type="button" class="alr-btn" data-act="add-cancel">Cancel</button><button type="submit" class="alr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div></form>";
     }
     if (S.loading && !S.entries.length) h += '<div class="alr-quiet">Opening alerts…</div>';
-    else if (S.error) h += '<div class="alr-quiet">' + esc(S.error) + "</div>";
+    else if (S.error) h += '<div class="alr-quiet" role="alert">' + esc(S.error) + '<button class="alr-btn" data-act="retry">Try again</button></div>';
     else {
       var open = S.entries.filter(function (e) { return e.status !== "closed"; }), closed = S.entries.filter(function (e) { return e.status === "closed"; });
       h += open.length ? '<div class="alr-lab">Open <b>' + open.length + "</b></div>" + open.map(cardHtml).join("") : '<div class="alr-quiet">No open alerts. When a recall comes in, record it here and tick off each step.</div>';
@@ -114,22 +118,31 @@
     h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Changing an alert’s details, notes and deleting are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
     m.innerHTML = h;
     E.months.wireHistory(m, "alertreg");
+    applyRefocus();
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
-        if (a === "back") window.location.hash = "#stock";
-        else if (a === "add") { S.adding = {}; S.err = ""; paint(); }
-        else if (a === "add-cancel") { S.adding = null; S.err = ""; paint(); }
-        else if (a === "tick") save(id, function (body) { body[b.getAttribute("data-k")] = on(body, b.getAttribute("data-k")) ? 0 : 1; });
+        if (a === "back") window.location.hash = E.ui2BackHash("alertreg");
+        else if (a === "retry") load();
+        else if (a === "add") { S.adding = {}; S.err = ""; paint(); focusSoon("#alr-add [name=item_name]"); }
+        else if (a === "add-cancel") { S.adding = null; S.err = ""; paint(); focusSoon('[data-act="add"]'); }
+        else if (a === "tick") save(id, function (body) { body[b.getAttribute("data-k")] = on(body, b.getAttribute("data-k")) ? 0 : 1; }, "", b.getAttribute("data-k"));
         else if (a === "close") { if (window.confirm("Close this alert? It moves to Closed.")) save(id, function (body) { body.status = "closed"; }, "Alert closed"); }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "alertreg"); } catch (e) {} E.openClassic("alerts"); }
       });
     });
     var f = m.querySelector("#alr-add"); if (f) f.addEventListener("submit", function (ev) { ev.preventDefault(); add(f); });
+    // Escape closes the open form (what is typed in it is dropped, as with Cancel) and puts you back where you were.
+    m.querySelectorAll("form").forEach(function (f) { f.addEventListener("keydown", function (ev) { if (ev.key !== "Escape") return; var c = f.querySelector('[data-act$="-cancel"]'); if (c) { ev.preventDefault(); c.click(); } }); });
   }
+  function focusSoon(sel) { setTimeout(function () { var f = S.mount && S.mount.querySelector(sel); if (f) f.focus(); }, 30); }
 
+  // After a one-tap save the list is redrawn: a keyboard user stays on that item (the same button, or the one now in its place).
+  // Later redraws (the month list arriving) keep it there for a few seconds, unless focus has moved on by then.
+  function refocus(sel) { S.refocus = { sel: sel, until: Date.now() + 4000 }; applyRefocus(); }
+  function applyRefocus() { var r = S.refocus, a = document.activeElement; if (!r || Date.now() > r.until || !S.mount || (a && a !== document.body)) return; var b = null; r.sel.forEach(function (q) { if (!b && q) b = S.mount.querySelector(q); }); if (b && !b.disabled) b.focus(); }
   // Sends the whole record back as read, with only the change made by `change`.
-  async function save(id, change, okText) {
+  async function save(id, change, okText, key) {
     var e = S.entries.find(function (x) { return x.id === id; }); if (!e || S.busy[id]) return;
     var body = {}; FIELDS.forEach(function (k) { body[k] = e[k] == null ? "" : e[k]; });
     change(body);
@@ -139,7 +152,7 @@
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       if (okText) E.toast(okText, "success");
     } catch (x) { E.toast(E.saveFailText(x), "error"); }
-    S.busy[id] = false; return load();
+    S.busy[id] = false; await load(); refocus([key ? '[data-act="tick"][data-id="' + id + '"][data-k="' + key + '"]' : "", '[data-act="close"][data-id="' + id + '"]']);
   }
 
   async function add(f) {

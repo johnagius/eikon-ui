@@ -77,7 +77,7 @@
       ".ord h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.ord-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
       ".ord-btn{font:inherit;font-size:14px;font-weight:600;height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
       ".ord-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.ord-btn:disabled{opacity:.55;cursor:default}" +
-      ".ord-q{width:100%;height:40px;border-radius:12px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font:inherit;font-size:15px;padding:0 12px;outline:0;margin-top:16px}" +
+      ".ord-q{width:100%;box-sizing:border-box;height:40px;border-radius:12px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font:inherit;font-size:16px;padding:0 12px;outline:0;margin-top:16px}" +
       ".ord-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 2px 7px;display:flex;gap:8px}.ord-lab b{color:var(--text)}" +
       ".ord-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".ord-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:.5px solid var(--border);border-left:3px solid transparent}.ord-row:first-child{border-top:0}" +
@@ -104,7 +104,19 @@
       ".ord:has(.ord-lab~.ord-lab)>*{grid-column:1/-1}.ord:has(.ord-lab~.ord-lab)>.ord-lab,.ord:has(.ord-lab~.ord-lab)>.ord-list,.ord:has(.ord-lab~.ord-lab)>.ord-quiet:has(+.ord-lab){grid-column:1}" +
       ".ord:has(.ord-lab~.ord-lab)>:is(.ord-list,.ord-quiet)~.ord-lab,.ord:has(.ord-lab~.ord-lab)>:is(.ord-list,.ord-quiet)~.ord-lab+.ord-list{grid-column:2}" +
       ".ord:has(.ord-lab~.ord-lab)>.ord-quiet:has(+.ord-lab){margin-top:0}.ord:has(.ord-lab~.ord-lab)>.ord-back{justify-self:start}}" +
-      "@media (max-width:600px){.ord{padding:4px 16px 0}.ord h1{font-size:32px}.ord-row{flex-wrap:wrap;row-gap:8px}.ord-row .t{flex-basis:100%}.ord-row .ord-btn{margin-left:auto}}";
+      // Quality pass (2026-11-03): sentence-case headings, figures that line up, errors beside their fields, a skeleton
+      // while loading, and 44 px targets on a phone.
+      ".ord-lab{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none}.ord-list,.ord-lab b,.ord-pill{font-variant-numeric:tabular-nums}" +
+      ".ord-form label{flex-wrap:wrap}.ord-ferr{flex-basis:100%;margin:-6px 0 8px 108px;color:var(--danger);font-size:13px;font-weight:500}" +
+      ".ord-hint{color:var(--muted);font-size:13px;white-space:nowrap}" +
+      ".ord-ph{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-basis:100%;padding:8px 10px;border-radius:10px;background:rgba(201,138,18,.10)}.ord-ph label{font-size:14px;font-weight:600}" +
+      ".ord-ph input{flex:1;min-width:140px;height:36px;border:1px solid var(--border);border-radius:10px;background:var(--panel2);color:var(--text);font:inherit;font-size:16px;padding:0 10px}" +
+      ".ord-skel{display:block;height:58px;border-top:.5px solid var(--border);background:linear-gradient(90deg,rgba(118,118,128,.06),rgba(118,118,128,.14),rgba(118,118,128,.06));background-size:200% 100%;animation:ordsk 1.2s linear infinite}.ord-skel:first-child{border-top:0}" +
+      "@keyframes ordsk{to{background-position:-200% 0}}@media (prefers-reduced-motion:reduce){.ord-skel{animation:none}}" +
+      "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .ord-ferr{color:#FF7A72}}" + // 5:1 on the tinted row being typed in
+      ".ord-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
+      "@media (max-width:600px){.ord{padding:4px 16px 0}.ord h1{font-size:32px}.ord-row{flex-wrap:wrap;row-gap:8px}.ord-row .t{flex-basis:100%}.ord-row .ord-btn{margin-left:auto}" +
+      ".ord-btn,.ord-tabs button{height:44px;border-radius:22px}.ord-tabs button{border-radius:9px}.ord-ferr{margin-left:0}.ord-form label>span{flex-basis:88px}.ord-q{height:44px;font-size:16px}.ord-ph input{height:44px}}";
     document.head.appendChild(st);
   }
 
@@ -130,7 +142,7 @@
   async function loadDone(more) {
     if (S.doneLoading) return;
     var back = more ? S.doneBack + PAGE_MONTHS : 0;
-    S.doneLoading = true; S.doneError = ""; if (!more) S.done = []; paint();
+    S.doneLoading = true; S.doneError = ""; paint(); // a refresh keeps the list on screen until the new one is in (no flash)
     var from = shiftMonth(-(back + PAGE_MONTHS - 1)) + "-01", to = shiftMonth(more ? -back + 1 : 1) + "-01";
     try {
       var rows = null;
@@ -140,13 +152,19 @@
         var res = await Promise.all(ms.map(function (mo) { return E.apiFetch("/client-orders/entries?month=" + mo + "&fulfilled=1", { method: "GET" }); }));
         rows = [].concat.apply([], res.map(function (x) { return (x && x.entries) || []; }));
       }
-      var seen = {}; S.done.forEach(function (e) { seen[e.id] = 1; });
-      S.done = S.done.concat(rows.filter(function (e) { return Number(e.fulfilled) && !seen[e.id] && (seen[e.id] = 1); }))
+      var base = more ? S.done : [], seen = {}; base.forEach(function (e) { seen[e.id] = 1; });
+      S.done = base.concat(rows.filter(function (e) { return Number(e.fulfilled) && !seen[e.id] && (seen[e.id] = 1); }))
         .sort(function (a, b) { return String(a.fulfilled_at || a.order_date) < String(b.fulfilled_at || b.order_date) ? 1 : -1; });
       S.doneBack = back;
     } catch (e) { S.doneError = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load orders"); }
     S.doneLoading = false; E.whenFormIdle(S.mount, paint);
   }
+
+  // A field the last save refused: marked, its reason written under it, read out with it (aria-describedby).
+  function inv(map, k) { return map && map[k] ? ' aria-invalid="true" aria-describedby="ord-e-' + k + '"' : ""; }
+  function ferr(map, k) { return map && map[k] ? '<small class="ord-ferr" id="ord-e-' + k + '">' + esc(map[k]) + "</small>" : ""; }
+  // Every problem at once: each field says its own, and one line sums them up for a screen reader.
+  function sumUp(fe, verb) { var ks = Object.keys(fe); return ks.length ? ks.map(function (k) { return fe[k]; }).join(" ") + " Nothing was " + (verb || "saved") + "." : ""; }
 
   function rowHtml(e, done) {
     var need = e.needed_by || e.pick_up_date || e.pickup_date || "", n = need ? daysUntil(need) : 99;
@@ -154,25 +172,31 @@
     var phone = e.client_phone || e.contact || "";
     var sub = []; if (phone) sub.push('<a href="tel:' + esc(String(phone).replace(/\s+/g, "")) + '">' + esc(phone) + "</a>");
     if (e.order_code) sub.push("Code " + esc(e.order_code));
-    if (Number(e.deposit_amount || e.deposit) > 0) sub.push("Deposit €" + esc(e.deposit_amount || e.deposit));
+    if (Number(e.deposit_amount || e.deposit) > 0) sub.push("Deposit €" + esc(money2(e.deposit_amount || e.deposit) || (e.deposit_amount || e.deposit)));
     var fu = FOLLOW.filter(function (f) { return f[0] && f[0] === e.follow_up_status; })[0]; if (fu) sub.push(esc(fu[1]));
     if (e.notes) sub.push(esc(e.notes));
     var pill = done ? "Ready " + when(String(e.fulfilled_at || "").slice(0, 10)) : need ? (n < 0 ? "Late · needed " + when(need) : "Needed " + when(need)) : "No date";
-    var open = S.editing === e.id;
-    var h = '<div class="ord-row ' + cls + (Number(e.priority) === 1 && !done ? " hi" : "") + '"><div class="t"><button type="button" class="ord-name" data-act="open" data-id="' + e.id + '" aria-expanded="' + (open ? "true" : "false") + '" aria-label="' + esc("Open the order for " + e.client_name) + '"><b>' + esc(e.client_name) + '</b><div class="it">' + esc(e.items_text || e.items || "") + "</div></button><span>" + sub.join(" · ") + "</span></div>" +
-      '<span class="ord-pill ' + (done ? "done" : cls) + '">' + esc(pill) + "</span>" +
-      (done ? '<button class="ord-btn" data-act="unready" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ">" + (S.busy[e.id] ? "Saving…" : "Not ready") + "</button>"
-        : '<button class="ord-btn p" data-act="ready" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ">" + (S.busy[e.id] ? "Saving…" : "Ready") + "</button>") + "</div>";
+    var open = S.editing === e.id, ask = S.askPhone === e.id;
+    var btn = ask ? "" : done ? '<button class="ord-btn" data-act="unready" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ' aria-label="' + esc("Not ready: " + e.client_name + "'s order is waiting again") + '">' + (S.busy[e.id] ? "Saving…" : "Not ready") + "</button>"
+      : '<button class="ord-btn p" data-act="ready" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ' aria-label="' + esc("Ready: " + e.client_name + "'s order is in") + '">' + (S.busy[e.id] ? "Saving…" : "Ready") + "</button>";
+    var h = '<div class="ord-row ' + cls + (Number(e.priority) === 1 && !done ? " hi" : "") + '"' + (ask ? ' style="flex-wrap:wrap"' : "") + '><div class="t"><button type="button" class="ord-name" data-act="open" data-id="' + e.id + '" aria-expanded="' + (open ? "true" : "false") + '" aria-label="' + esc("Open the order for " + e.client_name) + '"><b>' + esc(e.client_name) + '</b><div class="it">' + esc(e.items_text || e.items || "") + "</div></button><span>" + sub.join(" · ") + "</span></div>" +
+      '<span class="ord-pill ' + (done ? "done" : cls) + '">' + esc(pill) + "</span>" + btn;
+    // An order saved without a phone cannot be changed (the server needs one): the phone is asked for here, in the row.
+    if (ask) h += '<form class="ord-ph" id="ord-ph" data-id="' + e.id + '" autocomplete="off"><label for="ord-ph-in">Phone, to mark it ' + (S.askOn ? "ready" : "waiting") + '</label>' +
+      '<input id="ord-ph-in" name="ph" type="tel" inputmode="tel" value="' + esc(S.phDraft || "") + '"' + (S.phErr ? ' aria-invalid="true" aria-describedby="ord-ph-err"' : "") + ">" +
+      '<button type="submit" class="ord-btn p"' + (S.busy[e.id] ? " disabled" : "") + ">" + (S.askOn ? "Mark ready" : "Not ready") + '</button><button type="button" class="ord-btn" data-act="ph-cancel">Cancel</button>' +
+      (S.phErr ? '<small class="ord-ferr" id="ord-ph-err" role="alert" style="margin:0">' + esc(S.phErr) + "</small>" : "") + "</form>";
+    h += "</div>";
     if (open) h += editHtml(e);
     return h;
   }
 
   function editHtml(e) {
-    var a = S.edit || {}, f = function (k, label, extra) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] == null ? "" : a[k]) + '"' + (extra || "") + "></label>"; };
+    var a = S.edit || {}, fe = S.efe || {}, f = function (k, label, extra) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] == null ? "" : a[k]) + '"' + (extra || "") + inv(fe, k) + ">" + ferr(fe, k) + "</label>"; };
     var h = '<div class="ord-ed"><form class="ord-form" id="ord-edit" autocomplete="off" aria-label="' + esc("Change the order for " + e.client_name) + '">' +
-      f("client_name", "Customer", ' placeholder="Name and surname"') + f("contact", "Phone", ' type="tel" placeholder="Needed to save a change"') + f("alternate", "Other phone", ' type="tel" placeholder="Optional"') +
-      f("email", "Email", ' type="email" placeholder="Optional"') + f("address", "Address", ' placeholder="Optional"') +
-      '<label><span>Items</span><textarea name="items" rows="2">' + esc(a.items || "") + "</textarea></label>" +
+      f("client_name", "Customer", ' placeholder="Name and surname"') + f("contact", "Phone", ' type="tel" inputmode="tel" placeholder="Needed to save a change"') + f("alternate", "Other phone", ' type="tel" inputmode="tel" placeholder="Optional"') +
+      f("email", "Email", ' type="email" inputmode="email" autocapitalize="off" placeholder="Optional"') + f("address", "Address", ' placeholder="Optional"') +
+      '<label><span>Items</span><textarea name="items" rows="2"' + inv(fe, "items") + ">" + esc(a.items || "") + "</textarea>" + ferr(fe, "items") + "</label>" +
       f("order_date", "Ordered", ' type="date"') + f("needed_by", "Needed by", ' type="date"') + f("pick_up_date", "Pick up", ' type="date"') + f("deposit", "Deposit €", ' inputmode="decimal" placeholder="Optional"') +
       '<label><span>Priority</span><select name="priority"><option value="1"' + (String(a.priority) === "1" ? " selected" : "") + '>Urgent</option><option value="2"' + (String(a.priority) === "2" ? " selected" : "") + '>Normal</option><option value="3"' + (String(a.priority) === "3" ? " selected" : "") + ">Low</option></select></label>" +
       '<label><span>Follow-up</span><select name="follow_up_status">' + FOLLOW.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === (a.follow_up_status || "") ? " selected" : "") + ">" + esc(o[1]) + "</option>"; }).join("") + "</select></label>" +
@@ -190,95 +214,154 @@
     return h + "</form></div>";
   }
 
-  function keepEdit() { // what is typed in the open order survives a redraw
+  function keepEdit() { // what is typed in the open order (and in a phone asked for in a row) survives a redraw
+    var ph = S.mount && S.mount.querySelector("#ord-ph-in"); if (ph) S.phDraft = String(ph.value || "");
     var f = S.mount && S.mount.querySelector("#ord-edit"); if (!f || !S.edit) return;
     EDIT.forEach(function (k) { var el = f.querySelector("[name=" + k + "]"); if (el) S.edit[k] = String(el.value || ""); });
     var r = f.querySelector("[name=del_reason]"); if (r) S.delReason = String(r.value || "");
+  }
+  function keepAdd() { // and in the new order
+    var f = S.mount && S.mount.querySelector("#ord-add"); if (!f || !S.adding) return;
+    ["client_name", "id_card", "contact", "items", "needed_by", "pick_up_date", "deposit", "priority", "notes"].forEach(function (k) { var el = f.querySelector("[name=" + k + "]"); if (el) S.adding[k] = String(el.value || ""); });
+  }
+
+  function addHtml() {
+    var a = S.adding, fe = S.fe || {};
+    var f = function (k, label, extra, after) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] || "") + '"' + (extra || "") + inv(fe, k) + ">" + (after || "") + ferr(fe, k) + "</label>"; };
+    return '<form class="ord-form" id="ord-add" autocomplete="off" aria-label="New order">' +
+      f("client_name", "Customer", ' placeholder="Name and surname" autocapitalize="words"') +
+      // not part of the order (the orders table has no ID card): it is checked against the person and kept on their details
+      f("id_card", "ID card", ' placeholder="Optional, kept on their details" autocapitalize="characters"') +
+      f("contact", "Phone", ' type="tel" inputmode="tel" placeholder="To call when it is in"') +
+      f("items", "Items", ' placeholder="e.g. Augmentin 625 x14"') +
+      f("needed_by", "Needed by", ' type="date" min="' + esc(today()) + '"') +
+      f("pick_up_date", "Pick up", ' type="date" min="' + esc(today()) + '" aria-describedby="ord-pu-hint"', '<span class="ord-hint" id="ord-pu-hint">Empty: same day</span>') +
+      f("deposit", "Deposit €", ' inputmode="decimal" placeholder="Optional"') +
+      '<label><span>Priority</span><select name="priority"><option value="2">Normal</option><option value="1"' + (String(a.priority) === "1" ? " selected" : "") + '>Urgent</option><option value="3"' + (String(a.priority) === "3" ? " selected" : "") + ">Low</option></select></label>" +
+      f("notes", "Notes", ' placeholder="Optional"') +
+      (S.err ? '<div class="ord-err" role="alert">' + esc(S.err) + "</div>" : "") +
+      '<div class="acts"><button type="button" class="ord-btn" data-act="add-cancel">Cancel</button><button type="submit" class="ord-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Add order") + "</button></div></form>";
+  }
+
+  function matchOf() { var q = S.q.trim().toLowerCase(); return function (e) { return !q || [e.client_name, e.items_text, e.items, e.client_phone, e.contact, e.notes, e.order_code].some(function (v) { return String(v || "").toLowerCase().indexOf(q) >= 0; }); }; }
+  function skel(what) { return '<div class="ord-list" aria-busy="true" style="margin-top:16px"><span class="ord-sr" role="status">Opening ' + what + '</span><i class="ord-skel"></i><i class="ord-skel"></i><i class="ord-skel"></i></div>'; }
+  function trouble(msg) { return '<div class="ord-quiet" role="alert">' + esc(msg) + ' <button type="button" class="ord-btn" data-act="retry" style="margin-left:6px">Try again</button></div>'; }
+
+  // The lists (what a search changes): redrawn on their own while typing, so the search box is never rebuilt.
+  function resultsHtml() {
+    var h = "", q = S.q.trim(), match = matchOf();
+    if (S.view === "done") {
+      var dn = S.done.filter(match);
+      if (S.doneLoading && !S.done.length) h += skel("orders made ready");
+      else if (S.doneError && !S.done.length) h += trouble(S.doneError);
+      else {
+        var since = shiftMonth(-(S.doneBack + PAGE_MONTHS - 1));
+        h += dn.length ? '<div class="ord-lab">Ready · ordered since ' + esc(MON[Number(since.slice(5)) - 1] + " " + since.slice(0, 4)) + " <b>" + dn.length + '</b></div><div class="ord-list">' + dn.map(function (e) { return rowHtml(e, true); }).join("") + "</div>"
+          : '<div class="ord-quiet">' + (q ? "No order done matches “" + esc(q) + "” in these months." : "No order was made ready in these months.") + "</div>";
+        if (S.doneError) h += '<div class="ord-err" role="alert">' + esc(S.doneError) + "</div>";
+        if (S.doneBack + PAGE_MONTHS < 48) h += '<div class="ord-more"><button class="ord-btn" data-act="older"' + (S.doneLoading ? " disabled" : "") + ">" + (S.doneLoading ? "Opening…" : "Older orders") + "</button></div>";
+      }
+      return h;
+    }
+    var open = S.entries.filter(function (e) { return !Number(e.fulfilled) && match(e); }).sort(function (a, b) { return String(a.needed_by || "9") < String(b.needed_by || "9") ? -1 : String(a.needed_by || "9") > String(b.needed_by || "9") ? 1 : Number(a.priority) - Number(b.priority); });
+    var week = ymd(new Date(Date.now() - 7 * 86400000));
+    var done = S.entries.filter(function (e) { return Number(e.fulfilled) && String(e.fulfilled_at || "").slice(0, 10) >= week && match(e); }).sort(function (a, b) { return String(a.fulfilled_at) < String(b.fulfilled_at) ? 1 : -1; });
+    if (S.loading && !S.entries.length) return skel("orders");
+    if (S.error) return trouble(S.error);
+    var late = open.filter(function (e) { return e.needed_by && daysUntil(e.needed_by) < 0; }).length;
+    h += open.length ? '<div class="ord-lab">Waiting <b>' + open.length + "</b>" + (late ? '<span style="color:var(--danger)">· ' + late + " late</span>" : "") + '</div><div class="ord-list">' + open.map(function (e) { return rowHtml(e, false); }).join("") + "</div>"
+      : '<div class="ord-quiet">' + (q ? "Nothing waiting matches “" + esc(q) + "”." + (done.length ? "" : " Try a shorter part of the name, or the phone number.") : "No customer is waiting for an order. When someone asks for something you do not have, press New order.") + "</div>";
+    if (done.length) h += '<div class="ord-lab">Ready in the last week <b>' + done.length + '</b></div><div class="ord-list">' + done.map(function (e) { return rowHtml(e, true); }).join("") + "</div>";
+    return h;
+  }
+
+  function html() {
+    var h = '<div class="ord"><button class="ord-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("ordreg") : "‹ Customers") + "</button>" +
+      '<div class="ord-top"><div><h1>Orders</h1><p class="ord-sub">What customers are waiting for, by when they need it.</p></div>' + (S.adding ? "" : '<button class="ord-btn p" data-act="add">New order</button>') + "</div>";
+    if (S.adding) h += addHtml();
+    h += '<div class="ord-tabs" role="group" aria-label="Which orders"><button type="button" data-act="view-open" aria-pressed="' + (S.view === "open") + '">Waiting</button><button type="button" data-act="view-done" aria-pressed="' + (S.view === "done") + '">Done</button></div>';
+    var many = S.view === "done" ? S.done.length > 8 : S.entries.length > 8;
+    if (many || S.q) h += '<input class="ord-q" aria-label="Search orders" id="ord-q" type="search" autocomplete="off" placeholder="Search customer, phone or item" value="' + esc(S.q) + '">';
+    h += '<div id="ord-res">' + resultsHtml() + "</div>";
+    h += E.months.history("ordreg", E.months.preset("orders", { paint: function () { paint(); }, dep: function () { return S.loading ? undefined : S.entries; } })); // every order of a month, and its printout (eikon.months.js)
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Adding orders to the order diary is in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    return h;
   }
 
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "ordreg") return; // left before a reply came back: do not draw over the next screen
-    if (S.edit && !S.editSaving) keepEdit();
-    var h = '<div class="ord"><button class="ord-back" data-act="back">‹ Customers</button>' +
-      '<div class="ord-top"><div><h1>Orders</h1><p class="ord-sub">What customers are waiting for, by when they need it.</p></div>' + (S.adding ? "" : '<button class="ord-btn p" data-act="add">New order</button>') + "</div>";
-    if (S.adding) {
-      var a = S.adding;
-      h += '<form class="ord-form" id="ord-add" autocomplete="off">' +
-        '<label><span>Customer</span><input name="client_name" value="' + esc(a.client_name || "") + '" placeholder="Name and surname"></label>' +
-        // not part of the order (the orders table has no ID card): it is checked against the person and kept on their details
-        '<label><span>ID card</span><input name="id_card" value="' + esc(a.id_card || "") + '" placeholder="Optional, kept on their details" autocapitalize="characters"></label>' +
-        '<label><span>Phone</span><input name="contact" type="tel" value="' + esc(a.contact || "") + '" placeholder="Optional"></label>' +
-        '<label><span>Items</span><input name="items" value="' + esc(a.items || "") + '" placeholder="e.g. Augmentin 625 x14"></label>' +
-        '<label><span>Needed by</span><input name="needed_by" type="date" min="' + esc(today()) + '" value="' + esc(a.needed_by || "") + '"></label>' +
-        '<label><span>Pick up</span><input name="pick_up_date" type="date" min="' + esc(today()) + '" value="' + esc(a.pick_up_date || "") + '"><em style="font-style:normal;color:var(--muted);font-size:13px">Empty: same day</em></label>' +
-        '<label><span>Deposit €</span><input name="deposit" inputmode="decimal" value="' + esc(a.deposit || "") + '" placeholder="Optional"></label>' +
-        '<label><span>Priority</span><select name="priority"><option value="2">Normal</option><option value="1"' + (String(a.priority) === "1" ? " selected" : "") + '>Urgent</option><option value="3"' + (String(a.priority) === "3" ? " selected" : "") + ">Low</option></select></label>" +
-        '<label><span>Notes</span><input name="notes" value="' + esc(a.notes || "") + '" placeholder="Optional"></label>' +
-        (S.err ? '<div class="ord-err">' + esc(S.err) + "</div>" : "") +
-        '<div class="acts"><button type="button" class="ord-btn" data-act="add-cancel">Cancel</button><button type="submit" class="ord-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Add order") + "</button></div></form>";
-    }
-    var q = S.q.trim().toLowerCase(), match = function (e) { return !q || [e.client_name, e.items_text, e.items, e.client_phone, e.contact, e.notes, e.order_code].some(function (v) { return String(v || "").toLowerCase().indexOf(q) >= 0; }); };
-    h += '<div class="ord-tabs" role="group" aria-label="Which orders"><button type="button" data-act="view-open" aria-pressed="' + (S.view === "open") + '">Waiting</button><button type="button" data-act="view-done" aria-pressed="' + (S.view === "done") + '">Done</button></div>';
-    if (S.view === "done") {
-      var dn = S.done.filter(match);
-      if (S.done.length > 8 || S.q) h += '<input class="ord-q" aria-label="Search orders" id="ord-q" type="search" placeholder="Search customer, phone or item" value="' + esc(S.q) + '">';
-      if (S.doneLoading && !S.done.length) h += '<div class="ord-quiet">Opening orders…</div>';
-      else if (S.doneError && !S.done.length) h += '<div class="ord-quiet">' + esc(S.doneError) + "</div>";
-      else {
-        h += dn.length ? '<div class="ord-lab">Ready · ordered since ' + esc(MON[Number(shiftMonth(-(S.doneBack + PAGE_MONTHS - 1)).slice(5)) - 1] + " " + shiftMonth(-(S.doneBack + PAGE_MONTHS - 1)).slice(0, 4)) + " <b>" + dn.length + '</b></div><div class="ord-list">' + dn.map(function (e) { return rowHtml(e, true); }).join("") + "</div>"
-          : '<div class="ord-quiet">' + (q ? "No order done matches “" + esc(S.q) + "” in these months." : "No order was made ready in these months.") + "</div>";
-        if (S.doneError) h += '<div class="ord-err" role="alert">' + esc(S.doneError) + "</div>";
-        if (S.doneBack + PAGE_MONTHS < 48) h += '<div class="ord-more"><button class="ord-btn" data-act="older"' + (S.doneLoading ? " disabled" : "") + ">" + (S.doneLoading ? "Opening…" : "Older orders") + "</button></div>";
-      }
-    } else {
-      var open = S.entries.filter(function (e) { return !Number(e.fulfilled) && match(e); }).sort(function (a, b) { return String(a.needed_by || "9") < String(b.needed_by || "9") ? -1 : String(a.needed_by || "9") > String(b.needed_by || "9") ? 1 : Number(a.priority) - Number(b.priority); });
-      var week = ymd(new Date(Date.now() - 7 * 86400000));
-      var done = S.entries.filter(function (e) { return Number(e.fulfilled) && String(e.fulfilled_at || "").slice(0, 10) >= week && match(e); }).sort(function (a, b) { return String(a.fulfilled_at) < String(b.fulfilled_at) ? 1 : -1; });
-      if (S.entries.length > 8 || S.q) h += '<input class="ord-q" aria-label="Search orders" id="ord-q" type="search" placeholder="Search customer, phone or item" value="' + esc(S.q) + '">';
-      if (S.loading && !S.entries.length) h += '<div class="ord-quiet">Opening orders…</div>';
-      else if (S.error) h += '<div class="ord-quiet">' + esc(S.error) + "</div>";
-      else {
-        h += open.length ? '<div class="ord-lab">Waiting <b>' + open.length + '</b></div><div class="ord-list">' + open.map(function (e) { return rowHtml(e, false); }).join("") + "</div>" : '<div class="ord-quiet">' + (q ? "Nothing waiting matches “" + esc(S.q) + "”." : "No customer is waiting for an order.") + "</div>";
-        if (done.length) h += '<div class="ord-lab">Ready in the last week <b>' + done.length + '</b></div><div class="ord-list">' + done.map(function (e) { return rowHtml(e, true); }).join("") + "</div>";
-      }
-    }
-    h += E.months.history("ordreg", E.months.preset("orders", { paint: function () { paint(); }, dep: function () { return S.loading ? undefined : S.entries; } })); // every order of a month, and its printout (eikon.months.js)
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Adding orders to the order diary is in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    if (!S.editSaving) keepEdit();
+    if (!S.saving) keepAdd();
     var ae = document.activeElement, backTo = ae && m.contains(ae) && ae.closest && ae.closest("#ord-edit") && ae.name ? ae.name : "";
-    m.innerHTML = h;
+    m.innerHTML = html();
     E.months.wireHistory(m, "ordreg");
     if (backTo) { var again = m.querySelector("#ord-edit [name=" + backTo + "]"); if (again) again.focus(); }
-    m.querySelectorAll("[data-act]").forEach(function (b) {
+    bind(m);
+  }
+  // A search: only the lists change.
+  function paintResults() {
+    var m = S.mount, box = m && m.querySelector("#ord-res"); if (!box) return paint();
+    keepEdit(); box.innerHTML = resultsHtml(); bind(box);
+  }
+  function focusOn(sel) { setTimeout(function () { var x = S.mount && S.mount.querySelector(sel); if (x) x.focus(); }, 0); }
+  function addEmpty() { var a = S.adding || {}; return !["client_name", "id_card", "contact", "items", "needed_by", "pick_up_date", "deposit", "notes"].some(function (k) { return String(a[k] || "").trim(); }); }
+  function editUnchanged() { var a = S.edit || {}, o = S.orig || {}; return EDIT.every(function (k) { return String(a[k] == null ? "" : a[k]).trim() === String(o[k] == null ? "" : o[k]).trim(); }); }
+  function closeEdit() { var id = S.editing; S.editing = null; S.edit = null; S.editErr = ""; S.efe = {}; S.del = null; paint(); if (id) focusOn('[data-act=open][data-id="' + id + '"]'); }
+
+  function bind(root) {
+    var m = S.mount;
+    root.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
-        if (a === "back") window.location.hash = "#customers";
-        else if (a === "add") { S.adding = {}; S.err = ""; paint(); setTimeout(function () { var f = m.querySelector("[name=client_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
-        else if (a === "add-cancel") { S.adding = null; S.err = ""; paint(); }
+        if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("ordreg") : "#customers";
+        else if (a === "add") { S.adding = {}; S.err = ""; S.fe = {}; paint(); setTimeout(function () { var f = m.querySelector("#ord-add [name=client_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (a === "add-cancel") { S.adding = null; S.err = ""; S.fe = {}; paint(); focusOn(".ord-top [data-act=add]"); }
         else if (a === "ready") ready(id, true);
         else if (a === "unready") ready(id, false);
+        else if (a === "ph-cancel") { var pid = S.askPhone; S.askPhone = null; S.phErr = ""; S.phDraft = ""; paint(); focusOn('[data-act=' + (S.askOn ? "ready" : "unready") + '][data-id="' + pid + '"]'); }
+        else if (a === "retry") reloadAll();
         else if (a === "open") openEdit(id);
-        else if (a === "edit-cancel") { S.editing = null; S.edit = null; S.editErr = ""; S.del = null; paint(); }
+        else if (a === "edit-cancel") closeEdit();
         else if (a === "del") { keepEdit(); S.del = S.editing; S.delReason = ""; S.editErr = ""; paint(); var r = m.querySelector("#ord-edit [name=del_reason]"); if (r) r.focus(); }
-        else if (a === "del-cancel") { keepEdit(); S.del = null; S.editErr = ""; paint(); }
+        else if (a === "del-cancel") { keepEdit(); S.del = null; S.editErr = ""; paint(); focusOn("#ord-edit [data-act=del]"); }
         else if (a === "del-go") remove();
-        else if (a === "view-open") { S.view = "open"; S.editing = null; S.edit = null; S.del = null; paint(); }
-        else if (a === "view-done") { S.view = "done"; S.editing = null; S.edit = null; S.del = null; if (!S.done.length) loadDone(false); else paint(); }
+        else if (a === "view-open") { S.view = "open"; S.editing = null; S.edit = null; S.del = null; S.askPhone = null; paint(); focusOn("[data-act=view-open]"); }
+        else if (a === "view-done") { S.view = "done"; S.editing = null; S.edit = null; S.del = null; S.askPhone = null; if (!S.done.length) loadDone(false); else paint(); focusOn("[data-act=view-done]"); }
         else if (a === "older") loadDone(true);
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "ordreg"); } catch (e) {} E.openClassic("clientorders"); }
       });
     });
-    var qi = m.querySelector("#ord-q"); if (qi) qi.addEventListener("input", function () { var pos = qi.selectionStart; S.q = qi.value; paint(); var q2 = S.mount.querySelector("#ord-q"); if (q2) { q2.focus(); try { q2.setSelectionRange(pos, pos); } catch (e) {} } });
-    var f = m.querySelector("#ord-add"); if (f) f.addEventListener("submit", function (ev) { ev.preventDefault(); add(f); });
+    var qi = root.querySelector("#ord-q");
+    if (qi) {
+      qi.addEventListener("input", function () { S.q = qi.value; paintResults(); });
+      qi.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && qi.value) { ev.preventDefault(); qi.value = ""; S.q = ""; paintResults(); } });
+    }
+    var f = root.querySelector("#ord-add");
+    if (f) {
+      f.addEventListener("submit", function (ev) { ev.preventDefault(); add(f); });
+      f.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !document.querySelector(".epp-list:not([hidden])")) { keepAdd(); if (addEmpty()) { ev.preventDefault(); S.adding = null; S.err = ""; S.fe = {}; paint(); focusOn(".ord-top [data-act=add]"); } } }); // Escape closes an empty form; typing is never thrown away
+    }
     if (f && E.personPick) E.personPick.attach({ key: "ordreg", form: f, fields: { id: "id_card", name: "client_name", phone: "contact" },
       local: function () { return S.entries.map(function (e) { return { name: e.client_name, phone: e.client_phone || e.contact, address: e.client_address, date: String(e.order_date || "").slice(0, 10), from: "order" }; }); } });
-    var fe = m.querySelector("#ord-edit"); if (fe) fe.addEventListener("submit", function (ev) { ev.preventDefault(); if (S.del) return; saveEdit(); });
+    var fe = root.querySelector("#ord-edit");
+    if (fe) {
+      fe.addEventListener("submit", function (ev) { ev.preventDefault(); if (S.del) return; saveEdit(); });
+      fe.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !S.editSaving) { keepEdit(); if (S.del) { ev.preventDefault(); S.del = null; S.editErr = ""; paint(); focusOn("#ord-edit [data-act=del]"); } else if (editUnchanged()) { ev.preventDefault(); closeEdit(); } } });
+    }
+    var fp = root.querySelector("#ord-ph");
+    if (fp) {
+      fp.addEventListener("submit", function (ev) { ev.preventDefault(); var ph = String((fp.querySelector("#ord-ph-in") || {}).value || "").trim(); if (!ph) { S.phErr = "Write the customer's phone. Nothing was saved."; paint(); focusOn("#ord-ph-in"); return; } ready(Number(fp.getAttribute("data-id")), S.askOn, ph); });
+      fp.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { ev.preventDefault(); var b = fp.querySelector("[data-act=ph-cancel]"); if (b) b.click(); } });
+    }
+    // A field marked wrong is unmarked as soon as it is typed in (no redraw).
+    root.querySelectorAll("form").forEach(function (fm) { fm.addEventListener("input", function (ev) { var el = ev.target; if (el && el.getAttribute && el.getAttribute("aria-invalid") === "true") { el.removeAttribute("aria-invalid"); var n = el.name, map = fm.id === "ord-add" ? S.fe : S.efe; if (map && n) delete map[n]; var s = el.parentNode && el.parentNode.querySelector(".ord-ferr"); if (s) s.remove(); } }); });
   }
 
   function openEdit(id) {
-    if (S.editing === id) { S.editing = null; S.edit = null; S.del = null; S.editErr = ""; return paint(); }
+    if (S.editing === id) { keepEdit(); if (!editUnchanged()) { var sv = S.mount.querySelector("#ord-edit [type=submit]"); if (sv) sv.focus(); return; } return closeEdit(); } // a second tap closes it, unless something was typed
     var e = findOrder(id); if (!e) return;
-    S.editing = id; S.edit = uiOf(e); S.edit.priority = String(S.edit.priority); S.editErr = ""; S.del = null; S.orig = uiOf(e);
+    S.editing = id; S.edit = uiOf(e); S.edit.priority = String(S.edit.priority); S.editErr = ""; S.efe = {}; S.del = null; S.orig = uiOf(e); S.askPhone = null;
     paint(); var f = S.mount.querySelector("#ord-edit [name=client_name]"); if (f) f.focus();
   }
 
@@ -289,16 +372,17 @@
     var id = S.editing, a = S.edit, o = S.orig || {};
     a.deposit = String(a.deposit || "").trim().replace(/^(\d+),(\d{1,2})$/, "$1.$2"); // a decimal comma, as some keyboards type it
     var t = function (k) { return String(a[k] == null ? "" : a[k]).trim(); };
-    S.editErr = "";
-    if (!t("client_name")) S.editErr = "Write the customer's name. Nothing was saved.";
-    else if (!t("contact")) S.editErr = "Write the customer's phone: an order cannot be changed without one. Nothing was saved.";
-    else if (!t("items")) S.editErr = "Write what they ordered. Nothing was saved.";
-    else if (!isYmd(t("order_date"))) S.editErr = "Choose the day it was ordered. Nothing was saved.";
-    else if (!isYmd(t("needed_by"))) S.editErr = "Choose when it is needed. Nothing was saved.";
-    else if (t("pick_up_date") && !isYmd(t("pick_up_date"))) S.editErr = "Choose the pick-up day, or leave it empty. Nothing was saved.";
-    else if (money2(t("deposit")) === null) S.editErr = "The deposit should be an amount, e.g. 20.00. Nothing was saved.";
-    else if (t("email") && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t("email"))) S.editErr = "The email does not look right. Nothing was saved.";
-    if (S.editErr) return paint();
+    var fe = {};
+    if (!t("client_name")) fe.client_name = "Write the customer's name.";
+    if (!t("contact")) fe.contact = "Write the customer's phone: an order cannot be changed without one.";
+    if (t("email") && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t("email"))) fe.email = "Check the email: it should look like name@example.com.";
+    if (!t("items")) fe.items = "Write what they ordered.";
+    if (!isYmd(t("order_date"))) fe.order_date = "Choose the day it was ordered.";
+    if (!isYmd(t("needed_by"))) fe.needed_by = "Choose when it is needed.";
+    if (t("pick_up_date") && !isYmd(t("pick_up_date"))) fe.pick_up_date = "Choose the pick-up day, or leave it empty.";
+    if (money2(t("deposit")) === null) fe.deposit = "Write the deposit as an amount, e.g. 20.00.";
+    S.efe = fe; S.editErr = sumUp(fe);
+    if (S.editErr) { paint(); var k0 = Object.keys(fe)[0]; focusOn("#ord-edit [name=" + k0 + "]"); return; }
     S.editSaving = true; paint();
     var body = null;
     try {
@@ -318,8 +402,8 @@
       if (x && x.network && body && await landed(id, body)) ok();
       else { S.editErr = E.saveFailText(x); S.editSaving = false; return paint(); }
     }
-    function ok() { E.toast(a.client_name + "'s order is saved", "success"); S.editing = null; S.edit = null; S.editSaving = false; S.editErr = ""; }
-    S.editSaving = false; return reloadAll();
+    function ok() { E.toast(a.client_name + "'s order is saved", "success"); S.editing = null; S.edit = null; S.editSaving = false; S.editErr = ""; S.efe = {}; }
+    S.editSaving = false; await reloadAll(); focusOn('[data-act=open][data-id="' + id + '"]');
   }
 
   // Delete (pharmacist only): the reason is written on the order (the classic body), then the order is deleted.
@@ -351,44 +435,48 @@
     S.editSaving = false; return reloadAll();
   }
 
-  function reloadAll() { var p = load(); if (S.view === "done") loadDone(false); return p; }
+  function reloadAll() { var p = load(); return S.view === "done" ? Promise.all([p, loadDone(false)]) : p; }
 
-  async function ready(id, on) {
+  async function ready(id, on, ph) {
     var e = findOrder(id); if (!e || S.busy[id]) return;
     // The server refuses any change to an order without client_phone (creating one does not need it), so an order saved
-    // with no phone, or one whose phone this screen dropped before 3 Nov, could never be marked ready: ask for it and send it.
+    // with no phone, or one whose phone this screen dropped before 3 Nov, could never be marked ready: the row asks for
+    // the phone in place (no pop-up) and sends it with the change.
     var body = { fulfilled: on };
     if (!String(e.client_phone || e.contact || "").trim()) {
-      var ph = String(window.prompt("This order has no phone number, and it cannot be " + (on ? "marked ready" : "changed") + " without one. Customer's phone:", "") || "").trim();
-      if (!ph) return;
+      if (!ph) { S.askPhone = id; S.askOn = on; S.phErr = ""; S.phDraft = ""; paint(); focusOn("#ord-ph-in"); return; }
       body.client_phone = ph; body.contact = ph;
     }
-    S.busy[id] = true; paint();
+    S.busy[id] = true; S.phErr = ""; paint();
     try {
       var r = await E.apiFetch("/client-orders/entries/" + encodeURIComponent(String(id)), { method: "PUT", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      E.toast(on ? e.client_name + "'s order is ready" : e.client_name + "'s order is waiting again", "success");
+      E.toast(on ? e.client_name + "'s order is ready" : e.client_name + "'s order is waiting again", "success"); S.askPhone = null; S.phDraft = "";
     } catch (x) {
       var now = null; if (x && x.network) { try { now = await reread(id, e.order_date); } catch (e2) { now = null; } }
-      if (now && !!Number(now.fulfilled) === on) E.toast(on ? e.client_name + "'s order is ready" : e.client_name + "'s order is waiting again", "success");
-      else E.toast(E.saveFailText(x), "error");
+      if (now && !!Number(now.fulfilled) === on) { E.toast(on ? e.client_name + "'s order is ready" : e.client_name + "'s order is waiting again", "success"); S.askPhone = null; S.phDraft = ""; }
+      else { var why = E.saveFailText(x); if (S.askPhone === id) S.phErr = why; E.toast(why, "error"); }
     }
-    S.busy[id] = false; return reloadAll();
+    S.busy[id] = false; await reloadAll();
+    focusOn('[data-act=open][data-id="' + id + '"]'); // the order keeps the focus, wherever its row went (Waiting or Ready)
   }
 
   async function add(f) {
     if (S.saving) return;
     var v = function (n) { var el = f.querySelector("[name=" + n + "]"); return el ? String(el.value || "").trim() : ""; };
-    var body = { order_date: today(), client_name: v("client_name"), contact: v("contact"), items: v("items"), needed_by: v("needed_by"), pick_up_date: v("pick_up_date") || v("needed_by"), deposit: v("deposit"), priority: Number(v("priority") || 2), notes: v("notes") };
+    var dep = v("deposit").replace(/^(\d+),(\d{1,2})$/, "$1.$2"); // a decimal comma, as some keyboards type it
+    var body = { order_date: today(), client_name: v("client_name"), contact: v("contact"), items: v("items"), needed_by: v("needed_by"), pick_up_date: v("pick_up_date") || v("needed_by"), deposit: dep, priority: Number(v("priority") || 2), notes: v("notes") };
     // The server reads client_phone, pickup_date and deposit_amount; the names above alone were dropped (phone, pick-up date and deposit came back empty).
     body.client_phone = body.contact; body.pickup_date = body.pick_up_date; body.deposit_amount = body.deposit;
     var idc = E.people ? E.people.normIdCard(v("id_card")) : v("id_card");
-    S.adding = Object.assign({}, body, { pick_up_date: v("pick_up_date"), id_card: v("id_card") }); S.err = "";
-    if (!body.client_name) S.err = "Write the customer's name. Nothing was saved.";
-    else if (!body.items) S.err = "Write what they ordered. Nothing was saved.";
-    else if (!/^\d{4}-\d{2}-\d{2}$/.test(body.needed_by)) S.err = "Choose when it is needed. Nothing was saved.";
-    else if (body.deposit && !(Number(body.deposit) >= 0)) S.err = "The deposit should be a number. Nothing was saved.";
-    if (S.err) return paint();
+    S.adding = Object.assign({}, body, { pick_up_date: v("pick_up_date"), id_card: v("id_card"), priority: String(body.priority) }); S.err = "";
+    var fe = {};
+    if (!body.client_name) fe.client_name = "Write the customer's name.";
+    if (!body.items) fe.items = "Write what they ordered.";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(body.needed_by)) fe.needed_by = "Choose when it is needed.";
+    if (body.deposit && !(Number(body.deposit) >= 0)) fe.deposit = "Write the deposit as an amount, e.g. 10.00.";
+    S.fe = fe; S.err = sumUp(fe);
+    if (S.err) { paint(); focusOn("#ord-add [name=" + Object.keys(fe)[0] + "]"); return; }
     // an ID card typed here and the person (E.people.confirmPerson): asked before the order is saved; Go back keeps the form
     var asked = null;
     if (idc && E.people && E.people.confirmPerson) {
@@ -405,16 +493,18 @@
     try {
       var r = await E.apiFetch("/client-orders/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.adding = null; E.toast("Order added for " + body.client_name, "success");
+      S.adding = null; S.fe = {}; E.toast("Order added for " + body.client_name, "success"); S.justAdded = true;
       if (E.linkPerson) E.linkPerson({ name: body.client_name, phone: body.contact, id_card: idc }, "register:orders", asked); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
-    S.saving = false; return load();
+    S.saving = false; await load();
+    if (S.justAdded) { S.justAdded = false; focusOn(".ord-top [data-act=add]"); } // the next order is one key away
   }
 
   E.registerModule({
     id: "ordreg", title: "Orders", order: 3, icon: "◎", ui2Only: true,
     render: function (ctx) {
       S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.editing = null; S.edit = null; S.del = null; S.editErr = ""; S.editSaving = false; S.view = "open"; S.done = [];
+      S.fe = {}; S.efe = {}; S.err = ""; S.askPhone = null; S.phErr = ""; S.phDraft = "";
       // From the search (eikon.search.js): show the order that was chosen or scanned (its code, or the customer's name).
       // That filter is for this visit only: the next visit opens on every order again.
       if (S.qFromSearch) { S.q = ""; S.qFromSearch = false; }

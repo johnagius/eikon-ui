@@ -33,12 +33,14 @@
     st.id = "eikon-tempreg-css";
     st.textContent =
       ".trg{max-width:1100px;margin:0 auto}" +
-      ".trg-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".trg-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;min-height:44px;padding:0;margin:-10px 0 0;cursor:pointer}" +
       ".trg-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}" +
       ".trg h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}" +
       ".trg-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
       ".trg-acts{display:flex;gap:8px;align-items:center}" +
-      ".trg-btn{font:inherit;font-size:14px;font-weight:600;height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer}" +
+      ".trg-btn{font:inherit;font-size:14px;font-weight:600;min-height:44px;padding:0 16px;border-radius:22px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer}.trg-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.trg-btn:active{opacity:.7}" +
+      "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .trg-btn.p{color:#00160E}}" +
+      ".trg-due{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--panel2);border:1px solid var(--border);border-left:4px solid #C98A12;border-radius:14px;padding:12px 16px;margin-top:14px}.trg-due b{font-size:15.5px}.trg-due span{display:block;color:var(--muted);font-size:13px}" +
       ".trg-month{display:flex;align-items:center;gap:6px;margin:14px 0 4px}" +
       ".trg-month b{font-size:17px;min-width:150px;text-align:center}" +
       ".trg-arrow{width:34px;height:34px;border-radius:50%;border:0;background:rgba(118,118,128,.12);color:var(--text);font-size:18px;cursor:pointer}" +
@@ -53,15 +55,15 @@
       ".trg-d i{font-style:normal;font-size:11.5px;color:var(--muted);font-weight:600}" +
       ".trg-d b{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em;display:flex;flex-direction:column;line-height:1.25}" +
       ".trg-d.ok{background:rgba(10,143,106,.08)}" +
-      ".trg-d.bad{background:rgba(215,38,28,.10)}.trg-d.bad b{color:var(--danger)}" +
+      ".trg-d.bad{background:rgba(215,38,28,.10);box-shadow:inset 0 0 0 1.5px var(--danger)}.trg-d.bad b{color:var(--danger)}.trg-d.bad i::after{content:' !';color:var(--danger);font-weight:800}" +
       ".trg-d.miss{background:transparent;border:1px dashed rgba(201,138,18,.6)}.trg-d.miss b{color:var(--warn,#A06A0E);font-weight:500;font-size:12px}" +
-      ".trg-d.future,.trg-d.pad{background:transparent}.trg-d.today{box-shadow:inset 0 0 0 2px var(--accent)}.trg-d.focus{box-shadow:inset 0 0 0 2px var(--danger)}" +
+      ".trg-d.future,.trg-d.pad{background:transparent}.trg-d.today{box-shadow:inset 0 0 0 2px var(--accent)}.trg-d.today.future b{color:var(--muted);font-weight:500;font-size:12px}.trg-d.focus{box-shadow:inset 0 0 0 2px var(--danger)}" +
       ".trg-flag{background:rgba(201,138,18,.12);border:1px solid rgba(201,138,18,.45);border-left:4px solid #C98A12;border-radius:12px;padding:10px 14px;margin-top:14px;font-size:13.5px;line-height:1.45}.trg-flag b{color:var(--warn,#A06A0E)}.trg-flag a{color:var(--accent);font-weight:600}" +
       ".trg-note{font-size:12.5px;color:var(--muted);margin-top:10px}" +
-      ".trg-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
-      ".trg-print,.trg-pmeta{display:none}" +
-      "@media (max-width:600px){.trg{padding:4px 16px 0}.trg h1{font-size:32px}.trg-grid{gap:4px}.trg-d{min-height:50px;padding:5px;border-radius:8px}.trg-d b{font-size:11.5px}.trg-d i{font-size:10.5px}.trg-d.miss b{font-size:10px}.trg-card{padding:14px 12px}}" +
-      "@media print{.eikon-sidebar,.eikon-topbar,.trg-back,.trg-acts,.trg-month,.trg-grid,.trg-wd,.eikon-toast{display:none!important}" +
+      ".trg-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}.trg-quiet .trg-btn{margin-left:8px}" +
+      ".trg-print,.trg-pmeta{display:none}.trg-sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
+      "@media (max-width:600px){.trg{padding:4px 16px 0}.trg h1{font-size:32px}.trg-grid{gap:4px}.trg-d{min-height:50px;padding:5px;border-radius:8px}.trg-d b{font-size:11.5px}.trg-d i{font-size:10.5px}.trg-d.miss b{font-size:10px}.trg-d.today.future b{font-size:10px}.trg-card{padding:14px 12px}}" +
+      "@media print{.eikon-sidebar,.eikon-topbar,.trg-back,.trg-acts,.trg-due,.trg-month,.trg-grid,.trg-wd,.eikon-toast{display:none!important}" +
       ".eikon-content{padding:0!important}.trg-card{border:0;padding:0;break-inside:avoid;margin-top:18px}.trg-pmeta{display:block;font-size:12px;margin:2px 0 0}.trg-print{display:table;width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}" +
       ".trg-print th,.trg-print td{border:1px solid #999;padding:3px 6px;text-align:left}.trg-print td.bad{font-weight:700}}";
     document.head.appendChild(st);
@@ -99,10 +101,11 @@
       } else if (key < today) {
         missed++; cls = "miss"; txt = "Not logged";
         rows += "<tr><td>" + key + "</td><td>–</td><td>–</td><td>Not logged</td></tr>";
-      } else { cls = "future"; txt = ""; }
+      } else { cls = "future"; txt = key === today ? "Not yet" : ""; }
       if (key === today) cls += " today";
       if (S.focus && S.focus.day === key && String(S.focus.device) === String(dv.id)) cls += " focus";
-      cells += '<div class="trg-d ' + cls + '" title="' + esc(key) + '"><i>' + d + "</i><b>" + txt + "</b></div>";
+      var say = d + " " + MONTHS[Number(p[1]) - 1] + ": " + (e ? "minimum " + fmt(e.min_temp) + ", maximum " + fmt(e.max_temp) + " °C" + (outside(e, dv) ? ", outside the limits" : "") + (e.notes ? ". Note: " + e.notes : "") : key < today ? "not logged" : key === today ? "not logged yet today" : "");
+      cells += '<div class="trg-d ' + cls + '" title="' + esc(say) + '"><i aria-hidden="true">' + d + '</i><b aria-hidden="true">' + txt + '</b><span class="trg-sr">' + esc(say) + "</span></div>";
     }
     var sum = "<b>" + logged + "</b> of " + n + " days logged" +
       (bad ? ' · <span class="bad">' + bad + " outside the limits</span>" : " · none outside the limits") +
@@ -125,28 +128,39 @@
       (e.notes ? " Note: " + esc(e.notes) : ' No note yet. <a href="#" data-act="note">Add a note in the classic Temperature screen ›</a>') + "</div>";
   }
 
+  // This month, a fridge or room with nothing logged today: say which, and take them to Today where readings are typed.
+  function dueToday() {
+    if (S.month !== thisMonth() || S.loading || S.error) return "";
+    var today = ymd(new Date()), left = S.devices.filter(function (dv) { return !S.entries.some(function (e) { return Number(e.device_id) === Number(dv.id) && e.entry_date === today; }); });
+    if (!left.length) return "";
+    return '<div class="trg-due"><div><b>' + (left.length === S.devices.length ? "Today is not logged yet" : esc(left.map(function (d) { return d.name; }).join(", ")) + " not logged today") + "</b><span>Readings are typed on Today, in under a minute.</span></div>" +
+      '<button class="trg-btn p" data-act="log">Log today\u2019s readings</button></div>';
+  }
+
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "tempreg") return; // left before the data came back: do not draw over the next screen
     var MB = E.months;
     var h = '<div class="trg">' +
-      '<button class="trg-back" data-act="back">‹ Registers</button>' +
+      '<button class="trg-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("tempreg") : "‹ Registers") + "</button>" +
       '<div class="trg-top"><div><h1>Temperature</h1><p class="trg-sub">Fridges and rooms, every day, against their limits.</p></div>' +
-      '<div class="trg-acts"><button class="trg-btn" data-act="devices">Devices</button></div></div>' +
+      '<div class="trg-acts"><button class="trg-btn" data-act="devices">Fridges and rooms</button></div></div>' +
       '<p class="trg-pmeta">' + esc(((E.state.user || {}).location_name || "") + " · " + monthLabel(S.month) + " · printed " + ymd(new Date())) + "</p>" +
       MB.bar(S.month, { label: "Temperature" });
     if (S.loading && !S.devices.length) h += '<div class="trg-quiet">Opening the register…</div>';
-    else if (S.error) h += '<div class="trg-quiet">' + esc(S.error) + "</div>";
-    else if (!S.devices.length) h += '<div class="trg-quiet">No fridges or rooms are set up yet. Add them under Devices.</div>';
-    else h += focusNote() + (S.month < thisMonth() && !S.entries.length ? '<div class="trg-quiet" data-empty>' + esc(MB.empty(S.month)) + "</div>" : "") +
-      S.devices.map(deviceCard).join("") + '<p class="trg-note">Readings are logged on Today. Each day shows the minimum above the maximum; a dashed day was not logged.</p>';
+    else if (S.error) h += '<div class="trg-quiet" role="alert">' + esc(S.error) + ' <button class="trg-btn" data-act="retry">Try again</button></div>';
+    else if (!S.devices.length) h += '<div class="trg-quiet">No fridges or rooms are set up yet. <button class="trg-btn p" data-act="devices">Add a fridge or room</button></div>';
+    else h += dueToday() + focusNote() + (S.month < thisMonth() && !S.entries.length ? '<div class="trg-quiet" data-empty>' + esc(MB.empty(S.month)) + "</div>" : "") +
+      S.devices.map(deviceCard).join("") + '<p class="trg-note">Each day shows the minimum above the maximum. Red with ! is outside the limits; a dashed day was not logged.</p>';
     h += "</div>";
     m.innerHTML = h;
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act");
         if (a === "note") ev.preventDefault();
-        if (a === "back") window.location.hash = "#registers";
+        if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("tempreg") : "#registers";
+        else if (a === "log") window.location.hash = "#today";
+        else if (a === "retry") load();
         else if (a === "note") { try { sessionStorage.setItem("eikon_ui2_return", "tempreg"); } catch (e) {} E.openClassic("temperature"); }
         else if (a === "devices") { try { sessionStorage.setItem("eikon_ui2_return", "tempreg"); } catch (e) {} E.openClassic("temperature"); }
       });

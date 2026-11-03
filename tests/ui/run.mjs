@@ -861,7 +861,79 @@ const crtErr = await page.evaluate(() => (document.querySelector(".crt-err") || 
 await page.fill("#crt-form [name=certified_person]", "Maria Borg");
 await page.click("#crt-form button[type=submit]"); await page.waitForTimeout(700);
 const crtPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT");
-report("certificates: open in the new layout, overdue first, the person required where needed, one PUT", crt1.hash === "#certreg" && crt1.rail.join() === "registers" && crt1.labs[0] === "Needs attention" && crt1.first === "Thermometer Calibration" && /Overdue 15 days/.test(crt1.pill) && crtPuts0.length === 0 && /who is certified/.test(crtErr) && crtPuts.length === 1 && crtPuts[0].path === "/certificates/items/3" && crtPuts[0].body.certified_person === "Maria Borg" && crtPuts[0].body.interval_months === 36, JSON.stringify({ crt1, crtErr, crtPuts }));
+report("certificates: open in the new layout, overdue first, the person required where needed, one PUT", crt1.hash === "#certreg" && crt1.rail.join() === "registers" && crt1.labs[0] === "Needs attention" && crt1.first === "Thermometer calibration" && /Overdue 15 days/.test(crt1.pill) && crtPuts0.length === 0 && /who is certified/.test(crtErr) && crtPuts.length === 1 && crtPuts[0].path === "/certificates/items/3" && crtPuts[0].body.certified_person === "Maria Borg" && crtPuts[0].body.interval_months === 36, JSON.stringify({ crt1, crtErr, crtPuts }));
+
+// Quality pass (Temperature, Cleaning, Locum, Certificates, Audit): one way back decided in one place; a renewal starts
+// on today's date; Escape closes a form and focus goes back to the button that opened it; every problem shown at once,
+// each field marked; the shared printout (pharmacy, page numbers); the next step on Temperature is one tap.
+try {
+  const stubPrint = () => page.evaluate(() => { window.EIKON.openPrintUrlOrLink = function () { return null; }; window.EIKON.openPrintUrl = function () { return {}; }; });
+  // Certificates
+  await page.goto(base + "&ui=2#certificates");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "certreg" && document.querySelector(".crt-row"), null, { timeout: 15000 });
+  const cq = await page.evaluate(() => ({ back: document.querySelector(".crt-back").textContent, btns: [...document.querySelectorAll(".crt-row [data-act=edit]")].map((b) => b.textContent + "|" + b.getAttribute("aria-label")) }));
+  await page.click('.crt-row[data-id="1"] [data-act=edit]');
+  const cqDate = await page.inputValue("#crt-form [name=last_date]");
+  await page.press("#crt-form [name=last_date]", "Escape"); await page.waitForTimeout(100);
+  const cqEsc = await page.evaluate(() => ({ form: !!document.querySelector("#crt-form"), focus: document.activeElement && document.activeElement.getAttribute("data-id") }));
+  await page.click('.crt-row[data-id="2"] [data-act=edit]');
+  const cqKeep = await page.inputValue("#crt-form [name=last_date]");
+  await page.fill("#crt-form [name=last_date]", ""); await page.fill("#crt-form [name=interval_months]", "0");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("#crt-form button[type=submit]"); await page.waitForTimeout(200);
+  const cqErr = await page.evaluate(() => ({ err: (document.querySelector("#crt-err") || {}).textContent || "", role: (document.querySelector("#crt-err") || { getAttribute() {} }).getAttribute("role"), inv: [...document.querySelectorAll("#crt-form [aria-invalid=true]")].map((e) => e.name), focus: document.activeElement && document.activeElement.name }));
+  const cqPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT");
+  await page.click("#crt-form [data-act=cancel]");
+  await stubPrint(); await page.click(".crt-top [data-act=print]"); await page.waitForTimeout(100);
+  const cqPrint = await page.evaluate(() => { const l = window.EIKON.months.lastPrint || {}; return { reg: l.register, pages: /counter\(pages\)/.test(l.html || ""), title: /Thermometer calibration/.test(l.html || ""), pharm: /Demo|Pharmacy/.test(l.html || "") }; });
+  await page.click(".crt-back"); await page.waitForTimeout(300);
+  const cqBackTo = await page.evaluate(() => location.hash);
+  const today = new Date(); const tYmd = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+  report("certificates quality: back says and goes to Registers (its tab); a renewal starts today, an in-date item keeps its date; Escape closes and refocuses; all errors at once, marked and announced, nothing sent; prints the shared printout",
+    cq.back === "‹ Registers" && cqBackTo === "#registers" && cq.btns.some((b) => /^Record\|Record First aid certificate$/.test(b)) && cq.btns.some((b) => /^Update\|Update Thermometer calibration$/.test(b)) &&
+    cqDate === tYmd && !cqEsc.form && cqEsc.focus === "1" && cqKeep !== tYmd && /^\d{4}-\d{2}-\d{2}$/.test(cqKeep) &&
+    /choose the date/i.test(cqErr.err) && /1 to 120 months/.test(cqErr.err) && cqErr.role === "alert" && cqErr.inv.join() === "last_date" && cqErr.focus === "last_date" && cqPuts.length === 0 &&
+    cqPrint.reg === "Certificates" && cqPrint.pages && cqPrint.title, JSON.stringify({ cq, cqDate, cqEsc, cqKeep, cqErr, cqPuts: cqPuts.length, cqPrint, cqBackTo }));
+
+  // Temperature: today not logged → the way to log it is one tap; an out-of-limits day says so in words too
+  await page.goto(base + "&ui=2#tempreg");
+  await page.waitForFunction(() => document.querySelector(".trg-due"), null, { timeout: 15000 });
+  const tq = await page.evaluate(() => ({ due: (document.querySelector(".trg-due") || {}).textContent || "", back: document.querySelector(".trg-back").textContent, today: (document.querySelector(".trg-d.today .trg-sr") || {}).textContent || "", todayTxt: (document.querySelector(".trg-d.today b") || {}).textContent || "" }));
+  await page.click(".trg-due [data-act=log]"); await page.waitForTimeout(300);
+  const tqTo = await page.evaluate(() => location.hash);
+  report("temperature quality: today not logged shows 'Log today's readings', which opens Today; today's cell says 'Not yet' in words",
+    /Today is not logged yet/.test(tq.due) && tqTo === "#today" && tq.back === "‹ Registers" && /not logged yet today/.test(tq.today) && tq.todayTxt === "Not yet", JSON.stringify({ tq, tqTo }));
+
+  // Cleaning: all problems at once, first one focused; past cleaners offered; Escape closes and refocuses
+  await page.goto(base + "&ui=2#cleanreg");
+  await page.waitForFunction(() => document.querySelector(".clr-status") && !/Opening/.test(document.querySelector(".clr").textContent), null, { timeout: 15000 });
+  await page.click("[data-act=new]"); await page.fill("#clr-form [name=time_in]", "");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("#clr-form button[type=submit]"); await page.waitForTimeout(200);
+  const kq = await page.evaluate(() => ({ err: (document.querySelector("#clr-err") || {}).textContent || "", role: (document.querySelector("#clr-err") || { getAttribute() {} }).getAttribute("role"), inv: [...document.querySelectorAll("#clr-form [aria-invalid=true]")].map((e) => e.name).sort().join(), focus: document.activeElement && document.activeElement.name, names: [...document.querySelectorAll("#clr-names option")].map((o) => o.value) }));
+  await page.press("#clr-form [name=cleaner_name]", "Escape"); await page.waitForTimeout(100);
+  const kqEsc = await page.evaluate(() => ({ form: !!document.querySelector("#clr-form"), focus: document.activeElement && document.activeElement.getAttribute("data-act") }));
+  const kqPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST");
+  report("cleaning quality: every missing field at once, marked and announced, first one focused, nothing sent; past cleaners offered; Escape closes and refocuses",
+    /who cleaned/.test(kq.err) && /time in/.test(kq.err) && kq.role === "alert" && kq.inv === "cleaner_name,time_in" && kq.focus === "cleaner_name" && kq.names.includes("Karl") && !kqEsc.form && kqEsc.focus === "new" && kqPosts.length === 0, JSON.stringify({ kq, kqEsc, kqPosts: kqPosts.length }));
+
+  // Locum: marked fields, Escape
+  await page.goto(base + "&ui=2#locreg");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "locreg" && document.querySelector("[data-act=new]") && !/Opening/.test(document.querySelector(".lcr").textContent), null, { timeout: 15000 });
+  const lqBtn = await page.textContent("[data-act=new]");
+  await page.click("[data-act=new]"); await page.fill("#lcr-form [name=entry_date]", "2099-01-01");
+  await page.click("#lcr-form button[type=submit]"); await page.waitForTimeout(200);
+  const lq = await page.evaluate(() => ({ err: (document.querySelector("#lcr-err") || {}).textContent || "", inv: [...document.querySelectorAll("#lcr-form [aria-invalid=true]")].map((e) => e.name).sort().join(), focus: document.activeElement && document.activeElement.name }));
+  await page.press("#lcr-form [name=locum_full_name]", "Escape"); await page.waitForTimeout(100);
+  const lqEsc = await page.evaluate(() => ({ form: !!document.querySelector("#lcr-form"), focus: document.activeElement && document.activeElement.getAttribute("data-act") }));
+  report("locum quality: 'Record a locum'; missing fields and a future date reported together, each marked; Escape closes and refocuses",
+    lqBtn === "Record a locum" && /the pharmacist/.test(lq.err) && /future/.test(lq.err) && lq.inv === "entry_date,locum_full_name,registration_number" && lq.focus === "locum_full_name" && !lqEsc.form && lqEsc.focus === "new", JSON.stringify({ lqBtn, lq, lqEsc }));
+
+  // Registers hub: the lead says what the page is for
+  await page.goto(base + "&ui=2#registers"); await page.waitForFunction(() => document.querySelector(".hub .lead"), null, { timeout: 15000 });
+  const hq = await page.textContent(".hub .lead");
+  report("registers hub: the lead says the books are filled in and printed here", /fill them in, see what is missing, and print any month/.test(hq), hq);
+} catch (e) { report("quality pass (temperature, cleaning, locum, certificates): ran to the end", false, String(e).slice(0, 300)); }
 
 // Near expiry in the new layout: expired first, being-sent-back last; send back needs a supplier; one POST each.
 await page.goto(base + "&ui=2#stock");
@@ -1034,6 +1106,103 @@ report("deliveries: open in the new layout, overdue first, done hidden; Delivere
   dvb.id_doc_ref === "123456M" && dvb.delivery_method === "Courier" && dvb.priority === 1 && dvb.tracking_number === "TRK9" && dvb.internal_notes === "Call first" && dvb.ticket_ref === "TKT-00007" && dvb.email === "rita@x.com" &&
   JSON.parse(dvb.items)[0].batch_ref === "B7" && JSON.parse(dvb.delivery_log).length === 2 && dvb.cold_chain_required === 1 && dvb.signature_required === 1,
   JSON.stringify({ dl1, dlErr, dlPuts }));
+
+// Customers' registers, quality pass (Orders, Questions, Deliveries, Vaccines, Contacts): every problem in a form at once,
+// each beside its field (aria-invalid + aria-describedby) and summed up in one alert, nothing sent; typing in a field
+// clears its mark; Escape closes an untouched form or line and gives focus back to what opened it (a form with typing
+// stays); a search redraws only the list (the box keeps its node and focus); section headings are not in capitals; the
+// back button comes from the tab the screen belongs to; on a phone the buttons are 44 px tall.
+let qStep = "orders";
+try {
+  const calls = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method !== "GET" && c.path !== "/client-log");
+  const marks = (form) => page.evaluate((f) => ({ inv: [...document.querySelectorAll(f + " [aria-invalid=true]")].map((e) => e.name || e.getAttribute("data-k") + e.getAttribute("data-i")), said: [...document.querySelectorAll(f + " [aria-invalid=true]")].every((e) => { const d = document.getElementById(e.getAttribute("aria-describedby")); return d && d.textContent.length > 5; }), alert: ((document.querySelector(f + " [role=alert]") || {}).textContent || ""), focus: document.activeElement && (document.activeElement.name || document.activeElement.getAttribute("data-k")) }), form);
+  const act = () => page.evaluate(() => { const a = document.activeElement; return a ? (a.getAttribute("data-act") || a.id || a.name || a.tagName) + (a.getAttribute("data-id") ? "#" + a.getAttribute("data-id") : "") : ""; });
+  // Orders
+  await page.goto(base + "&ui=2#clientorders");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector(".ord-row"), null, { timeout: 15000 });
+  const oLook = await page.evaluate(() => ({ back: document.querySelector(".ord-back").textContent, tt: getComputedStyle(document.querySelector(".ord-lab")).textTransform }));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click(".ord-top [data-act=add]"); await page.waitForSelector("#ord-add"); await page.press("#ord-add [name=client_name]", "Escape"); await page.waitForTimeout(100);
+  const oEsc = { form: !!(await page.$("#ord-add")), focus: await act() };
+  await page.click(".ord-top [data-act=add]"); await page.waitForSelector("#ord-add"); await page.fill("#ord-add [name=deposit]", "abc"); await page.press("#ord-add [name=deposit]", "Escape");
+  const oEscTyped = !!(await page.$("#ord-add"));
+  await page.click("#ord-add button[type=submit]"); await page.waitForTimeout(150);
+  const oM = await marks("#ord-add");
+  await page.type("#ord-add [name=client_name]", "B"); const oClr = await page.evaluate(() => document.querySelector("#ord-add [name=client_name]").getAttribute("aria-invalid"));
+  const oPosts = (await calls()).length;
+  await page.click("[data-act=add-cancel]");
+  qStep = "orders search";
+  // search: twelve orders, so the box shows; typing redraws only the list
+  const dS = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+  await page.route("**/client-orders/entries?*", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: Array.from({ length: 12 }, (_, i) => ({ id: 300 + i, order_date: dS(0), client_name: (i % 3 ? "Borg " : "Ħili Ġorġ ") + i, client_phone: "7900" + i, items_text: "Item " + i, priority: 2, needed_by: dS(i - 2), fulfilled: 0 })) }) }));
+  await page.goto(base + "&ui=2#customers"); await page.goto(base + "&ui=2#clientorders"); // a real visit, so the list is read again
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector("#ord-q"), null, { timeout: 15000 });
+  await page.evaluate(() => { document.querySelector("#ord-q").__same = 1; });
+  await page.focus("#ord-q"); await page.keyboard.type("ħili", { delay: 30 });
+  const oQ = await page.evaluate(() => ({ same: document.querySelector("#ord-q").__same === 1, focus: document.activeElement.id, rows: document.querySelectorAll(".ord-row").length, lab: document.querySelector(".ord-lab").textContent }));
+  await page.keyboard.press("Escape"); const oQ2 = await page.evaluate(() => ({ v: document.querySelector("#ord-q").value, rows: document.querySelectorAll(".ord-row").length }));
+  await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(100);
+  const oTap = await page.evaluate(() => Math.min(...[...document.querySelectorAll(".ord-row .ord-btn, .ord-tabs button")].map((b) => b.getBoundingClientRect().height)));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.unroute("**/client-orders/entries?*");
+  qStep = "questions";
+  // Questions
+  await page.goto(base + "&ui=2#tickets");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "tktreg" && document.querySelector(".tkt-card"), null, { timeout: 15000 });
+  const tLook = await page.evaluate(() => ({ back: document.querySelector(".tkt-back").textContent, subs: [...document.querySelectorAll(".tkt-card .s")].map((e) => e.textContent) }));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click(".tkt-top [data-act=add]"); await page.waitForSelector("#tkt-add"); await page.click("#tkt-add button[type=submit]"); await page.waitForTimeout(150);
+  const tM = await marks("#tkt-add");
+  await page.click("[data-act=add-cancel]");
+  await page.click('[data-act=note][data-id="61"]'); await page.waitForSelector("#tkt-note input"); await page.press("#tkt-note input", "Escape"); await page.waitForTimeout(100);
+  const tEsc = { form: !!(await page.$("#tkt-note")), focus: await act() };
+  const tPosts = (await calls()).length;
+  qStep = "deliveries";
+  // Deliveries
+  await page.goto(base + "&ui=2#deliveries");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "dlvreg" && document.querySelector(".dlv-card"), null, { timeout: 15000 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click(".dlv-top [data-act=add]"); await page.waitForSelector("#dlv-add"); await page.click("#dlv-add button[type=submit]"); await page.waitForTimeout(150);
+  const dM = await marks("#dlv-add");
+  await page.click("[data-act=add-cancel]");
+  await page.click('[data-act=fail][data-id="72"]'); await page.waitForSelector("#dlv-fail [name=reason]"); await page.press("#dlv-fail [name=reason]", "Escape"); await page.waitForTimeout(100);
+  const dEsc = { form: !!(await page.$("#dlv-fail")), focus: await act() };
+  const dPosts = (await calls()).length;
+  qStep = "vaccines";
+  // Vaccines
+  await page.goto(base + "&ui=2#vaccines");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "vaxreg" && document.querySelector(".vxr-row"), null, { timeout: 15000 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click(".vxr-top [data-act=add]"); await page.waitForSelector("#vxr-add"); await page.click("[data-act=sec][data-sec=other]"); await page.click("#vxr-add button[type=submit]"); await page.waitForTimeout(150);
+  const vM = await marks("#vxr-add");
+  await page.evaluate(() => { document.querySelector("#vxr-q").__same = 1; }); await page.fill("#vxr-q", "rita"); await page.waitForTimeout(100);
+  const vQ = await page.evaluate(() => ({ same: document.querySelector("#vxr-q").__same === 1, found: (document.querySelector(".vxr-lab") || {}).textContent }));
+  const vPosts = (await calls()).length;
+  qStep = "contacts";
+  // Contacts
+  await page.goto(base + "&ui=2#contacts");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "conreg" && document.querySelector(".con-row"), null, { timeout: 15000 });
+  const cLook = await page.evaluate(() => ({ back: document.querySelector(".con-back").textContent }));
+  await page.evaluate(() => { document.querySelector("#con-q").__same = 1; }); await page.focus("#con-q"); await page.keyboard.type("acta", { delay: 30 });
+  const cQ = await page.evaluate(() => ({ same: document.querySelector("#con-q").__same === 1, focus: document.activeElement.id, rows: [...document.querySelectorAll(".con-open b")].map((b) => b.textContent) }));
+  await page.click('[data-open="suppliers:31"]'); await page.waitForTimeout(100); await page.keyboard.press("Escape"); await page.waitForTimeout(100);
+  const cEsc = await page.evaluate(() => document.activeElement && document.activeElement.getAttribute("data-open"));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click(".con-head [data-act=add]"); await page.waitForSelector("#con-form"); await page.fill("#con-form [name=name]", ""); await page.fill("#con-form [name=email]", "nope"); await page.click("#con-form button[type=submit]"); await page.waitForTimeout(150);
+  const cM = await marks("#con-form");
+  await page.click("#con-form [data-act=form-cancel] >> nth=-1").catch(() => {});
+  const cPosts = (await calls()).length;
+  report("customers' registers, quality pass: every problem at once beside its field and in one alert, nothing sent; Escape closes an untouched form or line and focus goes back to its button (a typed form stays); a search redraws only the list; headings not in capitals; back from the screen's tab; 44 px buttons on a phone",
+    oLook.back === "‹ Customers" && oLook.tt === "none" && !oEsc.form && oEsc.focus === "add" && oEscTyped &&
+    ["client_name", "items", "needed_by", "deposit"].every((k) => oM.inv.includes(k)) && oM.said && /customer's name.*ordered.*needed.*amount.*Nothing was saved/.test(oM.alert) && oM.focus === "client_name" && oClr === null && oPosts === 0 &&
+    oQ.same && oQ.focus === "ord-q" && oQ.rows === 4 && /Waiting 4/.test(oQ.lab) && oQ2.v === "" && oQ2.rows === 12 && oTap >= 44 &&
+    tLook.back === "‹ Customers" && tLook.subs.every((x) => !/Open$/.test(x)) && tLook.subs.some((s) => /In progress/.test(s)) &&
+    tM.inv.join() === "client_name,issue" && tM.said && /name.*asked.*Nothing was saved/.test(tM.alert) && !tEsc.form && tEsc.focus === "note#61" && tPosts === 0 &&
+    dM.inv.join() === "client_name,phone,delivery_address" && dM.said && dM.focus === "client_name" && !dEsc.form && dEsc.focus === "fail#72" && dPosts === 0 &&
+    ["name0", "client_first", "client_last", "phone"].every((k) => vM.inv.includes(k)) && vM.said && /vaccine.*name.*surname.*phone.*Nothing was saved/.test(vM.alert) && vQ.same && /Found 1/.test(vQ.found) && vPosts === 0 &&
+    cLook.back === "‹ Team" && cQ.same && cQ.focus === "con-q" && cQ.rows.join() === "Actavis Malta" && cEsc === "suppliers:31" && cM.inv.join() === "name,email" && cM.said && cM.focus === "name" && cPosts === 0,
+    JSON.stringify({ oLook, oEsc, oEscTyped, oM, oClr, oPosts, oQ, oQ2, oTap, tLook, tM, tEsc, tPosts, dM, dEsc, dPosts, vM, vQ, vPosts, cLook, cQ, cEsc, cM, cPosts }));
+} catch (e) { await page.setViewportSize({ width: 1440, height: 900 }).catch(() => {}); await page.unroute("**/client-orders/entries?*").catch(() => {}); report("customers' registers, quality pass: ran to the end", false, qStep + ": " + String(e).slice(0, 300)); }
 
 // Controlled drugs received in the new layout: one invoice, several lines, one POST per line with the shared supplier and invoice.
 await page.goto(base + "&ui=2#dda-purchases");
@@ -1592,6 +1761,17 @@ try {
     /Only a pharmacist/.test(audStaff) && audStaffCalls === 0,
     JSON.stringify({ audRail, q0: q0.toString(), audCount, audRows, audTop, audSearch, audFocus, audOlder, audF: audF.map(String), audStaff, audStaffCalls }));
 } catch (e) { report("audit trail: ran to the end", false, String(e).slice(0, 300)); }
+// Audit trail print: the shared register printout (pharmacy, period, page numbers, landscape), the rows on screen; back to Settings
+try {
+  await page.evaluate(() => { location.hash = "#settings"; }); await page.waitForTimeout(300); // the page is already on #audit: a goto would not reload
+  await page.evaluate(() => { location.hash = "#audit"; });
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "audreg" && document.querySelector(".aud-row"), null, { timeout: 15000 });
+  await page.evaluate(() => { window.EIKON.openPrintUrlOrLink = function () { return null; }; window.EIKON.months.lastPrint = null; });
+  await page.click(".aud-top [data-act=print]"); await page.waitForTimeout(150);
+  const ap = await page.evaluate(() => { const l = window.EIKON.months.lastPrint || {}, h = l.html || ""; return { reg: l.register, land: /A4 landscape/.test(h), pages: /counter\(pages\)/.test(h), rows: (h.match(/<tbody>[\s\S]*<\/tbody>/) || [""])[0].split("<tr>").length - 1, n: (h.match(/(\d+) rows/) || [])[1], malta: /Malta time/.test(h), back: document.querySelector(".aud-back").textContent, chip: Math.round(document.querySelector(".aud-top [data-act=print]").getBoundingClientRect().height) }; });
+  report("audit trail print: the shared printout, landscape, page numbers, Malta time, one line per row on screen; back says Settings; 44 px buttons",
+    ap.reg === "Audit trail" && ap.land && ap.pages && ap.malta && ap.rows === 100 && ap.n === "100" && ap.back === "‹ Settings" && ap.chip >= 44, JSON.stringify(ap));
+} catch (e) { report("audit trail print: ran to the end", false, String(e).slice(0, 300)); }
 
 // Adverse reactions: the old link opens the new screen under Services; a new report is one PUT with only that report
 // (classic fields, empty deleted_ids); a correction sends the whole report back with only the change (unknown fields kept).
@@ -2054,17 +2234,22 @@ try {
   await page.goto(base + "&ui=2#clientorders");
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector('[data-act=ready][data-id="53"]'), null, { timeout: 15000 });
   await fetch(`http://localhost:${PORT}/__reset`);
-  const asked = [];
-  page.once("dialog", (d) => { asked.push(d.type()); d.dismiss(); });
-  await page.click('[data-act=ready][data-id="53"]'); await page.waitForTimeout(500);
+  // No pop-up any more: the row opens a phone field in place. Cancel sends nothing; an empty phone is refused beside it.
+  const dlgs = []; const onDlg = (d) => { dlgs.push(d.type()); d.dismiss(); }; page.on("dialog", onDlg);
+  await page.click('[data-act=ready][data-id="53"]'); await page.waitForSelector("#ord-ph-in");
+  const askFocus = await page.evaluate(() => document.activeElement && document.activeElement.id);
+  await page.press("#ord-ph-in", "Escape"); await page.waitForTimeout(150);
+  const afterEsc = await page.evaluate(() => ({ form: !!document.querySelector("#ord-ph"), focus: document.activeElement && document.activeElement.getAttribute("data-act") }));
+  await page.click('[data-act=ready][data-id="53"]'); await page.waitForSelector("#ord-ph-in"); await page.click("#ord-ph button[type=submit]"); await page.waitForTimeout(200);
+  const emptyErr = await page.evaluate(() => ({ t: (document.querySelector("#ord-ph-err") || {}).textContent || "", inv: (document.querySelector("#ord-ph-in") || { getAttribute() {} }).getAttribute("aria-invalid") }));
   const putsNone = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT").length;
-  page.once("dialog", (d) => { asked.push(d.type()); d.accept("79112233"); });
-  await page.click('[data-act=ready][data-id="53"]'); await page.waitForTimeout(700);
+  await page.fill("#ord-ph-in", "79112233"); await page.press("#ord-ph-in", "Enter"); await page.waitForTimeout(700);
   const ordNoPh = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT");
+  page.off("dialog", onDlg);
   await page.unroute("**/client-orders/entries?*");
-  report("orders: Ready on an order with no phone asks for it and sends it as client_phone (the server needs one); cancelling sends nothing",
-    asked.join() === "prompt,prompt" && putsNone === 0 && ordNoPh.length === 1 && ordNoPh[0].path === "/client-orders/entries/53" &&
-    JSON.stringify(ordNoPh[0].body) === JSON.stringify({ fulfilled: true, client_phone: "79112233", contact: "79112233" }), JSON.stringify({ asked, putsNone, ordNoPh }));
+  report("orders: Ready on an order with no phone asks for it in the row (no pop-up; Escape closes it and gives focus back; empty is refused beside the field) and sends it as client_phone (the server needs one); cancelling sends nothing",
+    dlgs.length === 0 && askFocus === "ord-ph-in" && !afterEsc.form && afterEsc.focus === "ready" && /phone/.test(emptyErr.t) && emptyErr.inv === "true" && putsNone === 0 && ordNoPh.length === 1 && ordNoPh[0].path === "/client-orders/entries/53" &&
+    JSON.stringify(ordNoPh[0].body) === JSON.stringify({ fulfilled: true, client_phone: "79112233", contact: "79112233" }), JSON.stringify({ dlgs, askFocus, afterEsc, emptyErr, putsNone, ordNoPh }));
 } catch (e) { report("orders: Ready on an order with no phone", false, String(e).slice(0, 300)); }
 // One person across screens (ui/eikon.people.js): the shared normaliser is the worker's own (its two functions are read
 // from cloudflare-worker/code and run side by side); after a register saves, the person is found in GET /people and
@@ -3208,6 +3393,121 @@ try {
     JSON.stringify({ shownI, cI, manI, snoozeI, noFx }));
   report("install offer: no page errors", instErrs.length === 0, instErrs.slice(0, 3).join(" | "));
 } catch (e) { report("install offer: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
+
+// Stock screens, best in class (near expiry, returns, transfers, alerts, order diary, price check, shortages, scarce stock,
+// supplier stock): the way back is the shared one, a shelf check adds item after item, the last supplier is remembered,
+// Escape closes a form and focus comes back, a failed load offers Try again, searching never redraws the box being typed
+// in, a one-tap save keeps a keyboard user's place, and on a phone every button is 44 px with no sideways scroll.
+try {
+  const sx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await sx.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: "window.XLSX={};" }));
+  await sx.route(/cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "application/javascript", body: "" }));
+  await sx.addInitScript(() => { try { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); localStorage.setItem("eikon_install_never", "1"); } catch (e) {} });
+  const sp = await sx.newPage(); const sErr = []; sp.on("pageerror", (e) => sErr.push(e.message));
+  const go = async (h, mod, sel) => { await sp.goto("about:blank"); await sp.goto(base + "&ui=2#" + h); await sp.waitForFunction(([m, s]) => window.EIKON && window.EIKON.state.activeModuleId === m && document.querySelector(s), [mod, sel], { timeout: 15000 }); await sp.waitForTimeout(250); };
+  const posts = async (path) => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === path);
+  const focusIs = () => sp.evaluate(() => { const a = document.activeElement; return a ? (a.getAttribute("data-act") || a.name || a.id || a.tagName) + (a.getAttribute("data-id") ? ":" + a.getAttribute("data-id") : "") : ""; });
+
+  // Near expiry: a shelf check adds item after item; where it was found stays; Escape closes and Add has focus again.
+  await go("nexreg", "nexreg", ".nex-row");
+  const nxBack = (await sp.textContent(".nex-back")).trim();
+  const nxPill = await sp.evaluate(() => [...document.querySelectorAll(".nex-pill")].map((e) => e.textContent));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await sp.click("[data-act=add]"); await sp.fill("#nex-add [name=product_name]", "Ċetirizine 10mg"); await sp.fill("#nex-add [name=expiry_date]", "2027-01-31"); await sp.fill("#nex-add [name=location]", "Shelf Ż4");
+  await sp.click("#nex-add button[type=submit]"); await sp.waitForTimeout(700);
+  const nxAfter = await sp.evaluate(() => { const f = document.querySelector("#nex-add"); return f && { product: f.querySelector("[name=product_name]").value, where: f.querySelector("[name=location]").value, focus: document.activeElement && document.activeElement.name, submit: f.querySelector("[type=submit]").textContent, cancel: f.querySelector("[data-act=add-cancel]").textContent }; });
+  const nxPost = (await posts("/near-expiry/entries"))[0];
+  await sp.keyboard.press("Escape"); await sp.waitForTimeout(150);
+  const nxEsc = { open: !!(await sp.$("#nex-add")), focus: await focusIs() };
+  report("near expiry: the way back is ‹ Stock; pills say “Expired 2 days ago”; after Add the form stays for the next item with Where kept and focus on Product (Add another / Done); the body is as before; Escape closes it and Add has focus",
+    nxBack === "‹ Stock" && nxPill.includes("Expired 2 days ago") && nxAfter && nxAfter.product === "" && nxAfter.where === "Shelf Ż4" && nxAfter.focus === "product_name" && nxAfter.submit === "Add another" && nxAfter.cancel === "Done" &&
+    nxPost && JSON.stringify(nxPost.body) === JSON.stringify({ product_name: "Ċetirizine 10mg", expiry_date: "2027-01-31", location: "Shelf Ż4", notes: "" }) && !nxEsc.open && nxEsc.focus === "add",
+    JSON.stringify({ nxBack, nxPill, nxAfter, nxPost, nxEsc }));
+
+  // Send back: the supplier field has focus; an empty one is refused out loud; the next one starts with the last supplier, selected.
+  await sp.evaluate(() => localStorage.removeItem("eikon_nex_suppliers"));
+  await sp.click('[data-act=ret][data-id="1"]'); await sp.waitForTimeout(120);
+  const rbFocus = await focusIs();
+  await sp.click("#nex-ret button[type=submit]"); await sp.waitForTimeout(150);
+  const rbErr = await sp.evaluate(() => { const e = document.querySelector(".nex-err"); return e ? e.getAttribute("role") + "|" + e.textContent : ""; });
+  await sp.fill("#nex-ret [name=supplier]", "Ħili Pharma"); await sp.click("#nex-ret button[type=submit]"); await sp.waitForTimeout(700);
+  await sp.click('[data-act=ret][data-id="2"]'); await sp.waitForTimeout(120);
+  const rbNext = await sp.evaluate(() => { const i = document.querySelector("#nex-ret [name=supplier]"); return { v: i.value, sel: i.selectionStart === 0 && i.selectionEnd === i.value.length, focus: document.activeElement === i, opts: [...document.querySelectorAll("#nex-sup option")].map((o) => o.value) }; });
+  await sp.keyboard.press("Escape"); await sp.waitForTimeout(150);
+  const rbEsc = await focusIs();
+  report("near expiry, send back: the supplier field has focus; an empty supplier is announced (role=alert); the next one starts with the last supplier, selected, and it is offered in the list; Escape returns to that row's Send back",
+    rbFocus === "supplier" && /^alert\|Write the supplier/.test(rbErr) && rbNext.v === "Ħili Pharma" && rbNext.sel && rbNext.focus && rbNext.opts[0] === "Ħili Pharma" && rbEsc === "ret:2", JSON.stringify({ rbFocus, rbErr, rbNext, rbEsc }));
+
+  // A failed load says so and offers Try again, which loads it.
+  let failsLeft = 2; // the app retries a failed read once by itself
+  await sp.route(/\/near-expiry\/entries$/, (r) => { if (failsLeft > 0 && r.request().method() === "GET") { failsLeft--; return r.abort(); } return r.continue(); });
+  await sp.evaluate(() => { location.hash = "#stock"; }); await sp.waitForTimeout(300);
+  await sp.evaluate(() => { location.hash = "#nexreg"; }); await sp.waitForSelector("[data-act=retry]", { timeout: 15000 });
+  const rtErr = await sp.evaluate(() => { const q = document.querySelector("[data-act=retry]").closest("[role=alert]"); return q ? q.textContent : ""; });
+  await sp.click("[data-act=retry]"); await sp.waitForSelector(".nex-row", { timeout: 15000 });
+  await sp.unroute(/\/near-expiry\/entries$/);
+  report("near expiry: a load that fails is announced with Try again, and Try again brings the list", /server|Try again/.test(rtErr) && !!(await sp.$(".nex-row")), rtErr);
+
+  // Price check: searching filters the quotes without replacing the box or moving the cursor.
+  await go("qtreg", "qtreg", ".qtr-row");
+  await sp.evaluate(() => { document.querySelector("#qtr-q").__mark = 1; });
+  await sp.click("#qtr-q"); await sp.keyboard.type("pnadol"); await sp.keyboard.press("Home"); await sp.keyboard.press("ArrowRight"); await sp.keyboard.type("a"); await sp.waitForTimeout(150);
+  const qs = await sp.evaluate(() => { const q = document.querySelector("#qtr-q"); return { same: q.__mark === 1, v: q.value, caret: q.selectionStart, focus: document.activeElement === q, label: q.getAttribute("aria-label"), rows: document.querySelectorAll(".qtr-row").length }; });
+  report("price check: typing in the search filters the list but never redraws the box (same element, cursor stays mid-word, labelled)", qs.same && qs.v === "panadol" && qs.caret === 2 && qs.focus && qs.label === "Search quotes" && qs.rows > 0, JSON.stringify(qs));
+
+  // Alerts: a keyboard tick keeps your place; with every step ticked, Close alert is the one primary button.
+  await go("alertreg", "alertreg", ".alr-card");
+  await sp.focus('[data-act=tick][data-k="supplier_informed"]'); await sp.keyboard.press("Enter"); await sp.waitForTimeout(700);
+  const alFocus = await sp.evaluate(() => { const a = document.activeElement; return a && a.getAttribute("data-k"); });
+  await sp.route(/\/alerts\/entries$/, (r) => r.request().method() !== "GET" ? r.continue() : r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: [{ id: 41, entry_date: todayYmd, alert_type: "recall", status: "open", item_name: "Losartan 50mg", storage_location: "room", team_informed: 1, supplier_informed: 1, authorities_informed: 1, return_arranged: 1, handed_over: 1, collection_note_received: 1, credit_note_received: 1 }] }) }));
+  await go("alertreg", "alertreg", ".alr-card"); const alClose = await sp.getAttribute('[data-act=close]', "class");
+  await sp.unroute(/\/alerts\/entries$/);
+  report("alerts: a tick made from the keyboard leaves focus on that tick; once every step is ticked, Close alert is the primary button", alFocus === "supplier_informed" && / p\b/.test(alClose || ""), JSON.stringify({ alFocus, alClose }));
+
+  // Returns and the order diary: the same for a step or a status set from the keyboard.
+  await go("retreg", "retreg", ".rtn-row"); await sp.focus('[data-act=step][data-id="11"]'); await sp.keyboard.press("Enter"); await sp.waitForTimeout(800);
+  const rtFocus = await focusIs();
+  await go("odreg", "odreg", ".odr-row"); await sp.focus('[data-st=received][data-id="101"]'); await sp.keyboard.press("Enter"); await sp.waitForTimeout(800);
+  const odFocus = await sp.evaluate(() => (document.activeElement && document.activeElement.getAttribute("data-id")) || "");
+  report("returns and order diary: after a one-tap save made from the keyboard, focus is back on that item", rtFocus === "step:11" && odFocus === "101", JSON.stringify({ rtFocus, odFocus }));
+
+  // Transfers: plain words, the form opens on its first field, Escape gives focus back to Offer an item.
+  await go("trfreg", "trfreg", ".trf-row");
+  const tfWords = await sp.evaluate(() => document.querySelector(".trf").innerText);
+  await sp.click("[data-act=offer]"); await sp.waitForTimeout(120); const tfFocus = await focusIs();
+  const tfMin = await sp.getAttribute("#trf-offer [name=expiry_date]", "min");
+  await sp.keyboard.press("Escape"); await sp.waitForTimeout(150); const tfEsc = await focusIs();
+  report("transfers: “Expires 1 Jan 2027”, not “Exp”; Offer an item opens on Item; the expiry can't be in the past; Escape closes and Offer an item has focus",
+    /Expires \d/.test(tfWords) && !/\bExp \d/.test(tfWords) && tfFocus === "item_description" && tfMin === todayYmd && tfEsc === "offer", JSON.stringify({ tfFocus, tfMin, tfEsc }));
+
+  // Order diary: suppliers already used are offered in the Supplier field.
+  await go("odreg", "odreg", ".odr-row"); await sp.click("[data-act=add]"); await sp.waitForTimeout(200);
+  const odSup = await sp.evaluate(() => ({ list: document.querySelector("#odr-add [name=supplier]").getAttribute("list"), opts: [...document.querySelectorAll("#odr-sups option")].map((o) => o.value) }));
+  report("order diary: the Supplier field offers the suppliers already used", odSup.list === "odr-sups" && odSup.opts.includes("Actavis"), JSON.stringify(odSup));
+
+  // Small buttons in Shortages and Scarce stock keep their own colours (the card's grey sub-line style no longer reaches them).
+  await go("scsreg", "scsreg", ".scs-card");
+  const scCol = await sp.evaluate(() => { const b = document.querySelector(".scs-btn.s.p"); return b ? getComputedStyle(b).color : "none"; });
+  await go("ssreg", "ssreg", ".ssr-card");
+  const ssCol = await sp.evaluate(() => { const b = document.querySelector(".ssr-btn.s"); return b ? [getComputedStyle(b).color, getComputedStyle(b).fontSize] : "none"; });
+  report("scarce stock and shortages: “Ask for some” is white on green (was grey, 1.2:1) and “I can help” keeps the button's text colour and size", scCol === "rgb(255, 255, 255)" && Array.isArray(ssCol) && ssCol[1] === "13px", JSON.stringify({ scCol, ssCol }));
+
+  // Phone: every screen in the group, 44 px buttons and fields, nothing wider than 360 px.
+  await sp.setViewportSize({ width: 390, height: 844 });
+  const phone = {};
+  for (const [h, mod, sel] of [["nexreg", "nexreg", ".nex-row"], ["retreg", "retreg", ".rtn-row"], ["trfreg", "trfreg", ".trf-row"], ["alertreg", "alertreg", ".alr-card"], ["odreg", "odreg", ".odr-row"], ["qtreg", "qtreg", ".qtr-row"], ["ssreg", "ssreg", ".ssr-card"], ["scsreg", "scsreg", ".scs-card"], ["sinreg", "sinreg", ".sin-row"]]) {
+    await go(h, mod, sel);
+    const small = await sp.evaluate(() => [...document.querySelectorAll("#eikon-content :is(button, input:not([type=checkbox]):not([type=hidden]), select)")].filter((e) => e.offsetParent && !e.closest("label")).filter((e) => e.getBoundingClientRect().height < 43.5).map((e) => (e.className || e.tagName) + ":" + Math.round(e.getBoundingClientRect().height)));
+    await sp.setViewportSize({ width: 360, height: 800 }); await sp.waitForTimeout(150);
+    const wide = await sp.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    await sp.setViewportSize({ width: 390, height: 844 });
+    phone[h] = { small: small.slice(0, 4), wide };
+  }
+  const phoneBad = Object.entries(phone).filter(([, v]) => v.small.length || v.wide);
+  report("stock screens on a phone: every button and field is at least 44 px tall and nothing scrolls sideways at 360 px", phoneBad.length === 0, JSON.stringify(phoneBad));
+  report("stock screens: no page errors", sErr.length === 0, sErr.slice(0, 3).join(" | "));
+  await sx.close();
+} catch (e) { report("stock screens: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
 
 await browser.close();
 server.close();

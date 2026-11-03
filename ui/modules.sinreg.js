@@ -101,7 +101,11 @@
       ".sin-det .it .d{min-width:0;overflow-wrap:anywhere}.sin-det .it .d small{display:block;color:var(--muted);font-size:12px}.sin-det .it .c{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.sin-det .it.gone .d b{text-decoration:line-through;font-weight:500}" +
       ".sin-foot{font-size:12.5px;color:var(--muted);margin-top:14px}.sin-foot a{color:var(--accent)}" +
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) :is(.sin-err,.sin-btn.red,.sin-pill.bad){color:#FF7A72}html[data-ui2]:not([data-ui2-visit]) .sin-pill.info{background:rgba(100,181,255,.14);color:#64B5FF}html[data-ui2]:not([data-ui2-visit]) .sin-seg{background:rgba(118,118,128,.24)}html[data-ui2]:not([data-ui2-visit]) .sin-seg button[aria-pressed=true]{background:#636366;color:#fff}html[data-ui2]:not([data-ui2-visit]) .sin-chips button[aria-pressed=true]{background:#fff;border-color:#fff;color:#000}}" +
-      "@media (max-width:600px){.sin{padding:4px 16px 0}.sin h1{font-size:32px}.sin-sel{flex:1 1 100%}}";
+      "@media (max-width:600px){.sin{padding:4px 16px 0}.sin h1{font-size:32px}.sin-sel{flex:1 1 100%}}" +
+      // Stock group: a 44 px way back, a pressed state on every button, 44 px buttons on a phone, a retry under a failed load.
+      ".sin-back{display:inline-flex;align-items:center;min-height:44px;padding:0 8px 0 0;margin:-8px 0 -2px}.sin-btn:active:not(:disabled){filter:brightness(.9)}" +
+      ".sin-quiet .sin-btn{margin-top:12px;display:block}" +
+      "@media (max-width:600px){.sin-btn,.sin-btn.s{height:44px;border-radius:22px}.sin-seg button{height:44px}.sin-seg{padding:2px}.sin-chips button{height:44px;border-radius:22px}.sin-qty{height:44px}.sin-q,.sin-sel{height:44px}.sin-sw{min-height:44px;display:flex;align-items:center}}";
     document.head.appendChild(st);
   }
 
@@ -217,7 +221,7 @@
       (sups.length > 1 ? '<select class="sin-sel" id="sin-sup" aria-label="Supplier"><option value="">All suppliers</option>' + sups.map(function (s) { return '<option value="' + esc(s) + '"' + (S.sup === s ? " selected" : "") + ">" + esc(s) + "</option>"; }).join("") + "</select>" : "") +
       '<label class="sin-sw"><input type="checkbox" id="sin-ins"' + (S.inStock ? " checked" : "") + "> In stock only</label></div>";
     if (S.loading && !S.products.length) return h + '<div class="sin-quiet">Opening supplier stock…</div>';
-    if (S.error) return h + '<div class="sin-quiet">' + esc(S.error) + "</div>";
+    if (S.error) return h + '<div class="sin-quiet" role="alert">' + esc(S.error) + '<button class="sin-btn" data-act="retry">Try again</button></div>';
     if (!S.products.length) return h + '<div class="sin-quiet">No supplier has listed stock on Eikon yet.</div>';
     var rows = S.products.filter(matches);
     if (!rows.length) return h + '<div class="sin-quiet">' + (S.q ? "Nothing matches “" + esc(S.q) + "”." : "Nothing to show with these filters.") + "</div>";
@@ -253,7 +257,7 @@
     var h = '<div class="sin-bar"><input class="sin-q" id="sin-oq" type="search" placeholder="Supplier, order number or item" aria-label="Search your orders" value="' + esc(S.ordQ) + '"></div>' +
       '<div class="sin-bar"><div class="sin-chips" role="group" aria-label="Status">' + [["", "All"], ["pending", "Pending"], ["shipped", "Shipped"], ["received", "Received"]].map(function (c) { return '<button data-act="status" data-st="' + c[0] + '" data-f="st-' + c[0] + '" aria-pressed="' + (S.ordStatus === c[0]) + '">' + c[1] + "</button>"; }).join("") + "</div></div>";
     if (S.ordLoading && !S.orders.length) return h + '<div class="sin-quiet">Opening your orders…</div>';
-    if (S.ordError) return h + '<div class="sin-quiet">' + esc(S.ordError) + "</div>";
+    if (S.ordError) return h + '<div class="sin-quiet" role="alert">' + esc(S.ordError) + '<button class="sin-btn" data-act="retry">Try again</button></div>';
     if (!S.orders.length) return h + '<div class="sin-quiet">' + (S.ordQ ? "No order matches “" + esc(S.ordQ) + "”." : S.ordStatus ? "No " + esc(S.ordStatus) + " orders." : "No orders sent to a supplier yet.") + "</div>";
     var shipped = S.orders.filter(function (o) { return o.status === "shipped"; }).length;
     h += '<div class="sin-lab"><span>Sent orders</span><b>' + S.orders.length + (shipped ? " · " + shipped + " on the way" : "") + '</b></div><div class="sin-list">';
@@ -282,7 +286,7 @@
       try { if (ae.selectionStart != null) caret = [ae.selectionStart, ae.selectionEnd]; } catch (x) {}
     }
     var n = cartCount();
-    var h = '<div class="sin"><button class="sin-back" data-act="back">‹ Stock</button>' +
+    var h = '<div class="sin"><button class="sin-back" data-act="back">' + esc(E.ui2BackLabel("sinreg")) + '</button>' +
       "<h1>Supplier stock</h1><p class=\"sin-sub\">What suppliers have right now, at what price, and your orders to them.</p>" +
       '<div class="sin-seg" role="group" aria-label="View"><button data-act="view" data-v="stock" data-f="v-stock" aria-pressed="' + (S.view === "stock") + '">Stock' + (n ? " · " + n + " in order" : "") + '</button><button data-act="view" data-v="orders" data-f="v-orders" aria-pressed="' + (S.view === "orders") + '">Sent orders</button></div>' +
       (S.view === "stock" ? stockHtml() : ordersHtml()) +
@@ -297,7 +301,8 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
-        if (act === "back") window.location.hash = "#stock";
+        if (act === "back") window.location.hash = E.ui2BackHash("sinreg");
+        else if (act === "retry") (S.view === "orders" ? loadOrders() : load());
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "sinreg"); } catch (x) {} E.openClassic("supplier-inventory"); }
         else if (act === "view") { S.view = b.getAttribute("data-v"); S.warnId = null; S.err = ""; if (S.view === "orders") loadOrders(); else paint(); }
         else if (act === "cart") addToCart(id, false);

@@ -29,7 +29,7 @@
       ".ssr-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:22px 2px 7px;display:flex;gap:8px}.ssr-lab b{color:var(--text)}" +
       ".ssr-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:10px}" +
       ".ssr-card .h{display:flex;justify-content:space-between;align-items:baseline;gap:10px}.ssr-card .h b{font-size:15.5px;font-weight:600}.ssr-card .h em{font-style:normal;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}" +
-      ".ssr-card .s{font-size:12.5px;color:var(--muted);margin-top:3px}.ssr-card .d{font-size:14px;margin-top:4px}" +
+      ".ssr-card div.s{font-size:12.5px;color:var(--muted);margin-top:3px}.ssr-card .d{font-size:14px;margin-top:4px}" +
       ".ssr-off{display:flex;align-items:center;gap:10px;padding:8px 0 0;margin-top:8px;border-top:.5px solid var(--border);font-size:14px;flex-wrap:wrap}.ssr-off .t{flex:1;min-width:150px}.ssr-off small{display:block;color:var(--muted);font-size:12px}" +
       ".ssr-pill{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:rgba(127,127,127,.14);color:var(--muted);white-space:nowrap}.ssr-pill.ok{background:rgba(28,138,91,.16);color:var(--ok)}.ssr-pill.wait{background:rgba(201,138,18,.16);color:var(--warn,#A06A0E)}" +
       ".ssr-card .a{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}" +
@@ -38,7 +38,11 @@
       ".ssr-in label>span,.ssr-form label>span{flex:0 0 96px;font-size:15px}.ssr-in input,.ssr-form input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
       ".ssr-in .acts,.ssr-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end}.ssr-err{color:var(--danger);font-size:13px;padding:4px 14px}" +
       ".ssr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:18px;color:var(--muted)}" +
-      "@media (max-width:600px){.ssr{padding:4px 16px 0}.ssr h1{font-size:32px}}";
+      "@media (max-width:600px){.ssr{padding:4px 16px 0}.ssr h1{font-size:32px}}" +
+      // Stock group: a 44 px way back, a pressed state on every button, 44 px buttons on a phone, a retry under a failed load.
+      ".ssr-back{display:inline-flex;align-items:center;min-height:44px;padding:0 8px 0 0;margin:-8px 0 -2px}.ssr-btn:active:not(:disabled){filter:brightness(.9)}" +
+      ".ssr-quiet .ssr-btn{margin-top:12px;display:block}" +
+      "@media (max-width:600px){.ssr-btn,.ssr-btn.s{height:44px;border-radius:22px}}";
     document.head.appendChild(st);
   }
 
@@ -65,7 +69,7 @@
     h += offers.map(function (o) { return offerLine(o, mine); }).join("");
     if (mine && !offers.length) h += '<div class="s" style="margin-top:8px">No offers yet.</div>';
     if (!mine) {
-      if (S.offering === n.id) h += '<form class="ssr-in" id="ssr-offer" autocomplete="off"><label><span>I can give</span><input name="quantity_offered" inputmode="numeric" value="' + esc(S.draft.quantity_offered || "") + '" placeholder="How many"></label><label><span>Note</span><input name="note" value="' + esc(S.draft.note || "") + '" placeholder="Optional, e.g. expiry 03/27"></label>' + (S.err ? '<div class="ssr-err">' + esc(S.err) + "</div>" : "") + '<div class="acts"><button type="button" class="ssr-btn" data-act="offer-cancel">Cancel</button><button type="submit" class="ssr-btn p"' + (S.saving ? " disabled" : "") + ">Offer</button></div></form>";
+      if (S.offering === n.id) h += '<form class="ssr-in" id="ssr-offer" autocomplete="off"><label><span>I can give</span><input name="quantity_offered" inputmode="numeric" value="' + esc(S.draft.quantity_offered || "") + '" placeholder="How many"></label><label><span>Note</span><input name="note" value="' + esc(S.draft.note || "") + '" placeholder="Optional, e.g. expiry 03/27"></label>' + (S.err ? '<div class="ssr-err" role="alert">' + esc(S.err) + "</div>" : "") + '<div class="acts"><button type="button" class="ssr-btn" data-act="offer-cancel">Cancel</button><button type="submit" class="ssr-btn p"' + (S.saving ? " disabled" : "") + ">Offer</button></div></form>";
       else if (!offers.length) h += '<div class="a"><button class="ssr-btn s" data-act="offer" data-id="' + n.id + '">I can help</button></div>';
     }
     return h + "</div>";
@@ -75,16 +79,16 @@
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "ssreg") return; // left before a reply came back: do not draw over the next screen
     if (!fromState) keep();
-    var h = '<div class="ssr"><button class="ssr-back" data-act="back">‹ Stock</button>' +
+    var h = '<div class="ssr"><button class="ssr-back" data-act="back">' + esc(E.ui2BackLabel("ssreg")) + '</button>' +
       '<div class="ssr-top"><div><h1>Shortages</h1><p class="ssr-sub">What other pharmacies are looking for, and what you asked for.</p></div>' + (S.adding ? "" : '<button class="ssr-btn p" data-act="add">Ask for something</button>') + "</div>";
     if (S.adding) {
       var a = S.adding;
       h += '<form class="ssr-form" id="ssr-add" autocomplete="off"><label><span>Item</span><input name="item_name" value="' + esc(a.item_name || "") + '" placeholder="e.g. Ozempic 1mg pen"></label><label><span>How many</span><input name="quantity_needed" inputmode="numeric" value="' + esc(a.quantity_needed || "") + '"></label>' +
         '<label><span>Needed by</span><input name="needed_by" type="date" min="' + esc(today()) + '" value="' + esc(a.needed_by || "") + '"></label><label><span>Note</span><input name="description" value="' + esc(a.description || "") + '" placeholder="Optional"></label>' +
-        (S.err && !S.offering ? '<div class="ssr-err">' + esc(S.err) + "</div>" : "") + '<div class="acts"><button type="button" class="ssr-btn" data-act="add-cancel">Cancel</button><button type="submit" class="ssr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Ask the network") + "</button></div></form>";
+        (S.err && !S.offering ? '<div class="ssr-err" role="alert">' + esc(S.err) + "</div>" : "") + '<div class="acts"><button type="button" class="ssr-btn" data-act="add-cancel">Cancel</button><button type="submit" class="ssr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Ask the network") + "</button></div></form>";
     }
     if (S.loading && !S.needs.length) h += '<div class="ssr-quiet" style="margin-top:14px">Opening shortages…</div>';
-    else if (S.error) h += '<div class="ssr-quiet" style="margin-top:14px">' + esc(S.error) + "</div>";
+    else if (S.error) h += '<div class="ssr-quiet" style="margin-top:14px" role="alert">' + esc(S.error) + '<button class="ssr-btn" data-act="retry">Try again</button></div>';
     else {
       var mine = S.needs.filter(function (n) { return n.mine_owner; }), others = S.needs.filter(function (n) { return !n.mine_owner; });
       var waiting = others.filter(function (n) { return (n.offers || []).some(function (o) { return o.mine && o.accepted && !o.confirmed; }); });
@@ -100,16 +104,19 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
-        if (act === "back") window.location.hash = "#stock";
+        if (act === "back") window.location.hash = E.ui2BackHash("ssreg");
+        else if (act === "retry") load();
         else if (act === "add") { S.adding = {}; S.offering = null; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=item_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
-        else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
+        else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); setTimeout(function () { var b = m.querySelector('[data-act="add"]'); if (b) b.focus(); }, 30); }
         else if (act === "offer") { S.offering = id; S.draft = {}; S.adding = null; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("#ssr-offer [name=quantity_offered]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
-        else if (act === "offer-cancel") { S.offering = null; S.err = ""; paint(true); }
+        else if (act === "offer-cancel") { var was = S.offering; S.offering = null; S.err = ""; paint(true); setTimeout(function () { var b = m.querySelector('[data-act="offer"][data-id="' + was + '"]'); if (b) b.focus(); }, 30); }
         else if (act === "accept") step(id, "accept", "Accepted. They will send it.");
         else if (act === "confirm") step(id, "confirm", "Marked as sent.");
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "ssreg"); } catch (x) {} E.openClassic("scarcestock"); }
       });
     });
+    // Escape closes the open form (what is typed in it is dropped, as with Cancel) and puts you back where you were.
+    m.querySelectorAll("form").forEach(function (f) { f.addEventListener("keydown", function (ev) { if (ev.key !== "Escape") return; var c = f.querySelector('[data-act$="-cancel"]'); if (c) { ev.preventDefault(); c.click(); } }); });
     var fo = m.querySelector("#ssr-offer"); if (fo) fo.addEventListener("submit", function (ev) { ev.preventDefault(); offer(); });
     var fa = m.querySelector("#ssr-add"); if (fa) fa.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
   }

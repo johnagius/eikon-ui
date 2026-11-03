@@ -50,7 +50,11 @@
       ".qtr-prev{display:flex;justify-content:space-between;padding:10px 14px;border-top:.5px solid var(--border);font-size:14px}.qtr-prev b{font-variant-numeric:tabular-nums}" +
       ".qtr-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end}.qtr-err{color:var(--danger);font-size:13px;padding:4px 14px}" +
       ".qtr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
-      "@media (max-width:600px){.qtr{padding:4px 16px 0}.qtr h1{font-size:32px}.qtr-form label>span{flex-basis:104px}}";
+      "@media (max-width:600px){.qtr{padding:4px 16px 0}.qtr h1{font-size:32px}.qtr-form label>span{flex-basis:104px}}" +
+      // Stock group: a 44 px way back, a pressed state on every button, 44 px buttons on a phone, a retry under a failed load.
+      ".qtr-back{display:inline-flex;align-items:center;min-height:44px;padding:0 8px 0 0;margin:-8px 0 -2px}.qtr-btn:active:not(:disabled){filter:brightness(.9)}" +
+      ".qtr-quiet .qtr-btn{margin-top:12px;display:block}" +
+      "@media (max-width:600px){.qtr-btn,.qtr-btn.s{height:44px;border-radius:22px}.qtr-q{height:44px}.qtr-sw{min-height:44px;display:flex;align-items:center}}";
     document.head.appendChild(st);
   }
 
@@ -71,12 +75,40 @@
     if (E.state.activeModuleId !== "qtreg") return; // left before a reply came back: do not draw over the next screen
     if (S.adding && !S.saving && !fromState) keep();
     var qi = m.querySelector("#qtr-q"); if (qi) S.q = qi.value;
-    var h = '<div class="qtr"><button class="qtr-back" data-act="back">‹ Stock</button>' +
+    var h = '<div class="qtr"><button class="qtr-back" data-act="back">' + esc(E.ui2BackLabel("qtreg")) + '</button>' +
       '<div class="qtr-top"><div><h1>Price check</h1><p class="qtr-sub">Supplier quotes, cheapest first, with your margin.</p></div>' + (S.adding ? "" : '<button class="qtr-btn p" data-act="add">Record a quote</button>') + "</div>";
     if (S.adding) h += formHtml();
-    h += '<div class="qtr-bar"><input class="qtr-q" id="qtr-q" type="search" placeholder="Item, barcode or supplier" value="' + esc(S.q) + '"><label class="qtr-sw"><input type="checkbox" id="qtr-all"' + (S.all ? " checked" : "") + "> All our pharmacies</label></div>";
-    if (S.loading && !S.entries.length) h += '<div class="qtr-quiet">Opening quotations…</div>';
-    else if (S.error) h += '<div class="qtr-quiet">' + esc(S.error) + "</div>";
+    h += '<div class="qtr-bar"><input class="qtr-q" id="qtr-q" type="search" aria-label="Search quotes" placeholder="Item, barcode or supplier" value="' + esc(S.q) + '"><label class="qtr-sw"><input type="checkbox" id="qtr-all"' + (S.all ? " checked" : "") + "> All our pharmacies</label></div>";
+    h += '<div id="qtr-res">' + listHtml() + "</div>";
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Changing or deleting a quote is in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    var ae = document.activeElement, sel = ae && m.contains(ae) ? (ae.id === "qtr-q" ? "#qtr-q" : ae.name ? "[name=" + ae.name + "]" : "") : "";
+    m.innerHTML = h;
+    if (sel) { var again = m.querySelector(sel); if (again) { again.focus(); try { var L = again.value.length; again.setSelectionRange(L, L); } catch (x) {} } }
+    m.querySelectorAll("[data-act]").forEach(function (b) {
+      b.addEventListener("click", function (ev) {
+        var act = b.getAttribute("data-act");
+        if (act === "back") window.location.hash = E.ui2BackHash("qtreg");
+        else if (act === "retry") load();
+        else if (act === "add") { S.adding = { quote_date: today(), vat_rate: "18", qty_purchased: "1", qty_free: "0", item_description: S.q || "" }; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=item_description]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); setTimeout(function () { var b = m.querySelector('[data-act="add"]'); if (b) b.focus(); }, 30); }
+        else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "qtreg"); } catch (x) {} E.openClassic("quotations"); }
+      });
+    });
+    var qn = m.querySelector("#qtr-q"); if (qn) qn.addEventListener("input", function () { S.q = qn.value; var res = m.querySelector("#qtr-res"); if (res) { res.innerHTML = listHtml(); res.querySelectorAll('[data-act="retry"]').forEach(function (b) { b.addEventListener("click", function () { load(); }); }); } });
+    var al = m.querySelector("#qtr-all"); if (al) al.addEventListener("change", function () { S.all = al.checked; S.entries = []; load(); });
+    // Escape closes the open form (what is typed in it is dropped, as with Cancel) and puts you back where you were.
+    m.querySelectorAll("form").forEach(function (f) { f.addEventListener("keydown", function (ev) { if (ev.key !== "Escape") return; var c = f.querySelector('[data-act$="-cancel"]'); if (c) { ev.preventDefault(); c.click(); } }); });
+    var f = m.querySelector("#qtr-add");
+    if (f) {
+      f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
+      f.addEventListener("input", function () { keep(); var pv = m.querySelector("#qtr-prev"); if (pv) pv.innerHTML = previewHtml(); });
+    }
+  }
+  // The quotes alone: searching redraws only this, never the box being typed in.
+  function listHtml() {
+    var h = "";
+    if (S.loading && !S.entries.length) h += '<div class="qtr-quiet" aria-busy="true">Opening quotations…</div>';
+    else if (S.error) h += '<div class="qtr-quiet" role="alert">' + esc(S.error) + '<button class="qtr-btn" data-act="retry">Try again</button></div>';
     else {
       var q = low(S.q), rows = S.entries.filter(function (e) { return !q || [e.item_description, e.barcode, e.stock_code, e.supplier].some(function (v) { return low(v).indexOf(q) >= 0; }); });
       var groups = {}, order = [];
@@ -89,26 +121,7 @@
         h += '<div class="qtr-lab"><b>' + esc(g[0].item_description) + "</b><span>" + g.length + (g.length === 1 ? " quote" : " quotes") + '</span></div><div class="qtr-list">' + g.map(function (e, i) { return rowHtml(e, i === 0 && g.length > 1 && calc(e).unit < calc(g[1]).unit); }).join("") + "</div>";
       });
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Changing or deleting a quote is in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
-    var ae = document.activeElement, sel = ae && m.contains(ae) ? (ae.id === "qtr-q" ? "#qtr-q" : ae.name ? "[name=" + ae.name + "]" : "") : "";
-    m.innerHTML = h;
-    if (sel) { var again = m.querySelector(sel); if (again) { again.focus(); try { var L = again.value.length; again.setSelectionRange(L, L); } catch (x) {} } }
-    m.querySelectorAll("[data-act]").forEach(function (b) {
-      b.addEventListener("click", function (ev) {
-        var act = b.getAttribute("data-act");
-        if (act === "back") window.location.hash = "#stock";
-        else if (act === "add") { S.adding = { quote_date: today(), vat_rate: "18", qty_purchased: "1", qty_free: "0", item_description: S.q || "" }; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=item_description]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
-        else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
-        else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "qtreg"); } catch (x) {} E.openClassic("quotations"); }
-      });
-    });
-    var qn = m.querySelector("#qtr-q"); if (qn) qn.addEventListener("input", function () { paint(); });
-    var al = m.querySelector("#qtr-all"); if (al) al.addEventListener("change", function () { S.all = al.checked; S.entries = []; load(); });
-    var f = m.querySelector("#qtr-add");
-    if (f) {
-      f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
-      f.addEventListener("input", function () { keep(); var pv = m.querySelector("#qtr-prev"); if (pv) pv.innerHTML = previewHtml(); });
-    }
+    return h;
   }
   function previewHtml() {
     var a = S.adding || {}, ok = [a.cost_excl_vat, a.retail_price].every(function (v) { var n = num(v); return n != null && !isNaN(n); });
@@ -125,7 +138,7 @@
       fld("cost_excl_vat", "Cost € (no VAT)", ' inputmode="decimal" placeholder="Per unit"') + fld("discount_euro", "Discount €", ' inputmode="decimal" placeholder="Per unit, optional"') +
       fld("qty_purchased", "Buy", ' inputmode="numeric"') + fld("qty_free", "Free", ' inputmode="numeric" placeholder="e.g. 2 for a 10+2 deal"') + fld("retail_price", "Retail € each", ' inputmode="decimal" placeholder="Optional"') +
       fld("barcode", "Barcode", ' placeholder="Optional" inputmode="numeric"') +
-      '<div class="qtr-prev" id="qtr-prev">' + previewHtml() + "</div>" + (S.err ? '<div class="qtr-err">' + esc(S.err) + "</div>" : "") +
+      '<div class="qtr-prev" id="qtr-prev">' + previewHtml() + "</div>" + (S.err ? '<div class="qtr-err" role="alert">' + esc(S.err) + "</div>" : "") +
       '<div class="acts"><button type="button" class="qtr-btn" data-act="add-cancel">Cancel</button><button type="submit" class="qtr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div>" +
       '<datalist id="qtr-items">' + items.slice(0, 300).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + '</datalist><datalist id="qtr-sups">' + sups.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
   }
