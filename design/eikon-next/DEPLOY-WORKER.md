@@ -11,7 +11,8 @@ does not: it changes only when someone runs `wrangler deploy`.
 
 | | Version | Cloudflare version id |
 |---|---|---|
-| Live now (11:55 UTC) | `2026-11-03-urls-1`: clean addresses (eikonhq.com/today); API answers unchanged | `8d472b00-a4b2-4eb2-9b80-a18c69e5ba61` |
+| Live now (14:26 UTC) | `2026-11-03-batch-2`: per-pharmacy isolation in groups, full audit (before/after), names Title Case on save + fix endpoint (not run), error reports, ID-card change with undo | `23481a98-c741-4359-99e1-c09345369ba2` |
+| Before that (11:55) | `2026-11-03-urls-1`: clean addresses; API answers unchanged | `8d472b00-a4b2-4eb2-9b80-a18c69e5ba61` |
 | Before that (10:30) | `2026-11-03-bookings-19`: the bare address, /ui and /ui/ open the app | `20465171-65d0-4b00-b00e-20299be41760` |
 | Before that (09:45) | `2026-11-03-bookings-18`: reminders run (cron every 10 min, senders included) | `b611aed2-dd6c-4126-9fb8-54ef66589fbe` |
 | Before that (09:40) | `2026-11-03-bookings-17`: schema marks + /today reads together (Today ~2.9 s → ~1 s) | `6d6e781e-6f37-408f-8016-e6ac610729c4` |
@@ -81,6 +82,10 @@ cd cloudflare-worker && npx wrangler deploy
 
 Then check `/health` shows `2026-11-03-bookings-15`, hard-refresh Eikon (Ctrl+Shift+R),
 open Bookings and press "Set up bookings".
+
+## Restore points
+
+- Before batch-2 (14:25 UTC): D1 Time Travel bookmark `00000b19-00000000-00005118-09a92e471007090dbaeb92cbef7e982d`.
 
 ## Custom domain
 
