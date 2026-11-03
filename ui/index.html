@@ -79,7 +79,7 @@
       // browser and the Worker's edge cache can reuse every file (previously every load
       // used Date.now(), so 52 files were re-downloaded on every visit).
       // Bump BUILD on EVERY change to any file in ui/: browsers keep stamped files for a day.
-      var BUILD = "2026-11-03.148";
+      var BUILD = "2026-11-03.149";
       if (window.EIKON_LEAVING) return; // moving to the clean address (see the head)
 
       function log() { try { console.log.apply(console, arguments); } catch (e) {} }
@@ -170,7 +170,10 @@
         "./eikon.people.js",
         "./eikon.search.js",
         "./eikon.months.js",
+        "./eikon.repeatdue.js",
+        "./eikon.correct.js",
         "./help-content.js",
+        "./eikon.help.js",
         "./modules.dashboard.js",
         "./modules.today.js",
         "./modules.customers.js",
@@ -211,6 +214,7 @@
         "./modules.scsreg.js",
         "./modules.audreg.js",
         "./modules.expreg.js",
+        "./modules.insreg.js",
         "./modules.pvreg.js",
         "./modules.scrreg.js",
         "./modules.ocpreg.js",
@@ -297,7 +301,7 @@
 
       // New layout: start with what Today needs, then load its other screens in the background.
       // The router waits for a late module if one is asked for early.
-      var FIRST = ["./core.js", "./eikon.install.js", "./eikon.people.js", "./eikon.search.js", "./modules.today.js", "./modules.customers.js", "./modules.bookings.js", "./modules.hubs.js", "./main.js"];
+      var FIRST = ["./core.js", "./eikon.install.js", "./eikon.people.js", "./eikon.search.js", "./eikon.repeatdue.js", "./modules.today.js", "./modules.customers.js", "./modules.bookings.js", "./modules.hubs.js", "./main.js"];
       var LATER = [], ORDER = [];
       if (light) {
         ORDER = FIRST.concat(MODULES.filter(function (m) { return FIRST.indexOf(m) < 0; })); // the order E.modules had with every file loaded

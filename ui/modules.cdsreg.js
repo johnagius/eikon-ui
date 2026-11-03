@@ -3,7 +3,10 @@
    register). A full ID card fills in the name and address from earlier entries; a known prescriber fills in the reg no.
    A serial that already has entries is shown and needs a second press (part-dispense), like the classic warning.
    Everything is checked before anything is sent; lines go one at a time and a failure keeps the rest in the form,
-   so a retry never records a line twice. Correcting, deleting, other months and the report stay in classic. */
+   so a retry never records a line twice. Other months and the printout use eikon.months.js.
+   Correct (the pharmacist only, eikon.correct.js): the line is read again, the form is filled, a reason is required,
+   and the whole entry is sent as the server has it with only the corrected fields changed (the update replaces every
+   column), the same body as the classic edit. A line is never deleted here. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -16,6 +19,37 @@
   var S = { mount: null, month: "", entries: [], doctors: [], loading: false, error: "", adding: null, saving: false, err: "", bad: {}, dup: null, dupOk: "" };
   var MON = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var TEXT = ["entry_date", "client_id_card", "client_name", "client_address", "doctor_name", "doctor_reg_no", "prescription_serial_no"];
+  // Correcting a line: the fields of the classic edit form, the classic's PUT body.
+  var FIX = { entity: C.entity, action: C.action,
+    fields: [{ k: "entry_date", label: "Supplied", type: "date", req: true, what: "the day it was supplied" }, { k: "client_id_card", label: "ID card", req: true, what: "the ID card" },
+      { k: "client_name", label: "Patient", req: true, what: "the patient's name" }, { k: "client_address", label: "Address", req: true, what: "the address" },
+      { k: "medicine_name_dose", label: "Medicine", req: true, what: "the medicine" }, { k: "quantity", label: "Qty", type: "int", req: true, what: "the quantity" },
+      { k: "doctor_name", label: "Prescriber", req: true, what: "the prescriber" }, { k: "doctor_reg_no", label: "Reg no.", req: true, what: "the prescriber's reg no." },
+      { k: "prescription_serial_no", label: "Serial no.", req: true, what: "the prescription serial no." }].concat(C.urgent ? [{ k: "urgent", label: "Urgent", type: "check" }] : []),
+    rows: function () { return S.entries; },
+    reread: async function (row) { // the line's month (and this month, if its date was changed elsewhere)
+      var months = [String(row.entry_date || "").slice(0, 7), S.month].filter(function (x, i, a) { return /^\d{4}-\d{2}$/.test(x) && a.indexOf(x) === i; });
+      for (var i = 0; i < months.length; i++) {
+        var r = await E.apiFetch(C.path + "/entries?month=" + encodeURIComponent(months[i]), { method: "GET" });
+        var hit = ((r && r.entries) || []).filter(function (e) { return String(e.id) === String(row.id); })[0];
+        if (hit) return hit;
+      }
+      return null;
+    },
+    put: function (row) { return C.path + "/entries/" + encodeURIComponent(String(row.id)); },
+    body: function (r) {
+      var b = { entry_date: String(r.entry_date || "").trim(), client_name: String(r.client_name || "").trim(), client_id_card: C.pad ? idCard(r.client_id_card) : String(r.client_id_card || "").trim(),
+        client_address: String(r.client_address || "").trim(), medicine_name_dose: String(r.medicine_name_dose || "").trim(), quantity: Number(r.quantity), doctor_name: String(r.doctor_name || "").trim(),
+        doctor_reg_no: String(r.doctor_reg_no || "").trim(), prescription_serial_no: String(r.prescription_serial_no || "").trim() };
+      if (C.urgent) b.urgent = Number(r.urgent) === 1 || r.urgent === true ? 1 : 0;
+      return b;
+    },
+    check: function (r) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.entry_date)) || String(r.entry_date) > today()) return "Choose the day it was supplied (not a day ahead).";
+      if (!/^\d+$/.test(String(r.quantity)) || Number(r.quantity) < 1) return "The quantity should be a whole number, 1 or more.";
+      return "";
+    },
+    paint: function () { paint(); }, idle: function () { E.whenFormIdle(S.mount, function () { paint(); }); }, done: function () { return load(); } };
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
   function pad(n) { return (n < 10 ? "0" : "") + n; }
@@ -65,6 +99,7 @@
       var r = await E.apiFetch(C.path + "/entries?month=" + encodeURIComponent(S.month), { method: "GET" });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load the register");
       S.entries = r.entries || [];
+      E.correct.loadMarks(C.id, FIX, S.month + "-01"); // which lines were corrected, by whom and why
     } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
@@ -125,10 +160,11 @@
       h += '<div class="cds-lab">' + esc(mn) + " <b>" + S.entries.length + "</b></div>";
       h += S.entries.length ? '<div class="cds-list">' + S.entries.map(function (e) {
         return '<div class="cds-row"><div class="t"><b>' + esc(e.medicine_name_dose) + "</b>" + (Number(e.urgent) ? '<i class="cds-pill" style="font-style:normal">Urgent</i>' : "") +
-          "<span>" + esc(dmy(e.entry_date)) + " · " + esc(e.client_name) + " · " + esc(e.doctor_name) + " · Rx " + esc(e.prescription_serial_no) + "</span></div><em>" + esc(e.quantity) + "</em></div>";
+          "<span>" + esc(dmy(e.entry_date)) + " · " + esc(e.client_name) + " · " + esc(e.doctor_name) + " · Rx " + esc(e.prescription_serial_no) + "</span>" + E.correct.mark(C.id, e) + "</div><em>" + esc(e.quantity) + "</em>" +
+          E.correct.button(C.id, e, e.medicine_name_dose + " × " + e.quantity + " for " + e.client_name + ", " + dmy(e.entry_date)) + "</div>" + E.correct.panel(C.id, e, FIX);
       }).join("") + "</div>" : '<div class="cds-quiet" data-empty>' + esc(E.months.empty(S.month, "Nothing supplied this month yet.")) + "</div>";
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Correcting or deleting an entry is in the <a href="#" data-act="classic" style="color:var(--accent)">classic register</a>.</p></div>';
+    h += E.correct.foot() + "</div>";
     var ae = document.activeElement, back = ae && m.contains(ae) && ae.closest && ae.closest("#cds-add") ? (ae.name ? "[name=" + ae.name + "]" : ae.getAttribute("data-i") != null ? '[data-i="' + ae.getAttribute("data-i") + '"][data-k="' + ae.getAttribute("data-k") + '"]' : "") : "";
     m.innerHTML = h;
     if (back) { var again = m.querySelector("#cds-add " + back); if (again && !again.disabled) again.focus(); } // a lookup filling fields keeps your place
@@ -142,7 +178,8 @@
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", C.id); } catch (x) {} E.openClassic(C.classic); }
       });
     });
-    E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; load(); }, paint: function () { paint(); }, print: printMonth });
+    E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; E.correct.reset(C.id); load(); }, paint: function () { paint(); }, print: printMonth });
+    E.correct.wire(m, C.id, FIX);
     var f = m.querySelector("#cds-add");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
@@ -292,7 +329,7 @@
 
   E.registerModule({
     id: C.id, title: C.title, order: 3, icon: "℞", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); S.adding = null; S.err = ""; S.bad = {}; S.dup = null; S.dupOk = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = E.months.take(C.id) || today().slice(0, 7); S.entries = []; E.months.reset(); E.correct.reset(C.id); S.adding = null; S.err = ""; S.bad = {}; S.dup = null; S.dupOk = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf(C.id) < 0) E.UI2_DESTINATIONS.push(C.id);
   if (E.UI2_PARENT) E.UI2_PARENT[C.id] = "registers";
@@ -305,12 +342,12 @@
     return [].concat.apply([], res.map(function (r) { return (r && r.ok && r.entries) || []; }));
   }
 
-  make({ id: "cdsreg", path: "/dda-sales", classic: "dda-sales", report: "DDA Sales Report",
+  make({ id: "cdsreg", path: "/dda-sales", classic: "dda-sales", entity: "dda_sales_entries", action: "DDA_SALES_ENTRY_UPDATE", report: "DDA Sales Report",
     printCols: ["Date", "Client Name", "ID Card", "Address", "Medicine Name & Dose", "Qty", "Doctor Name", "Doctor Reg No.", "Prescription Serial No.", "Urgent"], title: "Controlled drugs supplied", sub: "Every controlled drug handed over against a prescription.", urgent: true, pad: true,
     patient: function (id) { return E.apiFetch("/dda-sales/client?client_id_card=" + encodeURIComponent(id), { method: "GET" }); },
     doctors: async function (q) { var r = await E.apiFetch("/dda-sales/doctors?limit=" + (q ? 5 : 50) + (q ? "&q=" + encodeURIComponent(q) : ""), { method: "GET" }); return (r && r.ok && r.doctors) || []; } });
 
-  make({ id: "poyreg", path: "/dda-poyc", classic: "dda-poyc", report: "DDA POYC Report",
+  make({ id: "poyreg", path: "/dda-poyc", classic: "dda-poyc", entity: "dda_poyc_entries", action: "DDA_POYC_ENTRY_UPDATE", report: "DDA POYC Report",
     printCols: ["Date", "Client", "ID Card", "Address", "Medicine (name & dose)", "Qty", "Doctor", "Reg No.", "Prescription Serial No."], title: "POYC controlled drugs", sub: "Controlled drugs given under the Pharmacy of Your Choice scheme.", urgent: false, pad: false,
     patient: async function (id) {
       var hit = (await poycSearch(id)).filter(function (e) { return String(e.client_id_card || "").replace(/\s+/g, "").toUpperCase().replace(/^0+/, "") === id.replace(/^0+/, ""); })[0];

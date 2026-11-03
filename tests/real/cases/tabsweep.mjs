@@ -19,7 +19,7 @@ const ADDR = "5 Triq il-Mosta, Rabat"; // not the known address: a lookup that o
 const SCREENS = [
   { id: "cdsreg", open: "New prescription", form: "#cds-add", values: { client_address: ADDR }, filled: { doctor_reg_no: KNOWN.reg } },
   { id: "poyreg", open: "New prescription", form: "#cds-add", values: { client_address: ADDR } },
-  { id: "repreg", open: "New prescription", form: "#rep-add", filled: { prescriber_reg_no: KNOWN.reg } },
+  { id: "repreg", open: "New prescription", form: "#rep-add", values: { collect_every_days: "28" }, filled: { prescriber_reg_no: KNOWN.reg } }, // collect_every_days: a number of days (repeats coming due)
   { id: "drreg", open: "New entry", form: "#drr-form" },
   { id: "cdpreg", open: "New invoice", form: "#cdp-add", values: { agent: "Sweep Pharma Ltd" } },
   { id: "lrcreg", open: "New receipt", form: "#lrc-add", values: { locum_full_name: LOCUM.name, registration_number: LOCUM.reg, hours: "7.5", fee_per_hour: "18" }, filled: { registration_number: LOCUM.reg } },

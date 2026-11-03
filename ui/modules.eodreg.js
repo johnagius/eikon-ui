@@ -5,8 +5,11 @@
    notes, filled from the count until changed by hand); the month so far. Save, and Save and lock.
    The same record and endpoint as the classic screen; every save sends the whole record (the server replaces it).
    Before saving, the day is read again: if another till saved it since it was opened here, nothing is saved and
-   the person chooses. A locked day is read-only here. Unlocking, printing, the date-range report, the audit log,
-   copying the deposit to an email and managing contacts stay in the classic screen. */
+   the person chooses. A locked day is read-only here, except for a correction by the pharmacist (role admin): "Correct
+   this day" asks what was wrong, unlocks the day (the classic unlock: the server only clears locked_at) with the
+   reason, and the day opens as an unlocked day; the reason goes with every save of that day here until it is locked
+   again (correction_reason, written into the audit entries by the worker). Printing, the date-range report, the
+   audit log, copying the deposit to an email and managing contacts stay in the classic screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -153,6 +156,7 @@
   async function load(opts) {
     var keepView = E.takeSaveFailed && E.takeSaveFailed();
     var keepDraft = !!(opts && opts.keepDraft);
+    if (S.fix && S.fix.date !== S.date) S.fix = null; // another day opened: its correction form goes
     S.loading = true; S.error = ""; paint();
     try {
       var both = await Promise.all([getDay(S.date), S.contacts.length ? null : loadContacts()]);
@@ -243,11 +247,48 @@
     if (S.loading && !S.w) h += '<div class="eod-quiet">Opening ' + esc(dayLabel(S.date).toLowerCase() === "today" ? "today" : dayLabel(S.date)) + "…</div>";
     else if (S.error && !S.w) h += '<div class="eod-quiet">' + esc(S.error) + ' <button class="eod-btn" data-act="retry" style="margin-left:8px">Try again</button></div>';
     else if (S.w) h += dayHtml(locked, ro);
-    h += '<p class="eod-foot">Unlocking a day, printing it on A4, a date-range report across months, the audit log, copying the deposit to an email and managing bank contacts are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += '<p class="eod-foot">' + (E.correct && E.correct.can() ? "A locked day is corrected here with Correct this day, saying what was wrong. " : "A locked day is corrected by the pharmacist. ") + 'Printing a day on A4, a date-range report across months, the audit log, copying the deposit to an email and managing bank contacts are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
     var ae = document.activeElement, sel = ae && m.contains(ae) && ae.name ? '[name="' + ae.name + '"]' : (ae && ae.id === "eod-day" ? "#eod-day" : "");
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) again.focus(); }
     wire(m);
+  }
+
+  // Correcting a locked day (the pharmacist only): the reason, then the day is unlocked; until it is locked again the
+  // reason travels with each save of that day.
+  function fixing() { return !!(S.fixReason && S.fixDate === S.date); }
+  function fixHtml(locked) {
+    if (!E.correct || !E.correct.can()) return "";
+    if (!locked) return fixing() ? '<div class="eod-note" role="status"><b>Unlocked for a correction:</b> ' + esc(S.fixReason) + ". Change what was wrong, then Save and lock. The audit keeps the day as it was.</div>" : "";
+    if (!S.fix) return '<div class="eod-fix"><button class="eod-btn" data-act="fix">Correct this day…</button></div>';
+    return '<div class="eod-note" role="group" aria-label="Correct this day"><b>Correct ' + esc(dayLabel(S.date)) + ".</b> The day is unlocked so its figures can be put right; lock it again when done. The audit keeps the day as it was, who corrected it and why." +
+      '<label class="eod-f" style="margin-top:8px"><span>What was wrong?</span><input name="fix_reason" maxlength="500" value="' + esc(S.fix.reason || "") + '" placeholder="e.g. Cheque total typed twice" aria-required="true"></label>' +
+      (S.fix.err ? '<div class="eod-err" role="alert">' + esc(S.fix.err) + "</div>" : "") +
+      '<div class="acts"><button class="eod-btn" data-act="fix-no">Cancel</button><button class="eod-btn p" data-act="fix-go"' + (S.fix.busy ? " disabled" : "") + ">" + (S.fix.busy ? "Unlocking…" : "Unlock to correct") + "</button></div></div>";
+  }
+  async function unlockToFix() {
+    if (!S.fix || S.fix.busy || !E.correct.can()) return;
+    var ri = S.mount && S.mount.querySelector("[name=fix_reason]"); if (ri) S.fix.reason = ri.value;
+    var reason = String(S.fix.reason || "").replace(/\s+/g, " ").trim();
+    if (!reason) { S.fix.err = "Write what was wrong, for the audit. Nothing was unlocked."; paint(true); var r0 = S.mount.querySelector("[name=fix_reason]"); if (r0) r0.focus(); return; }
+    S.fix.busy = true; S.fix.err = ""; paint(true);
+    try {
+      var fresh = await getDay(S.date);
+      if (fresh && fresh.locked_at) {
+        S.base = fresh;
+        var body = payload(working(fresh), false);
+        body.locked_at = ""; body.unlock = true; body.action = "UNLOCK"; body.correction_reason = reason; // the classic unlock, with the reason
+        var r = await E.apiFetch("/endofday/record", { method: "PUT", body: JSON.stringify({ record: body }) });
+        if (!r || r.ok === false) throw new Error((r && r.error) || "Could not unlock");
+      }
+      S.fixReason = reason; S.fixDate = S.date; S.fix = null;
+      E.toast(dayLabel(S.date) + " is unlocked for the correction", "success");
+      return load();
+    } catch (x) {
+      if (S.fix) { S.fix.busy = false; S.fix.err = x && x.network ? "The connection dropped. Check the day before trying again." : "Not unlocked: " + String((x && (x.message || x)) || "error"); }
+      if (x && x.network) return load();
+      return paint(true);
+    }
   }
 
   function dayHtml(locked, ro) {
@@ -256,7 +297,7 @@
       : b ? '<span class="eod-chip">Saved</span><span>' + (hm(b.updated_at || b.saved_at) ? "Last saved at " + esc(hm(b.updated_at || b.saved_at)) : "Saved") + (b.staff || b.staff_name ? " by " + esc(b.staff || b.staff_name) : "") + ". Not locked yet.</span>"
       : '<span class="eod-chip wn">Not started</span><span>Nothing saved for ' + esc(dayLabel(S.date) === "Today" ? "today" : dayLabel(S.date)) + " yet.</span>";
     if (S.dirty && !locked) st += '<span class="eod-chip wn">Not saved</span>';
-    var h = '<div class="eod-st">' + st + "</div>";
+    var h = '<div class="eod-st">' + st + "</div>" + fixHtml(locked);
     if (S.error) h += '<div class="eod-err" role="alert">' + esc(S.error) + "</div>";
     if (S.shadow) h += '<div class="eod-note">' + esc(S.shadow) + "</div>";
     if (S.conflict) {
@@ -413,6 +454,9 @@
         else if (act === "rm") { keep(); var L2 = b.getAttribute("data-l"); if (S.w[L2].length > 1) { S.w[L2].splice(+b.getAttribute("data-i"), 1); S.dirty = true; } paint(true); var ad = m.querySelector('[data-act=addrow][data-l="' + L2 + '"]'); if (ad) ad.focus(); }
         else if (act === "refill") { keep(); S.autoDep = true; S.dirty = true; S.w.deposit = autoDeposit(S.w); paint(true); }
         else if (act === "save") save(false);
+        else if (act === "fix") { S.fix = { reason: "", err: "", busy: false, date: S.date }; paint(true); var fr = m.querySelector("[name=fix_reason]"); if (fr) fr.focus(); }
+        else if (act === "fix-no") { S.fix = null; paint(true); var fb = m.querySelector("[data-act=fix]"); if (fb) fb.focus(); }
+        else if (act === "fix-go") unlockToFix();
         else if (act === "lock") { keep(); S.ask = "lock"; S.err = ""; paint(true); setTimeout(function () { var y = m.querySelector("[data-act=lock-yes]"); if (y) y.focus(); }, 30); }
         else if (act === "lock-yes") { S.ask = null; save(true); }
         else if (act === "ask-no") { keep(); S.ask = null; S.pendingDate = ""; paint(true); var di = m.querySelector("#eod-day"); if (di) di.value = S.date; }
@@ -486,6 +530,7 @@
       deposit: dep, bov_deposit: dep, bag_number: bag, bov_bag_number: bag, contact_id: w.contact_id ? String(w.contact_id) : "", bov_contact_id: w.contact_id ? (isFinite(+w.contact_id) ? +w.contact_id : w.contact_id) : null,
       deposit_edited: !S.autoDep, notes: String((S.base && S.base.notes) || w.notes || ""), saved_at: new Date().toISOString(), action: lock ? "LOCK" : "SAVE" };
     if (lock) p.locked_at = new Date().toISOString(); // never an empty locked_at on a plain save (the server must not read an unlock)
+    if (fixing()) p.correction_reason = S.fixReason; // a day unlocked for a correction: the reason goes into the audit of each save
     return p;
   }
   async function save(lock) {
@@ -511,6 +556,7 @@
       }
       if (rec) { S.base = rec; shadowReplace(rec); if (S.month && S.monthYm === S.date.slice(0, 7)) S.month[S.date] = rec; }
       S.dirty = false; S.err = ""; S.saving = false;
+      if (lock && fixing()) { S.fixReason = ""; S.fixDate = ""; } // corrected and locked again
       E.toast(lock ? dayLabel(S.date) + " is locked · " + ouText(calc(S.w)) : "Saved · " + ouText(calc(S.w)), "success");
       if (rec) { S.w = working(rec); S.autoDep = !rec.locked_at && sameDeposit(rec.deposit || rec.bov_deposit, autoDeposit(S.w)); if (S.autoDep) S.w.deposit = autoDeposit(S.w); }
       return paint(true);

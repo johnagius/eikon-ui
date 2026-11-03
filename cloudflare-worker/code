@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-03-batch-4";
+const WORKER_VERSION = "2026-11-03-batch-5";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -1173,6 +1173,18 @@ function auditWith(details, before, after) {
   return o;
 }
 
+// ===== Register corrections (2026-11-03): the reason a line was corrected travels into that update's audit entry. =====
+// The new layout's "Correct" sends the whole record plus correction_reason. Nothing is stored on the register row (its
+// columns and its printout are unchanged): the reason is one more key of the audit entry's details, next to before/after.
+// A body without the field (the classic screens, older apps) gives the same audit entry as before. Max 500 characters.
+function auditCorrection(body, details) {
+  const raw = body && typeof body === "object" ? body.correction_reason : undefined;
+  const reason = raw == null ? "" : String(raw).replace(/\s+/g, " ").trim().slice(0, 500);
+  if (!reason) return details;
+  return Object.assign({}, details && typeof details === "object" ? details : {}, { correction_reason: reason });
+}
+// ===== end register corrections =====
+
 function requireRole(user, roles) {
   return user && roles.includes(user.role);
 }
@@ -1927,7 +1939,8 @@ async function handleTempEntriesUpsert(request, env, corsOkHeaders, authUser) {
     device_id: deviceId,
     min_temp: minTemp,
     max_temp: maxTemp,
-    ...(__tempBefore ? { before: __tempBefore, after: await auditSnap(env, "temperature_entries", row.id, authUser) } : {})
+    ...(__tempBefore ? { before: __tempBefore, after: await auditSnap(env, "temperature_entries", row.id, authUser) } : {}),
+    ...auditCorrection(body, {})
   }, authUser.location_id);
 
   return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
@@ -4473,7 +4486,7 @@ async function handleEodUpsert(request, env, corsOkHeaders, authUser) {
         "EOD_UNLOCK",
         "end_of_day",
         String(existing.id),
-        auditWith({ eod_date: date }, __eodBefore, await auditSnap(env, "end_of_day", existing.id, authUser)),
+        auditWith(auditCorrection(body, { eod_date: date }), __eodBefore, await auditSnap(env, "end_of_day", existing.id, authUser)),
         authUser.location_id
       );
 
@@ -4587,7 +4600,7 @@ async function handleEodUpsert(request, env, corsOkHeaders, authUser) {
       ]
     );
 
-    await writeAudit(env, authUser.org_id, authUser.user_id, wantsLock ? "EOD_LOCK" : "EOD_UPDATE", "end_of_day", String(existing.id), auditWith({ eod_date: date }, __eodBefore, await auditSnap(env, "end_of_day", existing.id, authUser)), authUser.location_id);
+    await writeAudit(env, authUser.org_id, authUser.user_id, wantsLock ? "EOD_LOCK" : "EOD_UPDATE", "end_of_day", String(existing.id), auditWith(auditCorrection(body, { eod_date: date }), __eodBefore, await auditSnap(env, "end_of_day", existing.id, authUser)), authUser.location_id);
   }
 
   const row = await dbFirst(
@@ -5065,12 +5078,12 @@ async function handlePaidOutEntryUpdate(request, env, corsOkHeaders, authUser, e
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "PAID_OUT_ENTRY_UPDATE", "paid_out_entries", String(entryId), auditWith({
+  await writeAudit(env, authUser.org_id, authUser.user_id, "PAID_OUT_ENTRY_UPDATE", "paid_out_entries", String(entryId), auditWith(auditCorrection(body, {
     entry_date: entryDate,
     payee_name: payeeName,
     fee,
     payment_method: method
-  }, __before, await auditSnap(env, "paid_out_entries", entryId, authUser)), authUser.location_id);
+  }), __before, await auditSnap(env, "paid_out_entries", entryId, authUser)), authUser.location_id);
 
   const saved = await dbFirst(
     env,
@@ -5657,13 +5670,13 @@ async function handleCleaningEntryUpdate(request, env, corsOkHeaders, authUser, 
     [entryDate, timeIn, timeOut || "", cleanerName, staffName, notes, entryId, authUser.org_id, authUser.location_id]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_UPDATE", "cleaning_entries", String(entryId), auditWith({
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CLEANING_ENTRY_UPDATE", "cleaning_entries", String(entryId), auditWith(auditCorrection(body, {
     entry_date: entryDate,
     time_in: timeIn,
     time_out: timeOut || "",
     cleaner_name: cleanerName,
     staff_name: staffName
-  }, __before, await auditSnap(env, "cleaning_entries", entryId, authUser)), authUser.location_id);
+  }), __before, await auditSnap(env, "cleaning_entries", entryId, authUser)), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -5936,13 +5949,13 @@ async function handleLocumRegisterEntryUpdate(request, env, corsOkHeaders, authU
     [entryDate, timeIn, timeOut || "", fullName, regNo, entryId, authUser.org_id, authUser.location_id]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_REGISTER_ENTRY_UPDATE", "locum_register_entries", String(entryId), auditWith({
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_REGISTER_ENTRY_UPDATE", "locum_register_entries", String(entryId), auditWith(auditCorrection(body, {
     entry_date: entryDate,
     time_in: timeIn,
     time_out: timeOut || "",
     locum_full_name: fullName,
     registration_number: regNo
-  }, __before, await auditSnap(env, "locum_register_entries", entryId, authUser)), authUser.location_id);
+  }), __before, await auditSnap(env, "locum_register_entries", entryId, authUser)), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -6210,7 +6223,7 @@ async function handleLocumReceiptUpdate(request, env, corsOkHeaders, authUser, r
     [receiptDate, hours, fullName, regNo, dayType, feePerHour, totalFee, receiptId, authUser.org_id, authUser.location_id]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_RECEIPT_UPDATE", "locum_receipts", String(receiptId), auditWith({
+  await writeAudit(env, authUser.org_id, authUser.user_id, "LOCUM_RECEIPT_UPDATE", "locum_receipts", String(receiptId), auditWith(auditCorrection(body, {
     receipt_date: receiptDate,
     hours,
     locum_full_name: fullName,
@@ -6218,7 +6231,7 @@ async function handleLocumReceiptUpdate(request, env, corsOkHeaders, authUser, r
     day_type: dayType,
     fee_per_hour: feePerHour,
     total_fee: totalFee
-  }, __before, await auditSnap(env, "locum_receipts", receiptId, authUser)), authUser.location_id);
+  }), __before, await auditSnap(env, "locum_receipts", receiptId, authUser)), authUser.location_id);
 
   const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { receiptId };
@@ -6570,11 +6583,11 @@ async function handleDailyRegisterEntryUpdate(request, env, corsOkHeaders, authU
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DAILY_REGISTER_ENTRY_UPDATE", "daily_register_entries", String(entryId), auditWith({
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DAILY_REGISTER_ENTRY_UPDATE", "daily_register_entries", String(entryId), auditWith(auditCorrection(body, {
     entry_date: entryDate,
     client_id: clientId,
     medicine_name_dose: medicineNameDose
-  }, __before, await auditSnap(env, "daily_register_entries", entryId, authUser)), authUser.location_id);
+  }), __before, await auditSnap(env, "daily_register_entries", entryId, authUser)), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -6751,6 +6764,15 @@ async function ensureRepeatPrescriptionsSchema__impl(env) {
   if (!hasExpires) {
     await dbRun(env, "ALTER TABLE repeat_prescription_entries ADD COLUMN expires_date TEXT", []);
   }
+  // Repeats coming due (2026-11, backlog 3 item 7): both additive and NULL for every existing row, which means
+  // "no collection interval" (the line never shows as due). Nothing here rewrites an existing row.
+  const names = cols.map((c) => String(c.name || ""));
+  if (names.indexOf("collect_every_days") < 0) {
+    try { await dbRun(env, "ALTER TABLE repeat_prescription_entries ADD COLUMN collect_every_days INTEGER", []); } catch (e) { if (!/duplicate column/i.test(String(e && e.message))) throw e; }
+  }
+  if (names.indexOf("last_collected_date") < 0) {
+    try { await dbRun(env, "ALTER TABLE repeat_prescription_entries ADD COLUMN last_collected_date TEXT", []); } catch (e) { if (!/duplicate column/i.test(String(e && e.message))) throw e; }
+  }
 
   await dbRun(
     env,
@@ -6761,6 +6783,17 @@ async function ensureRepeatPrescriptionsSchema__impl(env) {
   await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_repeat_rx_org_loc_date ON repeat_prescription_entries (org_id, location_id, entry_date)", []);
   await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_repeat_rx_org_loc_client ON repeat_prescription_entries (org_id, location_id, client_id)", []);
   await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_repeat_rx_org_loc_expires ON repeat_prescription_entries (org_id, location_id, expires_date)", []);
+}
+
+// "Collected every N days": absent -> undefined (keep what is stored), "" / null / 0 -> null (no interval),
+// a whole number 1..365 -> that number; anything else -> an error string.
+function repeatRxInterval(body) {
+  if (!body || !Object.prototype.hasOwnProperty.call(body, "collect_every_days")) return { absent: true };
+  const v = body.collect_every_days;
+  if (v === null || v === "" || v === 0 || v === "0") return { value: null };
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 1 || n > 365) return { error: "collect_every_days must be a whole number of days from 1 to 365" };
+  return { value: n };
 }
 
 async function handleRepeatPrescriptionsEntriesList(request, env, corsOkHeaders, authUser, url) {
@@ -6807,6 +6840,7 @@ async function handleRepeatPrescriptionsEntriesList(request, env, corsOkHeaders,
       id, entry_date, expires_date,
       client_name, client_id, medicine_name_dose, posology,
       prescriber_name, prescriber_reg_no,
+      collect_every_days, last_collected_date,
       created_by, created_at, updated_at
     FROM repeat_prescription_entries
     WHERE org_id = ?
@@ -6863,13 +6897,16 @@ async function handleRepeatPrescriptionsEntryCreate(request, env, corsOkHeaders,
   if (!posology) return jsonResponse({ ok: false, error: "Missing posology" }, 400, corsOkHeaders);
   if (!prescriberName) return jsonResponse({ ok: false, error: "Missing prescriber_name" }, 400, corsOkHeaders);
   if (!prescriberRegNo) return jsonResponse({ ok: false, error: "Missing prescriber_reg_no" }, 400, corsOkHeaders);
+  const every = repeatRxInterval(body);
+  if (every.error) return jsonResponse({ ok: false, error: every.error }, 400, corsOkHeaders);
+  const everyDays = every.absent ? null : every.value;
 
   const row = await dbFirst(
     env,
     `INSERT INTO repeat_prescription_entries
-      (org_id, location_id, entry_date, expires_date, client_name, client_id, medicine_name_dose, posology, prescriber_name, prescriber_reg_no, created_by, created_at, updated_at)
+      (org_id, location_id, entry_date, expires_date, client_name, client_id, medicine_name_dose, posology, prescriber_name, prescriber_reg_no, created_by, created_at, updated_at, collect_every_days)
      VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)
      RETURNING id`,
     [
       authUser.org_id,
@@ -6882,7 +6919,8 @@ async function handleRepeatPrescriptionsEntryCreate(request, env, corsOkHeaders,
       posology,
       prescriberName,
       prescriberRegNo,
-      authUser.user_id
+      authUser.user_id,
+      everyDays
     ]
   );
 
@@ -6890,7 +6928,8 @@ async function handleRepeatPrescriptionsEntryCreate(request, env, corsOkHeaders,
     entry_date: entryDate,
     expires_date: expiresDate,
     client_id: clientId,
-    medicine_name_dose: medicineNameDose
+    medicine_name_dose: medicineNameDose,
+    ...(everyDays ? { collect_every_days: everyDays } : {})
   }, authUser.location_id);
 
   return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
@@ -6935,11 +6974,16 @@ async function handleRepeatPrescriptionsEntryUpdate(request, env, corsOkHeaders,
   if (!posology) return jsonResponse({ ok: false, error: "Missing posology" }, 400, corsOkHeaders);
   if (!prescriberName) return jsonResponse({ ok: false, error: "Missing prescriber_name" }, 400, corsOkHeaders);
   if (!prescriberRegNo) return jsonResponse({ ok: false, error: "Missing prescriber_reg_no" }, 400, corsOkHeaders);
+  // The classic screen sends the whole line WITHOUT the collection interval: a field that is absent keeps what is
+  // stored (COALESCE on a flag), so a correction there never wipes it. last_collected_date is only set by /collected.
+  const every = repeatRxInterval(body);
+  if (every.error) return jsonResponse({ ok: false, error: every.error }, 400, corsOkHeaders);
 
   await dbRun(
     env,
     `UPDATE repeat_prescription_entries
-     SET entry_date = ?, expires_date = ?, client_name = ?, client_id = ?, medicine_name_dose = ?, posology = ?, prescriber_name = ?, prescriber_reg_no = ?, updated_at = datetime('now')
+     SET entry_date = ?, expires_date = ?, client_name = ?, client_id = ?, medicine_name_dose = ?, posology = ?, prescriber_name = ?, prescriber_reg_no = ?,
+         collect_every_days = CASE WHEN ? = 1 THEN collect_every_days ELSE ? END, updated_at = datetime('now')
      WHERE id = ? AND org_id = ? AND location_id = ?`,
     [
       entryDate,
@@ -6950,24 +6994,69 @@ async function handleRepeatPrescriptionsEntryUpdate(request, env, corsOkHeaders,
       posology,
       prescriberName,
       prescriberRegNo,
+      every.absent ? 1 : 0,
+      every.absent ? null : every.value,
       entryId,
       authUser.org_id,
       authUser.location_id
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "REPEAT_RX_ENTRY_UPDATE", "repeat_prescription_entries", String(entryId), auditWith({
+  await writeAudit(env, authUser.org_id, authUser.user_id, "REPEAT_RX_ENTRY_UPDATE", "repeat_prescription_entries", String(entryId), auditWith(auditCorrection(body, {
     entry_date: entryDate,
     expires_date: expiresDate,
     client_id: clientId,
     medicine_name_dose: medicineNameDose
-  }, __before, await auditSnap(env, "repeat_prescription_entries", entryId, authUser)), authUser.location_id);
+  }), __before, await auditSnap(env, "repeat_prescription_entries", entryId, authUser)), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
   return jsonResponse(payload, 200, corsOkHeaders);
 }
 
+
+// "Collected today": sets last_collected_date on one line of this pharmacy (Malta date unless a date is sent).
+// Body: {} -> today; { date: "YYYY-MM-DD" } -> that day (not in the future, not before the line was written), used
+// by Undo to put the previous day back; { date: "" } or { date: null } -> clear it. Audited like every write.
+async function handleRepeatPrescriptionsEntryCollected(request, env, corsOkHeaders, authUser, entryId) {
+  if (!requireRole(authUser, ["admin", "staff"])) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  }
+  await ensureRepeatPrescriptionsSchema(env);
+  const existing = await dbFirst(
+    env,
+    `SELECT id, entry_date, client_id, medicine_name_dose, last_collected_date FROM repeat_prescription_entries
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [entryId, authUser.org_id, authUser.location_id]
+  );
+  if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  let body = {};
+  try { body = (await readJson(request)) || {}; } catch (e) { body = {}; }
+  const today = tzYmd();
+  let date = today;
+  if (Object.prototype.hasOwnProperty.call(body, "date")) {
+    const d = body.date == null ? "" : String(body.date).trim();
+    if (d === "") date = null;
+    else if (!isValidYmd(d)) return jsonResponse({ ok: false, error: "Invalid date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+    else if (d > today) return jsonResponse({ ok: false, error: "The collection date cannot be in the future" }, 400, corsOkHeaders);
+    else if (d < String(existing.entry_date || "")) return jsonResponse({ ok: false, error: "The collection date cannot be before the prescription was written" }, 400, corsOkHeaders);
+    else date = d;
+  }
+  const __before = await auditSnap(env, "repeat_prescription_entries", entryId, authUser);
+  await dbRun(
+    env,
+    `UPDATE repeat_prescription_entries SET last_collected_date = ?, updated_at = datetime('now')
+     WHERE id = ? AND org_id = ? AND location_id = ?`,
+    [date, entryId, authUser.org_id, authUser.location_id]
+  );
+  await writeAudit(env, authUser.org_id, authUser.user_id, "REPEAT_RX_ENTRY_COLLECTED", "repeat_prescription_entries", String(entryId), auditWith({
+    client_id: existing.client_id,
+    medicine_name_dose: existing.medicine_name_dose,
+    last_collected_date: date,
+    previous: existing.last_collected_date || null
+  }, __before, await auditSnap(env, "repeat_prescription_entries", entryId, authUser)), authUser.location_id);
+  return jsonResponse({ ok: true, entry_id: entryId, last_collected_date: date, previous: existing.last_collected_date || null }, 200, corsOkHeaders);
+}
 
 async function handleRepeatPrescriptionsEntryDelete(request, env, corsOkHeaders, authUser, entryId) {
   if (!requireRole(authUser, ["admin", "staff"])) {
@@ -7968,7 +8057,7 @@ async function handleCreditNoteUpdate(request, env, corsOkHeaders, authUser, id)
     WHERE id=? AND org_id=? AND location_id=?
   `, [issue_date, client_name, client_surname, telephone, email||null, receipt_number||null, amount, (no_expiry ? null : expiry_date||null), no_expiry, authUser.user_id, id, authUser.org_id, authUser.location_id]);
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_UPDATE", "credit_notes", String(id), auditWith({ issue_date, client_name, client_surname }, __before, await auditSnap(env, "credit_notes", id, authUser)), authUser.location_id);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_UPDATE", "credit_notes", String(id), auditWith(auditCorrection(body, { issue_date, client_name, client_surname }), __before, await auditSnap(env, "credit_notes", id, authUser)), authUser.location_id);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -8535,13 +8624,13 @@ async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, 
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_UPDATE", "dda_sales_entries", String(entryId), auditWith({
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_UPDATE", "dda_sales_entries", String(entryId), auditWith(auditCorrection(body, {
     entry_date: entryDate,
     client_id_card: clientIdCardNorm,
     prescription_serial_no: prescriptionSerialNo,
     quantity: quantity,
     urgent: urgent
-  }, __before, await auditSnap(env, "dda_sales_entries", entryId, authUser)), authUser.location_id);
+  }), __before, await auditSnap(env, "dda_sales_entries", entryId, authUser)), authUser.location_id);
 
   const changes = updRes && updRes.meta && typeof updRes.meta.changes === "number" ? updRes.meta.changes : null;
   const wantDebug = (request.headers.get("X-Eikon-Debug") || "") === "1";
@@ -8979,12 +9068,12 @@ async function handleDdaPoycEntryUpdate(request, env, corsOkHeaders, authUser, e
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_POYC_ENTRY_UPDATE", "dda_poyc_entries", String(entryId), auditWith({
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_POYC_ENTRY_UPDATE", "dda_poyc_entries", String(entryId), auditWith(auditCorrection(body, {
     entry_date: entryDate,
     client_id_card: clientIdCard,
     prescription_serial_no: prescriptionSerialNo,
     quantity: quantity
-  }, __before, await auditSnap(env, "dda_poyc_entries", entryId, authUser)), authUser.location_id);
+  }), __before, await auditSnap(env, "dda_poyc_entries", entryId, authUser)), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -9318,12 +9407,12 @@ async function handleDdaPurchasesEntryUpdate(request, env, corsOkHeaders, authUs
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_PURCHASES_ENTRY_UPDATE", "dda_purchases_entries", String(entryId), auditWith({
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_PURCHASES_ENTRY_UPDATE", "dda_purchases_entries", String(entryId), auditWith(auditCorrection(body, {
     entry_date: entryDate,
     dda_name_dose: ddaNameDose,
     invoice_number: invoiceNumber,
     quantity
-  }, __before, await auditSnap(env, "dda_purchases_entries", entryId, authUser)), authUser.location_id);
+  }), __before, await auditSnap(env, "dda_purchases_entries", entryId, authUser)), authUser.location_id);
 
     const payload = { ok: true };
   if (isDebugEnabled(request)) payload.debug = { entryId: entryId };
@@ -15865,6 +15954,10 @@ async function handleBoardDashboard(request, env, corsOkHeaders, authUser) {
 // missing table or a bad row yields an empty section, never a 500.
 // ═══════════════════════════════════════════════════════════════════════════
 const PHARMACY_TZ = "Europe/Malta";
+// /today's repeats superset (see __p_rep): how far ahead an expiry is sent, and at most how many lines.
+// The screen's "running out within N days" (ui/eikon.repeatdue.js RULES.RUN_OUT_WITHIN_DAYS) must not exceed this.
+const REPEATS_LOOKAHEAD_DAYS = 92;
+const REPEATS_MAX_ROWS = 400;
 function tzYmd(d) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: PHARMACY_TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(d || new Date());
 }
@@ -15891,7 +15984,8 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
   const one = async (sql, bind) => { try { return await dbFirst(env, sql, bind); } catch (e) { return null; } };
 
   const ensures = [ensureDailyRegisterSchema, ensureCertificatesSchema, ensureAlertsSchema, ensureReturnsSchema, ensureNearExpirySchema,
-    ensureClientOrdersSchema, ensureClientTicketsSchema, ensureDeliveriesSchema, ensureEndOfDaySchema, ensurePaidOutSchema, ensureShiftsSchema, ensureSupplierProductsSchema];
+    ensureClientOrdersSchema, ensureClientTicketsSchema, ensureDeliveriesSchema, ensureEndOfDaySchema, ensurePaidOutSchema, ensureShiftsSchema, ensureSupplierProductsSchema,
+    ensureRepeatPrescriptionsSchema];
   // The schema steps do not depend on each other: all at once, then the two default seeds (they need the tables).
   await Promise.all(ensures.map(function (fn) { return Promise.resolve().then(function () { return fn(env); }).catch(function () {}); }));
   await Promise.all([ensureDefaultTempDevicesIfMissing(env, authUser).catch(function () {}), ensureDefaultCertificatesIfMissing(env, authUser).catch(function () {})]);
@@ -15922,6 +16016,18 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
         AND COALESCE(NULLIF(scheduled_date, ''), order_date) <= ?
       ORDER BY COALESCE(NULLIF(scheduled_date, ''), order_date) ASC, priority ASC, id ASC LIMIT 50`, [org, loc, today]);
   const __p_certs = all(`SELECT item_key, title, last_date, interval_months FROM certificates_items WHERE org_id = ? AND location_id = ?`, [org, loc]);
+  // Repeats coming due (backlog 3 item 7). The worker does NOT decide what "due" means: that rule waits for the
+  // pharmacist and lives in one place, ui/eikon.repeatdue.js. Here only a generous superset is sent: every still-valid
+  // line of every patient who has a line with a collection interval, or a line running out within
+  // REPEATS_LOOKAHEAD_DAYS (all of that patient's valid lines come, so the screen can tell a renewed one apart).
+  const __p_rep = all(
+    `SELECT id, entry_date, expires_date, client_name, client_id, medicine_name_dose, posology, collect_every_days, last_collected_date
+       FROM repeat_prescription_entries
+      WHERE org_id = ? AND location_id = ? AND expires_date >= ?
+        AND lower(replace(client_id, ' ', '')) IN (
+          SELECT lower(replace(client_id, ' ', '')) FROM repeat_prescription_entries
+           WHERE org_id = ? AND location_id = ? AND expires_date >= ? AND (collect_every_days IS NOT NULL OR expires_date <= ?))
+      ORDER BY expires_date ASC, id ASC LIMIT ${REPEATS_MAX_ROWS + 1}`, [org, loc, today, org, loc, today, ymdPlusDays(today, REPEATS_LOOKAHEAD_DAYS)]);
   const __p_alerts = all(
     `SELECT id, item_name, alert_type, status, entry_date, team_informed, supplier_informed, authorities_informed, return_arranged, handed_over, collection_note_received, credit_note_received
        FROM alerts_entries WHERE org_id = ? AND location_id = ? AND lower(status) != 'closed' ORDER BY entry_date DESC LIMIT 20`, [org, loc]);
@@ -16061,6 +16167,9 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
       one("SELECT COUNT(*) AS c FROM shift_opening_hours WHERE org_id = ? AND location_id = ?", [org, loc])]);
     if (su && sh) setup = { sign_ins: Number(su.c) || 0, opening_hours_saved: Number(sh.c) > 0 };
   }
+  const repRows = await __p_rep;
+  const repeats = { entries: repRows.slice(0, REPEATS_MAX_ROWS), lookahead_days: REPEATS_LOOKAHEAD_DAYS, truncated: repRows.length > REPEATS_MAX_ROWS,
+    action: { type: "open", path: "#repreg", label: "Open" } };
   const counts = {
     before_opening: before.filter((x) => x.status === "todo" || x.status === "overdue").length,
     customers_waiting: waiting.length,
@@ -16068,7 +16177,7 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
   };
   return jsonResponse({ ok: true, date: today, time: tzHm(), timezone: PHARMACY_TZ,
     pharmacy: { name: authUser.location_name, location_id: loc, org: authUser.org_name },
-    before_opening: before, customers_waiting: waiting, attention, takings, stock, team, bookings, counts, ...(setup ? { setup } : {}) },
+    before_opening: before, customers_waiting: waiting, attention, takings, stock, team, bookings, repeats, counts, ...(setup ? { setup } : {}) },
     200, { ...corsOkHeaders, "Cache-Control": "private, max-age=10", "Vary": "Origin, Authorization" }); // Authorization: a page load of /today (clean address) must not get this from the browser's cache
 }
 
@@ -18361,6 +18470,11 @@ if (url.pathname.startsWith("/dda-sales/entries/") && request.method === "PUT") 
     }
     if (url.pathname === "/repeat-prescriptions/entries" && request.method === "POST") {
       return await handleRepeatPrescriptionsEntryCreate(request, env, corsOkHeaders, authUser);
+    }
+    if (/^\/repeat-prescriptions\/entries\/\d+\/collected$/.test(url.pathname) && request.method === "POST") {
+      const id = parseInt(url.pathname.split("/").filter(Boolean)[2], 10);
+      if (!id) return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
+      return await handleRepeatPrescriptionsEntryCollected(request, env, corsOkHeaders, authUser, id);
     }
     if (url.pathname.startsWith("/repeat-prescriptions/entries/") && request.method === "PUT") {
       const parts = url.pathname.split("/").filter(Boolean);

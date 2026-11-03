@@ -120,10 +120,12 @@
   function cancelled(job) { return !job || job.cancel || S.job !== job; }
   async function get(job, path) {
     if (cancelled(job)) throw { cancelled: true };
+    if (job.cache && job.cache[path]) return job.cache[path]; // read once per run: the inspection check reuses the months already read
     job.calls++; job.paths.push(path); paint();
     var r = await E.apiFetch(path, { method: "GET" });
     if (cancelled(job)) throw { cancelled: true };
     if (!r || r.ok === false) throw new Error((r && r.error) || "No answer");
+    if (job.cache) job.cache[path] = r;
     return r;
   }
   async function pool(list, n, fn) {
@@ -158,7 +160,7 @@
   async function run(kind) {
     var rg = rangeOf(); if (!rg) { S.error = "Choose a first and a last day, the last one not before the first."; return paint(); }
     var ids = picked(); if (!ids.length) { S.error = "Tick at least one register."; return paint(); }
-    var job = { kind: kind, cancel: false, calls: 0, paths: [], now: "", i: 0, n: ids.length, range: rg, results: [] };
+    var job = { kind: kind, cancel: false, calls: 0, paths: [], now: "", i: 0, n: ids.length, range: rg, results: [], cache: {} };
     S.job = job; S.done = null; S.error = ""; paint();
     for (var k = 0; k < ids.length; k++) {
       var reg = BY[ids[k]]; job.i = k + 1; job.now = reg.title; paint();
@@ -168,8 +170,15 @@
         job.results.push({ reg: reg, rows: [], error: e && e.status === 403 ? "Not allowed for this account" : e && e.network ? "No connection" : String((e && (e.message || e)) || "Could not read") });
       }
     }
+    // The pack starts with the Inspection check (modules.insreg.js) for the same days: its cover page with sign-off lines.
+    var cover = null;
+    if (kind === "print" && !cancelled(job) && E.inspect && E.inspect.run) {
+      job.now = "Inspection check"; paint();
+      try { cover = await E.inspect.run({ kind: S.range === "custom" ? "custom" : "pack", from: rg.from, to: rg.to, label: rg.label }, function (p) { return get(job, p); }); }
+      catch (e) { if (!(e && e.cancelled)) cover = { error: String((e && (e.message || e)) || "could not be made") }; }
+    }
     if (cancelled(job)) { if (S.job === job) { S.job = null; S.done = { cancelled: true }; paint(); } return; }
-    var out = { kind: kind, range: rg, calls: job.calls, paths: job.paths, results: job.results, at: new Date() };
+    var out = { kind: kind, range: rg, calls: job.calls, paths: job.paths, results: job.results, at: new Date(), cover: cover };
     // SheetJS (pinned in ui/vendor) loads only now; if it cannot, save() makes the CSV zip instead.
     if (kind !== "print" && !window.XLSX && E.loadVendor) { try { await E.loadVendor("xlsx"); } catch (eL) {} }
     try {
@@ -257,7 +266,8 @@
   function printPack(out) {
     var u = user(), loc = u.location_name || "", rt = rangeText(out.range), p = parts(out.at.getTime()), printed = pad(p.d) + "/" + pad(p.mo) + "/" + p.y;
     var cell = function (v, k) { return k === "m" && typeof v === "number" ? v.toFixed(2) : v; };
-    var secs = out.results.map(function (r) {
+    var first = out.cover && out.cover.list && E.inspect && E.inspect.coverSection ? E.inspect.coverSection(out.cover, loc) : out.cover && out.cover.error ? '<section class="pg"><header><b>' + esc(loc) + "</b><span>Inspection check</span><span>" + esc(rt) + "</span></header><p>Not printed: " + esc(out.cover.error) + "</p></section>" : "";
+    var secs = first + out.results.map(function (r) {
       var h = '<section class="pg"><header><b>' + esc(loc) + "</b><span>" + esc(r.reg.title) + "</span><span>" + esc(rt) + "</span></header>";
       if (r.error) return h + "<p>Not printed: " + esc(r.error) + "</p></section>";
       if (r.reg.id === "temperature") return h + tempTables(r, out.range) + "</section>";
@@ -269,6 +279,7 @@
     var html = "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Inspection pack</title><style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:24px;color:#000;background:#fff}" +
       ".pg{page-break-after:always;break-after:page}.pg:last-child{page-break-after:auto;break-after:auto}header{display:flex;justify-content:space-between;gap:12px;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:10px;font-size:13px}header b{font-size:15px}header span:nth-child(2){font-size:18px;font-weight:800}" +
       "h3{font-size:14px;margin:14px 0 6px}.n{font-size:12px;color:#333;margin:0 0 8px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:4px 6px;font-size:10.5px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#eee}td.bad{font-weight:700}" +
+      ".sign{display:flex;gap:28px;margin-top:28px;break-inside:avoid}.sign div{flex:1}.sign span{display:block;border-bottom:1px solid #000;height:30px}.sign small{font-size:10px}" +
       "footer{font-size:10px;color:#333;margin-top:8px}@page{size:A4 landscape;margin:10mm}@media print{body{margin:0}tr{page-break-inside:avoid}}</style></head><body>" + secs +
       "<footer>Printed " + esc(printed) + " from Eikon. It holds patients' names and ID cards: keep it safe.</footer></body></html>";
     out.html = html;
@@ -365,6 +376,7 @@
       h += '<div class="exp-res"><div class="exp-prog"><b>' + (d.error ? "The file could not be made: " + esc(d.error) : d.kind === "print" ? "The inspection pack opened in a new tab." : "Saved " + esc(d.file.name) + (d.format === "zip" ? " (a CSV file per register)" : "")) + "</b>" +
         esc(rangeText(d.range)) + (failed ? ' · <span class="exp-err">' + failed + " not exported</span>" : "") + "</div>" +
         "<table><caption class='exp-lab' style='text-align:left'>What is in it</caption><thead><tr><th scope='col'>Register</th><th scope='col' style='text-align:right'>Rows</th></tr></thead><tbody>" +
+        (d.cover ? "<tr><td>Inspection check (first page)</td><td class='n'>" + (d.cover.error ? '<span class="exp-err">' + esc(d.cover.error) + "</span>" : esc(d.cover.head.text)) + "</td></tr>" : "") +
         d.results.map(function (r) { return "<tr><td>" + esc(r.reg.title) + "</td><td class='n'>" + (r.error ? '<span class="exp-err">' + esc(r.error) + "</span>" : r.rows.length + (r.extra && r.extra.capped ? " (at most " + r.extra.capped + ")" : "")) + "</td></tr>"; }).join("") + "</tbody></table></div>";
     }
     h += "</div>";

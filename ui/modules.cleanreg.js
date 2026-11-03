@@ -1,6 +1,8 @@
 /* Cleaning register, new layout: when the dispensary and fridge were last cleaned, every week of the month
    with what was recorded (or that nothing was), a short form to record one, and a printout for an inspector.
-   Same endpoints as the classic screen (/cleaning/entries). */
+   Same endpoints as the classic screen (/cleaning/entries). Correct (the pharmacist only, eikon.correct.js): read
+   again, the classic edit's six fields and body, a required reason, the whole line sent (the update replaces every
+   column). A line is never deleted here. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -8,6 +10,29 @@
 
   var DUE_DAYS = 7; // cleaned at least once a week
   var S = { mount: null, month: null, entries: [], around: [], recent: [], loading: false, error: "", form: null, saving: false };
+  var FIX = { reasonPh: "e.g. Cleaner\u2019s name typed wrong", entity: "cleaning_entries", action: "CLEANING_ENTRY_UPDATE",
+    fields: [{ k: "entry_date", label: "Date", type: "date", req: true, what: "the date" }, { k: "time_in", label: "Time in", type: "time", req: true, what: "the time in" },
+      { k: "time_out", label: "Time out", type: "time", hint: "Optional" }, { k: "cleaner_name", label: "Cleaner", req: true, what: "who cleaned" },
+      { k: "staff_name", label: "Checked by", req: true, what: "who checked" }, { k: "notes", label: "Notes" }],
+    rows: function () { return S.around; },
+    reread: async function (row) {
+      var months = [String(row.entry_date || "").slice(0, 7), S.month].filter(function (x, i, a) { return /^\d{4}-\d{2}$/.test(x) && a.indexOf(x) === i; });
+      for (var i = 0; i < months.length; i++) {
+        var r = await E.apiFetch("/cleaning/entries?month=" + encodeURIComponent(months[i]), { method: "GET" });
+        var hit = ((r && r.entries) || []).filter(function (e) { return String(e.id) === String(row.id); })[0];
+        if (hit) return hit;
+      }
+      return null;
+    },
+    put: function (row) { return "/cleaning/entries/" + encodeURIComponent(String(row.id)); },
+    body: function (r) { return { entry_date: String(r.entry_date || ""), time_in: String(r.time_in || ""), time_out: String(r.time_out || ""), cleaner_name: String(r.cleaner_name || "").trim(), staff_name: String(r.staff_name || "").trim(), notes: String(r.notes || "").trim() }; },
+    check: function (r) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.entry_date)) || String(r.entry_date) > ymd(new Date())) return "Choose the date (not a day ahead).";
+      if (!/^\d{2}:\d{2}$/.test(String(r.time_in))) return "Write the time in, e.g. 08:00.";
+      if (String(r.time_out || "") && !/^\d{2}:\d{2}$/.test(String(r.time_out))) return "Write the time out, e.g. 08:40, or leave it empty.";
+      return "";
+    },
+    paint: function () { paint(); }, idle: function () { E.whenFormIdle(S.mount, paint); }, done: function () { return load(); } };
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   var WDN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -58,7 +83,7 @@
       ".clr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".clr-print,.clr-pmeta{display:none}" +
       "@media (max-width:600px){.clr{padding:4px 16px 0}.clr h1{font-size:32px}.clr-form label>span{flex-basis:84px}}" +
-      "@media print{.eikon-sidebar,.eikon-topbar,.clr-back,.clr-acts,.clr-month,.clr-lab,.clr-list,.clr-form,.clr-status,.eikon-toast{display:none!important}" +
+      "@media print{.eikon-sidebar,.eikon-topbar,.clr-back,.clr-acts,.clr-month,.clr-lab,.clr-list,.clr-form,.clr-status,.clr-note,.eikon-toast{display:none!important}" +
       ".eikon-content{padding:0!important}.clr-pmeta{display:block;font-size:12px;margin:2px 0 8px}.clr-print{display:table;width:100%;border-collapse:collapse;font-size:11px}" +
       ".clr-print th,.clr-print td{border:1px solid #999;padding:3px 6px;text-align:left}}";
     document.head.appendChild(st);
@@ -75,6 +100,7 @@
       S.around = [].concat.apply([], res.map(function (r) { return (r && r.entries) || []; })).sort(byNewest);
       S.entries = S.around.filter(function (e) { return String(e.entry_date).slice(0, 7) === S.month; });
       S.recent = S.around;
+      E.correct.loadMarks("cleanreg", FIX, shiftMonth(S.month, -1) + "-01"); // which lines were corrected, by whom and why
     } catch (e) {
       if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register");
     }
@@ -141,8 +167,8 @@
         if (!inWeek.length) h += current && !overdue ? '<div class="clr-row"><div class="t"><span>Nothing recorded yet this week</span></div></div>' : '<div class="clr-row none"><div class="t"><b>No cleaning recorded this week</b></div></div>';
         inWeek.forEach(function (e) {
           h += '<div class="clr-row"><div class="t"><b>' + esc(dayShort(e.entry_date)) + (e.cleaner_name ? " · " + esc(e.cleaner_name) : "") + "</b><span>" +
-            (e.staff_name ? "Checked by " + esc(e.staff_name) : "") + (e.notes ? (e.staff_name ? " · " : "") + esc(e.notes) : "") + "</span></div>" +
-            '<div class="tm">' + esc(e.time_in || "") + (e.time_out ? "–" + esc(e.time_out) : "") + "</div></div>";
+            (e.staff_name ? "Checked by " + esc(e.staff_name) : "") + (e.notes ? (e.staff_name ? " · " : "") + esc(e.notes) : "") + "</span>" + E.correct.mark("cleanreg", e) + "</div>" +
+            '<div class="tm">' + esc(e.time_in || "") + (e.time_out ? "–" + esc(e.time_out) : "") + "</div>" + E.correct.button("cleanreg", e, "the cleaning of " + dayShort(e.entry_date) + (e.cleaner_name ? " by " + e.cleaner_name : "")) + "</div>" + E.correct.panel("cleanreg", e, FIX);
         });
         h += "</div>";
       });
@@ -151,10 +177,11 @@
           return "<tr><td>" + esc(e.entry_date) + "</td><td>" + esc(e.time_in || "") + "</td><td>" + esc(e.time_out || "") + "</td><td>" + esc(e.cleaner_name || "") + "</td><td>" + esc(e.staff_name || "") + "</td><td>" + esc(e.notes || "") + "</td></tr>";
         }).join("") : '<tr><td colspan="6">No cleaning recorded this month.</td></tr>') + "</tbody></table>";
     }
-    h += "</div>";
+    h += E.correct.foot().replace('class="ecr-foot"', 'class="ecr-foot clr-note"') + "</div>";
     m.innerHTML = h;
     bind(m);
-    MB.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; S.around = []; load(); }, paint: paint, print: printMonth });
+    E.correct.wire(m, "cleanreg", FIX);
+    MB.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; S.around = []; E.correct.reset("cleanreg"); load(); }, paint: paint, print: printMonth });
   }
   // The classic cleaning printout: one line per cleaning, oldest first.
   function printMonth() {
@@ -211,7 +238,7 @@
 
   E.registerModule({
     id: "cleanreg", title: "Cleaning", order: 3, icon: "✓", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.month = thisMonth(); S.entries = []; S.around = []; E.months.reset(); css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.month = E.months.take("cleanreg") || thisMonth(); S.entries = []; S.around = []; E.months.reset(); E.correct.reset("cleanreg"); css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("cleanreg") < 0) E.UI2_DESTINATIONS.push("cleanreg");
   if (E.UI2_PARENT) E.UI2_PARENT.cleanreg = "registers";

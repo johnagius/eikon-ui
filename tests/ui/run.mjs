@@ -26,12 +26,15 @@ const genericList = {
 };
 
 let todayState = { tempDone: false, cleanDone: false };
+// Temperature entries the mock keeps (off by default: GET answers [] and POST only marks Today done, as before).
+// When on, it behaves as the worker: GET by month, POST upserts by device and day.
+let tempState = { on: false, entries: [], next: 100 };
 function todayPayload() {
   const t = todayYmd;
   return {
     ok: true, date: t, time: todayState.time || "09:12", timezone: "Europe/Malta", pharmacy: { name: "Demo Pharmacy", location_id: 12, org: "Test" },
     before_opening: (todayState.room ? [{ kind: "temperature", device_id: 8, title: "Pharmacy · reading", sub: "Yesterday 21 to 23 · limits 15 to 25", status: "todo", out_of_range: false, limits: { min: 15, max: 25 }, yesterday: { min: 21, max: 23 }, today: null, action: { method: "POST", path: "/temperature/entries", body: { device_id: 8, entry_date: t }, fields: ["min_temp", "max_temp", "notes"], label: "Log" } }] : []).concat([
-      { kind: "temperature", device_id: 7, title: "Fridge 1 · reading", sub: "Yesterday 3.8 to 6.4 · limits 2 to 8", status: todayState.tempDone ? "done" : "todo", out_of_range: false, limits: { min: 2, max: 8 }, yesterday: todayState.yOut ? { min: 3.8, max: 9.1 } : { min: 3.8, max: 6.4 }, today: todayState.tempDone ? { min: 3.9, max: 6.1 } : null, action: { method: "POST", path: "/temperature/entries", body: { device_id: 7, entry_date: t }, fields: ["min_temp", "max_temp", "notes"], label: "Log" } },
+      { kind: "temperature", device_id: 7, title: "Fridge 1 · reading", sub: "Yesterday 3.8 to 6.4 · limits 2 to 8", status: todayState.tempDone || todayState.outToday ? "done" : "todo", out_of_range: !!todayState.outToday, limits: { min: 2, max: 8 }, yesterday: todayState.yOut ? { min: 3.8, max: 9.1 } : { min: 3.8, max: 6.4 }, today: todayState.outToday ? { min: 4, max: 9.5 } : todayState.tempDone ? { min: 3.9, max: 6.1 } : null, action: { method: "POST", path: "/temperature/entries", body: { device_id: 7, entry_date: t }, fields: ["min_temp", "max_temp", "notes"], label: "Log" } },
       { kind: "daily_register", title: "Daily register", sub: "No entry yet today", status: "todo", count_today: 0, action: { type: "open", path: "#dailyregister", label: "Open" } },
       { kind: "cleaning", title: "Cleaning", sub: "Last done 14 days ago by Karl", status: todayState.cleanDone ? "done" : "overdue", days_since: 14, last_date: "2026-10-17", action: { method: "POST", path: "/cleaning/entries", body: { entry_date: t }, fields: ["time_in", "cleaner_name", "staff_name"], label: "Done now" } }
     ]).filter((x) => !(todayState.noFridge && x.kind === "temperature")),
@@ -115,7 +118,13 @@ function mockApi(req, res, body) {
   if (p === "/today") return res.end(JSON.stringify(todayPayload()));
   if (p === "/auth/me") return res.end(JSON.stringify({ ok: true, user: { id: 1, user_id: 1, email: "p@x.com", full_name: "Maria Borg", org_id: 1, location_id: 12, location_name: "Demo Pharmacy", role: "admin" } }));
   if (p === "/temperature/devices") return res.end(JSON.stringify({ ok: true, devices: [{ id: 7, name: "Fridge 1", device_type: "fridge", min_limit: 2, max_limit: 8, active: 1 }] }));
-  if (p === "/temperature/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [] }));
+  if (p === "/temperature/entries" && req.method === "GET") { const mo = url.searchParams.get("month") || ""; return res.end(JSON.stringify({ ok: true, entries: tempState.on ? tempState.entries.filter((e) => e.entry_date.slice(0, 7) === mo).map((e) => ({ ...e })) : [] })); }
+  if (p === "/temperature/entries" && req.method === "POST" && tempState.on) {
+    let e = tempState.entries.find((x) => x.device_id === Number(body.device_id) && x.entry_date === body.entry_date);
+    if (!e) { e = { id: tempState.next++, device_id: Number(body.device_id), device_name: "Fridge 1", device_type: "fridge", min_limit: 2, max_limit: 8, entry_date: body.entry_date, created_by: 1, created_at: "2026-11-03 09:00:00" }; tempState.entries.push(e); }
+    Object.assign(e, { min_temp: Math.round(Number(body.min_temp) * 10) / 10, max_temp: Math.round(Number(body.max_temp) * 10) / 10, notes: String(body.notes || "").trim(), updated_at: "2026-11-03 10:0" + (tempState.next++ % 10) + ":00" });
+    return res.end(JSON.stringify({ ok: true, entry_id: e.id }));
+  }
   if (p === "/dda-purchases/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [{ id: 5, entry_date: todayYmd, dda_name_dose: "Morphine 10mg", quantity: 2, agent: "Supplier", invoice_number: "INV-1" }] }));
   if (p === "/temperature/entries" && req.method === "POST") { todayState.tempDone = true; return res.end(JSON.stringify({ ok: true, entry_id: 1 })); }
   if (p === "/client-orders/entries" && req.method === "GET") {
@@ -1630,6 +1639,76 @@ report("repeat prescriptions: opens from the old link, flags the one expiring so
     sg.rec.some((t) => /^Diazepam rectal tubes/.test(t)) && !sg.sold.some((t) => /^Diazepam rectal tubes/.test(t)), JSON.stringify({ r1, sg }));
 }
 
+// Repeats coming due (backlog 3 item 7). The rules (eikon.repeatdue.js RULES) await the pharmacist; these pin the maths.
+{
+  const rd = await page.evaluate(() => {
+    const R = window.EIKON.repeatDue, s = (e, on, all) => R.status(e, on, all).kind;
+    const L = (o) => ({ id: 1, entry_date: "2024-01-31", expires_date: "2024-07-31", client_id: "1M", medicine_name_dose: "A", collect_every_days: 30, last_collected_date: null, ...o });
+    return {
+      add: [R.addDays("2024-02-28", 1), R.addDays("2023-02-28", 1), R.addDays("2026-01-31", 28), R.addDays("2026-03-28", 3), R.addDays("2026-10-24", 2), R.addDays("2026-12-30", 5), R.addDays("2024-02-29", 365)].join(),
+      diff: [R.diffDays("2024-02-01", "2024-03-01"), R.diffDays("2023-02-01", "2023-03-01"), R.diffDays("2026-03-28", "2026-03-30")].join(),
+      next: [R.nextDue(L({})), R.nextDue(L({ last_collected_date: "2024-02-29" })), R.nextDue(L({ collect_every_days: null })), R.nextDue(L({ entry_date: "2023-12-31", collect_every_days: 60 }))].join(),
+      kinds: [s(L({}), "2024-02-23"), s(L({}), "2024-02-22"), s(L({}), "2024-03-01"), s(L({}), "2024-03-09"), s(L({ last_collected_date: "2024-03-01" }), "2024-03-09"),
+        s(L({ collect_every_days: null, expires_date: "2024-03-20" }), "2024-03-01"), s(L({ collect_every_days: null }), "2024-03-01"), s(L({}), "2024-08-01"),
+        s(L({ last_collected_date: "2024-07-10" }), "2024-07-20"), s(L({}), "2024-03-09", [L({}), L({ id: 2, entry_date: "2024-03-05" })])].join(),
+      words: [R.words({ kind: "overdue", days: -1 }), R.words({ kind: "due", days: 0 }), R.words({ kind: "due", days: 5 }), R.words({ kind: "runout", runsOutIn: 12 })].join("|"),
+      malta: [window.EIKON.maltaYmd(new Date("2026-03-28T23:30:00Z")), window.EIKON.maltaYmd(new Date("2026-10-31T22:59:00Z")), R.today() === window.EIKON.maltaYmd()].join()
+    };
+  });
+  report("repeats due: day maths across leap years, month ends, clock changes and the year end; next due from the last collection; due / overdue / running out / renewed; Malta's date",
+    rd.add === "2024-02-29,2023-03-01,2026-02-28,2026-03-31,2026-10-26,2027-01-04,2025-02-28" && rd.diff === "29,28,2" && rd.next === "2024-03-01,2024-03-30,,2024-02-29" &&
+    rd.kinds === "due,later,due,overdue,later,runout,none,expired,runout,renewed" && rd.words === "Overdue 1 day|Due today|Due in 5 days|Runs out in 12 days" && rd.malta === "2026-03-29,2026-10-31,true", JSON.stringify(rd));
+
+  // Today: the Repeats card from /today's repeats (overdue first, then due, then running out); no Tell without item 6; Open hands the patient to the Due view.
+  const T0 = await page.evaluate(() => window.EIKON.repeatDue.today());
+  const dd = (n) => { const [y, m, d] = T0.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); };
+  const REP = [
+    { id: 201, entry_date: dd(-25), expires_date: dd(158), client_name: "Grech Joseph", client_id: "0456789M", medicine_name_dose: "Ramipril 5mg", posology: "1 daily", prescriber_name: "Dr Abela", prescriber_reg_no: "R1201", collect_every_days: 28, last_collected_date: null },
+    { id: 202, entry_date: dd(-40), expires_date: dd(143), client_name: "Zammit Carmel", client_id: "0012345M", medicine_name_dose: "Atorvastatin 20mg", posology: "1 at night", prescriber_name: "Dr Abela", prescriber_reg_no: "R1201", collect_every_days: 28, last_collected_date: null },
+    { id: 203, entry_date: dd(-170), expires_date: dd(12), client_name: "Vella Anna", client_id: "0987654M", medicine_name_dose: "Levothyroxine 50mcg", posology: "1 daily", prescriber_name: "Dr Abela", prescriber_reg_no: "R1201", collect_every_days: null, last_collected_date: null },
+    { id: 204, entry_date: dd(-10), expires_date: dd(173), client_name: "Borg Maria", client_id: "0111111M", medicine_name_dose: "Metformin 500mg", posology: "1 bd", prescriber_name: "Dr Abela", prescriber_reg_no: "R1201", collect_every_days: 30, last_collected_date: null }];
+  await page.route("**/today", async (r) => { const res = await r.fetch(); const j = await res.json(); j.repeats = { entries: REP, lookahead_days: 92, truncated: false }; await r.fulfill({ response: res, json: j }); });
+  await page.goto(base + "&ui=2#today");
+  await page.waitForSelector(".tdy-row[data-kind=repeat]", { timeout: 15000 }).catch(() => {});
+  const card = await page.evaluate(() => ({ lab: (document.querySelector("#tdy-rep") || {}).textContent, rows: Array.from(document.querySelectorAll(".tdy-row[data-kind=repeat]")).map((r) => r.innerText.replace(/\s+/g, " ")), tell: document.querySelectorAll("[data-rep-tell]").length }));
+  await page.click(".tdy-row[data-kind=repeat] [data-rep-open]");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "repreg" && document.querySelector("[data-view]"), null, { timeout: 15000 }).catch(() => {});
+  const handed = await page.evaluate(() => ({ hash: location.hash, q: (document.querySelector("#rep-q") || {}).value, due: (document.querySelector("[data-view=due]") || { getAttribute() {} }).getAttribute("aria-pressed") }));
+  await page.unroute("**/today");
+  report("repeats due: Today's Repeats card lists overdue, due and running out (not the one due in 20 days), no Tell button before item 6, Open shows that patient's Due view",
+    /Repeats\s*3/.test(card.lab || "") && card.rows.length === 3 && /Zammit Carmel.*Overdue 12 days/.test(card.rows[0]) && /Grech Joseph.*Due in 3 days/.test(card.rows[1]) && /Vella Anna.*Runs out in 12 days/.test(card.rows[2]) && card.tell === 0 &&
+    handed.hash === "#repreg" && handed.q === "0012345M" && handed.due === "true", JSON.stringify({ card, handed }));
+
+  // Repeat prescriptions: Next due on the line, Collected today then Undo (the previous day put back), Renew carries the interval, a chip changes it, Record sends it.
+  const colCalls = [];
+  await page.route(/\/repeat-prescriptions\/entries(\?|$)/, async (r) => { if (r.request().method() !== "GET") return r.continue(); await r.fulfill({ json: { ok: true, entries: REP } }); });
+  await page.route(/\/repeat-prescriptions\/entries\/\d+\/collected$/, async (r) => { const b = JSON.parse(r.request().postData() || "{}"); colCalls.push({ url: r.request().url().replace(/^.*entries/, ""), b });
+    await r.fulfill({ json: { ok: true, last_collected_date: "date" in b ? (b.date || null) : T0, previous: "date" in b ? T0 : null } }); });
+  await page.goto("about:blank"); await page.goto(base + "&ui=2#repreg"); // a fresh page: the list is read again through the route above
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "repreg" && document.querySelector("[data-act=collected]"), null, { timeout: 15000 }).catch(() => {});
+  const line = await page.evaluate(() => document.querySelector(".eikon-content, body").innerText);
+  await page.click('[data-act=collected][data-id="202"]'); await page.waitForTimeout(400);
+  const afterCol = await page.evaluate(() => ({ undo: !!document.querySelector('[data-act=uncollect][data-id="202"]'), focus: document.activeElement && document.activeElement.getAttribute("data-act"), text: document.body.innerText.includes("Collected today") }));
+  await page.click('[data-act=uncollect][data-id="202"]'); await page.waitForTimeout(400);
+  const afterUndo = !!(await page.$('[data-act=collected][data-id="202"]'));
+  await page.click('[data-act=renew][data-id="202"]'); await page.waitForTimeout(300);
+  const carried = await page.inputValue("[name=collect_every_days]");
+  await page.click("[name=posology]"); await page.click('[data-every="56"]');
+  const chip = { v: await page.inputValue("[name=collect_every_days]"), pressed: await page.getAttribute('[data-every="56"]', "aria-pressed") };
+  await page.fill("[name=collect_every_days]", "400"); await page.click("#rep-add button[type=submit]"); await page.waitForTimeout(300);
+  const badErr = await page.evaluate(() => (document.querySelector(".rep-err") || {}).textContent || "");
+  await page.fill("[name=collect_every_days]", "56");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("#rep-add button[type=submit]");
+  if (await page.waitForSelector(".epc [data-epc=only]", { timeout: 2500 }).then(() => true, () => false)) await page.click(".epc [data-epc=only]");
+  await settleSave();
+  const rp = ((await (await fetch(`http://localhost:${PORT}/__calls`)).json()).find((c) => c.method === "POST" && c.path === "/repeat-prescriptions/entries") || {}).body || {};
+  await page.unroute(/\/repeat-prescriptions\/entries(\?|$)/); await page.unroute(/\/repeat-prescriptions\/entries\/\d+\/collected$/);
+  report("repeats due: a line shows Next due; Collected today posts, keeps focus on the line and offers Undo, which puts the previous day back; Renew carries the interval; a chip sets it; 400 is refused; Record sends it",
+    /Next due/.test(line) && colCalls.length === 2 && colCalls[0].url === "/202/collected" && JSON.stringify(colCalls[0].b) === "{}" && colCalls[1].b.date === "" && afterCol.undo && afterCol.focus === "uncollect" && afterUndo &&
+    carried === "28" && chip.v === "56" && chip.pressed === "true" && /1 to 365/.test(badErr) && rp.collect_every_days === 56 && rp.client_id === "0012345M", JSON.stringify({ colCalls, afterCol, afterUndo, carried, chip, badErr, rp }));
+}
+
 // Credit notes: what is left; using more than is left is refused before anything is sent; Use all sends exactly the rest.
 await page.goto(base + "&ui=2#creditnotes");
 await page.waitForFunction(() => window.EIKON.state.activeModuleId === "cnreg" && document.querySelector(".cnr-card"), null, { timeout: 15000 });
@@ -2890,6 +2969,120 @@ try {
   await page.evaluate(() => { window.EIKON.state.user.role = "admin"; });
   await page.unroute(RX); await page.unroute(RX1);
 } catch (e) { report("export: download our records", false, String(e).slice(0, 400)); }
+// ---- Inspection check (insreg, backlog 3 item 9): each check's maths on fixed data with a fixed Malta day, the reads it
+// makes (a month per call, 3 in flight at most, stock-take months skip the DDA reads), the screen from Registers, its links
+// to the exact month, the printout with sign-off lines, and the first page of the inspection pack.
+try {
+  await page.goto(base + "&ui=2&ins=" + Date.now() + "#registers");
+  await page.waitForFunction(() => window.EIKON && window.EIKON.inspect && window.EIKON.state.activeModuleId === "registers", null, { timeout: 15000 });
+  const maths = await page.evaluate(() => {
+    const I = window.EIKON.inspect, today = "2026-11-03", days = (a, b) => { const o = []; for (let d = a; d <= b; d = new Date(Date.parse(d + "T12:00:00Z") + 864e5).toISOString().slice(0, 10)) o.push(d); return o; };
+    const oct = days("2026-10-01", "2026-10-31");
+    const temp = [];
+    oct.forEach((d) => { if (d !== "2026-10-05" && d !== "2026-10-09") temp.push({ device_id: 1, device_name: "Pharmacy Fridge", entry_date: d, min_temp: 3, max_temp: d === "2026-10-12" ? 9.5 : d === "2026-10-14" ? 8.4 : 6, min_limit: 2, max_limit: 8, notes: d === "2026-10-14" ? "Door left open, stock checked" : "" }); });
+    oct.filter((d) => d >= "2026-10-21").forEach((d) => temp.push({ device_id: 2, device_name: "Pharmacy", entry_date: d, min_temp: 20, max_temp: 24, min_limit: 15, max_limit: 25, notes: "" }));
+    const D = { months: ["2026-10"], devices: [{ id: 1, name: "Pharmacy Fridge", active: 1, created_at: "2026-09-01 08:00:00" }, { id: 2, name: "Pharmacy", active: 1, created_at: "2026-10-20 22:30:00" }],
+      temp, clean: [{ entry_date: "2026-10-06" }, { entry_date: "2026-10-20" }], daily: days("2026-10-01", "2026-10-10").map((d) => ({ entry_date: d })),
+      locum: oct.filter((d) => d !== "2026-10-15" && d !== "2026-10-16").map((d) => ({ entry_date: d, time_in: "08:00", locum_full_name: "Pharm. Daniela Spiteri", registration_number: "PH 1234" })),
+      certs: [{ title: "Fire Extinguisher", next_due: "2026-10-12" }, { title: "AC Maintenance", next_due: "2026-11-20" }, { title: "Pest Control", next_due: "2027-05-01" }, { title: "First Aid Certificate", next_due: null }],
+      stocktakes: [{ id: 4, created_at: "2026-10-31 23:30:00", closed_at: "2026-11-01 01:00:00" }], dda: {}, err: {} };
+    const rg = I.periodOf("last", today);
+    const list = I.checks(D, rg, today), by = {}; list.forEach((r) => { by[r.id] = { s: r.status, t: r.reasons.map((x) => x.level + ": " + x.text), go: r.reasons.map((x) => x.go || null) }; });
+    // Clean data: the same month with everything there gives no problem at all
+    const C = { months: ["2026-10"], devices: D.devices.slice(0, 1), temp: oct.map((d) => ({ device_id: 1, device_name: "Pharmacy Fridge", entry_date: d, min_temp: 3, max_temp: 6, min_limit: 2, max_limit: 8, notes: "" })),
+      clean: ["2026-10-02", "2026-10-07", "2026-10-14", "2026-10-21", "2026-10-28"].map((d) => ({ entry_date: d })), daily: oct.map((d) => ({ entry_date: d })), locum: oct.map((d) => ({ entry_date: d, locum_full_name: "A", registration_number: "1" })),
+      certs: [{ title: "Pest Control", next_due: "2027-05-01" }], stocktakes: [{ id: 1, created_at: "2026-10-01 08:00:00", closed_at: "2026-10-01 09:00:00" }], dda: {}, err: {} };
+    const clean = I.checks(C, rg, today);
+    // DDA over three months: September had lines and no stock-take, August had none; an open stock-take; October not due yet
+    const rg3 = I.periodOf("three", today), D3 = Object.assign({}, C, { months: ["2026-09", "2026-10", "2026-11"], dda: { "2026-09": { lines: 3, where: "cdsreg" } }, stocktakes: [{ id: 2, created_at: "2026-10-20 08:00:00", closed_at: null }] });
+    const dda3 = I.checks(D3, rg3, today).find((r) => r.id === "dda");
+    // This month (3 November): cleaning last on 22 October is overdue; nothing is counted for today
+    const rgN = I.periodOf("this", today), DN = Object.assign({}, C, { months: ["2026-11"], temp: [{ device_id: 1, device_name: "Pharmacy Fridge", entry_date: "2026-11-01", min_temp: 3, max_temp: 6, min_limit: 2, max_limit: 8 }, { device_id: 1, device_name: "Pharmacy Fridge", entry_date: "2026-11-02", min_temp: 3, max_temp: 6, min_limit: 2, max_limit: 8 }], clean: [{ entry_date: "2026-10-22" }], daily: [], locum: [] });
+    const now = I.checks(DN, rgN, today), nowBy = {}; now.forEach((r) => { nowBy[r.id] = { s: r.status, t: r.reasons.map((x) => x.text) }; });
+    return { by, clean: clean.map((r) => r.id + ":" + r.status), cleanHead: I.headline(clean).text, head: I.headline(list).text, dda3: { s: dda3.status, t: dda3.reasons.map((x) => x.text) }, nowBy, rg, rg3, rgN };
+  });
+  const b = maths.by, T = (k) => b[k].t.join(" | ");
+  report("inspect: temperature on fixed October data — the fridge's 2 days without a reading named, the room counted only from the Malta day it was added (21 Oct), 1 reading outside 2 to 8 °C without a note, 1 with a note for information; links to the first day",
+    b.temperature.s === "missing" && /Pharmacy Fridge: 2 days without a reading \(5 Oct and 9 Oct\)/.test(T("temperature")) && !/Pharmacy: \d+ days? without/.test(T("temperature")) && /Pharmacy Fridge: 1 reading outside 2 to 8 °C without a note \(12 Oct 3 to 9\.5 °C\)/.test(T("temperature")) && /info: 1 reading outside the limits, with a note/.test(T("temperature")) &&
+    b.temperature.go[0].mod === "tempreg" && b.temperature.go[0].day === "2026-10-05" && b.temperature.go[1].day === "2026-10-12", JSON.stringify(b.temperature));
+  report("inspect: cleaning — the week of 12 Oct had none (weeks inside October only; not overdue in a past month); daily register for information only; locum days with work and no pharmacist (15 and 16 Oct) need a look; last signed named",
+    b.cleaning.s === "missing" && /No cleaning recorded in 1 week: week of 12 Oct\./.test(T("cleaning")) && !/Overdue/.test(T("cleaning")) && b.cleaning.go[0].ym === "2026-10" &&
+    b.dailyregister.s === "info" && /10 lines on 10 days\. No line on 21 days/.test(T("dailyregister")) &&
+    b.locum.s === "look" && /2 days with work recorded but no pharmacist in charge in the locum register \(15 Oct and 16 Oct\)/.test(T("locum")) && /Last signed 31 Oct by Pharm\. Daniela Spiteri \(reg no PH 1234\)/.test(T("locum")) && b.locum.go[0].mod === "locreg" && b.locum.go[0].ym === "2026-10", JSON.stringify({ c: b.cleaning, d: b.dailyregister, l: b.locum }));
+  report("inspect: certificates as of 3 Nov — expired 12 Oct is missing, due 20 Nov (17 days) needs a look, not recorded for information; controlled drugs: the stock-take of 01:30 Malta on 1 Nov counts for October, which is not due yet",
+    b.certificates.s === "missing" && /Fire Extinguisher expired on 12 Oct 2026 \(22 days ago\)/.test(T("certificates")) && /AC Maintenance is due on 20 Nov 2026 \(in 17 days\)/.test(T("certificates")) && !/Pest Control/.test(T("certificates")) && /info: Not recorded yet: First Aid Certificate/.test(T("certificates")) &&
+    b.dda.s === "ok" && /1 stock-take in these days \(last on 1 Nov\)/.test(T("dda")) && /October 2026: the stock-take is not due yet/.test(T("dda")) && /3 registers have something missing, 1 needs a look\./.test(maths.head), JSON.stringify({ c: b.certificates, d: b.dda, h: maths.head }));
+  report("inspect: the same month with nothing missing reports nothing (every register in order, daily register for information)",
+    maths.clean.join() === "temperature:ok,cleaning:ok,dailyregister:info,locum:ok,certificates:ok,dda:ok" && maths.cleanHead === "Everything checked is in order for these days.", JSON.stringify(maths.clean));
+  report("inspect: periods in Malta days (last month 1–31 Oct, last 3 months 1 Sep to today, this month to today); DDA over 3 months — September's lines without a stock-take and an open stock-take need a look; this month: cleaning overdue (12 days), today not counted",
+    maths.rg.from === "2026-10-01" && maths.rg.to === "2026-10-31" && maths.rg3.from === "2026-09-01" && maths.rg3.to === "2026-11-03" && maths.rgN.from === "2026-11-01" &&
+    maths.dda3.s === "look" && /September 2026: controlled drugs were supplied or received \(3 lines in Controlled drugs supplied\)/.test(maths.dda3.t.join("|")) && /stock-take started on 20 Oct is not closed/.test(maths.dda3.t.join("|")) &&
+    maths.nowBy.cleaning.s === "missing" && /Overdue: last cleaned 12 days ago \(22 Oct\)/.test(maths.nowBy.cleaning.t.join()) && maths.nowBy.temperature.s === "ok", JSON.stringify({ dda3: maths.dda3, now: maths.nowBy }));
+  // The reads: a month per call, no more than 3 in flight; a month with its stock-take is not read for DDA lines
+  const reads = await page.evaluate(async () => {
+    const I = window.EIKON.inspect, today = "2026-11-03";
+    const mk = (takes, sales) => { const seen = []; let fl = 0, max = 0;
+      const f = async (p) => { seen.push(p); fl++; max = Math.max(max, fl); await new Promise((r) => setTimeout(r, 5)); fl--;
+        if (p === "/temperature/devices") return { ok: true, devices: [] };
+        if (p === "/dda-stocktakes/stocktakes") return { ok: true, stocktakes: takes };
+        if (p === "/certificates/items") return { ok: true, items: [] };
+        if (p.startsWith("/dda-purchases/entries?month=2026-09")) return { ok: true, entries: [{ id: 1 }, { id: 2 }] };
+        if (p.startsWith("/dda-sales/entries?month=2026-08")) return { ok: true, entries: sales };
+        if (p.startsWith("/cleaning/entries?month=2026-11")) return { ok: true, entries: [] };
+        return { ok: true, entries: [] }; };
+      return { f, seen, max: () => max }; };
+    const a = mk([{ id: 1, created_at: "2026-10-03 08:00:00" }, { id: 2, created_at: "2026-11-02 08:00:00" }], []), rg = I.periodOf("three", today);
+    const Da = await I.gather(rg, a.f, null, today);
+    const b2 = mk([], [{ id: 9 }]), Db = await I.gather(I.periodOf("custom", today, "2026-08-01", "2026-09-30"), b2.f, null, today);
+    const c = mk([], []), Dc = await I.gather(I.periodOf("this", today), c.f, null, today);
+    return { a: { calls: Da.calls, max: a.max(), dda: a.seen.filter((p) => /dda-(sales|poyc|purchases)/.test(p)), cleanBefore: a.seen.filter((p) => /cleaning/.test(p)) },
+      b: { calls: Db.calls, dda: b2.seen.filter((p) => /dda-(sales|poyc|purchases)/.test(p)), got: Db.dda }, c: { calls: Dc.calls, extra: c.seen.filter((p) => /cleaning/.test(p)) } };
+  });
+  report("inspect: the last 3 months take 15 requests (3 + a month each for temperature, cleaning, daily and locum registers), never more than 3 in flight; months with their stock-take read no DDA lines",
+    reads.a.calls === 15 && reads.a.max <= 3 && reads.a.dda.length === 0, JSON.stringify(reads.a));
+  report("inspect: a month without a stock-take is read for lines until some are found (August: supplied = 1; September: supplied, POYC, received = 3); this month reads October's cleaning too when the last week starts before it",
+    reads.b.dda.join() === "/dda-sales/entries?month=2026-08,/dda-sales/entries?month=2026-09,/dda-poyc/entries?month=2026-09,/dda-purchases/entries?month=2026-09" && reads.b.got["2026-09"].where === "cdpreg" && reads.b.got["2026-08"].lines === 1 &&
+    reads.c.calls === 8 && reads.c.extra.join() === "/cleaning/entries?month=2026-11,/cleaning/entries?month=2026-10", JSON.stringify({ b: reads.b, c: reads.c }));
+  // The screen: from Registers › Proof, read on opening, rail on Registers, rows with pills, links to the exact month
+  await page.click('[data-open="insreg"]');
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "insreg" && document.querySelector(".ins-list"), null, { timeout: 15000 });
+  const scr = await page.evaluate(() => ({ hash: location.hash, rail: [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join(), rows: [...document.querySelectorAll(".ins-reg")].map((r) => r.dataset.reg + ":" + r.querySelector(".ins-pill").textContent), head: document.querySelector(".ins-head").textContent }));
+  report("inspect: Registers › Inspection check opens in the new layout, reads this month at once, one row per register with its status in words, rail on Registers",
+    scr.hash === "#insreg" && scr.rail === "registers" && scr.rows.length === 6 && scr.rows.every((r) => /:(In order|Look at this|Missing|For information|Not checked)$/.test(r)) && /\d+ requests/.test(scr.head), JSON.stringify(scr));
+  await page.click('[data-range="last"]');
+  await page.waitForFunction(() => !window.EIKON.inspect.state.job && window.EIKON.inspect.state.result && window.EIKON.inspect.state.result.range.kind === "last", null, { timeout: 15000 });
+  const lastYm = await page.evaluate(() => window.EIKON.inspect.state.result.range.from.slice(0, 7));
+  const lastLab = await page.evaluate((ym) => window.EIKON.months.label(ym), lastYm);
+  const cleanGo = await page.$('.ins-reg[data-reg="cleaning"] .ins-go');
+  let cleanMonth = "";
+  if (cleanGo) { await cleanGo.click(); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "cleanreg" && document.querySelector(".emb-lab"), null, { timeout: 15000 }); cleanMonth = await page.textContent(".emb-lab"); }
+  await page.goBack(); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "insreg" && document.querySelector(".ins-list"), null, { timeout: 15000 });
+  const kept = await page.evaluate(() => window.EIKON.inspect.state.result.range.kind);
+  await page.click('.ins-reg[data-reg="temperature"] .ins-go');
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "tempreg" && document.querySelector(".trg-d.focus"), null, { timeout: 15000 });
+  const tFocus = await page.evaluate(() => ({ lab: document.querySelector(".emb-lab").textContent, day: (function (c) { return c && (c.getAttribute("data-day") || c.getAttribute("title")); })(document.querySelector(".trg-d.focus")) })); // the day's date: data-day on a day button (its title is now in words)
+  report("inspect: “Open ›” goes to the exact place — Cleaning on last month (not this one), Temperature on the first day not logged, outlined; back keeps the last check",
+    !!cleanGo && cleanMonth.includes(lastLab) && kept === "last" && tFocus.lab.includes(lastLab) && tFocus.day === lastYm + "-01", JSON.stringify({ cleanMonth, lastLab, kept, tFocus }));
+  // Print: one page with the summary and sign-off lines; the pack's first page is the same check
+  await page.goto(base + "&ui=2&ins2=" + Date.now() + "#insreg");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "insreg" && window.EIKON.inspect.state.result && !window.EIKON.inspect.state.job, null, { timeout: 15000 });
+  await page.evaluate(() => { window.EIKON.months.lastPrint = null; });
+  await page.click('[data-act="print"]'); await page.waitForTimeout(300);
+  const pr = await page.evaluate(() => window.EIKON.months.lastPrint && window.EIKON.months.lastPrint.html || "");
+  const cover = await page.evaluate(() => window.EIKON.inspect.coverSection(window.EIKON.inspect.state.result, "Demo Pharmacy"));
+  report("inspect: Print opens the check with each register, its status and reasons, and lines for Pharmacist in charge, Signature and Date; the pack cover is a page of its own with the same lines",
+    /<h1>Inspection check<\/h1>/.test(pr) && /Pharmacist in charge/.test(pr) && /<small>Signature<\/small>/.test(pr) && /<small>Date<\/small>/.test(pr) && /Temperature/.test(pr) && /Controlled drugs/.test(pr) &&
+    /^<section class="pg">/.test(cover) && /Pharmacist in charge/.test(cover) && /Demo Pharmacy/.test(cover), pr.slice(0, 300));
+  // Download our records › Print inspection pack: the check is page 1, and no month is read twice
+  await page.goto(base + "&ui=2&ins3=" + Date.now() + "#expreg");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "expreg" && document.querySelector(".exp [data-act=print]"), null, { timeout: 15000 });
+  await page.evaluate(() => { window.EIKON.expLast = null; });
+  await page.click('[data-act="legal"]'); await page.click('.exp [data-act="print"]');
+  await page.waitForFunction(() => window.EIKON.expLast && window.EIKON.expLast.kind === "print", null, { timeout: 30000 });
+  const pack = await page.evaluate(() => { const L = window.EIKON.expLast; return { first: (L.html || "").split('<section class="pg">')[1] || "", dup: L.paths.length - new Set(L.paths).size, cover: !!(L.cover && L.cover.list), live: document.querySelector(".exp-live").textContent }; });
+  report("inspect: the inspection pack in Download our records starts with the Inspection check for the same days (with sign-off lines), reuses the months already read (no request twice) and says so on the screen",
+    pack.cover && /Inspection check/.test(pack.first) && /Pharmacist in charge/.test(pack.first) && pack.dup === 0 && /Inspection check \(first page\)/.test(pack.live), JSON.stringify({ dup: pack.dup, first: pack.first.slice(0, 200), live: pack.live.slice(0, 200) }));
+} catch (e) { report("inspect: inspection check", false, String(e).slice(0, 400)); }
 // People's names in Title Case (ui/eikon.people.js): the UI's function is the worker's (read from cloudflare-worker/code and run
 // side by side); in the new layout a name field is cased when it is left, a mixed-case name and other fields are kept as typed.
 try {
@@ -3514,7 +3707,7 @@ try {
     await page.setViewportSize({ width: w, height: 900 });
     await page.evaluate(() => { location.hash = "#drreg"; }); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "drreg" && document.querySelector(".drr"), null, { timeout: 8000 }); await page.waitForTimeout(500);
     if (!(await page.evaluate(() => /John Borg/.test(document.querySelector(".drr").textContent)))) { await page.click(".drr .emb [data-mb=prev]"); await page.waitForTimeout(700); } // the mock's line is last month (month bar from eikon.months.js)
-    const r = await page.evaluate(() => ({ table: !!document.querySelector(".drr-tbl"), list: !!document.querySelector(".drr-list"), john: /John Borg/.test(document.querySelector(".drr").textContent), cols: [...document.querySelectorAll(".drr-tbl th")].map((t) => t.textContent) }));
+    const r = await page.evaluate(() => ({ table: !!document.querySelector(".drr-tbl"), list: !!document.querySelector(".drr-list"), john: /John Borg/.test(document.querySelector(".drr").textContent), cols: [...document.querySelectorAll(".drr-tbl th")].map((t) => t.textContent).filter((t) => t !== "Correct") })); // the pharmacist's Correct column (header read by screen readers only) is not a register column
     report("wide registers: Daily register at " + w + " px shows " + (wantTable ? "a table with the classic's columns" : "the two-line list"), r.john && (wantTable ? r.table && !r.list && r.cols.join("|") === "Date|Client|ID card|Medicine and dose|Posology|Prescriber|Reg no" : r.list && !r.table), JSON.stringify(r));
   }
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -3839,7 +4032,8 @@ try {
     await c.route(/^http:\/\/(www\.)?eikonhq\.com\//, async (r) => {
       const u = new URL(r.request().url());
       if (r.request().resourceType() === "document" && (u.pathname === "/" || /^\/[A-Za-z][\w-]*$/.test(u.pathname))) return r.fulfill({ contentType: "text/html", body: cleanHtml() });
-      return r.fulfill({ response: await r.fetch({ url: `http://localhost:${PORT}` + u.pathname + u.search }) });
+      // A late request (What's new is read 1.5 s after the first screen) can still be on its way when a case closes its context.
+      try { return await r.fulfill({ response: await r.fetch({ url: `http://localhost:${PORT}` + u.pathname + u.search }) }); } catch (e) { /* context closed */ }
     });
     await c.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: "window.XLSX={};" }));
     await c.addInitScript((s) => { try { if (location.hostname.endsWith("eikonhq.com") && !localStorage.getItem("eikon_token")) { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); for (const k in s) localStorage.setItem(k, s[k]); } } catch (e) {} }, store);
@@ -4070,8 +4264,12 @@ try {
   const opened = {};
   for (const [hub, id, sel, main] of [["customers", "ordreg", ".ord-top", "New order"], ["customers", "tktreg", ".tkt-top h1", "New question"], ["customers", "dlvreg", ".dlv-top h1", "New delivery"], ["registers", "cdsreg", ".cds-top h1", "New prescription"], ["money", "poreg", ".por-top h1", "New payment"]]) {
     await openFrom(hub, id, sel);
-    const h = await at(); await fp.keyboard.press("Tab"); const next = await at();
-    opened[id] = { h, next, ok: /^H1:/.test(h) && next.endsWith(":" + main.slice(0, 24)) };
+    const h = await at(); await fp.keyboard.press("Tab");
+    // the screen's own "?" (eikon.help.js) sits in its heading: one stop, then the main button
+    const viaHelp = await fp.evaluate(() => !!(document.activeElement && document.activeElement.classList.contains("nxh-q")));
+    if (viaHelp) await fp.keyboard.press("Tab");
+    const next = await at();
+    opened[id] = { h, viaHelp, next, ok: /^H1:/.test(h) && next.endsWith(":" + main.slice(0, 24)) };
   }
   report("focus: a screen opened from a hub has focus on its heading, and the main button is the very next Tab (was 12 to 14 Tabs from the page); the first screen after sign-in leaves focus alone", Object.values(opened).every((o) => o.ok) && boot === "BODY", JSON.stringify({ boot, opened }));
 
@@ -4142,6 +4340,270 @@ try {
   report("focus: no page errors", fErr.length === 0, fErr.slice(0, 3).join(" | "));
   await fx.close();
 } catch (e) { report("focus: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
+
+// ---- Out-of-limits readings: the note is written where the reading is shown; a missed day is logged late (BACKLOG3 item 2) ----
+try {
+  const tp = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const tErrs = []; tp.on("pageerror", (e) => tErrs.push(e.message));
+  await tp.goto(base + "#dashboard"); await tp.evaluate(() => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); });
+  const yd = new Date(Date.parse(todayYmd + "T12:00:00Z") - 864e5).toISOString().slice(0, 10); // the mock's /today date, less a day
+  const yEntry = () => ({ id: 41, device_id: 7, device_name: "Fridge 1", device_type: "fridge", min_limit: 2, max_limit: 8, entry_date: yd, min_temp: 3.8, max_temp: 9.1, notes: "", created_by: 1, created_at: yd + " 08:00:00", updated_at: yd + " 08:00:00" });
+  tempState = { on: true, entries: [yEntry()], next: 100 };
+  todayState = { tempDone: false, cleanDone: false, yOut: true };
+  const openT = async () => { await tp.goto(base + "&ui=2#today"); await tp.reload(); await tp.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".tdy-head h1") && !/Loading/.test(document.querySelector(".tdy-head h1").textContent), null, { timeout: 15000 }); await tp.waitForTimeout(300); };
+  await openT();
+  const a = await tp.evaluate(() => ({ h1: document.querySelector(".tdy-head h1").textContent, leg: document.querySelector(".tdy-legend").textContent, form: !!document.querySelector(".tdy-warn form[data-tnote] textarea"), label: (document.querySelector(".tdy-warn form[data-tnote] label") || {}).textContent, picks: [...document.querySelectorAll(".tdy-warn [data-pick]")].map((b) => b.textContent), badge: (document.querySelector('.eikon-rail-badge[data-badge="today"]') || {}).textContent, classic: /classic/i.test(document.querySelector(".tdy-warn").textContent) }));
+  // 3 = cleaning overdue + the reading to log + the note to write (the Daily register is owed only at closing since main .147)
+  report("temperature note (Today): yesterday's out-of-limits reading with no note shows \"Say what was done\" with quick picks right there, and counts as a check still to do (headline, legend, rail badge)",
+    a.form && a.label === "Say what was done" && a.picks.length >= 3 && /^3 /.test(a.h1) && /1 note to write/.test(a.leg) && a.badge === "3" && !a.classic, JSON.stringify(a));
+  // a quick pick fills the box, the text stays editable; Save sends the whole record as read, only notes changed
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await tp.click('.tdy-warn [data-pick="Engineer called"]');
+  await tp.type(".tdy-warn form[data-tnote] textarea", ", came 11:00", { delay: 15 });
+  const typed = await tp.inputValue(".tdy-warn form[data-tnote] textarea");
+  // the minute refresh does not wipe what is being typed
+  await tp.evaluate(() => window.EIKON.__todayRefresh()); await tp.waitForTimeout(200);
+  const kept = await tp.inputValue(".tdy-warn form[data-tnote] textarea").catch(() => "");
+  await tp.click(".tdy-warn form[data-tnote] button[type=submit]");
+  await tp.waitForFunction(() => !document.querySelector(".tdy-warn form[data-tnote]"), null, { timeout: 6000 }).catch(() => {});
+  const c1 = await callsNow();
+  const posts = c1.filter((c) => c.method === "POST" && c.path === "/temperature/entries");
+  const readFirst = c1.findIndex((c) => c.method === "GET" && c.path === "/temperature/entries" && c.query.indexOf("month=" + yd.slice(0, 7)) >= 0) < c1.findIndex((c) => c.method === "POST");
+  const asRead = yEntry(), sent = posts[0] && posts[0].body;
+  // The classic Temperature screen's body (modules.temperature.js save): device_id, entry_date, min_temp, max_temp, notes
+  const classicKeys = ["device_id", "entry_date", "min_temp", "max_temp", "notes"];
+  const colDiff = sent ? classicKeys.filter((k) => k !== "notes" && JSON.stringify(sent[k]) !== JSON.stringify(asRead[k])) : ["(no post)"];
+  const b = await tp.evaluate(() => ({ warn: document.querySelector(".tdy-warn").textContent, role: document.querySelector(".tdy-warn").getAttribute("role"), h1: document.querySelector(".tdy-head h1").textContent, focus: document.activeElement && document.activeElement.className }));
+  report("temperature note (Today): a quick pick fills the box and stays editable; the minute refresh keeps it; Save re-reads the entry and POSTs exactly the classic body (same keys) with min/max as read and only notes changed; then the banner says what was done and the count drops",
+    typed === "Engineer called, came 11:00" && kept === typed && posts.length === 1 && readFirst && JSON.stringify(Object.keys(sent).sort()) === JSON.stringify(classicKeys.slice().sort()) && colDiff.length === 0 && sent.notes === typed &&
+    /Note: Engineer called, came 11:00/.test(b.warn) && b.role === "status" && /^2 /.test(b.h1) && /tdy-row/.test(b.focus || ""), JSON.stringify({ typed, kept, posts: posts.map((x) => x.body), colDiff, readFirst, b }));
+  // stale: the reading changed elsewhere while the note was typed: nothing is sent, both are shown, the text stays
+  tempState = { on: true, entries: [yEntry()], next: 100 }; await openT();
+  await tp.fill(".tdy-warn form[data-tnote] textarea", "Stock moved");
+  Object.assign(tempState.entries[0], { max_temp: 8.6, notes: "Checked by Karl", updated_at: yd + " 12:00:00" });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await tp.click(".tdy-warn form[data-tnote] button[type=submit]"); await tp.waitForTimeout(600);
+  const c2 = await callsNow(), st = await tp.evaluate(() => ({ msg: (document.querySelector(".tdy-warn .tnote-msg") || {}).textContent || "", v: (document.querySelector(".tdy-warn form[data-tnote] textarea") || {}).value }));
+  report("temperature note (Today): a reading changed elsewhere meanwhile is refused (nothing sent), the message shows the reading as it is now and what was typed, and the text stays in the box",
+    c2.filter((c) => c.method === "POST").length === 0 && /Someone changed this reading/.test(st.msg) && /8\.6/.test(st.msg) && /Checked by Karl/.test(st.msg) && /Stock moved/.test(st.msg) && st.v === "Stock moved", JSON.stringify(st));
+  // offline: the save message is the shared one and the form keeps the text
+  tempState = { on: true, entries: [yEntry()], next: 100 }; await openT();
+  await tp.fill(".tdy-warn form[data-tnote] textarea", "Door closed");
+  await tp.route("**/temperature/entries*", (r) => r.abort("internetdisconnected"));
+  await tp.click(".tdy-warn form[data-tnote] button[type=submit]"); await tp.waitForTimeout(1500);
+  const off = await tp.evaluate(() => ({ msg: (document.querySelector(".tdy-warn .tnote-msg") || {}).textContent || "", v: (document.querySelector(".tdy-warn form[data-tnote] textarea") || {}).value, dis: (document.querySelector(".tdy-warn form[data-tnote] button[type=submit]") || {}).disabled }));
+  await tp.unroute("**/temperature/entries*");
+  report("temperature note (Today): offline the form keeps the text and says the connection dropped (E.saveFailText)", /connection dropped/i.test(off.msg) && off.v === "Door closed" && off.dis === false, JSON.stringify(off));
+  // today's own reading outside the limits: the note box follows it and takes the cursor
+  tempState = { on: true, entries: [], next: 100 }; todayState = { tempDone: false, cleanDone: false };
+  await openT();
+  const td = await tp.evaluate(() => window.EIKON.maltaYmd());
+  await tp.fill('.tdy-row[data-kind=temperature] [data-min]', "4"); await tp.fill('.tdy-row[data-kind=temperature] [data-max]', "9.5");
+  await tp.click('.tdy-row[data-kind=temperature] [data-act=temp]');
+  await tp.waitForTimeout(800);
+  report("temperature note (Today): after logging a reading the mock stored it as the worker does", tempState.entries.length === 1 && tempState.entries[0].entry_date === td && tempState.entries[0].notes === "", JSON.stringify(tempState.entries));
+  todayState.outToday = true; await openT();
+  const tnow = await tp.evaluate(() => ({ form: !!document.querySelector(".tdy-note form[data-tnote] textarea"), pill: (document.querySelector(".tdy-row[data-kind=temperature] .tdy-pill") || {}).textContent }));
+  report("temperature note (Today): today's reading outside its limits shows the note box under its row, pill \"Outside limits · note needed\"", tnow.form && tnow.pill === "Outside limits · note needed", JSON.stringify(tnow));
+  todayState = { tempDone: false, cleanDone: false };
+
+  // Temperature register: every past day is a button with a full label; the future is not; tapping opens the day
+  tempState = { on: true, entries: [yEntry()], next: 100 };
+  const ym = yd.slice(0, 7);
+  await tp.goto(base + "&ui=2#tempreg"); await tp.waitForFunction(() => window.EIKON && window.EIKON.state.activeModuleId === "tempreg" && document.querySelector(".trg-sum"), null, { timeout: 15000 });
+  if (ym !== td.slice(0, 7)) { await tp.click(".emb [data-mb=prev]"); await tp.waitForTimeout(600); }
+  const cell = await tp.evaluate((day) => { const c = document.querySelector('button.trg-d[data-day="' + day + '"]'); const fut = [...document.querySelectorAll(".trg-d.future:not(.today)")]; return { label: c && c.getAttribute("aria-label"), futBtn: fut.some((f) => f.tagName === "BUTTON"), classic: /classic Temperature/.test(document.body.textContent) }; }, yd);
+  const dname = (() => { const p = yd.split("-"); return Number(p[2]) + " " + ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][Number(p[1]) - 1]; })();
+  report("temperature register: a day is a button labelled \"<day>, Fridge 1, 3.8 to 9.1, outside limits, no note\"; future days are not buttons; no link to the classic screen",
+    cell.label === dname + ", Fridge 1, 3.8 to 9.1, outside limits, no note" && !cell.futBtn && !cell.classic, JSON.stringify({ cell, dname }));
+  await tp.focus('button.trg-d[data-day="' + yd + '"]'); await tp.keyboard.press("Enter"); await tp.waitForSelector(".trg-day h3", { timeout: 4000 });
+  const pan = await tp.evaluate(() => ({ text: document.querySelector(".trg-day").textContent, focus: document.activeElement && document.activeElement.tagName }));
+  await tp.click('.trg-day [data-act="addnote"]');
+  const nfocus = await tp.evaluate(() => document.activeElement && document.activeElement.tagName);
+  await tp.click('.trg-day [data-pick="Stock moved to the other fridge"]');
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await tp.click(".trg-day form[data-tnote] button[type=submit]");
+  await tp.waitForFunction(() => /Note: Stock moved/.test((document.querySelector(".trg-day") || {}).textContent || ""), null, { timeout: 6000 }).catch(() => {});
+  const c3 = (await callsNow()).filter((c) => c.method === "POST");
+  report("temperature register: Enter on a day opens it (focus on its heading) with readings, limits and no note; Add a note puts the cursor in the box; Save sends the classic body with min/max as read",
+    /Min 3\.8/.test(pan.text) && /Outside limits/.test(pan.text) && /No note/.test(pan.text) && pan.focus === "H3" && nfocus === "TEXTAREA" && c3.length === 1 && c3[0].body.min_temp === 3.8 && c3[0].body.max_temp === 9.1 && c3[0].body.notes === "Stock moved to the other fridge" && JSON.stringify(Object.keys(c3[0].body).sort()) === JSON.stringify(classicKeys.slice().sort()),
+    JSON.stringify({ pan, nfocus, c3: c3.map((c) => c.body) }));
+  // a past day never logged: "Log this day" with a required reason, stored as "Logged late: ..."
+  const missDay = await tp.evaluate(() => { const c = document.querySelector("button.trg-d.miss"); return c && c.getAttribute("data-day"); });
+  if (!missDay) report("temperature register: a missed day to log late exists in the shown month", false, "no dashed day");
+  else {
+    await tp.click('button.trg-d[data-day="' + missDay + '"]'); await tp.click('.trg-day [data-act="late"]');
+    const lf = await tp.evaluate(() => document.activeElement && document.activeElement.name);
+    await tp.fill(".trg-day [name=min]", "3,4"); await tp.fill(".trg-day [name=max]", "6.8");
+    await fetch(`http://localhost:${PORT}/__reset`);
+    await tp.click(".trg-day form[data-tlate] button[type=submit]"); await tp.waitForTimeout(400);
+    const noReason = { posts: (await callsNow()).filter((c) => c.method === "POST").length, msg: await tp.textContent(".trg-day .tnote-msg"), focus: await tp.evaluate(() => document.activeElement && document.activeElement.name) };
+    await tp.click('.trg-day [data-pick="Read from the data logger"]');
+    await tp.click(".trg-day form[data-tlate] button[type=submit]");
+    await tp.waitForFunction(() => /Logged late/.test((document.querySelector(".trg-day") || {}).textContent || ""), null, { timeout: 6000 }).catch(() => {});
+    const lp = (await callsNow()).filter((c) => c.method === "POST");
+    report("temperature register: a missed day is logged late only with a reason (refused without, focus on the reason, nothing sent); saved as min/max with the note \"Logged late: <reason>\" (decimal comma read)",
+      lf === "min" && noReason.posts === 0 && /Say why it is logged late/.test(noReason.msg) && noReason.focus === "reason" && lp.length === 1 &&
+      JSON.stringify(lp[0].body) === JSON.stringify({ device_id: 7, entry_date: missDay, min_temp: 3.4, max_temp: 6.8, notes: "Logged late: Read from the data logger" }), JSON.stringify({ lf, noReason, lp: lp.map((c) => c.body) }));
+  }
+  // the future is refused by the shared code too (not only by the grid)
+  const fut = await tp.evaluate(async () => { const d = new Date(); d.setDate(d.getDate() + 2); return await window.EIKON.tempNote.logLate(7, d.toISOString().slice(0, 10), { min: "3", max: "5", reason: "x" }); });
+  const tod = await tp.evaluate(async () => await window.EIKON.tempNote.logLate(7, window.EIKON.maltaYmd(), { min: "3", max: "5", reason: "x" }));
+  report("temperature register: a future day, or today, cannot be logged late", /Only a past day/.test(fut.error || "") && /Only a past day/.test(tod.error || ""), JSON.stringify({ fut, tod }));
+  report("temperature notes: no page errors", tErrs.length === 0, tErrs.slice(0, 3).join(" | "));
+  tempState = { on: false, entries: [], next: 100 };
+  await tp.close();
+} catch (e) { report("temperature notes: ran to the end", false, String(e && e.stack || e).slice(0, 600)); tempState = { on: false, entries: [], next: 100 }; }
+
+// Correct a register line in the new layout (ui/eikon.correct.js), one screen each: the pharmacist's Correct re-reads
+// the line, a reason is required (nothing is sent without one), and the PUT body is the line as the server returned it
+// (every field of the classic edit body) with only the corrected field changed, plus correction_reason. The line then
+// shows who corrected it and why (the audit), and a staff sign-in sees no Correct.
+try {
+  const T0 = todayYmd;
+  const SCREENS = [
+    { hash: "dda-sales", mod: "cdsreg", path: "/dda-sales/entries", ready: ".cds-list",
+      row: { id: 7101, entry_date: T0, client_name: "Zammit Carmel", client_id_card: "0012345M", client_address: "1 Triq il-Knisja", medicine_name_dose: "Morphine 10mg", quantity: 10, doctor_name: "Dr Abela", doctor_reg_no: "R1201", prescription_serial_no: "S-77", urgent: 1, created_at: T0 + " 08:00:00", updated_at: T0 + " 08:00:00" },
+      keys: ["entry_date", "client_name", "client_id_card", "client_address", "medicine_name_dose", "quantity", "doctor_name", "doctor_reg_no", "prescription_serial_no", "urgent"], field: "quantity", value: "5", want: 5 },
+    { hash: "dda-poyc", mod: "poyreg", path: "/dda-poyc/entries", ready: ".cds-list",
+      row: { id: 7102, entry_date: T0, client_name: "Farrugia Paul", client_id_card: "345M", client_address: "9 Triq il-Mitħna", medicine_name_dose: "Methadone 1mg/ml", quantity: 100, doctor_name: "Dr Galea", doctor_reg_no: "R4401", prescription_serial_no: "PY-1", created_at: T0 + " 08:00:00", updated_at: T0 + " 08:00:00" },
+      keys: ["entry_date", "client_name", "client_id_card", "client_address", "medicine_name_dose", "quantity", "doctor_name", "doctor_reg_no", "prescription_serial_no"], field: "doctor_reg_no", value: "R4410", want: "R4410" },
+    { hash: "dda-purchases", mod: "cdpreg", path: "/dda-purchases/entries", ready: ".cdp-inv",
+      row: { id: 7103, entry_date: T0, dda_name_dose: "Oxycodone 10mg", quantity: 56, agent: "Medicare", invoice_number: "INV-5", created_at: T0 + " 08:00:00", updated_at: T0 + " 08:00:00" },
+      keys: ["entry_date", "dda_name_dose", "quantity", "agent", "invoice_number"], field: "invoice_number", value: "INV-50", want: "INV-50" },
+    { hash: "dailyregister", mod: "drreg", path: "/daily-register/entries", ready: ".drr-tbl",
+      row: { id: 7104, entry_date: T0, client_name: "Borg Mario", client_id: "456123M", medicine_name_dose: "Augmentin 1g", posology: "1 bd", prescriber_name: "Dr Zammit", prescriber_reg_no: "5521", created_at: T0 + " 08:00:00", updated_at: T0 + " 08:00:00" },
+      keys: ["entry_date", "client_name", "client_id", "medicine_name_dose", "posology", "prescriber_name", "prescriber_reg_no"], field: "posology", value: "1 tds", want: "1 tds" },
+    { hash: "repeatprescriptions", mod: "repreg", path: "/repeat-prescriptions/entries", ready: "#rep-bymonth",
+      row: { id: 7105, entry_date: T0, expires_date: "2099-01-01", client_name: "Spiteri Lina", client_id: "778899M", medicine_name_dose: "Atorvastatin 20mg", posology: "1 nocte", prescriber_name: "Dr Vella", prescriber_reg_no: "6610", created_at: T0 + " 08:00:00", updated_at: T0 + " 08:00:00" },
+      keys: ["entry_date", "expires_date", "client_name", "client_id", "medicine_name_dose", "posology", "prescriber_name", "prescriber_reg_no"], field: "medicine_name_dose", value: "Atorvastatin 40mg", want: "Atorvastatin 40mg" },
+    { hash: "paidout", mod: "poreg", path: "/paid-out/entries", ready: ".por-list",
+      row: { id: 7106, entry_date: T0, entry_time: "10:15", payee_name: "Grech Couriers", fee: 25, payment_method: "cheque", invoice_no: "C-1", cheque_no: "000123", reason: "Gozo", created_by: 1, created_at: T0 + " 08:00:00", updated_at: T0 + " 08:00:00" },
+      keys: ["entry_date", "entry_time", "payee_name", "fee", "invoice_no", "payment_method", "cheque_no", "reason"], field: "fee", value: "20.5", want: 20.5 },
+    { hash: "locumreceipts", mod: "lrcreg", path: "/locumreceipts/receipts", list: "receipts", ready: ".lrc-list", pass: "!4321",
+      row: { id: 7107, receipt_date: "2026-11-03", hours: 8, locum_full_name: "Dr Locum", registration_number: "R77", day_type: "normal", fee_per_hour: 30, total_fee: 240, created_at: T0 + " 08:00:00", updated_at: T0 + " 08:00:00" },
+      keys: ["receipt_date", "hours", "locum_full_name", "registration_number", "day_type", "fee_per_hour"], field: "hours", value: "7", want: 7, header: ["x-eikon-edit-pass", "!4321"] },
+    { hash: "creditnotes", mod: "cnreg", path: "/creditnotes/entries", get: "/creditnotes/list", ready: ".cnr-card",
+      row: { id: 7108, issue_date: T0, client_name: "Rita", client_surname: "Camilleri", telephone: "79112233", email: null, receipt_number: "R-9", amount: 25.5, expiry_date: null, no_expiry: 1, purchases: [], notes: [] },
+      keys: ["issue_date", "client_name", "client_surname", "telephone", "email", "receipt_number", "amount", "expiry_date", "no_expiry"], field: "amount", value: "20", want: "20", same: { email: "", expiry_date: "", amount: "25.5" } },
+    { hash: "locumregister", mod: "locreg", path: "/locumregister/entries", ready: ".lcr-list",
+      row: { id: 7109, entry_date: T0, time_in: "08:00", time_out: "13:00", locum_full_name: "Dr Paul Locum", registration_number: "R55", created_at: T0 + " 08:00:00", updated_at: T0 + " 08:00:00" },
+      keys: ["entry_date", "time_in", "time_out", "locum_full_name", "registration_number"], field: "time_out", value: "14:30", want: "14:30" },
+    { hash: "cleaning", mod: "cleanreg", path: "/cleaning/entries", ready: ".clr-list",
+      row: { id: 7110, entry_date: T0, time_in: "07:30", time_out: "08:10", cleaner_name: "Rita", staff_name: "Maria", notes: "", created_at: T0 + " 08:00:00", updated_at: T0 + " 08:00:00" },
+      keys: ["entry_date", "time_in", "time_out", "cleaner_name", "staff_name", "notes"], field: "notes", value: "Fridge too", want: "Fridge too" },
+  ];
+  const res = [];
+  for (const C of SCREENS) {
+    let row = { ...C.row }; const puts = [], hdrs = [];
+    const audit = [];
+    const RE = new RegExp("(" + C.path.replace(/[-/]/g, "\\$&") + "(/\\d+)?" + (C.get ? "|" + C.get.replace(/[-/]/g, "\\$&") : "") + ")(\\?.*)?$");
+    await page.route(RE, (r) => {
+      const u = new URL(r.request().url()), m = r.request().method();
+      if (m === "GET" && u.pathname === (C.get || C.path)) return r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: [row], [C.list || "entries"]: [row] }) });
+      if (m === "PUT" && u.pathname === C.path + "/" + row.id) { const b = r.request().postDataJSON(); puts.push(b); hdrs.push(r.request().headers()); row = { ...row, ...b, updated_at: T0 + " 09:00:00" }; delete row.correction_reason;
+        audit.unshift({ id: 1, action: "X_UPDATE", entity_type: "t", entity_id: String(row.id), user_name: "Maria Borg", created_at: T0 + " 09:00:00", details: { correction_reason: b.correction_reason } });
+        return r.fulfill({ contentType: "application/json", body: '{"ok":true}' }); }
+      return r.continue();
+    });
+    await page.route("**/audit/log*", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: audit, total: audit.length }) }));
+    await page.goto(base + "&ui=2#" + C.hash);
+    await page.waitForFunction((m) => window.EIKON.state.activeModuleId === m, C.mod, { timeout: 15000 });
+    await page.waitForSelector(`[data-ecr=open][data-ecr-id="${row.id}"]`, { timeout: 10000 });
+    await page.click(`[data-ecr=open][data-ecr-id="${row.id}"]`);
+    await page.waitForSelector("[data-ecr-form] [name=ecr__reason]");
+    const focusedFirst = await page.evaluate(() => (document.activeElement && document.activeElement.name) || "");
+    await page.fill(`[data-ecr-form] [name=ecr_${C.field}]`, C.value);
+    if (C.pass) await page.fill("[data-ecr-form] [name=ecr__pass]", C.pass);
+    await page.click("[data-ecr-form] button[type=submit]"); await page.waitForTimeout(300);
+    const noReason = puts.length, msg = await page.textContent("[data-ecr-form] .ecr-err").catch(() => "");
+    await page.fill("[data-ecr-form] [name=ecr__reason]", "Typed wrong");
+    await page.click("[data-ecr-form] button[type=submit]");
+    await page.waitForFunction(() => !document.querySelector("[data-ecr-form]"), null, { timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    const b = puts[0] || {};
+    const bodyOk = JSON.stringify(Object.keys(b).sort()) === JSON.stringify(C.keys.concat("correction_reason").sort()) &&
+      C.keys.every((k) => k === C.field ? b[k] === C.want : String(b[k]) === String(C.same && k in C.same ? C.same[k] : C.row[k])) && b.correction_reason === "Typed wrong" &&
+      (!C.header || (hdrs[0] || {})[C.header[0]] === C.header[1]);
+    const mark = await page.textContent(".ecr-mark").catch(() => "");
+    res.push({ s: C.mod, noReason, msg: /what was wrong/i.test(msg), focusedFirst, puts: puts.length, bodyOk, body: bodyOk ? "" : JSON.stringify(b), mark: /Corrected .*by Maria Borg: Typed wrong/.test(mark) });
+    await page.unroute(RE); await page.unroute("**/audit/log*");
+  }
+  report("correct a line (new layout): DDA sales, POYC, DDA purchases, Daily register, Repeat Rx, Paid out, Locum receipts (with the edit password), Credit notes, Locum register, Cleaning: no reason = nothing sent; the PUT is the line as read with only the corrected field changed (classic body) + reason; the line shows who and why",
+    res.every((r) => r.noReason === 0 && r.msg && r.puts === 1 && r.bodyOk && r.mark && /^ecr_/.test(r.focusedFirst)), JSON.stringify(res).slice(0, 900));
+  // staff: no Correct anywhere
+  const staffSeen = [];
+  for (const C of SCREENS) {
+    const RS = new RegExp("(" + (C.get || C.path).replace(/[-/]/g, "\\$&") + ")(\\?.*)?$");
+    await page.route(RS, (r) => r.request().method() === "GET" ? r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: [C.row], [C.list || "entries"]: [C.row] }) }) : r.continue());
+    await page.goto(base + "&ui=2#today"); await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user, null, { timeout: 15000 });
+    await page.evaluate((h) => { window.EIKON.state.user.role = "staff"; location.hash = "#" + h; }, C.hash);
+    await page.waitForFunction((m) => window.EIKON.state.activeModuleId === m, C.mod, { timeout: 15000 });
+    await page.waitForSelector(C.ready, { timeout: 10000 }).catch(() => {}); await page.waitForTimeout(300);
+    staffSeen.push(C.mod + ":" + (await page.locator("[data-ecr=open]").count()) + ":" + /corrected by the pharmacist/.test(await page.textContent(".ecr-foot").catch(() => "")));
+    await page.unroute(RS);
+  }
+  report("correct a line: a staff sign-in sees no Correct and is told the pharmacist corrects", staffSeen.every((x) => /:0:true$/.test(x)), staffSeen.join(" "));
+} catch (e) { report("correct a line (new layout): ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
+
+
+// ---- Help and What's new for the new layout (help-next.js, whatsnew.json; BACKLOG3 item 10).
+// (a) every new-layout screen in registry.js has a guide, and each guide has a purpose and at least one task;
+// (b) whatsnew.json is valid: dated entries (real dates, not in the future), newest first, unique ids, plain words;
+// (c) nothing of the help is downloaded with the app; the "?" opens the screen's own guide; Escape returns focus.
+try {
+  const regSrc = fs.readFileSync(path.join(root, "registry.js"), "utf8");
+  const newIds = [...regSrc.matchAll(/\["[^"]+", "([^"]+)", "[^"]*", "[^"]*", \d+, (?:true|false), "new"/g)].map((m) => m[1]);
+  const hp = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const hErr = []; hp.on("pageerror", (e) => hErr.push(e.message));
+  const hReq = []; hp.on("request", (r) => hReq.push(new URL(r.url()).pathname));
+  await hp.goto(base + "&ui=2#today");
+  await hp.evaluate(() => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); });
+  await hp.reload();
+  await hp.waitForFunction(() => window.EIKON && window.EIKON._lateIn && document.querySelector(".tdy-head h1 .nxh-q"), null, { timeout: 15000 });
+  await hp.waitForTimeout(1800);
+  const bootHelp = hReq.filter((r) => /help-next\.js/.test(r)).length, bootWn = hReq.filter((r) => /whatsnew\.json/.test(r)).length;
+  const dotBefore = await hp.evaluate(() => !!document.querySelector('.eikon-rail-btn[data-mod="settings"] .nxh-rail-dot'));
+  await hp.evaluate(() => { window.location.hash = "#cdsreg"; });
+  await hp.waitForFunction(() => document.querySelector("#eikon-content h1 .nxh-q"), null, { timeout: 8000 });
+  const h1Text = await hp.evaluate(() => document.querySelector("#eikon-content h1").textContent);
+  await hp.click("#eikon-content h1 .nxh-q");
+  await hp.waitForSelector(".nxh-pn[role=dialog]", { timeout: 8000 });
+  const guide = await hp.evaluate((ids) => {
+    const H = window.EIKON.helpNext, have = H.guides();
+    const bad = ids.filter((id) => { const g = H.guide(id); return !g || !g.purpose || !g.tasks.length || g.tasks.some((t) => t.length < 2); });
+    return { missing: ids.filter((id) => have.indexOf(id) < 0), bad, title: document.getElementById("nxh-title").textContent, inside: !!document.activeElement.closest(".nxh-pn") };
+  }, newIds);
+  await hp.keyboard.press("Escape");
+  const closed = await hp.evaluate(() => !document.querySelector(".nxh-ov") && document.activeElement.classList.contains("nxh-q"));
+  await hp.close();
+  report("help: every new-layout screen in registry.js (" + newIds.length + ") has a guide with a purpose and its tasks",
+    newIds.length >= 50 && !guide.missing.length && !guide.bad.length, JSON.stringify({ missing: guide.missing, bad: guide.bad }));
+  report("help: nothing downloaded with the app but whatsnew.json; a dot on Settings; the ? in the heading leaves its text alone and opens the screen's guide; Escape closes and gives focus back",
+    bootHelp === 0 && bootWn === 1 && dotBefore && h1Text === "Controlled drugs supplied" && guide.title === "Controlled drugs supplied" && guide.inside && closed && !hErr.length,
+    JSON.stringify({ bootHelp, bootWn, dotBefore, h1Text, title: guide.title, inside: guide.inside, closed, hErr: hErr.slice(0, 2) }));
+} catch (e) { report("help: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
+{
+  const problems = [];
+  let j = null;
+  try { j = JSON.parse(fs.readFileSync(path.join(root, "whatsnew.json"), "utf8")); } catch (e) { problems.push("not valid JSON: " + e.message); }
+  const list = j && Array.isArray(j.entries) ? j.entries : [];
+  if (j && !list.length) problems.push("no entries");
+  const seen = new Set(), tomorrow = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
+  const jargon = /\b(worker|batch|agent|deploy(ed)?|UI|API|CSP|commit|merge|endpoint|localStorage|D1|wrangler|bug)\b/i;
+  list.forEach((e, i) => {
+    const at = "entry " + i + (e && e.id ? " (" + e.id + ")" : "");
+    if (!e || typeof e.id !== "string" || !e.id) return problems.push(at + ": no id");
+    if (seen.has(e.id)) problems.push(at + ": id used twice"); seen.add(e.id);
+    const d = String(e.date || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || new Date(d + "T00:00:00Z").toISOString().slice(0, 10) !== d) problems.push(at + ": date is not a real YYYY-MM-DD");
+    else if (d > tomorrow) problems.push(at + ": dated in the future");
+    if (i && String(list[i - 1].date) < d) problems.push(at + ": not newest first");
+    if (!e.title || !e.text) problems.push(at + ": title and text are needed");
+    if (jargon.test(String(e.title) + " " + String(e.text))) problems.push(at + ": technical word (" + (String(e.title) + " " + String(e.text)).match(jargon)[0] + ")");
+  });
+  report("whatsnew.json: valid, dated (real dates, none in the future), newest first, unique ids, a title and text each, no technical words", !problems.length, problems.slice(0, 5).join(" | "));
+}
 
 await browser.close();
 server.close();

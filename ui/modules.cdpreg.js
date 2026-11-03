@@ -1,8 +1,10 @@
 /* Controlled drugs received (DDA purchases), new layout: this month's deliveries grouped by invoice, and one form for a
    whole invoice (date, supplier, invoice number, then each drug and quantity). Each line is one entry, as in the classic
    register, posted one at a time; a line that fails stays in the form and lines already saved are not sent again.
-   Names and suppliers used in the last two months are offered as you type. Changing or deleting an entry, other months
-   and the inspector's report stay in the classic register. */
+   Names and suppliers used in the last two months are offered as you type. Other months and the printout use
+   eikon.months.js. Correct (the pharmacist only, eikon.correct.js): one line, read again, the classic edit's fields and
+   PUT body (date, drug, quantity, supplier, invoice no.: the update replaces all five), with a required reason.
+   A line is never deleted here. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -18,6 +20,24 @@
   function prevMonth(m) { var p = m.split("-"), y = Number(p[0]), n = Number(p[1]) - 1; if (n < 1) { n = 12; y--; } return y + "-" + pad(n); }
   function dmy(s) { var p = String(s).split("-"); return Number(p[2]) + " " + MON[Number(p[1]) - 1].slice(0, 3); }
   function uniq(a) { var seen = {}, out = []; a.forEach(function (x) { var k = String(x || "").trim(); if (k && !seen[k.toLowerCase()]) { seen[k.toLowerCase()] = 1; out.push(k); } }); return out.sort(function (x, y) { return x.localeCompare(y); }); }
+  // Correcting a line: the classic edit form's fields and its PUT body.
+  var FIX = { entity: "dda_purchases_entries", action: "DDA_PURCHASES_ENTRY_UPDATE",
+    fields: [{ k: "entry_date", label: "Received", type: "date", req: true, what: "the day it was received" }, { k: "dda_name_dose", label: "Drug", req: true, what: "the drug, strength and form" },
+      { k: "quantity", label: "Qty", type: "int", req: true, what: "the quantity" }, { k: "agent", label: "Supplier", req: true, what: "the supplier" }, { k: "invoice_number", label: "Invoice no.", req: true, what: "the invoice number" }],
+    rows: function () { return S.entries; },
+    reread: async function (row) {
+      var months = [String(row.entry_date || "").slice(0, 7), S.month].filter(function (x, i, a) { return /^\d{4}-\d{2}$/.test(x) && a.indexOf(x) === i; });
+      for (var i = 0; i < months.length; i++) { var hit = (await get(months[i])).filter(function (e) { return String(e.id) === String(row.id); })[0]; if (hit) return hit; }
+      return null;
+    },
+    put: function (row) { return "/dda-purchases/entries/" + encodeURIComponent(String(row.id)); },
+    body: function (r) { return { entry_date: String(r.entry_date || "").trim(), dda_name_dose: String(r.dda_name_dose || "").trim(), quantity: Number(r.quantity), agent: String(r.agent || "").trim(), invoice_number: String(r.invoice_number || "").trim() }; },
+    check: function (r) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.entry_date)) || String(r.entry_date) > today()) return "Choose the day it was received (not a day ahead).";
+      if (!/^\d+$/.test(String(r.quantity)) || Number(r.quantity) < 1) return "The quantity should be a whole number, 1 or more.";
+      return "";
+    },
+    paint: function () { paint(); }, idle: function () { E.whenFormIdle(S.mount, paint); }, done: function () { return load(); } };
   function blank() { return { entry_date: today(), agent: "", invoice_number: "", lines: [{ dda_name_dose: "", quantity: "" }, { dda_name_dose: "", quantity: "" }] }; }
 
   function css() {
@@ -34,7 +54,7 @@
       ".cdp-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 2px 7px;display:flex;gap:8px}.cdp-lab b{color:var(--text)}" +
       ".cdp-inv{background:var(--panel2);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden}" +
       ".cdp-inv .h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:11px 16px 6px}.cdp-inv .h b{font-size:15px;font-weight:600}.cdp-inv .h span{font-size:12.5px;color:var(--muted)}" +
-      ".cdp-ln{display:flex;justify-content:space-between;gap:12px;padding:7px 16px;border-top:.5px solid var(--border);font-size:14.5px}.cdp-ln em{font-style:normal;font-weight:600;font-variant-numeric:tabular-nums}" +
+      ".cdp-ln{display:flex;justify-content:space-between;gap:12px;padding:7px 16px;border-top:.5px solid var(--border);font-size:14.5px}.cdp-ln em{font-style:normal;font-weight:600;font-variant-numeric:tabular-nums}.cdp-ln .cdp-q{display:flex;align-items:center;gap:10px;flex:0 0 auto}.cdp-ln>span:first-child{min-width:0}" +
       ".cdp-form{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:6px 0;margin-top:16px}" +
       ".cdp-form label{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 14px;border-top:.5px solid var(--border)}.cdp-form label:first-child{border-top:0}" +
       ".cdp-form label>span{flex:0 0 96px;font-size:15px}.cdp-form input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
@@ -58,6 +78,7 @@
     try {
       var both = await Promise.all([get(S.month), get(prevMonth(S.month)).catch(function () { return []; })]);
       S.entries = both[0];
+      E.correct.loadMarks("cdpreg", FIX, S.month + "-01"); // which lines were corrected, by whom and why
       var all = both[0].concat(both[1]);
       S.known = { names: uniq(all.map(function (e) { return e.dda_name_dose; })), agents: uniq(all.map(function (e) { return e.agent; })) };
     } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register"); }
@@ -102,11 +123,13 @@
       h += '<div class="cdp-lab">' + esc(mn) + " <b>" + S.entries.length + "</b></div>";
       h += g.length ? g.map(function (x) {
         return '<div class="cdp-inv"><div class="h"><b>' + esc(x.agent) + "</b><span>Invoice " + esc(x.inv) + " · " + esc(dmy(x.date)) + "</span></div>" +
-          x.lines.map(function (e) { return '<div class="cdp-ln"><span>' + esc(e.dda_name_dose) + "</span><em>" + esc(e.quantity) + "</em></div>"; }).join("") + "</div>";
+          x.lines.map(function (e) { return '<div class="cdp-ln"><span>' + esc(e.dda_name_dose) + E.correct.mark("cdpreg", e) + '</span><span class="cdp-q"><em>' + esc(e.quantity) + "</em>" +
+            E.correct.button("cdpreg", e, e.dda_name_dose + " × " + e.quantity + ", invoice " + e.invoice_number) + "</span></div>" + E.correct.panel("cdpreg", e, FIX); }).join("") + "</div>";
       }).join("") : '<div class="cdp-quiet" data-empty>' + esc(E.months.empty(S.month, "Nothing received this month yet.")) + "</div>";
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Correcting or deleting an entry is in the <a href="#" data-act="classic" style="color:var(--accent)">classic register</a>.</p></div>';
+    h += E.correct.foot() + "</div>";
     m.innerHTML = h;
+    E.correct.wire(m, "cdpreg", FIX);
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
@@ -117,7 +140,7 @@
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "cdpreg"); } catch (x) {} E.openClassic("dda-purchases"); }
       });
     });
-    E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; load(); }, paint: paint, print: printMonth });
+    E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; E.correct.reset("cdpreg"); load(); }, paint: paint, print: printMonth });
     var f = m.querySelector("#cdp-add"); if (f) { f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); }); f.addEventListener("input", function (ev) { unmark(ev.target); }); }
     if (f && E.ddaMedSuggest) f.querySelectorAll("input.n").forEach(function (el) { E.ddaMedSuggest(el, { path: "/dda-purchases", field: "dda_name_dose", known: function () { return S.known.names; }, back: [2] }); }); // generic or brand, and what was written before
   }
@@ -194,7 +217,7 @@
 
   E.registerModule({
     id: "cdpreg", title: "Controlled drugs received", order: 3, icon: "℞", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); S.adding = null; S.err = ""; S.bad = {}; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = E.months.take("cdpreg") || today().slice(0, 7); S.entries = []; E.months.reset(); E.correct.reset("cdpreg"); S.adding = null; S.err = ""; S.bad = {}; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("cdpreg") < 0) E.UI2_DESTINATIONS.push("cdpreg");
   if (E.UI2_PARENT) E.UI2_PARENT.cdpreg = "registers";

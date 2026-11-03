@@ -64,6 +64,7 @@
     ["modules.scsreg.js", "scsreg", "Scarce stock", "🔎", 3, true, "new", ["pharmacy"]],
     ["modules.audreg.js", "audreg", "Audit trail", "🔒", 101, true, "new", ["pharmacy"]],
     ["modules.expreg.js", "expreg", "Download our records", "⇩", 102, true, "new", ["pharmacy"]],
+    ["modules.insreg.js", "insreg", "Inspection check", "☑", 3, true, "new", ["pharmacy"]],
     ["modules.pvreg.js", "pvreg", "Adverse reactions", "!", 3, true, "new", ["pharmacy"]],
     ["modules.scrreg.js", "scrreg", "Screening campaigns", "🩺", 3, true, "new", ["pharmacy"]],
     ["modules.ocpreg.js", "ocpreg", "Contraceptive pills", "💊", 3, true, "new", ["pharmacy"]],

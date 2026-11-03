@@ -1,6 +1,8 @@
 /* Locum register, new layout: which pharmacist was in charge, when, with their registration number.
    The month by day, a quick entry form that fills a known locum's registration number, and a printout.
-   Same endpoints as the classic screen (/locumregister/entries); corrections still happen there. */
+   Same endpoints as the classic screen (/locumregister/entries). Correct (the pharmacist only, eikon.correct.js): read
+   again, the classic edit's five fields and body, a required reason, the whole line sent (the update replaces every
+   column). A line is never deleted here. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -9,6 +11,29 @@
   var S = { mount: null, month: null, entries: [], history: [], loading: false, error: "", form: null, saving: false };
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var FIX = { reasonPh: "e.g. Time out typed as 13:00, left at 14:30", entity: "locum_register_entries", action: "LOCUM_REGISTER_ENTRY_UPDATE",
+    fields: [{ k: "entry_date", label: "Date", type: "date", req: true, what: "the date" }, { k: "time_in", label: "Time in", type: "time", req: true, what: "the time in" },
+      { k: "time_out", label: "Time out", type: "time", hint: "Optional" }, { k: "locum_full_name", label: "Pharmacist", req: true, what: "the pharmacist's name" },
+      { k: "registration_number", label: "Reg no", req: true, what: "the registration number" }],
+    rows: function () { return S.entries; },
+    reread: async function (row) {
+      var months = [String(row.entry_date || "").slice(0, 7), S.month].filter(function (x, i, a) { return /^\d{4}-\d{2}$/.test(x) && a.indexOf(x) === i; });
+      for (var i = 0; i < months.length; i++) {
+        var r = await E.apiFetch("/locumregister/entries?month=" + encodeURIComponent(months[i]), { method: "GET" });
+        var hit = ((r && r.entries) || []).filter(function (e) { return String(e.id) === String(row.id); })[0];
+        if (hit) return hit;
+      }
+      return null;
+    },
+    put: function (row) { return "/locumregister/entries/" + encodeURIComponent(String(row.id)); },
+    body: function (r) { return { entry_date: String(r.entry_date || ""), time_in: String(r.time_in || ""), time_out: String(r.time_out || ""), locum_full_name: String(r.locum_full_name || "").trim(), registration_number: String(r.registration_number || "").trim() }; },
+    check: function (r) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.entry_date)) || String(r.entry_date) > ymd(new Date())) return "Choose the date (not a day ahead).";
+      if (!/^\d{2}:\d{2}$/.test(String(r.time_in))) return "Write the time in, e.g. 08:00.";
+      if (String(r.time_out || "") && !/^\d{2}:\d{2}$/.test(String(r.time_out))) return "Write the time out, e.g. 13:00, or leave it empty.";
+      return "";
+    },
+    paint: function () { paint(); }, idle: function () { E.whenFormIdle(S.mount, paint); }, done: function () { return load(); } };
   var WDN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
@@ -66,6 +91,7 @@
       var byNewest = function (a, b) { return (String(a.entry_date) + (a.time_in || "")) < (String(b.entry_date) + (b.time_in || "")) ? 1 : -1; };
       S.entries = ((res[0] && res[0].entries) || []).slice().sort(byNewest);
       S.history = S.entries.concat((res[1] && res[1].entries) || []);
+      E.correct.loadMarks("locreg", FIX, S.month + "-01"); // which lines were corrected, by whom and why
     } catch (e) {
       if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register");
     }
@@ -107,19 +133,20 @@
       var day = null;
       S.entries.forEach(function (e) {
         if (e.entry_date !== day) { if (day) h += "</div>"; day = e.entry_date; h += '<div class="lcr-lab">' + esc(dayLong(day)) + '</div><div class="lcr-list">'; }
-        h += '<div class="lcr-row"><div class="t"><b>' + esc(e.locum_full_name) + "</b><span>Reg no " + esc(e.registration_number) + '</span></div><div class="tm">' +
-          esc(e.time_in || "") + (e.time_out ? "–" + esc(e.time_out) : " onwards") + "</div></div>";
+        h += '<div class="lcr-row"><div class="t"><b>' + esc(e.locum_full_name) + "</b><span>Reg no " + esc(e.registration_number) + "</span>" + E.correct.mark("locreg", e) + '</div><div class="tm">' +
+          esc(e.time_in || "") + (e.time_out ? "–" + esc(e.time_out) : " onwards") + "</div>" + E.correct.button("locreg", e, e.locum_full_name + ", " + dayLong(e.entry_date) + " from " + (e.time_in || "")) + "</div>" + E.correct.panel("locreg", e, FIX);
       });
       h += "</div>";
     }
-    h += '<p class="lcr-note" style="font-size:12.5px;color:var(--muted);margin-top:12px">To correct or remove a line, open it in the <a href="#" data-act="classic" style="color:var(--accent)">classic register</a>.</p>';
+    h += E.correct.foot().replace('class="ecr-foot"', 'class="ecr-foot lcr-note"');
     h += '<table class="lcr-print"><thead><tr><th>Date</th><th>Time in</th><th>Time out</th><th>Pharmacist</th><th>Reg no</th></tr></thead><tbody>' +
       (S.entries.length ? S.entries.slice().reverse().map(function (e) {
         return "<tr><td>" + esc(e.entry_date) + "</td><td>" + esc(e.time_in || "") + "</td><td>" + esc(e.time_out || "") + "</td><td>" + esc(e.locum_full_name) + "</td><td>" + esc(e.registration_number) + "</td></tr>";
       }).join("") : '<tr><td colspan="5">No locum recorded this month.</td></tr>') + "</tbody></table></div>";
     m.innerHTML = h;
     bind(m);
-    MB.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; load(); }, paint: paint, print: printMonth });
+    E.correct.wire(m, "locreg", FIX);
+    MB.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; E.correct.reset("locreg"); load(); }, paint: paint, print: printMonth });
   }
   // The classic locum register printout: one line per entry, oldest first.
   function printMonth() {
@@ -187,7 +214,7 @@
 
   E.registerModule({
     id: "locreg", title: "Locum register", order: 3, icon: "◷", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.month = thisMonth(); S.entries = []; E.months.reset(); css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.month = E.months.take("locreg") || thisMonth(); S.entries = []; E.months.reset(); E.correct.reset("locreg"); css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("locreg") < 0) E.UI2_DESTINATIONS.push("locreg");
   if (E.UI2_PARENT) E.UI2_PARENT.locreg = "registers";

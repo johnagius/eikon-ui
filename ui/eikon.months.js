@@ -11,6 +11,7 @@
                                opts.print() prints. ← and → on the bar
                                move a month, Enter on the month opens the picker; focus comes back after the repaint.
    E.months.empty(ym, now)     "Nothing recorded in September 2026." (now: the screen's own words for this month)
+   E.months.openAt(id, ym)     the next time screen `id` opens it shows `ym`: the screen's render asks E.months.take(id).
    E.months.print(doc)         the printout in a new tab, black on white, A4: the pharmacy, the register, the month,
                                page numbers, the classic screen's columns (each screen passes them), and signature
                                lines only where the classic printout has them. doc: { register, month | period,
@@ -45,6 +46,15 @@
   M.lastShown = function (ym) { var t = M.today(), l = M.last(ym); return l > t ? t : l; };
   M.dmy = function (v) { var m = String(v == null ? "" : v).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + "/" + m[2] + "/" + m[1] : String(v == null ? "" : v); };
   M.empty = function (ym, nowText) { return M.isNow(ym) && nowText ? nowText : "Nothing recorded in " + M.label(ym) + "."; };
+  // Open a register on a given month (the Inspection check's links): openAt before the hash changes, take(id) in the
+  // screen's render gives that month once (or null: the screen starts on this month as before).
+  M.openAt = function (id, ym) { try { sessionStorage.setItem("eikon_months_open", JSON.stringify({ id: id, ym: ym })); } catch (e) {} };
+  M.take = function (id) {
+    var o = null; try { o = JSON.parse(sessionStorage.getItem("eikon_months_open") || "null"); } catch (e) {}
+    if (!o || o.id !== id) return null;
+    try { sessionStorage.removeItem("eikon_months_open"); } catch (e) {}
+    return isYm(o.ym) && o.ym <= M.now() ? o.ym : null;
+  };
 
   // ---- the bar
   function css() {

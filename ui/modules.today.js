@@ -12,7 +12,8 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var state = { data: null, loadedAt: null, error: "", errorKind: "", timer: null, mount: null, busy: {}, search: "" };
+  var state = { data: null, loadedAt: null, error: "", errorKind: "", timer: null, mount: null, busy: {}, search: "",
+    tn: null, noteDraft: {}, noteMsg: {} }; // tn: temperature entries (by "day|device") behind a reading outside its limits, null when not read
 
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
   function hm(d) { d = d || new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); } // device clock: only for the time written into a cleaning line, as before
@@ -48,6 +49,143 @@
     return narrow ? "Customer, order or register…" : "What do you need? A customer, an order, a register…";
   }
   function plural(n, one, many) { return n + " " + (n === 1 ? one : (many || one + "s")); }
+
+  // ---------- temperature notes: shared by Today and the Temperature register (modules.tempreg.js) ----------
+  // Lives here because Today loads first; Temperature uses E.tempNote at run time.
+  //
+  // ===== WORDING FOR THE PHARMACIST TO APPROVE (the only place it is written; change it here) =====
+  // ask/picks: an out-of-limits reading's "what was done" note. late*: a past day logged late; the note is stored as
+  // latePrefix + the reason, so an inspector reading the register sees it was written afterwards.
+  var TEMP_WORDS = {
+    ask: "Say what was done",
+    picks: ["Stock moved to the other fridge", "Door left open, closed, re-checked", "Engineer called", "Re-checked within the hour, back in range"],
+    lateAsk: "Why is it logged late?",
+    latePicks: ["Reading was on paper, entered now", "Read from the data logger"],
+    latePrefix: "Logged late: "
+  };
+  // ===== END OF WORDING FOR SIGN-OFF =====
+  E.tempNote = (function () {
+    var N = { words: TEMP_WORDS, seq: 0 };
+    function ymOf(d) { return String(d || "").slice(0, 7); }
+    N.css = function () {
+      if (document.getElementById("eikon-tempnote-css")) return;
+      var st = document.createElement("style"); st.id = "eikon-tempnote-css";
+      st.textContent =
+        ".tnote{display:flex;flex-direction:column;gap:8px;margin:8px 0 2px}.tnote label{font-size:13px;font-weight:700;color:var(--text)}" +
+        ".tnote-picks{display:flex;flex-wrap:wrap;gap:6px}.tnote-picks button{font:inherit;font-size:12.5px;font-weight:600;min-height:32px;padding:4px 11px;border-radius:16px;border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer;text-align:left}" +
+        ".tnote textarea,.tnote input{font:inherit;font-size:14px;border:1px solid var(--border);border-radius:9px;background:var(--bg);color:var(--text);padding:8px 10px;box-sizing:border-box;width:100%}" +
+        ".tnote textarea{min-height:56px;resize:vertical}.tnote textarea:focus,.tnote input:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px rgba(10,143,106,.18)}" +
+        ".tnote-mm{display:flex;gap:10px}.tnote-mm>div{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:4px}" +
+        ".tnote-msg{font-size:13px;color:var(--danger);font-weight:600}.tnote-msg:empty{display:none}" +
+        ".tnote-go{display:flex;gap:8px;flex-wrap:wrap}.tnote-go .tnote-btn{font:inherit;font-size:13.5px;font-weight:600;min-height:36px;padding:0 16px;border-radius:9px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}" +
+        ".tnote-go .tnote-btn.sec{background:var(--panel);color:var(--text);border-color:var(--border)}.tnote-go .tnote-btn:disabled{opacity:.55;cursor:default}"; // "-btn" + .p: dark mode gives it dark text (app.css)
+      document.head.appendChild(st);
+    };
+    function pickButtons(list, label) {
+      return '<div class="tnote-picks" role="group" aria-label="' + esc(label) + '">' + list.map(function (p) { return '<button type="button" data-pick="' + esc(p) + '">' + esc(p) + "</button>"; }).join("") + "</div>";
+    }
+    // A note form. o: { key, draft, msg, existing (the saved note, to change it), cancel (show a Cancel button) }
+    N.noteForm = function (o) {
+      var id = "tnote-" + (++N.seq), had = String(o.existing || "").trim();
+      return '<form class="tnote" data-tnote="' + esc(o.key) + '" novalidate><label for="' + id + '">' + esc(had ? "Change the note" : TEMP_WORDS.ask) + "</label>" +
+        pickButtons(TEMP_WORDS.picks, "Quick picks for the note") +
+        '<textarea id="' + id + '" name="note" data-note rows="2" aria-describedby="' + id + '-m">' + esc(o.draft != null ? o.draft : had) + "</textarea>" +
+        '<div class="tnote-msg" id="' + id + '-m" role="alert">' + esc(o.msg || "") + "</div>" +
+        '<div class="tnote-go"><button type="submit" class="tnote-btn p">Save the note</button>' + (o.cancel ? '<button type="button" class="tnote-btn sec" data-cancel>Cancel</button>' : "") + "</div></form>";
+    };
+    // A past day that was never logged. o: { key, draft: { min, max, reason }, msg }
+    N.lateForm = function (o) {
+      var id = "tlate-" + (++N.seq), d = o.draft || {};
+      return '<form class="tnote" data-tlate="' + esc(o.key) + '" novalidate>' +
+        '<div class="tnote-mm"><div><label for="' + id + '-a">Min °C</label><input id="' + id + '-a" name="min" inputmode="decimal" autocomplete="off" value="' + esc(d.min || "") + '"></div>' +
+        '<div><label for="' + id + '-b">Max °C</label><input id="' + id + '-b" name="max" inputmode="decimal" autocomplete="off" value="' + esc(d.max || "") + '"></div></div>' +
+        '<label for="' + id + '">' + esc(TEMP_WORDS.lateAsk) + " (required)</label>" + pickButtons(TEMP_WORDS.latePicks, "Quick picks for the reason") +
+        '<textarea id="' + id + '" name="reason" data-note rows="2" aria-required="true" aria-describedby="' + id + '-m">' + esc(d.reason || "") + "</textarea>" +
+        '<div class="tnote-msg" id="' + id + '-m" role="alert">' + esc(o.msg || "") + "</div>" +
+        '<div class="tnote-go"><button type="submit" class="tnote-btn p">Log this day</button><button type="button" class="tnote-btn sec" data-cancel>Cancel</button></div></form>';
+    };
+    // Quick picks fill the box (added after what is there, so two can be combined; the text stays editable).
+    // h: { onDraft(values) on every change, onSubmit(form, values) on Save, onCancel() }
+    N.wire = function (form, h) {
+      var ta = form.querySelector("textarea");
+      var vals = function () { var o = {}; form.querySelectorAll("textarea,input").forEach(function (el) { o[el.name] = el.value; }); return o; };
+      form.querySelectorAll("[data-pick]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var p = b.getAttribute("data-pick"), cur = String(ta.value || "").trim();
+          ta.value = cur ? (/[.;,:]$/.test(cur) ? cur + " " : cur + "; ") + p : p;
+          if (h.onDraft) h.onDraft(vals());
+          ta.focus(); try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}
+        });
+      });
+      form.querySelectorAll("textarea,input").forEach(function (el) { el.addEventListener("input", function () { if (h.onDraft) h.onDraft(vals()); }); });
+      form.addEventListener("submit", function (ev) { ev.preventDefault(); if (h.onSubmit) h.onSubmit(form, vals()); });
+      var c = form.querySelector("[data-cancel]"); if (c) c.addEventListener("click", function () { if (h.onCancel) h.onCancel(); });
+    };
+    N.setMsg = function (form, msg) { var m = form && form.querySelector(".tnote-msg"); if (m) m.textContent = msg || ""; };
+    N.busy = function (form, on) { if (form) form.querySelectorAll("button,textarea,input").forEach(function (el) { el.disabled = !!on; }); };
+    // The entry for one device and day as the server has it now (null when there is none).
+    N.read = async function (deviceId, day) {
+      var r = await E.apiFetch("/temperature/entries?month=" + encodeURIComponent(ymOf(day)), { method: "GET" });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Could not read the register");
+      return ((r.entries || []).find(function (e) { return Number(e.device_id) === Number(deviceId) && e.entry_date === day; })) || null;
+    };
+    // Every entry of these months, by "day|device".
+    N.readMonths = async function (months) {
+      var uniq = months.filter(function (m, i) { return m && months.indexOf(m) === i; }), out = {};
+      var all = await Promise.all(uniq.map(function (m) { return E.apiFetch("/temperature/entries?month=" + encodeURIComponent(m), { method: "GET" }); }));
+      all.forEach(function (r) { if (!r || !r.ok) throw new Error((r && r.error) || "Could not read the register"); (r.entries || []).forEach(function (e) { out[e.entry_date + "|" + e.device_id] = e; }); });
+      return out;
+    };
+    function fmtT(v) { return String(Math.round(Number(v) * 10) / 10); }
+    function nowText(cur) {
+      return "now " + fmtT(cur.min_temp) + " to " + fmtT(cur.max_temp) + " °C" + (String(cur.notes || "").trim() ? ', note "' + String(cur.notes).trim() + '"' : ", no note");
+    }
+    // Save the note on a reading. The entry is read again and sent back WHOLE, exactly as the classic Temperature
+    // screen sends it (device_id, entry_date, min_temp, max_temp, notes), with only the note changed: the readings are
+    // never touched. If the reading changed since it was shown (another device, the classic screen), nothing is sent.
+    // shown: the entry as it was on screen. Returns { ok, entry }, { error }, or { stale, current, message }. Throws
+    // when the server cannot be reached (the caller shows E.saveFailText).
+    N.saveNote = async function (shown, text) {
+      text = String(text || "").trim();
+      if (!text) return { error: "Write what was done. Nothing was saved." };
+      var cur = await N.read(shown.device_id, shown.entry_date);
+      if (!cur) return { stale: true, current: null, message: "This reading is no longer in the register (it may have been deleted). Nothing was saved." };
+      var same = Number(cur.min_temp) === Number(shown.min_temp) && Number(cur.max_temp) === Number(shown.max_temp) &&
+        String(cur.notes || "").trim() === String(shown.notes || "").trim() && (shown.updated_at == null || cur.updated_at == null || cur.updated_at === shown.updated_at);
+      if (!same) return { stale: true, current: cur, message: "Someone changed this reading while you were writing: " + nowText(cur) + '. Yours was: "' + text + '". Nothing was saved; check it and save again.' };
+      var body = { device_id: Number(cur.device_id), entry_date: cur.entry_date, min_temp: Number(cur.min_temp), max_temp: Number(cur.max_temp), notes: text };
+      var r = await E.apiFetch("/temperature/entries", { method: "POST", body: JSON.stringify(body) });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      return { ok: true, entry: Object.assign({}, cur, { notes: text }) };
+    };
+    // Minimum and maximum as typed (a decimal comma is read as a point), checked as Today checks a reading.
+    N.parseReading = function (minS, maxS) {
+      minS = String(minS || "").trim().replace(",", "."); maxS = String(maxS || "").trim().replace(",", ".");
+      if (!minS || !maxS) return { error: "Enter both min and max. Nothing was saved." };
+      var a = Number(minS), b = Number(maxS);
+      if (!isFinite(a) || !isFinite(b)) return { error: "Min and max must be numbers. Nothing was saved." };
+      a = Math.round(a * 10) / 10; b = Math.round(b * 10) / 10;
+      if (a > b) return { error: "Min is greater than max. Nothing was saved." };
+      if (a < -40 || b > 60) return { error: "That reading is outside -40 to 60 °C. Nothing was saved." };
+      return { min: a, max: b };
+    };
+    // Log a past day that has no reading, with the reason in the note. Never today or a future day (today is logged
+    // on Today), and never over a reading that arrived meanwhile.
+    N.logLate = async function (deviceId, day, v) {
+      var today = E.maltaYmd ? E.maltaYmd() : "";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !today || day >= today) return { error: "Only a past day can be logged late. Today's reading is logged on Today." };
+      var p = N.parseReading(v.min, v.max); if (p.error) return p;
+      var reason = String(v.reason || "").trim();
+      if (!reason) return { error: "Say why it is logged late. Nothing was saved." };
+      var cur = await N.read(deviceId, day);
+      if (cur) return { stale: true, current: cur, message: "This day was logged while you were writing: " + nowText(cur) + ". Nothing was saved." };
+      var body = { device_id: Number(deviceId), entry_date: day, min_temp: p.min, max_temp: p.max, notes: TEMP_WORDS.latePrefix + reason };
+      var r = await E.apiFetch("/temperature/entries", { method: "POST", body: JSON.stringify(body) });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      return { ok: true, min: p.min, max: p.max };
+    };
+    return N;
+  })();
 
   // ---------- styles (scoped) ----------
   function injectCss() {
@@ -86,8 +224,9 @@
       ".tdy-off{max-width:1180px;margin:0 auto 10px;box-sizing:border-box;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:rgba(201,138,18,.14);border:1px solid rgba(201,138,18,.35);color:var(--warn,#A06A0E);border-radius:10px;padding:8px 12px;font-size:13px}.tdy-off span{flex:1 1 220px}.tdy-off .tdy-btn{padding:6px 12px}" +
       ".tdy-sr{position:absolute;left:-9999px}" +
       ".tdy-err{display:block;font-size:12.5px;font-weight:600;color:var(--danger);white-space:normal;margin-top:2px}.tdy-err:empty{display:none}.tdy-inl input[aria-invalid=true]{border-color:var(--danger);box-shadow:0 0 0 3px rgba(191,59,46,.16)}" +
+      ".tdy-note{padding:2px 14px 12px 63px;border-left:3px solid var(--danger)}.tdy-warn .tnote{margin-top:6px}.tdy-row:focus{outline:2px solid var(--accent);outline-offset:-2px}" +
       "@media (max-width:980px){.tdy{grid-template-columns:minmax(0,1fr)}.tdy-side{grid-column:1;grid-row:auto}.tdy-date{grid-column:1;grid-row:auto}}" +
-      "@media (max-width:600px){.tdy-off{margin:0 16px 10px}.tdy{padding:0 16px}.tdy-date{order:-1;margin:0 0 10px}.tdy-head h1{font-size:28px}.tdy-search .hint{display:none}.tdy-row{flex-wrap:wrap;row-gap:8px}.tdy-t{flex:1 1 calc(100% - 90px)}.tdy-t+*{margin-left:60px}.tdy-row>.tdy-btn{margin-left:auto}.tdy-inl{flex:1 1 0;min-width:0}.tdy-inl:empty{display:none}.tdy-inl input{flex:1 1 0;width:0;min-width:0;height:44px;font-size:16px}.tdy-row>.tdy-btn{min-height:44px}}";
+      "@media (max-width:600px){.tdy-note{padding:2px 12px 12px}.tdy-off{margin:0 16px 10px}.tdy{padding:0 16px}.tdy-date{order:-1;margin:0 0 10px}.tdy-head h1{font-size:28px}.tdy-search .hint{display:none}.tdy-row{flex-wrap:wrap;row-gap:8px}.tdy-t{flex:1 1 calc(100% - 90px)}.tdy-t+*{margin-left:60px}.tdy-row>.tdy-btn{margin-left:auto}.tdy-inl{flex:1 1 0;min-width:0}.tdy-inl:empty{display:none}.tdy-inl input{flex:1 1 0;width:0;min-width:0;height:44px;font-size:16px}.tdy-row>.tdy-btn{min-height:44px}}";
     document.head.appendChild(st);
   }
 
@@ -100,6 +239,7 @@
       if (!r || !r.ok) r = await E.apiFetch("/today", { method: "GET", timeoutMs: 12000 });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load Today");
       state.data = r; state.loadedAt = new Date(); state.error = ""; state.errorKind = "";
+      await loadNotes(r);
     } catch (e) {
       // One sentence, ending in a full stop, whatever the server said ("Unauthorized" → "Not signed in.").
       state.errorKind = (e && e.status === 401) ? "auth" : (e && e.network) ? "network" : "other";
@@ -110,12 +250,59 @@
     if (opts.background && busyTyping()) return; // the minute refresh never wipes a reading or a name being typed; the next one shows it
     render();
   }
+  // A reading outside its limits needs a note saying what was done. GET /today does not send notes, so the month(s) of
+  // those readings are read too, only on a day that has one (no extra request on a normal day). When the read fails the
+  // rows show as before, with the way to the register, and are not counted.
+  function excursions(d) {
+    var out = [], t = (d && d.date) || todayYmd(), y = yesterdayYmd();
+    ((d && d.before_opening) || []).forEach(function (r) {
+      if (r.kind !== "temperature") return;
+      if (r.status === "done" && r.out_of_range && t) out.push({ key: t + "|" + r.device_id, day: t, row: r, when: "today" });
+      if (yesterdayOut(r) && y) out.push({ key: y + "|" + r.device_id, day: y, row: r, when: "yesterday" });
+    });
+    return out;
+  }
+  async function loadNotes(d) {
+    var ex = excursions(d);
+    if (!ex.length || !E.tempNote) { state.tn = ex.length ? null : {}; return; }
+    try { state.tn = await E.tempNote.readMonths(ex.map(function (x) { return x.day.slice(0, 7); })); }
+    catch (e) { state.tn = null; }
+  }
+  // The excursions with no note yet (only those whose entry was read: each counts as a check still to do).
+  function missingNotes(d) {
+    if (!state.tn) return [];
+    return excursions(d).filter(function (x) { var e = state.tn[x.key]; return e && !String(e.notes || "").trim(); });
+  }
+  function noteOf(key) { var e = state.tn && state.tn[key]; return e ? String(e.notes || "").trim() : ""; }
   E.__todayRefresh = function () { return load({ silent: true, background: true }); }; // the minute refresh, callable by the tests
   function busyTyping() {
     var m = state.mount; if (!m) return false;
     var ae = document.activeElement;
     if (ae && m.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return true;
-    return Array.prototype.some.call(m.querySelectorAll("input[data-min],input[data-max],input[data-cleaner]"), function (i) { return String(i.value || "").trim() !== "" && i.value !== i.defaultValue; });
+    return Array.prototype.some.call(m.querySelectorAll("input[data-min],input[data-max],input[data-cleaner],[data-tnote] textarea"), function (i) { return String(i.value || "").trim() !== "" && i.value !== i.defaultValue; });
+  }
+
+  // Repeats coming due (backlog 3 item 7): what "due" means is decided in eikon.repeatdue.js (RULES, awaiting the
+  // pharmacist); /today sends the lines (servers before 2026-11-03-batch-3-repeatdue send none: no card).
+  var REP_MAX = 6;
+  function repeatsCard(d) {
+    var RD = E.repeatDue; if (!RD || !d.repeats || !Array.isArray(d.repeats.entries)) return "";
+    var b = RD.buckets(d.repeats.entries, todayYmd() || undefined);
+    var items = b.due.concat(b.runout), n = items.length;
+    if (!n) return "";
+    var tell = typeof E.tellCustomer === "function";
+    var h = '<div class="tdy-lab" id="tdy-rep">Repeats <b>' + n + '</b><a data-open="#repreg">All repeats ›</a></div><div class="tdy-list" aria-labelledby="tdy-rep">';
+    h += items.slice(0, REP_MAX).map(function (x, i) {
+      var e = x.e, s = x.s, cls = s.kind === "overdue" ? "red" : s.kind === "due" ? "amb" : "blu";
+      var pill = '<span class="tdy-pill ' + (s.kind === "overdue" ? "red" : s.kind === "due" ? "amb" : "gry") + '">' + esc(RD.words(s)) + "</span>";
+      return '<div class="tdy-row ' + cls + '" data-kind="repeat">' +
+        '<div class="tdy-av" style="background:hsl(' + hue(e.client_name) + ',45%,32%)">' + esc(initials(e.client_name)) + '</div>' +
+        '<div class="tdy-t"><b>' + esc(e.client_name) + '</b><span>' + esc(e.medicine_name_dose || "") + (s.kind === "runout" ? " · ask the doctor for a new one" : " · every " + esc(RD.every(e)) + " days") + '</span></div>' +
+        pill + (tell ? '<button class="tdy-btn" data-rep-tell="' + i + '">Tell</button>' : "") + '<button class="tdy-btn" data-rep-open="' + esc(e.client_id || "") + '" aria-label="Open ' + esc(e.client_name) + "'s prescriptions\">Open</button></div>";
+    }).join("");
+    if (n > REP_MAX) h += '<div class="tdy-row"><div class="tdy-t" style="margin-left:14px"><span>and ' + (n - REP_MAX) + ' more</span></div><button class="tdy-btn" data-open="#repreg">See all</button></div>';
+    state.repItems = items.slice(0, REP_MAX);
+    return h + "</div>";
   }
 
   // ---------- actions ----------
@@ -151,9 +338,11 @@
       var r = await E.apiFetch(row.action.path, { method: row.action.method, body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       var out = (row.limits && ((row.limits.min != null && minV < row.limits.min) || (row.limits.max != null && maxV > row.limits.max)));
-      E.toast(name + " logged " + minV + " to " + maxV + " °C · " + mt() + (out ? " · outside the limits, add a note in the register" : ""), out ? "warn" : "success");
+      E.toast(name + " logged " + minV + " to " + maxV + " °C · " + mt() + (out ? " · outside the limits: say what was done below" : ""), out ? "warn" : "success");
       await load({ silent: true });
-      if (E.focusAfter) E.focusAfter(nextCheck);
+      // Outside the limits: the note box is next, so the cursor goes there (not lost to the page); otherwise the next check.
+      var nf = out && state.mount && state.mount.querySelector('[data-tnote="' + todayYmd() + "|" + row.device_id + '"] textarea');
+      if (nf) nf.focus(); else if (E.focusAfter) E.focusAfter(nextCheck);
     } catch (e) {
       setRowBusy(rowEl, false); rowError(rowEl, E.saveFailText ? E.saveFailText(e) : "Not saved: " + String(e && (e.message || e) || "error")); // the readings stay typed
     } finally { state.busy[key] = false; }
@@ -260,14 +449,16 @@
   function rowTemp(r) {
     var done = r.status === "done", yo = yesterdayOut(r);
     var cls = done ? (r.out_of_range ? "red" : (yo ? "amb" : "grn")) : "amb";
-    var pill = done ? (r.out_of_range ? '<span class="tdy-pill red">Outside limits</span>' : '<span class="tdy-pill grn">Logged ' + esc(r.today.min) + " to " + esc(r.today.max) + "</span>") : "";
+    var tk = todayYmd() + "|" + r.device_id, needNote = done && r.out_of_range && state.tn && state.tn[tk] && !noteOf(tk), had = done && r.out_of_range && noteOf(tk);
+    var pill = done ? (r.out_of_range ? '<span class="tdy-pill red">' + (needNote ? "Outside limits · note needed" : "Outside limits") + '</span>' : '<span class="tdy-pill grn">Logged ' + esc(r.today.min) + " to " + esc(r.today.max) + "</span>") : "";
     var inl = done ? "" :
       '<div class="tdy-inl"><small>min</small><input data-min inputmode="decimal" enterkeyhint="next" autocomplete="off" aria-label="Lowest temperature, °C"><small>max</small><input data-max inputmode="decimal" enterkeyhint="done" autocomplete="off" aria-label="Highest temperature, °C"><small>°C</small></div>' +
       '<button class="tdy-btn p" data-act="temp">Log</button>';
     return '<div class="tdy-row ' + cls + '" data-kind="temperature" data-device="' + esc(r.device_id) + '">' +
       '<div class="tdy-av sq nt">' + (r.limits && r.limits.max != null && r.limits.max <= 10 ? ICO.fridge : ICO.room) + '</div>' +
       '<div class="tdy-t"><b>' + esc(devName(r)) + '</b>' +
-      (yo ? '<span class="w">Outside limits yesterday: ' + esc(yo.reading) + ' · limits ' + esc(yo.limits) + '</span>' : '<span>' + esc(r.sub) + '</span>') + '</div>' + pill + inl + '</div>';
+      (had ? '<span>Note: ' + esc(had) + '</span>' : yo ? '<span class="w">Outside limits yesterday: ' + esc(yo.reading) + ' · limits ' + esc(yo.limits) + '</span>' : '<span>' + esc(r.sub) + '</span>') + '</div>' + pill + inl + '</div>' +
+      (needNote ? '<div class="tdy-note" data-note-for="' + esc(tk) + '">' + E.tempNote.noteForm({ key: tk, draft: state.noteDraft[tk], msg: state.noteMsg[tk] }) + '</div>' : "");
   }
   function rowDaily(r) {
     var done = r.status === "done", due = !done && owed(r, state.data); // b4-9: one line says it ("No entry yet today"); amber only once it is owed (D3), never red
@@ -311,7 +502,7 @@
   function render() {
     if (E.state.activeModuleId !== "today") return; // left before a reply came back: do not draw over the next screen
     var m = state.mount; if (!m) return;
-    injectCss();
+    injectCss(); if (E.tempNote) E.tempNote.css();
     var d = state.data;
     var user = E.state.user || {};
     // The notice sits above the grid, not in it: inside, it took the first row and pushed the worklist below the side tiles.
@@ -328,7 +519,8 @@
     }
 
     var before = d.before_opening || [], waiting = d.customers_waiting || [], attention = d.attention || [];
-    var nBefore = before.filter(function (x) { return owed(x, d); }).length, nWait = waiting.length; // b4-9: counted here, so the Daily register is owed only at closing (D3)
+    var miss = missingNotes(d);
+    var nBefore = before.filter(function (x) { return owed(x, d); }).length + miss.length, nWait = waiting.length; // b4-9: counted here, so the Daily register is owed only at closing (D3); a note still to write is a check still to do
     var h1;
     var hr = hourOf(d);
     var part = hr < 12 ? "morning" : hr < 17 ? "afternoon" : "evening";
@@ -340,6 +532,7 @@
     var todo = before.filter(function (x) { return x.status === "todo" && owed(x, d); }).length;
     if (overdue) leg.push('<span><i style="background:var(--danger)"></i>' + plural(overdue, "register") + " overdue</span>");
     if (todo) leg.push('<span><i style="background:#C98A12"></i>' + todo + " to fill</span>");
+    if (miss.length) leg.push('<span><i style="background:var(--danger)"></i>' + plural(miss.length, "note") + " to write</span>");
     var ready = waiting.filter(function (x) { return x.kind === "order"; }).length, qs = waiting.filter(function (x) { return x.kind === "question"; }).length;
     if (ready) leg.push('<span><i style="background:var(--ok)"></i>' + plural(ready, "order") + " to hand over</span>");
     if (qs) leg.push('<span><i style="background:var(--accent)"></i>' + plural(qs, "question") + "</span>");
@@ -352,15 +545,21 @@
     html += '<div class="tdy-lab">' + (hr < 12 ? "Before opening" : "Today's checks") + ' <b>' + nBefore + '</b></div>';
     // A fridge or room outside its limits yesterday is the first thing to see in the morning, in words and colour.
     var yOut = before.filter(function (r) { return r.kind === "temperature" && yesterdayOut(r); });
-    if (yOut.length) html += '<div class="tdy-warn" role="alert">' + yOut.map(function (r) {
-      var yo = yesterdayOut(r), name = devName(r);
-      return '<p><b>' + esc(name) + ' was ' + esc(yo.reading) + ' yesterday</b>, outside its limits of ' + esc(yo.limits) + '. Add a note saying what was done.' +
-        ' <a href="#tempreg" data-yday="' + esc(r.device_id) + '">See yesterday ›</a></p>';
+    // With its note box right there; once the note is saved it says what was done instead.
+    var yKey = function (r) { return yesterdayYmd() + "|" + r.device_id; };
+    var yNeed = function (r) { var k = yKey(r); return !!(state.tn && state.tn[k] && !noteOf(k)); };
+    if (yOut.length) html += '<div class="tdy-warn" role="' + (yOut.some(function (r) { return !noteOf(yKey(r)); }) ? "alert" : "status") + '">' + yOut.map(function (r) {
+      var yo = yesterdayOut(r), name = devName(r), k = yKey(r), nt = noteOf(k);
+      return '<p><b>' + esc(name) + ' was ' + esc(yo.reading) + ' yesterday</b>, outside its limits of ' + esc(yo.limits) + '.' +
+        (nt ? ' Note: ' + esc(nt) + '.' : yNeed(r) ? '' : ' Add a note saying what was done.') +
+        ' <a href="#tempreg" data-yday="' + esc(r.device_id) + '">See yesterday ›</a></p>' +
+        (yNeed(r) ? E.tempNote.noteForm({ key: k, draft: state.noteDraft[k], msg: state.noteMsg[k] }) : "");
     }).join("") + '</div>';
     var orderKind = { temperature: 0, daily_register: 1, cleaning: 2 };
+    var noteDue = function (r) { return r.kind === "temperature" && miss.some(function (x) { return x.when === "today" && x.row === r; }); };
     var sorted = before.slice().sort(function (a, b) {
-      var sa = a.status === "overdue" ? 0 : a.status === "todo" && owed(a, d) ? 1 : a.status === "ok" || a.status === "todo" ? 2 : 3;
-      var sb = b.status === "overdue" ? 0 : b.status === "todo" && owed(b, d) ? 1 : b.status === "ok" || b.status === "todo" ? 2 : 3;
+      var sa = a.status === "overdue" ? 0 : (a.status === "todo" && owed(a, d)) || noteDue(a) ? 1 : a.status === "ok" || a.status === "todo" ? 2 : 3;
+      var sb = b.status === "overdue" ? 0 : (b.status === "todo" && owed(b, d)) || noteDue(b) ? 1 : b.status === "ok" || b.status === "todo" ? 2 : 3;
       var ya = a.kind === "temperature" && yesterdayOut(a) ? 0 : 1, yb = b.kind === "temperature" && yesterdayOut(b) ? 0 : 1;
       return sa - sb || ya - yb || (orderKind[a.kind] - orderKind[b.kind]);
     });
@@ -373,6 +572,7 @@
 
     html += '<div class="tdy-lab">Customers waiting <b>' + nWait + '</b><a data-open="#clientorders">All orders ›</a></div>';
     html += waiting.length ? '<div class="tdy-list">' + waiting.map(rowCustomer).join("") + '</div>' : '<div class="tdy-quiet">No one is waiting. New orders and questions appear here the moment they are recorded.</div>';
+    html += repeatsCard(d);
     // Bookings today (only when the pharmacy uses Bookings): the next few, one tap to the day.
     var bk = d.bookings;
     if (bk && bk.total_today > 0) E.state.todayBookings = true; // the search asks Bookings only where it is used
@@ -432,6 +632,12 @@
       if (E.handleSessionExpired && !E._sessionExpiredShown) E.handleSessionExpired("Sign in again to continue where you were.");
       else { try { E.clearToken(); E.state.user = null; E.renderLogin(); } catch (e) {} }
     });
+    m.querySelectorAll("[data-rep-open]").forEach(function (el) {
+      el.addEventListener("click", function () { E.state.repregOpen = { q: el.getAttribute("data-rep-open") || "", view: "due" }; openPath("#repreg"); });
+    });
+    m.querySelectorAll("[data-rep-tell]").forEach(function (el) {
+      el.addEventListener("click", function () { var x = (state.repItems || [])[Number(el.getAttribute("data-rep-tell"))]; if (x && typeof E.tellCustomer === "function") E.tellCustomer({ kind: x.s.kind === "runout" ? "repeat_running_out" : "repeat_due", name: x.e.client_name, id_card: x.e.client_id, detail: x.e.medicine_name_dose, date: x.s.kind === "runout" ? x.e.expires_date : x.s.next }); });
+    });
     m.querySelectorAll("[data-open]").forEach(function (el) {
       el.addEventListener("click", function () { openPath(el.getAttribute("data-open")); });
     });
@@ -463,6 +669,7 @@
         window.location.hash = "#tempreg";
       });
     });
+    m.querySelectorAll("form[data-tnote]").forEach(function (f) { wireNote(f); });
     var q = m.querySelector("#tdy-q");
     if (q) q.addEventListener("input", function () { state.search = q.value; });
     // The search that acts (eikon.search.js): screens, people, open orders and today's bookings, under the box.
@@ -481,6 +688,37 @@
         E.toast("Nothing called “" + q.value + "” yet. Try a register, a customer or a product name.", "warn");
       });
     }
+  }
+
+  // The note on a reading outside its limits, saved where it is shown. The draft survives every redraw.
+  function wireNote(form) {
+    var key = form.getAttribute("data-tnote");
+    E.tempNote.wire(form, {
+      onDraft: function (v) { state.noteDraft[key] = v.note; },
+      onSubmit: async function (f, v) {
+        var k = "note" + key; if (state.busy[k]) return;
+        var shown = state.tn && state.tn[key]; if (!shown) return;
+        state.busy[k] = true; E.tempNote.busy(f, true); E.tempNote.setMsg(f, "");
+        try {
+          var r = await E.tempNote.saveNote(shown, v.note);
+          if (r.ok) {
+            delete state.noteDraft[key]; delete state.noteMsg[key]; state.tn[key] = r.entry;
+            E.toast("Note saved · " + mt(), "success");
+            await load({ silent: true });
+            var row = state.mount && state.mount.querySelector('.tdy-row[data-kind=temperature][data-device="' + key.split("|")[1] + '"]');
+            if (row) { row.setAttribute("tabindex", "-1"); row.focus(); }
+            return;
+          }
+          if (r.stale && r.current) state.tn[key] = r.current; // shown again as it is now; what was typed stays
+          state.noteMsg[key] = r.message || r.error || "";
+          E.tempNote.busy(f, false); E.tempNote.setMsg(f, state.noteMsg[key]);
+          var ta = f.querySelector("textarea"); if (ta) ta.focus();
+        } catch (x) {
+          state.noteMsg[key] = E.saveFailText(x);
+          E.tempNote.busy(f, false); E.tempNote.setMsg(f, state.noteMsg[key]);
+        } finally { state.busy[k] = false; }
+      }
+    });
   }
 
   async function render0(ctx) {

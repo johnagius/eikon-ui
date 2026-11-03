@@ -36,6 +36,7 @@
     certificates: "Calibrations, services and licences, with what is due.",
     audit: "Who changed what, across the whole system.",
     expreg: "Your registers as a spreadsheet, or printed for an inspector, for any month or year.",
+    insreg: "Is every register in order? Days not logged, notes missing, certificates due; printed with sign-off lines.",
     endofday: "Close the till: X readings, cash, cheques and the bank bag.",
     paidout: "Money paid from the till, such as couriers and cleaners.",
     "emergency-pos": "Sell when the main till is down; the sales sync later.",
@@ -87,7 +88,7 @@
         { label: "Every day", ids: ["temperature", "cleaning", "dailyregister", "locumregister"] },
         { label: "Controlled drugs", ids: ["dda-purchases", "dda-sales", "dda-poyc", "dda_stocktakes"] },
         { label: "Prescriptions", ids: ["repeatprescriptions"] },
-        { label: "Proof", ids: ["certificates", "audit"] } // Certificates live here; the audit trail's home is Settings
+        { label: "Proof", ids: ["insreg", "certificates", "audit"] } // Certificates live here; the audit trail's home is Settings
       ]
     },
     services: {
@@ -131,7 +132,8 @@
           { title: "Lock when idle", desc: "Cover this computer's screen after a few quiet minutes; off unless you turn it on.", run: function () { E.showIdleLockSettings(); } }
         ] },
         { label: "Help", actions: [
-          { title: "Help & guides", desc: "Short guides for every register.", run: function () { E.showHelpGuide(); } },
+          { title: "Help & guides", desc: "A short guide to every screen, with a search. The ? beside a screen's name opens its guide.", run: function () { if (E.openHelpNext) E.openHelpNext(); else E.showHelpGuide(); } },
+          { title: "What's new", desc: "What changed in Eikon, newest first.", dot: true, run: function () { if (E.openHelpNext) E.openHelpNext({ view: "whatsnew" }); } },
           { title: "Classic layout", desc: "The previous look, with the old sidebar. The link you were given brings you back here.", run: function () { try { localStorage.setItem("eikon_ui2", "0"); } catch (e) {} var u = new URL(window.location.href); u.searchParams.set("ui", "1"); u.hash = "#dashboard"; window.location.href = u.toString(); } },
           { title: "Old dashboard", desc: "The previous home screen, unchanged.", run: function () { window.location.hash = "#dashboard"; } }
         ] }
@@ -175,7 +177,7 @@
       var m = ctx && ctx.mount; if (!m) return;
       injectCss();
       var html = '<div class="hub" data-hub="' + esc(id) + '"><h1>' + esc(cfg.title) + '</h1><p class="lead">' + esc(cfg.lead) + '</p>' +
-        '';
+        (id === "settings" ? '<div id="hub-wn-slot"></div>' : "");
       cfg.groups.forEach(function (g, gi) {
         var cards = "";
         (g.ids || []).forEach(function (mid) {
@@ -186,7 +188,7 @@
           cards += '<button class="hub-card" data-open="' + esc(mid) + '"><b>' + esc(sentence(shown)) + '</b><span>' + esc(DESC[mid] || "") + '</span></button>';
         });
         (g.actions || []).forEach(function (a, ai) {
-          cards += '<button class="hub-card" data-action="' + gi + ":" + ai + '"><b>' + esc(a.title) + '</b><span>' + esc(a.desc) + '</span></button>';
+          cards += '<button class="hub-card" data-action="' + gi + ":" + ai + '"><b>' + esc(a.title) + (a.dot ? '<span class="nxh-dot nxh-card-dot" data-wn-dot hidden><span class="nxh-sr">, something new</span></span>' : "") + '</b><span>' + esc(a.desc) + '</span></button>';
         });
         if (!cards) return;
         html += '<div class="hub-sec' + (g.phoneOnly ? " hub-phone" : "") + '"><h2 class="hub-lab">' + esc(g.label) + '</h2><div class="hub-grid">' + cards + '</div></div>';
@@ -196,6 +198,7 @@
       m.querySelectorAll("[data-open]").forEach(function (b) {
         b.addEventListener("click", function () { openCard(b.getAttribute("data-open"), id); });
       });
+      if (id === "settings" && E.helpSettings) E.helpSettings(m); // What's new (eikon.help.js, loaded just after the first screen)
       m.querySelectorAll("[data-action]").forEach(function (b) {
         b.addEventListener("click", function () {
           var p = b.getAttribute("data-action").split(":");
@@ -241,4 +244,5 @@
     });
     return found || { id: "today", title: "Today" };
   };
+
 })();

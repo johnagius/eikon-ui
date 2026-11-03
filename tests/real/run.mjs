@@ -23,7 +23,9 @@ const login = await stack.app.api("POST", "/auth/login", { body: { email: USER.e
 if (!login.json?.ok) throw new Error("login failed " + login.text);
 const browser = await chromium.launch({ headless: !process.env.REAL_HEADED });
 const results = [];
-const queue = files.slice();
+// The correct-* cases write extra lines into the same tables as the screens' own cases, which find their row as "the
+// newest one": they run after all the others (in parallel among themselves: each uses its own table).
+const queue = files.filter((f) => !f.startsWith("correct-")), later = files.filter((f) => f.startsWith("correct-"));
 async function worker() {
   while (queue.length) {
     const f = queue.shift();
@@ -37,7 +39,9 @@ async function worker() {
     out((r.fails.length ? "FAIL " : "ok   ") + r.name.padEnd(12) + " " + String(r.checks).padStart(3) + " checks  " + (r.ms / 1000).toFixed(1) + "s" + (r.fails.length ? "\n" + r.fails.map((x) => "       - " + x).join("\n") : ""));
   }
 }
-await Promise.all(Array.from({ length: Math.min(JOBS, files.length) }, worker));
+await Promise.all(Array.from({ length: Math.min(JOBS, queue.length) }, worker));
+queue.push(...later);
+await Promise.all(Array.from({ length: Math.min(JOBS, queue.length) }, worker));
 await browser.close(); await stack.close();
 
 results.sort((a, b) => a.name < b.name ? -1 : 1);

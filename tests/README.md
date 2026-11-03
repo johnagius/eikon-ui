@@ -54,7 +54,11 @@ POCT, Vaccines, Emergency POS, Labels, DDA stock-takes, Customers + New) it type
 screen and the new one (Vaccines: the classic body through the API; Customers has no classic screen), reads both
 stored rows from the database and compares every column. Only the row's id and clock columns, plus differences
 listed in the case with the reason (a generated code, a sequence number), may differ; differences found and not yet
-fixed are listed as `KNOWN` in the tail instead of failing. It prints one line per case and a tail ending
+fixed are listed as `KNOWN` in the tail instead of failing. The `correct-*` cases (run after the others, as they add
+lines to the same tables) correct a line on each register through the pharmacist's Correct: no reason sends nothing,
+the stored row changes only in the corrected columns, the audit entry has the reason with the row before and after,
+a twin line changed with the classic edit body is stored the same, a line changed elsewhere meanwhile is refused with
+both versions shown, and staff see no Correct (End of day: a locked day unlocked, corrected and locked again). It prints one line per case and a tail ending
 `real: N passed, M failed`, and exits non-zero on a failure. About 30 seconds with 4 parallel cases.
 
 ```bash

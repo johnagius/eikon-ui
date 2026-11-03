@@ -1,8 +1,10 @@
 /* Locum receipts, new layout: this month's receipts with a Print button (the same receipt as the classic screen), and
    one form: the day decides Normal or Sunday / public holiday (Malta's fixed holidays and Good Friday, as the classic
    screen), the hourly rate for that kind of day is remembered in this browser (the same memory as the classic screen),
-   a locum used before fills the registration number, the total shows as you type. Recording only; changing or
-   deleting a receipt (it needs the edit password), other months and the report stay in the classic screen. */
+   a locum used before fills the registration number, the total shows as you type. Other months and the report use
+   eikon.months.js. Correct (the pharmacist only, eikon.correct.js): read again, the classic edit's fields and body (the
+   day type follows the date, as in the classic), the edit password the classic asks for (sent with the update, never
+   kept), a required reason. The server works out the total again. A receipt is never deleted here. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -57,12 +59,33 @@
     document.head.appendChild(st);
   }
 
+  var FIX = { reasonPh: "e.g. Hours typed as 8, the locum worked 7", entity: "locum_receipts", action: "LOCUM_RECEIPT_UPDATE",
+    fields: [{ k: "receipt_date", label: "Date", type: "date", req: true, what: "the date" }, { k: "locum_full_name", label: "Locum", req: true, what: "the locum's name" },
+      { k: "registration_number", label: "Reg no.", req: true, what: "the registration number" }, { k: "hours", label: "Hours", type: "num", req: true, what: "the hours" },
+      { k: "fee_per_hour", label: "Rate €/h", type: "num", req: true, what: "the hourly rate" }],
+    pass: { label: "Edit password", header: "X-Eikon-Edit-Pass" },
+    rows: function () { return S.entries; },
+    reread: async function (row) {
+      var months = [String(row.receipt_date || "").slice(0, 7), S.month].filter(function (x, i, a) { return /^\d{4}-\d{2}$/.test(x) && a.indexOf(x) === i; });
+      for (var i = 0; i < months.length; i++) { var hit = (await get(months[i])).filter(function (e) { return String(e.id) === String(row.id); })[0]; if (hit) return hit; }
+      return null;
+    },
+    put: function (row) { return "/locumreceipts/receipts/" + encodeURIComponent(String(row.id)); },
+    body: function (r) { var d = String(r.receipt_date || "").trim(); return { receipt_date: d, hours: Number(r.hours), locum_full_name: String(r.locum_full_name || "").trim(), registration_number: String(r.registration_number || "").trim(), day_type: dayType(d), fee_per_hour: Number(r.fee_per_hour) }; },
+    check: function (r) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.receipt_date))) return "Choose the date.";
+      if (!(Number(r.hours) > 0) || Number(r.hours) > 24) return "The hours should be more than 0 and at most 24.";
+      if (!(Number(r.fee_per_hour) >= 0) || String(r.fee_per_hour).trim() === "") return "The hourly rate should be an amount, e.g. 25.";
+      return "";
+    },
+    paint: function () { paint(); }, idle: function () { E.whenFormIdle(S.mount, function () { paint(); }); }, done: function () { return load(); } };
   async function get(month) { var r = await E.apiFetch("/locumreceipts/receipts?month=" + encodeURIComponent(month), { method: "GET" }); if (!r || !r.ok) throw new Error((r && r.error) || "Could not load locum receipts"); return r.receipts || r.entries || []; }
   async function load() {
     var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       var both = await Promise.all([get(S.month), get(prevMonth(S.month)).catch(function () { return []; })]);
       S.entries = both[0].slice().sort(function (a, b) { return String(b.receipt_date).localeCompare(String(a.receipt_date)) || b.id - a.id; });
+      E.correct.loadMarks("lrcreg", FIX, S.month + "-01"); // which receipts were corrected, by whom and why
       var seen = {}; S.known = [];
       both[0].concat(both[1]).forEach(function (r) { var k = String(r.locum_full_name || "").trim().toLowerCase(); if (k && !seen[k]) { seen[k] = 1; S.known.push({ name: r.locum_full_name, reg: r.registration_number }); } });
     } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load locum receipts"); }
@@ -88,10 +111,11 @@
       h += '<div class="lrc-lab"><span>' + esc(mn) + " · " + S.entries.length + (S.entries.length === 1 ? " receipt" : " receipts") + "</span><b>" + eur(total) + "</b></div>";
       h += S.entries.length ? '<div class="lrc-list">' + S.entries.map(function (r) {
         return '<div class="lrc-row"><div class="t"><b>' + esc(r.locum_full_name) + "</b>" + (String(r.day_type || dayType(r.receipt_date)).toLowerCase() === "holiday" ? '<i class="lrc-hol" style="font-style:normal">Holiday rate</i>' : "") +
-          "<span>" + esc(dayLabel(r.receipt_date)) + " · " + esc(r.hours) + " h × " + eur(r.fee_per_hour) + " · Reg " + esc(r.registration_number) + "</span></div><em>" + eur(r.total_fee) + '</em><button class="lrc-btn" data-act="print" data-id="' + r.id + '">Print</button></div>';
+          "<span>" + esc(dayLabel(r.receipt_date)) + " · " + esc(r.hours) + " h × " + eur(r.fee_per_hour) + " · Reg " + esc(r.registration_number) + "</span>" + E.correct.mark("lrcreg", r) + "</div><em>" + eur(r.total_fee) + '</em><button class="lrc-btn" data-act="print" data-id="' + r.id + '">Print</button>' +
+          E.correct.button("lrcreg", r, "the receipt for " + r.locum_full_name + ", " + dayLabel(r.receipt_date)) + "</div>" + E.correct.panel("lrcreg", r, FIX);
       }).join("") + "</div>" : '<div class="lrc-quiet" data-empty>' + esc(E.months.empty(S.month, "No locum receipts this month yet.")) + "</div>";
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Changing or deleting a receipt is in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += E.correct.foot(E.correct.can() ? "Correcting a receipt asks for the edit password, as the classic screen does." : "") + "</div>";
     var ae = document.activeElement, sel = ae && m.contains(ae) && ae.name ? "[name=" + ae.name + "]" : "";
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) again.focus(); }
@@ -105,7 +129,8 @@
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "lrcreg"); } catch (x) {} E.openClassic("locumreceipts"); }
       });
     });
-    E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; S.just = null; load(); }, paint: function () { paint(); }, print: printMonth });
+    E.correct.wire(m, "lrcreg", FIX);
+    E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; S.just = null; E.correct.reset("lrcreg"); load(); }, paint: function () { paint(); }, print: printMonth });
     var f = m.querySelector("#lrc-add");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
@@ -223,7 +248,7 @@
 
   E.registerModule({
     id: "lrcreg", title: "Locum receipts", order: 3, icon: "€", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); S.adding = null; S.just = null; S.err = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); E.correct.reset("lrcreg"); S.adding = null; S.just = null; S.err = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("lrcreg") < 0) E.UI2_DESTINATIONS.push("lrcreg");
   if (E.UI2_PARENT) E.UI2_PARENT.lrcreg = "money";

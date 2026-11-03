@@ -7,7 +7,7 @@
 //
 // Exit code 0 = every check passed.
 const base = String(process.argv[2] || "").replace(/\/+$/, "");
-const expect = process.argv[3] || "2026-11-03-batch-4";
+const expect = process.argv[3] || "2026-11-03-batch-5";
 const token = process.env.EIKON_TOKEN || "";
 if (!/^https?:\/\/[^/]+$/.test(base)) { console.error("usage: node tools/live-check-batch.mjs https://<host> [expected-version]"); process.exit(2); }
 let fails = 0; const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) fails++; };

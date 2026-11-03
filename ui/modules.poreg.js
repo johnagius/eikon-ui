@@ -1,6 +1,8 @@
 /* Paid out, new layout: what left the till today and this month, by day, with the day's total; one form to record a
-   payment (who, how much, cash or cheque, invoice, why). Same endpoint as the classic register; recording only.
-   Correcting, deleting, other months and the report stay in the classic register. */
+   payment (who, how much, cash or cheque, invoice, why). Same endpoint as the classic register. Other months and the
+   report use eikon.months.js. Correct (the pharmacist only, eikon.correct.js): read again, the classic edit's fields and
+   body (its normaliser: a cheque number only for a cheque), a required reason, the whole payment sent (the update
+   replaces every field). A payment is never deleted here. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -9,6 +11,34 @@
   var S = { mount: null, month: "", entries: [], names: [], loading: false, error: "", adding: null, saving: false, err: "" };
   var MON = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+  var FIX = { reasonPh: "e.g. Amount typed as 25, the invoice says 20", entity: "paid_out_entries", action: "PAID_OUT_ENTRY_UPDATE",
+    fields: [{ k: "payee_name", label: "Paid to", req: true, what: "who was paid" }, { k: "fee", label: "Amount €", type: "num", req: true, what: "the amount" },
+      { k: "payment_method", label: "How", type: "select", opts: [["cash", "Cash"], ["cheque", "Cheque"]] }, { k: "cheque_no", label: "Cheque no.", hint: "Cheques only" },
+      { k: "invoice_no", label: "Invoice no." }, { k: "reason", label: "What for" },
+      { k: "entry_date", label: "Date", type: "date", req: true, what: "the date" }, { k: "entry_time", label: "Time", type: "time", req: true, what: "the time" }],
+    rows: function () { return S.entries; },
+    reread: async function (row) {
+      var months = [String(row.entry_date || "").slice(0, 7), S.month].filter(function (x, i, a) { return /^\d{4}-\d{2}$/.test(x) && a.indexOf(x) === i; });
+      for (var i = 0; i < months.length; i++) {
+        var r = await E.apiFetch("/paid-out/entries?month=" + encodeURIComponent(months[i]), { method: "GET" });
+        var hit = ((r && r.entries) || []).filter(function (e) { return String(e.id) === String(row.id); })[0];
+        if (hit) return hit;
+      }
+      return null;
+    },
+    put: function (row) { return "/paid-out/entries/" + encodeURIComponent(String(row.id)); },
+    body: function (r) { // the classic normalizeEntryPayload: its keys, its order, its rules
+      var method = String(r.payment_method || "").trim().toLowerCase() === "cheque" ? "cheque" : "cash";
+      return { entry_date: String(r.entry_date || "").trim(), entry_time: String(r.entry_time || "").trim().slice(0, 5), payee_name: String(r.payee_name || "").trim(), fee: Number(r.fee),
+        invoice_no: String(r.invoice_no || "").trim(), payment_method: method, cheque_no: method === "cash" ? "" : String(r.cheque_no || "").trim(), reason: String(r.reason || "").trim() };
+    },
+    check: function (r) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.entry_date)) || String(r.entry_date) > today()) return "Choose the date (not a day ahead).";
+      if (!/^\d{2}:\d{2}$/.test(String(r.entry_time).slice(0, 5))) return "Write the time, e.g. 10:30.";
+      if (!(Number(r.fee) > 0)) return "The amount should be more than 0, e.g. 12.50.";
+      return "";
+    },
+    paint: function () { paint(); }, idle: function () { E.whenFormIdle(S.mount, function () { paint(); }); }, done: function () { return load(); } };
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function today() { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
@@ -51,6 +81,7 @@
       var r = await E.apiFetch("/paid-out/entries?month=" + encodeURIComponent(S.month), { method: "GET" });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load paid outs");
       S.entries = (r.entries || []).slice().sort(function (a, b) { return String(b.entry_date + b.entry_time).localeCompare(String(a.entry_date + a.entry_time)) || b.id - a.id; });
+      E.correct.loadMarks("poreg", FIX, S.month + "-01"); // which payments were corrected, by whom and why
     } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load paid outs"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
@@ -93,11 +124,12 @@
         var list = S.entries.filter(function (e) { return e.entry_date === d; });
         h += '<div class="por-lab"><span>' + esc(dayLabel(d)) + "</span><b>" + eur(sum(list)) + '</b></div><div class="por-list">' + list.map(function (e) {
           var sub = [e.entry_time, e.payment_method === "cheque" ? "Cheque" + (e.cheque_no ? " " + e.cheque_no : "") : "Cash"]; if (e.invoice_no) sub.push("Invoice " + e.invoice_no); if (e.reason) sub.push(e.reason);
-          return '<div class="por-row"><div class="t"><b>' + esc(e.payee_name) + "</b><span>" + esc(sub.join(" · ")) + "</span></div><em>" + eur(e.fee) + "</em></div>";
+          return '<div class="por-row"><div class="t"><b>' + esc(e.payee_name) + "</b><span>" + esc(sub.join(" · ")) + "</span>" + E.correct.mark("poreg", e) + "</div><em>" + eur(e.fee) + "</em>" +
+            E.correct.button("poreg", e, eur(e.fee) + " to " + e.payee_name + ", " + dayLabel(e.entry_date)) + "</div>" + E.correct.panel("poreg", e, FIX);
         }).join("") + "</div>";
       });
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Correcting or deleting a payment is in the <a href="#" data-act="classic" style="color:var(--accent)">classic register</a>.</p></div>';
+    h += E.correct.foot() + "</div>";
     m.innerHTML = h;
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
@@ -110,7 +142,8 @@
     });
     m.querySelectorAll(".por-seg [data-m]").forEach(function (b) { b.addEventListener("click", function () { keep(); S.adding.payment_method = b.getAttribute("data-m"); paint(true); }); });
     var f = m.querySelector("#por-add"); if (f) f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
-    E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; load(); }, paint: function () { paint(); }, print: printMonth });
+    E.correct.wire(m, "poreg", FIX);
+    E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; E.correct.reset("poreg"); load(); }, paint: function () { paint(); }, print: printMonth });
   }
 
   // The classic month report: by who was paid (A to Z), each with its payments (oldest first) and subtotal, and the total.
@@ -172,7 +205,7 @@
 
   E.registerModule({
     id: "poreg", title: "Paid out", order: 3, icon: "€", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); S.adding = null; S.err = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = today().slice(0, 7); S.entries = []; E.months.reset(); E.correct.reset("poreg"); S.adding = null; S.err = ""; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("poreg") < 0) E.UI2_DESTINATIONS.push("poreg");
   if (E.UI2_PARENT) E.UI2_PARENT.poreg = "money";

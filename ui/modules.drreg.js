@@ -1,6 +1,8 @@
 /* Daily register (prescription medicines supplied), new layout: the month by day, a search, a quick entry form
    that fills a known prescriber's registration number and a known client's name, and a printout.
-   Same endpoints as the classic screen (/daily-register/entries); corrections still happen there. */
+   Same endpoints as the classic screen (/daily-register/entries). Correct (the pharmacist only, eikon.correct.js):
+   the line is read again, the classic edit's seven fields, a required reason, the whole line sent (the update replaces
+   every column). A line is never deleted here. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -9,6 +11,26 @@
   var S = { mount: null, month: null, entries: [], history: [], q: "", loading: false, error: "", form: null, saving: false, last: null };
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  // Correcting a line: the classic edit form's fields and its PUT body.
+  var FIX = { entity: "daily_register_entries", action: "DAILY_REGISTER_ENTRY_UPDATE",
+    fields: [{ k: "entry_date", label: "Date", type: "date", req: true, what: "the date" }, { k: "client_name", label: "Client", req: true, what: "the client's name" },
+      { k: "client_id", label: "ID card", req: true, what: "the client's ID card" }, { k: "medicine_name_dose", label: "Medicine", req: true, what: "the medicine and dose" },
+      { k: "posology", label: "Posology", req: true, what: "the posology" }, { k: "prescriber_name", label: "Prescriber", req: true, what: "the prescriber" },
+      { k: "prescriber_reg_no", label: "Reg no", req: true, what: "the prescriber's reg no" }],
+    rows: function () { return S.entries; },
+    reread: async function (row) {
+      var months = [String(row.entry_date || "").slice(0, 7), S.month].filter(function (x, i, a) { return /^\d{4}-\d{2}$/.test(x) && a.indexOf(x) === i; });
+      for (var i = 0; i < months.length; i++) {
+        var r = await E.apiFetch("/daily-register/entries?month=" + encodeURIComponent(months[i]), { method: "GET" });
+        var hit = ((r && r.entries) || []).filter(function (e) { return String(e.id) === String(row.id); })[0];
+        if (hit) return hit;
+      }
+      return null;
+    },
+    put: function (row) { return "/daily-register/entries/" + encodeURIComponent(String(row.id)); },
+    body: function (r) { var b = {}; ["entry_date", "client_name", "client_id", "medicine_name_dose", "posology", "prescriber_name", "prescriber_reg_no"].forEach(function (k) { b[k] = String(r[k] == null ? "" : r[k]).trim(); }); return b; },
+    check: function (r) { return /^\d{4}-\d{2}-\d{2}$/.test(String(r.entry_date)) && String(r.entry_date) <= ymd(new Date()) ? "" : "Choose the date (not a day ahead)."; },
+    paint: function () { paint(); }, idle: function () { E.whenFormIdle(S.mount, paint); }, done: function () { return load(); } };
   var WDN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   var FIELDS = [
     ["entry_date", "Date", "date", ""],
@@ -59,7 +81,8 @@
       ".drr-q{flex:1;min-width:200px;height:38px;border-radius:12px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font:inherit;font-size:15px;padding:0 12px;outline:0}" +
       ".drr-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 2px 7px;display:flex;gap:8px}.drr-lab b{color:var(--text)}" +
       ".drr-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
-      ".drr-row{padding:11px 16px;border-top:.5px solid var(--border)}.drr-row:first-child{border-top:0}" +
+      ".drr-row{padding:11px 16px;border-top:.5px solid var(--border);display:flex;align-items:center;gap:12px}.drr-row:first-child{border-top:0}.drr-rt{flex:1;min-width:0}" +
+      ".drr-tbl td.c{width:1%;white-space:nowrap;vertical-align:middle;padding-top:4px;padding-bottom:4px}.drr-tbl tr.drr-fix td{padding:0}.drr-sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       ".drr-row b{display:block;font-size:14.5px;font-weight:600}.drr-row span{display:block;font-size:12.5px;color:var(--muted);margin-top:1px}" +
       ".drr-form{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:6px 0;margin-top:16px}" +
       ".drr-form label{display:flex;align-items:center;gap:12px;min-height:48px;padding:0 16px;border-top:.5px solid var(--border)}.drr-form label:first-child{border-top:0}" +
@@ -91,6 +114,7 @@
       var byNewest = function (a, b) { return (String(a.entry_date) + String(a.id).padStart(9, "0")) < (String(b.entry_date) + String(b.id).padStart(9, "0")) ? 1 : -1; };
       S.entries = ((res[0] && res[0].entries) || []).slice().sort(byNewest);
       S.history = S.entries.concat((res[1] && res[1].entries) || []);
+      E.correct.loadMarks("drreg", FIX, S.month + "-01"); // which lines were corrected, by whom and why
     } catch (e) {
       if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register");
     }
@@ -140,7 +164,7 @@
     h += MB.bar(S.month, { label: "Daily register" }) +
       '<div class="drr-bar"><input class="drr-q" id="drr-q" type="search" aria-label="Search this month" placeholder="Search client, ID, medicine or prescriber" value="' + esc(S.q) + '"></div>';
     h += '<div id="drr-res">' + resultsHtml() + "</div>";
-    h += '<p class="drr-note" style="font-size:12.5px;color:var(--muted);margin-top:12px">To correct or remove a line, open it in the <a href="#" data-act="classic" style="color:var(--accent)">classic register</a>.</p>';
+    h += E.correct.foot().replace('class="ecr-foot"', 'class="ecr-foot drr-note"');
     h += '<table class="drr-print"><thead><tr><th>Date</th><th>Client</th><th>ID card</th><th>Medicine and dose</th><th>Posology</th><th>Prescriber</th><th>Reg no</th></tr></thead><tbody>' +
       (S.entries.length ? S.entries.slice().reverse().map(function (e) {
         return "<tr><td>" + esc(e.entry_date) + "</td><td>" + esc(e.client_name) + "</td><td>" + esc(e.client_id) + "</td><td>" + esc(e.medicine_name_dose) + "</td><td>" + esc(e.posology) + "</td><td>" + esc(e.prescriber_name) + "</td><td>" + esc(e.prescriber_reg_no) + "</td></tr>";
@@ -148,7 +172,8 @@
     m.innerHTML = h;
     if (back) { var again = m.querySelector("#drr-form [name=" + back + "]"); if (again) again.focus(); } // a repaint keeps your place in the form
     bind(m);
-    MB.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; load(); }, paint: paint, print: printMonth });
+    E.correct.wire(m, "drreg", FIX);
+    MB.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; E.correct.reset("drreg"); load(); }, paint: paint, print: printMonth });
   }
   // The list (or table) under the search: redrawn alone as a search is typed, so the form and the bar stay as they are.
   function resultsHtml() {
@@ -158,10 +183,12 @@
     else if (!S.entries.length) h += '<div class="drr-quiet" data-empty>' + esc(MB.empty(S.month)) + "</div>";
     else if (!shown.length) h += '<div class="drr-quiet">No entry matches “' + esc(S.q) + "”.</div>";
     else if (wide()) {
-      h += '<table class="drr-tbl"><thead><tr><th scope="col">Date</th><th scope="col">Client</th><th scope="col">ID card</th><th scope="col">Medicine and dose</th><th scope="col">Posology</th><th scope="col">Prescriber</th><th scope="col">Reg no</th></tr></thead><tbody>' +
+      h += '<table class="drr-tbl"><thead><tr><th scope="col">Date</th><th scope="col">Client</th><th scope="col">ID card</th><th scope="col">Medicine and dose</th><th scope="col">Posology</th><th scope="col">Prescriber</th><th scope="col">Reg no</th>' + (E.correct.can() ? '<th scope="col"><span class="drr-sr">Correct</span></th>' : "") + "</tr></thead><tbody>" +
         shown.map(function (e, i) {
-          var first = i === 0 || shown[i - 1].entry_date !== e.entry_date;
-          return '<tr' + (first && i ? ' class="nd"' : "") + '><td class="d">' + (first ? esc(dayShort(e.entry_date)) : "") + "</td><td>" + esc(e.client_name) + '</td><td class="n">' + esc(e.client_id) + '</td><td class="m">' + esc(e.medicine_name_dose) + "</td><td>" + esc(e.posology) + "</td><td>" + esc(e.prescriber_name) + '</td><td class="n">' + esc(e.prescriber_reg_no) + "</td></tr>";
+          var first = i === 0 || shown[i - 1].entry_date !== e.entry_date, pan = E.correct.panel("drreg", e, FIX);
+          return '<tr' + (first && i ? ' class="nd"' : "") + '><td class="d">' + (first ? esc(dayShort(e.entry_date)) : "") + "</td><td>" + esc(e.client_name) + '</td><td class="n">' + esc(e.client_id) + '</td><td class="m">' + esc(e.medicine_name_dose) + E.correct.mark("drreg", e) + "</td><td>" + esc(e.posology) + "</td><td>" + esc(e.prescriber_name) + '</td><td class="n">' + esc(e.prescriber_reg_no) + "</td>" +
+            (E.correct.can() ? '<td class="c">' + E.correct.button("drreg", e, e.medicine_name_dose + " for " + e.client_name + ", " + dayShort(e.entry_date)) + "</td>" : "") + "</tr>" +
+            (pan ? '<tr class="drr-fix"><td colspan="8">' + pan + "</td></tr>" : "");
         }).join("") + "</tbody></table>";
     }
     else {
@@ -173,8 +200,9 @@
           var n = shown.filter(function (x) { return x.entry_date === day; }).length;
           h += '<div class="drr-lab">' + esc(dayLong(day)) + " <b>" + n + '</b></div><div class="drr-list">';
         }
-        h += '<div class="drr-row"><b>' + esc(e.medicine_name_dose) + " · " + esc(e.client_name) + "</b><span>" + esc(e.posology) + " · " + esc(e.prescriber_name) +
-          (e.prescriber_reg_no ? " (" + esc(e.prescriber_reg_no) + ")" : "") + " · " + esc(e.client_id) + "</span></div>";
+        h += '<div class="drr-row"><div class="drr-rt"><b>' + esc(e.medicine_name_dose) + " · " + esc(e.client_name) + "</b><span>" + esc(e.posology) + " · " + esc(e.prescriber_name) +
+          (e.prescriber_reg_no ? " (" + esc(e.prescriber_reg_no) + ")" : "") + " · " + esc(e.client_id) + "</span>" + E.correct.mark("drreg", e) + "</div>" +
+          E.correct.button("drreg", e, e.medicine_name_dose + " for " + e.client_name + ", " + dayShort(e.entry_date)) + "</div>" + E.correct.panel("drreg", e, FIX);
       });
       h += "</div>";
     }
@@ -200,7 +228,7 @@
     });
     var q = m.querySelector("#drr-q");
     if (q) q.addEventListener("input", function () { // only the list is redrawn: the search box and the form are left alone
-      S.q = q.value; var res = S.mount.querySelector("#drr-res"); if (res) res.innerHTML = resultsHtml();
+      S.q = q.value; var res = S.mount.querySelector("#drr-res"); if (res) { res.innerHTML = resultsHtml(); E.correct.wire(res, "drreg", FIX); }
     });
     var f = m.querySelector("#drr-form");
     if (!f) return;
@@ -265,7 +293,7 @@
 
   E.registerModule({
     id: "drreg", title: "Daily register", order: 3, icon: "Rx", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.last = null; S.month = thisMonth(); S.entries = []; E.months.reset(); css(); watchWidth(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.last = null; S.month = E.months.take("drreg") || thisMonth(); S.entries = []; E.months.reset(); E.correct.reset("drreg"); css(); watchWidth(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("drreg") < 0) E.UI2_DESTINATIONS.push("drreg");
   if (E.UI2_PARENT) E.UI2_PARENT.drreg = "registers";

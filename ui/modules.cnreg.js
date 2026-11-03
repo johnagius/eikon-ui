@@ -1,7 +1,9 @@
 /* Credit notes, new layout: money customers have with the pharmacy. Find a customer (name, phone or receipt), see what
    is left on each note, use some or all of it, record a new note. Using a note first reads it again from the server and
    never takes more than is left (the server itself does not check). Expired notes with money left are listed apart.
-   Corrections, deleting notes or uses, notes and printing stay in the classic screen. */
+   Correct (the pharmacist only, eikon.correct.js) on each note listed with money left: read again, the classic edit's
+   fields and body (no end date = no expiry), a required reason, the whole note sent (the update replaces every field).
+   A note is never deleted here. Undoing a use, notes and printing a note stay in the classic screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -50,6 +52,27 @@
     document.head.appendChild(st);
   }
 
+  var FIX = { reasonPh: "e.g. Amount typed as 25.50, the receipt says 20", entity: "credit_notes", action: "CREDITNOTE_UPDATE",
+    fields: [{ k: "client_name", label: "Name", req: true, what: "the name" }, { k: "client_surname", label: "Surname", req: true, what: "the surname" },
+      { k: "telephone", label: "Phone", req: true, what: "the phone" }, { k: "email", label: "Email" }, { k: "amount", label: "Amount €", type: "num", req: true, what: "the amount" },
+      { k: "receipt_number", label: "Receipt no." }, { k: "issue_date", label: "Issued", type: "date", req: true, what: "the date it was issued" },
+      { k: "expiry_date", label: "Expires", type: "date", hint: "Empty: no end date" }],
+    rows: function () { return S.entries; },
+    reread: async function (row) { return (await fetchAll()).filter(function (cn) { return String(cn.id) === String(row.id); })[0] || null; },
+    put: function (row) { return "/creditnotes/entries/" + encodeURIComponent(String(row.id)); },
+    body: function (r) { // the classic readMainForm: its keys and its rule (an empty expiry is no end date)
+      var exp = String(r.expiry_date == null ? "" : r.expiry_date).trim();
+      return { issue_date: String(r.issue_date || "").trim(), client_name: String(r.client_name || "").trim(), client_surname: String(r.client_surname || "").trim(), telephone: String(r.telephone || "").trim(),
+        email: String(r.email == null ? "" : r.email).trim(), receipt_number: String(r.receipt_number == null ? "" : r.receipt_number).trim(), amount: String(r.amount == null ? "" : r.amount).trim(),
+        expiry_date: exp, no_expiry: exp ? 0 : 1 };
+    },
+    check: function (r) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.issue_date))) return "Choose the date it was issued.";
+      if (!(parseFloat(r.amount) > 0)) return "The amount should be more than 0, e.g. 20.00.";
+      if (String(r.expiry_date || "") && !/^\d{4}-\d{2}-\d{2}$/.test(String(r.expiry_date))) return "Choose the expiry date, or leave it empty.";
+      return "";
+    },
+    paint: function () { paint(true); }, idle: function () { E.whenFormIdle(S.mount, function () { paint(); }); }, done: function () { return load(); } };
   async function fetchAll() {
     var r = await E.apiFetch("/creditnotes/list", { method: "GET" });
     if (!r || !r.ok) throw new Error((r && r.error) || "Could not load credit notes");
@@ -57,7 +80,7 @@
   }
   async function load() {
     var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
-    try { S.entries = await fetchAll(); }
+    try { S.entries = await fetchAll(); E.correct.loadMarks("cnreg", FIX, ""); }
     catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load credit notes"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
@@ -68,13 +91,13 @@
     if (cn.telephone) sub.push('<a href="tel:' + esc(String(cn.telephone).replace(/\s+/g, "")) + '">' + esc(cn.telephone) + "</a>");
     sub.push(eur(cn.amount) + " from " + esc(dm(cn.issue_date))); if (cn.receipt_number) sub.push("Receipt " + esc(cn.receipt_number));
     sub.push(cn.no_expiry || !cn.expiry_date ? "No end date" : (old ? "Expired " : "Until ") + esc(dm(cn.expiry_date)));
-    var h = '<div class="cnr-card' + (old ? " old" : "") + '"><div class="h"><b>' + esc(cn.client_name) + " " + esc(cn.client_surname) + "</b><em>" + eur(rem) + ' left</em></div><div class="s">' + sub.join(" · ") + "</div>";
+    var h = '<div class="cnr-card' + (old ? " old" : "") + '"><div class="h"><b>' + esc(cn.client_name) + " " + esc(cn.client_surname) + "</b><em>" + eur(rem) + ' left</em></div><div class="s">' + sub.join(" · ") + "</div>" + E.correct.mark("cnreg", cn);
     if (S.using === cn.id) {
       h += '<form class="cnr-in" id="cnr-use" autocomplete="off"><label><span>Using €</span><input name="amount" inputmode="decimal" value="' + esc(S.draft.amount || "") + '" placeholder="0.00"></label>' +
         '<label><span>Receipt no.</span><input name="receipt_number" value="' + esc(S.draft.receipt_number || "") + '" placeholder="Optional"></label>' + (S.err ? '<div class="cnr-err" id="cnr-err" role="alert">' + esc(S.err) + "</div>" : "") +
         '<div class="acts"><button type="button" class="all" data-act="all">Use all ' + eur(rem) + '</button><button type="button" class="cnr-btn" data-act="cancel">Cancel</button><button type="submit" class="cnr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Use") + "</button></div></form>";
-    } else if (rem > 0 && !old) h += '<div class="a"><button class="cnr-btn p" data-act="use" data-id="' + cn.id + '">Use</button></div>';
-    return h + "</div>";
+    } else if ((rem > 0 && !old) || E.correct.can()) h += '<div class="a">' + E.correct.button("cnreg", cn, "the credit note for " + cn.client_name + " " + cn.client_surname) + (rem > 0 && !old ? '<button class="cnr-btn p" data-act="use" data-id="' + cn.id + '">Use</button>' : "") + "</div>";
+    return h + E.correct.panel("cnreg", cn, FIX) + "</div>";
   }
 
   // Every credit note issued in a month (any month, used up or not), and the classic printout of the list.
@@ -116,7 +139,7 @@
       h += '<div id="cnr-list">' + listHtml() + "</div>";
     }
     h += E.months.history("cnreg", HIST);
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Changing a note, undoing a use and notes are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += E.correct.foot('Undoing a use, notes and printing a note are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.') + "</div>";
     var ae = document.activeElement, sel = ae && m.contains(ae) ? (ae.id === "cnr-q" ? "#cnr-q" : ae.name ? "[name=" + ae.name + "]" : "") : "";
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) { again.focus(); try { var L = again.value.length; again.setSelectionRange(L, L); } catch (x) {} } }
@@ -131,6 +154,7 @@
   }
   function wireActs(root) {
     var m = S.mount;
+    E.correct.wire(root, "cnreg", FIX); // the whole screen, or only the list the search redrew
     root.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
@@ -210,7 +234,7 @@
 
   E.registerModule({
     id: "cnreg", title: "Credit notes", order: 3, icon: "€", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.using = null; S.adding = null; S.err = ""; S.q = ""; E.months.historyReset("cnreg"); css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.using = null; S.adding = null; S.err = ""; S.q = ""; E.months.historyReset("cnreg"); E.correct.reset("cnreg"); css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("cnreg") < 0) E.UI2_DESTINATIONS.push("cnreg");
   if (E.UI2_PARENT) E.UI2_PARENT.cnreg = "money";
