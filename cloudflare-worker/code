@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-02-bookings-12";
+const WORKER_VERSION = "2026-11-02-bookings-13";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -14993,7 +14993,9 @@ async function handleBoardMessagesList(request, env, corsOkHeaders, authUser, ur
   let bind = [];
 
   if (pinnedOnly) {
-    where.push("m.is_pinned = 1");
+    // Pinned view: the same visibility as the All view (a group's own messages never reach other groups)
+    where.push("m.is_pinned = 1 AND (m.scope = 'all' OR (m.scope = 'org' AND m.org_id = ?))");
+    bind.push(authUser.org_id);
   } else if (scope === "org") {
     // Org view: only org-scoped messages from user's own organisation
     where.push("m.scope = 'org' AND m.org_id = ?");
@@ -15070,11 +15072,13 @@ async function handleBoardMessageCreate(request, env, corsOkHeaders, authUser) {
       seen.add(name);
 
       // Look up all users at the mentioned location
+      // A group-only message only reaches people in that group, even when it names another group's pharmacy
       const mentionedUsers = await dbAll(env, `
         SELECT u.id FROM users u
         LEFT JOIN locations l ON l.id = u.default_location_id
         WHERE u.is_active = 1 AND u.id != ? AND lower(COALESCE(l.name,'')) = ?
-      `, [authUser.user_id, name]);
+          ${scope === "org" ? "AND u.org_id = ?" : ""}
+      `, scope === "org" ? [authUser.user_id, name, authUser.org_id] : [authUser.user_id, name]);
       for (const mu of mentionedUsers) {
         await dbRun(env, `INSERT INTO board_mentions (message_id, mentioned_user_id, created_at) VALUES (?, ?, datetime('now'))`, [newId, mu.id]);
       }
@@ -15106,7 +15110,8 @@ async function handleBoardMessageCreate(request, env, corsOkHeaders, authUser) {
 // --- Pin/Unpin ---
 async function handleBoardMessagePin(request, env, corsOkHeaders, authUser, msgId) {
   await ensureBoardSchema(env);
-  const existing = await dbFirst(env, `SELECT id, is_pinned FROM board_messages WHERE id = ?`, [msgId]);
+  // Only a message this person can see: everyone's, or their own group's (not another group's private ones)
+  const existing = await dbFirst(env, `SELECT id, is_pinned FROM board_messages WHERE id = ? AND (scope = 'all' OR (scope = 'org' AND org_id = ?))`, [msgId, authUser.org_id]);
   if (!existing) return jsonResponse({ ok: false, error: "Message not found" }, 404, corsOkHeaders);
 
   const newPinned = existing.is_pinned ? 0 : 1;
@@ -15145,8 +15150,8 @@ async function handleBoardMentionsList(request, env, corsOkHeaders, authUser, ur
                     m.body, m.user_name, m.location_name, m.scope, m.created_at AS msg_created_at
              FROM board_mentions bm
              JOIN board_messages m ON m.id = bm.message_id
-             WHERE bm.mentioned_user_id = ?`;
-  const bind = [authUser.user_id];
+             WHERE bm.mentioned_user_id = ? AND (m.scope = 'all' OR (m.scope = 'org' AND m.org_id = ?))`;
+  const bind = [authUser.user_id, authUser.org_id];
   if (unreadOnly) {
     sql += ` AND bm.is_read = 0`;
   }
@@ -15352,7 +15357,8 @@ async function handleBoardDashboard(request, env, corsOkHeaders, authUser) {
   await ensureBoardSchema(env);
 
   // Unread mention count
-  const countRow = await dbFirst(env, `SELECT COUNT(*) as c FROM board_mentions WHERE mentioned_user_id = ? AND is_read = 0`, [authUser.user_id]);
+  const countRow = await dbFirst(env, `SELECT COUNT(*) as c FROM board_mentions bm JOIN board_messages m ON m.id = bm.message_id
+    WHERE bm.mentioned_user_id = ? AND bm.is_read = 0 AND (m.scope = 'all' OR (m.scope = 'org' AND m.org_id = ?))`, [authUser.user_id, authUser.org_id]);
   const unreadMentions = (countRow && countRow.c) || 0;
 
   // Recent messages (org + all scope)
@@ -15368,9 +15374,9 @@ async function handleBoardDashboard(request, env, corsOkHeaders, authUser) {
     SELECT bm.id, bm.message_id, m.body, m.user_name, m.created_at
     FROM board_mentions bm
     JOIN board_messages m ON m.id = bm.message_id
-    WHERE bm.mentioned_user_id = ? AND bm.is_read = 0
+    WHERE bm.mentioned_user_id = ? AND bm.is_read = 0 AND (m.scope = 'all' OR (m.scope = 'org' AND m.org_id = ?))
     ORDER BY bm.created_at DESC LIMIT 5
-  `, [authUser.user_id]);
+  `, [authUser.user_id, authUser.org_id]);
 
   // Unread messages count (messages since user last opened the board)
   const unreadMsgRow = await dbFirst(env, `
