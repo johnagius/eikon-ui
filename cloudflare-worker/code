@@ -16421,6 +16421,7 @@ export default {
     if (url.pathname === "/admin-recover" && request.method === "POST") return await handleAdminRecoverPost(request, env);
 
     if (url.pathname === "/su" && request.method === "GET") return await handleSuPage(request, env);
+    request = await nameCaseRequest(request, env, url, null); // people's names in Title Case (public booking form)
     // A customer's private booking link (public, signed, rate-limited)
     if (url.pathname.startsWith("/b/")) return await handleBookingLink(request, env, url);
     // The pharmacy's public booking page (only when switched on)
@@ -16533,6 +16534,7 @@ export default {
 
 const authUser = await authFromRequest(request, env);
     if (!authUser) return jsonResponse({ ok: false, error: "Unauthorized" }, 401, corsOkHeaders);
+    request = await nameCaseRequest(request, env, url, authUser); // people's names in Title Case on save
 
     // Bookings (Eikon Next appointments)
     if (url.pathname === "/bookings" || url.pathname.startsWith("/bookings/")) {
@@ -17964,6 +17966,7 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
       return await handleAdminPharmacyOverview(request, env, corsOkHeaders, authUser, url);
     }
     // ── End Admin Pharmacy Overview ──────────────────────────────────────
+    if (url.pathname.startsWith("/admin/names/")) { if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders); return await handleNamesAdmin(request, env, corsOkHeaders, authUser, url); }
 
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     } catch (e) {
@@ -21689,3 +21692,374 @@ async function bkSmtpSend(env, s, password, { from, fromEmail, to, subject, html
     await t.write("QUIT\r\n");
   } finally { await t.close(); }
 }
+
+// EIKON_NAME_CASE (the same text is in ui/eikon.people.js; a UI test compares the two).
+// "carmel zammit" / "CARMEL ZAMMIT" -> "Carmel Zammit". A name typed in mixed case ("de Gabriele", "McDonald",
+// "Anne-marie") is the user's own choice and comes back exactly as typed; so does anything with a digit or an @.
+function eikonNameCase(value) {
+  if (typeof value !== "string") return value;
+  if (/[0-9@]/.test(value)) return value;
+  var hasLower = /\p{Ll}/u.test(value), hasUpper = /\p{Lu}/u.test(value);
+  if (hasLower === hasUpper) return value;
+  var letters = value.match(/\p{L}/gu) || [];
+  if (hasUpper && !/\s/.test(value.trim()) && (letters.length <= 2 || (letters.length === 3 && !/[AEIOUY]/.test(value)))) return value;
+  var out = value.toLowerCase().replace(/(^|[\s\-‐‑–—.(\/"“])(\p{Ll})/gu, function (m, pre, ch) { return pre + ch.toUpperCase(); });
+  out = out.replace(/(^|[^\p{L}])(\p{Lu})(['’ʼ])(\p{Ll})/gu, function (m, pre, a, ap, b) { return pre + a + ap + b.toUpperCase(); });
+  out = out.replace(/(^|[^\p{L}])Mc(\p{Ll})(?=\p{Ll})/gu, function (m, pre, a) { return pre + "Mc" + a.toUpperCase(); });
+  out = out.replace(/(\s)(Ii|Iii|Iv|Vi|Vii|Viii|Ix)(?=$|[\s,.])/g, function (m, pre, r) { return pre + r.toUpperCase(); });
+  if (out.toLowerCase() !== value.toLowerCase()) return value;
+  return out;
+}
+
+// ── People's names: Title Case on save, and a one-off fix for names already typed ───────────────────────
+// Everything below is self-contained. The router calls nameCaseRequest() twice (once before the public
+// booking pages, once after sign-in) and handleNamesAdmin() for /admin/names/*. Nothing else is changed.
+//
+// Which columns hold a person's name. `group` decides how the one-off fix treats them:
+//   customers  the people the pharmacy serves; fixed by default
+//   legal      the legal registers (DDA, POYC, daily register, repeat prescriptions, locum register/receipts);
+//              only when asked for, so the owner chooses
+//   staff      staff, doctors and other professionals; only when asked for
+// A JSON column lists the keys inside it that hold a name; only those values change, the rest stays byte-identical.
+const NAME_COLUMNS = [
+  { group: "customers", table: "people", cols: [{ c: "name" }] },
+  { group: "customers", table: "client_orders_entries", cols: [{ c: "client_name" }] },
+  { group: "customers", table: "client_tickets_entries", cols: [{ c: "client_name" }] },
+  { group: "customers", table: "client_deliveries", cols: [{ c: "client_name" }] },
+  { group: "customers", table: "client_deliveries", cols: [{ c: "recipient_name" }] },
+  { group: "customers", table: "credit_notes", cols: [{ c: "client_name" }] },
+  { group: "customers", table: "credit_notes", cols: [{ c: "client_surname" }] },
+  { group: "customers", table: "vaccines_orders", cols: [{ c: "client_first" }] },
+  { group: "customers", table: "vaccines_orders", cols: [{ c: "client_last" }] },
+  { group: "customers", table: "appt_appointments", cols: [{ c: "patient_name" }] },
+  { group: "customers", table: "appt_waitlist", cols: [{ c: "patient_name" }] },
+  { group: "customers", table: "bk_bookings", cols: [{ c: "person_name" }] },
+  { group: "customers", table: "bk_waitlist", cols: [{ c: "person_name" }] },
+  { group: "customers", table: "poct_patients", cols: [{ c: "name" }, { c: "patient_json", json: ["name"] }] },
+  { group: "customers", table: "poct_records", cols: [{ c: "patient_name" }, { c: "record_json", json: ["patient.name"] }] },
+  { group: "customers", table: "screening_campaigns", cols: [{ c: "campaign_json", json: ["participants[].name"] }] },
+  { group: "customers", table: "label_history", cols: [{ c: "label_json", json: ["patientName"] }] },
+  { group: "customers", table: "contacts_clients", cols: [{ c: "name" }] },
+  { group: "customers", table: "loyalty_clients", cols: [{ c: "name" }] },
+  { group: "customers", table: "loyalty_transactions", cols: [{ c: "client_name" }] },
+  { group: "customers", table: "pos_sales", cols: [{ c: "client_name" }] },
+  { group: "customers", table: "pharmacy_calc_patients", cols: [{ c: "patient_name" }] },
+  { group: "customers", table: "pharmacy_calc_records", cols: [{ c: "patient_name" }] },
+  { group: "legal", table: "dda_sales_entries", cols: [{ c: "client_name" }] },
+  { group: "legal", table: "dda_sales_entries", cols: [{ c: "doctor_name" }] },
+  { group: "legal", table: "dda_poyc_entries", cols: [{ c: "client_name" }] },
+  { group: "legal", table: "dda_poyc_entries", cols: [{ c: "doctor_name" }] },
+  { group: "legal", table: "daily_register_entries", cols: [{ c: "client_name" }] },
+  { group: "legal", table: "daily_register_entries", cols: [{ c: "prescriber_name" }] },
+  { group: "legal", table: "repeat_prescription_entries", cols: [{ c: "client_name" }] },
+  { group: "legal", table: "repeat_prescription_entries", cols: [{ c: "prescriber_name" }] },
+  { group: "legal", table: "locum_register_entries", cols: [{ c: "locum_full_name" }] },
+  { group: "legal", table: "locum_receipts", cols: [{ c: "locum_full_name" }] },
+  { group: "staff", table: "people", cols: [{ c: "doctor_name" }] },
+  { group: "staff", table: "shift_staff", cols: [{ c: "full_name" }] },
+  { group: "staff", table: "cleaning_entries", cols: [{ c: "cleaner_name" }] },
+  { group: "staff", table: "cleaning_entries", cols: [{ c: "staff_name" }] },
+  { group: "staff", table: "contacts_doctors", cols: [{ c: "name" }] },
+  { group: "staff", table: "contacts_specialists", cols: [{ c: "name" }] },
+  { group: "staff", table: "contacts_locums", cols: [{ c: "name" }] },
+  { group: "staff", table: "appt_doctors", cols: [{ c: "name" }] },
+  { group: "staff", table: "pv_reports", cols: [{ c: "report_json", json: ["reporter_name"] }] }
+];
+const NAME_GROUPS = ["customers", "legal", "staff"];
+function nameColumnKey(t) { return t.table + "." + t.cols.map(function (x) { return x.c + (x.json ? "{" + x.json.join(",") + "}" : ""); }).join("+"); }
+
+// Applies f to the string at a key path ("a.b", "list[].name") inside obj. Returns true if a value changed.
+function nameCaseAtPath(obj, path, f) {
+  const segs = String(path).split(".");
+  let changed = false;
+  const walk = (o, i) => {
+    if (!o || typeof o !== "object") return;
+    let k = segs[i];
+    const arr = k.endsWith("[]");
+    if (arr) k = k.slice(0, -2);
+    const last = i === segs.length - 1;
+    if (arr) { const list = o[k]; if (!Array.isArray(list)) return; for (const it of list) walk(it, i + 1); return; }
+    if (!last) return walk(o[k], i + 1);
+    if (typeof o[k] !== "string") return;
+    const nv = f(o[k]);
+    if (typeof nv === "string" && nv !== o[k]) { o[k] = nv; changed = true; }
+  };
+  walk(obj, 0);
+  return changed;
+}
+
+// On save: which requests carry a person's name, and under which keys. The body is rewritten before the
+// handler reads it, so every handler, its validation and its audit entry see the cased name.
+const NAME_SAVE_RULES = [
+  { re: /^\/people$/, keys: ["name", "doctor_name"] },
+  { re: /^\/client-orders\/entries(\/\d+)?$/, keys: ["client_name"] },
+  { re: /^\/client-tickets\/entries(\/\d+)?$/, keys: ["client_name"] },
+  { re: /^\/client-deliveries\/entries(\/\d+)?$/, keys: ["client_name", "recipient_name"] },
+  { re: /^\/creditnotes\/entries(\/\d+)?$/, keys: ["client_name", "client_surname"] },
+  { re: /^\/vaccines\/orders(\/\d+)?$/, keys: ["client_first", "client_last"] },
+  { re: /^\/(api\/)?appointments\/(entries|waitlist)(\/\d+)?$/, keys: ["patientName", "patient_name"] },
+  { re: /^\/(api\/)?appointments\/doctors(\/\d+)?$/, keys: ["name"] },
+  { re: /^\/bookings(\/waitlist)?$/, keys: ["personName"] },
+  { re: /^\/book\/[^/]+\/hold$/, keys: ["name"], pub: true },
+  { re: /^\/contacts\/(clients|doctors|specialists|locums)(\/\d+)?$/, keys: ["name"] },
+  { re: /^\/contacts\/(clients|doctors|specialists|locums)(\/\d+)?\/bulk$/, keys: ["rows[].name"] },
+  { re: /^\/loyalty\/clients$/, keys: ["name"] },
+  { re: /^\/loyalty\/transactions$/, keys: ["client_name"] },
+  { re: /^\/emergency-pos\/sales$/, keys: ["client_name"] },
+  { re: /^\/emergency-pos\/sales\/sync$/, keys: ["sales[].client_name"] },
+  { re: /^\/pharmacy-calc\/records$/, keys: ["patient_name"] },
+  { re: /^\/dda-sales\/entries(\/\d+)?$/, keys: ["client_name", "doctor_name"] },
+  { re: /^\/dda-poyc\/entries(\/\d+)?$/, keys: ["client_name", "doctor_name"] },
+  { re: /^\/daily-register\/entries(\/\d+)?$/, keys: ["client_name", "prescriber_name"] },
+  { re: /^\/repeat-prescriptions\/entries(\/\d+)?$/, keys: ["client_name", "prescriber_name"] },
+  { re: /^\/locumregister\/entries(\/\d+)?$/, keys: ["locum_full_name"] },
+  { re: /^\/locumreceipts\/receipts(\/\d+)?$/, keys: ["locum_full_name"] },
+  { re: /^\/shifts\/staff(\/\d+)?$/, keys: ["full_name"] },
+  { re: /^\/cleaning\/entries(\/\d+)?$/, keys: ["cleaner_name", "staff_name"] },
+  { re: /^\/(eod|endofday)(\/upsert|\/record)?$/, keys: ["staff_name"] },
+  // Whole-state screens send every item on every save: only an item that is new, or whose name differs
+  // from the one stored, is cased; one nobody touched is left for the one-off fix (which keeps an undo record).
+  { re: /^\/poct\/state$/, state: "poct" },
+  { re: /^\/screening\/state$/, state: "screening" },
+  { re: /^\/labels\/state$/, state: "labels" },
+  { re: /^\/pharmacovigilance\/state$/, state: "pv" }
+];
+
+async function nameStateStored(env, authUser, kind, ids) {
+  const out = new Map();
+  if (!ids.length || !authUser) return out;
+  const org = authUser.org_id, loc = authUser.location_id;
+  const q = async (sql) => { try { return await dbAllChunked(env, (ph) => sql.replace("%IDS%", ph), ids, [org, loc]); } catch (e) { return []; } };
+  const parse = (s) => { try { return JSON.parse(String(s)); } catch (e) { return null; } };
+  if (kind === "poct-p") for (const r of await q("SELECT patient_id AS k, name AS v FROM poct_patients WHERE org_id = ? AND location_id = ? AND patient_id IN (%IDS%)")) out.set(String(r.k), r.v);
+  if (kind === "poct-r") for (const r of await q("SELECT record_id AS k, patient_name AS v FROM poct_records WHERE org_id = ? AND location_id = ? AND record_id IN (%IDS%)")) out.set(String(r.k), r.v);
+  if (kind === "screening") for (const r of await q("SELECT campaign_id AS k, campaign_json AS j FROM screening_campaigns WHERE org_id = ? AND location_id = ? AND campaign_id IN (%IDS%)")) {
+    const c = parse(r.j); for (const p of (c && Array.isArray(c.participants) ? c.participants : [])) if (p && p.id != null) out.set(String(r.k) + "|" + String(p.id), p.name);
+  }
+  if (kind === "labels") for (const r of await q("SELECT label_id AS k, label_json AS j FROM label_history WHERE org_id = ? AND location_id = ? AND label_id IN (%IDS%)")) { const l = parse(r.j); if (l) out.set(String(r.k), l.patientName); }
+  if (kind === "pv") for (const r of await q("SELECT report_id AS k, report_json AS j FROM pv_reports WHERE org_id = ? AND location_id = ? AND report_id IN (%IDS%)")) { const p = parse(r.j); if (p) out.set(String(r.k), p.reporter_name); }
+  return out;
+}
+
+// Cases the names in one whole-state body (POCT, screening, labels, pharmacovigilance). Returns true if any changed.
+async function nameCaseState(env, authUser, kind, body) {
+  const st = body && (body.state || body.data) ? (body.state || body.data) : body;
+  if (!st || typeof st !== "object") return false;
+  const items = []; // { obj, key, kind, id }
+  const list = (v) => (Array.isArray(v) ? v : []);
+  if (kind === "poct") {
+    for (const p of list(st.patients)) if (p && p.patientId) items.push({ obj: p, key: "name", kind: "poct-p", id: String(p.patientId).trim() });
+    for (const r of list(st.records || st.entries)) if (r && r.id && r.patient && typeof r.patient === "object") items.push({ obj: r.patient, key: "name", kind: "poct-r", id: String(r.id).trim() });
+  } else if (kind === "screening") {
+    for (const c of list(st.campaigns)) if (c && c.id) for (const p of list(c.participants)) if (p && typeof p === "object") items.push({ obj: p, key: "name", kind: "screening", id: String(c.id).trim(), sub: p.id == null ? null : String(p.id) });
+  } else if (kind === "labels") {
+    for (const l of list(st.labelHistory)) if (l && l.id) items.push({ obj: l, key: "patientName", kind: "labels", id: String(l.id).trim() });
+  } else if (kind === "pv") {
+    for (const r of list(st.reports)) if (r && r.id) items.push({ obj: r, key: "reporter_name", kind: "pv", id: String(r.id).trim() });
+  }
+  const todo = items.filter((it) => typeof it.obj[it.key] === "string" && eikonNameCase(it.obj[it.key]) !== it.obj[it.key]);
+  if (!todo.length) return false;
+  const stored = {};
+  for (const k of [...new Set(todo.map((it) => it.kind))]) stored[k] = await nameStateStored(env, authUser, k, [...new Set(todo.filter((it) => it.kind === k).map((it) => it.id))]);
+  let changed = false;
+  for (const it of todo) {
+    const sk = it.kind === "screening" ? (it.sub == null ? null : it.id + "|" + it.sub) : it.id;
+    const m = stored[it.kind];
+    if (sk != null && m.has(sk) && m.get(sk) === it.obj[it.key]) continue; // untouched since it was stored
+    it.obj[it.key] = eikonNameCase(it.obj[it.key]);
+    changed = true;
+  }
+  return changed;
+}
+
+// Returns the request with the person-name fields of its JSON body in Title Case, or the same request.
+// Never blocks a save: anything unexpected returns the request exactly as it came.
+async function nameCaseRequest(request, env, url, authUser) {
+  try {
+    const m = request.method;
+    if (m !== "POST" && m !== "PUT" && m !== "PATCH") return request;
+    const rule = NAME_SAVE_RULES.find((r) => r.re.test(url.pathname) && (authUser ? !r.pub : r.pub));
+    if (!rule) return request;
+    const ct = String(request.headers.get("Content-Type") || "").toLowerCase();
+    if (/multipart|form-urlencoded/.test(ct)) return request;
+    const text = await request.clone().text();
+    if (!text) return request;
+    let body;
+    try { body = JSON.parse(text); } catch (e) { return request; }
+    if (!body || typeof body !== "object") return request;
+    let changed = false;
+    if (rule.state) changed = await nameCaseState(env, authUser, rule.state, body);
+    else for (const k of rule.keys) if (nameCaseAtPath(body, k, eikonNameCase)) changed = true;
+    if (!changed) return request;
+    return new Request(request, { body: JSON.stringify(body) });
+  } catch (e) {
+    console.log("[names] left as typed:", e && e.message);
+    return request;
+  }
+}
+
+// ── The one-off fix: POST /admin/names/titlecase (dry run unless dry_run=0), POST /admin/names/titlecase/undo,
+//    GET /admin/names/titlecase/runs. Admins of the caller's own pharmacy group; all groups (all_orgs=1) for a superuser.
+async function ensureNameCaseSchema(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS name_case_undo (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT NOT NULL, org_id INTEGER NOT NULL, table_name TEXT NOT NULL,
+    row_id INTEGER NOT NULL, column_name TEXT NOT NULL, old_value TEXT, new_value TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_name_case_undo_run ON name_case_undo (run_id, org_id)`);
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS name_case_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT NOT NULL, kind TEXT NOT NULL, undo_of TEXT, org_id INTEGER, all_orgs INTEGER NOT NULL DEFAULT 0,
+    user_id INTEGER, columns_json TEXT NOT NULL DEFAULT '[]', changed INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')))`);
+}
+
+// The new value for one row (only the listed columns), or null when nothing would change.
+// A JSON column whose stored text is not exactly what JSON.stringify gives back is skipped: rewriting it
+// could change bytes other than the name.
+function nameCaseRow(row, target) {
+  const out = {}; let any = false, unusual = false;
+  for (const col of target.cols) {
+    const old = row[col.c];
+    if (typeof old !== "string" || !old) continue;
+    if (!col.json) { const nv = eikonNameCase(old); if (nv !== old) { out[col.c] = nv; any = true; } continue; }
+    let obj; try { obj = JSON.parse(old); } catch (e) { unusual = true; continue; }
+    if (!obj || typeof obj !== "object" || JSON.stringify(obj) !== old) { unusual = true; continue; }
+    let ch = false; for (const p of col.json) if (nameCaseAtPath(obj, p, eikonNameCase)) ch = true;
+    if (ch) { out[col.c] = JSON.stringify(obj); any = true; }
+  }
+  return { set: any ? out : null, unusual };
+}
+
+function nameCaseSample(row, target, set) {
+  const s = { id: row.id };
+  for (const col of target.cols) if (col.c in set) {
+    if (!col.json) { s.from = row[col.c]; s.to = set[col.c]; }
+    else if (!("from" in s)) { const a = [], b = []; try { for (const p of col.json) { nameCaseAtPath(JSON.parse(row[col.c]), p, (v) => { a.push(v); return v; }); nameCaseAtPath(JSON.parse(set[col.c]), p, (v) => { b.push(v); return v; }); } } catch (e) {} s.from = a.join(", "); s.to = b.join(", "); }
+  }
+  return s;
+}
+
+async function nameTableColumns(env, table) {
+  try { return (await dbAll(env, `PRAGMA table_info(${table})`)).map((r) => r.name); } catch (e) { return []; }
+}
+
+async function handleNamesAdmin(request, env, corsOkHeaders, authUser, url) {
+  const j = (o, s = 200) => jsonResponse(o, s, corsOkHeaders);
+  if (!authUser || authUser.role !== "admin") return j({ ok: false, error: "Only an admin can change names in bulk" }, 403);
+  const body = request.method === "POST" ? ((await readJson(request).catch(() => null)) || {}) : {};
+  const param = (k) => (body[k] !== undefined ? body[k] : url.searchParams.get(k));
+  const allOrgs = String(param("all_orgs") || "") === "1" || param("all_orgs") === true;
+  if (allOrgs && !isSuperuser(authUser, env)) return j({ ok: false, error: "Only a superuser can fix every pharmacy group" }, 403);
+  const orgFilter = allOrgs ? "" : " AND org_id = ?";
+  const orgBind = allOrgs ? [] : [authUser.org_id];
+  const path = url.pathname.replace(/\/+$/, "");
+
+  if (path === "/admin/names/titlecase/runs" && request.method === "GET") {
+    const have = (await dbAll(env, "SELECT name FROM sqlite_master WHERE type='table' AND name='name_case_runs'")).length > 0;
+    if (!have) return j({ ok: true, runs: [] });
+    const runs = await dbAll(env, `SELECT run_id, kind, undo_of, org_id, all_orgs, user_id, columns_json, changed, created_at FROM name_case_runs WHERE 1=1${allOrgs ? "" : " AND org_id = ? AND all_orgs = 0"} ORDER BY id DESC LIMIT 50`, orgBind);
+    return j({ ok: true, runs: runs.map((r) => ({ ...r, columns: (() => { try { return JSON.parse(r.columns_json); } catch (e) { return []; } })(), columns_json: undefined })) });
+  }
+
+  if (path === "/admin/names/titlecase/undo" && request.method === "POST") {
+    const runId = String(param("run_id") || "").trim();
+    if (!runId) return j({ ok: false, error: "run_id is required" }, 400);
+    await ensureNameCaseSchema(env);
+    const rows = await dbAll(env, `SELECT id, org_id, table_name, row_id, column_name, old_value, new_value FROM name_case_undo WHERE run_id = ?${orgFilter} ORDER BY id DESC`, [runId, ...orgBind]);
+    if (!rows.length) return j({ ok: false, error: "Nothing recorded for that run" }, 404);
+    const known = new Set(NAME_COLUMNS.flatMap((t) => t.cols.map((c) => t.table + "." + c.c)));
+    let restored = 0, kept = 0;
+    for (const r of rows) {
+      if (!known.has(r.table_name + "." + r.column_name)) continue; // only ever a column this feature changes
+      const res = await dbRun(env, `UPDATE ${r.table_name} SET ${r.column_name} = ? WHERE id = ? AND org_id = ? AND ${r.column_name} = ?`, [r.old_value, r.row_id, r.org_id, r.new_value]);
+      if (res && res.meta && res.meta.changes) restored++; else kept++;
+    }
+    const undoId = "ncu_" + Date.now().toString(36) + "_" + bkRandomHex(4);
+    await dbRun(env, `INSERT INTO name_case_runs (run_id, kind, undo_of, org_id, all_orgs, user_id, columns_json, changed) VALUES (?, 'undo', ?, ?, ?, ?, '[]', ?)`,
+      [undoId, runId, authUser.org_id, allOrgs ? 1 : 0, authUser.user_id, restored]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "NAMES_TITLECASE_UNDO", "names", runId,
+      auditWith({ undo_run_id: undoId, all_orgs: allOrgs }, undefined, { restored, kept_because_changed_since: kept }), authUser.location_id);
+    return j({ ok: true, run_id: undoId, undo_of: runId, restored, kept_because_changed_since: kept });
+  }
+
+  if (path !== "/admin/names/titlecase" || request.method !== "POST") return j({ ok: false, error: "Not found" }, 404);
+
+  const dry = String(param("dry_run") == null ? "1" : param("dry_run")) !== "0" && param("dry_run") !== false;
+  const listOf = (v) => (Array.isArray(v) ? v : String(v || "").split(",")).map((s) => String(s).trim()).filter(Boolean);
+  const wantGroups = listOf(param("groups")), wantTables = listOf(param("tables"));
+  const bad = wantGroups.filter((g) => !NAME_GROUPS.includes(g));
+  if (bad.length) return j({ ok: false, error: "Unknown group: " + bad.join(", "), groups: NAME_GROUPS }, 400);
+  // tables: "dda_sales_entries" (every listed name column of it) or "dda_sales_entries.client_name"
+  const picked = (t) => {
+    if (wantTables.length) return wantTables.some((w) => w === t.table || w === t.table + "." + t.cols[0].c);
+    if (wantGroups.length) return wantGroups.includes(t.group);
+    return t.group === "customers";
+  };
+  const limit = Math.max(1, Math.min(5000, Number(param("limit")) || 1000));
+  const existing = new Set((await dbAll(env, "SELECT name FROM sqlite_master WHERE type='table'")).map((r) => r.name));
+  const runId = dry ? null : "nc_" + Date.now().toString(36) + "_" + bkRandomHex(4);
+  if (!dry) await ensureNameCaseSchema(env);
+
+  const report = { customers: [], legal: [], staff: [] };
+  let totalWould = 0, totalChanged = 0, totalCells = 0, budget = limit, more = false;
+  for (const t of NAME_COLUMNS) {
+    const sel = picked(t);
+    const entry = { table: t.table, columns: t.cols.map((c) => c.c + (c.json ? " (" + c.json.join(", ") + ")" : "")), key: nameColumnKey(t), selected: sel, rows_checked: 0, would_change: 0, changed: 0, cells_changed: 0, skipped_unusual_json: 0, samples: [] };
+    report[t.group].push(entry);
+    if (!existing.has(t.table)) { entry.missing = true; continue; }
+    const have = await nameTableColumns(env, t.table);
+    const cols = t.cols.filter((c) => have.includes(c.c));
+    if (cols.length !== t.cols.length || !have.includes("org_id")) { entry.missing = true; continue; }
+    // A first sift in SQL (lower() / upper() only know A-Z, so this lets through more rows than change, never fewer).
+    const text = cols.filter((c) => !c.json);
+    const sift = text.length && !cols.some((c) => c.json) ? " AND (" + text.map((c) => `(${c.c} = lower(${c.c}) OR ${c.c} = upper(${c.c}))`).join(" OR ") + ")" : "";
+    let lastId = 0;
+    for (;;) {
+      const rows = await dbAll(env, `SELECT id, org_id, ${cols.map((c) => c.c).join(", ")} FROM ${t.table} WHERE id > ?${orgFilter}${sift} ORDER BY id LIMIT 500`, [lastId, ...orgBind]);
+      if (!rows.length) break;
+      lastId = rows[rows.length - 1].id;
+      const changes = [];
+      for (const row of rows) {
+        entry.rows_checked++;
+        const r = nameCaseRow(row, { cols });
+        if (r.unusual) entry.skipped_unusual_json++;
+        if (!r.set) continue;
+        entry.would_change++;
+        if (entry.samples.length < 5) entry.samples.push(nameCaseSample(row, { cols }, r.set));
+        if (!dry && sel) changes.push({ row, set: r.set });
+      }
+      for (let i = 0; i < changes.length; i += 40) {
+        let chunk = changes.slice(i, i + 40);
+        if (chunk.length > budget) { chunk = chunk.slice(0, budget); more = true; }
+        if (!chunk.length) { more = true; break; }
+        const stmtsFor = (ch) => {
+          const names = Object.keys(ch.set);
+          const where = names.map((n) => `${n} = ?`).join(" AND ");
+          const st = [env.DB.prepare(`UPDATE ${t.table} SET ${names.map((n) => `${n} = ?`).join(", ")} WHERE id = ? AND org_id = ? AND ${where}`)
+            .bind(...names.map((n) => ch.set[n]), ch.row.id, ch.row.org_id, ...names.map((n) => ch.row[n]))];
+          for (const n of names) st.push(env.DB.prepare(`INSERT INTO name_case_undo (run_id, org_id, table_name, row_id, column_name, old_value, new_value)
+            SELECT ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM ${t.table} WHERE id = ? AND ${n} = ?)`).bind(runId, ch.row.org_id, t.table, ch.row.id, n, ch.row[n], ch.set[n], ch.row.id, ch.set[n]));
+          return st;
+        };
+        const nCells = (ch) => Object.keys(ch.set).length;
+        try { await env.DB.batch(chunk.flatMap(stmtsFor)); entry.changed += chunk.length; entry.cells_changed += chunk.reduce((n, ch) => n + nCells(ch), 0); }
+        catch (e) { for (const ch of chunk) { try { await env.DB.batch(stmtsFor(ch)); entry.changed++; entry.cells_changed += nCells(ch); } catch (e2) { entry.failed = (entry.failed || 0) + 1; } } }
+        budget -= chunk.length;
+        if (budget <= 0) { more = true; break; }
+      }
+      if (more || rows.length < 500) break;
+    }
+    totalWould += entry.would_change; totalChanged += entry.changed; totalCells += entry.cells_changed;
+    if (more) break;
+  }
+  const selectedKeys = NAME_COLUMNS.filter(picked).map(nameColumnKey);
+  if (!dry) {
+    await dbRun(env, `INSERT INTO name_case_runs (run_id, kind, org_id, all_orgs, user_id, columns_json, changed) VALUES (?, 'apply', ?, ?, ?, ?, ?)`,
+      [runId, authUser.org_id, allOrgs ? 1 : 0, authUser.user_id, JSON.stringify(selectedKeys), totalChanged]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "NAMES_TITLECASE", "names", runId,
+      auditWith({ all_orgs: allOrgs, columns: selectedKeys, undo_table: "name_case_undo" }, undefined, {
+        changed: totalChanged, cells_changed: totalCells, more, by_column: NAME_GROUPS.flatMap((g) => report[g].filter((e) => e.changed).map((e) => ({ key: e.key, changed: e.changed })))
+      }), authUser.location_id);
+  }
+  return j({ ok: true, dry_run: dry, run_id: runId, all_orgs: allOrgs, selected: selectedKeys, would_change: totalWould, changed: totalChanged, cells_changed: totalCells, more,
+    note: dry ? "Nothing was changed. Send dry_run=0 to apply to the selected columns (customers by default; legal and staff only when named in groups or tables)." : (more ? "Stopped at the limit; send the same request again to carry on." : "Done."),
+    groups: report });
+}
+// ── End people's names ──────────────────────────────────────────────────────────────────────────────────

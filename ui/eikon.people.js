@@ -58,6 +58,47 @@
   }
   function phonesOf(p) { return [normPhone(p && p.phone), normPhone(p && p.alt_phone)].filter(Boolean); }
 
+  // People's names in Title Case. The function below is the worker's eikonNameCase, character for character
+  // (left at the margin so the two can be compared as text; tests do). The worker also applies it when a
+  // record is saved, so this is only so people see it as soon as they leave the field.
+function eikonNameCase(value) {
+  if (typeof value !== "string") return value;
+  if (/[0-9@]/.test(value)) return value;
+  var hasLower = /\p{Ll}/u.test(value), hasUpper = /\p{Lu}/u.test(value);
+  if (hasLower === hasUpper) return value;
+  var letters = value.match(/\p{L}/gu) || [];
+  if (hasUpper && !/\s/.test(value.trim()) && (letters.length <= 2 || (letters.length === 3 && !/[AEIOUY]/.test(value)))) return value;
+  var out = value.toLowerCase().replace(/(^|[\s\-‐‑–—.(\/"“])(\p{Ll})/gu, function (m, pre, ch) { return pre + ch.toUpperCase(); });
+  out = out.replace(/(^|[^\p{L}])(\p{Lu})(['’ʼ])(\p{Ll})/gu, function (m, pre, a, ap, b) { return pre + a + ap + b.toUpperCase(); });
+  out = out.replace(/(^|[^\p{L}])Mc(\p{Ll})(?=\p{Ll})/gu, function (m, pre, a) { return pre + "Mc" + a.toUpperCase(); });
+  out = out.replace(/(\s)(Ii|Iii|Iv|Vi|Vii|Viii|Ix)(?=$|[\s,.])/g, function (m, pre, r) { return pre + r.toUpperCase(); });
+  if (out.toLowerCase() !== value.toLowerCase()) return value;
+  return out;
+}
+
+  // The name fields of the new-layout screens: cased when the field is left. Only the value is set (and a
+  // "change" sent); the screens read their fields when they save, so nothing else needs to know.
+  var PERSON_INPUTS = ["client_name", "client_surname", "client_first", "client_last", "patient_name", "patientName", "person_name", "personName",
+    "recipient_name", "locum_full_name", "cleaner_name", "staff_name", "doctor_name", "prescriber_name"];
+  function isPersonInput(el) {
+    if (!el || el.tagName !== "INPUT" || el.readOnly || el.disabled) return false;
+    if (el.type && el.type !== "text" && el.type !== "search") return false;
+    if (el.hasAttribute("data-no-namecase")) return false;
+    if (el.hasAttribute("data-person-name") || el.id === "bkx-name") return true;
+    var n = el.getAttribute("name") || "";
+    if (PERSON_INPUTS.indexOf(n) >= 0) return true;
+    return n === "name" && !!(el.closest && el.closest("#cus-new, #cus-edit, #scr-add, #poc-add"));
+  }
+  function caseOnLeave(ev) {
+    var el = ev.target;
+    if (!document.documentElement.hasAttribute("data-ui2") || !isPersonInput(el)) return;
+    var v = el.value, nv = eikonNameCase(v);
+    if (nv === v) return;
+    el.value = nv;
+    try { el.dispatchEvent(new Event("change", { bubbles: true })); } catch (e) {}
+  }
+  if (!window.__eikonNameCaseOn) { window.__eikonNameCaseOn = true; document.addEventListener("focusout", caseOnLeave, true); }
+
   // What a screen hands over, cleaned the way the server will clean it.
   function clean(d) {
     d = d || {};
@@ -165,7 +206,7 @@
 
   E.people = {
     normIdCard: normIdCard, idCardKeys: idCardKeys, isMtIdCard: isMtIdCard, sameIdCard: sameIdCard,
-    normName: normName, nameKey: nameKey, normEmail: normEmail, normPhone: normPhone,
+    normName: normName, nameKey: nameKey, normEmail: normEmail, normPhone: normPhone, nameCase: eikonNameCase, isPersonInput: isPersonInput,
     find: find, link: link, byIdCard: byIdCard,
     // Off switches: the hook in the screens, and putting a new ID card on the one card-less person with that name.
     autoLink: true, attachCardByName: false

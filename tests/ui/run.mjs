@@ -1761,7 +1761,7 @@ try {
   report("people: a question for a known person is linked to them (name and phone, +356 and spaces ignored), two possible matches link nothing, only an unknown person is added; the question body is unchanged",
     L1 && L1.person && L1.person.id === 77 && L1.how === "name+contact" && !L1.filled && L2 && !L2.person && L2.skipped === "ambiguous" &&
     L3 && L3.how === "new" && pplPosts.length === 1 && JSON.stringify(pplPosts[0]) === JSON.stringify({ name: "Spiteri Noel", source: "register:questions", id_card: "", phone: "79333333" }) &&
-    T1.length === 1 && JSON.stringify(Object.keys(T1[0].body)) === JSON.stringify(tkKeys) && T1[0].body.client_name === "pace  rita" && T1[0].body.phone === "+356 9900 1122" && T3.length === 3 && T3.every((c) => JSON.stringify(Object.keys(c.body)) === JSON.stringify(tkKeys)),
+    T1.length === 1 && JSON.stringify(Object.keys(T1[0].body)) === JSON.stringify(tkKeys) && T1[0].body.client_name === "Pace  Rita" /* cased when the field is left (names test below); spacing as typed */ && T1[0].body.phone === "+356 9900 1122" && T3.length === 3 && T3.every((c) => JSON.stringify(Object.keys(c.body)) === JSON.stringify(tkKeys)),
     JSON.stringify({ L1, L2, L3, pplPosts, pplGets, T1: T1.map((c) => c.body) }).slice(0, 900));
 
   // POYC: card typed "777m" (POYC keeps it unpadded) → her name comes from the people list; after the save her empty
@@ -1891,6 +1891,29 @@ try {
   await page.evaluate(() => { window.EIKON.state.user.role = "admin"; });
   await page.unroute(RX); await page.unroute(RX1);
 } catch (e) { report("export: download our records", false, String(e).slice(0, 400)); }
+// People's names in Title Case (ui/eikon.people.js): the UI's function is the worker's (read from cloudflare-worker/code and run
+// side by side); in the new layout a name field is cased when it is left, a mixed-case name and other fields are kept as typed.
+try {
+  const wsrc2 = fs.readFileSync(path.join(here, "..", "..", "cloudflare-worker", "code"), "utf8");
+  const fnOf = (src, name) => { const i = src.indexOf("function " + name + "("); let d = 0, j = src.indexOf("{", i); for (; j < src.length; j++) { if (src[j] === "{") d++; else if (src[j] === "}" && --d === 0) break; } return src.slice(i, j + 1); };
+  const WN = new Function(fnOf(wsrc2, "eikonNameCase") + "\nreturn eikonNameCase;")();
+  const samples = ["carmel zammit", "CARMEL ZAMMIT", "ĠUŻEPPI ĦILI", "il-ħamrun", "anne-marie d'amato", "O'BRIEN", "mcdonald", "de Gabriele", "McDonald", "JD", "0123456M", "rita@x.mt", "j.p. borg", "JOHN SMITH III"];
+  await page.goto(base + "&ui=2#tickets");
+  await page.waitForFunction(() => window.EIKON && window.EIKON.people && window.EIKON.people.nameCase && window.EIKON.state.activeModuleId === "tktreg", null, { timeout: 15000 });
+  const uiOut = await page.evaluate((x) => x.map((v) => window.EIKON.people.nameCase(v)), samples);
+  await page.click("[data-act=add]");
+  await page.fill("#tkt-add [name=client_name]", "carmel zammit"); await page.press("#tkt-add [name=client_name]", "Tab");
+  await page.fill("#tkt-add [name=issue]", "omron m3 in stock?"); await page.press("#tkt-add [name=issue]", "Tab");
+  const v1 = await page.inputValue("#tkt-add [name=client_name]"), v2 = await page.inputValue("#tkt-add [name=issue]");
+  await page.fill("#tkt-add [name=client_name]", "de Gabriele Maria"); await page.press("#tkt-add [name=client_name]", "Tab");
+  const v3 = await page.inputValue("#tkt-add [name=client_name]");
+  await page.fill("#tkt-add [name=client_name]", "ĠORĠ ĦILI"); await page.press("#tkt-add [name=client_name]", "Tab");
+  const v4 = await page.inputValue("#tkt-add [name=client_name]");
+  report("names: a name field is put in Title Case when it is left (Maltese letters too); a mixed-case name and the other fields stay as typed; the UI's function gives the worker's answers",
+    JSON.stringify(uiOut) === JSON.stringify(samples.map(WN)) && uiOut[0] === "Carmel Zammit" && uiOut[7] === "de Gabriele" &&
+    v1 === "Carmel Zammit" && v2 === "omron m3 in stock?" && v3 === "de Gabriele Maria" && v4 === "Ġorġ Ħili",
+    JSON.stringify({ uiOut, v1, v2, v3, v4 }));
+} catch (e) { report("names: a name field is put in Title Case when it is left", false, String(e).slice(0, 300)); }
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });
