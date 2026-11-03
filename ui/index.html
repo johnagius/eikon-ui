@@ -35,7 +35,7 @@
       // browser and the Worker's edge cache can reuse every file (previously every load
       // used Date.now(), so 52 files were re-downloaded on every visit).
       // Bump BUILD on EVERY change to any file in ui/: browsers keep stamped files for a day.
-      var BUILD = "2026-11-03.95";
+      var BUILD = "2026-11-03.96";
 
       function log() { try { console.log.apply(console, arguments); } catch (e) {} }
       function warn() { try { console.warn.apply(console, arguments); } catch (e) {} }
@@ -103,6 +103,15 @@
         if (uiParam === "2") light = true;
         else if (uiParam === "1" || uiParam === "classic") light = false;
         else light = localStorage.getItem("eikon_ui2") === "1" && sessionStorage.getItem("eikon_ui2_pause") !== "1";
+      } catch (e) {}
+      // Signed in and opening on Today: ask who this is and for Today's data now, while the scripts download,
+      // instead of after them (one round trip saved). core.js uses these answers once; anything odd and it asks again.
+      try {
+        var tok0 = localStorage.getItem("eikon_token") || "", h00 = String(location.hash || "").replace(/^#/, "");
+        if (tok0 && light && window.fetch && (h00 === "" || h00 === "today" || h00 === "dashboard") && localStorage.getItem("eikon_active_role") === "pharmacy") {
+          var early0 = function (path) { return fetch(path, { headers: { Authorization: "Bearer " + tok0 } }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }); };
+          window.EIKON_EARLY = { at: Date.now(), token: tok0, me: early0("/auth/me"), today: early0("/today") };
+        }
       } catch (e) {}
       if (root) {
         // While the code loads: the wordmark, centred, with a thin moving line. No timer; it goes as soon as the app is ready.

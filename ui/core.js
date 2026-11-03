@@ -1651,6 +1651,8 @@
     window.addEventListener("hashchange", function () {
       E.dbg("[router] hashchange:", window.location.hash);
       if (!E.state.user) return;
+      // Still building the shell (sign-in answered faster than this event fired): the boot renders the screen itself.
+      if (!document.getElementById("eikon-content")) return;
       // The boot sets the hash itself and renders; do not render the same screen twice.
       if (E._lastRenderedHash === window.location.hash && E.state.activeModuleId === E.getHashModuleId()) return;
       E.renderActiveModule();
@@ -1670,14 +1672,19 @@
 
     E.dbg("[auth] token present, checking /auth/me …");
     // New layout opening on Today: ask for Today's data alongside /auth/me instead of after it (one round trip saved).
+    // index.html may already have asked (EIKON_EARLY, started before the scripts loaded): used once, and only for the same token.
+    var early = window.EIKON_EARLY; window.EIKON_EARLY = null;
+    if (!(early && early.token === token && Date.now() - early.at < 20000)) early = null;
     try {
       var h0 = String(window.location.hash || "").replace(/^#/, "");
       if (E.isUi2() && (h0 === "" || h0 === "today" || h0 === "dashboard") && window.localStorage.getItem("eikon_active_role") === E.ROLE_PHARMACY) {
-        E._todayPrefetch = { at: Date.now(), p: E.apiFetch("/today", { method: "GET", timeoutMs: 12000 }).catch(function () { return null; }) };
+        var askToday = function () { return E.apiFetch("/today", { method: "GET", timeoutMs: 12000 }).catch(function () { return null; }); };
+        E._todayPrefetch = { at: Date.now(), p: early ? early.today.then(function (r) { return r && r.ok ? r : askToday(); }) : askToday() };
       }
     } catch (eP) {}
     try {
-      var me = await E.apiFetch("/auth/me", { method: "GET" });
+      var me = early ? await early.me : null;
+      if (!me || !me.ok || !me.user) me = await E.apiFetch("/auth/me", { method: "GET" });
       if (!me || !me.ok || !me.user) throw new Error("Invalid /auth/me response");
       E.state.user = me.user;
       E.dbg("[auth] /auth/me OK:", me.user);
