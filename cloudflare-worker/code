@@ -21137,7 +21137,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .slots{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}.slot{height:44px;padding:0 14px;border-radius:12px;background:var(--sf);font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
 .slot small{font-weight:500;color:var(--l2);font-size:12px;margin-left:5px}.slot.on{background:var(--t);color:var(--ti)}.slot.on small{color:var(--ti)}
 .f{display:flex;align-items:center;min-height:52px;padding:0 16px;position:relative}.f span{width:80px;font-size:17px;font-weight:500}.f input{flex:1;border:0;outline:0;background:transparent;font:inherit;font-size:17px;color:inherit;padding:14px 0;min-width:0}
-.code{font-size:30px;letter-spacing:10px;text-align:center;font-variant-numeric:tabular-nums}
+.f:focus-within{background:var(--ts)}.code{font-size:30px;letter-spacing:10px;text-align:center;font-variant-numeric:tabular-nums}
 .go{width:100%;height:52px;border-radius:26px;background:var(--t);color:var(--ti);font-size:17px;font-weight:600}.go:disabled{opacity:.45}
 .err{color:var(--red);font-weight:600;font-size:15px;margin:0 4px 12px}.note{color:var(--l3);font-size:13px;text-align:center;margin-top:14px;line-height:18px}
 .done{font-size:22px;font-weight:700;margin-bottom:6px}
@@ -21162,7 +21162,10 @@ const money=(c)=>!c?"free":"€"+(c/100).toFixed(c%100?2:0);
 const dayW=(d)=>{const t=new Date();const a=new Date(d+"T12:00:00");const diff=Math.round((a-new Date(t.getFullYear(),t.getMonth(),t.getDate(),12))/864e5);return diff===0?"Today":diff===1?"Tomorrow":a.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});};
 async function call(path,body){const r=await fetch(P+path,body?{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}:{});const j=await r.json().catch(()=>({ok:false,error:"Something went wrong"}));if(!j.ok){const e=new Error(j.error||"Something went wrong");e.status=r.status;throw e;}return j;}
 function keep(){for(const k of ["name","email","phone"]){const el=$("in-"+k);if(el)st[k]=el.value;}}
+// The page is redrawn whole: put keyboard focus back on the same control (it used to fall to the top, 89 Tabs from the name field).
+function fkey(){const a=document.activeElement;if(!a||a===document.body||!a.dataset)return null;if(a.id)return "#"+a.id;for(const k of ["svc","who","d","i"]){if(a.dataset[k]!==undefined)return "[data-"+k+"='"+a.dataset[k]+"']";}return null;}
 function paint(){
+  const fk=fkey();
   const tel=st.info&&st.info.phone?'<a href="tel:'+esc(String(st.info.phone).replace(/\s+/g,""))+'">'+esc(st.info.phone)+'</a>':"";
   let h='<div class="kick">Book online</div><h1>'+esc((st.info&&st.info.pharmacy)||"Book")+'</h1><div class="sub">'+(st.info?[esc(st.info.address),tel].filter(Boolean).join(" · "):"")+'</div>';
   if(st.step==="done"){h+='<div class="g" style="padding:22px 20px"><div class="done">You\\'re booked</div><div class="sub" style="margin:0">'+esc(st.doneText)+'</div></div>'+(st.link?'<a class="go" style="display:grid;place-items:center;text-decoration:none" href="'+esc(st.link)+'">See or change your booking</a>':"")+'<div class="note">We sent the details to '+esc(st.email)+'.</div>';$("app").innerHTML=h;return;}
@@ -21180,6 +21183,7 @@ function paint(){
   if(st.info&&st.info.hours&&st.info.hours.length&&st.step==="what")h+='<div class="hrs"><b>Opening times</b>'+st.info.hours.map(x=>'<div><span>'+esc(x.days)+'</span><span>'+esc(x.time)+'</span></div>').join("")+'</div>';
   h+='<div class="pow">Booking by Eikon</div>';
   $("app").innerHTML=h;
+  const want=st.focus;st.focus=null;let el=null;try{el=want?$(want):(fk?document.querySelector(fk):null);}catch(e){el=null;}if(el)el.focus({preventScroll:!want});
   const c=$("in-code"); if(c) c.focus();
 }
 document.addEventListener("click",async(ev)=>{
@@ -21189,7 +21193,7 @@ document.addEventListener("click",async(ev)=>{
   if(t.dataset.svc){st.svc=st.services.find(s=>s.id===Number(t.dataset.svc));st.who=null;st.slot=null;st.step="what";st.slots=[];st.days=[];st.date=null;paint();
     try{st.days=(await call("/days?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:""))).days;const f=st.days.find(d=>d.free);if(f){st.date=f.date;st.slots=(await call("/day?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:"")+"&date="+f.date)).slots;}}catch(e){st.err=e.message;}return paint();}
   if(t.dataset.d){st.date=t.dataset.d;st.slot=null;st.slots=[];paint();try{st.slots=(await call("/day?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:"")+"&date="+st.date)).slots;}catch(e){st.err=e.message;}return paint();}
-  if(t.dataset.i!==undefined){st.slot=st.slots[Number(t.dataset.i)];st.step="what";return paint();}
+  if(t.dataset.i!==undefined){st.slot=st.slots[Number(t.dataset.i)];st.step="what";if(ev.detail===0&&!st.name)st.focus="in-name";return paint();} // chosen by keyboard: go on to the name (a tap does not, so no phone keyboard pops up)
   if(t.id==="hold"){st.busy=true;paint();try{const r=await call("/hold",{serviceId:st.svc.id,providerId:st.slot.providerId,date:st.slot.date,start:st.slot.time,name:st.name,email:st.email,phone:st.phone});st.holdId=r.holdId;st.step="code";}catch(e){st.err=e.message;if(e.status===409){try{st.slots=st.date?(await call("/day?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:"")+"&date="+st.date)).slots:(await call("/next?service_id="+st.svc.id)).slots;st.slot=null;}catch(x){}}}st.busy=false;return paint();}
   if(t.id==="confirm"){const code=($("in-code")||{}).value||"";st.busy=true;paint();try{const r=await call("/confirm",{holdId:st.holdId,code:code});st.step="done";st.doneText=r.service+", "+r.when+".";st.link=r.link;}catch(e){st.err=e.message;if(e.status===410||e.status===409){st.step="what";st.slot=null;try{st.slots=st.date?(await call("/day?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:"")+"&date="+st.date)).slots:(await call("/next?service_id="+st.svc.id)).slots;}catch(x){}}}st.busy=false;return paint();}
 });
