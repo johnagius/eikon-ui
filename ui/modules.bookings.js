@@ -15,12 +15,17 @@
   // ---------- switch ----------
   try {
     var qv = new URL(location.href).searchParams.get("bookings");
-    if (qv === "1") localStorage.setItem("eikon_bookings", "1");
-    if (qv === "0") localStorage.removeItem("eikon_bookings");
+    if (qv === "1") localStorage.removeItem("eikon_bookings");
+    if (qv === "0") localStorage.setItem("eikon_bookings", "0");
   } catch (e) {}
-  var ENABLED = false;
-  try { ENABLED = localStorage.getItem("eikon_bookings") === "1"; } catch (e) {}
+  // On for everyone in the new layout since the server went live (2026-11-03); ?bookings=0 still hides it on a device.
+  var ENABLED = true;
+  try { ENABLED = localStorage.getItem("eikon_bookings") !== "0"; } catch (e) {}
   E.bookingsOn = function () { return ENABLED && !!(E.isUi2 && E.isUi2()); };
+  // Set up at this pharmacy (remembered from the last time Bookings was opened here). Until then the Customers screen
+  // keeps its "Appointment" button for the classic Appointments, so nobody loses the way they book today.
+  function readyKey() { var u = (E.state && E.state.user) || {}; return "eikon_bk_ready_" + (u.org_id || "") + "_" + (u.location_id || ""); }
+  E.bookingsReady = function () { try { return E.bookingsOn() && localStorage.getItem(readyKey()) === "1"; } catch (e) { return false; } };
   if (ENABLED && Array.isArray(E.UI2_RAIL) && !E.UI2_RAIL.some(function (x) { return x.id === "bookings"; })) {
     var at = E.UI2_RAIL.findIndex(function (x) { return x.id === "customers"; });
     E.UI2_RAIL.splice(at >= 0 ? at + 1 : 1, 0, { id: "bookings", title: "Bookings" });
@@ -129,6 +134,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       var needSetup = !S.setup || opts.setup;
       var got = await Promise.all([needSetup ? api("/bookings/setup") : null, api("/bookings?from=" + S.date + "&to=" + to), api("/bookings/waitlist").catch(function () { return null; })]);
       if (needSetup) { var su = got[0]; S.setup = { services: su.services || [], providers: su.providers || [] }; }
+      try { if (S.setup.services.length) localStorage.setItem(readyKey(), "1"); else localStorage.removeItem(readyKey()); } catch (eR) {}
       S.bookings = got[1].bookings || [];
       S.waiting = (got[2] && got[2].waiting) || [];
     } catch (e) {
@@ -178,6 +184,8 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
   }
 
   function setupHtml() {
+    // Only the pharmacist can create services (the server refuses others): staff get a plain note, not a form that fails.
+    if (!isAdmin()) return '<div class="bkx-sec"><div class="bkx-g" style="padding:20px 18px;max-width:560px"><div style="font-size:20px;font-weight:700;margin-bottom:4px">Bookings is not set up yet</div><div class="sub">Your pharmacist can set it up here in a minute: one service and who does it. Until then, appointments stay in the Appointments register.</div></div></div>';
     return '<div class="bkx-sec"><div class="bkx-g" style="padding:20px 18px;max-width:560px">' +
       '<div style="font-size:20px;font-weight:700;margin-bottom:4px">Set up bookings</div>' +
       '<div class="sub" style="margin-bottom:16px">One service and who does it. You can add more later.</div>' +

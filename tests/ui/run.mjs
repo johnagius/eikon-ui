@@ -455,7 +455,7 @@ const shell = await page.evaluate(() => ({
   pharmacy: (document.querySelector(".eikon-rail-brand span") || {}).textContent, who: (document.querySelector(".eikon-rail-who b") || {}).textContent,
   badgeToday: (document.querySelector('.eikon-rail-badge[data-badge="today"]') || {}).textContent
 }));
-report("shell: the rail is Today, Customers, Stock, Registers, Team, Settings and nothing else", JSON.stringify(shell.rail) === JSON.stringify(["Today", "Customers", "Stock", "Registers", "Team", "Settings"]) && shell.cats === 0 && !shell.help && !shell.search && shell.topbar === "none" && shell.mark && shell.pharmacy === "Demo Pharmacy" && shell.who === "Maria Borg" && /^\d+$/.test(shell.badgeToday || ""), JSON.stringify(shell));
+report("shell: the rail is Today, Customers, Bookings, Stock, Registers, Team, Settings and nothing else", JSON.stringify(shell.rail) === JSON.stringify(["Today", "Customers", "Bookings", "Stock", "Registers", "Team", "Settings"]) && shell.cats === 0 && !shell.help && !shell.search && shell.topbar === "none" && shell.mark && shell.pharmacy === "Demo Pharmacy" && shell.who === "Maria Borg" && /^\d+$/.test(shell.badgeToday || ""), JSON.stringify(shell));
 await page.evaluate(() => { location.hash = "#registers"; });
 await page.waitForFunction(() => document.querySelector(".hub-card"), null, { timeout: 8000 });
 const hub = await page.evaluate(() => ({ h1: document.querySelector(".hub h1").textContent, cards: document.querySelectorAll(".hub-card").length, temp: !!document.querySelector('.hub-card[data-open="temperature"]'), topbar: getComputedStyle(document.querySelector(".eikon-topbar")).display }));
@@ -533,10 +533,18 @@ await closeModal();
 await carryTo("#deliveries", "#dv-client");
 const dv = await page.evaluate(() => ({ name: document.querySelector("#dv-client").value, phone: document.querySelector("#dv-phone").value, addr: document.querySelector("#dv-address").value }));
 await closeModal();
+// A pharmacy that has not set up Bookings keeps the Appointment button (classic Appointments); one that has gets Booking.
+await page.evaluate(() => { localStorage.setItem("eikon_bk_ready_1_12", "1"); });
+await page.goto(base + "&ui=2#customers"); await page.waitForFunction(() => document.querySelector("#cus-q"), null, { timeout: 15000 });
+await page.fill("#cus-q", "zammit"); await page.waitForFunction(() => document.querySelector('[data-person="1"]'), null, { timeout: 8000 }); await page.click('[data-person="1"]');
+await page.waitForFunction(() => document.querySelector(".cus-actions"), null, { timeout: 8000 });
+const bkBtn = await page.evaluate(() => ({ booking: !!document.querySelector('.cus-actions [data-act="book"]'), appt: !!document.querySelector('.cus-actions [data-carry="#appointments"]') }));
+await page.evaluate(() => { Object.keys(localStorage).filter((k) => k.indexOf("eikon_bk_ready_") === 0).forEach((k) => localStorage.removeItem(k)); });
 await carryTo("#appointments", "#ap-mod-patient");
 const ap = await page.evaluate(() => ({ name: document.querySelector("#ap-mod-patient").value, card: document.querySelector("#ap-mod-idcard").value, phone: document.querySelector("#ap-mod-phone").value }));
 await closeModal();
 carryPosts = (await callsNow()).filter((c) => c.method === "POST" && c.path !== "/auth/login");
+report("customers: Booking replaces Appointment only once this pharmacy has set up Bookings", bkBtn.booking && !bkBtn.appt, JSON.stringify(bkBtn));
 report("step 1: Question, Delivery and Appointment open filled the same way", tk.name === "Zammit Carmel" && tk.phone === "79123456" && dv.name === "Zammit Carmel" && dv.addr === "1 Triq il-Knisja" && ap.name === "Zammit Carmel" && ap.card === "0012345M" && ap.phone === "79123456" && carryPosts.length === 0, JSON.stringify({ tk, dv, ap, carryPosts }));
 
 // an old hand-over is ignored
