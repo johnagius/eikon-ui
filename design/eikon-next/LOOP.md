@@ -667,3 +667,11 @@ All of it waits only on the worker deploy.
 - Token fixes in app.css: --muted #6A6A70, --accent/--ok #077A5B, --warn #8A5A08, --danger #C4221A; dark-mode
   text on green buttons #00160E; inline links underlined. After: no WCAG A/AA violations, light and dark.
 - Visual check: same look, a slightly deeper green. UI 137/137. BUILD .88.
+
+## Round 76 — accessibility: login and Bookings
+- Live: BUILD .88. axe on login + Bookings day view + settings (light/dark): bkx tokens had the old grey/green,
+  white on #2BC48A in dark. Fixed (bkx --t #077A5B, --l2 #6A6A70, --red #C4221A; dark near-black on green for
+  login button, chosen day/slot, chips). All clean. UI 137/137. BUILD .89.
+- Seen once in 3 runs: bk-settings-e2e "hours are saved" — the refilled Saturday 'to' time did not stick after the
+  error repaint (passes on .88 too, so not this change). Likely the same repaint-vs-typing race; Bookings was not
+  covered by round 73. To investigate next.
