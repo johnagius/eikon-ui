@@ -61,7 +61,7 @@
     deliveries: "Home deliveries, routes and proof of delivery.",
     appointments: "Clinic bookings and the waiting list.",
     loyalty: "Loyalty cards, points and campaigns.",
-    shifts: "The rota: who is on, and when.",
+    shifts: "Plan the rota: add or change shifts, answer leave requests.",
     instructions: "Handover notes from one shift to the next.",
     messageboard: "Notices for the whole team.",
     contacts: "Suppliers, reps, doctors, head office, one list."

@@ -164,6 +164,11 @@ function mockApi(req, res, body) {
   if (p === "/endofday/record" && req.method === "PUT") { const r = (body && body.record) || {}; eodState.rec = Object.assign({}, r, { id: 1, updated_at: "2026-11-03 18:0" + (++eodState.n) + ":00", locked_at: r.locked_at ? "2026-11-03 18:30:00" : "" }); return res.end(JSON.stringify({ ok: true, record: eodState.rec })); }
   if (p === "/endofday/dates") return res.end(JSON.stringify({ ok: true, dates: eodState.rec ? [todayYmd] : [] }));
   if (p === "/endofday/contacts" && req.method === "GET") return res.end(JSON.stringify({ ok: true, contacts: [{ id: 4, display_name: "BOV Paola" }] }));
+  // Plan shifts (shfreg): the writes it sends (the GETs above answer the reads)
+  if (p === "/shifts/opening-hours" && req.method === "GET") return res.end(JSON.stringify({ ok: true, hours: { default: { open: "08:00", close: "19:00", closed: false }, openSaturday: true, openSunday: false, overrides: {} } }));
+  if (p === "/shifts/assignments" && req.method === "POST") return res.end(JSON.stringify({ ok: true, shift_id: 77 }));
+  if (/^\/shifts\/assignments\/\d+$/.test(p) && (req.method === "PUT" || req.method === "DELETE")) return res.end(JSON.stringify({ ok: true }));
+  if (/^\/shifts\/leaves\/\d+\/(approve|reject)$/.test(p) && req.method === "POST") return res.end(JSON.stringify({ ok: true }));
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -1090,6 +1095,33 @@ try {
     e0.cash.coins_total === "117.10" && e0.deposit.n50 === "5" && e0.bov_deposit.n50 === "5" && e0.bag_number === "B-7" && e0.bov_bag_number === "B-7" && !("locked_at" in e0) && e0.action === "SAVE" &&
     eodRefused && eodState.rec.staff === "Maria B", JSON.stringify({ eodOu, eodDep, n: eodPuts.length, e0, eodRefused, now: eodState.rec && eodState.rec.staff }));
 } catch (e) { report("end of day: ran to the end", false, String(e).slice(0, 300)); }
+
+// Plan shifts in the new layout: the old #shifts link lands here; a change sends the whole record (role and note kept);
+// add sends one POST; Remove asks first, then DELETE; Approve sends the classic approve call.
+try {
+  const shfDay = [{ id: 1, staff_id: 1, shift_date: todayYmd, start_time: "08:00", end_time: "14:00", role_override: "pharmacist", notes: "Opens" }];
+  await page.route(/\/shifts\/assignments-range/, (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, shifts: shfDay }) }));
+  await page.route(/\/shifts\/leaves\?/, (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, leaves: [{ id: 3, staff_id: 2, leave_type: "annual", start_date: todayYmd, end_date: todayYmd, hours_requested: 8, reason: "Wedding", status: "pending" }] }) }));
+  await page.goto(base + "&ui=2#shifts");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "shfreg" && document.querySelector(".shf-lv") && document.querySelector(".shf-p[data-id='1']"), null, { timeout: 15000 });
+  const shfRail = await page.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join());
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click(".shf-p[data-id='1']"); await page.fill("#shf-form [name=start_time]", "08:30"); await page.click("#shf-form button[type=submit]"); await settleSave();
+  await page.click(".shf-day.today [data-act=add]"); await page.selectOption("#shf-form [name=staff_id]", "2");
+  await page.fill("#shf-form [name=start_time]", "14:00"); await page.fill("#shf-form [name=end_time]", "19:00"); await page.click("#shf-form button[type=submit]"); await settleSave();
+  await page.click(".shf-p[data-id='1']"); await page.click("[data-act=del]");
+  const shfAsk = await page.evaluate(() => (document.querySelector("#shf-form .q") || {}).textContent || "");
+  const shfDelEarly = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "DELETE").length;
+  await page.click("[data-act=del-yes]"); await settleSave();
+  await page.click("[data-act=lv-approve][data-id='3']"); await page.waitForTimeout(600);
+  const shfW = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method !== "GET" && c.path.startsWith("/shifts/"));
+  const put = (shfW.find((c) => c.method === "PUT") || {}).body || {}, post = (shfW.find((c) => c.method === "POST" && c.path === "/shifts/assignments") || {}).body || {};
+  report("plan shifts: #shifts opens it under Team; a change sends the whole shift (role and note kept); add once; Remove asks first; Approve",
+    shfRail === "team" && put.id === 1 && put.start_time === "08:30" && put.end_time === "14:00" && put.role_override === "pharmacist" && put.notes === "Opens" && put.staff_id === 1 && put.shift_date === todayYmd &&
+    post.staff_id === 2 && post.shift_date === todayYmd && post.start_time === "14:00" && post.end_time === "19:00" && /Remove this shift\?/.test(shfAsk) && shfDelEarly === 0 &&
+    shfW.map((c) => c.method + " " + c.path).join() === "PUT /shifts/assignments/1,POST /shifts/assignments,DELETE /shifts/assignments/1,POST /shifts/leaves/3/approve", JSON.stringify({ shfRail, shfAsk, shfW }));
+} catch (e) { report("plan shifts: ran to the end", false, String(e).slice(0, 300)); }
+await page.unroute(/\/shifts\/assignments-range/).catch(() => {}); await page.unroute(/\/shifts\/leaves\?/).catch(() => {});
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };

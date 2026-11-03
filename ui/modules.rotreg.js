@@ -76,7 +76,7 @@
     else if (!weekHas()) {
       // An empty week reads as one quiet card, not seven "No one on the rota" boxes.
       h += '<div class="rot-day rot-empty"><b>Nothing planned this week</b><span>No shifts and no leave from ' + esc(label.replace(" – ", " to ")) + '.</span>' +
-        '<button class="rot-btn p" data-act="classic">Plan shifts</button></div>';
+        '<button class="rot-btn p" data-act="plan">Plan shifts</button></div>';
     }
     else {
       var today = ymd(new Date());
@@ -97,7 +97,7 @@
         h += "</div>";
       }
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Planning shifts, patterns, leave requests and the calendar link are in the <a href="#" data-act="classic" style="color:var(--accent)">classic Shifts screen</a>.</p></div>';
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Plan the week in <a href="#" data-act="plan" style="color:var(--accent)">Plan shifts</a>. Patterns, new leave requests and the calendar link are in the <a href="#" data-act="classic" style="color:var(--accent)">classic Shifts screen</a>.</p></div>';
     m.innerHTML = h;
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
@@ -106,6 +106,7 @@
         else if (a === "prev") { S.monday = plus(S.monday, -7); S.shifts = []; load(); }
         else if (a === "next") { S.monday = plus(S.monday, 7); S.shifts = []; load(); }
         else if (a === "now") { S.monday = mondayOf(new Date()); S.shifts = []; load(); }
+        else if (a === "plan") { ev.preventDefault(); location.hash = "#shfreg"; }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "rotreg"); } catch (x) {} E.openClassic("shifts"); }
       });
     });
