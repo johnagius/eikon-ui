@@ -916,7 +916,7 @@ html[data-ui2]{
   --accent-soft:rgba(31,95,216,.08);
   --danger-soft:rgba(191,59,46,.12);
   --ok-soft:rgba(28,138,91,.14);
-  --warn:#A06A0E;
+  --warn:#8A5A08; /* 5:1 on its own amber tint */
   --warn-soft:rgba(201,138,18,.16);
 }
 html[data-ui2] .eikon-content{color-scheme:light}
@@ -958,8 +958,8 @@ html[data-ui2]{--overlay:rgba(20,27,36,.45);--panel-strong:#FFFFFF}
 
 /* ── Eikon Next look for the new layout: system font, calm greys, one green tint, line icons ── */
 html[data-ui2]{
-  --bg:#F2F2F7; --panel:#FFFFFF; --panel2:#FFFFFF; --text:#000; --muted:rgba(60,60,67,.64);
-  --border:rgba(60,60,67,.15); --accent:#0A8F6A; --danger:#D7261C; --ok:#0A8F6A;
+  --bg:#F2F2F7; --panel:#FFFFFF; --panel2:#FFFFFF; --text:#000; --muted:#6A6A70; /* was rgba(60,60,67,.64): 3.6:1 on the page grey; this is 4.8:1 (WCAG AA) */
+  --border:rgba(60,60,67,.15); --accent:#077A5B; --danger:#C4221A; /* 5:1 on its own red tint */ --ok:#077A5B; /* green deep enough for white text (5.3:1) and as text on the page grey (4.8:1) */
 }
 html[data-ui2] body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.003em}
 html[data-ui2] .eikon-sidebar{background:rgba(255,255,255,.78);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);border-right:.5px solid var(--border)}
@@ -1052,3 +1052,8 @@ html[data-ui2]:not([data-ui2-visit]) .eikon-rail-btn:focus-visible{outline-offse
 html[data-ui2]:not([data-ui2-visit]) .eikon-content form :is(label,.row):focus-within{background:rgba(10,143,106,.07)}
 html[data-ui2]:not([data-ui2-visit]) .eikon-content :is(textarea,input[type=search],.hnd-in):focus{border-color:var(--accent)!important}
 @media (prefers-color-scheme: dark){ html[data-ui2]:not([data-ui2-visit]) .eikon-content form :is(label,.row):focus-within{background:rgba(43,196,138,.14)} }
+
+/* Links inside a sentence ("…in the classic screen") are underlined, not told apart by colour alone (WCAG 1.4.1) */
+html[data-ui2]:not([data-ui2-visit]) .eikon-content p a:not([class]){text-decoration:underline;text-underline-offset:2px}
+/* Dark mode: the bright green keeps its glow, so text on green buttons is near-black, not white (2.2:1 -> 9:1) */
+@media (prefers-color-scheme: dark){ html[data-ui2]:not([data-ui2-visit]) .eikon-content :is([class*="-btn"].p, .hnd-seg button.on[data-sev="g"], .por-seg button.on){color:#00160E} }
