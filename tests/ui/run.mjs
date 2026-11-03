@@ -2031,6 +2031,78 @@ try {
   await page.reload();
   await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user, null, { timeout: 15000 });
 } catch (e) { report("error reports: ran to the end", false, String(e).slice(0, 300)); }
+// ---- Registry (ui/registry.js): the new layout lists the classic screens without downloading them.
+// (a) every module file registers exactly what its registry rows say; (b) the CLASSIC list in index.html is the
+// "classic" rows; (c) a signed-in new-layout page downloads no classic file, and E.modules has the same ids, order,
+// titles, icons and order numbers as a page with every file loaded; (d) E.loadClassic() brings the real screens in.
+try {
+  const idx = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const listOf = (name) => [...idx.match(new RegExp("var " + name + " = \\[([\\s\\S]*?)\\];"))[1].matchAll(/"\.\/([^"]+)"/g)].map((m) => m[1]);
+  const allFiles = listOf("MODULES").filter((f) => f !== "core.js" && f !== "main.js"), classicFiles = listOf("CLASSIC");
+  const rp = await browser.newPage();
+  await rp.route("**/ui/__registry.html", (r) => r.fulfill({ contentType: "text/html; charset=utf-8", body: "<!doctype html><html><head><meta charset=utf-8></head><body><div id=eikon-root></div></body></html>" }));
+  const rErr = []; rp.on("pageerror", (e) => rErr.push(e.message));
+  await rp.goto(`http://localhost:${PORT}/ui/__registry.html?ui=classic&intro=0`);
+  const loadOne = (f) => rp.evaluate((f) => new Promise((res) => { window.__cur = f; const s = document.createElement("script"); s.src = "/ui/" + f; s.onload = s.onerror = () => { window.__cur = null; res(); }; document.head.appendChild(s); }), f);
+  await loadOne("core.js");
+  await rp.evaluate(() => { const E = window.EIKON, o = E.registerModule; window.__reg = []; E.registerModule = function (m) { window.__reg.push([window.__cur, m.id]); return o.apply(this, arguments); }; });
+  for (const f of allFiles) await loadOne(f);
+  await rp.waitForTimeout(1200); // two classic files register again after 200 ms and 1 s
+  const real = await rp.evaluate(() => { const seen = {}; return window.__reg.filter(([f, id]) => !seen[id] && (seen[id] = 1)).map(([f, id]) => { const m = window.EIKON.modules[id]; return JSON.stringify([f, id, m.title, m.icon, m.order, !!m.ui2Only]); }); });
+  await loadOne("registry.js");
+  const reg = await rp.evaluate(() => (window.EIKON.REGISTRY || []).map((r) => JSON.stringify([r.file, r.id, r.title, r.icon, r.order, r.ui2Only])));
+  const regClassic = await rp.evaluate(() => [...new Set((window.EIKON.REGISTRY || []).filter((r) => r.load === "classic").map((r) => r.file))]);
+  await rp.close();
+  const onlyReal = real.filter((x) => !reg.includes(x)), onlyReg = reg.filter((x) => !real.includes(x));
+  const clsOk = JSON.stringify([...classicFiles].sort()) === JSON.stringify([...regClassic].sort()) && classicFiles.every((f) => allFiles.includes(f));
+  report("registry: every module file registers exactly its registry rows (id, title, icon, order, ui2Only), and index.html's CLASSIC list is the registry's classic files",
+    real.length > 90 && onlyReal.length === 0 && onlyReg.length === 0 && clsOk && rErr.length === 0,
+    JSON.stringify({ real: real.length, reg: reg.length, onlyReal: onlyReal.slice(0, 4), onlyReg: onlyReg.slice(0, 4), clsOk, rErr: rErr.slice(0, 3) }));
+
+  // (c) and (d): the same E.modules as a page with every file, and no classic file fetched until asked
+  const snap = () => Object.keys(window.EIKON.modules).map((k) => { const m = window.EIKON.modules[k]; return [k, m.title, m.icon, m.order, !!m.ui2Only].join("|"); });
+  const np = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+  await np.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: "window.XLSX={};" }));
+  const nErr = [], got = []; np.on("pageerror", (e) => nErr.push(e.message)); np.on("request", (r) => { const u = new URL(r.url()); if (u.pathname.startsWith("/ui/")) got.push(u.pathname.slice(4)); });
+  await np.goto(`${base}#today`);
+  await np.evaluate(() => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); localStorage.setItem("eikon_ui2", "1"); sessionStorage.removeItem("eikon_ui2_pause"); });
+  await np.reload();
+  await np.waitForFunction(() => window.EIKON && window.EIKON._lateIn && window.EIKON.state.activeModuleId === "today", null, { timeout: 20000 });
+  await np.waitForTimeout(600);
+  const newSnap = await np.evaluate(snap), fetchedClassic = got.filter((f) => classicFiles.includes(f.replace(/\?.*$/, "")));
+  const stubs = await np.evaluate(() => Object.keys(window.EIKON.modules).filter((k) => window.EIKON.modules[k].registryStub).length);
+  // the hub card for a classic screen still hands over to the classic layout
+  await np.evaluate(() => { location.hash = "#customers"; }); await np.waitForSelector('[data-reg="loyalty"]', { timeout: 10000 });
+  await np.click('[data-reg="loyalty"]'); await np.waitForFunction(() => /ui=classic/.test(location.search) && window.EIKON && window.EIKON.state.activeModuleId === "loyalty" && document.getElementById("eikon-content") && document.getElementById("eikon-content").children.length > 0, null, { timeout: 20000 }).catch(() => {});
+  const handOver = await np.evaluate(() => ({ s: location.search, h: location.hash, active: window.EIKON.state.activeModuleId, real: !window.EIKON.modules.loyalty.registryStub, crashed: /Module crashed/.test(document.body.innerText) }));
+  // back to the new layout; then load the classic files on demand in that page
+  await np.goto(`${base.replace("intro=0", "intro=0&ui=2")}#today`);
+  await np.waitForFunction(() => window.EIKON && window.EIKON._lateIn, null, { timeout: 20000 });
+  const demand = await np.evaluate(async () => { const E = window.EIKON; const before = !!E.modules.loyalty.registryStub; await E.loadClassic(); return { before, after: !!E.modules.loyalty.registryStub, classicIn: !!E._classicIn, real: typeof E.modules.loyalty.render === "function" }; });
+  const afterLoad = await np.evaluate(snap);
+  await np.close();
+  // every file loaded (the classic layout): the reference list
+  const cp2 = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+  await cp2.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: "window.XLSX={};" }));
+  await cp2.goto(`${base}&ui=1#dashboard`);
+  await cp2.evaluate(() => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); });
+  await cp2.reload();
+  await cp2.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && window.EIKON.modules.loyalty, null, { timeout: 20000 });
+  await cp2.waitForTimeout(1300);
+  const allSnap = await cp2.evaluate(snap), classicHasRegistry = await cp2.evaluate(() => !!window.EIKON.REGISTRY);
+  await cp2.evaluate(() => { localStorage.setItem("eikon_ui2", "1"); });
+  await cp2.close();
+  // The new layout's own order (as before this change): its first files, then the rest in index.html order.
+  const first = [...idx.match(/var FIRST = \[([^\]]*)\]/)[1].matchAll(/"\.\/([^"]+)"/g)].map((m) => m[1]);
+  const rank = (f) => (first.includes(f) ? first.indexOf(f) : 100 + allFiles.indexOf(f));
+  const byId = Object.fromEntries(allSnap.map((x) => [x.split("|")[0], x]));
+  const want = real.map((x) => JSON.parse(x)).map((r, i) => [rank(r[0]), i, r[1]]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map((r) => byId[r[2]]);
+  const sameList = JSON.stringify(newSnap) === JSON.stringify(want), sameAfter = JSON.stringify(afterLoad) === JSON.stringify(want);
+  report("registry: the new layout fetches no classic file, yet lists the same modules (ids, titles, icons, order) as with every file loaded; a Customers link still opens the classic screen; E.loadClassic() brings the real ones in",
+    sameList && sameAfter && JSON.stringify([...newSnap].sort()) === JSON.stringify([...allSnap].sort()) && fetchedClassic.length === 0 && stubs === classicFiles.length && handOver.active === "loyalty" && handOver.real && !handOver.crashed &&
+    demand.before && !demand.after && demand.classicIn && !classicHasRegistry && nErr.length === 0,
+    JSON.stringify({ sameList, sameAfter, n: [newSnap.length, allSnap.length], diff: newSnap.filter((x, i) => x !== want[i]).slice(0, 3), sameSet: JSON.stringify([...newSnap].sort()) === JSON.stringify([...allSnap].sort()), fetchedClassic: fetchedClassic.slice(0, 4), stubs, handOver, demand, classicHasRegistry, nErr: nErr.slice(0, 3) }));
+} catch (e) { report("registry: ran to the end", false, String(e).slice(0, 300)); }
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });

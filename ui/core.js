@@ -547,6 +547,11 @@
     E.modules[mod.id] = mod;
     E.dbg("[core] module registered:", mod.id);
   };
+  // The new layout does not download the classic screens (index.html, registry.js). This fetches them when this
+  // page needs one after all; with every file already loaded (the classic layout) it is done at once.
+  E.loadClassic = function () {
+    return window.EIKON_LOAD_CLASSIC ? window.EIKON_LOAD_CLASSIC() : Promise.resolve();
+  };
 
   // Sidebar category configuration
   E.SIDEBAR_CATEGORIES = [
@@ -1034,6 +1039,8 @@
   // Boot a non-pharmacy section
   E.bootSection = async function (section) {
     try { document.documentElement.removeAttribute("data-ui2"); document.documentElement.removeAttribute("data-ui2-visit"); } catch (e) {} // portals keep the classic look
+    // Portals are classic screens: a page that opened in the new layout fetches them now (once).
+    try { await E.loadClassic(); } catch (eL) { E.warn("[boot] classic screens did not load:", eL); }
     if (section === "supplier") {
       E._activeSidebarCategories = E.SUPPLIER_CATEGORIES;
       E._sectionDashboardId = "supplier-dashboard";
@@ -1755,6 +1762,8 @@
 
   E.bootAuthed = async function () {
     E._sessionExpiredShown = false;
+    // The classic look in a page that opened in the new layout: its screens are needed after all.
+    if (!E.isUi2()) { try { await E.loadClassic(); } catch (eL) { E.warn("[boot] classic screens did not load:", eL); } }
     var back = String(E._returnHash || "").replace(/^#/, "");
     E._returnHash = "";
     // A link that names a screen (#temperature, or the classic hand-off from the new shell)

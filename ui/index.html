@@ -54,7 +54,7 @@
       // browser and the Worker's edge cache can reuse every file (previously every load
       // used Date.now(), so 52 files were re-downloaded on every visit).
       // Bump BUILD on EVERY change to any file in ui/: browsers keep stamped files for a day.
-      var BUILD = "2026-11-03.135";
+      var BUILD = "2026-11-03.136";
       if (window.EIKON_LEAVING) return; // moving to the clean address (see the head)
 
       function log() { try { console.log.apply(console, arguments); } catch (e) {} }
@@ -258,14 +258,42 @@
         "./main.js"
       ];
 
-      // New layout: start with what Today needs, then load the rest in the background
-      // (about 55 of the 60 files). The router waits for a late module if one is asked for early.
+      // The classic screens. The new layout never draws them (they open as a ?ui=classic visit, which loads
+      // everything below as always), so it does not download them: registry.js lists their names instead, and
+      // EIKON_LOAD_CLASSIC() fetches them if this page needs one after all (supplier and company-admin portals).
+      var CLASSIC = [
+        "./modules.dashboard.js",
+        "./modules.alerts.js", "./modules.shifts.js", "./modules.ocps.js", "./modules.loyalty.js", "./modules.pharmacycalc.js",
+        "./modules.returns.js", "./modules.paidout.js", "./modules.stocktransfers.js", "./modules.scarcestock.js", "./modules.nearexpiry.js",
+        "./modules.locumreceipts.js", "./modules.instructions.js", "./modules.clientorders.js", "./modules.poct.js", "./modules.endofday.js",
+        "./modules.temperature.js", "./modules.cleaning.js", "./modules.certificates.js", "./modules.dailyregister.js",
+        "./modules.repeatprescriptions.js", "./modules.ddasales.js", "./modules.ddapoyc.js", "./modules.ddapurchases.js",
+        "./modules.ddastocktakes.js", "./modules.locumregister.js", "./modules.vaccines.js", "./modules.creditnotes.js",
+        "./modules.tickets.js", "./modules.deliveries.js", "./modules.appointments.js", "./modules.quotations.js",
+        "./modules.orderdiary.js", "./modules.emergencypos.js", "./modules.audit.js", "./modules.messageboard.js",
+        "./modules.pharmacovigilance.js", "./modules.screening.js", "./modules.otcmindmap.js", "./modules.labels.js",
+        "./modules.contacts.js", "./modules.supplier-dashboard.js", "./modules.supplier-products.js",
+        "./modules.supplier-received-orders.js", "./modules.supplier-order-feedback.js", "./modules.supplier-inventory.js",
+        "./modules.company-dashboard.js", "./modules.admin-overview.js", "./modules.cherubino-orders.js",
+        "./modules.cherubino-admin.js", "./modules.cherubino-prices.js", "./modules.cherubino-shortexpiry.js", "./modules.cherubino-oos.js"
+      ];
+
+      // New layout: start with what Today needs, then load its other screens in the background.
+      // The router waits for a late module if one is asked for early.
       var FIRST = ["./core.js", "./eikon.people.js", "./modules.today.js", "./modules.customers.js", "./modules.bookings.js", "./modules.hubs.js", "./main.js"];
-      var LATER = [];
+      var LATER = [], ORDER = [];
       if (light) {
-        LATER = MODULES.filter(function (m) { return FIRST.indexOf(m) < 0; }).map(fromUi).map(withParams);
+        ORDER = FIRST.concat(MODULES.filter(function (m) { return FIRST.indexOf(m) < 0; })); // the order E.modules had with every file loaded
+        LATER = MODULES.filter(function (m) { return FIRST.indexOf(m) < 0 && CLASSIC.indexOf(m) < 0 && m !== "./main.js"; }).concat(["./registry.js"]).map(fromUi).map(withParams);
         MODULES = FIRST.map(fromUi).map(withParams);
         window.EIKON_LATE = new Promise(function (res) { window.__eikonLateDone = res; });
+        var classicP = null;
+        // Once per page; a failed download can be tried again. Waits for the background files first (they share eikon.ddadrugs.js).
+        window.EIKON_LOAD_CLASSIC = function () {
+          if (!classicP) classicP = window.EIKON_LATE.then(function () { return loadScriptsInOrder(CLASSIC.map(fromUi).map(withParams)); })
+            .then(function () { try { window.EIKON._classicIn = true; } catch (e) {} }, function (e) { classicP = null; throw e; });
+          return classicP;
+        };
       } else {
         MODULES = MODULES.map(fromUi).map(withParams);
       }
@@ -282,6 +310,7 @@
           if (!LATER.length) return;
           // A late file that fails must not take the app down: the screens that need it say so.
           loadScriptsInOrder(LATER).catch(function (e) { warn("[EIKON][boot] background modules:", e); }).then(function () {
+            try { if (window.EIKON && window.EIKON.applyRegistry) window.EIKON.applyRegistry(ORDER); } catch (e) { warn("[EIKON][boot] registry:", e); }
             try { if (window.EIKON) window.EIKON._lateIn = true; window.__eikonLateDone(); window.dispatchEvent(new Event("eikon:modules")); } catch (e) {}
           });
         })
