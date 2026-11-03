@@ -828,3 +828,10 @@ All of it waits only on the worker deploy.
 - New screen-speed.mjs: on a simulated phone link (150 ms each way), with data seeded, opens each of the 30 new-layout destinations from Today and times it until no "Opening…/Loading…" is left, counting API requests. 25 screens open in one round trip (~186 ms); hubs and Settings need none; Customers is cached (28 ms).
 - Two were serial: Bookings asked setup, then the day, then the waiting list (3 round trips, 495 ms); Temperature asked devices, then the month (2, 338 ms). Neither depends on the previous answer. Both now ask at once: Bookings 184 ms, Temperature 189 ms. On the live server (no Bookings yet) the screen still says "not switched on", in the new layout, no errors.
 - bk-e2e 13/13, bk-settings 13/13, kbd-bk 12/12, UI suite 140/140.
+
+## Round 100 — The section pages (UI .107)
+
+- Phone and desktop screenshots of Stock, Registers, Team and Settings. Calm and consistent; the desktop grid of four cards a row reads well. One thing jarred: the cards took the classic module titles in Title Case ("Near Expiry", "Stock Transfers", "End Of Day", "Pharmacy Calculators") next to rebuilt screens and headings in sentence case ("Credit notes", "Order diary", "Who's in").
+- The hub cards now show names in sentence case; acronyms stay as they are (DDA, POYC, POS, OTC, POCT). Only in the new layout's section pages: the classic sidebar keeps the module titles unchanged, so nothing moves for classic users. Familiar names were not renamed (e.g. "DDA purchases" still opens "Controlled drugs received"; the card's line under it says what it is).
+- UI suite 140/140.
+- 100 rounds in this loop. Waiting on John: the worker deploy (bookings-15; DEPLOY-WORKER.md, rehearsal 10/10).
