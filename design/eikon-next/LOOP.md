@@ -987,3 +987,9 @@ All of it waits only on the worker deploy.
 - John said yes to the deploy and to the What's new note about orders that lost phone / pick-up day / deposit.
 - Restore point 00000b5f-00000000-00005118-85ddf560ea98efb3b482472eb0cfc11d; worker deployed 21:39 UTC (550951a7, 1149.85 KiB / gzip 190.03 KiB) from an export identical to the tested code; /health batch-5, signed-out 401s, old-address 302 → eikonhq.com. Then UI pushed to main (root-level shots/ and correct-checks.mjs left out); .149 and the new files serve live.
 - Next: integrator merging b4-4 (counter defaults), b4-7 (first day), b4-3 (search actions) onto da12c66 as .150 (they combined green on dd64d6f: worker 192/0, real 28/0); consistency agent after that.
+
+## Round 135 — Batch 4b LIVE (UI .150 on main, f115176)
+
+- Integrator merged b4-4 counter defaults, b4-7 first day, b4-3 search actions onto batch 5 (da12c66) with a 3-way merge per file; both sides kept (tempreg: Fridges and rooms beside the batch-5 day panel; every render keeps E.months.take/E.correct.reset and wraps load() in E.takeOpenForm). Two test-only fixes for the combination (correct-eod presses Change first; firstday only touches its own pharmacy's devices).
+- Checks: worker 209/0, UI 380/0, real 43/0 (1866 checks); counter-defaults bodies 7/7 SAME; search requests and rows ALL IDENTICAL.
+- Started: q4-6a stock classic actions, q4-6b money classic actions, q4-8 honest offline banner + "did it land?" check, and "steal": text typed during a load/redraw landing in the wrong field (seen twice in tests: "Prefers SMS" in Name, "Evening" in a delivery's name) — reproduce and fix at the root with one rule (programmatic focus never leaves a field the person is in). Consistency pass rebasing onto .150.
