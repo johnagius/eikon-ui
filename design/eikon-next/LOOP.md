@@ -675,3 +675,9 @@ All of it waits only on the worker deploy.
 - Seen once in 3 runs: bk-settings-e2e "hours are saved" — the refilled Saturday 'to' time did not stick after the
   error repaint (passes on .88 too, so not this change). Likely the same repaint-vs-typing race; Bookings was not
   covered by round 73. To investigate next.
+
+## Round 77 — Bookings hours flake explained; smarter second window (UI .90)
+
+- The "hours are saved" failure (1 in 3 runs) was the test, not the app: bk-settings-e2e adds Saturday hours and never removed them, so a re-run on the same data got a second blank line and the save was rightly refused ("give both times"). The test now clears Saturday first; 4 runs back to back on the same data pass all 13 checks each. A 15x repro loop (bkhours-loop.mjs) on add → refuse → refill → save: 0 of 8 failures once its own cleanup used the right button.
+- While there: "+" on a day used to add a fully blank line. It now starts three hours after the last window ends and runs three hours (09:00–13:00 → 16:00–19:00, the usual split day). It stays blank if that would run past midnight. Checked live in the local stack.
+- UI suite 137/137. Worker unchanged (bookings-14 still waiting for John's deploy, which carries the board group-leak fix).
