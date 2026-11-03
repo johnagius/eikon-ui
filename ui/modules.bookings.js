@@ -538,10 +538,16 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       });
       return { title: g("title").trim(), name: g("name").trim(), speciality: g("speciality").trim(), hours: hrs };
     };
+    // a second window starts after a break, the way most pharmacies split the day (09:00–13:00, then 16:00–19:00); blank when it would run past midnight
+    function nextWin(last) {
+      var m = /^(\d{2}):(\d{2})$/.exec((last && last[1]) || ""); if (!m) return ["", ""];
+      var a = Number(m[1]) * 60 + Number(m[2]) + 180, b = a + 180, hm = function (x) { return String(Math.floor(x / 60)).padStart(2, "0") + ":" + String(x % 60).padStart(2, "0"); };
+      return b <= 23 * 60 + 59 ? [hm(a), hm(b)] : ["", ""];
+    }
     if (act === "win-add" || act === "win-del") {
       var wp = Number(t.getAttribute("data-id")), wd = t.getAttribute("data-d"), dr = readProv(wp);
       var list = dr.hours[wd] || [];
-      if (act === "win-add") list.push(list.length ? ["", ""] : ["09:00", "13:00"]); else list.splice(Number(t.getAttribute("data-i")), 1);
+      if (act === "win-add") list.push(list.length ? nextWin(list[list.length - 1]) : ["09:00", "13:00"]); else list.splice(Number(t.getAttribute("data-i")), 1);
       dr.hours[wd] = list; S.sheet.pdraft = S.sheet.pdraft || {}; S.sheet.pdraft[wp] = dr; S.sheet.err = S.sheet.okMsg = "";
       return paint();
     }
