@@ -493,7 +493,9 @@ await page.click('[data-act="edit"]');
 await page.fill("[name=notes]", "Prefers SMS");
 await fetch(`http://localhost:${PORT}/__reset`);
 await page.click('[data-act="save"]');
-await page.waitForTimeout(700);
+// wait for the outcome (the warning, or any message) instead of a fixed pause: a busy machine made 700 ms too short once
+await page.waitForFunction(() => document.querySelector(".cus-warn") || [...document.querySelectorAll(".eikon-toast")].some((t) => /Saved|Not saved/.test(t.textContent)), null, { timeout: 5000 }).catch(() => {});
+await page.waitForTimeout(150);
 const savePosts = (await callsNow()).filter((c) => c.method === "POST" && c.path === "/people");
 const cus3 = await page.evaluate(() => ({ warn: (document.querySelector(".cus-warn") || {}).textContent || "", editing: !!document.querySelector("#cus-edit"), notes: (document.querySelector("[name=notes]") || {}).value, saved: Array.from(document.querySelectorAll(".eikon-toast")).map((t) => t.textContent).join("|") }));
 report("customers: a stale edit is refused, the other version is shown, nothing is claimed saved", savePosts.length === 1 && savePosts[0].body.id === 1 && savePosts[0].body.version === 1 && savePosts[0].body.notes === "Prefers SMS" && /changed this record/.test(cus3.warn) && cus3.editing && cus3.notes === "Call after 5" && !/Saved/.test(cus3.saved), JSON.stringify({ savePosts, cus3 }));
