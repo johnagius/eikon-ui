@@ -802,3 +802,9 @@ All of it waits only on the worker deploy.
 - Looked at everything that polls. Today (60 s) already skipped hidden tabs, but coming back to the tab after lunch showed the old numbers until the next tick, up to a minute. The supplier portal asked two questions every 30 s even from hidden tabs, which suppliers keep open all day. The Cherubino screens refresh every 5 min, only while open: left alone.
 - Today now refreshes at once when the tab becomes visible if its data is over a minute old (no extra request after a quick glance away). The supplier poll skips hidden tabs and catches up on return if due. Classic screens otherwise unchanged.
 - Checked with a fake clock on the real stack (vis.mjs): visible → refresh each minute; hidden for two minutes → no requests; back → one refresh at once; quick away-and-back → none. UI suite 140/140. The supplier part follows the same pattern but was not run (no supplier account in the local stack).
+
+## Round 96 — The supplier side, actually tested (UI .103)
+
+- Round 95's supplier change had not been run. Added a supplier account to a local stack (org 3, location 400, sup@demo.mt; serve-sup.mjs) and drove it with a fake clock (sup-vis.mjs).
+- That showed the change was only half the story: the Supplier Dashboard has its own 30-second refresh (orders, feedback and more), which also kept going from hidden tabs: 7 requests in two hidden minutes even after round 95.
+- Fixed the same way: the dashboard skips its refresh while the tab is hidden and catches up at once on return if due; its listener is removed when you leave the screen. Now, with a supplier signed in: visible → badge poll and dashboard each ask once per 30 s; hidden two minutes → nothing; back → both catch up at once; no page errors. UI suite 140/140.
