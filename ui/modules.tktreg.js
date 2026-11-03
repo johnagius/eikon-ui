@@ -55,13 +55,13 @@
   }
 
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       var r = await E.apiFetch("/client-tickets/entries?resolved=0", { method: "GET" });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load questions");
       S.entries = (r.entries || []).filter(function (e) { return !Number(e.resolved) && e.status !== "Resolved" && e.status !== "Closed"; })
         .sort(function (a, b) { return (Number(a.priority) || 2) - (Number(b.priority) || 2) || String(a.followup_date || "9") .localeCompare(String(b.followup_date || "9")) || String(a.open_date).localeCompare(String(b.open_date)); });
-    } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load questions"); }
+    } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load questions"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 

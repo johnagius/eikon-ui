@@ -48,7 +48,7 @@
   }
 
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       var rows = null;
       // One call for the last six months where the server supports a range; otherwise month by month (three months).
@@ -61,7 +61,7 @@
         rows = [].concat.apply([], res.map(function (x) { return (x && x.entries) || []; }));
       }
       var seen = {}; S.entries = rows.filter(function (e) { return seen[e.id] ? false : (seen[e.id] = 1); });
-    } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load orders"); }
+    } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load orders"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 

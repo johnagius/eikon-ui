@@ -54,13 +54,13 @@
     return r.entries || [];
   }
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       var both = await Promise.all([get(S.month), get(prevMonth(S.month)).catch(function () { return []; })]);
       S.entries = both[0];
       var all = both[0].concat(both[1]);
       S.known = { names: uniq(all.map(function (e) { return e.dda_name_dose; })), agents: uniq(all.map(function (e) { return e.agent; })) };
-    } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register"); }
+    } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 

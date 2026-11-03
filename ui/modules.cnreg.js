@@ -56,9 +56,9 @@
     return r.entries || [];
   }
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try { S.entries = await fetchAll(); }
-    catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load credit notes"); }
+    catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load credit notes"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 

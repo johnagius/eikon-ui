@@ -67,14 +67,14 @@
   }
 
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       var dv = await E.apiFetch("/temperature/devices", { method: "GET" });
       var en = await E.apiFetch("/temperature/entries?month=" + encodeURIComponent(S.month), { method: "GET" });
       S.devices = ((dv && dv.devices) || []).filter(function (d) { return Number(d.active) !== 0; });
       S.entries = (en && en.entries) || [];
     } catch (e) {
-      S.error = e && e.network ? "Can't reach the server. The register is safe; try again in a moment." : String((e && (e.message || e)) || "Could not load the register");
+      if (!keepView) S.error = e && e.network ? "Can't reach the server. The register is safe; try again in a moment." : String((e && (e.message || e)) || "Could not load the register");
     }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }

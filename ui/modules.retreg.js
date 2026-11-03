@@ -50,7 +50,7 @@
   }
 
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       // open=1: unfinished returns plus the last 60 days (a server without it returns everything; the list below copes).
       var r = await E.apiFetch("/returns/entries?open=1", { method: "GET" });
@@ -58,7 +58,7 @@
       var cutoff = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
       S.entries = (r.entries || []).filter(function (e) { return !on(e, "credit_note_received") || String(e.entry_date) >= cutoff; })
         .sort(function (a, b) { return String(a.entry_date) < String(b.entry_date) ? -1 : 1; });
-    } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load returns"); }
+    } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load returns"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 

@@ -46,12 +46,12 @@
   }
 
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       var r = await E.apiFetch("/paid-out/entries?month=" + encodeURIComponent(S.month), { method: "GET" });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load paid outs");
       S.entries = (r.entries || []).slice().sort(function (a, b) { return String(b.entry_date + b.entry_time).localeCompare(String(a.entry_date + a.entry_time)) || b.id - a.id; });
-    } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load paid outs"); }
+    } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load paid outs"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
   async function loadNames() {

@@ -1382,7 +1382,11 @@
   // Lives in sessionStorage for five minutes, in this tab only, and is taken once.
   // One wording for a save that failed. A timeout or a dropped connection on a save is uncertain: the server may
   // have stored it before the answer was lost, so the person is told to look before recording it again.
+  // A screen that just failed to save keeps what is on it if the re-read that follows fails too (offline): the list and
+  // what was typed stay, with the save message under the form. Used once, within 2.5 s, by the next load only.
+  E.takeSaveFailed = function () { var t = E._saveFailedAt; E._saveFailedAt = 0; return !!t && Date.now() - t < 2500; };
   E.saveFailText = function (x) {
+    E._saveFailedAt = Date.now();
     if (x && x.network) return /timed out/i.test(String(x.message || "")) ? "No answer from the server in time. It may have been saved: check the list before doing it again." : "The connection dropped. Check the list: if it is not there, try again.";
     return "Not saved: " + String((x && (x.message || x)) || "error");
   };

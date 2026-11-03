@@ -58,13 +58,13 @@
 
   async function get(month) { var r = await E.apiFetch("/locumreceipts/receipts?month=" + encodeURIComponent(month), { method: "GET" }); if (!r || !r.ok) throw new Error((r && r.error) || "Could not load locum receipts"); return r.receipts || r.entries || []; }
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       var both = await Promise.all([get(S.month), get(prevMonth(S.month)).catch(function () { return []; })]);
       S.entries = both[0].slice().sort(function (a, b) { return String(b.receipt_date).localeCompare(String(a.receipt_date)) || b.id - a.id; });
       var seen = {}; S.known = [];
       both[0].concat(both[1]).forEach(function (r) { var k = String(r.locum_full_name || "").trim().toLowerCase(); if (k && !seen[k]) { seen[k] = 1; S.known.push({ name: r.locum_full_name, reg: r.registration_number }); } });
-    } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load locum receipts"); }
+    } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load locum receipts"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 

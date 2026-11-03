@@ -53,12 +53,12 @@
   }
 
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       var r = await E.apiFetch("/near-expiry/entries", { method: "GET" });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load the list");
       S.entries = (r.entries || []).slice().sort(function (a, b) { return String(a.expiry_date) < String(b.expiry_date) ? -1 : 1; });
-    } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the list"); }
+    } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the list"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 

@@ -51,11 +51,11 @@
 
   async function list(day) { var r = await E.apiFetch("/order-diary/entries?date=" + encodeURIComponent(day), { method: "GET" }); if (!r || !r.ok) throw new Error((r && r.error) || "Could not load the order diary"); return r.entries || []; }
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       var both = await Promise.all([list(S.day), list(shift(S.day, 1)).catch(function () { return []; })]);
       S.entries = both[0]; S.carried = {}; both[1].forEach(function (e) { if (e.carried_from_id) S.carried[e.carried_from_id] = 1; }); // what has already gone forward
-    } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the order diary"); }
+    } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the order diary"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
   async function loadItems() {

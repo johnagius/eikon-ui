@@ -50,12 +50,12 @@
   }
 
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try { // a year back covers every prescription still valid (six months) and the ones just run out
       var r = await E.apiFetch("/repeat-prescriptions/entries?from=" + back(366) + "&to=" + today(), { method: "GET" });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load repeat prescriptions");
       S.entries = r.entries || [];
-    } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load repeat prescriptions"); }
+    } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load repeat prescriptions"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 

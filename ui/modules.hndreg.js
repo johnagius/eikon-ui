@@ -51,15 +51,16 @@
     if (!r || !r.ok) throw new Error((r && r.error) || "Could not load the handover");
     return clean(r.record);
   }
-  async function load() {
-    S.loading = true; S.error = ""; paint();
+  async function load(opts) {
+    var quiet = opts && opts.quiet && S.mine; // after a save: if the re-read fails, keep what is on screen (and what was typed)
+    S.loading = true; if (!quiet) { S.error = ""; paint(); }
     try {
       var res = await Promise.all([day(yesterday()), day(S.ymd), E.apiFetch("/instructions/global", { method: "GET" }).catch(function () { return null; })]);
       S.incoming = res[0].handover_out.slice().sort(bySev);
       S.mine = res[1];
       if (S.notes == null) { S.notes = S.mine.notes; S.notesBase = S.mine.notes; }
       var g = res[2] && res[2].ok && res[2].global; S.standing = g && g.permanent_handover && g.permanent_handover.text ? String(g.permanent_handover.text) : "";
-    } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the handover"); }
+    } catch (e) { if (!quiet) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the handover"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
@@ -126,7 +127,7 @@
       if (after) after(); E.toast(okText, "success");
       return rec;
     } catch (x) { S.err = E.saveFailText(x); }
-    finally { S.saving = false; await load(); }
+    finally { S.saving = false; await load({ quiet: true }); }
   }
   async function saveNotes() {
     var ta = S.mount && S.mount.querySelector("#hnd-notes"); var mine = ta ? ta.value : (S.notes || "");

@@ -44,8 +44,8 @@
 
   async function fetchNeeds() { var r = await E.apiFetch("/scarce-stock/needs?open=1", { method: "GET" }); if (!r || !r.ok) throw new Error((r && r.error) || "Could not load shortages"); return r.needs || []; }
   async function load() {
-    S.loading = true; S.error = ""; paint();
-    try { S.needs = await fetchNeeds(); } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load shortages"); }
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
+    try { S.needs = await fetchNeeds(); } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load shortages"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 

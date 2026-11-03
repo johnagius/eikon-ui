@@ -66,7 +66,7 @@
   }
 
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       // This month for the list; last month too, so a returning client or a prescriber can be filled in.
       var res = await Promise.all([S.month, shiftMonth(S.month, -1)].map(function (mo) { return E.apiFetch("/daily-register/entries?month=" + encodeURIComponent(mo), { method: "GET" }); }));
@@ -74,7 +74,7 @@
       S.entries = ((res[0] && res[0].entries) || []).slice().sort(byNewest);
       S.history = S.entries.concat((res[1] && res[1].entries) || []);
     } catch (e) {
-      S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register");
+      if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register");
     }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }

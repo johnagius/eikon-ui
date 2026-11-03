@@ -56,13 +56,13 @@
   }
 
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       var r = await E.apiFetch("/certificates/items", { method: "GET" });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load the certificates");
       S.items = r.items || [];
     } catch (e) {
-      S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the certificates");
+      if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the certificates");
     }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }

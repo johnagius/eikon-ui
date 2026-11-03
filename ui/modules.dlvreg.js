@@ -58,13 +58,13 @@
   }
 
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       var r = await E.apiFetch("/client-deliveries/entries", { method: "GET" });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load deliveries");
       S.entries = (r.entries || []).filter(function (e) { return ACTIVE.indexOf(e.status) >= 0; })
         .sort(function (a, b) { return String(a.scheduled_date || a.order_date || "").localeCompare(String(b.scheduled_date || b.order_date || "")) || (Number(a.priority) || 2) - (Number(b.priority) || 2) || a.id - b.id; });
-    } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load deliveries"); }
+    } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load deliveries"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 

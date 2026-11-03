@@ -56,8 +56,8 @@
 
   async function fetchList(all) { var r = await E.apiFetch("/quotations/entries" + (all ? "?all_org=1" : ""), { method: "GET" }); if (!r || !r.ok) throw new Error((r && r.error) || "Could not load quotations"); return r.entries || []; }
   async function load() {
-    S.loading = true; S.error = ""; paint();
-    try { S.entries = await fetchList(S.all); } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load quotations"); }
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
+    try { S.entries = await fetchList(S.all); } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load quotations"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 

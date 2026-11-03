@@ -63,7 +63,7 @@
   }
 
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       // Weeks cross month ends, and the status line needs the last clean even if it was last month:
       // read the month either side too (the next one only for a past month). Two or three small reads.
@@ -74,7 +74,7 @@
       S.entries = S.around.filter(function (e) { return String(e.entry_date).slice(0, 7) === S.month; });
       S.recent = S.around;
     } catch (e) {
-      S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register");
+      if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register");
     }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }

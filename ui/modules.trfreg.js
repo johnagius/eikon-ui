@@ -49,12 +49,12 @@
   }
 
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       var r = await E.apiFetch("/stock-transfers/items?open=1", { method: "GET" });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load transfers");
       S.items = (r.items || []).filter(function (it) { return !it.is_closed; });
-    } catch (e) { S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load transfers"); }
+    } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load transfers"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 

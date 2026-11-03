@@ -58,14 +58,14 @@
   }
 
   async function load() {
-    S.loading = true; S.error = ""; paint();
+    var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       var res = await Promise.all([S.month, shiftMonth(S.month, -1)].map(function (mo) { return E.apiFetch("/locumregister/entries?month=" + encodeURIComponent(mo), { method: "GET" }); }));
       var byNewest = function (a, b) { return (String(a.entry_date) + (a.time_in || "")) < (String(b.entry_date) + (b.time_in || "")) ? 1 : -1; };
       S.entries = ((res[0] && res[0].entries) || []).slice().sort(byNewest);
       S.history = S.entries.concat((res[1] && res[1].entries) || []);
     } catch (e) {
-      S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register");
+      if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register");
     }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }

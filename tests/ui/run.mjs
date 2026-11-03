@@ -953,6 +953,20 @@ report("bookings: today's list; settings is a dialog that holds focus, Escape re
   JSON.stringify({ bk1, bkSheet, bkWin, bkEsc, bkBack, bkPosts }));
 } catch (e) { report("bookings: keyboard, hours and booking flow ran to the end", false, String(e).slice(0, 300)); }
 
+// Offline save: the connection drops on Record. The message says so, what was typed stays, and the list is not
+// swapped for "Can't reach the server" by the re-read that follows (it fails too).
+try {
+  await page.goto(base + "&ui=2#paidout");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "poreg" && document.querySelector(".por-sum"), null, { timeout: 15000 });
+  await page.click("[data-act=add]"); await page.fill("[name=payee_name]", "Offline Ltd"); await page.fill("[name=fee]", "7");
+  await page.context().setOffline(true);
+  await page.click("#por-add button[type=submit]"); await page.waitForTimeout(1500);
+  const off = await page.evaluate(() => ({ err: (document.querySelector(".por-err") || {}).textContent || "", name: (document.querySelector("[name=payee_name]") || {}).value, fee: (document.querySelector("[name=fee]") || {}).value,
+    gone: /Can't reach the server/.test(document.querySelector(".eikon-content").innerText), sum: !!document.querySelector(".por-sum") }));
+  await page.context().setOffline(false);
+  report("offline save: says the connection dropped, keeps what was typed and the list on screen", /connection dropped/i.test(off.err) && off.name === "Offline Ltd" && off.fee === "7" && !off.gone && off.sum, JSON.stringify(off));
+} catch (e) { await page.context().setOffline(false).catch(() => {}); report("offline save: ran to the end", false, String(e).slice(0, 300)); }
+
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });
