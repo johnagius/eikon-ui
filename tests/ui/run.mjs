@@ -54,6 +54,9 @@ let boardState = { msgs: [
   { id: 11, user_id: 7, user_name: "Sara Vella", location_name: "Sliema Pharmacy", body: "Who has Ozempic 1mg? @Demo Pharmacy", scope: "all", is_pinned: 1, created_at: "2026-11-02 08:00:00" },
   { id: 12, user_id: 3, user_name: "Karl Vella", location_name: "Demo Pharmacy", body: "Courier at 16:00", scope: "org", is_pinned: 0, created_at: new Date().toISOString().slice(0, 19).replace("T", " ") }] };
 let eodState = { rec: null, n: 0 };
+let pvState = { reports: [{ id: "pv_1_abc", created_at: "2026-10-30T09:00:00.000Z", updated_at: "2026-10-30T09:00:00.000Z", status: "Draft", report_type: "Initial", pt_initials: "J.D.", pt_age: "65", pt_sex: "Female", pt_weight: "", pt_height: "", pt_dob_day: "5", pt_dob_month: "3", pt_id: "123456M", pt_medical_history: "",
+  drugs: [{ name: "Amoxicillin 500mg", dose: "500mg", route: "Oral", frequency: "TDS", start_date: "", stop_date: "", indication: "URTI", batch_no: "AX12", mah: "" }], reaction_description: "Itchy rash", reaction_start: "", reaction_stop: "", reaction_seriousness: "Serious – Other medically important", reaction_outcome: "Recovering", reaction_causality: "Possible", reaction_meddra: "Rash",
+  reporter_name: "Maria Borg", reporter_qualification: "Pharmacist", reporter_email: "", reporter_phone: "", reporter_institution: "Demo Pharmacy", reporter_address: "", report_date: "2026-10-30", notes: "", mpa_ref: "MPA-7" }] };
 let peopleState = { adopted: false, carmel: { id: 1, name: "Zammit Carmel", id_card: "0012345M", phone: "79123456", alt_phone: "", email: "", address: "1 Triq il-Knisja", doctor_name: "", date_of_birth: "", notes: "", source: "history", version: 1, updated_at: "2026-10-31 09:00:00" } };
 function mockApi(req, res, body) {
   const url = new URL(req.url, "http://x");
@@ -179,6 +182,22 @@ function mockApi(req, res, body) {
     { id: 31, org_name: "Sliema Group", location_name: "Sliema Pharmacy", entry_date: todayYmd, item_name: "Shingrix vaccine", description: "Fridge", batch: "B12", expiry_date: "2099-05-01", quantity_available: 5, total_requested: 1, remaining_quantity: 4, is_closed: 0, mine_owner: 0, requests: [{ id: 301, quantity_requested: 1, is_private: 1, requester_display: "", note: "", mine: 0 }] },
     { id: 32, org_name: "Demo Org", location_name: "Demo Pharmacy", entry_date: todayYmd, item_name: "Ozempic 0.5mg pen", description: "", batch: "", expiry_date: null, quantity_available: 3, total_requested: 2, remaining_quantity: 1, is_closed: 0, mine_owner: 1, requests: [{ id: 302, quantity_requested: 2, is_private: 0, requester_display: "Gozo Group — Victoria Pharmacy", note: "For Mrs Grech", mine: 0 }] }] }));
   if (/^\/scarce-stock\/offers\/\d+\/requests$/.test(p) && req.method === "POST") return res.end(JSON.stringify({ ok: true, id: 303 }));
+  // Audit trail (audreg): 120 rows, newest first, paged and filtered the way the worker does (module, action LIKE, from/to)
+  if (p === "/audit/log" && req.method === "GET") {
+    const now = Date.now(), at = (i) => new Date(now - i * 60000).toISOString().slice(0, 19).replace("T", " ");
+    let rows = [{ id: 500, user_id: 1, user_name: "Maria Borg", action: "PERSON_UPDATE", entity_type: "people", entity_id: "7", details: { location_id: 12, before: { id: 7, name: "Zammit Carmel", phone: "79000001", notes: "", version: 1 }, after: { id: 7, name: "Zammit Carmel", phone: "79111222", notes: "Call after 5", version: 2 } }, created_at: at(1) },
+      { id: 499, user_id: 2, user_name: "Karl Vella", action: "PAID_OUT_ENTRY_DELETE", entity_type: "paid_out_entries", entity_id: "31", details: { payee_name: "Courier", fee: 12.5 }, created_at: at(2) },
+      { id: 498, user_id: 2, user_name: "Karl Vella", action: "LOGIN", entity_type: "user", entity_id: "2", details: { email: "karl@x.com" }, created_at: at(3) }];
+    for (let i = 0; i < 117; i++) rows.push({ id: 497 - i, user_id: 1, user_name: "Maria Borg", action: "TEMP_ENTRY_UPSERT", entity_type: "temperature_entries", entity_id: String(1000 + i), details: { device_id: 7, min_temp: 3, max_temp: 7 }, created_at: at(4 + i) });
+    const q = url.searchParams, mod = q.get("module") || "", act = q.get("action") || "", from = q.get("from") || "", to = q.get("to") || "";
+    const map = { temperature: ["temperature_devices", "temperature_entries"] };
+    rows = rows.filter((r) => (!mod || (map[mod] ? map[mod].includes(r.entity_type) : r.entity_type === mod)) && (!act || r.action.includes(act)) && (!from || r.created_at >= from) && (!to || r.created_at <= to + "T23:59:59"));
+    const limit = Number(q.get("limit") || 200), offset = Number(q.get("offset") || 0);
+    return res.end(JSON.stringify({ ok: true, entries: rows.slice(offset, offset + limit), total: rows.length, limit, offset }));
+  }
+  // Adverse reactions (new layout pvreg): one stored report; a PUT upserts by id, as the worker does
+  if (p === "/pharmacovigilance/state" && req.method === "GET") return res.end(JSON.stringify({ ok: true, reports: pvState.reports, state: { reports: pvState.reports } }));
+  if (p === "/pharmacovigilance/state" && req.method === "PUT") { ((body && body.state && body.state.reports) || []).forEach((r) => { const i = pvState.reports.findIndex((x) => x.id === r.id); if (i >= 0) pvState.reports[i] = r; else pvState.reports.unshift(r); }); return res.end(JSON.stringify({ ok: true, saved: ((body && body.state && body.state.reports) || []).length })); }
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -1170,6 +1189,69 @@ let scsPosts = []; for (let i = 0; i < 40 && !scsPosts.length; i++) { await page
 report("scarce stock: opens from the old link; lines show who has them and who asked; 9 of 4 is refused; asking for 2 sends one POST",
   /Other pharmacies have\s*1/.test(scs1) && /Sliema Group — Sliema Pharmacy/.test(scs1) && /4 left/.test(scs1) && /You share\s*1/.test(scs1) && /Gozo Group — Victoria Pharmacy/.test(scs1) && /For Mrs Grech/.test(scs1) && /Only 4 can be asked for/.test(scsRefused) && scsNone === 0 &&
   scsPosts.length === 1 && scsPosts[0].path === "/scarce-stock/offers/31/requests" && JSON.stringify(scsPosts[0].body) === JSON.stringify({ quantity_requested: 2, note: "For Mr Borg" }), JSON.stringify({ scs1: scs1.slice(0, 300), scsRefused, scsNone, scsPosts }));
+
+// Audit trail in the new layout: the old #audit link lands here under Settings; days, area and kind go to the server
+// (Malta days as UTC bounds); search narrows the loaded rows; a row opens its before/after; Show older asks for the next
+// page; staff get a plain note and no request.
+try {
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.goto(base + "&ui=2#audit");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "audreg" && document.querySelector(".aud-row"), null, { timeout: 15000 });
+  const audRail = await page.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join());
+  const audFirst = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.path === "/audit/log").map((c) => new URLSearchParams(c.query));
+  const q0 = audFirst[0] || new URLSearchParams();
+  const audCount = await page.textContent(".aud-count"), audRows = await page.$$eval(".aud-row", (l) => l.length);
+  const audTop = await page.textContent(".aud-row");
+  await page.click(".aud-row"); await page.waitForSelector(".aud-det");
+  const audDet = await page.textContent(".aud-det");
+  await page.fill("#aud-q", "karl"); await page.waitForTimeout(150);
+  const audSearch = await page.$$eval(".aud-row", (l) => l.length), audFocus = await page.evaluate(() => document.activeElement && document.activeElement.id);
+  await page.fill("#aud-q", ""); await page.waitForTimeout(100);
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=older]"); await page.waitForFunction(() => document.querySelectorAll(".aud-row").length === 120, null, { timeout: 8000 });
+  const audOlder = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.path === "/audit/log").map((c) => c.query);
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.selectOption("#aud-kind", "deleted"); await page.waitForFunction(() => document.querySelectorAll(".aud-row").length === 1, null, { timeout: 8000 });
+  await page.selectOption("#aud-area", "temperature"); await page.waitForFunction(() => /No changes/.test(document.querySelector(".aud").textContent), null, { timeout: 8000 });
+  const audF = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.path === "/audit/log").map((c) => new URLSearchParams(c.query));
+  // staff: no request, a plain note
+  await page.evaluate(() => { window.EIKON.state.user.role = "staff"; location.hash = "#settings"; });
+  await page.waitForTimeout(400); await fetch(`http://localhost:${PORT}/__reset`);
+  await page.evaluate(() => { location.hash = "#audit"; });
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "audreg" && document.querySelector(".aud-quiet"), null, { timeout: 8000 });
+  const audStaff = await page.textContent(".aud-quiet"), audStaffCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.path === "/audit/log").length;
+  await page.evaluate(() => { window.EIKON.state.user.role = "admin"; });
+  const okFrom = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(q0.get("from") || "") && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:59$/.test(q0.get("to") || "");
+  report("audit trail: #audit opens it under Settings; Malta-day bounds, 100 a page; readable rows; before/after; search keeps focus; Show older = offset 100; kind and area go to the server; staff get a note and no request",
+    audRail === "settings" && q0.get("limit") === "100" && q0.get("offset") === "0" && okFrom && /Showing 100 of 120/.test(audCount) && audRows === 100 &&
+    /Changed · Customers/.test(audTop) && /Phone, Notes/.test(audTop) && /Phone\s*Before\s*79000001\s*After\s*79111222/.test(audDet) && /PERSON_UPDATE/.test(audDet) &&
+    audSearch === 2 && audFocus === "aud-q" && audOlder.length === 1 && /offset=100/.test(audOlder[0]) &&
+    audF.length === 2 && audF[0].get("action") === "DELETE" && audF[1].get("module") === "temperature" && audF[1].get("action") === "DELETE" &&
+    /Only a pharmacist/.test(audStaff) && audStaffCalls === 0,
+    JSON.stringify({ audRail, q0: q0.toString(), audCount, audRows, audTop, audSearch, audFocus, audOlder, audF: audF.map(String), audStaff, audStaffCalls }));
+} catch (e) { report("audit trail: ran to the end", false, String(e).slice(0, 300)); }
+
+// Adverse reactions: the old link opens the new screen under Registers; a new report is one PUT with only that report
+// (classic fields, empty deleted_ids); a correction sends the whole report back with only the change (unknown fields kept).
+try {
+  await page.goto(base + "&ui=2#pharmacovigilance");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "pvreg" && document.querySelector(".pvr-row"), null, { timeout: 15000 });
+  const pvRail = await page.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join());
+  const pvRow = await page.textContent(".pvr-row");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=add]"); await page.fill("[name=pt_initials]", "A.B."); await page.fill('[data-i="0"][data-k=name]', "Ibuprofen 400mg"); await page.fill("[name=reaction_meddra]", "Dyspepsia");
+  await page.click("#pvr-add button[type=submit]"); await page.waitForSelector("[data-act=edit]", { timeout: 8000 });
+  await page.click("[data-act=list]"); await page.click('.pvr-row[data-id="pv_1_abc"]'); await page.click("[data-act=edit]");
+  await page.selectOption("[name=status]", "Submitted to MPA"); await page.click("#pvr-add button[type=submit]"); await page.waitForSelector("[data-act=edit]", { timeout: 8000 });
+  const pvPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT" && c.path === "/pharmacovigilance/state").map((c) => c.body.state);
+  const n0 = (pvPuts[0] || { reports: [{}] }).reports[0], e1 = (pvPuts[1] || { reports: [{}] }).reports[0];
+  const orig = { id: "pv_1_abc", status: "Draft", mpa_ref: "MPA-7", pt_id: "123456M", reaction_seriousness: "Serious – Other medically important" };
+  report("adverse reactions: #pharmacovigilance opens it under Registers; a new report is one PUT of that report alone; a correction sends the whole record, only the status changed",
+    pvRail === "registers" && /Rash/.test(pvRow) && /J\.D\./.test(pvRow) && pvPuts.length === 2 && pvPuts.every((s) => s.reports.length === 1 && Array.isArray(s.deleted_ids) && !s.deleted_ids.length) &&
+    n0.pt_initials === "A.B." && n0.status === "Draft" && n0.reaction_meddra === "Dyspepsia" && n0.drugs.length === 1 && n0.drugs[0].name === "Ibuprofen 400mg" && n0.drugs[0].route === "Oral" && /^pv_\d+_/.test(n0.id) && Object.keys(n0).length === 30 &&
+    e1.id === orig.id && e1.status === "Submitted to MPA" && e1.mpa_ref === orig.mpa_ref && e1.pt_id === orig.pt_id && e1.reaction_seriousness === orig.reaction_seriousness && e1.created_at === "2026-10-30T09:00:00.000Z" && e1.drugs[0].batch_no === "AX12",
+    JSON.stringify({ pvRail, pvRow, pvPuts }).slice(0, 600));
+} catch (e) { report("adverse reactions: ran to the end", false, String(e).slice(0, 300)); }
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
