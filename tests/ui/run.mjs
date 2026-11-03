@@ -127,6 +127,15 @@ function mockApi(req, res, body) {
     { id: 7, org_name: "Demo Org", location_name: "Demo Pharmacy", entry_date: todayYmd, item_name: "Ozempic 1mg pen", quantity_needed: 3, remaining_quantity: 1, mine_owner: 1, offers: [{ id: 70, quantity_offered: 2, offerer_display: "Sliema Group — Sliema Pharmacy", note: "", mine: 0, accepted: 0, confirmed: 0 }] },
     { id: 8, org_name: "Gozo Group", location_name: "Victoria Pharmacy", entry_date: todayYmd, item_name: "Insulin pen needles", quantity_needed: 5, remaining_quantity: 5, mine_owner: 0, offers: [] }] }));
   if (/^\/scarce-stock\/need-offers\/\d+\/(accept|confirm)$/.test(p) && req.method === "POST") return res.end(JSON.stringify({ ok: true }));
+  // Bookings: one service, one practitioner working weekdays 09:00–13:00, one booking late today.
+  if (p === "/bookings/setup") return res.end(JSON.stringify({ ok: true, services: [{ id: 1, name: "Blood pressure", durationMin: 15, priceCents: 0, active: true, online: true, providerIds: [1] }],
+    providers: [{ id: 1, name: "Maria Borg", title: "Pharm.", speciality: "", active: true, serviceIds: [1], hours: { "1": [["09:00", "13:00"]], "2": [["09:00", "13:00"]], "3": [["09:00", "13:00"]], "4": [["09:00", "13:00"]], "5": [["09:00", "13:00"]] } }] }));
+  if (p === "/bookings" && req.method === "GET") return res.end(JSON.stringify({ ok: true, bookings: [{ id: 501, serviceId: 1, providerId: 1, date: todayYmd, start: "23:50", end: "23:59", personName: "Anna Vella", personPhone: "79000000", status: "booked" }] }));
+  if (p === "/bookings/waitlist" && req.method === "GET") return res.end(JSON.stringify({ ok: true, waiting: [] }));
+  if (p === "/bookings/rooms" && req.method === "GET") return res.end(JSON.stringify({ ok: true, rooms: [] }));
+  if (p === "/bookings/next") return res.end(JSON.stringify({ ok: true, slots: [{ date: todayYmd, time: "23:30", providerId: 1 }, { date: todayYmd, time: "23:45", providerId: 1 }] }));
+  if (p === "/bookings" && req.method === "POST") return res.end(JSON.stringify({ ok: true, booking: { id: 502, serviceId: body.serviceId, providerId: body.providerId, date: body.date, start: body.start, end: "23:45", personName: body.personName, status: "booked" } }));
+  if (/^\/bookings\/providers\/\d+$/.test(p) && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -917,6 +926,32 @@ await page.click('[data-act=accept][data-id="70"]'); await page.waitForTimeout(6
 const ssCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST").map((c) => c.path);
 report("shortages: opens in the new layout from its own card; your request shows the offer; Accept sends one action; others' requests offer help",
   /You asked for\s*1/.test(ss1.text) && /Sliema Group/.test(ss1.text) && /Insulin pen needles/.test(ss1.text) && ss1.help && JSON.stringify(ssCalls) === JSON.stringify(["/scarce-stock/need-offers/70/accept"]), JSON.stringify({ ss1: ss1.text.slice(0, 200), ssCalls }));
+
+// Bookings by keyboard: today's list; settings opens as a dialog with focus inside, Escape closes and returns focus to the gear;
+// a second set of hours starts after a break; a new booking sends one POST for the chosen time.
+try {
+await page.goto(base + "&ui=2#bookings");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "bookings" && document.querySelector(".bkx-r[data-act=open]"), null, { timeout: 15000 });
+const bk1 = await page.evaluate(() => document.querySelector(".bkx-r[data-act=open]").textContent);
+await page.focus("[data-act=settings]"); await page.keyboard.press("Enter");
+await page.waitForFunction(() => document.querySelector(".bkx-sheet"), null, { timeout: 5000 });
+const bkSheet = await page.evaluate(() => { const s = document.querySelector(".bkx-sheet"); return { dialog: s.getAttribute("role") === "dialog" && s.getAttribute("aria-modal") === "true", label: s.getAttribute("aria-label"), inside: s.contains(document.activeElement) }; });
+await page.click("[data-act=tab][data-t=hours]"); await page.waitForTimeout(200);
+await page.click('.bkx-sheet [data-act="win-add"][data-d="1"]'); await page.waitForTimeout(200);
+const bkWin = await page.evaluate(() => [document.querySelector('[data-d="1"][data-i="1"][data-k=from]').value, document.querySelector('[data-d="1"][data-i="1"][data-k=to]').value].join("-"));
+let bkEsc = 0; for (let i = 0; i < 30; i++) { await page.keyboard.press("Tab"); if (!(await page.evaluate(() => !!document.activeElement.closest(".bkx-sheet")))) bkEsc++; }
+await page.keyboard.press("Escape"); await page.waitForTimeout(200);
+const bkBack = await page.evaluate(() => ({ closed: !document.querySelector(".bkx-sheet"), on: document.activeElement.getAttribute("data-act") }));
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.click("[data-act=new]"); await page.waitForFunction(() => document.querySelector(".bkx-slot.on") && document.getElementById("bkx-name"), null, { timeout: 5000 });
+await page.fill("#bkx-name", "Paul Grech"); await page.click("[data-act=book]");
+await page.waitForFunction(() => !document.querySelector(".bkx-sheet"), null, { timeout: 5000 });
+const bkPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/bookings").map((c) => c.body);
+report("bookings: today's list; settings is a dialog that holds focus, Escape returns to the gear; 2nd hours 16:00–19:00; one POST per booking",
+  /23:50.*Anna Vella.*Blood pressure/.test(bk1) && bkSheet.dialog && bkSheet.inside && /settings/i.test(bkSheet.label || "") && bkWin === "16:00-19:00" && bkEsc === 0 && bkBack.closed && bkBack.on === "settings" &&
+  bkPosts.length === 1 && bkPosts[0].serviceId === 1 && bkPosts[0].providerId === 1 && bkPosts[0].start === "23:30" && bkPosts[0].personName === "Paul Grech",
+  JSON.stringify({ bk1, bkSheet, bkWin, bkEsc, bkBack, bkPosts }));
+} catch (e) { report("bookings: keyboard, hours and booking flow ran to the end", false, String(e).slice(0, 300)); }
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
