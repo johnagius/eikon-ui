@@ -589,3 +589,10 @@ All of it waits only on the worker deploy.
   cleaner name lost (and focus). Now the timer passes background:true and skips the render while typing / boxes
   hold text; action reloads still render (first attempt broke that — caught by the suite). Test: value, element
   and focus kept on a background refresh; idle refresh redraws. UI 129/129. BUILD .79.
+
+## Round 63 — Locum receipts rebuilt
+- Live: BUILD .79. Only other timer (supplier badge poll) does not repaint forms → no other refresh-vs-typing issue.
+- modules.lrcreg.js: month list + total + Print (same receipt HTML as classic), form with Malta holiday rule
+  (fixed + Good Friday), shared rate memory key, known locum → reg no, live total. Holiday tag uses stored
+  day_type (caught in screenshot: a Sunday paid at normal rate was tagged holiday). Real worker + print popup
+  checked. UI 131/131. BUILD .80.
