@@ -947,3 +947,8 @@ All of it waits only on the worker deploy.
 - Checks on the merged tree: worker 172/172, UI 258/258, real 21/21, months 59/59; predeploy: 236,444 rows unchanged, lists equal before/after/rollback.
 - John said deploy → b58f4ddc (16:15 UTC), restore point recorded. Live: health batch-3; signed-out 401s; old address tab → 302 eikonhq.com, iframe stays; CSP-Report-Only + nosniff + referrer-policy on the app page; demo: me/today/team 200; domains attached. UI .141 pushed after.
 - Ready for batch 4: whole-state saves write only changes (POCT/PV/screening), bulk imports safe at max size (supplier 5,000 rows 10,034 → 328 statements), people link table (needs John's yes). Running: print pages CSP-safe, offline app shell.
+
+## Round 127 — The website is served from main
+
+- John: serve from main, carefully, without losing branch work. main had one commit not on the working branch (#217, two Cannabis lines for DDA sales — already on the branch in both the classic list and the new layout's suggestions). Merged main into the branch (no content change), suites green (worker 172, UI 258 ×2, real 21), pushed the branch and fast-forwarded main (20ffe17 → edceb06, no force). Set UI_GITHUB_BRANCH = "main" and deployed (code identical to batch-3) → 0c89cc74. Live: .141 served, old-address move, demo /today 200. Both branches now 736910e.
+- Agents keep working in their own copies (git archive of a commit) and never push; integrators merge onto a fresh copy of live HEAD; nothing in their copies depends on the branch name.

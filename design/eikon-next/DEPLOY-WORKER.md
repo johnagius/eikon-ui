@@ -1,5 +1,7 @@
 # Deploying the Eikon server (worker) — what is waiting, and how
 
+**Since 2026-11-03 17:20 UTC the website is served from `main`** (John's decision). Push UI changes to `main` (fast-forward only); the old `claude/eloquent-newton-7ib4gb` is kept equal to main for now.
+
 Written 2026-11-03 (loop round 91). The website files go live by themselves from the
 `claude/eloquent-newton-7ib4gb` branch. The **server** (Cloudflare worker `eikon-api`)
 does not: it changes only when someone runs `wrangler deploy`.
@@ -11,7 +13,8 @@ does not: it changes only when someone runs `wrangler deploy`.
 
 | | Version | Cloudflare version id |
 |---|---|---|
-| Live now (16:15 UTC) | `2026-11-03-batch-3`: old address → eikonhq.com, install offer, months/print, Orders/Questions, staff accounts + idle lock, CSP report-only, DDA rewrites stopped, scale indexes, labels save | `b58f4ddc-f464-43b7-a1eb-9849a83253cd` |
+| Live now (17:20 UTC) | `2026-11-03-batch-3`, website now served from **main** (UI_GITHUB_BRANCH = main; same code) | `0c89cc74-a552-473d-8e74-a4e807edc828` |
+| Before that (16:15) | `2026-11-03-batch-3`: old address → eikonhq.com, install offer, months/print, Orders/Questions, staff accounts + idle lock, CSP report-only, DDA rewrites stopped, scale indexes, labels save | `b58f4ddc-f464-43b7-a1eb-9849a83253cd` |
 | Before that (14:26) | `2026-11-03-batch-2`: per-pharmacy isolation in groups, full audit (before/after), names Title Case on save + fix endpoint (not run), error reports, ID-card change with undo | `23481a98-c741-4359-99e1-c09345369ba2` |
 | Before that (11:55) | `2026-11-03-urls-1`: clean addresses; API answers unchanged | `8d472b00-a4b2-4eb2-9b80-a18c69e5ba61` |
 | Before that (10:30) | `2026-11-03-bookings-19`: the bare address, /ui and /ui/ open the app | `20465171-65d0-4b00-b00e-20299be41760` |
