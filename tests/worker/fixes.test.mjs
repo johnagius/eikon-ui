@@ -175,6 +175,8 @@ test("debug mode: saving a certificate or a temperature device with the debug he
 test("updates never turn a stored NULL into the text 'null' (no String(x !== undefined ? x : existing.x) left)", async () => {
   const { readFileSync } = await import("node:fs");
   const src = readFileSync(new URL("../../cloudflare-worker/code", import.meta.url), "utf8");
-  const bad = src.match(/String\((body|b)\.(\w+) !== undefined \? \1\.\2 : (existing|cur|prev|row)\.\w+\)/g) || [];
+  // any spacing (code aligned in columns slipped past a single-space pattern before)
+  const bad = src.match(/String\((body|b)\.(\w+)\s+!==\s+undefined\s+\?\s+\1\.\2\s+:\s+(existing|cur|prev|row)\.\w+\s*\)/g) || [];
   eq(bad, [], "every kept field falls back to an empty string, not String(null)");
 });
+

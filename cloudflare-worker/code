@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-02-bookings-13";
+const WORKER_VERSION = "2026-11-02-bookings-14";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -2359,10 +2359,10 @@ async function handleOrderDiaryEntryUpdate(request, env, corsOkHeaders, authUser
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
   const body = await readJson(request);
-  const item_name  = String(body.item_name  !== undefined ? body.item_name  : existing.item_name).trim();
+  const item_name  = String(body.item_name  !== undefined ? body.item_name  : (existing.item_name ?? "")).trim();
   const qty        = body.qty      !== undefined ? Math.max(1, Math.round(Number(body.qty) || 1)) : existing.qty;
-  const supplier   = String(body.supplier  !== undefined ? body.supplier  : existing.supplier).trim();
-  const notes      = String(body.notes     !== undefined ? body.notes     : existing.notes).trim();
+  const supplier   = String(body.supplier  !== undefined ? body.supplier  : (existing.supplier ?? "")).trim();
+  const notes      = String(body.notes     !== undefined ? body.notes     : (existing.notes ?? "")).trim();
   const validStatuses = ["pending", "received", "not_received", "wrong_pick"];
   const status     = body.status && validStatuses.includes(body.status) ? body.status : existing.status;
 
