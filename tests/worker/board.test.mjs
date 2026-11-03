@@ -20,6 +20,13 @@ test("board: a group's private pinned messages stay inside the group; others can
   // own group sees both pinned
   const mine = (await api("GET", "/board/messages?pinned=1", { token })).json.messages || [];
   ok(mine.some((m) => m.id === privId) && mine.some((m) => m.id === pubId), "own group sees both: " + JSON.stringify(mine.map((m) => m.id)));
+  // another pharmacy in the SAME group sees both too (group messages are shared by the group on purpose; item 3)
+  DB.db.prepare("INSERT INTO locations (id, org_id, name) VALUES (2, 1, 'Same group branch')").run();
+  const branch = await addUser({ orgId: 1, locationId: 2, email: "branch@example.com", name: "Branch Admin" });
+  const br = (await api("GET", "/board/messages?pinned=1", { token: branch.token })).json.messages || [];
+  ok(br.some((m) => m.id === privId) && br.some((m) => m.id === pubId), "same-group branch sees both: " + JSON.stringify(br.map((m) => m.id)));
+  const brAll = await api("GET", "/board/messages?scope=org", { token: branch.token });
+  ok(brAll.text.includes("Group only: staff bonus list"), "branch's group view lists it");
   // the other group sees only the public one
   const theirs = (await api("GET", "/board/messages?pinned=1", { token: other.token })).json.messages || [];
   ok(theirs.some((m) => m.id === pubId), "other group sees the public pin");

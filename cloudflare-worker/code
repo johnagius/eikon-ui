@@ -2353,8 +2353,8 @@ async function handleOrderDiaryEntryCreate(request, env, corsOkHeaders, authUser
 async function handleOrderDiaryEntryUpdate(request, env, corsOkHeaders, authUser, id) {
   await ensureOrderDiarySchema(env);
   const existing = await dbFirst(env,
-    `SELECT * FROM order_diary_entries WHERE org_id = ? AND id = ?`,
-    [authUser.org_id, id]
+    `SELECT * FROM order_diary_entries WHERE org_id = ? AND location_id = ? AND id = ?`,
+    [authUser.org_id, authUser.location_id, id]
   );
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
 
@@ -2369,8 +2369,8 @@ async function handleOrderDiaryEntryUpdate(request, env, corsOkHeaders, authUser
   await dbRun(env,
     `UPDATE order_diary_entries SET
        item_name=?, qty=?, supplier=?, status=?, notes=?, updated_at=datetime('now')
-     WHERE org_id=? AND id=?`,
-    [item_name, qty, supplier, status, notes, authUser.org_id, id]
+     WHERE org_id=? AND location_id=? AND id=?`,
+    [item_name, qty, supplier, status, notes, authUser.org_id, authUser.location_id, id]
   );
 
   if (supplier !== existing.supplier) {
@@ -2384,11 +2384,11 @@ async function handleOrderDiaryEntryUpdate(request, env, corsOkHeaders, authUser
 async function handleOrderDiaryEntryDelete(request, env, corsOkHeaders, authUser, id) {
   await ensureOrderDiarySchema(env);
   const existing = await dbFirst(env,
-    `SELECT id FROM order_diary_entries WHERE org_id = ? AND id = ?`,
-    [authUser.org_id, id]
+    `SELECT id FROM order_diary_entries WHERE org_id = ? AND location_id = ? AND id = ?`,
+    [authUser.org_id, authUser.location_id, id]
   );
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-  await dbRun(env, `DELETE FROM order_diary_entries WHERE org_id = ? AND id = ?`, [authUser.org_id, id]);
+  await dbRun(env, `DELETE FROM order_diary_entries WHERE org_id = ? AND location_id = ? AND id = ?`, [authUser.org_id, authUser.location_id, id]);
   await writeAudit(env, authUser.org_id, authUser.user_id, "ORDER_DIARY_DELETE", "order_diary_entries", String(id), {});
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
@@ -3746,20 +3746,19 @@ async function handleClientOrdersEntryDelete(request, env, corsOkHeaders, authUs
     return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
   }
 
-  // IMPORTANT:
-  // Client Orders list is org-wide (can include multiple locations),
-  // so deletes must not require the caller's current location_id to match.
+  // The Client Orders list, read and update are all per pharmacy (org + location), so delete is too:
+  // another pharmacy in the same group cannot remove this pharmacy's order by id.
   const existing = await dbFirst(
     env,
-    "SELECT id FROM client_orders_entries WHERE org_id = ? AND id = ?",
-    [authUser.org_id, entryIdNum]
+    "SELECT id FROM client_orders_entries WHERE org_id = ? AND location_id = ? AND id = ?",
+    [authUser.org_id, authUser.location_id, entryIdNum]
   );
 
   if (!existing) {
     return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
   }
 
-  await dbRun(env, "DELETE FROM client_orders_entries WHERE org_id = ? AND id = ?", [authUser.org_id, entryIdNum]);
+  await dbRun(env, "DELETE FROM client_orders_entries WHERE org_id = ? AND location_id = ? AND id = ?", [authUser.org_id, authUser.location_id, entryIdNum]);
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_ORDER_DELETE", "client_orders_entries", String(entryIdNum), {});
 
@@ -4095,18 +4094,17 @@ async function handleClientTicketsEntryDelete(request, env, corsOkHeaders, authU
     return jsonResponse({ ok: false, error: "Invalid entry id" }, 400, corsOkHeaders);
   }
 
-  // Delete is org-wide (not location-scoped) so a staff member at any
-  // location can clean up tickets — consistent with client-orders behaviour.
+  // Per pharmacy, like the list, read and update: another pharmacy in the same group cannot delete it.
   const existing = await dbFirst(
     env,
-    "SELECT id FROM client_tickets_entries WHERE org_id = ? AND id = ?",
-    [authUser.org_id, id]
+    "SELECT id FROM client_tickets_entries WHERE org_id = ? AND location_id = ? AND id = ?",
+    [authUser.org_id, authUser.location_id, id]
   );
   if (!existing) {
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
   }
 
-  await dbRun(env, "DELETE FROM client_tickets_entries WHERE org_id = ? AND id = ?", [authUser.org_id, id]);
+  await dbRun(env, "DELETE FROM client_tickets_entries WHERE org_id = ? AND location_id = ? AND id = ?", [authUser.org_id, authUser.location_id, id]);
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_TICKET_DELETE", "client_tickets_entries", String(id), {});
 
@@ -7752,9 +7750,10 @@ async function handleCreditNotePurchaseAdd(request, env, corsOkHeaders, authUser
 async function handleCreditNotePurchaseDelete(request, env, corsOkHeaders, authUser, creditNoteId, purchaseId) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   await ensureCreditNotesSchema(env);
-  const existing = await dbFirst(env, `SELECT id FROM credit_note_purchases WHERE id=? AND credit_note_id=? AND org_id=?`, [purchaseId, creditNoteId, authUser.org_id]);
+  const existing = await dbFirst(env, `SELECT p.id FROM credit_note_purchases p JOIN credit_notes c ON c.id = p.credit_note_id
+    WHERE p.id=? AND p.credit_note_id=? AND p.org_id=? AND c.org_id=? AND c.location_id=?`, [purchaseId, creditNoteId, authUser.org_id, authUser.org_id, authUser.location_id]);
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-  await dbRun(env, `DELETE FROM credit_note_purchases WHERE id=? AND org_id=?`, [purchaseId, authUser.org_id]);
+  await dbRun(env, `DELETE FROM credit_note_purchases WHERE id=? AND credit_note_id=? AND org_id=?`, [purchaseId, creditNoteId, authUser.org_id]);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
@@ -7780,9 +7779,10 @@ async function handleCreditNoteNoteAdd(request, env, corsOkHeaders, authUser, cr
 async function handleCreditNoteNoteDelete(request, env, corsOkHeaders, authUser, creditNoteId, noteId) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   await ensureCreditNotesSchema(env);
-  const existing = await dbFirst(env, `SELECT id FROM credit_note_notes WHERE id=? AND credit_note_id=? AND org_id=?`, [noteId, creditNoteId, authUser.org_id]);
+  const existing = await dbFirst(env, `SELECT n.id FROM credit_note_notes n JOIN credit_notes c ON c.id = n.credit_note_id
+    WHERE n.id=? AND n.credit_note_id=? AND n.org_id=? AND c.org_id=? AND c.location_id=?`, [noteId, creditNoteId, authUser.org_id, authUser.org_id, authUser.location_id]);
   if (!existing) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
-  await dbRun(env, `DELETE FROM credit_note_notes WHERE id=? AND org_id=?`, [noteId, authUser.org_id]);
+  await dbRun(env, `DELETE FROM credit_note_notes WHERE id=? AND credit_note_id=? AND org_id=?`, [noteId, creditNoteId, authUser.org_id]);
   return jsonResponse({ ok: true }, 200, corsOkHeaders);
 }
 
