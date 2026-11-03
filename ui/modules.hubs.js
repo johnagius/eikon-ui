@@ -43,7 +43,7 @@
     poct: "Blood pressure, glucose, cholesterol and other tests, per patient.",
     vaccines: "Vaccine orders for travel and routine jabs.",
     ocps: "Find a contraceptive pill by its hormones and doses.",
-    pharmacycalc: "Dose and renal calculators, per patient.",
+    pharmacycalc: "Dosing plans and supply for levothyroxine, steroid tapers, warfarin, insulin and methotrexate.",
     pharmacovigilance: "Adverse reactions reported.",
     screening: "Screening programmes and results.",
     labels: "Print dispensing labels in English or Maltese.",

@@ -228,6 +228,23 @@ function mockApi(req, res, body) {
   if (p === "/emergency-pos/sales" && req.method === "GET") return res.end(JSON.stringify({ ok: true, sales: eposSales }));
   if (p === "/emergency-pos/sales" && req.method === "POST") { if (!eposSales.some((s) => s.offline_id === body.offline_id)) eposSales.unshift({ id: eposSales.length + 1, sale_date: body.sale_date, receipt_no: body.receipt_no, items_json: JSON.stringify(body.items), subtotal: body.subtotal, vat_total: body.vat_total, total: body.total, payment_method: body.payment_method, amount_tendered: body.amount_tendered, change_given: body.change_given, offline_id: body.offline_id, voided: 0, created_at: new Date().toISOString().slice(0, 19).replace("T", " ") }); return res.end(JSON.stringify({ ok: true, id: eposSales.length })); }
   if (p === "/emergency-pos/sales/sync" && req.method === "POST") return res.end(JSON.stringify({ ok: true, synced: 0, results: ((body && body.sales) || []).map((s) => ({ offline_id: s.offline_id, ok: true })) }));
+  // Pharmacy calculators (new layout calreg): one saved warfarin plan; a POST adds a plan as the worker does (the list leaves out the plan JSON)
+  if (p.startsWith("/pharmacy-calc/")) {
+    const recs = globalThis.__calRecs || (globalThis.__calRecs = [{ id: 7, patient_name: "Vella Anna", id_card: "0987654M", start_date: "2026-10-01", calc_type: "war", created_at: "2026-10-01 09:00:00",
+      calc_data_json: JSON.stringify({ startDate: "2026-09-30T22:00:00.000Z", weeks: 1, daysTotal: 7, schedule: [{ date: "2026-09-30T22:00:00.000Z", dow: 4, doseMg: 5, items: [{ strength: 5, wholeCount: 1, halfCount: 0, quarterCount: 0 }] }],
+        dispByStrength: [{ strength: 5, wholePieces: 1, halfPieces: 0, quarterPieces: 0, tabletsDispense: 1, tabsPerSheet: 14, sheetsPerBox: 2, sheetsNeeded: 1, boxesNeeded: 1 }] }) }]);
+    if (p === "/pharmacy-calc/patients") return res.end(JSON.stringify({ ok: true, patients: [{ id: 1, patient_name: "Zammit Carmel", id_card: "0012345M" }] }));
+    if (p === "/pharmacy-calc/records" && req.method === "GET") return res.end(JSON.stringify({ ok: true, records: recs.map(({ calc_data_json, ...r }) => r) }));
+    if (p === "/pharmacy-calc/records" && req.method === "POST") { const id = 100 + recs.length; recs.unshift({ id, patient_name: body.patient_name, id_card: body.id_card, start_date: body.start_date, calc_type: body.calc_type, calc_data_json: body.calc_data_json, created_at: "2026-11-03 10:00:00" }); return res.end(JSON.stringify({ ok: true, id })); }
+    if (req.method === "GET") { const r = recs.find((x) => String(x.id) === p.split("/")[3]); return res.end(JSON.stringify(r ? { ok: true, record: r } : { ok: false, error: "Record not found" })); }
+  }
+  // Possible duplicates (new layout dupreg): only while a test turns it on. One person written differently in two more sections (the suite's order mock adds Grech Carmen on the same phone), plus a namesake with another ID card.
+  if (globalThis.__dupMock && req.method === "GET") {
+    const ym = new Date().toISOString().slice(0, 7);
+    if (p === "/dda-sales/entries") return res.end(JSON.stringify({ ok: true, entries: url.searchParams.get("month") === ym ? [{ id: 502, entry_date: todayYmd, client_name: "Zammit Carmel", client_id_card: "12345 m", medicine_name_dose: "Morphine 10mg", prescription_serial_no: "S1" }] : [] }));
+    if (p === "/appointments/entries") return res.end(JSON.stringify({ ok: true, appointments: [{ id: 503, patientName: "C Zammit", patientIdCard: "0012345M", patientPhone: "+356 79123456", date: todayYmd, time: "10:00", apptRef: "APT-1" }] }));
+    if (p === "/loyalty/clients") return res.end(JSON.stringify({ ok: true, clients: [{ id: 504, name: "Carmel Zammit", id_card: "0099999M", created_at: todayYmd }] }));
+  }
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -1468,6 +1485,66 @@ try {
     ddaOxy.some((t) => /^Oxycodone — OxyContin/.test(t)) && ddaOwn.some((t) => /^Morphine 10mg/.test(t) && /written here before/.test(t)) && ddaWrites.length === 0,
     JSON.stringify({ ddaOpts, ddaAria, ddaVal, ddaShut, ddaOxy, ddaOwn, ddaWrites }));
 } catch (e) { report("controlled drugs: medicine suggestions ran to the end", false, String(e).slice(0, 300)); }
+// Pharmacy calculators in the new layout: the old #pharmacycalc link lands on it under Registers; the levothyroxine default
+// works out live (12 weeks of 100/125 mcg = 4 boxes); methotrexate 7,5 mg (a comma) from 5 mg halves is 12 tablets; a known
+// name fills the ID card; Save and print is one POST in the classic shape and prints; a saved plan prints again; no deletes.
+try {
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.goto(base + "&ui=2#pharmacycalc");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "calreg" && document.querySelector(".cal-row") && /boxes to dispense/.test(document.querySelector("#cal-res").textContent), null, { timeout: 15000 });
+  const calRail = await page.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join());
+  const calLev = await page.textContent("#cal-res");
+  await page.evaluate(() => { window.__calPrints = []; const oc = URL.createObjectURL; window.__calOc = oc; URL.createObjectURL = function (b) { if (b && b.type === "text/html") b.text().then((t) => window.__calPrints.push(t)); return oc.call(URL, b); };
+    window.__calAc = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { if (String(this.href).startsWith("blob:")) return; return window.__calAc.call(this); }; });
+  await page.click("[data-calc=mtx]");
+  await page.fill('[name="mtx.weeklyDose"]', "7,5"); await page.fill('[name="mtx.strength"]', "5"); await page.selectOption('[name="mtx.split"]', "halves");
+  await page.fill('[name="pat.name"]', "Zammit Carmel"); await page.waitForTimeout(400);
+  const calMtx = await page.textContent("#cal-res"), calId = await page.inputValue('[name="pat.id"]'), calStart = await page.inputValue('[name="pat.start"]');
+  await page.click("button[type=submit][form=cal-form]"); await settleSave();
+  const calW = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method !== "GET" && c.path.startsWith("/pharmacy-calc/"));
+  const cb = (calW[0] || {}).body || {}, cm = cb.calc_data_json ? JSON.parse(cb.calc_data_json) : {};
+  const calPrint = await page.evaluate(() => window.__calPrints[0] || "");
+  await page.waitForFunction(() => document.querySelectorAll(".cal-row").length === 2, null, { timeout: 8000 });
+  await page.click('.cal-row[data-id="7"]'); await page.waitForSelector("[data-act=reprint]", { timeout: 8000 });
+  await page.waitForTimeout(950); // the classic printout ignores a second print within 0.9 s
+  await page.click("[data-act=reprint]"); await page.waitForTimeout(300);
+  const calRe = await page.evaluate(() => window.__calPrints[1] || "");
+  await page.evaluate(() => { URL.createObjectURL = window.__calOc; HTMLAnchorElement.prototype.click = window.__calAc; });
+  report("pharmacy calculators: #pharmacycalc opens it under Registers; live results; 7,5 mg methotrexate = 12 tablets; a known name fills the ID; one POST in the classic shape, printed; a saved plan prints again; no deletes",
+    calRail === "registers" && /^\s*4\s*boxes to dispense/.test(calLev) && /12\s*tablets to dispense/.test(calMtx) && /1 tablet\(s\) \+ ½ tablet/.test(calMtx) && /Once a week only/.test(calMtx) && calId === "0012345M" &&
+    calW.length === 1 && calW[0].method === "POST" && calW[0].path === "/pharmacy-calc/records" && Object.keys(cb).sort().join() === "calc_data_json,calc_type,id_card,patient_name,start_date" &&
+    cb.calc_type === "mtx" && cb.patient_name === "Zammit Carmel" && cb.id_card === "0012345M" && cb.start_date === calStart &&
+    cm.weeklyDose === 7.5 && cm.tabletStrength === 5 && cm.weeks === 8 && cm.totalTabsToDispense === 12 && cm.totalHalfPiecesUsed === 8 && cm.boxes === 1 && cm.schedule.length === 8 &&
+    /TAKE ONCE WEEKLY ONLY/.test(calPrint) && /Patient: Zammit Carmel/.test(calPrint) && /Warfarin Dosing Plan/.test(calRe) && /Vella Anna/.test(calRe),
+    JSON.stringify({ calRail, calLev: calLev.slice(0, 80), calMtx: calMtx.slice(0, 160), calId, calW: calW.map((c) => c.method + " " + c.path), cb: Object.keys(cb), print: calPrint.length, re: calRe.length }));
+} catch (e) { report("pharmacy calculators: new layout flow ran to the end", false, String(e).slice(0, 300)); }
+// Possible duplicates: Customers links to a read-only view that groups one person written differently in three sections
+// (ID card typed two ways, phone typed two ways), leaves out a namesake with another ID card, hides a group on "Not the same
+// person" with Undo, and never writes to the server.
+try {
+  globalThis.__dupMock = true;
+  await page.goto(base + "&ui=2#customers");
+  await page.waitForSelector("[data-dupes]", { timeout: 15000 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-dupes]");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "dupreg" && document.querySelector("#dup-count"), null, { timeout: 20000 });
+  const dpRail = await page.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join());
+  const dp1 = await page.evaluate(() => ({ count: document.querySelector("#dup-count").textContent, warn: [...document.querySelectorAll(".dup-warn")].map((w) => w.textContent).join(" "), cards: [...document.querySelectorAll(".dup-card")].map((c) => c.textContent) }));
+  const dpCard = dp1.cards.find((c) => /Zammit/.test(c)) || "", dpN = parseInt(dp1.count, 10) || 0; // other mocks in this suite add their own look-alikes (e.g. Camilleri Rita)
+  await page.click('.dup-card[aria-labelledby] [data-hide][aria-label*="Zammit"]'); await page.waitForSelector("[data-act=undo]");
+  const dp2 = await page.evaluate(() => ({ count: document.querySelector("#dup-count").textContent, cards: document.querySelectorAll(".dup-card").length, zam: [...document.querySelectorAll(".dup-card")].some((c) => /Zammit/.test(c.textContent)), focus: document.activeElement && document.activeElement.dataset.act }));
+  await page.click("[data-act=undo]"); await page.waitForTimeout(150);
+  const dp3 = await page.evaluate(() => ({ count: document.querySelector("#dup-count").textContent, stored: Object.keys(localStorage).filter((k) => k.indexOf("eikon_dupes") === 0).map((k) => localStorage.getItem(k)) }));
+  const dpCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json());
+  const dpWrites = dpCalls.filter((c) => c.method !== "GET");
+  globalThis.__dupMock = false;
+  report("possible duplicates: Customers links to it (Customers lit); one person in DDA sale, appointment and an order on the same phone grouped by ID card and phone as typed (month by month, as the live server takes); the other ID card left out; Not the same person hides with Undo; read only",
+    dpRail === "customers" && dpN >= 1 && dp1.cards.length === dpN && dp1.cards.filter((c) => /Zammit/.test(c)).length === 1 &&
+    /Order/.test(dpCard) && /DDA sale/.test(dpCard) && /Appointment/.test(dpCard) && /Same ID card 0012345M/.test(dpCard) && /12345M/.test(dpCard) && /Same phone 79123456/.test(dpCard) && /\+356 79123456/.test(dpCard) && /Grech Carmen/.test(dpCard) && !/Could not read/.test(dp1.warn) && !/0099999M|Loyalty card/.test(dpCard) &&
+    (parseInt(dp2.count, 10) || 0) === dpN - 1 && dp2.cards === dpN - 1 && !dp2.zam && dp2.focus === "undo" && (parseInt(dp3.count, 10) || 0) === dpN && dp3.stored.join() === "[]" &&
+    dpWrites.length === 0 && dpCalls.some((c) => c.path === "/dda-sales/entries") && dpCalls.filter((c) => c.path === "/client-orders/entries").every((c) => /month=/.test(c.query) && !/from=/.test(c.query)) && dpCalls.some((c) => c.path === "/people"),
+    JSON.stringify({ dpRail, dp1, dp2, dp3, dpWrites }).slice(0, 700));
+} catch (e) { globalThis.__dupMock = false; report("possible duplicates: ran to the end", false, String(e).slice(0, 300)); }
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });
