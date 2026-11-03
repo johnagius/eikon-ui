@@ -21134,7 +21134,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .svc{display:flex;justify-content:space-between;align-items:center;width:100%;padding:15px 16px;text-align:left;position:relative;font-size:17px}
 .svc+.svc::before,.f+.f::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
 .svc span{color:var(--l2);font-size:15px}.svc.on{color:var(--t);font-weight:600}
-.slots{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}.slot{height:44px;padding:0 14px;border-radius:12px;background:var(--sf);font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px;margin-bottom:22px}.chosen{display:flex;align-items:center;gap:12px;padding:14px 16px}.chosen b{flex:1;font-size:17px}.chg{height:34px;padding:0 16px;border-radius:17px;background:var(--fill);color:inherit;font-size:15px;font-weight:600}.slot{height:44px;padding:0 14px;border-radius:12px;background:var(--sf);font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
 .slot small{font-weight:500;color:var(--l2);font-size:12px;margin-left:5px}.slot.on{background:var(--t);color:var(--ti)}.slot.on small{color:var(--ti)}
 .f{display:flex;align-items:center;min-height:52px;padding:0 16px;position:relative}.f span{width:80px;font-size:17px;font-weight:500}.f input{flex:1;border:0;outline:0;background:transparent;font:inherit;font-size:17px;color:inherit;padding:14px 0;min-width:0}
 .f:focus-within{background:var(--ts)}.code{font-size:30px;letter-spacing:10px;text-align:center;font-variant-numeric:tabular-nums}
@@ -21172,7 +21172,9 @@ function paint(){
   h+='<div class="lab">What</div><div class="g">'+(st.services.length?st.services.map(s=>'<button class="svc'+(st.svc&&st.svc.id===s.id?" on":"")+'" data-svc="'+s.id+'">'+esc(s.name)+'<span>'+s.durationMin+' min · '+money(s.priceCents)+'</span></button>').join(""):'<div class="svc">Nothing can be booked online right now.</div>')+'</div>';
   if(st.svc&&(st.svc.people||[]).length>1){
     h+='<div class="lab">With</div><div class="who">'+[{id:null,name:"Anyone",speciality:"First free"}].concat(st.svc.people).map(p=>'<button class="pp'+(st.who===p.id?" on":"")+'" data-who="'+(p.id==null?"":p.id)+'" aria-pressed="'+(st.who===p.id)+'"><b>'+esc(p.name)+'</b>'+(p.speciality?'<small>'+esc(p.speciality)+'</small>':"")+'</button>').join("")+'</div>';}
-  if(st.svc){
+  // Once a time is chosen the day and time grid (up to 70+ buttons) folds into one line, so the form is next to it.
+  if(st.svc&&st.slot&&!st.pick&&(st.step==="what"||st.step==="code")){h+='<div class="lab">When</div><div class="g"><div class="chosen"><b>'+esc(dayW(st.slot.date))+' at '+esc(st.slot.time)+'</b>'+(st.step==="what"?'<button class="chg" data-change="1">Change</button>':'')+'</div></div>';}
+  else if(st.svc){
     h+='<div class="lab">When</div>';
     if(st.days.length){h+='<div class="days" role="group" aria-label="Day">'+st.days.map(d=>{const a=new Date(d.date+"T12:00:00");return '<button class="day'+(st.date===d.date?" on":"")+'" data-d="'+d.date+'"'+(d.free?"":" disabled")+' aria-pressed="'+(st.date===d.date)+'" aria-label="'+esc(a.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"}))+(d.free?"":", full or closed")+'"><small>'+esc(a.toLocaleDateString("en-GB",{weekday:"short"}))+'</small><b>'+a.getDate()+'</b></button>';}).join("")+'</div>';}
     const btn=(x)=>{const i=st.slots.indexOf(x);return '<button class="slot'+(st.slot===x?" on":"")+'" data-i="'+i+'" aria-pressed="'+(st.slot===x)+'">'+esc(x.time)+(st.date?"":'<small>'+esc(dayW(x.date))+'</small>')+'</button>';};
@@ -21183,17 +21185,18 @@ function paint(){
   if(st.info&&st.info.hours&&st.info.hours.length&&st.step==="what")h+='<div class="hrs"><b>Opening times</b>'+st.info.hours.map(x=>'<div><span>'+esc(x.days)+'</span><span>'+esc(x.time)+'</span></div>').join("")+'</div>';
   h+='<div class="pow">Booking by Eikon</div>';
   $("app").innerHTML=h;
-  const want=st.focus;st.focus=null;let el=null;try{el=want?$(want):(fk?document.querySelector(fk):null);}catch(e){el=null;}if(el)el.focus({preventScroll:!want});
+  const want=st.focus;st.focus=null;let el=null;try{el=want?(want.charAt(0)==="["?document.querySelector(want):$(want)):(fk?document.querySelector(fk):null);}catch(e){el=null;}if(el)el.focus({preventScroll:!want});
   const c=$("in-code"); if(c) c.focus();
 }
 document.addEventListener("click",async(ev)=>{
-  const t=ev.target.closest("[data-svc],[data-who],[data-d],[data-i],#hold,#confirm"); if(!t||t.disabled) return; keep(); st.err="";
+  const t=ev.target.closest("[data-svc],[data-who],[data-d],[data-i],[data-change],#hold,#confirm"); if(!t||t.disabled) return; keep(); st.err="";
   if(t.dataset.who!==undefined){st.who=t.dataset.who?Number(t.dataset.who):null;st.slot=null;st.slots=[];st.days=[];st.date=null;paint();
     try{st.days=(await call("/days?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:""))).days;const f=st.days.find(d=>d.free);if(f){st.date=f.date;st.slots=(await call("/day?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:"")+"&date="+f.date)).slots;}}catch(e){st.err=e.message;}return paint();}
   if(t.dataset.svc){st.svc=st.services.find(s=>s.id===Number(t.dataset.svc));st.who=null;st.slot=null;st.step="what";st.slots=[];st.days=[];st.date=null;paint();
     try{st.days=(await call("/days?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:""))).days;const f=st.days.find(d=>d.free);if(f){st.date=f.date;st.slots=(await call("/day?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:"")+"&date="+f.date)).slots;}}catch(e){st.err=e.message;}return paint();}
   if(t.dataset.d){st.date=t.dataset.d;st.slot=null;st.slots=[];paint();try{st.slots=(await call("/day?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:"")+"&date="+st.date)).slots;}catch(e){st.err=e.message;}return paint();}
-  if(t.dataset.i!==undefined){st.slot=st.slots[Number(t.dataset.i)];st.step="what";if(ev.detail===0&&!st.name)st.focus="in-name";return paint();} // chosen by keyboard: go on to the name (a tap does not, so no phone keyboard pops up)
+  if(t.dataset.change){st.pick=true;const ci=st.slots.indexOf(st.slot);st.focus=ci>=0?"[data-i='"+ci+"']":null;return paint();}
+  if(t.dataset.i!==undefined){st.slot=st.slots[Number(t.dataset.i)];st.step="what";st.pick=false;if(ev.detail===0&&!st.name)st.focus="in-name";return paint();} // chosen by keyboard: go on to the name (a tap does not, so no phone keyboard pops up)
   if(t.id==="hold"){st.busy=true;paint();try{const r=await call("/hold",{serviceId:st.svc.id,providerId:st.slot.providerId,date:st.slot.date,start:st.slot.time,name:st.name,email:st.email,phone:st.phone});st.holdId=r.holdId;st.step="code";}catch(e){st.err=e.message;if(e.status===409){try{st.slots=st.date?(await call("/day?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:"")+"&date="+st.date)).slots:(await call("/next?service_id="+st.svc.id)).slots;st.slot=null;}catch(x){}}}st.busy=false;return paint();}
   if(t.id==="confirm"){const code=($("in-code")||{}).value||"";st.busy=true;paint();try{const r=await call("/confirm",{holdId:st.holdId,code:code});st.step="done";st.doneText=r.service+", "+r.when+".";st.link=r.link;}catch(e){st.err=e.message;if(e.status===410||e.status===409){st.step="what";st.slot=null;try{st.slots=st.date?(await call("/day?service_id="+st.svc.id+(st.who?"&provider_id="+st.who:"")+"&date="+st.date)).slots:(await call("/next?service_id="+st.svc.id)).slots;}catch(x){}}}st.busy=false;return paint();}
 });
