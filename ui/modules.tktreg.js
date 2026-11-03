@@ -244,9 +244,25 @@
   function skel(what) { return '<div aria-busy="true" style="margin-top:16px"><span class="tkt-sr" role="status">Opening ' + what + '</span><i class="tkt-skel"></i><i class="tkt-skel"></i><i class="tkt-skel"></i></div>'; }
   function trouble(msg) { return '<div class="tkt-quiet" role="alert">' + esc(msg) + ' <button type="button" class="tkt-btn" data-act="retry" style="margin-left:6px">Try again</button></div>'; }
 
+  // Opened from a customer's page (modules.customers.js, BACKLOG4 item 1): who it is for stays in sight at the top, the
+  // person is filled into the empty fields only, and focus goes to the first required field still empty.
+  var CARRY = { client_name: "name", phone: "phone" }, NEEDED = ["client_name", "issue"];
+  function carryLine() { var p = S.carry && S.carry.person; return p ? '<div class="tkt-meta" style="padding:10px 14px 8px">From Customers: <b>' + esc(p.name) + "</b>" + (p.id_card ? " · ID card " + esc(p.id_card) : "") + "</div>" : ""; }
+  function fillCarry() {
+    var f = S.mount && S.mount.querySelector("#tkt-add"), p = S.carry && S.carry.person; if (!f || !p) return;
+    var want = {}; Object.keys(CARRY).forEach(function (k) { want[k] = p[CARRY[k]]; });
+    E.fillEmpty(f, want).forEach(function (k) { S.adding[k] = want[k]; });
+    var go = function () { if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#tkt-add")) return; var g = S.mount && S.mount.querySelector("#tkt-add"); if (!g) return; var el = NEEDED.map(function (k) { return g.querySelector("[name=" + k + "]"); }).filter(function (x) { return x && !String(x.value || "").trim(); })[0] || g.querySelector("[type=submit]"); if (el) el.focus(); };
+    go(); setTimeout(go, 30); // and again after the screen settles, unless the person is already in the form
+  }
+  function onlyCarried(fa) { // nothing typed beyond what came from the customer's page
+    var p = (S.carry && S.carry.person) || {};
+    return ["client_name", "phone", "issue", "followup_date"].every(function (k) { var el = fa.querySelector("[name=" + k + "]"), v = String((el && el.value) || "").trim(); return !v || (CARRY[k] && v === String(p[CARRY[k]] || "").trim()); });
+  }
+
   function addHtml() {
     var a = S.adding, fe = S.fe || {}, cat = a.category || lastCat() || "General Enquiry", cs = cats(); if (cs.indexOf(cat) < 0) cat = cs.indexOf("General Enquiry") >= 0 ? "General Enquiry" : cs[0];
-    return '<form class="tkt-form" id="tkt-add" autocomplete="off" aria-label="New question"><label><span>Customer</span><input name="client_name" value="' + esc(a.client_name || "") + '" placeholder="Name and surname" autocapitalize="words"' + inv(fe, "client_name") + ">" + ferr(fe, "client_name") + "</label>" +
+    return '<form class="tkt-form" id="tkt-add" autocomplete="off" aria-label="New question">' + carryLine() + '<label><span>Customer</span><input name="client_name" value="' + esc(a.client_name || "") + '" placeholder="Name and surname" autocapitalize="words"' + inv(fe, "client_name") + ">" + ferr(fe, "client_name") + "</label>" +
       '<label><span>Phone</span><input name="phone" type="tel" inputmode="tel" value="' + esc(a.phone || "") + '" placeholder="To call with the answer"></label>' +
       '<label><span>Question</span><input name="issue" value="' + esc(a.issue || "") + '" placeholder="What they asked"' + inv(fe, "issue") + ">" + ferr(fe, "issue") + "</label>" +
       '<label><span>About</span><select name="category">' + cs.map(function (c) { return '<option' + (c === cat ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + "</select></label>" +
@@ -304,7 +320,7 @@
   function editUnchanged() { var a = S.edit || {}, o = S.orig || {}; return EDIT.every(function (k) { return String(a[k] == null ? "" : a[k]).trim() === String(o[k] == null ? "" : o[k]).trim(); }); }
   function closeEdit() { var id = S.editing; S.editing = null; S.edit = null; S.editErr = ""; S.efe = {}; S.del = null; paint(); if (id) focusOn('[data-act=open][data-id="' + id + '"]'); }
   function closeNote() { var id = S.noting; S.noting = null; S.err = ""; S.noteDraft = ""; paint(); if (id) focusOn('[data-act=note][data-id="' + id + '"]'); }
-  function closeAdd() { S.adding = null; S.err = ""; S.fe = {}; paint(); focusOn(".tkt-top [data-act=add]"); }
+  function closeAdd() { var h = S.carry; S.carry = null; S.adding = null; S.err = ""; S.fe = {}; if (h && E.customerReturn && E.customerReturn(h)) return; paint(); focusOn(".tkt-top [data-act=add]"); } // opened from a customer's page: back to that person
 
   function bind(root) {
     var m = S.mount;
@@ -312,7 +328,7 @@
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
         if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("tktreg") : "#customers";
-        else if (a === "add") { S.adding = {}; S.err = ""; S.fe = {}; paint(); setTimeout(function () { var f = m.querySelector("#tkt-add [name=client_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (a === "add") { S.carry = null; S.adding = {}; S.err = ""; S.fe = {}; paint(); setTimeout(function () { var f = m.querySelector("#tkt-add [name=client_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (a === "add-cancel") closeAdd();
         else if (a === "note") { keepEdit(); S.noting = id; S.noteDraft = ""; S.err = ""; S.editing = null; S.edit = null; paint(); setTimeout(function () { var f = m.querySelector("#tkt-note input"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (a === "note-cancel") closeNote();
@@ -349,7 +365,7 @@
     var fa = root.querySelector("#tkt-add");
     if (fa) {
       fa.addEventListener("submit", function (ev) { ev.preventDefault(); add(fa); });
-      fa.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !document.querySelector(".epp-list:not([hidden])")) { var typed = ["client_name", "phone", "issue", "followup_date"].some(function (k) { var el = fa.querySelector("[name=" + k + "]"); return el && String(el.value || "").trim(); }); if (!typed) { ev.preventDefault(); closeAdd(); } } });
+      fa.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !document.querySelector(".epp-list:not([hidden])")) { var typed = ["client_name", "phone", "issue", "followup_date"].some(function (k) { var el = fa.querySelector("[name=" + k + "]"); return el && String(el.value || "").trim(); }); if (!typed || (S.carry && onlyCarried(fa))) { ev.preventDefault(); closeAdd(); } } });
     }
     if (fa && E.personPick) E.personPick.attach({ key: "tktreg", form: fa, fields: { name: "client_name", phone: "phone" },
       local: function () { return S.entries.map(function (e) { return { name: e.client_name, phone: e.phone, date: String(e.open_date || "").slice(0, 10), from: "question" }; }); } });
@@ -455,7 +471,7 @@
     try {
       var r = await E.apiFetch("/client-tickets/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.adding = null; S.fe = {}; setLastCat(body.category); E.toast("Saved · question for " + body.client_name + " · " + body.ticket_id, "success"); var added = true;
+      S.adding = null; S.carry = null; S.fe = {}; setLastCat(body.category); E.toast("Saved · question for " + body.client_name + " · " + body.ticket_id, "success"); var added = true;
       if (E.linkPerson) E.linkPerson({ name: body.client_name, phone: body.phone }, "register:questions"); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; await load();
@@ -464,7 +480,15 @@
 
   E.registerModule({
     id: "tktreg", title: "Questions", order: 3, icon: "?", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.noting = null; S.err = ""; S.editing = null; S.edit = null; S.del = null; S.editErr = ""; S.editSaving = false; S.view = "open"; S.done = []; S.q = ""; S.fe = {}; S.efe = {}; css(); paint(); return load(); }
+    render: function (ctx) {
+      S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.noting = null; S.err = ""; S.editing = null; S.edit = null; S.del = null; S.editErr = ""; S.editSaving = false; S.view = "open"; S.done = []; S.q = ""; S.fe = {}; S.efe = {};
+      // From a customer's page: a new question for them, or (from the count of their questions) their questions.
+      var hand = E.takeCustomerHandoff ? E.takeCustomerHandoff("tktreg") : null;
+      S.carry = hand && hand.mode === "new" ? hand : null;
+      if (hand && hand.mode === "find") S.q = String(hand.person.name);
+      if (S.carry) S.adding = {};
+      css(); paint(); if (S.carry) fillCarry(); return load();
+    }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("tktreg") < 0) E.UI2_DESTINATIONS.push("tktreg");
   if (E.UI2_PARENT) E.UI2_PARENT.tktreg = "customers";

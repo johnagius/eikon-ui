@@ -46,6 +46,13 @@
     var names = { order: "order", question: "question", delivery: "delivery", dda_sale: "DDA sale", poyc: "POYC", repeat: "repeat prescription", poct: "POCT", loyalty: "loyalty card", appointment: "appointment", waitlist: "waiting list", calculator: "calculator" };
     return Object.keys(sources || {}).map(function (k) { var n = sources[k]; return n + " " + names[k] + (n === 1 || names[k].slice(-1) === "s" || k === "poyc" ? "" : "s"); }).join(", ");
   }
+  // A delivery's title comes as its stored item list (JSON): show the item names, never the raw text.
+  function storyTitle(t) {
+    var s = String(t || "").trim(); if (s.charAt(0) !== "[") return s;
+    try { var a = JSON.parse(s); if (Array.isArray(a)) return a.map(function (i) { return i && typeof i === "object" ? String(i.name || "").trim() : String(i || "").trim(); }).filter(Boolean).join(", "); } catch (e) {}
+    return s;
+  }
+  E.customersStoryTitle = storyTitle; // for the tests
   function kindMeta(kind) {
     return ({ order: ["Order", "#clientorders", "blu"], question: ["Question", "#tickets", "amb"], delivery: ["Delivery", "#deliveries", "blu"], dda_sale: ["DDA sale", "#dda-sales", "red"], poyc: ["POYC", "#dda-poyc", "red"],
       repeat: ["Repeat prescription", "#repeatprescriptions", "grn"], poct: ["POCT", "#poct", "grn"], loyalty: ["Loyalty", "#loyalty", "gry"], appointment: ["Appointment", "#appointments", "blu"], waitlist: ["Waiting list", "#appointments", "gry"], calculator: ["Calculator", "#pharmacycalc", "gry"] })[kind] || [kind, "#dashboard", "gry"];
@@ -82,7 +89,8 @@
       ".cus-form input,.cus-form textarea{width:100%;box-sizing:border-box;height:38px;border:1px solid var(--border);border-radius:9px;background:var(--bg);padding:0 10px;color:var(--text);font-size:14px}.cus-form textarea{height:70px;padding:8px 10px;resize:vertical}.cus-form input:focus,.cus-form textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--shadow,rgba(10,143,106,.18))}" +
       ".cus-warn{background:rgba(201,138,18,.14);border:1px solid rgba(201,138,18,.35);color:var(--warn,#A06A0E);border-radius:10px;padding:8px 12px;font-size:13px;margin-top:12px}" +
       ".cus-src{font-size:12px;color:var(--muted);margin-top:6px}" +
-      ".cus-regs{display:flex;gap:4px 12px;flex-wrap:wrap;align-items:center;margin-top:18px;padding-top:12px;border-top:1px solid var(--border);font-size:12.5px}.cus-regs span{color:var(--muted);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:11px;margin-right:4px}.cus-regs a{color:var(--accent);font-weight:600;cursor:pointer}";
+      ".cus-regs{display:flex;gap:4px 12px;flex-wrap:wrap;align-items:center;margin-top:18px;padding-top:12px;border-top:1px solid var(--border);font-size:12.5px}.cus-regs span{color:var(--muted);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:11px;margin-right:4px}.cus-regs a{color:var(--accent);font-weight:600;cursor:pointer}" +
+      ".cus-story .t b{overflow-wrap:anywhere}.cus-counts a,.cus-regs a{text-decoration:none}.cus-counts a b+b{font-weight:500}"; // links now (keyboard and a long-press reach them), still looking like chips
     document.head.appendChild(st);
   }
 
@@ -121,7 +129,7 @@
   }
 
   async function open(id) {
-    state.selected = id; state.detail = null; state.detailLoading = true; state.editing = false;
+    state.selected = id; state.detail = null; state.detailLoading = true; state.editing = false; state.bkAsk = false;
     renderList(); renderDetail();
     try {
       var r = await E.apiFetch("/people/" + id, { method: "GET", timeoutMs: 12000 });
@@ -224,12 +232,55 @@
     }
   }
 
-  // Carry the person into a register so nobody types the name a fourth time.
-  function carry(hash) {
-    var p = state.detail && state.detail.person;
-    if (p && E.carryPerson) E.carryPerson(p);
+  // ---------- hand-over to the rebuilt screens (BACKLOG4 item 1) ----------
+  // A customer's action opens the screen of the new layout, never the classic one. One note in sessionStorage says
+  // which screen, whether to open its New form ("new") or to show this person's records ("find"), who the person is,
+  // and which button on their page to come back to. The screen takes it once, on opening (E.takeCustomerHandoff).
+  var HAND = "eikon_cus_hand";
+  E.customerHandoff = function (to, mode, p, back) {
+    p = p || {};
+    try { sessionStorage.setItem(HAND, JSON.stringify({ to: to, mode: mode, at: Date.now(), back: back || "",
+      person: { id: p.id || 0, name: p.name || "", id_card: p.id_card || "", phone: p.phone || "", email: p.email || "", address: p.address || "" } })); } catch (e) {}
+  };
+  E.takeCustomerHandoff = function (to) {
+    var h = null;
+    try { h = JSON.parse(sessionStorage.getItem(HAND) || "null"); } catch (e) { h = null; }
+    if (!h || h.to !== to) return null; // meant for another screen: left for it
+    try { sessionStorage.removeItem(HAND); } catch (e) {}
+    if (!h.at || Date.now() - Number(h.at) > 60000 || !h.person || !String(h.person.name || "").trim()) return null; // an old hand-over is ignored
+    return h;
+  };
+  // Back to the person's page, with focus on the button that was pressed (Escape or Cancel on a form opened from it).
+  E.customerReturn = function (h) {
+    if (!h || !h.person || !Number(h.person.id)) return false;
+    try { sessionStorage.setItem("eikon_customers_open", JSON.stringify({ id: Number(h.person.id), at: Date.now(), focus: h.back || "" })); } catch (e) {}
+    window.location.hash = "#customers";
+    return true;
+  };
+  // The person's buttons: the rebuilt screen with its New form open and the person filled in.
+  var GO = { order: "ordreg", question: "tktreg", delivery: "dlvreg" };
+  // The counts under "In the registers": the register, showing this person. The screens that can search take the
+  // person; the others open as they are. Only Loyalty, and Appointments until Bookings is set up, stay in the classic look.
+  var FIND = { ordreg: 1, tktreg: 1, dlvreg: 1, repreg: 1 };
+  function classicLook(kind) { return kind === "loyalty" || ((kind === "appointment" || kind === "waitlist") && !(E.bookingsReady && E.bookingsReady())); }
+  function goAction(what) {
+    var p = state.detail && state.detail.person; if (!p || !GO[what]) return;
+    E.customerHandoff(GO[what], "new", p, what);
+    window.location.hash = "#" + GO[what];
+  }
+  function goCount(kind) {
+    var p = state.detail && state.detail.person; if (!p) return;
+    var old = kindMeta(kind)[1].replace(/^#/, "");
+    if ((kind === "appointment" || kind === "waitlist") && E.bookingsReady && E.bookingsReady()) { window.location.hash = "#bookings"; return; }
+    var nat = E.UI2_NATIVE && E.UI2_NATIVE[old];
+    if (nat) { if (FIND[nat]) E.customerHandoff(nat, "find", p, ""); window.location.hash = "#" + nat; return; }
+    // the classic look (Loyalty; Appointments while Bookings is not set up): the person is carried, and its back link returns here
+    if (E.carryPerson) E.carryPerson(p);
     try { sessionStorage.setItem("eikon_ui2_return", "customers"); } catch (e) {}
-    E.openClassic(hash);
+    E.openClassic(old);
+  }
+  function bookingCarry(p) {
+    try { sessionStorage.setItem("eikon_bk_carry", JSON.stringify({ name: p.name || "", phone: p.phone || "", email: p.email || "", at: Date.now() })); } catch (e) {}
   }
 
   // ---------- render ----------
@@ -239,12 +290,14 @@
     m.innerHTML = '<div class="cus"><div class="cus-side">' +
       '<div class="cus-search"><span aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:rgba(60,60,67,.55);flex:none;display:block"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><input id="cus-q" type="search" autocomplete="off" aria-label="Find a customer by name, ID card or phone" placeholder="Name, ID card or phone" value="' + esc(state.q) + '"></div>' +
       '<div id="cus-list"></div>' +
-      '<div class="cus-regs"><span>Registers</span>' + [["clientorders", "Orders"], ["tickets", "Questions"], ["deliveries", "Deliveries"], ["appointments", "Appointments"], ["loyalty", "Loyalty"]].filter(function (x) { return E.modules[x[0]] || (window.EIKON_LATE && !E._lateIn); }).map(function (x) { return '<a data-reg="' + x[0] + '">' + x[1] + '</a>'; }).join("") + '</div>' +
+      '<div class="cus-regs"><span>Registers</span>' + regsStrip().map(function (x) { return '<a href="#' + x[2] + '" data-reg="' + x[0] + '">' + x[1] + '</a>'; }).join("") + '</div>' +
       (E.modules.dupreg || (window.EIKON_LATE && !E._lateIn) ? '<div class="cus-regs"><span>Tidy up</span><a href="#dupreg" data-dupes>Possible duplicates</a></div>' : "") +
       '</div><div class="cus-detail" id="cus-detail"></div></div>';
-    m.querySelectorAll("[data-reg]").forEach(function (el) { el.addEventListener("click", function () {
+    m.querySelectorAll("[data-reg]").forEach(function (el) { el.addEventListener("click", function (ev) {
       var reg = el.getAttribute("data-reg"), nat = E.UI2_NATIVE && E.UI2_NATIVE[reg];
-      if (nat && E.modules[nat]) { window.location.hash = "#" + nat; return; }
+      ev.preventDefault();
+      if (reg === "appointments" && E.bookingsReady && E.bookingsReady()) { window.location.hash = "#bookings"; return; }
+      if (nat) { window.location.hash = "#" + nat; return; } // the router waits for screens still loading: never the classic look for a rebuilt one
       try { sessionStorage.setItem("eikon_ui2_return", "customers"); } catch (e) {} E.openClassic(reg); }); });
     var q = m.querySelector("#cus-q");
     q.addEventListener("input", function () {
@@ -265,6 +318,14 @@
     renderList(); renderDetail();
     search(state.q.trim());
     setTimeout(function () { try { q.focus(); } catch (e) {} }, 0);
+  }
+
+  // The Customers registers: rebuilt ones open in the new layout; what is still only in the classic look says so.
+  function regsStrip() {
+    var bk = E.bookingsReady && E.bookingsReady();
+    return [["clientorders", "Orders"], ["tickets", "Questions"], ["deliveries", "Deliveries"], ["appointments", bk ? "Bookings" : "Appointments (classic look)"], ["loyalty", "Loyalty (classic look)"]]
+      .filter(function (x) { var nat = E.UI2_NATIVE && E.UI2_NATIVE[x[0]]; return nat || (x[0] === "appointments" && bk) || E.modules[x[0]] || (window.EIKON_LATE && !E._lateIn); })
+      .map(function (x) { var nat = E.UI2_NATIVE && E.UI2_NATIVE[x[0]]; return [x[0], x[1], x[0] === "appointments" && bk ? "bookings" : nat || x[0]]; });
   }
 
   function renderList() {
@@ -365,22 +426,30 @@
       var last = act[0];
       var na = d.next_appointment;
       html += '<div class="cus-facts">' + fact("Last visit", last ? when(last.date) + " · " + kindMeta(last.kind)[0] : "") + (na ? fact("Next appointment", nextWhen(na.date) + (na.time ? " " + na.time : "") + (na.doctor ? " · " + na.doctor : "")) : "") + fact("Address", p.address) + fact("Doctor", p.doctor_name) + fact("E-mail", p.email) + (p.notes ? fact("Notes", p.notes) : "") + '</div>';
-      html += '<div class="cus-actions"><button class="cus-btn p" data-carry="#clientorders">New order</button><button class="cus-btn" data-carry="#tickets">Question</button><button class="cus-btn" data-carry="#deliveries">Delivery</button>' + (E.bookingsReady && E.bookingsReady() ? '<button class="cus-btn" data-act="book">Booking</button>' : '<button class="cus-btn" data-carry="#appointments">Appointment</button>') + '</div>';
+      html += '<div class="cus-actions"><button class="cus-btn p" data-go="order">New order</button><button class="cus-btn" data-go="question">Question</button><button class="cus-btn" data-go="delivery">Delivery</button><button class="cus-btn" data-act="book" data-go="booking"' + (E.bookingsReady && E.bookingsReady() ? "" : ' aria-expanded="' + !!state.bkAsk + '" aria-controls="cus-bk"') + '>Booking</button></div>';
+      // Bookings not set up here yet: say so calmly, offer the set-up (new layout), and keep the classic Appointments one tap away.
+      if (state.bkAsk && !(E.bookingsReady && E.bookingsReady())) {
+        var admin = !!(E.state && E.state.user && E.state.user.role === "admin");
+        html += '<div class="cus-quiet" id="cus-bk" data-cus-bk role="status" style="margin-top:12px;padding:14px 16px"><b style="color:var(--text)">Set up Bookings first.</b> ' +
+          (admin ? "One service and who does it, in about a minute. " + esc(p.name) + " is filled in after." : "Your pharmacist sets it up once, on the Bookings screen.") +
+          '<div class="cus-actions" style="margin-top:10px">' + (admin ? '<button class="cus-btn p" data-act="bk-setup">Set up Bookings</button>' : "") +
+          '<button class="cus-btn" data-act="bk-classic">Book in Appointments (classic look)</button></div></div>';
+      }
     }
     html += '</div>';
 
     html += '<div class="cus-grid"><div class="cus-card"><div class="cus-lab" style="margin-top:0">Story' + (act.length ? ' <b>' + act.length + '</b>' : "") + '</div>';
     if (act.length) {
       html += '<ul class="cus-story">' + act.slice(0, 40).map(function (a) {
-        var km = kindMeta(a.kind);
-        return '<li><i class="' + km[2] + '"></i><div class="t"><b>' + esc(km[0]) + (a.title ? ' · ' + esc(a.title) : "") + '</b><span>' + esc([a.ref, a.doctor ? "Dr " + String(a.doctor).replace(/^dr\.?\s*/i, "") : ""].filter(Boolean).join(" · ")) + '</span></div><span class="d">' + esc(when(a.date)) + '</span></li>';
+        var km = kindMeta(a.kind), title = storyTitle(a.title);
+        return '<li><i class="' + km[2] + '"></i><div class="t"><b>' + esc(km[0]) + (title ? ' · ' + esc(title) : "") + '</b><span>' + esc([a.ref, a.doctor ? "Dr " + String(a.doctor).replace(/^dr\.?\s*/i, "") : ""].filter(Boolean).join(" · ")) + '</span></div><span class="d">' + esc(when(a.date)) + '</span></li>';
       }).join("") + '</ul>';
     } else {
       html += '<div class="cus-quiet">Nothing recorded yet. Orders, questions, deliveries, DDA sales, repeat prescriptions and appointments for ' + esc(p.name) + ' will show here.</div>';
     }
     html += '</div><div class="cus-card"><div class="cus-lab" style="margin-top:0">In the registers</div>';
     var ck = Object.keys(counts).filter(function (k) { return counts[k]; });
-    html += ck.length ? '<div class="cus-counts">' + ck.map(function (k) { var km = kindMeta(k); return '<a data-carry="' + km[1] + '">' + esc(km[0]) + ' <b>' + counts[k] + '</b></a>'; }).join("") + '</div>' : '<div class="cus-src">Not in any register yet.</div>';
+    html += ck.length ? '<div class="cus-counts">' + ck.map(function (k) { var km = kindMeta(k); return '<a href="' + km[1] + '" data-count="' + esc(k) + '">' + esc(km[0]) + ' <b>' + counts[k] + '</b>' + (classicLook(k) ? '<b>(classic look)</b>' : "") + '</a>'; }).join("") + '</div>' : '<div class="cus-src">Not in any register yet.</div>';
     html += '<div class="cus-src">' + (p.source && p.source.indexOf("history") === 0 ? "Added from the registers" : "Added by hand") + (p.updated_at ? ", last changed " + esc(when(String(p.updated_at).slice(0, 10))) : "") + '.</div>';
     html += '</div></div>';
     box.innerHTML = html;
@@ -391,12 +460,22 @@
       f.addEventListener("submit", function (e) { e.preventDefault(); save(f); });
       f.querySelector('[data-act="cancel"]').addEventListener("click", function () { state.editing = false; state.conflict = ""; state.conflictExisting = null; renderDetail(); });
     }
-    box.querySelectorAll("[data-carry]").forEach(function (el) { el.addEventListener("click", function () { carry(el.getAttribute("data-carry")); }); });
+    box.querySelectorAll("[data-go]:not([data-act])").forEach(function (el) { el.addEventListener("click", function () { goAction(el.getAttribute("data-go")); }); });
+    box.querySelectorAll("[data-count]").forEach(function (el) { el.addEventListener("click", function (ev) { ev.preventDefault(); goCount(el.getAttribute("data-count")); }); });
     box.querySelectorAll('[data-act="book"]').forEach(function (el) { el.addEventListener("click", function () {
       var p = (state.detail && state.detail.person) || {};
-      try { sessionStorage.setItem("eikon_bk_carry", JSON.stringify({ name: p.name || "", phone: p.phone || "", email: p.email || "" })); } catch (e) {}
+      if (!(E.bookingsReady && E.bookingsReady())) { // not set up here: the note above opens or closes, nothing leaves the page
+        state.bkAsk = !state.bkAsk; renderDetail();
+        setTimeout(function () { var b = box.querySelector(state.bkAsk ? "#cus-bk .cus-btn" : '[data-act="book"]'); if (b) b.focus(); }, 0);
+        return;
+      }
+      bookingCarry(p);
       location.hash = "#bookings";
     }); });
+    var bkn = box.querySelector("#cus-bk");
+    if (bkn) bkn.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { ev.preventDefault(); state.bkAsk = false; renderDetail(); setTimeout(function () { var b = box.querySelector('[data-act="book"]'); if (b) b.focus(); }, 0); } });
+    box.querySelectorAll('[data-act="bk-setup"]').forEach(function (el) { el.addEventListener("click", function () { state.bkAsk = false; bookingCarry((state.detail && state.detail.person) || {}); location.hash = "#bookings"; }); });
+    box.querySelectorAll('[data-act="bk-classic"]').forEach(function (el) { el.addEventListener("click", function () { state.bkAsk = false; goCount("appointment"); }); });
     box.querySelectorAll("[data-person]").forEach(function (el) { el.addEventListener("click", function () { state.conflict = ""; state.conflictExisting = null; open(Number(el.getAttribute("data-person"))); }); });
   }
 
@@ -410,7 +489,11 @@
     if (go && go.new) { state.selected = null; state.detail = null; state.q = String(go.id_card || ""); state.creating = true; }
     injectCss();
     render();
-    if (go && Number(go.id) > 0) open(Number(go.id));
+    // Back from a form opened on this person's page (Escape or Cancel there): the person again, focus on the button pressed.
+    if (go && Number(go.id) > 0) open(Number(go.id)).then(function () {
+      if (!go.focus || state.selected !== Number(go.id) || !state.mount) return;
+      var b = state.mount.querySelector('#cus-detail [data-go="' + String(go.focus).replace(/[^a-z]/g, "") + '"]'); if (b) try { b.focus(); } catch (e) {}
+    });
   }
   function destroy() { if (state.timer) { clearTimeout(state.timer); state.timer = null; } state.seq++; }
 

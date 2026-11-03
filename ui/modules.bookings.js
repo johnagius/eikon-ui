@@ -146,6 +146,9 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     if (want && Date.now() - (want.at || 0) < 60000 && !S.error && (S.bookings || []).some(function (b) { return b.id === want.id; })) { S.sheet = { kind: "booking", id: want.id }; paint(); return; }
     // Arrived from a customer's "Booking" button: open a new booking with their details filled in.
     var carry = null; try { carry = JSON.parse(sessionStorage.getItem("eikon_bk_carry") || "null"); sessionStorage.removeItem("eikon_bk_carry"); } catch (e) {}
+    if (carry && carry.at && Date.now() - Number(carry.at) > 15 * 60000) carry = null; // an old hand-over is ignored
+    // Sent here to set Bookings up first (Customers, BACKLOG4 item 1): the person waits for the set-up, then their booking opens.
+    if (carry && S.setup && !S.error && !S.setup.services.length) { try { sessionStorage.setItem("eikon_bk_carry", JSON.stringify(carry)); } catch (e) {} carry = null; }
     if (carry && S.setup && !S.error) {
       var first = S.setup.services.filter(function (x) { return x.active; })[0];
       if (first) { S.sheet = { kind: "new", serviceId: first.id, slots: [], slot: null, name: carry.name, phone: carry.phone, email: carry.email }; paint(); return loadSlots(); }

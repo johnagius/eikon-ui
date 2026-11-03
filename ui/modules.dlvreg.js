@@ -214,7 +214,7 @@
       var a = S.adding, fe = S.fe || {};
       var inv = function (k) { return fe[k] ? ' aria-invalid="true" aria-describedby="dlv-e-' + k + '"' : ""; }, ferr = function (k) { return fe[k] ? '<small class="dlv-ferr" id="dlv-e-' + k + '">' + esc(fe[k]) + "</small>" : ""; };
       var fld = function (k, label, val, extra) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(val || "") + '"' + (extra || "") + inv(k) + ">" + ferr(k) + "</label>"; };
-      h += '<form class="dlv-form" id="dlv-add" autocomplete="off" aria-label="New delivery">' + fld("client_name", "Customer", a.client_name, ' placeholder="Name and surname" autocapitalize="words"') +
+      h += '<form class="dlv-form" id="dlv-add" autocomplete="off" aria-label="New delivery">' + carryLine() + fld("client_name", "Customer", a.client_name, ' placeholder="Name and surname" autocapitalize="words"') +
         // b4-10: the ID card, as on Orders (optional). It is the delivery's own id_doc_ref, the field the classic form sends; sent only when typed
         fld("id_doc_ref", "ID card", a.id_doc_ref, ' placeholder="Optional, e.g. for a controlled drug" autocapitalize="characters"') +
         fld("phone", "Phone", a.phone, ' type="tel" inputmode="tel" placeholder="For the driver"') +
@@ -232,8 +232,10 @@
     if (S.loading && !S.entries.length) h += '<div aria-busy="true" style="margin-top:16px"><span class="dlv-sr" role="status">Opening deliveries</span><i class="dlv-skel"></i><i class="dlv-skel"></i></div>';
     else if (S.error) h += '<div class="dlv-quiet" role="alert">' + esc(S.error) + ' <button type="button" class="dlv-btn" data-act="retry" style="margin-left:6px">Try again</button></div>';
     else if (!S.entries.length) h += '<div class="dlv-quiet">Nothing to deliver. When a customer wants something brought to them, press New delivery.</div>';
+    else if (S.who && !S.entries.filter(forWho).length) h += whoLine() + '<div class="dlv-quiet">No delivery on its way for ' + esc(S.who.name) + '. Their past deliveries are under By month.</div>';
     else {
-      var now = S.entries.filter(function (e) { return daysUntil(day(e)) <= 0; }), later = S.entries.filter(function (e) { return daysUntil(day(e)) > 0; });
+      var shown = S.who ? S.entries.filter(forWho) : S.entries; if (S.who) h += whoLine();
+      var now = shown.filter(function (e) { return daysUntil(day(e)) <= 0; }), later = shown.filter(function (e) { return daysUntil(day(e)) > 0; });
       var over = now.filter(function (e) { return daysUntil(day(e)) < 0; }).length;
       if (now.length) h += '<div class="dlv-lab">Today <b>' + now.length + "</b>" + (over ? '<span style="color:var(--danger)">· ' + over + " overdue</span>" : "") + "</div>" + now.map(cardHtml).join("");
       if (later.length) h += '<div class="dlv-lab">Later <b>' + later.length + "</b></div>" + later.map(cardHtml).join("");
@@ -247,7 +249,8 @@
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
         if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("dlvreg") : "#customers";
-        else if (a === "add") { S.adding = {}; S.err = ""; S.fe = {}; paint(); setTimeout(function () { var f = m.querySelector("#dlv-add [name=client_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (a === "who-all") { S.who = null; paint(); focusOn(".dlv-top [data-act=add]"); }
+        else if (a === "add") { S.carry = null; S.adding = {}; S.err = ""; S.fe = {}; paint(); setTimeout(function () { var f = m.querySelector("#dlv-add [name=client_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (a === "add-cancel") closeAdd();
         else if (a === "open") openEdit(id);
         else if (a === "edit-cancel") closeEdit();
@@ -273,7 +276,7 @@
     var fa = m.querySelector("#dlv-add");
     if (fa) {
       fa.addEventListener("submit", function (ev) { ev.preventDefault(); add(fa); });
-      fa.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !document.querySelector(".epp-list:not([hidden])")) { keep(); var a0 = S.adding || {}; if (!["client_name", "id_doc_ref", "phone", "delivery_address", "address_notes", "itemsText", "scheduled_time_slot"].some(function (k) { return String(a0[k] || "").trim(); })) { ev.preventDefault(); closeAdd(); } } }); // Escape closes an empty form; typing is never thrown away
+      fa.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !document.querySelector(".epp-list:not([hidden])")) { keep(); var a0 = S.adding || {}; if (!["client_name", "id_doc_ref", "phone", "delivery_address", "address_notes", "itemsText", "scheduled_time_slot"].some(function (k) { return String(a0[k] || "").trim(); }) || (S.carry && onlyCarried(a0))) { ev.preventDefault(); closeAdd(); } } }); // Escape closes an empty form; typing is never thrown away
       fa.addEventListener("input", function (ev) { var el = ev.target; if (el && el.getAttribute && el.getAttribute("aria-invalid") === "true") { el.removeAttribute("aria-invalid"); if (S.fe) delete S.fe[el.name]; var s0 = el.parentNode && el.parentNode.querySelector(".dlv-ferr"); if (s0) s0.remove(); } });
     }
     if (fa && E.personPick) E.personPick.attach({ key: "dlvreg", form: fa, fields: { id: "id_doc_ref", name: "client_name", phone: "phone", address: "delivery_address" },
@@ -282,7 +285,24 @@
 
   function find(id) { return S.entries.find(function (x) { return x.id === id; }); }
   function focusOn(sel) { setTimeout(function () { var x = S.mount && S.mount.querySelector(sel); if (x) x.focus(); }, 0); }
-  function closeAdd() { S.adding = null; S.err = ""; S.fe = {}; paint(); focusOn(".dlv-top [data-act=add]"); }
+  function closeAdd() { var h = S.carry; S.carry = null; S.adding = null; S.err = ""; S.fe = {}; if (h && E.customerReturn && E.customerReturn(h)) return; paint(); focusOn(".dlv-top [data-act=add]"); } // opened from a customer's page: back to that person
+  // Opened from a customer's page (modules.customers.js, BACKLOG4 item 1): who it is for stays in sight at the top, the
+  // person is filled into the empty fields only, and focus goes to the first required field still empty.
+  var CARRY = { client_name: "name", id_doc_ref: "id_card", phone: "phone", delivery_address: "address" }, NEEDED = ["client_name", "phone", "delivery_address"];
+  function carryLine() { var p = S.carry && S.carry.person; return p ? '<div class="dlv-meta" style="font-size:12.5px;color:var(--muted);padding:10px 16px 8px">From Customers: <b>' + esc(p.name) + "</b>" + (p.id_card ? " · ID card " + esc(p.id_card) : "") + "</div>" : ""; }
+  function fillCarry() {
+    var f = S.mount && S.mount.querySelector("#dlv-add"), p = S.carry && S.carry.person; if (!f || !p) return;
+    var want = {}; Object.keys(CARRY).forEach(function (k) { want[k] = p[CARRY[k]]; });
+    E.fillEmpty(f, want).forEach(function (k) { S.adding[k] = want[k]; });
+    var go = function () { if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#dlv-add")) return; var g = S.mount && S.mount.querySelector("#dlv-add"); if (!g) return; var el = NEEDED.map(function (k) { return g.querySelector("[name=" + k + "]"); }).filter(function (x) { return x && !String(x.value || "").trim(); })[0] || g.querySelector("[name=items]"); if (el) el.focus(); };
+    go(); setTimeout(go, 30); // and again after the screen settles, unless the person is already in the form
+  }
+  function onlyCarried(a0) { var p = (S.carry && S.carry.person) || {}; return ["client_name", "id_doc_ref", "phone", "delivery_address", "address_notes", "itemsText", "scheduled_time_slot"].every(function (k) { var v = String(a0[k] || "").trim(); return !v || (CARRY[k] && v === String(p[CARRY[k]] || "").trim()); }); }
+  // From the count of a customer's deliveries: only theirs (same name, or same phone), until Show all.
+  function low(s) { return String(s || "").trim().toLowerCase(); }
+  function digits(s) { return String(s || "").replace(/\D/g, ""); }
+  function forWho(e) { return !S.who || low(e.client_name) === low(S.who.name) || (digits(S.who.phone).length >= 6 && digits(e.phone) === digits(S.who.phone)); }
+  function whoLine() { return '<div class="dlv-lab" role="status" style="align-items:center">Deliveries for ' + esc(S.who.name) + ' <button type="button" class="dlv-btn" data-act="who-all" style="margin-left:auto">Show all</button></div>'; }
   function closeIn() { var id = S.open, md = S.mode; S.open = null; S.mode = ""; S.err = ""; S.draft = null; paint(); if (id) focusOn('[data-act=' + md + '][data-id="' + id + '"]'); }
   function keep() { // the new delivery, and who took one / why not, survive any redraw
     var f = S.mount && S.mount.querySelector("#dlv-add");
@@ -435,7 +455,7 @@
     try {
       var r = await E.apiFetch("/client-deliveries/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.adding = null; S.fe = {}; E.toast("Saved · delivery for " + body.client_name + " · " + body.delivery_id, "success"); var added = true;
+      S.adding = null; S.carry = null; S.fe = {}; E.toast("Saved · delivery for " + body.client_name + " · " + body.delivery_id, "success"); var added = true;
       if (E.linkPerson) E.linkPerson({ name: body.client_name, phone: body.phone, address: body.delivery_address, id_card: idc }, "register:deliveries", asked); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; await load();
@@ -444,7 +464,15 @@
 
   E.registerModule({
     id: "dlvreg", title: "Deliveries", order: 3, icon: "→", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.open = null; S.mode = ""; S.err = ""; S.fe = {}; S.draft = null; S.editing = null; S.edit = null; S.orig = null; S.del = null; S.editErr = ""; S.editSaving = false; S.efe = {}; E.months.historyReset("dlvreg"); css(); paint(); return load(); }
+    render: function (ctx) {
+      S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.open = null; S.mode = ""; S.err = ""; S.fe = {}; S.draft = null; S.editing = null; S.edit = null; S.orig = null; S.del = null; S.editErr = ""; S.editSaving = false; S.efe = {}; E.months.historyReset("dlvreg");
+      // From a customer's page: a new delivery for them, or (from the count of their deliveries) their deliveries.
+      var hand = E.takeCustomerHandoff ? E.takeCustomerHandoff("dlvreg") : null;
+      S.carry = hand && hand.mode === "new" ? hand : null;
+      S.who = hand && hand.mode === "find" ? { name: String(hand.person.name), phone: String(hand.person.phone || "") } : null;
+      if (S.carry) S.adding = {};
+      css(); paint(); if (S.carry) fillCarry(); return load();
+    }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("dlvreg") < 0) E.UI2_DESTINATIONS.push("dlvreg");
   if (E.UI2_PARENT) E.UI2_PARENT.dlvreg = "customers";

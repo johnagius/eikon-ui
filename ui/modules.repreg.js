@@ -254,7 +254,13 @@
 
   E.registerModule({
     id: "repreg", title: "Repeat prescriptions", order: 3, icon: "℞", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.bad = {}; S.q = ""; S.mo = E.months.now(); S.moEntries = []; E.months.reset(); css(); watchWidth(); paint(); loadMonth(); return load(); }
+    render: function (ctx) {
+      S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.bad = {}; S.q = ""; S.mo = E.months.now(); S.moEntries = []; E.months.reset();
+      // From the count on a customer's page (modules.customers.js): their repeat prescriptions, by ID card when known.
+      var hand = E.takeCustomerHandoff ? E.takeCustomerHandoff("repreg") : null;
+      if (hand && hand.mode === "find") S.q = String(hand.person.id_card || hand.person.name);
+      css(); watchWidth(); paint(); loadMonth(); return load();
+    }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("repreg") < 0) E.UI2_DESTINATIONS.push("repreg");
   if (E.UI2_PARENT) E.UI2_PARENT.repreg = "registers";

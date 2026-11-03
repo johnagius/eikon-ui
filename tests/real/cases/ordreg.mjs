@@ -16,7 +16,7 @@ export default {
     await p.selectOption("#co-priority", IN.priority); await p.fill("#co-needed", IN.needed); await p.fill("#co-pickup", IN.pickup);
     await p.fill("#co-deposit", IN.deposit); await p.fill("#co-notes", IN.notes);
     await t.write(p, /\/client-orders\/entries$/, () => p.click("#eikon-modal-actions .eikon-btn.primary"));
-    const classic = t.since(T, m)[0];
+    const classic = t.since(T, m).filter((r) => r.client_name === IN.name)[0]; // its own row: other cases write to this table at the same time
     // new layout
     await t.open(p, "2", "clientorders", "ordreg", "[data-act=add]");
     m = t.maxId(T);
@@ -25,7 +25,7 @@ export default {
     await p.fill("#ord-add [name=needed_by]", IN.needed); await p.fill("#ord-add [name=pick_up_date]", IN.pickup); await p.fill("#ord-add [name=deposit]", IN.deposit);
     await p.selectOption("#ord-add [name=priority]", IN.priority); await p.fill("#ord-add [name=notes]", IN.notes);
     await t.write(p, /\/client-orders\/entries$/, () => p.click("#ord-add button[type=submit]"));
-    const fresh = t.since(T, m)[0];
+    const fresh = t.since(T, m).filter((r) => r.client_name === IN.name)[0];
     t.has("orders(new)", fresh, { client_name: IN.name, client_phone: IN.phone, items_text: IN.items, needed_by: IN.needed, pickup_date: IN.pickup, priority: 1, notes: IN.notes });
     t.same("orders", classic, fresh, { order_code: "the classic makes a 6-letter pick-up code; the new screen has none (ordreg.js add)" });
     await diary.run(t);

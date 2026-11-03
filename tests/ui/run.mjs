@@ -690,51 +690,135 @@ await page.click('[data-act="cancel"]');
 const facts = await page.evaluate(() => ({ pills: Array.from(document.querySelectorAll(".cus-head .cus-pill")).map((e) => e.textContent), facts: Array.from(document.querySelectorAll(".cus-facts small")).map((e) => e.textContent), next: (Array.from(document.querySelectorAll(".cus-facts div")).find((d) => /Next appointment/.test(d.textContent)) || {}).textContent }));
 report("customers: loyalty points and the next appointment are on the page", facts.pills.some((t) => /Loyalty · 1,120 pts/.test(t)) && /09:30 · Dr Galea/.test(facts.next || ""), JSON.stringify(facts));
 
-// Step 1: the hand-over. One tap opens the register's own form, filled; nothing is posted until Save.
+// Step 1: the hand-over (BACKLOG4 item 1). One tap on a customer's page opens the rebuilt screen with its New form open,
+// the person filled into the empty fields, focus on the first required field still empty; never the classic layout.
 const outDirShots = () => { const d = process.env.SHOTS_DIR || path.join(here, "shots"); fs.mkdirSync(d, { recursive: true }); return d; };
 const closeModal = async () => { await page.evaluate(() => { const ov = document.querySelector(".eikon-modal-overlay"); if (!ov) return; const b = Array.from(ov.querySelectorAll("button")).find((x) => /^(Cancel|Close)$/i.test(x.textContent.trim())); if (b) b.click(); else ov.remove(); }); await page.waitForTimeout(200); };
-const carryTo = async (hash, selector) => {
+const toCarmel = async () => {
   await page.goto(base + "&ui=2#customers");
   await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector("#cus-q"), null, { timeout: 15000 });
+  if (await page.locator(".cus-back").isVisible().catch(() => false)) { await page.click(".cus-back"); } // a phone shows the person instead of the list
   await page.fill("#cus-q", "zammit");
   await page.waitForFunction(() => document.querySelector('[data-person="1"]'), null, { timeout: 8000 });
   await page.click('[data-person="1"]');
-  await page.waitForFunction((h) => document.querySelector('[data-carry="' + h + '"]'), hash, { timeout: 8000 });
-  await fetch(`http://localhost:${PORT}/__reset`);
-  await page.click('[data-carry="' + hash + '"]');
-  await page.waitForFunction((sel) => location.hash && document.querySelector(sel) && document.querySelector(sel).value, selector, { timeout: 20000 });
-  await page.waitForTimeout(200);
+  await page.waitForFunction(() => document.querySelector('.cus-actions [data-go="order"]') && /Zammit Carmel/.test((document.querySelector(".cus-head h1") || {}).textContent || ""), null, { timeout: 8000 });
 };
-await carryTo("#clientorders", "#co-client");
-const ord = await page.evaluate(() => ({ hash: location.hash, classic: !document.documentElement.hasAttribute("data-ui2"), name: document.querySelector("#co-client").value, phone: document.querySelector("#co-contact").value, addr: document.querySelector("#co-address").value, email: document.querySelector("#co-email").value, carry: sessionStorage.getItem("eikon_carry_person"), back: document.getElementById("eikon-back-btn").textContent, backShown: document.getElementById("eikon-back-btn").style.display !== "none" }));
+const carryNew = async (go, form) => {
+  await toCarmel();
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('.cus-actions [data-go="' + go + '"]');
+  await page.waitForFunction((f) => document.querySelector(f + " [name=client_name]") && document.querySelector(f + " [name=client_name]").value, form, { timeout: 15000 });
+  await page.waitForTimeout(150);
+  return page.evaluate((f) => { const g = document.querySelector(f), v = {}; g.querySelectorAll("input[name]").forEach((i) => { if (i.type !== "checkbox") v[i.name] = i.value; });
+    return { hash: location.hash, classic: location.search.indexOf("ui=classic") >= 0, ui2: document.documentElement.hasAttribute("data-ui2"), v, focus: document.activeElement && document.activeElement.name, top: (g.querySelector("[class$=-meta]") || {}).textContent || "", hand: sessionStorage.getItem("eikon_cus_hand") }; }, form);
+};
+const ordC = await carryNew("order", "#ord-add");
 let carryPosts = (await callsNow()).filter((c) => c.method === "POST" && c.path !== "/auth/login");
-report("step 1: New order opens the classic order form with the person filled, nothing posted, hand-over used up, one button back", ord.hash === "#clientorders" && ord.classic && ord.name === "Zammit Carmel" && ord.phone === "79123456" && ord.addr === "1 Triq il-Knisja" && ord.carry === null && carryPosts.length === 0 && /New Eikon/.test(ord.back) && ord.backShown, JSON.stringify({ ord, carryPosts }));
+report("step 1: New order opens Orders (new layout) with its form open, name, ID card and phone filled, the person named at the top, focus on Items, nothing posted, hand-over used up",
+  ordC.hash === "#ordreg" && !ordC.classic && ordC.ui2 && ordC.v.client_name === "Zammit Carmel" && ordC.v.id_card === "0012345M" && ordC.v.contact === "79123456" && ordC.v.items === "" && ordC.focus === "items" && /Zammit Carmel · ID card 0012345M/.test(ordC.top) && ordC.hand === null && carryPosts.length === 0, JSON.stringify({ ordC, carryPosts }));
 await page.setViewportSize({ width: 1440, height: 900 });
-await page.screenshot({ path: path.join(outDirShots(), "06 Customer to order (classic form).png") });
-await closeModal();
-
-await carryTo("#tickets", "#tk-client");
-const tk = await page.evaluate(() => ({ name: document.querySelector("#tk-client").value, phone: document.querySelector("#tk-phone").value }));
-await closeModal();
-await carryTo("#deliveries", "#dv-client");
-const dv = await page.evaluate(() => ({ name: document.querySelector("#dv-client").value, phone: document.querySelector("#dv-phone").value, addr: document.querySelector("#dv-address").value }));
-await closeModal();
-// A pharmacy that has not set up Bookings keeps the Appointment button (classic Appointments); one that has gets Booking.
-await page.evaluate(() => { localStorage.setItem("eikon_bk_ready_1_12", "1"); });
-await page.goto(base + "&ui=2#customers"); await page.waitForFunction(() => document.querySelector("#cus-q"), null, { timeout: 15000 });
-await page.fill("#cus-q", "zammit"); await page.waitForFunction(() => document.querySelector('[data-person="1"]'), null, { timeout: 8000 }); await page.click('[data-person="1"]');
-await page.waitForFunction(() => document.querySelector(".cus-actions"), null, { timeout: 8000 });
-const bkBtn = await page.evaluate(() => ({ booking: !!document.querySelector('.cus-actions [data-act="book"]'), appt: !!document.querySelector('.cus-actions [data-carry="#appointments"]') }));
+await page.screenshot({ path: path.join(outDirShots(), "06 Customer to order (new layout).png") });
+// Escape with nothing typed but the fill: back to the person, focus on the button that was pressed.
+await page.keyboard.press("Escape");
+await page.waitForFunction(() => location.hash === "#customers" && document.activeElement && document.activeElement.getAttribute("data-go") === "order", null, { timeout: 10000 }).catch(() => {});
+const escBack = await page.evaluate(() => ({ hash: location.hash, focus: document.activeElement && document.activeElement.getAttribute("data-go"), who: (document.querySelector(".cus-head h1") || {}).textContent }));
+report("step 1: Escape on the untouched order goes back to the person, focus on New order", escBack.hash === "#customers" && escBack.focus === "order" && escBack.who === "Zammit Carmel", JSON.stringify(escBack));
+// The fill never overwrites typing: a changed name survives the list arriving (a repaint), and Escape then keeps the form.
+await carryNew("order", "#ord-add");
+await page.fill("#ord-add [name=client_name]", "Zammit Carmela");
+await page.fill("#ord-add [name=items]", "Augmentin 625");
+await page.evaluate(() => { document.activeElement.blur(); });
+await page.waitForTimeout(300);
+await page.click("[data-act=view-open]"); await page.waitForTimeout(200); // a redraw of the screen
+await page.focus("#ord-add [name=items]"); await page.keyboard.press("Escape"); await page.waitForTimeout(300);
+const typedKept = await page.evaluate(() => ({ hash: location.hash, name: (document.querySelector("#ord-add [name=client_name]") || {}).value, items: (document.querySelector("#ord-add [name=items]") || {}).value }));
+report("step 1: the fill never overwrites what was typed, and Escape keeps a form with typing in it", typedKept.hash === "#ordreg" && typedKept.name === "Zammit Carmela" && typedKept.items === "Augmentin 625", JSON.stringify(typedKept));
+const tkC = await carryNew("question", "#tkt-add");
+const dvC = await carryNew("delivery", "#dlv-add");
+// Cancel on a form opened from the person also goes back to them
+await page.click("#dlv-add [data-act=add-cancel]");
+await page.waitForFunction(() => location.hash === "#customers" && document.activeElement && document.activeElement.getAttribute("data-go") === "delivery", null, { timeout: 10000 }).catch(() => {});
+const cancelBack = await page.evaluate(() => ({ hash: location.hash, focus: document.activeElement && document.activeElement.getAttribute("data-go") }));
+carryPosts = (await callsNow()).filter((c) => c.method === "POST" && c.path !== "/auth/login");
+report("step 1: Question and Delivery open their new forms filled the same way (address too), focus on the first empty field that matters; Cancel goes back to the person",
+  tkC.hash === "#tktreg" && !tkC.classic && tkC.v.client_name === "Zammit Carmel" && tkC.v.phone === "79123456" && tkC.focus === "issue" && /0012345M/.test(tkC.top) &&
+  dvC.hash === "#dlvreg" && !dvC.classic && dvC.v.client_name === "Zammit Carmel" && dvC.v.phone === "79123456" && dvC.v.delivery_address === "1 Triq il-Knisja" && dvC.focus === "items" &&
+  cancelBack.hash === "#customers" && cancelBack.focus === "delivery" && carryPosts.length === 0, JSON.stringify({ tkC, dvC, cancelBack, carryPosts }));
+// Booking: not set up here yet -> a calm note on the page with the set-up and the classic Appointments, labelled
 await page.evaluate(() => { Object.keys(localStorage).filter((k) => k.indexOf("eikon_bk_ready_") === 0).forEach((k) => localStorage.removeItem(k)); });
-await carryTo("#appointments", "#ap-mod-patient");
-const ap = await page.evaluate(() => ({ name: document.querySelector("#ap-mod-patient").value, card: document.querySelector("#ap-mod-idcard").value, phone: document.querySelector("#ap-mod-phone").value }));
+await toCarmel();
+await page.click('.cus-actions [data-go="booking"]'); await page.waitForTimeout(150);
+const bkNote = await page.evaluate(() => ({ hash: location.hash, note: (document.querySelector("#cus-bk") || {}).textContent || "", exp: document.querySelector('[data-go="booking"]').getAttribute("aria-expanded"), focus: document.activeElement && document.activeElement.getAttribute("data-act") }));
+await page.keyboard.press("Escape"); await page.waitForTimeout(150);
+const bkEsc = await page.evaluate(() => ({ note: !!document.querySelector("#cus-bk"), focus: document.activeElement && document.activeElement.getAttribute("data-go") }));
+await page.click('.cus-actions [data-go="booking"]'); await page.waitForTimeout(100);
+// what is handed to Bookings (read as it is written: Bookings takes it as soon as it opens)
+await page.evaluate(() => { const P = Storage.prototype, set = P.setItem; window.__bkSet = set; window.__bkCarry = null; P.setItem = function (k, v) { if (this === sessionStorage && k === "eikon_bk_carry" && !window.__bkCarry) window.__bkCarry = JSON.parse(v); return set.call(this, k, v); }; });
+await page.click('[data-act="bk-setup"]');
+await page.waitForFunction(() => location.hash === "#bookings", null, { timeout: 8000 }).catch(() => {});
+const bkSet = await page.evaluate(() => ({ hash: location.hash, classic: location.search.indexOf("ui=classic") >= 0, carry: window.__bkCarry }));
+await page.evaluate(() => { Storage.prototype.setItem = window.__bkSet; window.__bkCarry = null; });
+report("step 1: Booking where Bookings is not set up says 'Set up Bookings first' on the page (Escape closes it, focus back), Set up Bookings opens Bookings in the new layout with the person waiting",
+  bkNote.hash === "#customers" && /Set up Bookings first/.test(bkNote.note) && /classic look/.test(bkNote.note) && bkNote.exp === "true" && bkNote.focus === "bk-setup" && !bkEsc.note && bkEsc.focus === "booking" &&
+  bkSet.hash === "#bookings" && !bkSet.classic && bkSet.carry && bkSet.carry.name === "Zammit Carmel", JSON.stringify({ bkNote, bkEsc, bkSet }));
+// Bookings remembers it is set up once its first read is in: wait for that, then forget it again for the next step
+const forgetBookings = async () => {
+  // Bookings has opened and read its set-up (this stub has a service, so it writes the "set up" mark): only then is nothing on its way
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "bookings" && Object.keys(localStorage).some((k) => k.indexOf("eikon_bk_ready_") === 0) && document.querySelector("#eikon-content") && !/Loading…/.test(document.querySelector("#eikon-content").innerText), null, { timeout: 10000 }).catch(() => {});
+  await page.evaluate(() => { sessionStorage.removeItem("eikon_bk_carry"); Object.keys(localStorage).filter((k) => k.indexOf("eikon_bk_ready_") === 0).forEach((k) => localStorage.removeItem(k)); });
+  await page.goto(base + "&ui=2#customers"); await page.waitForTimeout(300); // drawn again without it
+};
+await forgetBookings();
+// ... and the classic Appointments stay one tap away, labelled, with the person filled in there as before
+await toCarmel();
+await page.click('.cus-actions [data-go="booking"]'); await page.waitForTimeout(100);
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.click('[data-act="bk-classic"]');
+await page.waitForFunction(() => location.hash && document.querySelector("#ap-mod-patient") && document.querySelector("#ap-mod-patient").value, null, { timeout: 20000 });
+const ap = await page.evaluate(() => ({ name: document.querySelector("#ap-mod-patient").value, card: document.querySelector("#ap-mod-idcard").value, phone: document.querySelector("#ap-mod-phone").value, classic: location.search.indexOf("ui=classic") >= 0, carry: sessionStorage.getItem("eikon_carry_person") }));
 await closeModal();
 carryPosts = (await callsNow()).filter((c) => c.method === "POST" && c.path !== "/auth/login");
-report("customers: Booking replaces Appointment only once this pharmacy has set up Bookings", bkBtn.booking && !bkBtn.appt, JSON.stringify(bkBtn));
-report("step 1: Question, Delivery and Appointment open filled the same way", tk.name === "Zammit Carmel" && tk.phone === "79123456" && dv.name === "Zammit Carmel" && dv.addr === "1 Triq il-Knisja" && ap.name === "Zammit Carmel" && ap.card === "0012345M" && ap.phone === "79123456" && carryPosts.length === 0, JSON.stringify({ tk, dv, ap, carryPosts }));
+report("step 1: 'Book in Appointments (classic look)' opens the classic form filled, nothing posted, hand-over used up", ap.classic && ap.name === "Zammit Carmel" && ap.card === "0012345M" && ap.phone === "79123456" && ap.carry === null && carryPosts.length === 0, JSON.stringify({ ap, carryPosts }));
+// Bookings set up: the same button opens Bookings, the strip says Bookings
+await page.evaluate(() => { localStorage.setItem("eikon_bk_ready_1_12", "1"); });
+await toCarmel();
+const bkBtn = await page.evaluate(() => ({ exp: document.querySelector('[data-go="booking"]').getAttribute("aria-expanded"), strip: [...document.querySelectorAll("[data-reg]")].map((a) => a.textContent) }));
+await page.evaluate(() => { const P = Storage.prototype, set = P.setItem; window.__bkSet = set; window.__bkCarry = null; P.setItem = function (k, v) { if (this === sessionStorage && k === "eikon_bk_carry" && !window.__bkCarry) window.__bkCarry = JSON.parse(v); return set.call(this, k, v); }; });
+await page.click('.cus-actions [data-go="booking"]');
+await page.waitForFunction(() => location.hash === "#bookings", null, { timeout: 8000 }).catch(() => {});
+const bkGo = await page.evaluate(() => ({ hash: location.hash, carry: window.__bkCarry }));
+await page.evaluate(() => { Storage.prototype.setItem = window.__bkSet; window.__bkCarry = null; });
+await forgetBookings();
+report("customers: once Bookings is set up, Booking opens it with the person, and the Registers strip says Bookings", bkBtn.exp === null && bkBtn.strip.join() === "Orders,Questions,Deliveries,Bookings,Loyalty (classic look)" && bkGo.hash === "#bookings" && bkGo.carry && bkGo.carry.name === "Zammit Carmel", JSON.stringify({ bkBtn, bkGo }));
+// The counts and the Registers strip: rebuilt registers in the new layout (searched to the person where they can be); only Loyalty labelled classic
+await toCarmel();
+const chips = await page.evaluate(() => [...document.querySelectorAll(".cus-counts a")].map((a) => a.textContent.replace(/\s+/g, " ").trim()));
+const strip = await page.evaluate(() => [...document.querySelectorAll("[data-reg]")].map((a) => a.textContent));
+await page.click('.cus-counts [data-count="dda_sale"]');
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "cdsreg", null, { timeout: 15000 }).catch(() => {});
+const ddaGo = await page.evaluate(() => ({ hash: location.hash, classic: location.search.indexOf("ui=classic") >= 0 }));
+const finds = {};
+for (const [mod, who, sel] of [["ordreg", "Grech Carmen", "#ord-q"], ["tktreg", "Farrugia Tony", "#tkt-q"]]) {
+  await page.evaluate(([m, w]) => { window.EIKON.customerHandoff(m, "find", { id: 9, name: w }); location.hash = "#" + m; }, [mod, who]);
+  await page.waitForFunction((s) => document.querySelector(s), sel, { timeout: 15000 }).catch(() => {});
+  finds[mod] = await page.evaluate((s) => (document.querySelector(s) || {}).value || "", sel);
+  await page.goto(base + "&ui=2#customers"); await page.waitForTimeout(200);
+}
+await page.evaluate(() => { window.EIKON.customerHandoff("dlvreg", "find", { id: 9, name: "Camilleri Rita", phone: "" }); location.hash = "#dlvreg"; });
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "dlvreg" && document.querySelector(".dlv-card"), null, { timeout: 15000 }).catch(() => {});
+finds.dlvreg = await page.evaluate(() => ({ lab: ((document.querySelector('.dlv-lab[role="status"]') || {}).textContent || "").trim(), names: [...document.querySelectorAll(".dlv-card .h b")].map((b) => b.textContent) }));
+await page.click('[data-act="who-all"]').catch(() => {}); await page.waitForTimeout(150);
+finds.dlvAll = await page.evaluate(() => document.querySelectorAll(".dlv-card").length);
+const story = await page.evaluate(() => [window.EIKON.customersStoryTitle('[{"name":"Panadol","qty":1},{"name":"Augmentin 625","qty":2}]'), window.EIKON.customersStoryTitle("Morphine 10mg"), window.EIKON.customersStoryTitle("[not json")]);
+report("customers: a delivery in the Story shows its item names, not the stored list", story.join("|") === "Panadol, Augmentin 625|Morphine 10mg|[not json", JSON.stringify(story));
+report("step 1: the counts and the strip open rebuilt registers in the new layout (Orders, Questions and Deliveries showing the person; Show all clears it); only Loyalty and Appointments are labelled classic look",
+  chips.join("|") === "DDA sale 1|Loyalty 1(classic look)" && strip.join() === "Orders,Questions,Deliveries,Appointments (classic look),Loyalty (classic look)" && ddaGo.hash === "#cdsreg" && !ddaGo.classic &&
+  finds.ordreg === "Grech Carmen" && finds.tktreg === "Farrugia Tony" && /^Deliveries for Camilleri Rita/.test(finds.dlvreg.lab) && finds.dlvreg.names.length >= 1 && finds.dlvreg.names.every((n) => /Camilleri Rita/.test(n)) && finds.dlvAll > finds.dlvreg.names.length,
+  JSON.stringify({ chips, strip, ddaGo, finds }));
 
 // an old hand-over is ignored
-await page.evaluate(() => { sessionStorage.setItem("eikon_carry_person", JSON.stringify({ id: 1, name: "Zammit Carmel", phone: "79123456", at: Date.now() - 6 * 60 * 1000 })); location.hash = "#tickets"; });
+await page.evaluate(() => { sessionStorage.setItem("eikon_carry_person", JSON.stringify({ id: 1, name: "Zammit Carmel", phone: "79123456", at: Date.now() - 6 * 60 * 1000 })); });
+await page.goto(base + "&ui=classic#tickets"); // the classic hand-over (Appointments, Loyalty) is still read by the classic screens
 await page.waitForFunction(() => document.querySelector("#tk-new"), null, { timeout: 15000 });
 await page.waitForTimeout(500);
 const stale = await page.evaluate(() => ({ modal: !!document.querySelector("#tk-client"), carry: sessionStorage.getItem("eikon_carry_person") }));

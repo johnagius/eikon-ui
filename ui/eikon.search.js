@@ -112,11 +112,13 @@
       out.push({ key: t.id, title: t.title, desc: t.id === "bookings" ? "Today's bookings and the waiting list." : "", hub: "Tab", go: "#" + t.id });
     });
     ((E.ui2Screens && E.ui2Screens()) || []).forEach(function (s) { if (!seen[s.key]) { seen[s.key] = 1; out.push(s); } });
-    // The Customers screen's own strip: rebuilt ones open here, the rest (Loyalty, Appointments) in classic, back to Customers.
+    // The Customers screen's own strip: rebuilt ones open here; what is only in the classic look (Loyalty, and Appointments
+    // until Bookings is set up, when Bookings above answers "appointment") says so, and comes back to Customers.
+    var bkReady = !!(E.bookingsReady && E.bookingsReady());
     [["clientorders", "Orders", "Items ordered in for a customer."], ["tickets", "Questions", "Questions customers are waiting on."], ["deliveries", "Deliveries", "Home deliveries, routes and proof of delivery."],
-     ["appointments", "Appointments", "Clinic bookings and the waiting list (classic)."], ["loyalty", "Loyalty", "Loyalty cards, points and campaigns."]].forEach(function (x) {
-      if (seen[x[0]]) return; var nat = (E.UI2_NATIVE || {})[x[0]];
-      if (nat && E.modules[nat]) { seen[x[0]] = 1; out.push({ key: x[0], title: E.modules[nat].title || x[1], desc: x[2], hub: "Customers", go: "#" + nat }); }
+     ["appointments", "Appointments (classic look)", "Clinic appointments and the waiting list, until Bookings is set up."], ["loyalty", "Loyalty (classic look)", "Loyalty cards, points and campaigns."]].forEach(function (x) {
+      if (seen[x[0]] || (x[0] === "appointments" && bkReady)) return; var nat = (E.UI2_NATIVE || {})[x[0]];
+      if (nat) { seen[x[0]] = 1; out.push({ key: x[0], title: (E.modules[nat] && E.modules[nat].title) || x[1], desc: x[2], hub: "Customers", go: "#" + nat }); }
       else if (E.modules[x[0]] && E.openClassic) { seen[x[0]] = 1; out.push({ key: x[0], title: x[1], old: E.modules[x[0]].title || "", desc: x[2], hub: "Customers", open: function () { try { sessionStorage.setItem("eikon_ui2_return", "customers"); } catch (e) {} E.openClassic(x[0]); } }); }
     });
     return out;

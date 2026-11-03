@@ -239,11 +239,28 @@
       (d.err ? '<div class="ord-err" role="alert">' + esc(d.err) + "</div>" : "") +
       '<div class="acts"><button type="button" class="ord-btn" data-act="diary-no">Not now</button><button type="submit" class="ord-btn p"' + (d.saving ? " disabled" : "") + ">" + (d.saving ? "Adding…" : "Add to diary") + "</button></div></form>";
   }
+  // Opened from a customer's page (modules.customers.js, BACKLOG4 item 1): who it is for stays in sight at the top, the
+  // person is filled into the empty fields only, and focus goes to the first required field still empty.
+  var CARRY = { client_name: "name", id_card: "id_card", contact: "phone" }, NEEDED = ["client_name", "items", "needed_by"];
+  function carryLine() { var p = S.carry && S.carry.person; return p ? '<div class="ord-meta" style="padding:10px 16px 8px">From Customers: <b>' + esc(p.name) + "</b>" + (p.id_card ? " · ID card " + esc(p.id_card) : "") + "</div>" : ""; }
+  function fillCarry() {
+    var f = S.mount && S.mount.querySelector("#ord-add"), p = S.carry && S.carry.person; if (!f || !p) return;
+    var want = {}; Object.keys(CARRY).forEach(function (k) { want[k] = p[CARRY[k]]; });
+    E.fillEmpty(f, want).forEach(function (k) { S.adding[k] = want[k]; });
+    var go = function () { if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#ord-add")) return; var g = S.mount && S.mount.querySelector("#ord-add"); if (!g) return; var el = NEEDED.map(function (k) { return g.querySelector("[name=" + k + "]"); }).filter(function (x) { return x && !String(x.value || "").trim(); })[0] || g.querySelector("[type=submit]"); if (el) el.focus(); };
+    go(); setTimeout(go, 30); // and again after the screen settles, unless the person is already in the form
+  }
+  function onlyCarried() { // nothing typed beyond what came from the customer's page
+    var a = S.adding || {}, p = (S.carry && S.carry.person) || {};
+    return ["client_name", "id_card", "contact", "items", "needed_by", "pick_up_date", "deposit", "notes"].every(function (k) { var v = String(a[k] || "").trim(); return !v || (CARRY[k] && v === String(p[CARRY[k]] || "").trim()); });
+  }
+  // Cancel (or Escape with nothing typed) on a form opened from a customer's page goes back to that person.
+  function closeAdd() { var h = S.carry; S.carry = null; S.adding = null; S.err = ""; S.fe = {}; if (h && E.customerReturn && E.customerReturn(h)) return; paint(); focusOn(".ord-top [data-act=add]"); }
 
   function addHtml() {
     var a = S.adding, fe = S.fe || {};
     var f = function (k, label, extra, after) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] || "") + '"' + (extra || "") + inv(fe, k) + ">" + (after || "") + ferr(fe, k) + "</label>"; };
-    return '<form class="ord-form" id="ord-add" autocomplete="off" aria-label="New order">' +
+    return '<form class="ord-form" id="ord-add" autocomplete="off" aria-label="New order">' + carryLine() +
       f("client_name", "Customer", ' placeholder="Name and surname" autocapitalize="words"') +
       // not part of the order (the orders table has no ID card): it is checked against the person and kept on their details
       f("id_card", "ID card", ' placeholder="Optional, kept on their details" autocapitalize="characters"') +
@@ -331,8 +348,8 @@
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
         if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("ordreg") : "#customers";
-        else if (a === "add") { S.adding = {}; S.err = ""; S.fe = {}; paint(); setTimeout(function () { var f = m.querySelector("#ord-add [name=client_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
-        else if (a === "add-cancel") { S.adding = null; S.err = ""; S.fe = {}; paint(); focusOn(".ord-top [data-act=add]"); }
+        else if (a === "add") { S.carry = null; S.adding = {}; S.err = ""; S.fe = {}; paint(); setTimeout(function () { var f = m.querySelector("#ord-add [name=client_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (a === "add-cancel") closeAdd();
         else if (a === "ready") ready(id, true);
         else if (a === "unready") ready(id, false);
         else if (a === "ph-cancel") { var pid = S.askPhone; S.askPhone = null; S.phErr = ""; S.phDraft = ""; paint(); focusOn('[data-act=' + (S.askOn ? "ready" : "unready") + '][data-id="' + pid + '"]'); }
@@ -357,7 +374,7 @@
     var f = root.querySelector("#ord-add");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(f); });
-      f.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !document.querySelector(".epp-list:not([hidden])")) { keepAdd(); if (addEmpty()) { ev.preventDefault(); S.adding = null; S.err = ""; S.fe = {}; paint(); focusOn(".ord-top [data-act=add]"); } } }); // Escape closes an empty form; typing is never thrown away
+      f.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !document.querySelector(".epp-list:not([hidden])")) { keepAdd(); if (addEmpty() || (S.carry && onlyCarried())) { ev.preventDefault(); closeAdd(); } } }); // Escape closes an empty form; typing is never thrown away
     }
     if (f && E.personPick) E.personPick.attach({ key: "ordreg", form: f, fields: { id: "id_card", name: "client_name", phone: "contact" },
       local: function () { return S.entries.map(function (e) { return { name: e.client_name, phone: e.client_phone || e.contact, address: e.client_address, date: String(e.order_date || "").slice(0, 10), from: "order" }; }); } });
@@ -535,7 +552,7 @@
     try {
       var r = await E.apiFetch("/client-orders/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.adding = null; S.fe = {}; E.toast("Saved · order for " + body.client_name, "success"); S.justAdded = true;
+      S.adding = null; S.carry = null; S.fe = {}; E.toast("Saved · order for " + body.client_name, "success"); S.justAdded = true;
       var lines = String(body.items || "").split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean); // the classic splitItemLines
       S.diary = lines.length ? { lines: lines, date: body.order_date, supplier: "", err: "", saving: false } : null;
       if (E.linkPerson) E.linkPerson({ name: body.client_name, phone: body.contact, id_card: idc }, "register:orders", asked); // one person in Customers, found or added
@@ -553,7 +570,12 @@
       // That filter is for this visit only: the next visit opens on every order again.
       if (S.qFromSearch) { S.q = ""; S.qFromSearch = false; }
       try { var go = JSON.parse(sessionStorage.getItem("eikon_ordreg_q") || "null"); sessionStorage.removeItem("eikon_ordreg_q"); if (go && go.q && Date.now() - (go.at || 0) < 60000) { S.q = String(go.q); S.qFromSearch = true; } } catch (e) {}
-      css(); paint(); return load();
+      // From a customer's page: a new order for them, or (from the count of their orders) their orders.
+      var hand = E.takeCustomerHandoff ? E.takeCustomerHandoff("ordreg") : null;
+      S.carry = hand && hand.mode === "new" ? hand : null;
+      if (hand && hand.mode === "find") { S.q = String(hand.person.name); S.qFromSearch = true; }
+      if (S.carry) S.adding = {};
+      css(); paint(); if (S.carry) fillCarry(); return load();
     }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("ordreg") < 0) E.UI2_DESTINATIONS.push("ordreg");
