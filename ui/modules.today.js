@@ -191,19 +191,19 @@
     if (c.kind === "order") {
       var due = c.due_today ? '<span class="tdy-pill amb">Needed ' + esc(dayWord(c.needed_by)) + '</span>' : (c.needed_by ? '<span class="tdy-pill gry">Needed ' + esc(dayWord(c.needed_by)) + '</span>' : "");
       return '<div class="tdy-row ' + (c.due_today ? "amb" : "blu") + '">' +
-        '<div class="tdy-av" style="background:hsl(' + hue(c.name) + ',45%,42%)">' + esc(initials(c.name)) + '</div>' +
+        '<div class="tdy-av" style="background:hsl(' + hue(c.name) + ',45%,32%)">' + esc(initials(c.name)) + '</div>' +
         '<div class="tdy-t"><b>' + esc(c.name) + '</b><span>Order · ' + esc(c.detail || "") + (c.code ? " · " + esc(c.code) : "") + (c.waiting_days > 0 ? " · " + plural(c.waiting_days, "day") + " ago" : " · today") + '</span></div>' +
         due + '<button class="tdy-btn" data-open="' + esc(c.action.path) + '">Open</button></div>';
     }
     if (c.kind === "delivery") { // sent by servers from 2026-11-02-bookings-12; older ones simply do not list deliveries
       var dp = c.late_days > 0 ? '<span class="tdy-pill red">Was due ' + esc(dayWord(c.due_date)) + '</span>' : c.status === "Out for Delivery" ? '<span class="tdy-pill grn">On its way</span>' : '<span class="tdy-pill amb">Goes out today</span>';
       return '<div class="tdy-row ' + (c.late_days > 0 ? "red" : "amb") + '">' +
-        '<div class="tdy-av" style="background:hsl(' + hue(c.name) + ',45%,42%)">' + esc(initials(c.name)) + '</div>' +
+        '<div class="tdy-av" style="background:hsl(' + hue(c.name) + ',45%,32%)">' + esc(initials(c.name)) + '</div>' +
         '<div class="tdy-t"><b>' + esc(c.name) + '</b><span>Delivery · ' + esc(c.detail || "") + (c.slot ? " · " + esc(c.slot) : "") + (c.cold ? " · Fridge" : "") + (c.controlled ? " · Controlled drug" : "") + '</span></div>' +
         dp + '<button class="tdy-btn" data-open="' + esc(c.action.path) + '">Open</button></div>';
     }
     return '<div class="tdy-row blu">' +
-      '<div class="tdy-av" style="background:hsl(' + hue(c.name) + ',45%,42%)">' + esc(initials(c.name)) + '</div>' +
+      '<div class="tdy-av" style="background:hsl(' + hue(c.name) + ',45%,32%)">' + esc(initials(c.name)) + '</div>' +
       '<div class="tdy-t"><b>' + esc(c.name) + '</b><span>Asked ' + (c.waiting_days > 0 ? plural(c.waiting_days, "day") + " ago" : "today") + ' · "' + esc(c.detail || "") + '"</span></div>' +
       '<span class="tdy-pill blu">' + (c.waiting_days > 0 ? "Waiting " + plural(c.waiting_days, "day") : "New") + '</span>' +
       '<button class="tdy-btn" data-open="' + esc(c.action.path) + '">Reply</button></div>';

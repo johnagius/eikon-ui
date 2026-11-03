@@ -56,7 +56,7 @@
   function errMsg(e) { return (e && (e.bodyJson && e.bodyJson.error || e.message)) || "Something went wrong"; }
 
   var CSS = "\
-.bkx{--t:#077A5B;--ts:rgba(10,143,106,.11);--bg:#F2F2F7;--sf:#fff;--l2:#6A6A70;--l3:rgba(60,60,67,.42);--sep:rgba(60,60,67,.15);--fill:rgba(118,118,128,.12);--red:#C4221A;\
+.bkx{--t:#066B4F;--ts:rgba(10,143,106,.11);--bg:#F2F2F7;--sf:#fff;--l2:#6A6A70;--l3:rgba(60,60,67,.42);--sep:rgba(60,60,67,.15);--fill:rgba(118,118,128,.12);--red:#C4221A;\
 font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,sans-serif;color:#000;background:var(--bg);min-height:100%;padding:24px 28px 80px;-webkit-font-smoothing:antialiased}\
 .bkx *{box-sizing:border-box}:where(.bkx) button{font:inherit;border:0;cursor:pointer;background:none;color:inherit}\
 .bkx-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;max-width:880px}\

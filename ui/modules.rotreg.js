@@ -35,7 +35,7 @@
       ".rot-p{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:.5px solid var(--border)}" +
       ".rot-av{flex:0 0 30px;height:30px;border-radius:15px;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}" +
       ".rot-p .t{flex:1;min-width:0}.rot-p .t b{font-size:14.5px;font-weight:600}.rot-p .t span{display:block;font-size:12px;color:var(--muted)}.rot-p em{font-style:normal;font-variant-numeric:tabular-nums;font-size:14px;font-weight:600}" +
-      ".rot-p.off{opacity:.75}.rot-p.off em{font-weight:500;color:var(--warn,#A06A0E)}" +
+      ".rot-p.off .t b{color:var(--muted)}.rot-p.off em{font-weight:500;color:var(--warn,#8A5A08)}" +
       ".rot-empty{padding:22px 18px;display:flex;flex-direction:column;align-items:flex-start;gap:6px}.rot-empty b{font-size:17px}.rot-empty span{color:var(--muted);font-size:14px}" +
       ".rot-btn{font:inherit;font-size:14px;font-weight:600;height:36px;padding:0 16px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;margin-top:8px}.rot-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}" +
       ".rot-day.none .h{padding:11px 14px}.rot-day.none:not(.today) .h b{font-weight:600;color:var(--muted)}" +
@@ -88,11 +88,11 @@
         h += '<div class="rot-day' + (key === today ? " today" : "") + (empty ? " none" : "") + '"><div class="h"><b>' + (key === today ? "Today" : DAY[i]) + "</b><span>" + d.getDate() + " " + MON[d.getMonth()] + (day.length ? " · " + day.length + (day.length === 1 ? " shift" : " shifts") : "") + (empty ? " · Nobody on" : "") + "</span></div>";
         h += day.map(function (x) {
           var p = S.staff[x.staff_id] || { full_name: "Staff #" + x.staff_id };
-          return '<div class="rot-p"><span class="rot-av" style="background:hsl(' + hue(p.full_name) + ',45%,42%)">' + esc(initials(p.full_name)) + '</span><div class="t"><b>' + esc(p.full_name) + "</b><span>" + esc(x.role_override || p.designation || "") + (x.notes ? " · " + esc(x.notes) : "") + "</span></div><em>" + esc(hm(x.start_time)) + "–" + esc(hm(x.end_time)) + "</em></div>";
+          return '<div class="rot-p"><span class="rot-av" style="background:hsl(' + hue(p.full_name) + ',45%,32%)">' + esc(initials(p.full_name)) + '</span><div class="t"><b>' + esc(p.full_name) + "</b><span>" + esc(x.role_override || p.designation || "") + (x.notes ? " · " + esc(x.notes) : "") + "</span></div><em>" + esc(hm(x.start_time)) + "–" + esc(hm(x.end_time)) + "</em></div>";
         }).join("");
         h += away.map(function (l) {
           var p = S.staff[l.staff_id] || { full_name: "Staff #" + l.staff_id };
-          return '<div class="rot-p off"><span class="rot-av" style="background:hsl(' + hue(p.full_name) + ',20%,55%)">' + esc(initials(p.full_name)) + '</span><div class="t"><b>' + esc(p.full_name) + "</b><span>" + esc(leaveLabel(l.leave_type)) + "</span></div><em>" + (String(l.status).toLowerCase() === "pending" ? "Asked for leave" : "Away") + (l.start_time && l.start_date === key ? " from " + esc(hm(l.start_time)) : "") + "</em></div>";
+          return '<div class="rot-p off"><span class="rot-av" style="background:hsl(' + hue(p.full_name) + ',20%,40%)">' + esc(initials(p.full_name)) + '</span><div class="t"><b>' + esc(p.full_name) + "</b><span>" + esc(leaveLabel(l.leave_type)) + "</span></div><em>" + (String(l.status).toLowerCase() === "pending" ? "Asked for leave" : "Away") + (l.start_time && l.start_date === key ? " from " + esc(hm(l.start_time)) : "") + "</em></div>";
         }).join("");
         h += "</div>";
       }
