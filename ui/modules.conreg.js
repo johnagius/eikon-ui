@@ -280,7 +280,7 @@
     var f = m.querySelector("#con-form");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); save(); });
-      var ts = f.querySelector("[name=type]"); if (ts) ts.addEventListener("change", function () { keep(); var nv = prefill(ts.value); Object.keys(S.form.vals).forEach(function (k) { if (TYPE[ts.value].cols.indexOf(k) >= 0 && S.form.vals[k]) nv[k] = S.form.vals[k]; }); S.form.type = ts.value; S.form.vals = nv; S.err = ""; paint(true); });
+      var ts = f.querySelector("[name=type]"); if (ts) ts.addEventListener("change", function () { keep(); var nv = prefill(ts.value); Object.keys(S.form.vals).forEach(function (k) { if (TYPE[ts.value].cols.indexOf(k) >= 0 && S.form.vals[k]) nv[k] = S.form.vals[k]; }); S.form.type = ts.value; S.form.vals = nv; S.err = ""; E.repaintKeepingFocus(m, function () { paint(true); }); }); // the fields change with the type; focus stays where it was going
     }
   }
   function prefill(type) { // what was searched for starts the new contact: a name, or a number

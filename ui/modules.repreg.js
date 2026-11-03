@@ -184,17 +184,31 @@
     keep(); var raw = S.adding && S.adding.client_id, id = low(raw).replace(/\s+/g, ""); if (!id) return;
     var same = E.people ? function (v) { return E.people.sameIdCard(v, raw); } : function (v) { return low(v).replace(/\s+/g, "") === id; }; // 123M is 0000123M
     var hit = S.entries.filter(function (e) { return same(e.client_id); })[0];
-    if (hit && !S.adding.client_name) { S.adding.client_name = hit.client_name; S.adding.known = true; paint(true); return; }
+    if (hit && !S.adding.client_name) { if (fillIn({ client_name: hit.client_name })) markKnown(); return; }
     if (hit || S.adding.client_name || !E.people) return;
     E.people.byIdCard(raw).then(function (p) { // not in this register: the pharmacy's people list may know them from another screen
       if (!p || !S.adding || S.adding.client_id !== raw) return;
-      keep(); if (!S.adding.client_name) { S.adding.client_name = p.name || ""; S.adding.known = true; paint(true); }
+      keep(); if (!S.adding.client_name && fillIn({ client_name: p.name })) markKnown();
     });
   }
   function fillPrescriber() {
     keep(); var n = low(S.adding && S.adding.prescriber_name).trim(); if (!n || S.adding.prescriber_reg_no) return;
     var regs = uniq(S.entries.filter(function (e) { return low(e.prescriber_name).trim() === n; }).map(function (e) { return e.prescriber_reg_no; }));
-    if (regs.length === 1) { S.adding.prescriber_reg_no = regs[0]; paint(true); } // two doctors with one name: let the person type it
+    if (regs.length === 1) fillIn({ prescriber_reg_no: regs[0] }); // two doctors with one name: let the person type it
+  }
+  // A lookup fills the form in place, only fields still empty and never the one with focus. It used to redraw the form
+  // (paint(true)) as the field was left; the field focus was moving to was replaced and what was typed next was lost.
+  function fillIn(vals) {
+    var a = S.adding, f = S.mount && S.mount.querySelector("#rep-add"), want = {}; if (!a) return 0;
+    Object.keys(vals).forEach(function (k) { if (vals[k] && !a[k]) want[k] = String(vals[k]); });
+    var got = f ? E.fillEmpty(f, want) : Object.keys(want);
+    got.forEach(function (k) { a[k] = want[k]; });
+    return got.length;
+  }
+  function markKnown() {
+    S.adding.known = true;
+    var el = S.mount && S.mount.querySelector("#rep-add [name=client_id]"), lab = el && el.closest("label");
+    if (lab && !lab.querySelector("small")) lab.insertAdjacentHTML("beforeend", "<small>Known</small>");
   }
 
   async function add() {

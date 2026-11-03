@@ -138,7 +138,7 @@
       fresh.notes = mine;
     }, "Notes saved");
     if (conflict !== false) { S.warn = "Someone changed today's notes on another till. Theirs are shown now; yours were: “" + mine + "”. Add yours again if still needed."; S.notes = conflict; S.notesBase = conflict; S.err = ""; paint(true); }
-    else if (rec) { S.notesBase = mine; S.notes = mine; paint(true); }
+    else if (rec) { S.notesBase = mine; S.notes = mine; E.repaintKeepingFocus(S.mount, function () { paint(true); }); } // anything typed while it saved stays, and so does your place
   }
 
   E.registerModule({

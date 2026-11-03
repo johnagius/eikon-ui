@@ -1821,6 +1821,51 @@
     mount.addEventListener("focusout", onOut);
     var t = setInterval(function () { if (!busy() || !document.body.contains(mount)) run(); }, 2000); // a safety net
   };
+  // Typing is never lost when a lookup fills a field (BACKLOG3 item 1). A lookup run as a field was left used to
+  // redraw the whole form while focus was on its way to the next field; that field was replaced, focus fell to the
+  // page, and the next thing typed (a DDA serial number) went nowhere.
+  // E.fillEmpty(form, { name: value }) fills, in place and with no redraw, each [name=…] field that is still empty and
+  // enabled. Nothing typed is ever overwritten: the field you are in is filled only while it is still empty, and the
+  // filled text is selected, so the next key typed replaces it (as Tab into a filled field does). It returns the
+  // names it filled, so the caller copies just those to its state.
+  E.fillEmpty = function (form, map) {
+    var done = []; if (!form || !map) return done;
+    Object.keys(map).forEach(function (k) {
+      var v = map[k], el = form.querySelector('[name="' + k + '"]');
+      if (v == null || String(v) === "" || !el || el.disabled || el.readOnly || String(el.value || "")) return;
+      el.value = String(v); done.push(k);
+      if (el === document.activeElement) { try { el.setSelectionRange(0, el.value.length); } catch (e) {} }
+    });
+    return done;
+  };
+  // E.repaintKeepingFocus(mount, paintFn) redraws, then puts back the field you were in, the cursor, and what you had
+  // typed if the redraw brought an older copy. Called while focus is moving (from a "change", "blur" or "focusout"
+  // handler, or between the two halves of a Tab) it waits for focus to land, so it brings back the field you went to.
+  var focusMoving = false;
+  document.addEventListener("focusout", function () { focusMoving = true; setTimeout(function () { focusMoving = false; }, 0); }, true);
+  document.addEventListener("focusin", function () { focusMoving = false; }, true);
+  E.focusKey = function (el) {
+    if (!el || !el.getAttribute || el === document.body) return "";
+    var q = function (v) { return '"' + String(v).replace(/["\\]/g, "\\$&") + '"'; }, s = "";
+    ["name", "data-k", "data-i", "data-id", "data-act"].forEach(function (a) { var v = el.getAttribute(a); if (v != null) s += "[" + a + "=" + q(v) + "]"; });
+    if (!s && el.id) s = "#" + (window.CSS && CSS.escape ? CSS.escape(el.id) : el.id);
+    return s ? el.tagName.toLowerCase() + s : "";
+  };
+  function typedIn(el) { return !!el && (el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && /^(text|search|tel|email|url|number|password|)$/i.test(el.getAttribute("type") || ""))); }
+  E.repaintKeepingFocus = function (mount, paintFn) {
+    var ev = window.event;
+    if ((ev && /^(blur|focusout|change)$/.test(ev.type)) || focusMoving) { setTimeout(function () { E.repaintKeepingFocus(mount, paintFn); }, 0); return; }
+    var ae = document.activeElement, key = mount && ae && ae !== document.body && mount.contains(ae) ? E.focusKey(ae) : "";
+    var nth = 0, val = null, s0 = null, s1 = null;
+    if (key) { nth = Math.max(0, Array.prototype.indexOf.call(mount.querySelectorAll(key), ae)); if (typedIn(ae)) { val = ae.value; try { s0 = ae.selectionStart; s1 = ae.selectionEnd; } catch (e) {} } }
+    paintFn();
+    if (!key) return;
+    var again = mount.querySelectorAll(key)[nth];
+    if (!again || again.disabled) return;
+    if (val != null && typedIn(again) && again.value !== val) again.value = val; // what you typed wins over an older copy
+    if (again !== document.activeElement) { try { again.focus({ preventScroll: true }); } catch (e) { again.focus(); } }
+    if (s0 != null) { try { again.setSelectionRange(s0, s1); } catch (e) {} }
+  };
   E.carryPerson = function (p) {
     try { sessionStorage.setItem("eikon_carry_person", JSON.stringify({ id: p.id, name: p.name || "", id_card: p.id_card || "", phone: p.phone || "", alt_phone: p.alt_phone || "", email: p.email || "", address: p.address || "", at: Date.now() })); } catch (e) {}
   };

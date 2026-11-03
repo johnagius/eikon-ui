@@ -107,11 +107,19 @@
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
       f.addEventListener("input", function (ev) { // the total follows what is typed; the day decides the rate
         var n = ev.target && ev.target.name; keep();
-        if (n === "receipt_date") { var ty = dayType(S.adding.receipt_date), r = mem()[ty]; if (ty !== S.adding.day_type) { S.adding.day_type = ty; if (r != null) S.adding.fee_per_hour = String(r); } paint(true); return; }
-        if (n === "day_type") { var r2 = mem()[S.adding.day_type]; if (r2 != null) S.adding.fee_per_hour = String(r2); paint(true); return; }
+        if (n === "receipt_date") { var ty = dayType(S.adding.receipt_date), r = mem()[ty]; if (ty !== S.adding.day_type) { S.adding.day_type = ty; if (r != null) S.adding.fee_per_hour = String(r); } inPlace(); return; }
+        if (n === "day_type") { var r2 = mem()[S.adding.day_type]; if (r2 != null) S.adding.fee_per_hour = String(r2); inPlace(); return; }
         var tot = m.querySelector("#lrc-tot"); if (tot) tot.textContent = totalText();
       });
-      var nm = f.querySelector("[name=locum_full_name]"); if (nm) nm.addEventListener("blur", function () { keep(); var k = S.known.find(function (x) { return String(x.name).toLowerCase() === String(S.adding.locum_full_name).toLowerCase(); }); if (k && !S.adding.registration_number) { S.adding.registration_number = k.reg; paint(true); } });
+      var nm = f.querySelector("[name=locum_full_name]"); if (nm) nm.addEventListener("blur", function () { keep(); var k = S.known.find(function (x) { return String(x.name).toLowerCase() === String(S.adding.locum_full_name).toLowerCase(); }); if (k && !S.adding.registration_number && E.fillEmpty(f, { registration_number: k.reg }).length) S.adding.registration_number = k.reg; });
+    }
+    // The rate and the reg no. are written into the open form in place: a redraw here, while the day was being typed
+    // or as the name was left with Tab, replaced the field in use and lost what was typed next.
+    function inPlace() {
+      var a = S.adding; if (!f || !a) return;
+      var dt = f.querySelector("[name=day_type]"); if (dt && dt.value !== a.day_type) dt.value = a.day_type;
+      var fe = f.querySelector("[name=fee_per_hour]"); if (fe && fe !== document.activeElement && fe.value !== a.fee_per_hour) fe.value = a.fee_per_hour || "";
+      var tot = m.querySelector("#lrc-tot"); if (tot) tot.textContent = totalText();
     }
   }
   // The classic report for the month: each locum with their days (date, day type, hours, rate, total) and totals,

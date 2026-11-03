@@ -376,15 +376,19 @@
     S.adding.looked = id;
     var p = people()[id], card = /^\d{1,7}[A-Z]$/.test(must(raw).toUpperCase().replace(/\s+/g, ""));
     var el = S.mount && S.mount.querySelector("#poc-add [name=patientId]");
-    if (p) { // fill only what is still empty: never overwrite what was typed
-      keep(); if (card) S.adding.patientId = id;
-      if (!S.adding.name) S.adding.name = p.name || "";
-      if (!S.adding.phone) S.adding.phone = p.phone || "";
-      if (!S.adding.age && has(p.age)) S.adding.age = String(p.age);
-      if (!S.adding.address) S.adding.address = p.address || "";
-      S.adding.found = true; paint(true);
-    } else if (S.adding.found) { keep(); S.adding.found = false; paint(true); }
+    if (p) { // fill only what is still empty and not the field in use, in place: a redraw here lost the next field typed
+      keep(); if (card && el && document.activeElement !== el) { el.value = id; S.adding.patientId = id; }
+      var want = {}; [["name", p.name], ["phone", p.phone], ["age", has(p.age) ? String(p.age) : ""], ["address", p.address]].forEach(function (x) { if (x[1] && !S.adding[x[0]]) want[x[0]] = String(x[1]); });
+      var f = S.mount && S.mount.querySelector("#poc-add");
+      (f ? E.fillEmpty(f, want) : Object.keys(want)).forEach(function (k) { S.adding[k] = want[k]; });
+      knownMark(true);
+    } else if (S.adding.found) { keep(); knownMark(false); }
     else if (card && el && document.activeElement !== el) el.value = id; // a new ID card: only shown padded, nothing redrawn under the fingers
+  }
+  function knownMark(on) {
+    S.adding.found = !!on;
+    var el = S.mount && S.mount.querySelector("#poc-add [name=patientId]"), lab = el && el.closest("label"), sm = lab && lab.querySelector("small");
+    if (on && lab && !sm) lab.insertAdjacentHTML("beforeend", "<i><small>Known</small></i>"); else if (!on && sm) (sm.parentNode.tagName === "I" ? sm.parentNode : sm).remove(); // as field() draws it
   }
 
   // The patient's master card after this test, by the classic rules, starting from the card as the server sent it

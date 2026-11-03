@@ -179,12 +179,12 @@
     S.history.forEach(function (l) { var n = (l.patientName || "").trim(); if (n) E._eikon_patients[norm(n)] = n; });
     return Object.keys(E._eikon_patients).map(function (k) { return E._eikon_patients[k]; });
   }
-  function applyEntry(entry) { // the classic autofill: only what the earlier label had
+  function applyEntry(entry, typing) { // the classic autofill: only what the earlier label had
     var f = S.f;
-    if (entry.dose) f.dose = entry.dose;
+    if (entry.dose && !(typing && f.dose)) f.dose = entry.dose; // as the name is typed, a dose already written stays
     if (entry.frequency) f.frequency = entry.frequency;
     if (entry.route) f.route = entry.route;
-    if (entry.customInstructions) f.customInstructions = entry.customInstructions;
+    if (entry.customInstructions && !(typing && f.customInstructions)) f.customInstructions = entry.customInstructions;
     if (entry.selectedWarnings && entry.selectedWarnings.length > 0) f.selectedWarnings = entry.selectedWarnings.slice();
     S.variants = null;
   }
@@ -366,14 +366,15 @@
         var med = medicines()[norm(S.f.drugName)];
         if (med && norm(S.f.drugName) !== S.lastMed) {
           S.lastMed = norm(S.f.drugName);
-          if (med.entries.length === 1) { applyEntry(med.entries[0]); paint(true); return; }
-          if (med.entries.length > 1) { S.variants = med.entries; paint(true); return; }
+          if (med.entries.length === 1) { applyEntry(med.entries[0], true); redraw(); return; }
+          if (med.entries.length > 1) { S.variants = med.entries; redraw(); return; }
         }
-        if (!med) { S.lastMed = ""; if (S.variants) { S.variants = null; paint(true); return; } }
+        if (!med) { S.lastMed = ""; if (S.variants) { S.variants = null; redraw(); return; } }
       }
       if (S.done || (S.err && !S.pending.length)) { S.done = ""; S.err = ""; setStatus(); } // typing clears an old note (an unsaved label's note stays)
       refreshPreview();
     });
+    function redraw() { E.repaintKeepingFocus(m, function () { paint(true); }); } // mid-word in the medicine name: the cursor stays put
     var inc = f.querySelector("[name=inc]");
     if (inc) inc.addEventListener("change", function () { keep(); S.inc = inc.checked; if (!S.inc) S.f.patientName = ""; paint(true); var x = m.querySelector(S.inc ? "[name=patientName]" : "[name=inc]"); if (x) x.focus(); });
   }

@@ -152,7 +152,7 @@
       if (E.personPick) E.personPick.attach({ key: C.id, form: f, fields: { id: "client_id_card", name: "client_name", address: "client_address" }, sources: C.pad ? ["dda", "people"] : ["people"], idValue: idCard,
         local: function () { return S.entries.map(function (e) { return { name: e.client_name, id_card: e.client_id_card, address: e.client_address, date: e.entry_date, from: C.pad ? "DDA sale" : "POYC" }; }); },
         onFill: function () { keep(); } });
-      var sn = f.querySelector("[name=prescription_serial_no]"); if (sn) sn.addEventListener("input", function () { if (S.dup) { S.dup = null; S.dupOk = ""; keep(); paint(true); var x = S.mount.querySelector("[name=prescription_serial_no]"); if (x) { x.focus(); x.setSelectionRange(x.value.length, x.value.length); } } });
+      var sn = f.querySelector("[name=prescription_serial_no]"); if (sn) sn.addEventListener("input", function () { if (S.dup) { S.dup = null; S.dupOk = ""; keep(); E.repaintKeepingFocus(S.mount, function () { paint(true); }); } }); // the cursor stays where you are typing
     }
   }
 
@@ -169,19 +169,16 @@
     try {
       var r = await C.patient(id);
       if (!S.adding || !r || !r.ok) return;
-      keep(); S.adding.client_id_card = id;
+      keep(); idInPlace(id);
       if (r.found) { // fill only what is still empty: never overwrite what was typed
-        if (!S.adding.client_name) S.adding.client_name = r.client_name || "";
-        if (!S.adding.client_address) S.adding.client_address = r.client_address || "";
-        S.adding.found = true;
+        fillIn({ client_name: r.client_name, client_address: r.client_address }); markKnown(true);
       } else { // not in this register yet: the pharmacy's people list may know them from another screen
         var p = E.people ? await E.people.byIdCard(id) : null;
         if (!S.adding || S.adding.looked !== id) return;
-        keep(); S.adding.client_id_card = id; // what was typed while the second lookup ran is kept
-        if (p) { if (!S.adding.client_name) S.adding.client_name = p.name || ""; if (!S.adding.client_address) S.adding.client_address = p.address || ""; }
-        S.adding.found = !!p;
+        keep(); idInPlace(id); // what was typed while the second lookup ran is kept
+        if (p) fillIn({ client_name: p.name, client_address: p.address });
+        markKnown(!!p);
       }
-      paint(true); // the form state was just updated from the screen and the lookup: draw it as it is
     } catch (e) {}
   }
   async function lookupDoctor(name) {
@@ -191,7 +188,25 @@
     if (!hit.length) { try { hit = (await C.doctors(name)).filter(function (d) { return d.doctor_name.toLowerCase() === name.toLowerCase(); }); } catch (e) { return; } }
     var regs = uniq(hit.map(function (d) { return d.doctor_reg_no; }));
     if (regs.length !== 1 || !S.adding) return; // two doctors with one name: let the person type it
-    keep(); if (!S.adding.doctor_reg_no) { S.adding.doctor_reg_no = regs[0]; paint(true); }
+    keep(); fillIn({ doctor_reg_no: regs[0] });
+  }
+  // A lookup fills the form in place, only fields still empty and never the one with focus. It used to redraw the form
+  // (paint(true)) while focus was moving to the next field; that field was replaced and what was typed next was lost.
+  function addForm() { return S.mount && S.mount.querySelector("#cds-add"); }
+  function fillIn(vals) {
+    var a = S.adding, f = addForm(), want = {}; if (!a) return;
+    Object.keys(vals).forEach(function (k) { if (vals[k] && !a[k]) want[k] = String(vals[k]); });
+    if (!f) { Object.keys(want).forEach(function (k) { a[k] = want[k]; }); return; }
+    E.fillEmpty(f, want).forEach(function (k) { a[k] = want[k]; });
+  }
+  function idInPlace(id) { // the ID card written the register's way (123m -> 0000123M), unless it is still being typed
+    var el = addForm() && addForm().querySelector("[name=client_id_card]");
+    if (el && el !== document.activeElement && !el.disabled) { el.value = id; S.adding.client_id_card = id; }
+  }
+  function markKnown(on) {
+    S.adding.found = !!on;
+    var el = addForm() && addForm().querySelector("[name=client_id_card]"), lab = el && el.closest("label"), sm = lab && lab.querySelector("small");
+    if (on && lab && !sm) lab.insertAdjacentHTML("beforeend", "<small>Known</small>"); else if (!on && sm) sm.remove();
   }
 
   async function add() {
