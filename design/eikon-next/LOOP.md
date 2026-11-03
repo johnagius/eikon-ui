@@ -974,3 +974,9 @@ All of it waits only on the worker deploy.
 - Checks: UI 319/0 (alone), worker 192/192, real 24/25 in parallel with repreg + team green alone. Every agent proved saved rows identical. Live BUILD .147 confirmed with curl.
 - Rebasing onto 35f8756 next: b4-4 counter defaults, b4-3 search that does things, b4-7 first day, consistency (sentence case, Maltese suggestions, Malta print time, shared helpers, real-suite flakes). Batch 5 told to use .148+.
 - For John (new): CSV product import stores Maltese letters wrongly (Ħelu → Ä¦elu, classic too); the new-question form never asks for email; classic Edit Delivery empties the ID document, an unlisted driver and the CD flag.
+
+## Round 133 — Customers keeps you in the new layout (UI .148 on main, dd64d6f)
+
+- b4-1 rebased by its agent onto exactly 35f8756 (tree hashes checked equal), merged as one commit: New order / question / delivery from a customer's page opens the new screen with the person filled in (empty fields only), Cancel/Escape goes back to the customer; count chips and the Registers strip are keyboard-reachable links; the Story shows a delivery's items, not raw JSON; Bookings-not-set-up note.
+- Checks on that tree: UI 325/0, worker 192/192, real 26/0 (new customers-carry). POST bodies and stored rows identical.
+- main and claude/eloquent-newton-7ib4gb both dd64d6f. b4-3, b4-4, b4-7, consistency told to base on dd64d6f; b4-3 folds its search hand-over into b4-1's one reader per screen. Batch 5 → .149+.
