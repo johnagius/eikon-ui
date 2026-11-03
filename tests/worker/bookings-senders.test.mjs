@@ -113,7 +113,7 @@ test("senders: if every sender fails, the booking is still made and the message 
   } finally { f.restore(); }
 });
 
-test("senders: order can be changed, a sender switched off, and a test goes only to the admin", async () => {
+test("senders: order can be changed, a sender switched off, and tests go to the admin or (five a day) a typed address", async () => {
   const app = await makeApp({ env: KEY }); const f = fakeProviders();
   try {
     const { token, sid } = await setup(app);
@@ -124,11 +124,19 @@ test("senders: order can be changed, a sender switched off, and a test goes only
     await book(app, token, sid, "10:00"); eq(f.calls[0].p, "brevo", "Brevo first after reordering");
     eq((await app.api("PATCH", "/bookings/senders/" + b.id, { token, body: { enabled: false } })).status, 200);
     await book(app, token, sid, "10:30"); eq(f.calls[1].p, "resend", "a switched-off sender is not used");
-    const t = await app.api("POST", "/bookings/senders/" + r.id + "/test", { token, body: { to: "victim@example.com" } });
-    eq(t.status, 200, t.text);
-    const last = f.calls[f.calls.length - 1];
-    ok(!JSON.stringify(last.body).includes("victim@example.com"), "a test never goes to an address the caller chooses");
-    eq(t.json.sentTo, "admin@example.com");
+    // Left empty (or not an email): the sign-in email. A typed address: allowed, five a day, then refused.
+    const t0 = await app.api("POST", "/bookings/senders/" + r.id + "/test", { token, body: { to: "not an email" } });
+    eq(t0.status, 200, t0.text); eq(t0.json.sentTo, "admin@example.com");
+    for (let i = 0; i < 5; i++) {
+      const t = await app.api("POST", "/bookings/senders/" + r.id + "/test", { token, body: { to: "owner@example.com" } });
+      eq(t.status, 200, t.text); eq(t.json.sentTo, "owner@example.com");
+    }
+    const n = f.calls.length;
+    const t6 = await app.api("POST", "/bookings/senders/" + r.id + "/test", { token, body: { to: "victim@example.com" } });
+    eq(t6.status, 429, "a sixth test to another address the same day is refused");
+    eq(f.calls.length, n, "and nothing is sent");
+    const own = await app.api("POST", "/bookings/senders/" + r.id + "/test", { token, body: {} });
+    eq(own.status, 200); eq(own.json.sentTo, "admin@example.com", "the sign-in email still works after the limit");
     eq((await app.api("DELETE", "/bookings/senders/" + b.id, { token })).status, 200);
     eq((await app.api("GET", "/bookings/senders", { token })).json.senders.length, 1);
   } finally { f.restore(); }

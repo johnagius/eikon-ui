@@ -238,6 +238,9 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     try { afterPaint(hadSheet, fk, sel); } catch (e) {}
   }
 
+  // The address in "Test to" (kept across redraws of the sheet); empty means the sign-in email.
+  function testTo() { var el = document.getElementById("bkm-testto"); var v = el ? el.value.trim() : ""; if (S.sheet) S.sheet.testTo = v; return v; }
+
   // ---------- keyboard ----------
   // The screen is redrawn whole on every change, which used to drop keyboard focus back to the top of the page.
   // Focus now stays on the same control, moves into a sheet when one opens and back to what opened it when it closes.
@@ -406,7 +409,9 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
         h += '<div class="sub" style="margin:0 4px 12px">A confirmation with a calendar file, a reminder the evening before and a private link to see or cancel. Emails go through your senders in order: if one fails or reaches its free limit, the next one sends.</div>' +
           '<div class="bkx-f"><label><span>Emails</span><input id="bkm-on" type="checkbox"' + (on ? " checked" : "") + '><em class="bkx-closed" style="margin-left:8px">' + (on ? "On" : "Off") + "</em></label>" +
           '<label><span>From</span><input id="bkm-from" inputmode="email" value="' + esc(m.fromEmail) + '" placeholder="bookings@yourpharmacy.mt"></label>' +
-          '<label><span>Name</span><input id="bkm-name" value="' + esc(m.fromName) + '" placeholder="Your pharmacy"></label></div>';
+          '<label><span>Name</span><input id="bkm-name" value="' + esc(m.fromName) + '" placeholder="Your pharmacy"></label>' +
+          // Tests go where you say: the sign-in email can be a made-up address that a stranger owns.
+          '<label><span>Test to</span><input id="bkm-testto" type="email" inputmode="email" autocomplete="email" value="' + esc(sh.testTo != null ? sh.testTo : ((E.state.user || {}).email || "")) + '" placeholder="Your own email"></label></div>';
         h += '<h2 style="font-size:13px;font-weight:600;color:var(--l2);text-transform:uppercase;letter-spacing:.04em;margin:18px 4px 6px">Senders</h2><div class="bkx-g">';
         if (!snds.length) h += '<div class="bkx-empty" style="text-align:left;padding:14px 16px">No sender yet. Brevo sends 300 emails a day for free and Resend 100; add both and Eikon uses the second when the first is busy or used up.</div>';
         snds.forEach(function (x, i) {
@@ -441,7 +446,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
             '<div class="bkx-linkrow"><a href="' + esc(location.origin + "/book/" + m.publicSlug) + '" target="_blank" rel="noopener">' + esc(location.origin.replace(/^https?:\/\//, "") + "/book/" + m.publicSlug) + '</a><button class="bkx-mini" data-act="copy-link">Copy link</button><button class="bkx-mini" data-act="qr">QR code</button></div>' +
             (sh.qrSvg ? '<div class="bkx-qr"><div class="bkx-qrcard" id="bkx-qrcard"><b>' + esc((E.state.user || {}).location_name || "") + "</b><span>Scan to book</span>" + sh.qrSvg + "<small>" + esc(location.origin.replace(/^https?:\/\//, "") + "/book/" + m.publicSlug) + '</small></div><button class="bkx-btn" data-act="qr-print">Print</button></div>' : "") : "") + "</div>" +
           (m.canSend ? "" : '<div class="bkx-err">The server needs its BOOKINGS_KEY secret before emails can be switched on.</div>') +
-          '<div class="bkx-acts"><button class="bkx-btn fill lg" data-act="msg-save">Save</button><button class="bkx-btn lg" data-act="msg-test">Send me a test</button></div>';
+          '<div class="bkx-acts"><button class="bkx-btn fill lg" data-act="msg-save">Save</button><button class="bkx-btn lg" data-act="msg-test">Send a test</button></div>';
       }
     }
     return h;
@@ -701,7 +706,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
           var ids = sh3.senders.map(function (x) { return x.id; }), i = ids.indexOf(gid), j = i + Number(t.getAttribute("data-d"));
           if (i >= 0 && j >= 0 && j < ids.length) { ids.splice(j, 0, ids.splice(i, 1)[0]); sh3.senders = (await api("/bookings/senders/order", { method: "POST", body: JSON.stringify({ ids: ids }) })).senders; }
         } else if (act === "snd-test") {
-          var tr = await api("/bookings/senders/" + gid + "/test", { method: "POST", body: "{}" }); await reload(); sh3.okMsg = "Test sent to " + tr.sentTo + " through " + tr.sender + ".";
+          var tr = await api("/bookings/senders/" + gid + "/test", { method: "POST", body: JSON.stringify({ to: testTo() }) }); await reload(); sh3.okMsg = "Test sent to " + tr.sentTo + " through " + tr.sender + ".";
         } else if (act === "snd-toggle") {
           var cur3 = sh3.senders.find(function (x) { return x.id === gid; });
           await api("/bookings/senders/" + gid, { method: "PATCH", body: JSON.stringify({ enabled: !(cur3 && cur3.enabled) }) }); await reload();
@@ -724,7 +729,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
         try { S.sheet.msg = (await api("/bookings/settings", { method: "PUT", body: JSON.stringify(body2) })).settings; S.sheet.okMsg = body2.provider === "off" ? "Emails are off" : "Saved. Customers with an email now get messages."; }
         catch (e) { S.sheet.err = errMsg(e); }
       } else {
-        try { var r2 = await api("/bookings/settings/test", { method: "POST", body: "{}" }); S.sheet.okMsg = "Test sent to " + r2.sentTo; }
+        try { var r2 = await api("/bookings/settings/test", { method: "POST", body: JSON.stringify({ to: testTo() }) }); S.sheet.okMsg = "Test sent to " + r2.sentTo; }
         catch (e) { S.sheet.err = errMsg(e); }
       }
       return paint();

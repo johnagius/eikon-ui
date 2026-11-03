@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-03-bookings-15";
+const WORKER_VERSION = "2026-11-03-bookings-16";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -19994,8 +19994,10 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
     const cur = id ? await mine(id) : null;
     if (!cur) return bad("Sender not found", 404);
     if (m === "POST" && parts[2] === "test") {
-      // Only ever to the signed-in admin: the test button cannot be used to send mail to anyone else.
-      const to = String(authUser.email || "");
+      // Admin only, fixed wording. To the address the admin typed (shown filled with their sign-in email):
+      // a sign-in email can be a made-up one that belongs to a stranger.
+      const tt = await bkTestTo(request, authUser, env); if (tt.error) return bad(tt.error, 429);
+      const to = tt.to;
       try {
         const r = await bkSendEmail(env, settings, { to, toName: authUser.full_name, subject: "Eikon test message", html: bkEmailHtml({ title: "It works", lines: ["Booking emails from Eikon will look like this.", "Sent through " + (cur.label || cur.kind) + "."], pharmacy: authUser.location_name || "", address: settings.address, phone: settings.phone }) }, cur.id);
         return ok({ sentTo: to, sender: r.sender });
@@ -20358,7 +20360,8 @@ async function ensureBookingsMsgSchema__impl(env) {
   for (const s of stmts) await dbRun(env, s, []);
   // Online booking (public page), added later: columns are added if missing.
   for (const col of ["public_enabled INTEGER NOT NULL DEFAULT 0", "public_slug TEXT NOT NULL DEFAULT ''",
-                     "smtp_host TEXT NOT NULL DEFAULT ''", "smtp_port INTEGER NOT NULL DEFAULT 465", "smtp_user TEXT NOT NULL DEFAULT ''", "smtp_secure TEXT NOT NULL DEFAULT 'tls'"]) {
+                     "smtp_host TEXT NOT NULL DEFAULT ''", "smtp_port INTEGER NOT NULL DEFAULT 465", "smtp_user TEXT NOT NULL DEFAULT ''", "smtp_secure TEXT NOT NULL DEFAULT 'tls'",
+                     "test_day TEXT NOT NULL DEFAULT ''", "test_count INTEGER NOT NULL DEFAULT 0"]) {
     try { await dbRun(env, `ALTER TABLE bk_settings ADD COLUMN ${col}`, []); } catch (e) {}
   }
   await dbRun(env, `CREATE UNIQUE INDEX IF NOT EXISTS uq_bk_public_slug ON bk_settings (public_slug) WHERE public_slug <> ''`, []);
@@ -20655,6 +20658,22 @@ async function bkRunReminders(env, nowOverride) {
 }
 
 /* ---------- staff routes: settings + test ---------- */
+// Where a test message goes. The sign-in email can be a made-up address that a stranger owns, so the admin may type
+// another one; to keep the pharmacy's sender from becoming a way to mail anyone, at most five tests a day go to an
+// address other than the sign-in email (fixed wording, admin only). Anything that is not an email: the sign-in email.
+async function bkTestTo(request, authUser, env) {
+  const own = String(authUser.email || "");
+  let b = null; try { b = await readJson(request); } catch (e) { b = null; }
+  const want = String((b && b.to) || "").trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(want) || want.length > 254 || want.toLowerCase() === own.toLowerCase()) return { to: own };
+  const org = authUser.org_id, loc = authUser.location_id, day = bkNowLocal(env).date;
+  const row = await dbFirst(env, `SELECT test_day, test_count FROM bk_settings WHERE org_id=? AND location_id=?`, [org, loc]);
+  if (!row) return { to: own };
+  const n = row.test_day === day ? (Number(row.test_count) || 0) : 0;
+  if (n >= 5) return { error: "Five tests a day can go to another address, and today's are used. Try tomorrow, or send it to your sign-in email." };
+  await dbRun(env, `UPDATE bk_settings SET test_day=?, test_count=? WHERE org_id=? AND location_id=?`, [day, n + 1, org, loc]);
+  return { to: want };
+}
 async function handleBookingsSettings(request, env, corsOkHeaders, authUser, url) {
   if (!requireRole(authUser, ["admin"])) return jsonResponse({ ok: false, error: "Only an admin can change messages" }, 403, corsOkHeaders);
   await ensureBookingsMsgSchema(env);
@@ -20722,7 +20741,8 @@ async function handleBookingsSettings(request, env, corsOkHeaders, authUser, url
   if (request.method === "POST" && /\/test$/.test(url.pathname)) {
     const s = await bkGetSettings(env, org, loc);
     if (!(await bkCanSend(env, s))) return jsonResponse({ ok: false, error: "Add a sender and switch emails on first" }, 400, corsOkHeaders);
-    const to = String(authUser.email || "");
+    const tt = await bkTestTo(request, authUser, env); if (tt.error) return jsonResponse({ ok: false, error: tt.error }, 429, corsOkHeaders);
+    const to = tt.to;
     try {
       await bkSendEmail(env, s, { to, toName: authUser.full_name, subject: "Eikon test message", html: bkEmailHtml({ title: "It works", lines: ["Booking emails from Eikon will look like this."], pharmacy: authUser.location_name || "", address: s.address, phone: s.phone }) });
       return jsonResponse({ ok: true, sentTo: to }, 200, corsOkHeaders);
