@@ -216,11 +216,53 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       }).join("") + "</div></div>";
       if (past.length) body += '<div class="bkx-sec"><h2>Earlier</h2><div class="bkx-g">' + past.map(function (b) { return rowHtml(b, true); }).join("") + "</div></div>";
     }
+    var hadSheet = !!S.mount.querySelector(".bkx-sheet"), fk = null, sel = null;
+    try { fk = focusKey(document.activeElement); sel = selOf(document.activeElement); } catch (e) {} // keyboard niceties must never stop the screen drawing
     S.mount.innerHTML = '<div class="bkx">' +
       '<div class="bkx-top"><div><h1>Bookings</h1><div class="sub">' + esc(S.view === "week" ? weekLabel() : longDate(S.date)) + (hasSetup ? " · " + list.length + " booked" : "") + "</div></div>" +
       (hasSetup ? '<div style="display:flex;gap:8px">' + (isAdmin() ? '<button class="bkx-btn bkx-gear" data-act="settings" aria-label="Bookings settings" title="Settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg></button>' : "") + '<button class="bkx-add" data-act="new" aria-label="New booking"><span class="bkx-plus" aria-hidden="true">+</span><span class="bkx-add-l">New booking</span></button></div>' : "") + "</div>" +
       (hasSetup ? '<div class="bkx-seg bkx-view"><button class="' + (S.view === "day" ? "on" : "") + '" data-act="view" data-v="day">Day</button><button class="' + (S.view === "week" ? "on" : "") + '" data-act="view" data-v="week">Week</button></div>' : "") +
       (hasSetup && S.view === "day" ? daysHtml() : "") + body + "</div>" + sheetHtml();
+    try { afterPaint(hadSheet, fk, sel); } catch (e) {}
+  }
+
+  // ---------- keyboard ----------
+  // The screen is redrawn whole on every change, which used to drop keyboard focus back to the top of the page.
+  // Focus now stays on the same control, moves into a sheet when one opens and back to what opened it when it closes.
+  function focusKey(el) {
+    if (!el || !S.mount || el === S.mount || !S.mount.contains(el)) return null;
+    if (el.id) return "#" + cssq(el.id);
+    var k = el.tagName.toLowerCase(), any = false;
+    Array.prototype.forEach.call(el.attributes, function (a) { if (a.name.indexOf("data-") === 0) { k += "[" + a.name + '="' + cssq(a.value) + '"]'; any = true; } });
+    return any ? k : null;
+  }
+  function cssq(v) { return window.CSS && window.CSS.escape ? window.CSS.escape(v) : String(v).replace(/[^a-zA-Z0-9_-]/g, function (c) { return "\\" + c; }); }
+  function selOf(el) { try { return el && typeof el.selectionStart === "number" ? [el.value, el.selectionStart, el.selectionEnd] : null; } catch (e) { return null; } }
+  function focusables(box) { return Array.prototype.filter.call(box.querySelectorAll("button,input:not([type=hidden]),select,textarea,a[href],[tabindex]:not([tabindex='-1'])"), function (e) { return !e.disabled && e.offsetParent !== null; }); }
+  function afterPaint(hadSheet, fk, sel) {
+    var sheet = S.mount.querySelector(".bkx-sheet"), act = document.activeElement;
+    if (sheet) { var t = sheet.querySelector(".bkx-sh b") || sheet.querySelector("b"); sheet.setAttribute("aria-label", t ? t.textContent.trim() : "Bookings"); }
+    if (sheet && !hadSheet) S.opener = fk;
+    if (act && act !== document.body && !S.mount.contains(act)) return; // focus is somewhere else on the page: leave it there
+    var target = null;
+    try { target = fk ? S.mount.querySelector(fk) : null; } catch (e) { target = null; }
+    if (sheet && !hadSheet) target = sheet; // a sheet just opened: start inside it (the sheet itself, so a phone keyboard does not pop up)
+    else if (sheet && (!target || !sheet.contains(target))) target = sheet;
+    else if (!sheet && hadSheet && !target) { try { target = S.opener ? S.mount.querySelector(S.opener) : null; } catch (e) { target = null; } S.opener = null; }
+    if (!target || document.activeElement === target) return;
+    target.focus({ preventScroll: true });
+    if (sel && target.value === sel[0] && typeof target.setSelectionRange === "function") { try { target.setSelectionRange(sel[1], sel[2]); } catch (e) {} }
+  }
+  function onKey(ev) {
+    if (!S.mount || !S.sheet || E.state.activeModuleId !== "bookings") return;
+    var sheet = S.mount.querySelector(".bkx-sheet"); if (!sheet) return;
+    if (ev.key === "Escape") { ev.preventDefault(); S.sheet = null; paint(); return; }
+    if (ev.key !== "Tab") return;
+    var f = focusables(sheet); if (!f.length) return;
+    var a = document.activeElement, first = f[0], last = f[f.length - 1];
+    if (!sheet.contains(a)) { ev.preventDefault(); first.focus(); }
+    else if (ev.shiftKey && (a === first || a === sheet)) { ev.preventDefault(); last.focus(); }
+    else if (!ev.shiftKey && a === last) { ev.preventDefault(); first.focus(); }
   }
 
   // ---------- sheets ----------
@@ -269,7 +311,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
         (sh.err ? '<div class="bkx-err" style="margin-top:12px">' + esc(sh.err) + "</div>" : "") +
         '<div class="bkx-acts" style="margin-top:16px"><button class="bkx-btn fill lg" data-act="offer-book">Book ' + esc(o.personName.split(" ")[0]) + " at " + esc(o.start) + '</button><button class="bkx-btn lg" data-act="close">Not now</button></div>';
     }
-    return '<div class="bkx-scrim" data-act="close"></div><div class="bkx-sheet bkx" style="padding-top:10px;min-height:0"><div class="bkx-grab"></div>' + inner + "</div>";
+    return '<div class="bkx-scrim" data-act="close"></div><div class="bkx-sheet bkx" role="dialog" aria-modal="true" tabindex="-1" style="padding-top:10px;min-height:0;outline:0"><div class="bkx-grab"></div>' + inner + "</div>";
   }
 
   function settingsHtml(sh) {
@@ -701,6 +743,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     S.mount = ctx.mount; S.date = S.date || todayStr(); S.sheet = null;
     S.mount.addEventListener("click", onClick);
     S.mount.addEventListener("change", onChange);
+    document.addEventListener("keydown", onKey);
     // No polling: refresh when the tab comes back into view.
     S.onVis = function () { if (!document.hidden && S.mount && E.state.activeModuleId === "bookings") load({ silent: true }); };
     document.addEventListener("visibilitychange", S.onVis);
@@ -709,7 +752,8 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
   function destroy() {
     if (S.mount) { S.mount.removeEventListener("click", onClick); S.mount.removeEventListener("change", onChange); }
     if (S.onVis) document.removeEventListener("visibilitychange", S.onVis);
-    S.mount = null; S.sheet = null;
+    document.removeEventListener("keydown", onKey);
+    S.mount = null; S.sheet = null; S.opener = null;
   }
 
   E.registerModule({ id: "bookings", title: "Bookings", order: 3, icon: "📅", ui2Only: true, render: render, destroy: destroy });
