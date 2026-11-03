@@ -850,3 +850,9 @@ All of it waits only on the worker deploy.
 - Decided to switch Bookings on for everyone in the new layout, with two guards so nobody loses anything: staff (non-admin) get "Bookings is not set up yet — your pharmacist can set it up here" instead of a setup form the server would refuse (403); the Customers screen keeps its Appointment button (classic Appointments) until that pharmacy has set Bookings up (remembered per pharmacy when Bookings loads), then shows Booking. ?bookings=0 still hides it on one device. Classic layout untouched.
 - Tests: UI suite 141/141 (rail test updated; new test for the Booking/Appointment button); bk-e2e 13/13; bk-settings 13/13; staff-bk.mjs (staff account): Bookings in the rail, note instead of form, no errors.
 - Waiting for John: a real booking email end to end needs a pharmacy's sender (Resend/Brevo key or SMTP), a test pharmacy or permission to use his own, and an inbox to receive it.
+
+## Live check of Bookings on the real server (demo account, 2026-11-03 ~09:50 Malta)
+
+- Signed in as the demo pharmacy John provided (pharmacist role). Bookings was empty there; no email sender; the server reports canSend and canStoreKeys true (BOOKINGS_KEY in place).
+- Set up a practitioner ("Demo Pharmacist", weekdays 09:00–13:00 and 16:00–19:00, Saturday morning) and a service ("Blood pressure check", 15 min, free, online). Free times offered correctly from 10:00. Booked 10:30 for "Test Booking (Claude)"; a second booking at the same time was refused with the next free times; Today listed it; then cancelled it (the server rightly insisted on the record's version and a reason). The practitioner and service are left in place for the email test.
+- Real email end to end still needs a sender for the demo pharmacy (Resend or Brevo key, or SMTP) and an inbox to receive it.
