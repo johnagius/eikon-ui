@@ -240,12 +240,15 @@
     if (!r) { box.innerHTML = html + (state.loading ? '<div class="cus-lab">Searching…</div>' : ""); bindList(); return; }
     var people = r.people || [], hist = r.history || [];
     var qq = String(r.q || "").trim();
-    html += '<div class="cus-lab">' + (qq ? 'Customers <b>' + people.length + '</b>' : 'Recent customers') + (state.loading ? ' · searching…' : '') + '<a data-act="new">+ New</a></div>';
+    html += '<div class="cus-lab">' + (qq.length >= 2 ? 'Customers <b>' + people.length + '</b>' : 'Recent customers') + (state.loading ? ' · searching…' : '') + '<a data-act="new">+ New</a></div>';
     if (people.length) {
       html += '<div class="cus-list">' + people.map(function (p) {
         var sub = [p.phone, p.id_card].filter(Boolean).join(" · ") || p.email || p.address || "No details yet";
         return '<button class="cus-item' + (p.id === state.selected ? " on" : "") + '" data-person="' + p.id + '">' + av(p.name) + '<span class="cus-t"><b>' + esc(p.name) + '</b><span>' + esc(sub) + '</span></span></button>';
       }).join("") + '</div>';
+    } else if (qq && qq.trim().length < 2 && !state.loading) {
+      // The search starts at two letters (the server answers one letter with the recent list): do not say "no one" yet.
+      html += '<div class="cus-quiet">Keep typing: two letters or more find a customer.</div>';
     } else if (qq && !state.loading && !hist.length) {
       html += '<div class="cus-quiet">No one called “' + esc(qq) + '” yet.<br><a data-act="new" style="color:var(--accent);font-weight:600;cursor:pointer">Add them as a new customer ›</a></div>';
     } else if (!qq && !state.loading) {
