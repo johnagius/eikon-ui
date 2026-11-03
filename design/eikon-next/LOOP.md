@@ -759,3 +759,10 @@ All of it waits only on the worker deploy.
 - Found on the page customers see: ~30 low-contrast items in light (the green kicker 3.65:1, grey subtitles 3.61:1, small notes), the footer and notes in dark (3.25:1), and the day picker marked role="listbox" holding buttons (screen readers announce it wrongly). The manage/cancel/change pages and the booking email used #0A8F6A with white text (3.8:1).
 - Fixed in the worker (these pages are served by it): light tokens --t #066B4F, --l2 #6A6A70, --l3 #6E6E73, --red #C4221A; dark --l3 at .6; the day picker is role="group" (its buttons already carry aria-pressed); manage pages and the email button on #066B4F. Same values as the staff app since round 87.
 - Re-run: every step clean in light and dark, the booking still completes, no page errors. Worker tests 99/99. WORKER_VERSION 2026-11-03-bookings-15; it ships with John's next deploy, together with bookings-14 (board group-leak fix).
+
+## Round 89 — Booking by keyboard on the customer page (worker bookings-15, needs deploy)
+
+- New kbd-pub.mjs: a customer books using only Tab, Enter and typing (service → time → name, email → send code → code → confirm), recording every stop and whether it shows focus. Light and dark.
+- Found: the page redraws whole on every choice, so after picking a service or a time with Enter, focus fell to the top: the name field was 89 Tabs away (72 time slots on a day with 10-minute slots). And the name, email, phone and code fields showed no focus at all (border 0, outline 0).
+- Fixed in the worker's page script: each redraw puts focus back on the same control; a time chosen by keyboard (click with detail 0) moves on to the name field when it is empty (a tap does not, so no phone keyboard pops up); the row being typed in is tinted (.f:focus-within, theme --ts), like the staff app.
+- Re-run: booked by keyboard alone, every stop shows focus, name field reached straight after the time; axe clean at every step, light and dark; mouse flow still books. Worker tests 99/99. Ships with John's next deploy (bookings-15).
