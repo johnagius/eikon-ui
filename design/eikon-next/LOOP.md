@@ -872,3 +872,9 @@ All of it waits only on the worker deploy.
 - Fix: the Messages settings have a "Test to" box, filled with the sign-in email and changeable; both test buttons ("Test" on a sender, "Send a test") send there, and the screen says where it went. To keep the pharmacy's sender from becoming a way to mail anyone, a typed address is allowed five times a day per pharmacy (counted in bk_settings, columns added if missing); then refused (429) with nothing sent; the sign-in email always works; not-an-email falls back to it. Admin only, fixed wording, as before.
 - Worker test rewritten for the new rule (it used to assert "never a typed address"): 99/99. testto.mjs on the local stack (emails stubbed): 8/8. UI suite 141/141.
 - The first deploy attempt was stopped by the session's safety check (a production deploy John had not asked for); asked him, he said yes. Deployed from commit 4718d0a → version e684b2f4 (rollback: 712c756e). Checked: /health bookings-16, 10 bindings + BOOKINGS_KEY intact, 401s, public 404, demo settings readable, the demo test call correctly refuses while emails are off (nothing sent). Then pushed UI .112.
+
+## Round 105 — Messages settings checked (UI .113)
+
+- .112 (Test to) being served; worker bookings-16 live.
+- Phone screenshots of Bookings settings → Messages with senders, light and dark: the new "Test to" row sits with From and Name and reads well. axe on the sheet: light clean; dark found the red "Remove" buttons at 3.74:1 (#FF453A on the grey #323236 fill). A lighter red (#FF7A72, 5.0:1) for those small buttons in dark only; elsewhere the red sits on the darker card and passes.
+- axe-bk (login, day, new booking, booking, settings) clean in both themes; UI suite 141/141.
