@@ -681,3 +681,9 @@ All of it waits only on the worker deploy.
 - The "hours are saved" failure (1 in 3 runs) was the test, not the app: bk-settings-e2e adds Saturday hours and never removed them, so a re-run on the same data got a second blank line and the save was rightly refused ("give both times"). The test now clears Saturday first; 4 runs back to back on the same data pass all 13 checks each. A 15x repro loop (bkhours-loop.mjs) on add → refuse → refill → save: 0 of 8 failures once its own cleanup used the right button.
 - While there: "+" on a day used to add a fully blank line. It now starts three hours after the last window ends and runs three hours (09:00–13:00 → 16:00–19:00, the usual split day). It stays blank if that would run past midnight. Checked live in the local stack.
 - UI suite 137/137. Worker unchanged (bookings-14 still waiting for John's deploy, which carries the board group-leak fix).
+
+## Round 78 — Keyboard-only walkthrough (UI .91)
+
+- New tool kbd.mjs: logs in by keyboard, then Tabs 60 times through Today, Deliveries, Paid out, Handover, Order diary and Bookings, recording every stop, whether it shows focus and whether it lands on something hidden. Login works by keyboard alone (email is focused, Tab → password, Enter signs in). No stop lands on a hidden element. No page errors.
+- Two real gaps: the Today search box ("What do you need?") showed nothing when focused (its field has no border and the box had no focus rule), and Bookings form rows (service, practitioner, hours sheets) showed nothing either. Fixed: the search box gets a green border and soft ring; Bookings rows get the accent tint from the theme's own --ts, so it's right in light and dark. Handover's fields already turn green (the flagged result came from the probe reading outline only).
+- Checked with screenshots in light and dark. UI suite 137/137. Worker still bookings-14, awaiting John's deploy.
