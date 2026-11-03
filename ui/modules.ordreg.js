@@ -138,6 +138,8 @@
     if (S.saving) return;
     var v = function (n) { var el = f.querySelector("[name=" + n + "]"); return el ? String(el.value || "").trim() : ""; };
     var body = { order_date: today(), client_name: v("client_name"), contact: v("contact"), items: v("items"), needed_by: v("needed_by"), pick_up_date: v("pick_up_date") || v("needed_by"), deposit: v("deposit"), priority: Number(v("priority") || 2), notes: v("notes") };
+    // The server reads client_phone, pickup_date and deposit_amount; the names above alone were dropped (phone, pick-up date and deposit came back empty).
+    body.client_phone = body.contact; body.pickup_date = body.pick_up_date; body.deposit_amount = body.deposit;
     S.adding = Object.assign({}, body, { pick_up_date: v("pick_up_date") }); S.err = "";
     if (!body.client_name) S.err = "Write the customer's name. Nothing was saved.";
     else if (!body.items) S.err = "Write what they ordered. Nothing was saved.";
