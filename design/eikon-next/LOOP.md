@@ -609,3 +609,9 @@ All of it waits only on the worker deploy.
 - Live: BUILD .81. Paid out, locum receipts, credit-note uses: baseline count before POST; on a network error,
   re-read; arrived → treated as saved (no double payment / double use); not arrived → form kept, "check the list".
   Real worker: reply cut after storing (3 screens) and request never arriving. UI 131/131. BUILD .82.
+
+## Round 66 — postOnce for the remaining legal registers
+- Live: BUILD .82. E.postOnce(path, body, {list, same}) in core; daily register, locum register, repeat
+  prescriptions use it. Real worker with replies cut: each closes as saved, one record. UI 131/131. BUILD .83.
+- Lost-answer protection now covers every create on a register or money screen in the new layout
+  (CD received/supplied/POYC, daily, locum, repeat Rx, paid out, locum receipts, credit-note uses).
