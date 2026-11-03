@@ -290,9 +290,10 @@
     var on = (tm.on_today || []);
     html += '<div class="tdy-tile"><div class="tdy-lab">Team today</div>' +
       (on.length ? '<div class="tdy-chips">' + on.map(function (p) { return '<i class="on" title="' + esc(p.role || "") + '">' + esc(p.name) + " " + esc(p.from) + "–" + esc(p.to) + "</i>"; }).join("") + '</div>' : '<p>No shifts recorded for today.</p>') +
-      ((tm.handover_incoming || []).length ? '<p>Handover from yesterday:<br>' + tm.handover_incoming.slice(0, 3).map(function (h) { return "<b>" + esc(h.text || h.msg || h) + "</b>"; }).join("<br>") + '</p>' : "") +
+      ((tm.handover_incoming || []).length ? '<p>Handover from yesterday:<br>' + tm.handover_incoming.slice().sort(function (a, b) { var o = { r: 0, y: 1 }; return (o[a && a.sev] != null ? o[a.sev] : 2) - (o[b && b.sev] != null ? o[b.sev] : 2); }).slice(0, 3)
+        .map(function (h) { return "<b" + (h && h.sev === "r" ? ' style="color:var(--danger)"' : "") + ">" + esc(h.text || h.msg || h) + "</b>"; }).join("<br>") + '</p>' : "") + // most critical first, as in Handover
       (tm.notes_today ? '<p>Today: <b>' + esc(tm.notes_today) + '</b></p>' : "") +
-      '<button class="tdy-btn" data-open="#instructions">Handover</button></div>';
+      '<button class="tdy-btn" data-open="#instructions">Handover</button>' + (E.modules.rotreg ? ' <button class="tdy-btn" data-open="#rotreg">Who\'s in</button>' : "") + '</div>';
     html += '</div>';
 
     if (E.setRailBadge) { try { E.setRailBadge("today", before.filter(function (r) { return r.status === "todo" || r.status === "overdue"; }).length); E.setRailBadge("customers", nWait); E.setRailBadge("stock", attention.filter(function (a) { return a.kind === "near_expiry" || a.kind === "returns" || a.kind === "alert"; }).length); } catch (eB) {} }

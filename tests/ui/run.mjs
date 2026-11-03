@@ -46,7 +46,7 @@ function todayPayload() {
     ],
     takings: { end_of_day_saved: false, end_of_day_locked: false, paid_out_today: 12.5, paid_out_count: 1, action: { type: "open", path: "#endofday", label: "Close the day" } },
     stock: { supplier_orders_pending: 1, supplier_orders_shipped: 0 },
-    team: { on_today: [{ name: "Maria", role: "pharmacist", from: "09:00", to: "19:00" }, { name: "Karl", role: "assistant", from: "13:00", to: "19:00" }], handover_incoming: [{ text: "Courier at 16:00, box for Dr Galea", sev: "medium" }], notes_today: "" },
+    team: { on_today: [{ name: "Maria", role: "pharmacist", from: "09:00", to: "19:00" }, { name: "Karl", role: "assistant", from: "13:00", to: "19:00" }], handover_incoming: [{ text: "Courier at 16:00, box for Dr Galea", sev: "g" }, { text: "Methadone for Mr Vella at 9", sev: "r" }], notes_today: "" },
     counts: { before_opening: (todayState.tempDone ? 0 : 1) + 1 + (todayState.cleanDone ? 0 : 1), customers_waiting: 2, attention: 2 }
   };
 }
@@ -801,6 +801,14 @@ await page.waitForFunction(() => window.EIKON.state.activeModuleId === "rotreg" 
 const rot = await page.evaluate(() => ({ today: document.querySelector(".rot-day.today").textContent, classic: location.search.indexOf("ui=classic") >= 0 }));
 report("who's in: opens from Team in the new layout; today's shift, approved sick leave shown, refused leave hidden",
   !rot.classic && /Maria Borg.*08:00–14:00/.test(rot.today) && /Karl Vella.*Sick leave.*Away/.test(rot.today) && (rot.today.match(/Maria Borg/g) || []).length === 1, JSON.stringify(rot));
+
+// Today's team tile: yesterday's critical handover point first (in red), and Who's in opens the week's rota.
+await page.goto(base + "&ui=2#today");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "today" && document.querySelector("[data-open='#rotreg']"), null, { timeout: 15000 });
+const tdyTeam = await page.evaluate(() => { const t = document.querySelector("[data-open='#rotreg']").closest(".tdy-tile"); const b = t.querySelectorAll("p b"); return { first: b[0] && b[0].textContent, red: b[0] && b[0].getAttribute("style") || "" }; });
+await page.click("[data-open='#rotreg']");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "rotreg", null, { timeout: 15000 });
+report("today: the critical handover point comes first in red; Who's in opens the rota", /Methadone/.test(tdyTeam.first || "") && /danger/.test(tdyTeam.red), JSON.stringify(tdyTeam));
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
