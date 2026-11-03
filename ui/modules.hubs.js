@@ -42,7 +42,7 @@
     "emergency-pos": "Sell when the main till is down; syncs later.",
     poct: "Blood pressure, glucose, cholesterol and other tests, per patient.",
     vaccines: "Vaccine orders for travel and routine jabs.",
-    ocps: "Contraceptive supply records.",
+    ocps: "Find a contraceptive pill by its hormones and doses.",
     pharmacycalc: "Dose and renal calculators, per patient.",
     pharmacovigilance: "Adverse reactions reported.",
     screening: "Screening programmes and results.",

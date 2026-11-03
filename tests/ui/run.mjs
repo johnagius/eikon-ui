@@ -198,6 +198,14 @@ function mockApi(req, res, body) {
   // Adverse reactions (new layout pvreg): one stored report; a PUT upserts by id, as the worker does
   if (p === "/pharmacovigilance/state" && req.method === "GET") return res.end(JSON.stringify({ ok: true, reports: pvState.reports, state: { reports: pvState.reports } }));
   if (p === "/pharmacovigilance/state" && req.method === "PUT") { ((body && body.state && body.state.reports) || []).forEach((r) => { const i = pvState.reports.findIndex((x) => x.id === r.id); if (i >= 0) pvState.reports[i] = r; else pvState.reports.unshift(r); }); return res.end(JSON.stringify({ ok: true, saved: ((body && body.state && body.state.reports) || []).length })); }
+  // Screening campaigns (new layout scrreg): one stored campaign; a PUT upserts each campaign by id (whole) and deletes only deleted_ids, as the worker does
+  if (p === "/screening/state") {
+    const st = globalThis.__scrState || (globalThis.__scrState = { campaigns: [{ id: "sc_1_abc", name: "BP Month", type: "Blood Pressure Check", startDate: "2026-11-01", endDate: "", notes: "", status: "Active", location: "Pharmacy Floor", targetScreenings: "20", extra: "kept",
+      participants: [{ id: "sc_p1", idCard: "0012345M", name: "Zammit Carmel", phone: "79123456", email: "", dob: "", type: "Walk-in", date: "2026-11-01", resultNotes: "", resultCategory: "Abnormal", referral: "Referred to GP", referralNotes: "", poctResults: { sys: 162, dia: 98, pulse: "", arm: "Left", position: "Sitting" }, followUps: [{ id: "f1", scheduledDate: "2026-11-02", reason: "Re-test", status: "Pending", notes: "" }] }] }] });
+    if (req.method === "GET") return res.end(JSON.stringify({ ok: true, campaigns: st.campaigns, state: { campaigns: st.campaigns } }));
+    if (req.method === "PUT") { const s = (body && body.state) || {}; (s.campaigns || []).forEach((c) => { const i = st.campaigns.findIndex((x) => x.id === c.id); if (i >= 0) st.campaigns[i] = c; else st.campaigns.unshift(c); }); st.campaigns = st.campaigns.filter((c) => !(s.deleted_ids || []).includes(c.id)); return res.end(JSON.stringify({ ok: true, saved: (s.campaigns || []).length })); }
+  }
+  // Contraceptive pills (new layout ocpreg): no mock needed. Like the classic OCP finder it is a fixed list in the page and calls no endpoint.
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -1252,6 +1260,54 @@ try {
     e1.id === orig.id && e1.status === "Submitted to MPA" && e1.mpa_ref === orig.mpa_ref && e1.pt_id === orig.pt_id && e1.reaction_seriousness === orig.reaction_seriousness && e1.created_at === "2026-10-30T09:00:00.000Z" && e1.drugs[0].batch_no === "AX12",
     JSON.stringify({ pvRail, pvRow, pvPuts }).slice(0, 600));
 } catch (e) { report("adverse reactions: ran to the end", false, String(e).slice(0, 300)); }
+
+// Screening campaigns: the old link opens the new screen under Registers; recording a screening is one PUT of that one
+// campaign, whole (the person already in it, a field the screen does not know, kept), with the new person in the classic shape and an empty deleted_ids.
+try {
+  await page.goto(base + "&ui=2#screening");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "scrreg" && document.querySelector(".scr-row"), null, { timeout: 15000 });
+  const scRail = await page.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join());
+  const scRow = await page.textContent(".scr-row");
+  await page.click('.scr-row[data-id="sc_1_abc"]'); await page.waitForSelector("[data-act=add]");
+  const scCamp = await page.textContent(".scr");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=add]"); await page.waitForSelector("#scr-add");
+  await page.fill("[name=idCard]", "4567m"); await page.fill("[name=name]", "Borg Anna"); await page.fill("[name=r_sys]", "128"); await page.fill("[name=r_dia]", "84");
+  await page.selectOption("[name=resultCategory]", "Normal");
+  await page.click("#scr-add button[type=submit]"); await page.waitForSelector(".scr-acts-top [data-act=camp]", { timeout: 8000 });
+  const scPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT" && c.path === "/screening/state").map((c) => c.body.state);
+  const sc = (scPuts[0] || { campaigns: [{}] }).campaigns[0] || {}, scP = (sc.participants || [])[1] || {};
+  const scView = await page.textContent(".scr");
+  report("screening campaigns: #screening opens it under Registers; a screening is one PUT of that campaign alone, whole, the earlier person and unknown fields kept; the new person in the classic shape",
+    scRail === "registers" && /BP Month/.test(scRow) && /1 screened of 20/.test(scRow) && /Zammit Carmel/.test(scCamp) && /162\/98 mmHg/.test(scCamp) &&
+    scPuts.length === 1 && scPuts[0].campaigns.length === 1 && Array.isArray(scPuts[0].deleted_ids) && !scPuts[0].deleted_ids.length &&
+    sc.id === "sc_1_abc" && sc.extra === "kept" && sc.participants.length === 2 && sc.participants[0].id === "sc_p1" && sc.participants[0].followUps.length === 1 &&
+    JSON.stringify(Object.keys(scP)) === JSON.stringify(["id", "idCard", "name", "phone", "email", "dob", "type", "date", "resultNotes", "resultCategory", "referral", "referralNotes", "poctResults", "followUps"]) &&
+    scP.idCard === "0004567M" && scP.name === "Borg Anna" && scP.type === "Walk-in" && scP.referral === "No referral needed" && scP.resultCategory === "Normal" &&
+    JSON.stringify(scP.poctResults) === JSON.stringify({ sys: 128, dia: 84, pulse: "", arm: "", position: "" }) && /128\/84|128 mmHg/.test(scView) && /Borg Anna/.test(scView),
+    JSON.stringify({ scRail, scRow, scPuts }).slice(0, 600));
+} catch (e) { report("screening campaigns: ran to the end", false, String(e).slice(0, 300)); }
+
+// Contraceptive pills: the old #ocps link opens the new lookup under Registers; the classic list of 21; the classic
+// filters (type, dose, mg/mcg) narrow as you type; a tap on a pill shows the ones with the same hormones and doses;
+// nothing is sent to the server.
+try {
+  await page.goto(base + "&ui=2#ocps");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ocpreg" && document.querySelector(".ocp-row"), null, { timeout: 15000 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  const ocpRail = await page.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join());
+  const ocpAll = await page.$$eval(".ocp-row", (l) => l.length), ocpAdele = await page.textContent('.ocp-row[data-trade="Adele"]');
+  await page.selectOption("#ocp-e", "Ethinylestradiol"); await page.fill("#ocp-ed", "20"); await page.click("[data-unit=e][data-u=mcg]");
+  await page.selectOption("#ocp-p", "Drospirenone"); await page.fill("#ocp-pd", "3"); await page.waitForTimeout(100);
+  const ocpHits = await page.$$eval(".ocp-row b", (l) => l.map((x) => x.textContent).join());
+  await page.click("[data-act=clear]"); await page.click('.ocp-row[data-trade="Clairette"]'); await page.waitForTimeout(100);
+  const ocpLike = await page.textContent(".ocp-like"), ocpClair = await page.$$eval(".ocp-row b", (l) => l.map((x) => x.textContent).join());
+  const ocpCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method !== "GET" || /ocp|contracep/i.test(c.path));
+  report("contraceptive pills: #ocps opens the new lookup under Registers; 21 classic pills; EE 20 mcg + drospirenone 3 mg finds Freedonel, Yasminelle, Yaz; a tap shows the same pills; no write",
+    ocpRail === "registers" && ocpAll === 21 && /Ethinylestradiol 30 mcg/.test(ocpAdele) && /Desogestrel 0\.15 mg/.test(ocpAdele) && ocpHits === "Freedonel,Yasminelle,Yaz" &&
+    /as Clairette: 1 other pill\./.test(ocpLike) && ocpClair === "Clairette,Vreya" && ocpCalls.length === 0,
+    JSON.stringify({ ocpRail, ocpAll, ocpAdele, ocpHits, ocpLike, ocpClair, ocpCalls }));
+} catch (e) { report("contraceptive pills: ran to the end", false, String(e).slice(0, 300)); }
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
