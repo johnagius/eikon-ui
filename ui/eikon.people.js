@@ -63,15 +63,21 @@
   // record is saved, so this is only so people see it as soon as they leave the field.
 function eikonNameCase(value) {
   if (typeof value !== "string") return value;
-  if (/[0-9@]/.test(value)) return value;
-  var hasLower = /\p{Ll}/u.test(value), hasUpper = /\p{Lu}/u.test(value);
-  if (hasLower === hasUpper) return value;
+  if (/[0-9@]/.test(value) || !/\p{L}/u.test(value)) return value;
   var letters = value.match(/\p{L}/gu) || [];
-  if (hasUpper && !/\s/.test(value.trim()) && (letters.length <= 2 || (letters.length === 3 && !/[AEIOUY]/.test(value)))) return value;
-  var out = value.toLowerCase().replace(/(^|[\s\-‐‑–—.(\/"“])(\p{Ll})/gu, function (m, pre, ch) { return pre + ch.toUpperCase(); });
-  out = out.replace(/(^|[^\p{L}])(\p{Lu})(['’ʼ])(\p{Ll})/gu, function (m, pre, a, ap, b) { return pre + a + ap + b.toUpperCase(); });
-  out = out.replace(/(^|[^\p{L}])Mc(\p{Ll})(?=\p{Ll})/gu, function (m, pre, a) { return pre + "Mc" + a.toUpperCase(); });
-  out = out.replace(/(\s)(Ii|Iii|Iv|Vi|Vii|Viii|Ix)(?=$|[\s,.])/g, function (m, pre, r) { return pre + r.toUpperCase(); });
+  if (!/\p{Ll}/u.test(value) && !/\s/.test(value.trim()) && (letters.length <= 2 || (letters.length === 3 && !/[AEIOUY]/.test(value)))) return value;
+  var first = true;
+  var out = value.replace(/[^\s\-‐‑–—]+/g, function (seg) {
+    var wasFirst = first; first = false;
+    var lo = /\p{Ll}/u.test(seg), up = /\p{Lu}/u.test(seg);
+    if (!lo && !up) return seg;
+    if (lo && up && !/^\p{Lu}[^\p{Lu}]*$/u.test(seg)) return seg; // inner capitals typed on purpose (McDonald, DeBono)
+    var o = seg.toLowerCase().replace(/(^|[.(\/"“])(\p{Ll})/gu, function (m, pre, ch) { return pre + ch.toUpperCase(); });
+    o = o.replace(/(^|[^\p{L}])(\p{Lu})(['’ʼ])(\p{Ll})/gu, function (m, pre, a, ap, b) { return pre + a + ap + b.toUpperCase(); });
+    o = o.replace(/^Mc(\p{Ll})(?=\p{Ll})/u, function (m, a) { return "Mc" + a.toUpperCase(); });
+    if (!wasFirst && /^(Ii|Iii|Iv|Vi|Vii|Viii|Ix)[,.]?$/.test(o)) o = o.toUpperCase();
+    return o;
+  });
   if (out.toLowerCase() !== value.toLowerCase()) return value;
   return out;
 }

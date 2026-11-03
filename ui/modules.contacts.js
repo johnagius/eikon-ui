@@ -283,7 +283,6 @@
      ============================================================ */
   var EMERGENCY_NUMBERS = [
     { icon: "🚨", name: "All Emergencies", number: "112", note: "Police, Ambulance, Fire" },
-    { icon: "🚑", name: "Ambulance", number: "196", note: "" },
     { icon: "👮", name: "Police (General HQ)", number: "2122 4001", note: "Lines 2122 4001 – 4007" },
     { icon: "🔥", name: "Civil Protection (CPD)", number: "2393 0000", note: "Fire & rescue" },
     { icon: "📞", name: "Urgent Non-Emergency Care", number: "1400", note: "Helpline" },

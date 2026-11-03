@@ -28,7 +28,7 @@ const EXAMPLES = [
   ["ÉLODIE DUPONT", "Élodie Dupont"], ["joão silva", "João Silva"], ["maria  vella ", "Maria  Vella "], ["x", "X"], ["joe", "Joe"],
   ["ann", "Ann"], ["ANN", "Ann"], ["joseph’s", "Joseph’s"],
   // left exactly as typed
-  ["de Gabriele", "de Gabriele"], ["McDonald", "McDonald"], ["Anne-marie Vella", "Anne-marie Vella"], ["van der Berg", "van der Berg"],
+  ["de Gabriele", "De Gabriele"], ["john Agius", "John Agius"], ["D'amato", "D'Amato"], ["McDonald", "McDonald"], ["Anne-marie Vella", "Anne-Marie Vella"], ["van der Berg", "Van Der Berg"],
   ["DeBono", "DeBono"], ["JD", "JD"], ["MCB", "MCB"], ["Room 3", "Room 3"], ["0123456M", "0123456M"], ["rita@example.mt", "rita@example.mt"],
   ["79123456", "79123456"], ["", ""], ["   ", "   "], ["-", "-"], [null, null], [undefined, undefined], [42, 42]
 ];
@@ -62,7 +62,7 @@ test("names: new saves are cased in every register; mixed case, ID cards, e-mail
   for (const [k, v] of Object.entries(r)) ok(v.status === 200 || v.status === 201, k + " " + v.status + " " + v.text.slice(0, 200));
   const one = (sql) => DB.q(sql)[0];
   eq(one("SELECT client_name, items_text, notes FROM client_orders_entries"), { client_name: "Carmel Zammit", items_text: "panadol extra", notes: "call after 5" });
-  eq(DB.q("SELECT client_name, email, issue FROM client_tickets_entries ORDER BY id"), [{ client_name: "Grech Joseph", email: "JOE@EXAMPLE.MT", issue: "OMRON M3 in stock?" }, { client_name: "de Gabriele Maria", email: "", issue: "x" }]);
+  eq(DB.q("SELECT client_name, email, issue FROM client_tickets_entries ORDER BY id"), [{ client_name: "Grech Joseph", email: "JOE@EXAMPLE.MT", issue: "OMRON M3 in stock?" }, { client_name: "De Gabriele Maria", email: "", issue: "x" }]);
   eq(one("SELECT client_name, client_id_card, client_address, medicine_name_dose, doctor_name, doctor_reg_no FROM dda_sales_entries"),
     { client_name: "Vella Anna", client_id_card: "0123456M", client_address: "1 triq il-knisja", medicine_name_dose: "morphine 10mg", doctor_name: "Dr Abela", doctor_reg_no: "r12" });
   eq(one("SELECT client_name, client_surname FROM credit_notes"), { client_name: "Rita", client_surname: "Pace" });
@@ -76,7 +76,7 @@ test("names: new saves are cased in every register; mixed case, ID cards, e-mail
   // an update in mixed case is kept; an update in capitals is cased
   const id = one("SELECT id FROM client_orders_entries").id;
   eq((await api("PUT", "/client-orders/entries/" + id, { token, body: { client_name: "carmel Zammit", client_phone: "79123456", items_text: "panadol extra", order_date: today } })).status, 200);
-  eq(one("SELECT client_name FROM client_orders_entries").client_name, "carmel Zammit");
+  eq(one("SELECT client_name FROM client_orders_entries").client_name, "Carmel Zammit");
 });
 
 test("names: whole-state screens (POCT, screening, labels) case new or edited names and leave untouched stored ones alone", async ({ api, bootstrap, DB }) => {
@@ -211,7 +211,7 @@ test("names fix: dry run changes nothing; the run changes only name cells; a sec
   eq(d1.client_orders_entries.find((r) => r.org_id === 2).client_name, "other person", "another pharmacy group is untouched");
   eq(d1.people.find((r) => r.org_id === 2).name, "OTHER PERSON");
   eq(d1.label_history.find((r) => r.label_id === "l2").label_json, '{ "id": "l2", "patientName": "odd spacing" }');
-  eq(d1.client_tickets_entries.find((r) => r.ticket_id === "TKT-00002").client_name, "de Gabriele Maria");
+  eq(d1.client_tickets_entries.find((r) => r.ticket_id === "TKT-00002").client_name, "De Gabriele Maria");
   const audits = DB.q("SELECT action, entity_id FROM audit_log WHERE action LIKE 'NAMES_%'");
   eq(audits, [{ action: "NAMES_TITLECASE", entity_id: run.json.run_id }], "one audit entry for the run");
   eq(DB.q("SELECT COUNT(*) AS c FROM name_case_undo")[0].c, 15, "one undo row per changed cell");

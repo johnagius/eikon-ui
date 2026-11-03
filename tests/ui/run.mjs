@@ -817,7 +817,7 @@ const crtErr = await page.evaluate(() => (document.querySelector(".crt-err") || 
 await page.fill("#crt-form [name=certified_person]", "Maria Borg");
 await page.click("#crt-form button[type=submit]"); await page.waitForTimeout(700);
 const crtPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT");
-report("certificates: open in the new layout, overdue first, the person required where needed, one PUT", crt1.hash === "#certreg" && crt1.rail.join() === "settings" && crt1.labs[0] === "Needs attention" && crt1.first === "Thermometer Calibration" && /Overdue 15 days/.test(crt1.pill) && crtPuts0.length === 0 && /who is certified/.test(crtErr) && crtPuts.length === 1 && crtPuts[0].path === "/certificates/items/3" && crtPuts[0].body.certified_person === "Maria Borg" && crtPuts[0].body.interval_months === 36, JSON.stringify({ crt1, crtErr, crtPuts }));
+report("certificates: open in the new layout, overdue first, the person required where needed, one PUT", crt1.hash === "#certreg" && crt1.rail.join() === "registers" && crt1.labs[0] === "Needs attention" && crt1.first === "Thermometer Calibration" && /Overdue 15 days/.test(crt1.pill) && crtPuts0.length === 0 && /who is certified/.test(crtErr) && crtPuts.length === 1 && crtPuts[0].path === "/certificates/items/3" && crtPuts[0].body.certified_person === "Maria Borg" && crtPuts[0].body.interval_months === 36, JSON.stringify({ crt1, crtErr, crtPuts }));
 
 // Near expiry in the new layout: expired first, being-sent-back last; send back needs a supplier; one POST each.
 await page.goto(base + "&ui=2#stock");
@@ -1085,6 +1085,56 @@ await page.fill('.tdy-row[data-kind="temperature"] [data-min]', ""); await page.
 await page.evaluate(() => window.EIKON.__todayRefresh()); await page.waitForTimeout(800);
 const tdyIdle = await page.evaluate(() => document.querySelector('.tdy-row[data-kind="temperature"] [data-min]') !== window.__minEl);
 report("today: the minute refresh leaves a reading being typed alone (value, field and focus kept), and redraws when idle", tdyKeep.same && tdyKeep.val === "3.4" && tdyKeep.focus && tdyIdle, JSON.stringify({ tdyKeep, tdyIdle }));
+
+// Today when a refresh fails: the notice is one or two proper sentences with Try again, sits above the grid and leaves
+// the worklist where it was (inside the grid it took row 1 and pushed the worklist below the side tiles).
+await page.route("**/today", (r) => r.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ ok: false, error: "Database busy" }) }));
+await page.evaluate(() => window.EIKON.__todayRefresh()); await page.waitForTimeout(600);
+const tdyFail = await page.evaluate(() => { const off = document.querySelector(".tdy-off"), head = document.querySelector(".tdy-head"), side = document.querySelector(".tdy-side"), date = document.querySelector(".tdy-date");
+  return { text: off && off.querySelector("span").textContent, retry: !!(off && off.querySelector("[data-retry]")), headTop: head && Math.round(head.getBoundingClientRect().top), sideTop: side && Math.round(side.getBoundingClientRect().top), sideBottom: side && Math.round(side.getBoundingClientRect().bottom), dateTop: date && Math.round(date.getBoundingClientRect().top), rows: document.querySelectorAll(".tdy-col .tdy-row").length }; });
+await page.unroute("**/today");
+await page.click(".tdy-off [data-retry]"); await page.waitForTimeout(600);
+const tdyBack = await page.evaluate(() => ({ off: !!document.querySelector(".tdy-off"), rows: document.querySelectorAll(".tdy-col .tdy-row").length }));
+report("today: a failed refresh says 'Database busy. Showing what we had at hh:mm.' with Try again, keeps the worklist beside the tiles, and Try again clears it",
+  /^Database busy\. Showing what we had at \d\d:\d\d\.$/.test(tdyFail.text || "") && tdyFail.retry && tdyFail.rows > 0 && tdyFail.headTop < tdyFail.sideBottom && tdyFail.dateTop < tdyFail.sideTop && !tdyBack.off && tdyBack.rows > 0, JSON.stringify({ tdyFail, tdyBack }));
+
+// Signed out in another tab (the token is shared by every tab of the address): this tab goes to sign-in at once,
+// not to "Unauthorized Showing what we had at …" over an empty-looking screen.
+// (This page has its own context, so the other tab's removal is replayed as the storage event a browser delivers.)
+await page.evaluate(() => { localStorage.removeItem("eikon_token"); window.dispatchEvent(new StorageEvent("storage", { key: "eikon_token", oldValue: "x", newValue: null })); }); await page.waitForTimeout(400);
+const otherTab = await page.evaluate(() => { const l = document.querySelector(".eikon-login"); return { login: !!l, text: l ? l.textContent : "", banner: !!document.querySelector(".tdy-off") }; });
+report("core: signing out in another tab shows sign-in here at once, saying why", otherTab.login && /signed out in another tab or window/i.test(otherTab.text) && !otherTab.banner, JSON.stringify(otherTab).slice(0, 300));
+// The same without the storage event (e.g. the token went before this page loaded its listener): the 401 leads to sign-in.
+await page.evaluate(() => { localStorage.setItem("eikon_token", "x"); });
+await page.goto(base + "&ui=2&r=1#today");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "today" && document.querySelector(".tdy-col .tdy-row"), null, { timeout: 15000 });
+await page.route("**/today", (r) => r.request().headers()["authorization"] ? r.continue() : r.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ ok: false, error: "Unauthorized" }) }));
+await page.evaluate(() => { localStorage.removeItem("eikon_token"); return window.EIKON.__todayRefresh(); }); await page.waitForTimeout(500);
+const noTok401 = await page.evaluate(() => { const l = document.querySelector(".eikon-login"); return { login: !!l, text: l ? l.textContent : "", banner: (document.querySelector(".tdy-off") || {}).textContent || "" }; });
+await page.unroute("**/today");
+report("core: a 401 with the token already gone (signed out elsewhere) shows sign-in, not a silent Today", noTok401.login && /signed out in another tab/i.test(noTok401.text) && !noTok401.banner, JSON.stringify(noTok401).slice(0, 300));
+// If sign-in could not be drawn, Today itself says "Not signed in." with a Sign in again button (never "Unauthorized").
+await page.evaluate(() => { localStorage.setItem("eikon_token", "x"); });
+await page.goto(base + "&ui=2&r=2#today");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "today" && document.querySelector(".tdy-col .tdy-row"), null, { timeout: 15000 });
+await page.route("**/today", (r) => r.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ ok: false, error: "Unauthorized" }) }));
+await page.evaluate(() => { window.EIKON._sessionExpiredShown = true; return window.EIKON.__todayRefresh(); }); await page.waitForTimeout(500);
+const tdyAuth = await page.evaluate(() => { const off = document.querySelector(".tdy-off"); return { text: off ? off.textContent : "", signin: !!(off && off.querySelector("[data-signin]")) }; });
+await page.click(".tdy-off [data-signin]"); await page.waitForTimeout(300);
+const tdyAuthLogin = await page.evaluate(() => !!document.querySelector(".eikon-login"));
+await page.unroute("**/today");
+report("today: a 401 Today has to show itself reads 'Not signed in. Showing what we had at hh:mm.' and Sign in again opens sign-in",
+  /^Not signed in\. Showing what we had at \d\d:\d\d\.Sign in again$/.test(tdyAuth.text) && tdyAuth.signin && tdyAuthLogin, JSON.stringify({ tdyAuth, tdyAuthLogin }));
+// A start that cannot reach the server keeps the session (it is every tab's) and offers Try again / Sign in again.
+await page.evaluate(() => { localStorage.setItem("eikon_token", "x"); });
+await page.route("**/auth/me", (r) => r.abort());
+await page.goto(base + "&ui=2&r=3#today"); await page.waitForSelector("#eikon-start-failed", { timeout: 15000 });
+const startFail = await page.evaluate(() => ({ text: document.getElementById("eikon-start-failed").textContent, token: localStorage.getItem("eikon_token"), retry: !!document.getElementById("eikon-start-retry"), signin: !!document.getElementById("eikon-start-signin") }));
+await page.unroute("**/auth/me");
+await page.click("#eikon-start-retry");
+await page.waitForFunction(() => window.EIKON && window.EIKON.state.activeModuleId === "today" && document.querySelector(".tdy-col .tdy-row"), null, { timeout: 15000 });
+report("core: /auth/me failing at start (offline/timeout) keeps the token and offers Try again, which opens Today",
+  /could not reach the server/i.test(startFail.text) && startFail.token === "x" && startFail.retry && startFail.signin, JSON.stringify(startFail));
 
 // Locum receipts: a known locum fills the reg no; 25 December takes the holiday rate remembered in this browser; one POST.
 await page.evaluate(() => localStorage.setItem("eikon:locumreceipts:feeMem", JSON.stringify({ normal: 15, holiday: 22.5 })));
@@ -1983,7 +2033,7 @@ try {
   const wsrc2 = fs.readFileSync(path.join(here, "..", "..", "cloudflare-worker", "code"), "utf8");
   const fnOf = (src, name) => { const i = src.indexOf("function " + name + "("); let d = 0, j = src.indexOf("{", i); for (; j < src.length; j++) { if (src[j] === "{") d++; else if (src[j] === "}" && --d === 0) break; } return src.slice(i, j + 1); };
   const WN = new Function(fnOf(wsrc2, "eikonNameCase") + "\nreturn eikonNameCase;")();
-  const samples = ["carmel zammit", "CARMEL ZAMMIT", "ĠUŻEPPI ĦILI", "il-ħamrun", "anne-marie d'amato", "O'BRIEN", "mcdonald", "de Gabriele", "McDonald", "JD", "0123456M", "rita@x.mt", "j.p. borg", "JOHN SMITH III"];
+  const samples = ["carmel zammit", "CARMEL ZAMMIT", "ĠUŻEPPI ĦILI", "il-ħamrun", "anne-marie d'amato", "O'BRIEN", "mcdonald", "de Gabriele", "john Agius", "McDonald", "JD", "0123456M", "rita@x.mt", "j.p. borg", "JOHN SMITH III"];
   await page.goto(base + "&ui=2#tickets");
   await page.waitForFunction(() => window.EIKON && window.EIKON.people && window.EIKON.people.nameCase && window.EIKON.state.activeModuleId === "tktreg", null, { timeout: 15000 });
   const uiOut = await page.evaluate((x) => x.map((v) => window.EIKON.people.nameCase(v)), samples);
@@ -1996,8 +2046,8 @@ try {
   await page.fill("#tkt-add [name=client_name]", "ĠORĠ ĦILI"); await page.press("#tkt-add [name=client_name]", "Tab");
   const v4 = await page.inputValue("#tkt-add [name=client_name]");
   report("names: a name field is put in Title Case when it is left (Maltese letters too); a mixed-case name and the other fields stay as typed; the UI's function gives the worker's answers",
-    JSON.stringify(uiOut) === JSON.stringify(samples.map(WN)) && uiOut[0] === "Carmel Zammit" && uiOut[7] === "de Gabriele" &&
-    v1 === "Carmel Zammit" && v2 === "omron m3 in stock?" && v3 === "de Gabriele Maria" && v4 === "Ġorġ Ħili",
+    JSON.stringify(uiOut) === JSON.stringify(samples.map(WN)) && uiOut[0] === "Carmel Zammit" && uiOut[7] === "De Gabriele" && uiOut[8] === "John Agius" &&
+    v1 === "Carmel Zammit" && v2 === "omron m3 in stock?" && v3 === "De Gabriele Maria" && v4 === "Ġorġ Ħili",
     JSON.stringify({ uiOut, v1, v2, v3, v4 }));
 } catch (e) { report("names: a name field is put in Title Case when it is left", false, String(e).slice(0, 300)); }
 // Error reports (backlog 7): a thrown error on a screen is one POST /client-log with build, screen id, kind, scrubbed
@@ -2504,6 +2554,22 @@ try {
   await page.click("[data-act=add-cancel]").catch(() => {});
   await page.unroute(isP, onP);
 } catch (e) { report("id card questions: ran to the end", false, String(e).slice(0, 400)); }
+// Classic layout chosen for this browser: the top bar offers the way back ("Use the new layout"), which opens Today in the new layout.
+try {
+  const lp = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+  await lp.goto(base);
+  await lp.evaluate(() => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); });
+  await lp.goto(base + "&ui=1#temperature");
+  await lp.waitForSelector("#eikon-newlayout-btn", { state: "attached", timeout: 15000 }); await lp.waitForTimeout(800);
+  const nlDbg = await lp.evaluate(() => ({ ui2: localStorage.getItem("eikon_ui2"), role: localStorage.getItem("eikon_active_role"), disp: document.getElementById("eikon-newlayout-btn").style.display }));
+  const nlShown = await lp.evaluate(() => getComputedStyle(document.getElementById("eikon-newlayout-btn")).display !== "none");
+  await lp.click("#eikon-newlayout-btn");
+  await lp.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "today", null, { timeout: 15000 });
+  const nlAfter = await lp.evaluate(() => ({ ui2: localStorage.getItem("eikon_ui2"), attr: document.documentElement.hasAttribute("data-ui2") }));
+  await lp.close();
+  report("classic layout: 'Use the new layout' shows when classic was chosen, and opens Today in the new layout (remembered)",
+    nlShown && nlAfter.ui2 === "1" && nlAfter.attr, JSON.stringify({ nlShown, nlAfter, nlDbg }));
+} catch (e) { report("classic layout: way back to the new layout ran to the end", false, String(e).slice(0, 300)); }
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });

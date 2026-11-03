@@ -86,7 +86,7 @@
         { label: "Every day", ids: ["temperature", "cleaning", "dailyregister", "locumregister"] },
         { label: "Controlled drugs", ids: ["dda-purchases", "dda-sales", "dda-poyc", "dda_stocktakes"] },
         { label: "Prescriptions", ids: ["repeatprescriptions"] },
-        { label: "Proof", ids: ["certificates", "audit"] } // their home is Settings; kept here because staff look here for them
+        { label: "Proof", ids: ["certificates", "audit"] } // Certificates live here; the audit trail's home is Settings
       ]
     },
     services: {
@@ -124,7 +124,7 @@
           { title: "Password", desc: "Change the password you sign in with.", run: function () { E.showChangePassword(); } },
           { title: "Sign out", desc: "Sign out on this device.", run: function () { E.logout(); } }
         ] },
-        { label: "This pharmacy", ids: ["certificates", "audit", "expreg", "contacts"] },
+        { label: "This pharmacy", ids: ["audit", "expreg", "contacts"] },
         { label: "Help", actions: [
           { title: "Help & guides", desc: "Short guides for every register.", run: function () { E.showHelpGuide(); } },
           { title: "Classic layout", desc: "The previous look, with the old sidebar. The link you were given brings you back here.", run: function () { try { localStorage.setItem("eikon_ui2", "0"); } catch (e) {} var u = new URL(window.location.href); u.searchParams.set("ui", "1"); u.hash = "#dashboard"; window.location.href = u.toString(); } },

@@ -30,7 +30,6 @@
   // The same fixed numbers the classic screen shows; read only.
   var EMERGENCY = [
     { name: "All emergencies", phone: "112", note: "Police, ambulance, fire" },
-    { name: "Ambulance", phone: "196", note: "" },
     { name: "Police (General HQ)", phone: "2122 4001", note: "Lines 2122 4001 – 4007" },
     { name: "Civil Protection (CPD)", phone: "2393 0000", note: "Fire and rescue" },
     { name: "Urgent non-emergency care", phone: "1400", note: "Helpline" },

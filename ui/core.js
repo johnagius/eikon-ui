@@ -545,8 +545,12 @@
       break;
     }
 
-    if (res.status === 401 && token && path !== "/auth/login") {
-      E.handleSessionExpired();
+    // 401 with a token: the session ended. 401 with NO token while this page is signed in: the token was removed by
+    // another tab or window of this address (signed out there, or a failed start there). Both go to sign-in, never to
+    // a screen that quietly stops updating.
+    if (res.status === 401 && path !== "/auth/login" && path !== "/auth/logout") {
+      if (token) E.handleSessionExpired();
+      else if (E.state && E.state.user) E.handleSessionExpired("You were signed out in another tab or window. Sign in again to continue where you were.");
     }
 
     var ct = "";
@@ -579,15 +583,24 @@
 
   // Called once when the server says the session is gone: keep the place, show sign-in.
   E._sessionExpiredShown = false;
-  E.handleSessionExpired = function () {
+  E.handleSessionExpired = function (message) {
     if (E._sessionExpiredShown) return;
     E._sessionExpiredShown = true;
     try { E._returnHash = String(E.routeHash() || ""); } catch (e) {}
     if (E._supplierPollInterval) { try { clearInterval(E._supplierPollInterval); } catch (e) {} E._supplierPollInterval = null; }
     E.clearToken();
     E.state.user = null;
-    try { E.renderLogin("Your session has ended. Sign in again to continue where you were."); } catch (e) {}
+    try { E.renderLogin(message || "Your session has ended. Sign in again to continue where you were."); } catch (e) {}
   };
+  // Signed out in another tab or window of this address (the token is shared by all of them): show sign-in here at
+  // once, instead of a screen whose every refresh is refused.
+  try {
+    window.addEventListener("storage", function (ev) {
+      if (ev.key !== null && ev.key !== E.TOKEN_KEY) return;
+      if (E.getToken() || !E.state || !E.state.user) return;
+      E.handleSessionExpired("You were signed out in another tab or window. Sign in again to continue where you were.");
+    });
+  } catch (e) {}
 
   // Module registry
   E.modules = E.modules || {};
@@ -939,6 +952,7 @@
       btn.disabled = true;
       btn.textContent = "Logging in…";
       E._loginInFlight = true; // start() must not also draw the app (see start)
+      var setTok = "";
 
       E.apiFetch("/auth/login", {
         method: "POST",
@@ -947,6 +961,7 @@
       })
         .then(function (resp) {
           if (!resp || !resp.ok || !resp.token) throw new Error("Login failed (no token)");
+          setTok = resp.token;
           E.setToken(resp.token);
           E.state.user = resp.user || null;
           E.dbg("[auth] login OK:", resp.user);
@@ -957,7 +972,8 @@
         })
         .catch(function (err) {
           E.error("[auth] login error:", err);
-          E.clearToken();
+          // Only forget a token this sign-in stored: another tab's session must survive a mistyped password here.
+          if (setTok && E.getToken() === setTok) E.clearToken();
           E.state.user = null;
           var msg = String(err && (err.message || err.bodyText || err));
           if (err && err.status === 401) msg = "That e-mail and password do not match.";
@@ -1138,6 +1154,7 @@
       '    <div class="eikon-topbar">' +
       '      <div class="eikon-top-left">' +
       '        <button class="eikon-btn primary" id="eikon-back-btn" style="display:none" title="Back to the new Eikon">‹ New Eikon</button>' +
+      '        <button class="eikon-btn primary" id="eikon-newlayout-btn" style="display:none" title="Switch this browser to the new Eikon layout">Use the new layout</button>' +
       '        <img id="eikon-topbar-logo" alt="Eikon" style="height:26px;width:auto;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));" />' +
       '        <div class="eikon-page-title" id="eikon-page-title"><span id="eikon-page-title-text">Loading…</span></div>' +
       "      </div>" +
@@ -1201,6 +1218,25 @@
         try { to = sessionStorage.getItem("eikon_ui2_return"); sessionStorage.removeItem("eikon_ui2_return"); } catch (e) {}
         E.returnToNew(to || "today");
       });
+    }
+
+    // Classic chosen for this browser (Settings > Classic layout or ?ui=1): a way back to the new layout. Pharmacy role
+    // only (supplier and company-admin portals always use the classic look); not on a one-visit classic screen (that
+    // has "‹ New Eikon" above).
+    var newBtn = document.getElementById("eikon-newlayout-btn");
+    if (newBtn) {
+      var chose = false;
+      try {
+        var role = window.localStorage.getItem("eikon_active_role");
+        chose = window.localStorage.getItem("eikon_ui2") === "0" && (!role || role === E.ROLE_PHARMACY) && !E.isUi2Paused();
+      } catch (e) {}
+      if (chose) {
+        newBtn.style.display = "";
+        newBtn.addEventListener("click", function () {
+          try { window.localStorage.setItem("eikon_ui2", "1"); window.sessionStorage.removeItem("eikon_ui2_pause"); } catch (e) {}
+          E.returnToNew("today");
+        });
+      }
     }
 
     // Change password
@@ -1485,7 +1521,7 @@
   E.UI2_RAIL_FOOT = [{ id: "team", title: "Team" }, { id: "settings", title: "Settings" }];
   E.UI2_DESTINATIONS = ["today", "customers", "stock", "registers", "team", "settings", "services", "money"];
   // Screens inside a tab keep that tab lit in the rail.
-  E.UI2_PARENT = { tempreg: "registers", cleanreg: "registers", drreg: "registers", locreg: "registers", certreg: "settings", nexreg: "stock", retreg: "stock", trfreg: "stock", alertreg: "stock", ordreg: "customers", tktreg: "customers", dlvreg: "customers", cdpreg: "registers", cdsreg: "registers", poyreg: "registers", poreg: "money", hndreg: "team", rotreg: "team", shfreg: "team", repreg: "registers", cnreg: "money", lrcreg: "money", odreg: "stock", qtreg: "stock", ssreg: "stock", brdreg: "team", conreg: "team", vaxreg: "services", eodreg: "money", pocreg: "services", scsreg: "stock", audreg: "settings", expreg: "settings", pvreg: "services", scrreg: "services", ocpreg: "services", lblreg: "services", sinreg: "stock", otcreg: "services", eposreg: "money", calreg: "services" };
+  E.UI2_PARENT = { tempreg: "registers", cleanreg: "registers", drreg: "registers", locreg: "registers", certreg: "registers", nexreg: "stock", retreg: "stock", trfreg: "stock", alertreg: "stock", ordreg: "customers", tktreg: "customers", dlvreg: "customers", cdpreg: "registers", cdsreg: "registers", poyreg: "registers", poreg: "money", hndreg: "team", rotreg: "team", shfreg: "team", repreg: "registers", cnreg: "money", lrcreg: "money", odreg: "stock", qtreg: "stock", ssreg: "stock", brdreg: "team", conreg: "team", vaxreg: "services", eodreg: "money", pocreg: "services", scsreg: "stock", audreg: "settings", expreg: "settings", pvreg: "services", scrreg: "services", ocpreg: "services", lblreg: "services", sinreg: "stock", otcreg: "services", eposreg: "money", calreg: "services" };
   // Old registers rebuilt for the new layout: any way of reaching the old id (Today, search, a hub, a link) lands on the new screen.
   E.UI2_NATIVE = { temperature: "tempreg", cleaning: "cleanreg", dailyregister: "drreg", locumregister: "locreg", certificates: "certreg", nearexpiry: "nexreg", returns: "retreg", stocktransfers: "trfreg", alerts: "alertreg", clientorders: "ordreg", tickets: "tktreg", deliveries: "dlvreg", "dda-purchases": "cdpreg", "dda-sales": "cdsreg", "dda-poyc": "poyreg", paidout: "poreg", instructions: "hndreg", repeatprescriptions: "repreg", creditnotes: "cnreg", locumreceipts: "lrcreg", "order-diary": "odreg", quotations: "qtreg", messageboard: "brdreg", contacts: "conreg", vaccines: "vaxreg", endofday: "eodreg", shifts: "shfreg", poct: "pocreg", scarcestock: "scsreg", audit: "audreg", pharmacovigilance: "pvreg", screening: "scrreg", ocps: "ocpreg", labels: "lblreg", "supplier-inventory": "sinreg", otcmindmap: "otcreg", "emergency-pos": "eposreg", pharmacycalc: "calreg", dda_stocktakes: "ddstreg" };
   // The tab a rebuilt screen belongs to, for its "‹ Tab" back button: one place decides, so moving a screen moves its way back too.
@@ -1906,10 +1942,33 @@
       }
     } catch (err) {
       E.error("[auth] /auth/me failed:", err);
-      E.clearToken();
       E.state.user = null;
-      E.renderLogin("Session invalid. Please login again.\n" + String(err && (err.message || err.bodyText || err)));
+      // Only the server saying "no" (401) ends the session. A network blip, a timeout or a server error keeps the
+      // token: it is shared by every tab and window of this address, and clearing it signed all of them out
+      // (the other tabs then showed "Unauthorized" on every refresh).
+      if (err && err.status === 401) {
+        if (E.getToken() === token) E.clearToken();
+        if (!E._sessionExpiredShown) E.renderLogin("Your session has ended. Sign in again.");
+        return;
+      }
+      E.renderStartFailed(err);
     }
+  };
+
+  // Could not check the saved session (offline, timeout, server error): say so, keep the session, offer both ways on.
+  E.renderStartFailed = function (err) {
+    var root = E.ensureRoot();
+    var why = (err && err.network) ? "Eikon could not reach the server." : "Eikon could not check your session" + (err && err.status ? " (the server answered " + err.status + ")." : ".");
+    root.innerHTML =
+      '<div class="eikon-login"><div class="eikon-login-card" id="eikon-start-failed" role="alert">' +
+      '<div class="eikon-login-title">Eikon</div>' +
+      '<div class="eikon-login-sub">' + E.escapeHtml(why) + ' You are still signed in.</div>' +
+      '<div class="eikon-row" style="gap:8px;margin-top:14px">' +
+      '<button class="eikon-btn primary" type="button" id="eikon-start-retry">Try again</button>' +
+      '<button class="eikon-btn" type="button" id="eikon-start-signin">Sign in again</button></div></div></div>';
+    var r = document.getElementById("eikon-start-retry"), si = document.getElementById("eikon-start-signin");
+    if (r) r.addEventListener("click", function () { r.disabled = true; r.textContent = "Trying…"; try { location.reload(); } catch (e) {} });
+    if (si) si.addEventListener("click", function () { E.clearToken(); E.state.user = null; E.renderLogin(); });
   };
 
   // Show sign-in as soon as the core is here (about 0.3 s) instead of after all 59 scripts;

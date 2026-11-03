@@ -12,7 +12,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var state = { data: null, loadedAt: null, error: "", timer: null, mount: null, busy: {}, search: "" };
+  var state = { data: null, loadedAt: null, error: "", errorKind: "", timer: null, mount: null, busy: {}, search: "" };
 
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
   function hm(d) { d = d || new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
@@ -36,6 +36,7 @@
     var d = ymd ? new Date(ymd + "T12:00:00") : new Date();
     return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   }
+  function sentence(t) { t = String(t || "").trim(); if (!t) return ""; if (/^HTTP \d+$/.test(t)) t = "The server answered " + t.slice(5); return /[.!?]$/.test(t) ? t : t + "."; }
   function plural(n, one, many) { return n + " " + (n === 1 ? one : (many || one + "s")); }
 
   // ---------- styles (scoped) ----------
@@ -69,10 +70,10 @@
       ".tdy-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.tdy-chips i{font-style:normal;height:26px;padding:0 10px;border-radius:6px;background:rgba(127,127,127,.12);display:inline-flex;align-items:center;font-size:11.5px;font-weight:600;color:var(--muted)}.tdy-chips i.on{background:rgba(28,138,91,.16);color:var(--ok)}" +
       ".tdy-foot{grid-column:1/-1;display:flex;gap:16px;align-items:center;font-size:12.5px;color:var(--muted);margin-top:18px;padding-top:10px;border-top:1px solid var(--border)}.tdy-foot a{color:var(--accent);cursor:pointer;font-weight:600}.tdy-foot .right{margin-left:auto}" +
       ".tdy-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:12px;padding:22px;color:var(--muted);font-size:14px}" +
-      ".tdy-off{background:rgba(201,138,18,.14);border:1px solid rgba(201,138,18,.35);color:var(--warn,#A06A0E);border-radius:10px;padding:8px 12px;font-size:13px;margin-bottom:10px;grid-column:1/-1}" +
+      ".tdy-off{max-width:1180px;margin:0 auto 10px;box-sizing:border-box;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:rgba(201,138,18,.14);border:1px solid rgba(201,138,18,.35);color:var(--warn,#A06A0E);border-radius:10px;padding:8px 12px;font-size:13px}.tdy-off span{flex:1 1 220px}.tdy-off .tdy-btn{padding:6px 12px}" +
       ".tdy-sr{position:absolute;left:-9999px}" +
       "@media (max-width:980px){.tdy{grid-template-columns:minmax(0,1fr)}.tdy-side{grid-column:1;grid-row:auto}.tdy-date{grid-column:1;grid-row:auto}}" +
-      "@media (max-width:600px){.tdy{padding:0 16px}.tdy-date{order:-1;margin:0 0 10px}.tdy-head h1{font-size:28px}.tdy-search .hint{display:none}.tdy-row{flex-wrap:wrap;row-gap:8px}.tdy-t{flex:1 1 calc(100% - 90px)}.tdy-t+*{margin-left:60px}.tdy-row>.tdy-btn{margin-left:auto}.tdy-inl{flex:1 1 0;min-width:0}.tdy-inl:empty{display:none}.tdy-inl input{flex:1 1 0;width:0;min-width:0}}";
+      "@media (max-width:600px){.tdy-off{margin:0 16px 10px}.tdy{padding:0 16px}.tdy-date{order:-1;margin:0 0 10px}.tdy-head h1{font-size:28px}.tdy-search .hint{display:none}.tdy-row{flex-wrap:wrap;row-gap:8px}.tdy-t{flex:1 1 calc(100% - 90px)}.tdy-t+*{margin-left:60px}.tdy-row>.tdy-btn{margin-left:auto}.tdy-inl{flex:1 1 0;min-width:0}.tdy-inl:empty{display:none}.tdy-inl input{flex:1 1 0;width:0;min-width:0}}";
     document.head.appendChild(st);
   }
 
@@ -84,10 +85,13 @@
       var r = (pre && Date.now() - pre.at < 20000) ? await pre.p : null;
       if (!r || !r.ok) r = await E.apiFetch("/today", { method: "GET", timeoutMs: 12000 });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load Today");
-      state.data = r; state.loadedAt = new Date(); state.error = "";
+      state.data = r; state.loadedAt = new Date(); state.error = ""; state.errorKind = "";
     } catch (e) {
-      state.error = (e && e.network) ? "Can't reach the server." : String(e && (e.message || e) || "Could not load Today");
-      if (!state.data && e && e.status === 401) return; // core shows sign-in
+      // One sentence, ending in a full stop, whatever the server said ("Unauthorized" → "Not signed in.").
+      state.errorKind = (e && e.status === 401) ? "auth" : (e && e.network) ? "network" : "other";
+      state.error = state.errorKind === "auth" ? "Not signed in." : state.errorKind === "network" ? "Can't reach the server." : sentence(String(e && (e.message || e) || "Could not load Today"));
+      // 401: core has put sign-in on screen (apiFetch → handleSessionExpired); do not draw over it.
+      if (state.errorKind === "auth" && !(state.mount && document.body.contains(state.mount))) return;
     }
     if (opts.background && busyTyping()) return; // the minute refresh never wipes a reading or a name being typed; the next one shows it
     render();
@@ -216,13 +220,16 @@
     injectCss();
     var d = state.data;
     var user = E.state.user || {};
-    var html = '<div class="tdy">';
-    if (state.error) html += '<div class="tdy-off">' + esc(state.error) + (state.loadedAt ? " Showing what we had at " + hm(state.loadedAt) + "." : " Nothing to show yet.") + '</div>';
+    // The notice sits above the grid, not in it: inside, it took the first row and pushed the worklist below the side tiles.
+    var html = "";
+    if (state.error) html += '<div class="tdy-off" role="alert"><span>' + esc(state.error) + (d && state.loadedAt ? " Showing what we had at " + hm(state.loadedAt) + "." : " Nothing to show yet.") + '</span>' +
+      (state.errorKind === "auth" ? '<button class="tdy-btn p" data-signin>Sign in again</button>' : '<button class="tdy-btn" data-retry>Try again</button>') + '</div>';
+    html += '<div class="tdy">';
     html += '<div class="tdy-find"><label class="tdy-search"><span aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:rgba(60,60,67,.55);flex:none;display:block"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><input id="tdy-q" type="search" placeholder="What do you need? A customer, an order, a register…" autocomplete="off" value="' + esc(state.search) + '"><span class="hint">' + (E.searchAttachToday ? "Enter opens it · / anywhere" : "Enter opens it") + '</span></label><div class="tdy-results" id="tdy-results" hidden></div></div>';
     html += '<div class="tdy-date"><b>' + esc(longDate(d && d.date)) + '</b><span>' + esc(d && d.time ? d.time : hm()) + (user.location_name ? " · " + esc(user.location_name) : "") + '</span></div>';
 
     if (!d) {
-      html += '<div class="tdy-head"><h1>Loading…</h1></div></div>';
+      html += '<div class="tdy-head"><h1>' + (state.error ? "Today could not be loaded." : "Loading…") + '</h1></div></div>';
       m.innerHTML = html; bind(); return;
     }
 
@@ -281,7 +288,7 @@
     // side tiles
     var t = d.takings || {}, st = d.stock || {}, tm = d.team || {};
     html += '<div class="tdy-side">';
-    html += '<div class="tdy-tile"><div class="tdy-lab">Takings</div><div class="big">€' + esc((t.paid_out_today || 0).toFixed(2)) + '<span>paid out today</span></div>' +
+    html += '<div class="tdy-tile"><div class="tdy-lab">Money today</div><div class="big">€' + esc((t.paid_out_today || 0).toFixed(2)) + '<span>paid out today</span></div>' +
       '<p>' + (t.end_of_day_locked ? "<b>Day closed.</b>" : t.end_of_day_saved ? "<b>End of day started</b>, not yet closed." : "One button closes the day at closing time.") + '</p>' +
       '<button class="tdy-btn ' + (t.end_of_day_locked ? "" : "p") + '" data-open="' + esc(t.action ? t.action.path : "#endofday") + '">' + esc(t.action ? t.action.label : "Close the day") + '</button></div>';
 
@@ -315,6 +322,13 @@
 
   function bind() {
     var m = state.mount; if (!m) return;
+    var rt = m.querySelector("[data-retry]");
+    if (rt) rt.addEventListener("click", function () { rt.disabled = true; rt.textContent = "Trying…"; load(); });
+    var si = m.querySelector("[data-signin]");
+    if (si) si.addEventListener("click", function () {
+      if (E.handleSessionExpired && !E._sessionExpiredShown) E.handleSessionExpired("Sign in again to continue where you were.");
+      else { try { E.clearToken(); E.state.user = null; E.renderLogin(); } catch (e) {} }
+    });
     m.querySelectorAll("[data-open]").forEach(function (el) {
       el.addEventListener("click", function () { openPath(el.getAttribute("data-open")); });
     });

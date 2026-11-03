@@ -161,5 +161,5 @@
     render: function (ctx) { S.mount = ctx && ctx.mount; S.editing = null; css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("certreg") < 0) E.UI2_DESTINATIONS.push("certreg");
-  if (E.UI2_PARENT) E.UI2_PARENT.certreg = "settings";
+  if (E.UI2_PARENT) E.UI2_PARENT.certreg = "registers";
 })();
