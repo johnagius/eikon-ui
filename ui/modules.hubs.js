@@ -19,6 +19,7 @@
     dailyregister: "The day book: opening checks and sign-off.",
     "dda-purchases": "Controlled drugs received.",
     rotreg: "This week at a glance: who works, when, and who is away.",
+    ssreg: "What other pharmacies are short of, and what you asked for.",
     "dda-sales": "Controlled drugs supplied, by prescription.",
     "dda-poyc": "POYC controlled-drug supplies.",
     dda_stocktakes: "Controlled-drug counts and discrepancies.",
@@ -62,7 +63,7 @@
     stock: {
       title: "Stock", lead: "What is coming in, what is going out, what is running out.",
       groups: [
-        { label: "Watch", ids: ["alerts", "nearexpiry", "scarcestock"] },
+        { label: "Watch", ids: ["alerts", "nearexpiry", "ssreg", "scarcestock"] },
         { label: "Move", ids: ["returns", "stocktransfers", "order-diary", "supplier-inventory"] },
         { label: "Price", ids: ["quotations", "creditnotes"] }
       ]
