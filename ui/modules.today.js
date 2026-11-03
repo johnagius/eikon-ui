@@ -88,7 +88,15 @@
       state.error = (e && e.network) ? "Can't reach the server." : String(e && (e.message || e) || "Could not load Today");
       if (!state.data && e && e.status === 401) return; // core shows sign-in
     }
-    if (!opts.silent || true) render();
+    if (opts.background && busyTyping()) return; // the minute refresh never wipes a reading or a name being typed; the next one shows it
+    render();
+  }
+  E.__todayRefresh = function () { return load({ silent: true, background: true }); }; // the minute refresh, callable by the tests
+  function busyTyping() {
+    var m = state.mount; if (!m) return false;
+    var ae = document.activeElement;
+    if (ae && m.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return true;
+    return Array.prototype.some.call(m.querySelectorAll("input[data-min],input[data-max],input[data-cleaner]"), function (i) { return String(i.value || "").trim() !== ""; });
   }
 
   // ---------- actions ----------
@@ -354,7 +362,7 @@
     await load();
     if (state.timer) clearInterval(state.timer);
     state.timer = setInterval(function () { if (document.hidden) return; // no polling while the tab is hidden
-      if (E.state.activeModuleId === "today") load({ silent: true }); }, 60000);
+      if (E.state.activeModuleId === "today") load({ silent: true, background: true }); }, 60000);
   }
   function destroy() { if (state.timer) { clearInterval(state.timer); state.timer = null; } }
 

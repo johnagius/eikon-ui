@@ -838,6 +838,22 @@ const cnPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json())
 report("credit notes: opens from the old link with what is left; more than is left is refused; Use all sends the rest",
   /€17\.50 left/.test(cn1) && /only €17\.50 is left/.test(cnErr) && cnBefore === 0 && cnPosts.length === 1 && cnPosts[0].path === "/creditnotes/entries/91/purchases" && cnPosts[0].amount === 17.5, JSON.stringify({ cn1, cnErr, cnPosts }));
 
+// Today's minute refresh must not wipe a fridge reading being typed.
+todayState = { tempDone: false, cleanDone: false };
+await page.goto(base + "&ui=2#today");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "today" && document.querySelector('.tdy-row[data-kind="temperature"] [data-min]'), null, { timeout: 15000 });
+await page.fill('.tdy-row[data-kind="temperature"] [data-min]', "3.4");
+await page.focus('.tdy-row[data-kind="temperature"] [data-max]');
+await page.evaluate(() => { const before = document.querySelector('.tdy-row[data-kind="temperature"] [data-min]'); window.__minEl = before; });
+// run the same silent refresh the minute timer runs
+await page.evaluate(() => window.EIKON.__todayRefresh());
+await page.waitForTimeout(800);
+const tdyKeep = await page.evaluate(() => ({ same: document.querySelector('.tdy-row[data-kind="temperature"] [data-min]') === window.__minEl, val: (document.querySelector('.tdy-row[data-kind="temperature"] [data-min]') || {}).value, focus: document.activeElement && document.activeElement.hasAttribute("data-max") }));
+await page.fill('.tdy-row[data-kind="temperature"] [data-min]', ""); await page.evaluate(() => document.activeElement && document.activeElement.blur());
+await page.evaluate(() => window.EIKON.__todayRefresh()); await page.waitForTimeout(800);
+const tdyIdle = await page.evaluate(() => document.querySelector('.tdy-row[data-kind="temperature"] [data-min]') !== window.__minEl);
+report("today: the minute refresh leaves a reading being typed alone (value, field and focus kept), and redraws when idle", tdyKeep.same && tdyKeep.val === "3.4" && tdyKeep.focus && tdyIdle, JSON.stringify({ tdyKeep, tdyIdle }));
+
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });
