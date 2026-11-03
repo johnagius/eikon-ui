@@ -999,3 +999,11 @@ All of it waits only on the worker deploy.
 - Container restarted ~22:40; no work lost (every agent copy on disk); five agents resumed.
 - b4-8 merged (agent base tree = f115176 exactly): offline/online banner (role=status, floats, no layout shift); after a lost answer one GET of the screen's own list with a strict match → "It was saved" / "Not saved … Try again" / "We could not tell"; identical retry checked against the list first, never auto-resent; refresh on return; Emergency POS, auth and client-log untouched. Real-stack proof: one row in every drop path. Worker 209/0, UI 385/0, real 43/0, axe clean.
 - Proposals (for later rounds): E.landedOk and E.onReconnect on the remaining create screens.
+
+## Round 137 — wrong-field typing fixed, banner moved, Money; .152 on hold (23:50 UTC)
+
+- "steal" confirmed a real bug on 4 paths (Customers Edit→Notes, Deliveries change→Time, Today second fridge wiped, a hand-over form stealing typing from a search box) and fixed it with one rule in core.js (E.focusIfIdle / E.focusSoon / E.keepTyped; repaint scoped to its own form). New real case typerace (67 checks); slow-typed bodies byte-identical 8/8.
+- b4-8b: the offline banner no longer covers the primary button (phone: top strip with reserved space; desktop: rail corner).
+- b4-6b Money: End of day prints the classic A4 sheet, unlock with the classic's audit note; Credit notes list uses and undo one (pharmacist). Proofs byte-identical on the real stack.
+- Combined in agents/m-152: worker 209/0; real 42/3 — tempreg/tempnote fail on main too between 23:00–24:00 UTC (Malta already the next day: some code uses UTC dates) and stockq once lost an alert's select values under parallel load (passes alone 3/3). Held until the steal agent checks selects on redraw; "midnight" agent auditing UTC vs Malta dates (worker changes would need John).
+- Disk filled once (scale-test DB 8.8 GB deleted; work unaffected).
