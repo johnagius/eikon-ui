@@ -56,7 +56,7 @@
   function errMsg(e) { return (e && (e.bodyJson && e.bodyJson.error || e.message)) || "Something went wrong"; }
 
   var CSS = "\
-.bkx{--t:#0A8F6A;--ts:rgba(10,143,106,.11);--bg:#F2F2F7;--sf:#fff;--l2:rgba(60,60,67,.64);--l3:rgba(60,60,67,.42);--sep:rgba(60,60,67,.15);--fill:rgba(118,118,128,.12);--red:#D7261C;\
+.bkx{--t:#077A5B;--ts:rgba(10,143,106,.11);--bg:#F2F2F7;--sf:#fff;--l2:#6A6A70;--l3:rgba(60,60,67,.42);--sep:rgba(60,60,67,.15);--fill:rgba(118,118,128,.12);--red:#C4221A;\
 font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,sans-serif;color:#000;background:var(--bg);min-height:100%;padding:24px 28px 80px;-webkit-font-smoothing:antialiased}\
 .bkx *{box-sizing:border-box}:where(.bkx) button{font:inherit;border:0;cursor:pointer;background:none;color:inherit}\
 .bkx-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;max-width:880px}\
@@ -65,7 +65,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
 .bkx-days{display:flex;gap:6px;margin-bottom:22px;max-width:880px}\
 .bkx-day{flex:1;height:60px;border-radius:16px;background:var(--sf);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}\
 .bkx-day small{font-size:11px;font-weight:600;color:var(--l2);text-transform:uppercase;letter-spacing:.03em}.bkx-day b{font-size:19px;font-weight:600}\
-.bkx-day.on{background:var(--t);color:#fff}.bkx-day.on small{color:#fff;opacity:.85}\
+.bkx-day.on{background:var(--t);color:#fff}.bkx-day.on small{color:inherit}\
 .bkx-sec{max-width:880px;margin-bottom:26px}.bkx-sec h2{font-size:20px;font-weight:700;letter-spacing:-.012em;margin:0 4px 8px}\
 .bkx-g{background:var(--sf);border-radius:22px;overflow:hidden}\
 .bkx-r{display:flex;align-items:center;gap:14px;min-height:62px;padding:12px 16px;position:relative;width:100%;text-align:left}\
@@ -89,7 +89,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
 .bkx-svc.on{border-color:var(--t)}\
 .bkx-slots{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;min-height:40px}\
 .bkx-slot{height:40px;padding:0 14px;border-radius:12px;background:var(--sf);font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}.bkx-slot small{font-size:12px;font-weight:500;color:var(--l2);margin-left:5px}\
-.bkx-slot.on{background:var(--t);color:#fff}.bkx-slot.on small{color:#fff;opacity:.85}\
+.bkx-slot.on{background:var(--t);color:#fff}.bkx-slot.on small{color:inherit}\
 .bkx-f{background:var(--sf);border-radius:16px;overflow:hidden;margin-bottom:16px}\
 .bkx-f label{display:flex;align-items:center;min-height:50px;padding:0 16px;gap:12px;position:relative}.bkx-f label+label::before{content:'';position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}\
 .bkx-f label span{width:92px;font-size:17px;font-weight:500;flex:none}.bkx-f input,.bkx-f select{flex:1;min-width:0;border:0;outline:0;font:inherit;font-size:17px;background:transparent;padding:12px 0;color:inherit}\

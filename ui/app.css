@@ -1057,3 +1057,5 @@ html[data-ui2]:not([data-ui2-visit]) .eikon-content :is(textarea,input[type=sear
 html[data-ui2]:not([data-ui2-visit]) .eikon-content p a:not([class]){text-decoration:underline;text-underline-offset:2px}
 /* Dark mode: the bright green keeps its glow, so text on green buttons is near-black, not white (2.2:1 -> 9:1) */
 @media (prefers-color-scheme: dark){ html[data-ui2]:not([data-ui2-visit]) .eikon-content :is([class*="-btn"].p, .hnd-seg button.on[data-sev="g"], .por-seg button.on){color:#00160E} }
+/* Dark mode: text on the bright green is near-black (login button, bookings' chosen day, slot and chips) */
+@media (prefers-color-scheme: dark){ html[data-ui2]:not([data-ui2-visit]) :is(#eikon-login-btn, .bkx-day.on, .bkx-slot.on, .bkx-chip.on){color:#00160E} }
