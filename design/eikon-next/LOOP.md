@@ -563,3 +563,9 @@ All of it waits only on the worker deploy.
 ## Round 57 — focus visible in forms
 - Rebuilt forms set outline:0 on inputs (iOS grouped rows); buttons had a ring but text fields had no focus sign.
 - app.css: form label/.row :focus-within tint (light .07, dark .14), bordered fields turn accent on focus. UI 121/121. BUILD .73.
+
+## Round 58 — Who's in (read-only rota)
+- Live: BUILD .73.
+- modules.rotreg.js: week view of shifts + leave (approved = Away, pending = Asked for leave, rejected hidden;
+  found while testing that every new leave starts pending, so approved-only hid real requests). Own Team card
+  beside Shifts (planner not hijacked); hubs open ui2Only cards directly. No writes (verified). UI 123/123. BUILD .74.
