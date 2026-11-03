@@ -10,6 +10,14 @@
   var E = window.EIKON;
   if (!E) return;
 
+  // Card names in sentence case like the rebuilt screens ("End of day", "Stock transfers"); acronyms stay (DDA, POYC, POS, OTC).
+  // Only here: the classic sidebar keeps the module titles as they are.
+  function sentence(t) {
+    return String(t).split(" ").map(function (w, i) {
+      if (!i || w.length < 2 || w === w.toUpperCase() || /\d/.test(w)) return w;
+      return w.charAt(0).toLowerCase() + w.slice(1);
+    }).join(" ");
+  }
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
 
   // One sentence per function. Titles come from the modules themselves.
@@ -133,7 +141,7 @@
         (g.ids || []).forEach(function (mid) {
           var mod = E.modules[mid];
           if (!mod) return; // not in this build or this portal
-          cards += '<button class="hub-card" data-open="' + esc(mid) + '"><b>' + esc(mod.title || mid) + '</b><span>' + esc(DESC[mid] || "") + '</span></button>';
+          cards += '<button class="hub-card" data-open="' + esc(mid) + '"><b>' + esc(sentence(mod.title || mid)) + '</b><span>' + esc(DESC[mid] || "") + '</span></button>';
         });
         (g.actions || []).forEach(function (a, ai) {
           cards += '<button class="hub-card" data-action="' + gi + ":" + ai + '"><b>' + esc(a.title) + '</b><span>' + esc(a.desc) + '</span></button>';
