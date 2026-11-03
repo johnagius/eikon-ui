@@ -540,3 +540,13 @@ All of it waits only on the worker deploy.
   stale notes refused (theirs shown, yours quoted). Real worker with a second till writing in between: all kept.
 - Bugs caught: first paint before load crashed (null record); add box not cleared (repaint read it back).
 - UI 121/121. BUILD .72.
+
+## Round 55 — SECURITY: message board leaked group-private messages across groups (fixed, needs deploy)
+- Live: BUILD .72.
+- /board/messages?pinned=1 had no org filter → every pharmacy saw every pinned message, incl. other groups'
+  scope='org' ones. Pin/unpin accepted any id. @mentions in scope='org' messages notified other groups' users and
+  /board/mentions + /board/dashboard returned the private body.
+- Fixed in the worker (visibility = scope 'all' or own org everywhere; mentions in org messages stay in the org;
+  mention reads filtered, which also hides already-recorded leaked mentions). board.test.mjs fails on the current
+  code, passes on the fix. Worker 99/99. WORKER_VERSION bookings-13. **Deploy needed to close it on the live site.**
+- Suggestions are global by design (product ideas); user search is org-scoped; delete is own-only. Left as is.
