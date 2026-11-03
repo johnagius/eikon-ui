@@ -180,12 +180,13 @@
   }
 
   var seq = 0;
-  // Attach to one medicine box. opts: { path: "/dda-sales", field: "medicine_name_dose", known: () => [text], back: [1, 2] }
+  // Attach to one medicine box. opts: { path: "/dda-sales", field: "medicine_name_dose", known: () => [text], back: [1, 2], fixed: [text] }
+  // back: [] reads no past months (for a register without an /entries?month= route).
   E.ddaMedSuggest = function (input, opts) {
     if (!input || input.disabled || input._ddaMed) return;
     input._ddaMed = 1; css();
     var host = input.parentNode, id = "ddam-" + (++seq), lb = document.createElement("div"), items = [], active = -1, open = false;
-    var fixed = FIXED[opts.path] || SALES, back = opts.back || [1, 2];
+    var fixed = opts.fixed || FIXED[opts.path] || SALES, back = opts.back || [1, 2]; // opts.fixed: a register with its own list (stock takes: none, the dosage has its own box)
     input.removeAttribute("list"); // the browser's own list would open on top of this one
     input.setAttribute("role", "combobox"); input.setAttribute("aria-autocomplete", "list"); input.setAttribute("aria-expanded", "false"); input.setAttribute("aria-controls", id);
     if (!input.getAttribute("aria-label")) input.setAttribute("aria-label", "Medicine, strength and form");

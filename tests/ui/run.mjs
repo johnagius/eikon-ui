@@ -59,6 +59,9 @@ let pvState = { reports: [{ id: "pv_1_abc", created_at: "2026-10-30T09:00:00.000
   drugs: [{ name: "Amoxicillin 500mg", dose: "500mg", route: "Oral", frequency: "TDS", start_date: "", stop_date: "", indication: "URTI", batch_no: "AX12", mah: "" }], reaction_description: "Itchy rash", reaction_start: "", reaction_stop: "", reaction_seriousness: "Serious – Other medically important", reaction_outcome: "Recovering", reaction_causality: "Possible", reaction_meddra: "Rash",
   reporter_name: "Maria Borg", reporter_qualification: "Pharmacist", reporter_email: "", reporter_phone: "", reporter_institution: "Demo Pharmacy", reporter_address: "", report_date: "2026-10-30", notes: "", mpa_ref: "MPA-7" }] };
 let lblState = { history: [{ patientName: "", drugName: "Amoxicillin 500mg", dose: "1 capsule", frequency: "Three times daily", route: "Oral", customInstructions: "", selectedWarnings: ["w10"], templateId: "tpl_std", id: "lb_1_seed", printedAt: "2026-11-01 10:00", printedBy: "Maria Borg" }], templates: [{ id: "tpl_std", name: "Standard Label", size: "standard", fields: [], isDefault: true }], pharm: { name: "Demo Pharmacy", phone: "21234567", licence: "" } };
+// DDA stock takes (new layout ddstreg): one closed stock take with two lines; writes behave as the worker's handlers.
+let ddstState = { next: 2, nextItem: 3, list: [{ id: 1, created_at: "2026-10-01 09:00:00", closed_at: "2026-10-01 10:00:00", updated_at: "2026-10-01 10:00:00" }],
+  items: [{ id: 1, stocktake_id: 1, item_name: "Morphine sulphate", dosage: "10mg", qty_tablets: 30 }, { id: 2, stocktake_id: 1, item_name: "Alprazolam", dosage: "0.5mg", qty_tablets: 56 }] };
 let peopleState = { adopted: false, carmel: { id: 1, name: "Zammit Carmel", id_card: "0012345M", phone: "79123456", alt_phone: "", email: "", address: "1 Triq il-Knisja", doctor_name: "", date_of_birth: "", notes: "", source: "history", version: 1, updated_at: "2026-10-31 09:00:00" } };
 function mockApi(req, res, body) {
   const url = new URL(req.url, "http://x");
@@ -69,6 +72,10 @@ function mockApi(req, res, body) {
     if (body && body.id) { res.writeHead(409, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "Changed elsewhere", current: Object.assign({}, peopleState.carmel, { notes: "Call after 5", version: 2 }) })); }
     peopleState.adopted = true;
     res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: true, created: true, person: peopleState.carmel }));
+  }
+  if (/^\/dda-stocktakes\/stocktakes\/\d+\/report\/html$/.test(p)) { // the printable page is HTML, as the worker's
+    const sid = Number(p.split("/")[3]), its = ddstState.items.filter((i) => i.stocktake_id === sid);
+    res.writeHead(200, { "content-type": "text/html" }); return res.end("<!doctype html><title>DDA Stock Take</title><h1>Demo - DDA Stock Take</h1><table>" + its.map((i) => "<tr><td>" + i.item_name + "</td><td>" + i.qty_tablets + "</td></tr>").join("") + "</table>");
   }
   res.writeHead(200, { "content-type": "application/json" });
   if (p === "/people") return res.end(JSON.stringify({ ok: true, q: url.searchParams.get("q") || "", people: (peopleState.adopted ? [peopleState.carmel] : []).concat([{ id: 2, name: "Zammit Paul", phone: "79000001", id_card: "", version: 1 }]), history: peopleState.adopted ? [] : [{ key: "id:0012345M", name: "Zammit Carmel", id_card: "0012345M", phone: "", alt_phone: "", email: "", address: "1 Triq il-Knisja", doctor_name: "", sources: { dda_sale: 1, loyalty: 1 }, last_date: "2026-10-05" }] }));
@@ -305,6 +312,22 @@ function mockApi(req, res, body) {
     return res.end(JSON.stringify({ ok: true, entries: mo === "2026-10" ? [last] : [] }));
   }
   if (p === "/cleaning/entries" && req.method === "POST") { todayState.cleanDone = true; return res.end(JSON.stringify({ ok: true, entry: { id: 1 } })); }
+  if (p.startsWith("/dda-stocktakes/")) {
+    const D = ddstState, now = new Date().toISOString().slice(0, 19).replace("T", " "), m = p.split("/").filter(Boolean), sid = Number(m[2]);
+    const its = (id) => D.items.filter((i) => i.stocktake_id === id).sort((a, b) => a.item_name.localeCompare(b.item_name, undefined, { sensitivity: "base" }) || a.id - b.id);
+    if (p === "/dda-stocktakes/stocktakes" && req.method === "GET") return res.end(JSON.stringify({ ok: true, stocktakes: D.list.slice().sort((a, b) => b.id - a.id).map((s) => Object.assign({ item_count: its(s.id).length }, s)) }));
+    if (p === "/dda-stocktakes/stocktakes" && req.method === "POST") { const st = { id: D.next++, created_at: now, closed_at: null, updated_at: now }; D.list.push(st); return res.end(JSON.stringify({ ok: true, stocktake_id: st.id, created_at: now })); }
+    if (m[1] === "stocktakes" && m.length === 3 && req.method === "GET") { const st = D.list.find((x) => x.id === sid); return res.end(JSON.stringify(st ? { ok: true, stocktake: Object.assign({ created_by: 1 }, st), items: its(sid) } : { ok: false, error: "Not found" })); }
+    if (m[1] === "stocktakes" && m.length === 3 && req.method === "PUT") { const st = D.list.find((x) => x.id === sid); if (body && body.closed === 1) st.closed_at = st.closed_at || now; return res.end(JSON.stringify({ ok: true })); }
+    if (m[1] === "stocktakes" && m[3] === "items" && req.method === "POST") {
+      const it = { id: D.nextItem++, stocktake_id: sid, item_name: String(body.item_name || "").trim(), dosage: String(body.dosage || "").trim(), qty_tablets: Math.floor(Number(body.qty_tablets)) }; D.items.push(it);
+      return res.end(JSON.stringify({ ok: true, item_id: it.id }));
+    }
+    if (m[1] === "items" && req.method === "PUT") {
+      const it = D.items.find((x) => x.id === sid); Object.assign(it, { item_name: String(body.item_name || "").trim(), dosage: String(body.dosage || "").trim(), qty_tablets: Math.floor(Number(body.qty_tablets)) });
+      return res.end(JSON.stringify({ ok: true }));
+    }
+  }
   if (req.method === "GET") return res.end(JSON.stringify(genericList));
   return res.end(JSON.stringify({ ok: true, id: 1 }));
 }
@@ -541,9 +564,15 @@ const openedCustomer = await page.evaluate(() => location.hash + " " + (document
 await backToToday();
 await page.fill("#tdy-q", "dda stock");
 await page.press("#tdy-q", "Enter");
-await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "dda_stocktakes", null, { timeout: 15000 });
+await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "ddstreg", null, { timeout: 15000 });
+const openedStock = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
+await backToToday();
+// Every register is rebuilt now; a screen that is not (Loyalty) still opens in classic.
+await page.fill("#tdy-q", "loyalty");
+await page.press("#tdy-q", "Enter");
+await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "loyalty", null, { timeout: 15000 });
 const openedModule = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
-report("today: search opens a waiting customer's order in the new Orders screen, and a register not yet rebuilt in classic", openedCustomer === "#ordreg new" && openedModule === "#dda_stocktakes classic", `${openedCustomer} | ${openedModule}`);
+report("today: search opens a waiting customer's order in the new Orders screen, DDA stock takes in the new layout, and a screen not yet rebuilt in classic", openedCustomer === "#ordreg new" && openedStock === "#ddstreg new" && openedModule === "#loyalty classic", `${openedCustomer} | ${openedStock} | ${openedModule}`);
 await backToToday();
 // A register rebuilt in the new layout opens there.
 await page.fill("#tdy-q", "temperature");
@@ -569,13 +598,16 @@ await page.evaluate(() => { location.hash = "#registers"; });
 await page.waitForFunction(() => document.querySelector(".hub-card"), null, { timeout: 8000 });
 const hub = await page.evaluate(() => ({ h1: document.querySelector(".hub h1").textContent, cards: document.querySelectorAll(".hub-card").length, temp: !!document.querySelector('.hub-card[data-open="temperature"]'), topbar: getComputedStyle(document.querySelector(".eikon-topbar")).display }));
 await page.click('.hub-card[data-open="dda_stocktakes"]');
-// an old module never renders inside the new shell: the classic layout opens for this visit
+// the last register rebuilt: the card opens the new screen; its "classic screen" link opens the classic layout for this visit
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ddstreg" && document.querySelector('.dst [data-act="classic"]'), null, { timeout: 15000 });
+hub.stockNew = await page.evaluate(() => location.hash + " " + document.documentElement.hasAttribute("data-ui2") + " " + [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join());
+await page.click('.dst [data-act="classic"]');
 await page.waitForFunction(() => location.hash === "#dda_stocktakes" && location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".eikon-nav-cat"), null, { timeout: 15000 });
 await page.waitForTimeout(400);
 const legacy = await page.evaluate(() => ({ light: document.documentElement.hasAttribute("data-ui2"), cats: document.querySelectorAll(".eikon-nav-cat").length, back: document.getElementById("eikon-back-btn").textContent, backShown: document.getElementById("eikon-back-btn").style.display !== "none", pref: localStorage.getItem("eikon_ui2") }));
 await page.click("#eikon-back-btn");
-await page.waitForFunction(() => location.hash === "#registers" && document.documentElement.hasAttribute("data-ui2") && document.querySelector(".hub-card"), null, { timeout: 15000 });
-report("shell: Registers lists every book; an old one opens in classic Eikon, whole, with one button back; the preference is kept", hub.h1 === "Registers" && hub.cards >= 11 && hub.temp && hub.topbar === "none" && !legacy.light && legacy.cats > 0 && /New Eikon/.test(legacy.back) && legacy.backShown && legacy.pref === "1", JSON.stringify({ hub, legacy }));
+await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "ddstreg" && document.documentElement.hasAttribute("data-ui2") && document.querySelector(".dst"), null, { timeout: 15000 });
+report("shell: Registers lists every book and DDA stock takes opens in the new layout; its classic link opens classic Eikon, whole, with one button back to it; the preference is kept", hub.h1 === "Registers" && hub.cards >= 11 && hub.temp && hub.topbar === "none" && hub.stockNew === "#ddstreg true registers" && !legacy.light && legacy.cats > 0 && /New Eikon/.test(legacy.back) && legacy.backShown && legacy.pref === "1", JSON.stringify({ hub, legacy }));
 
 // 11. Customers: Today's search hands over, the list shows people and history, Add adopts, edits are versioned
 const callsNow = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json());
@@ -908,6 +940,56 @@ const cdsPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()
 report("controlled drugs supplied: ID card and prescriber fill in; a repeated serial shows and waits for 'Yes, record'; then one entry",
   cds1.name === "Zammit Carmel" && cds1.reg === "R1201" && cds1.dup && cds1.btn === "Yes, record" && cdsBefore === 0 && cdsPosts.length === 1 && cdsPosts[0].client_id_card === "0012345M" && cdsPosts[0].client_address === "1 Triq il-Knisja" && cdsPosts[0].quantity === 10 && cdsPosts[0].prescription_serial_no === "RX-1",
   JSON.stringify({ cds1, cdsBefore, cdsPosts }));
+
+// DDA stock takes in the new layout (ddstreg): the old link lands here. Start one, add lines (a fraction is refused),
+// count with Enter moving down, a count whose answer is lost is checked and not sent twice, change a line, an added
+// line whose answer is lost is not added twice, close, print. Bodies are the classic's; no delete.
+try {
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.goto(base + "&ui=2#dda_stocktakes");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ddstreg" && document.querySelector(".dst-st"), null, { timeout: 15000 });
+  const ds1 = await page.evaluate(() => ({ hash: location.hash, rail: [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join(), back: document.querySelector(".dst-back").textContent, rows: [...document.querySelectorAll(".dst-st")].map((b) => b.textContent) }));
+  await page.click("[data-act=new]"); await page.waitForSelector("#dst-add [name=item_name]"); await page.waitForTimeout(200);
+  await page.fill("#dst-add [name=item_name]", "Diazepam"); await page.fill("#dst-add [name=dosage]", "5mg"); await page.fill("#dst-add [name=qty_tablets]", "2.5");
+  await page.click("#dst-add button[type=submit]"); await page.waitForTimeout(300);
+  const dsErr = await page.evaluate(() => (document.querySelector("#dst-add .dst-err") || {}).textContent || "");
+  await page.fill("#dst-add [name=qty_tablets]", "12"); await page.click("#dst-add button[type=submit]"); await settleSave();
+  await page.fill("#dst-add [name=item_name]", "Alprazolam"); await page.fill("#dst-add [name=dosage]", "0.5mg"); await page.fill("#dst-add [name=qty_tablets]", "56"); await page.press("#dst-add [name=qty_tablets]", "Enter"); await settleSave();
+  const dsFocusAfterAdd = await page.evaluate(() => document.activeElement && document.activeElement.getAttribute("data-fk"));
+  await page.click("input.dst-cnt >> nth=0"); await page.keyboard.type("54"); await page.keyboard.press("Enter"); await page.waitForTimeout(500);
+  const dsFocus = await page.evaluate(() => ({ fk: document.activeElement.getAttribute("data-fk"), mode: document.activeElement.getAttribute("inputmode") }));
+  // a lost answer: the write reaches the server, then the connection drops before the reply (the browser sees a reset)
+  const loseOnce = async (re, method) => { let done = false; const h = async (route) => { if (done || route.request().method() !== method) return route.fallback(); done = true; await route.fetch().catch(() => {}); await route.abort("connectionreset"); await page.unroute(re, h); }; await page.route(re, h); };
+  await loseOnce(/\/dda-stocktakes\/items\/3$/, "PUT"); await page.keyboard.type("11"); await page.keyboard.press("Enter"); await page.waitForTimeout(1500);
+  const dsStatus = await page.evaluate(() => [...document.querySelectorAll(".dst-items .row")].map((r) => r.querySelector("b").textContent + "=" + r.querySelector("input").value + ":" + r.querySelector("small").textContent));
+  await page.locator(".dst-items .row", { hasText: "Diazepam" }).locator("[data-act=edit]").click(); await page.waitForSelector("#dst-edit");
+  await page.fill("#dst-edit [name=item_name]", "Diazepam (Valium)"); await page.click("[data-act=edit-save]"); await settleSave(); await page.waitForTimeout(300);
+  await loseOnce(/\/dda-stocktakes\/stocktakes\/2\/items$/, "POST");
+  await page.fill("#dst-add [name=item_name]", "Morphine sulphate"); await page.fill("#dst-add [name=dosage]", "10mg"); await page.fill("#dst-add [name=qty_tablets]", "30"); await page.click("#dst-add button[type=submit]"); await page.waitForTimeout(1500); await settleSave();
+  const dsAddErr = await page.evaluate(() => (document.querySelector("#dst-add .dst-err") || {}).textContent || "");
+  await page.click("[data-act=close]"); await page.waitForTimeout(600);
+  const dsClosed = await page.evaluate(() => ({ meta: (document.querySelector(".dst-meta") || {}).textContent, closeBtn: !!document.querySelector("[data-act=close]"), del: [...document.querySelectorAll(".dst button")].some((b) => /delete/i.test(b.textContent)) }));
+  const [pop] = await Promise.all([page.context().waitForEvent("page", { timeout: 5000 }).catch(() => null), page.click("[data-act=print]")]);
+  let dsPrint = ""; if (pop) { await pop.waitForLoadState("load").catch(() => {}); dsPrint = await pop.content().catch(() => ""); await pop.close().catch(() => {}); }
+  await page.waitForTimeout(300);
+  const dsW = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.path.startsWith("/dda-stocktakes") && c.method !== "GET").map((c) => c.method + " " + c.path + " " + JSON.stringify(c.body));
+  const dsItems = ddstState.items.filter((i) => i.stocktake_id === 2).map((i) => i.item_name + "|" + i.dosage + "|" + i.qty_tablets).sort();
+  const want = ["POST /dda-stocktakes/stocktakes {}",
+    'POST /dda-stocktakes/stocktakes/2/items {"item_name":"Diazepam","dosage":"5mg","qty_tablets":12}',
+    'POST /dda-stocktakes/stocktakes/2/items {"item_name":"Alprazolam","dosage":"0.5mg","qty_tablets":56}',
+    'PUT /dda-stocktakes/items/4 {"ok":true,"item_name":"Alprazolam","dosage":"0.5mg","qty_tablets":54}',
+    'PUT /dda-stocktakes/items/3 {"ok":true,"item_name":"Diazepam","dosage":"5mg","qty_tablets":11}',
+    'PUT /dda-stocktakes/items/3 {"ok":true,"item_name":"Diazepam (Valium)","dosage":"5mg","qty_tablets":11}',
+    'POST /dda-stocktakes/stocktakes/2/items {"item_name":"Morphine sulphate","dosage":"10mg","qty_tablets":30}',
+    'PUT /dda-stocktakes/stocktakes/2 {"closed":1}'];
+  report("DDA stock takes: the old link opens the new screen under Registers; start, add (2.5 refused), count with Enter moving down, change a line, close and print send the classic's bodies; a lost answer on a count or an added line is checked, never sent twice; no delete",
+    ds1.hash === "#ddstreg" && ds1.rail === "registers" && /Registers/.test(ds1.back) && ds1.rows.length === 1 && /Closed/.test(ds1.rows[0]) && /2 items/.test(ds1.rows[0]) &&
+    /whole number/.test(dsErr) && dsFocusAfterAdd === "add-name" && dsFocus.fk === "cnt-3" && dsFocus.mode === "decimal" &&
+    dsStatus.join() === "Alprazolam=54:Saved,Diazepam=11:Saved" && !dsAddErr &&
+    JSON.stringify(dsW) === JSON.stringify(want) && JSON.stringify(dsItems) === JSON.stringify(["Alprazolam|0.5mg|54", "Diazepam (Valium)|5mg|11", "Morphine sulphate|10mg|30"]) &&
+    /Closed/.test(dsClosed.meta) && !dsClosed.closeBtn && !dsClosed.del && /DDA Stock Take/.test(dsPrint) && /Morphine sulphate/.test(dsPrint),
+    JSON.stringify({ ds1, dsErr, dsFocusAfterAdd, dsFocus, dsStatus, dsAddErr, dsClosed, dsW, dsItems, print: dsPrint.slice(0, 80) }).slice(0, 1800));
+} catch (e) { report("DDA stock takes: ran to the end", false, String(e).slice(0, 300)); }
 
 // Today lists a delivery that slipped (sent by servers from bookings-12); Open lands on the new Deliveries screen.
 todayState.delivery = true;

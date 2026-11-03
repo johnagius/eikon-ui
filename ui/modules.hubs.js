@@ -29,7 +29,7 @@
     "dda-purchases": "Every delivery of a controlled drug, by invoice.",
     "dda-sales": "Every controlled drug handed over against a prescription.",
     "dda-poyc": "Controlled drugs given under the POYC scheme.",
-    dda_stocktakes: "Count controlled drugs and record any discrepancies.",
+    dda_stocktakes: "Count each controlled drug and keep the count on file, ready to print.",
     repeatprescriptions: "Prescriptions kept on file, and when each one runs out.",
     rotreg: "This week at a glance: who works, when, and who is away.",
     ssreg: "What other pharmacies are looking for, and what you asked for.",
