@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-02-bookings-14";
+const WORKER_VERSION = "2026-11-03-bookings-15";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -20463,7 +20463,7 @@ function bkEmailHtml({ title, lines, link, linkText, pharmacy, address, phone, o
 <div style="background:#fff;border-radius:20px;padding:24px 22px">
 <div style="font-size:22px;font-weight:700;margin-bottom:12px">${e(title)}</div>
 ${lines.map((l) => `<div style="font-size:16px;line-height:23px;margin:4px 0">${e(l)}</div>`).join("")}
-${link ? `<a href="${e(link)}" style="display:inline-block;margin-top:18px;background:#0A8F6A;color:#fff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:22px">${e(linkText || "See or change your booking")}</a>` : ""}
+${link ? `<a href="${e(link)}" style="display:inline-block;margin-top:18px;background:#066B4F;color:#fff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:22px">${e(linkText || "See or change your booking")}</a>` : ""}
 </div>
 <div style="font-size:13px;line-height:19px;color:#6b6b70;text-align:center;margin-top:16px">${e(pharmacy)}${address ? " · " + e(address) : ""}${phone ? " · " + e(phone) : ""}<br>
 ${optout ? `<a href="${e(optout)}" style="color:#6b6b70">Stop booking emails</a>` : ""}</div></div></body></html>`;
@@ -20737,9 +20737,9 @@ function bkPage(title, body, status = 200) {
 <meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${title}</title>
 <style>body{margin:0;background:#F2F2F7;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:#000;-webkit-font-smoothing:antialiased}
 .w{max-width:440px;margin:0 auto;padding:40px 16px}.c{background:#fff;border-radius:22px;padding:24px 22px}h1{font-size:26px;line-height:32px;margin:0 0 6px;letter-spacing:-.02em}
-.s{color:rgba(60,60,67,.64);font-size:15px;line-height:21px}.big{font-size:20px;font-weight:600;margin:18px 0 2px}.row{font-size:16px;line-height:24px}
+.s{color:#6A6A70;font-size:15px;line-height:21px}.big{font-size:20px;font-weight:600;margin:18px 0 2px}.row{font-size:16px;line-height:24px}
 .b{display:block;width:100%;height:50px;border-radius:25px;border:0;font:600 17px -apple-system,Segoe UI,Arial,sans-serif;margin-top:12px;text-align:center;line-height:50px;text-decoration:none}
-.g{background:#0A8F6A;color:#fff}.r{background:rgba(255,59,48,.10);color:#D7261C}.f{font-size:13px;color:rgba(60,60,67,.6);text-align:center;margin-top:18px}
+.g{background:#066B4F;color:#fff}.r{background:rgba(255,59,48,.10);color:#C4221A}.f{font-size:13px;color:#6E6E73;text-align:center;margin-top:18px}
 @media(prefers-color-scheme:dark){body{background:#000;color:#fff}.c{background:#1C1C1E}.s,.f{color:rgba(235,235,245,.64)}.g{background:#32D39C;color:#00261B}}</style></head>
 <body><div class="w">${body}</div></body></html>`, { status, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY" } });
 }
@@ -20862,8 +20862,8 @@ function bkMovePage(pharmacy, svcName, whenText, base, blocked) {
   <button id="go" class="b g" disabled style="opacity:.45">Choose a new time</button>
   <a class="b" style="background:rgba(118,118,128,.12);color:inherit" href="${e(base)}">Keep my booking</a></div>
   <style>.dy{flex:0 0 auto;width:52px;height:60px;border-radius:14px;border:0;background:rgba(118,118,128,.12);font:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;color:inherit}
-  .dy small{font-size:11px;font-weight:600;opacity:.65;text-transform:uppercase}.dy b{font-size:18px}.dy.on{background:#0A8F6A;color:#fff}.dy:disabled{opacity:.3}
-  .tm{height:42px;padding:0 14px;border-radius:12px;border:0;background:rgba(118,118,128,.12);font:600 16px -apple-system,Segoe UI,Arial,sans-serif;color:inherit}.tm.on{background:#0A8F6A;color:#fff}
+  .dy small{font-size:11px;font-weight:600;opacity:.65;text-transform:uppercase}.dy b{font-size:18px}.dy.on{background:#066B4F;color:#fff}.dy:disabled{opacity:.3}
+  .tm{height:42px;padding:0 14px;border-radius:12px;border:0;background:rgba(118,118,128,.12);font:600 16px -apple-system,Segoe UI,Arial,sans-serif;color:inherit}.tm.on{background:#066B4F;color:#fff}
   @media(prefers-color-scheme:dark){.dy.on,.tm.on{background:#32D39C;color:#00261B}}</style>
   <script>
   const B=${JSON.stringify(base)};let st={days:[],date:null,times:[],time:null,busy:false};
@@ -21124,8 +21124,8 @@ function bkPublicPage(pharmacy, slug) {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex"><meta name="referrer" content="no-referrer"><title>Book · ${e(pharmacy)}</title>
 <style>
-:root{--bg:#F2F2F7;--sf:#fff;--l2:rgba(60,60,67,.64);--l3:rgba(60,60,67,.4);--sep:rgba(60,60,67,.15);--t:#0A8F6A;--ti:#fff;--ts:rgba(10,143,106,.11);--red:#D7261C;--fill:rgba(118,118,128,.12)}
-@media(prefers-color-scheme:dark){:root{--bg:#000;--sf:#1C1C1E;--l2:rgba(235,235,245,.64);--l3:rgba(235,235,245,.4);--sep:rgba(84,84,88,.6);--t:#32D39C;--ti:#00261B;--ts:rgba(50,211,156,.15);--red:#FF5A50;--fill:rgba(118,118,128,.26)}body{color:#fff}}
+:root{--bg:#F2F2F7;--sf:#fff;--l2:#6A6A70;--l3:#6E6E73;--sep:rgba(60,60,67,.15);--t:#066B4F;--ti:#fff;--ts:rgba(10,143,106,.11);--red:#C4221A;--fill:rgba(118,118,128,.12)}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--sf:#1C1C1E;--l2:rgba(235,235,245,.64);--l3:rgba(235,235,245,.6);--sep:rgba(84,84,88,.6);--t:#32D39C;--ti:#00261B;--ts:rgba(50,211,156,.15);--red:#FF5A50;--fill:rgba(118,118,128,.26)}body{color:#fff}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .w{max-width:480px;margin:0 auto;padding:36px 16px 48px}h1{font-size:32px;line-height:38px;letter-spacing:-.02em;margin:0}.sub{color:var(--l2);font-size:15px;line-height:21px;margin:4px 0 24px}
 .lab{font-size:13px;font-weight:600;color:var(--l2);text-transform:uppercase;letter-spacing:.04em;margin:0 4px 8px}
@@ -21171,7 +21171,7 @@ function paint(){
     h+='<div class="lab">With</div><div class="who">'+[{id:null,name:"Anyone",speciality:"First free"}].concat(st.svc.people).map(p=>'<button class="pp'+(st.who===p.id?" on":"")+'" data-who="'+(p.id==null?"":p.id)+'" aria-pressed="'+(st.who===p.id)+'"><b>'+esc(p.name)+'</b>'+(p.speciality?'<small>'+esc(p.speciality)+'</small>':"")+'</button>').join("")+'</div>';}
   if(st.svc){
     h+='<div class="lab">When</div>';
-    if(st.days.length){h+='<div class="days" role="listbox" aria-label="Day">'+st.days.map(d=>{const a=new Date(d.date+"T12:00:00");return '<button class="day'+(st.date===d.date?" on":"")+'" data-d="'+d.date+'"'+(d.free?"":" disabled")+' aria-pressed="'+(st.date===d.date)+'" aria-label="'+esc(a.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"}))+(d.free?"":", full or closed")+'"><small>'+esc(a.toLocaleDateString("en-GB",{weekday:"short"}))+'</small><b>'+a.getDate()+'</b></button>';}).join("")+'</div>';}
+    if(st.days.length){h+='<div class="days" role="group" aria-label="Day">'+st.days.map(d=>{const a=new Date(d.date+"T12:00:00");return '<button class="day'+(st.date===d.date?" on":"")+'" data-d="'+d.date+'"'+(d.free?"":" disabled")+' aria-pressed="'+(st.date===d.date)+'" aria-label="'+esc(a.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"}))+(d.free?"":", full or closed")+'"><small>'+esc(a.toLocaleDateString("en-GB",{weekday:"short"}))+'</small><b>'+a.getDate()+'</b></button>';}).join("")+'</div>';}
     const btn=(x)=>{const i=st.slots.indexOf(x);return '<button class="slot'+(st.slot===x?" on":"")+'" data-i="'+i+'" aria-pressed="'+(st.slot===x)+'">'+esc(x.time)+(st.date?"":'<small>'+esc(dayW(x.date))+'</small>')+'</button>';};
     if(!st.slots.length)h+='<div class="slots"><span class="sub">'+(st.days.length&&!st.days.some(d=>d.free)?"No free times in the next two weeks. Please call the pharmacy.":st.date?"No free times this day.":"Loading…")+'</span></div>';
     else [["Morning",x=>x.time<"12:00"],["Afternoon",x=>x.time>="12:00"&&x.time<"17:00"],["Evening",x=>x.time>="17:00"]].forEach(([name,f])=>{const g=st.slots.filter(f);if(g.length)h+='<div class="part">'+name+'</div><div class="slots">'+g.map(btn).join("")+'</div>';});}
