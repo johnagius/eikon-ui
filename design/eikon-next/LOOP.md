@@ -695,3 +695,9 @@ All of it waits only on the worker deploy.
 - Caught on the way: a first version called CSS.escape, but the module has its own variable named CSS, so the screen stopped drawing after setup. bk-settings-e2e caught it at once. Now uses its own escape and the focus code runs in try/catch: it can never stop the screen drawing.
 - New kbd-bk.mjs: 12/12. bk-settings-e2e 13/13, bk-e2e 13/13, UI suite 137/137.
 - Gap noted: Bookings has no coverage in tests/ui/run.mjs (only scratchpad e2e against the real stack). Candidate: bring Bookings into the repo suite with mocks.
+
+## Round 80 — Bookings joins the repo test suite (138 tests)
+
+- Bookings had no coverage in tests/ui/run.mjs, only scratchpad e2e against the local real stack. Added mocks (setup with one service and one practitioner, today's list, waiting list, rooms, free times, booking POST, provider PUT) and one test covering: today's list draws; settings opened with Enter is a labelled modal dialog holding focus; 30 Tabs never leave it; Escape closes it and focus returns to the gear; "+" after 09:00–13:00 gives 16:00–19:00; a new booking sends exactly one POST with the chosen time and name.
+- Proved it bites: against the Bookings module from before rounds 77–79 it fails (reported as one FAIL; the test is wrapped so a timeout reports instead of aborting the suite). On current code: 138/138.
+- No UI change, so no BUILD bump. Worker still bookings-14, awaiting John's deploy.
