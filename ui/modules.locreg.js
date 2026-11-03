@@ -79,7 +79,7 @@
       var b = miss.indexOf(k) >= 0;
       return '<label' + (b ? ' class="miss"' : "") + "><span>" + label + '</span><input name="' + k + '" type="' + type + '" placeholder="' + esc(ph) + '" value="' + esc(f[k] || "") + '"' + (extra || "") + (b ? ' aria-invalid="true" aria-describedby="lcr-err"' : "") + "></label>";
     };
-    return '<form class="lcr-form" id="lcr-form" novalidate autocomplete="off" aria-label="Record a locum">' +
+    return '<form class="lcr-form" id="lcr-form" novalidate autocomplete="off" aria-label="New locum">' +
       row("entry_date", "Date", "date", "", ' max="' + esc(ymd(new Date())) + '"') +
       row("time_in", "Time in", "time", "") +
       row("time_out", "Time out", "time", "Optional") +
@@ -87,7 +87,7 @@
       row("registration_number", "Reg no", "text", "Registration number") +
       '<datalist id="lcr-names">' + Object.keys(names).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>" +
       (f.err ? '<div class="lcr-err" id="lcr-err" role="alert">' + esc(f.err) + "</div>" : "") +
-      '<div class="acts"><button type="button" class="lcr-btn" data-act="cancel">Cancel</button><button type="submit" class="lcr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Add to register") + "</button></div></form>";
+      '<div class="acts"><button type="button" class="lcr-btn" data-act="cancel">Cancel</button><button type="submit" class="lcr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save locum") + "</button></div></form>";
   }
 
   function paint() {
@@ -96,7 +96,7 @@
     var MB = E.months, user = E.state.user || {};
     var h = '<div class="lcr"><button class="lcr-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("locreg") : "‹ Registers") + "</button>" +
       '<div class="lcr-top"><div><h1>Locum register</h1><p class="lcr-sub">Which pharmacist was in charge, and when.</p></div>' +
-      '<div class="lcr-acts">' + (S.form ? "" : '<button class="lcr-btn p" data-act="new">Record a locum</button>') + "</div></div>" +
+      '<div class="lcr-acts">' + (S.form ? "" : '<button class="lcr-btn p" data-act="new">New locum</button>') + "</div></div>" +
       '<p class="lcr-pmeta">' + esc((user.location_name || "") + " · Locum register · " + monthLabel(S.month) + " · printed " + ymd(new Date())) + "</p>";
     if (S.form) h += formHtml();
     h += MB.bar(S.month, { label: "Locum register" });
@@ -174,7 +174,7 @@
       var r = await E.postOnce("/locumregister/entries", body, { list: async function () { var r0 = await E.apiFetch("/locumregister/entries?month=" + body.entry_date.slice(0, 7), { method: "GET" }); return (r0 && r0.ok && r0.entries) || []; },
         same: function (e) { return e.entry_date === body.entry_date && String(e.time_in || "").slice(0, 5) === body.time_in && String(e.locum_full_name || "").trim().toLowerCase() === String(body.locum_full_name || "").trim().toLowerCase(); } });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.form = null; E.toast("Added · " + body.locum_full_name + " · " + body.time_in, "success");
+      S.form = null; E.toast("Saved · locum " + body.locum_full_name + " from " + body.time_in, "success");
       S.month = body.entry_date.slice(0, 7);
     } catch (e) {
       S.form.err = E.saveFailText(e);

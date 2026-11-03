@@ -152,7 +152,7 @@
       '<label><span>Kind of day</span><select name="day_type"><option value="normal"' + (a.day_type === "normal" ? " selected" : "") + '>Normal day</option><option value="holiday"' + (a.day_type === "holiday" ? " selected" : "") + ">Sunday / public holiday</option></select></label>" +
       fld("hours", "Hours", ' inputmode="decimal" placeholder="e.g. 8 or 7.5"') + fld("fee_per_hour", "€ per hour", ' inputmode="decimal" placeholder="0.00"') +
       '<div class="lrc-total"><span>Total</span><b id="lrc-tot">' + esc(totalText()) + "</b></div>" + (S.err ? '<div class="lrc-err" id="lrc-err" role="alert">' + esc(S.err) + "</div>" : "") +
-      '<div class="acts"><button type="button" class="lrc-btn" data-act="add-cancel">Cancel</button><button type="submit" class="lrc-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div>" +
+      '<div class="acts"><button type="button" class="lrc-btn" data-act="add-cancel">Cancel</button><button type="submit" class="lrc-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save receipt") + "</button></div>" +
       '<datalist id="lrc-names">' + S.known.map(function (k) { return '<option value="' + esc(k.name) + '">'; }).join("") + "</datalist></form>";
   }
   function keep() {
@@ -190,7 +190,7 @@
         if (now <= had) throw x0;
       }
       remember(a.day_type === "holiday" ? "holiday" : "normal", rate);
-      S.adding = null; E.toast(eur(hrs * rate) + " for " + a.locum_full_name, "success");
+      S.adding = null; E.toast("Saved · receipt of " + eur(hrs * rate) + " for " + a.locum_full_name, "success");
       if (a.receipt_date.slice(0, 7) !== S.month) S.month = a.receipt_date.slice(0, 7);
       var saved = true;
     } catch (x) { S.err = E.saveFailText(x); }

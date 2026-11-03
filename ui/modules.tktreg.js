@@ -3,7 +3,9 @@
    fields it is not sent (UPDATE-AUDIT.md: PARTIAL), but every change here sends what the classic screen sends: the whole
    question as read again from the server, with only the change made here different. Open one to change it, assign it
    or set its status; "Done" lists resolved and closed ones, 20 at a time; delete is for the pharmacist, with a reason
-   written as a note first so the audit's copy carries it. Numbers come from the same per-browser counter as the classic screen. */
+   written as a note first so the audit's copy carries it. Numbers come from the same per-browser counter as the classic screen.
+   An open question prints on its own, on the classic screen's one-question page (printSingleTicket); a customer with
+   an email address can be written to from the card (the device's mail app: the classic screen sends no email). */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -50,6 +52,55 @@
   function nextId() { // same counter as the classic screen, so numbers carry on
     try { var k = "eikon_tickets_seq_v1", n = (parseInt(localStorage.getItem(k), 10) || 0) + 1; localStorage.setItem(k, String(n)); return "TKT-" + String(n).padStart(5, "0"); }
     catch (e) { return "TKT-" + String(Date.now()).slice(-5); }
+  }
+
+  // The classic screen's one-question print (modules.tickets.js printSingleTicket), the same page, through E.printTab.
+  function printOne(entry) {
+    var pad2 = function (n) { return String(n).padStart(2, "0"); };
+    var dmy = function (s) { if (!isYmd(s)) return s || ""; var p = s.split("-"); return p[2] + "/" + p[1] + "/" + p[0]; };
+    var fmtTs = function (iso) { if (!iso) return ""; try { var d = new Date(iso); if (isNaN(d.getTime())) return iso; return pad2(d.getDate()) + "/" + pad2(d.getMonth() + 1) + "/" + d.getFullYear() + " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes()); } catch (e) { return iso; } };
+    function safe(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+    function prText(p) { var n = Number(p || 2); if (n === 1) return "1 — High"; if (n === 3) return "3 — Low"; return "2 — Medium"; }
+    var ns = notes(entry);
+    var notesHtml = ns.length ? ns.map(function (n) {
+      return "<div style='border:1px solid #e2e4e8;border-radius:6px;padding:8px;margin-bottom:6px;'>" +
+             "<div style='font-size:10px;color:#888;margin-bottom:4px;'>" + safe(fmtTs(n.ts)) + (n.author ? " · " + safe(n.author) : "") + "</div>" +
+             "<div style='font-size:12px;white-space:pre-wrap;'>" + safe(n.text || "") + "</div></div>";
+    }).join("") : "<p style='color:#888;font-style:italic;font-size:12px;'>No notes recorded.</p>";
+    var html =
+      "<!doctype html><html><head><meta charset='utf-8'>" +
+      "<title>" + safe(entry.ticket_id || "Ticket") + "</title>" +
+      "<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:24px;color:#111;max-width:700px;}" +
+      "button{position:fixed;right:14px;top:14px;padding:8px 12px;font-weight:800;cursor:pointer;border-radius:8px;border:1px solid #ccc;}" +
+      ".hdr{border-bottom:2px solid #222;padding-bottom:10px;margin-bottom:16px;}" +
+      ".tid{font-size:22px;font-weight:900;} .tsub{font-size:12px;color:#666;margin-top:4px;}" +
+      ".grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}" +
+      ".kv{border:1px solid #e2e4e8;border-radius:8px;padding:10px;}" +
+      ".kv .k{font-size:10px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}" +
+      ".kv .v{font-size:12px;}" +
+      ".issue-box{border:1px solid #e2e4e8;border-radius:8px;padding:12px;margin-bottom:14px;}" +
+      ".issue-box .lbl{font-size:10px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}" +
+      ".issue-box .txt{font-size:13px;white-space:pre-wrap;}" +
+      "h3{margin:0 0 10px 0;font-size:14px;}" +
+      "@media print{button{display:none!important;}}" +
+      "</style></head><body>" +
+      "<button data-eikon-print='print'>🖨 Print</button>" +
+      "<div class='hdr'><div class='tid'>" + safe(entry.ticket_id || "—") + "</div>" +
+      "<div class='tsub'>Opened: " + safe(dmy(entry.open_date || "")) + " · Status: " + safe(entry.status || "") + " · Priority: " + safe(prText(entry.priority)) + "</div></div>" +
+      "<div class='grid'>" +
+      "<div class='kv'><div class='k'>Client</div><div class='v'>" + safe(entry.client_name || "—") + "</div></div>" +
+      "<div class='kv'><div class='k'>Phone</div><div class='v'>" + safe(entry.phone || "—") + "</div></div>" +
+      "<div class='kv'><div class='k'>Email</div><div class='v'>" + safe(entry.email || "—") + "</div></div>" +
+      "<div class='kv'><div class='k'>Category</div><div class='v'>" + safe(entry.category || "—") + "</div></div>" +
+      "<div class='kv'><div class='k'>Assigned To</div><div class='v'>" + safe(entry.assigned_to || "—") + "</div></div>" +
+      "<div class='kv'><div class='k'>Follow-up Date</div><div class='v'>" + safe(entry.followup_date ? dmy(entry.followup_date) : "—") + "</div></div>" +
+      "</div>" +
+      "<div class='issue-box'><div class='lbl'>Issue Description</div><div class='txt'>" + safe(entry.issue || "—") + "</div></div>" +
+      "<h3>Notes Log (" + String(ns.length) + " entr" + (ns.length === 1 ? "y" : "ies") + ")</h3>" +
+      notesHtml +
+      "</body></html>";
+    var w = E.openPrint ? E.openPrint(html, { delay: 250 }) : null;
+    if (!w) E.toast("The print page was blocked. Allow pop-ups for this site, then press Print again.", "error");
   }
 
   function cats() { // same list as the classic screen keeps in this browser
@@ -122,8 +173,8 @@
   }
 
   // The server's statuses, in the words a pharmacist uses (the stored value never changes).
-  var SAY = { "Open": "Open", "In Progress": "In progress", "Awaiting Client": "Waiting for the customer", "Resolved": "Resolved", "Closed": "Closed" };
-  function say(st) { return SAY[st] || String(st || "Open"); }
+  var SAY = { "Open": "Waiting", "In Progress": "In progress", "Awaiting Client": "Waiting for the customer", "Resolved": "Resolved", "Closed": "Closed" };
+  function say(st) { return SAY[st] || String(st || "Waiting"); }
   // A field the last save refused: marked, its reason under it, read out with it.
   function inv(map, k) { return map && map[k] ? ' aria-invalid="true" aria-describedby="tkt-e-' + k + '"' : ""; }
   function ferr(map, k) { return map && map[k] ? '<small class="tkt-ferr" id="tkt-e-' + k + '">' + esc(map[k]) + "</small>" : ""; }
@@ -137,6 +188,7 @@
     // the edge: red when the follow-up is late, amber when it is due today or the question is high priority
     var cls = done ? "" : n != null && n < 0 ? "hi" : (n === 0 || Number(e.priority) === 1) ? "due" : "";
     var sub = []; if (e.phone) sub.push('<a href="tel:' + esc(String(e.phone).replace(/\s+/g, "")) + '">' + esc(e.phone) + "</a>");
+    if (e.email) sub.push('<a href="mailto:' + esc(String(e.email).trim()) + "?subject=" + esc(encodeURIComponent("Your question" + (e.ticket_id ? " (" + e.ticket_id + ")" : ""))) + '" aria-label="' + esc("Email " + e.client_name + ", " + e.email) + '">' + esc(e.email) + "</a>");
     if (e.category) sub.push(esc(e.category)); if (e.assigned_to) sub.push("With " + esc(e.assigned_to));
     if (done || (e.status && e.status !== "Open")) sub.push(esc(say(e.status))); // "Open" on every open question says nothing
     if (done && e.resolved_at) sub.push("closed " + esc(when(String(e.resolved_at).slice(0, 10))));
@@ -172,7 +224,7 @@
         '<div class="acts"><button type="button" class="tkt-btn" data-act="del-cancel">Keep it</button><button type="button" class="tkt-btn dd" data-act="del-go"' + (S.editSaving ? " disabled" : "") + ">" + (S.editSaving ? "Deleting…" : "Delete question") + "</button></div>";
     } else {
       h += '<div class="acts l">' + (isAdmin() ? '<button type="button" class="tkt-btn d" data-act="del">Delete…</button>' : "<span></span>") +
-        '<span style="display:flex;gap:8px"><button type="button" class="tkt-btn" data-act="edit-cancel">Close</button><button type="submit" class="tkt-btn p"' + (S.editSaving ? " disabled" : "") + ">" + (S.editSaving ? "Saving…" : "Save changes") + "</button></span></div>";
+        '<span style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button type="button" class="tkt-btn" data-act="print" data-id="' + e.id + '" aria-label="' + esc("Print the question from " + e.client_name) + '">Print</button><button type="button" class="tkt-btn" data-act="edit-cancel">Close</button><button type="submit" class="tkt-btn p"' + (S.editSaving ? " disabled" : "") + ">" + (S.editSaving ? "Saving…" : "Save changes") + "</button></span></div>";
     }
     return h + "</form>";
   }
@@ -201,7 +253,7 @@
       '<label><span>Priority</span><select name="priority"><option value="2">Medium</option><option value="1"' + (String(a.priority) === "1" ? " selected" : "") + '>High</option><option value="3"' + (String(a.priority) === "3" ? " selected" : "") + ">Low</option></select></label>" +
       '<label><span>Follow up</span><input name="followup_date" type="date" min="' + esc(today()) + '" value="' + esc(a.followup_date || "") + '"></label>' +
       (S.err && !S.noting ? '<div class="tkt-err" role="alert">' + esc(S.err) + "</div>" : "") +
-      '<div class="acts"><button type="button" class="tkt-btn" data-act="add-cancel">Cancel</button><button type="submit" class="tkt-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Add question") + "</button></div></form>";
+      '<div class="acts"><button type="button" class="tkt-btn" data-act="add-cancel">Cancel</button><button type="submit" class="tkt-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save question") + "</button></div></form>";
   }
 
   // The lists (what a search changes): redrawn on their own while typing, so the search box is never rebuilt.
@@ -220,20 +272,20 @@
     if (S.loading && !S.entries.length) return skel("questions");
     if (S.error) return trouble(S.error);
     var late = op.filter(function (e) { return e.followup_date && daysUntil(e.followup_date) < 0; }).length;
-    return op.length ? '<div class="tkt-lab">Open <b>' + op.length + "</b>" + (late ? '<span style="color:var(--danger)">· ' + late + " follow-up" + (late === 1 ? "" : "s") + " late</span>" : "") + "</div>" + op.map(cardHtml).join("")
-      : '<div class="tkt-quiet">' + (q ? "No open question matches “" + esc(q) + "”." : "No customer is waiting for an answer. When someone asks something you cannot answer now, press New question.") + "</div>";
+    return op.length ? '<div class="tkt-lab">Waiting <b>' + op.length + "</b>" + (late ? '<span style="color:var(--danger)">· ' + late + " follow-up" + (late === 1 ? "" : "s") + " late</span>" : "") + "</div>" + op.map(cardHtml).join("")
+      : '<div class="tkt-quiet">' + (q ? "No waiting question matches “" + esc(q) + "”." : "No customer is waiting for an answer. When someone asks something you cannot answer now, press New question.") + "</div>";
   }
 
   function html() {
     var h = '<div class="tkt"><button class="tkt-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("tktreg") : "‹ Customers") + "</button>" +
       '<div class="tkt-top"><div><h1>Questions</h1><p class="tkt-sub">Customers waiting for an answer, most pressing first.</p></div>' + (S.adding ? "" : '<button class="tkt-btn p" data-act="add">New question</button>') + "</div>";
     if (S.adding) h += addHtml();
-    h += '<div class="tkt-tabs" role="group" aria-label="Which questions"><button type="button" data-act="view-open" aria-pressed="' + (S.view === "open") + '">Open</button><button type="button" data-act="view-done" aria-pressed="' + (S.view === "done") + '">Done</button></div>';
+    h += '<div class="tkt-tabs" role="group" aria-label="Which questions"><button type="button" data-act="view-open" aria-pressed="' + (S.view === "open") + '">Waiting</button><button type="button" data-act="view-done" aria-pressed="' + (S.view === "done") + '">Done</button></div>';
     var list = S.view === "done" ? S.done : S.entries;
     if (list.length > 8 || S.q) h += '<input class="tkt-q" aria-label="Search questions" id="tkt-q" type="search" autocomplete="off" placeholder="Search customer, phone, question or number" value="' + esc(S.q) + '">';
     h += '<div id="tkt-res">' + resultsHtml() + "</div>";
-    h += E.months.history("tktreg", E.months.preset("questions", { paint: function () { paint(); }, dep: function () { return S.loading ? undefined : S.entries; } })); // every question of a month, answered or not, and its printout (eikon.months.js)
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Printing a question, an email to the customer and new categories or staff names are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += E.months.history("tktreg", E.months.preset("questions", { paint: function () { E.repaintKeepingFocus(S.mount, paint); }, dep: function () { return S.loading ? undefined : S.entries; } })); // every question of a month, answered or not, and its printout (eikon.months.js)
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">New categories and staff names are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
     return h;
   }
 
@@ -269,6 +321,7 @@
         else if (a === "retry") reloadAll();
         else if (a === "open") openEdit(id);
         else if (a === "edit-cancel") closeEdit();
+        else if (a === "print") { var pe = findQ(id); if (pe) printOne(pe); } // as saved (a change not yet saved is not on it)
         else if (a === "del") { keepEdit(); S.del = S.editing; S.delReason = ""; S.editErr = ""; paint(); var r = m.querySelector("#tkt-edit [name=del_reason]"); if (r) r.focus(); }
         else if (a === "del-cancel") { keepEdit(); S.del = null; S.editErr = ""; paint(); focusOn("#tkt-edit [data-act=del]"); }
         else if (a === "del-go") remove();
@@ -402,7 +455,7 @@
     try {
       var r = await E.apiFetch("/client-tickets/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.adding = null; S.fe = {}; setLastCat(body.category); E.toast("Question recorded · " + body.ticket_id, "success"); var added = true;
+      S.adding = null; S.fe = {}; setLastCat(body.category); E.toast("Saved · question for " + body.client_name + " · " + body.ticket_id, "success"); var added = true;
       if (E.linkPerson) E.linkPerson({ name: body.client_name, phone: body.phone }, "register:questions"); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; await load();

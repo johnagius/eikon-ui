@@ -236,7 +236,7 @@
 
   function formHtml() {
     var a = S.adding;
-    return '<form class="poc-form" id="poc-add" autocomplete="off" aria-label="Record a test">' +
+    return '<form class="poc-form" id="poc-add" autocomplete="off" aria-label="New test">' +
       '<div class="hd" id="poc-type-lab">Test</div><div class="poc-seg" role="group" aria-labelledby="poc-type-lab">' + TYPES.map(function (t) { return '<button type="button" data-type="' + t[0] + '" aria-pressed="' + (a.type === t[0]) + '" class="' + (a.type === t[0] ? "on" : "") + '">' + esc(t[1]) + "</button>"; }).join("") + "</div>" +
       '<div class="hd">Patient</div>' +
       field("patientId", "ID card", ' placeholder="ID card or passport" autocapitalize="characters"', a.found ? "<small>Known</small>" : "") +
@@ -251,7 +251,7 @@
       field("intervention", "Intervention", ' placeholder="Optional, e.g. lifestyle advice, referred"') +
       field("notes", "Notes", ' placeholder="Optional"') +
       (S.err ? '<div class="poc-err" id="poc-errmsg" role="alert">' + esc(S.err) + "</div>" : "") +
-      '<div class="acts"><button type="button" class="poc-btn" data-act="add-cancel">Cancel</button><button type="submit" class="poc-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div></form>";
+      '<div class="acts"><button type="button" class="poc-btn" data-act="add-cancel">Cancel</button><button type="submit" class="poc-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save test") + "</button></div></form>";
   }
 
   function row(r, showWho) {
@@ -286,12 +286,12 @@
       h += '<div class="poc-lab">Patients <b>' + hits.length + "</b></div>";
       h += hits.length ? '<div class="poc-list">' + hits.map(function (p) {
         return '<button type="button" class="poc-row" data-act="open" data-pid="' + esc(p.id) + '"><div class="t"><b>' + esc(p.name || p.id) + "</b><span>" + esc([p.id, p.phone, p.count + (p.count === 1 ? " test" : " tests") + (p.last ? ", last " + when(p.last) : "")].filter(Boolean).join(" · ")) + "</span></div></button>";
-      }).join("") + "</div>" : '<div class="poc-quiet">No patient matches “' + esc(S.q) + '”. <button type="button" class="poc-btn" data-act="add-q" style="margin-left:6px">Record a test for a new patient</button></div>';
+      }).join("") + "</div>" : '<div class="poc-quiet">No patient matches “' + esc(S.q) + '”. <button type="button" class="poc-btn" data-act="add-q" style="margin-left:6px">New test for a new patient</button></div>';
       return h;
     }
     var recent = S.records.slice(0, 25);
     h += '<div class="poc-lab">Latest tests <b>' + S.records.length + "</b></div>";
-    h += recent.length ? '<div class="poc-list">' + recent.map(function (r) { return row(r, true); }).join("") + "</div>" : '<div class="poc-quiet">No tests recorded yet. Press Record a test to add the first one.</div>';
+    h += recent.length ? '<div class="poc-list">' + recent.map(function (r) { return row(r, true); }).join("") + "</div>" : '<div class="poc-quiet">No tests recorded yet. Press New test to add the first one.</div>';
     h += E.months.history("pocreg", HIST); // every test of a month, any month, and its printout
     return h;
   }
@@ -300,7 +300,7 @@
     var map = people(), p = map[id] || { id: id, name: "", phone: "", conflicts: 0 }, list = recordsOf(id);
     var h = '<button class="poc-back" data-act="home" style="padding-top:10px">‹ All tests</button>' +
       '<div class="poc-who"><div class="t"><h2>' + esc(p.name || p.id) + "</h2><p>" + esc([p.id, p.phone, has(p.age) ? p.age + " years" : "", p.address].filter(Boolean).join(" · ")) + "</p></div>" +
-      (S.adding ? "" : '<button class="poc-btn p" data-act="add-for" data-pid="' + esc(id) + '">Record a test</button>') + "</div>";
+      (S.adding ? "" : '<button class="poc-btn p" data-act="add-for" data-pid="' + esc(id) + '">New test</button>') + "</div>";
     if (p.conflicts) h += '<div class="poc-warnbox">This ID card was also used with a different name or phone (' + p.conflicts + (p.conflicts === 1 ? " time" : " times") + "). The patient's details were kept; check them in the classic screen.</div>";
     // the latest result of each test, with the one before it
     var latest = TYPES.map(function (t) { return list.filter(function (r) { return r.testType === t[0]; }); }).filter(function (l) { return l.length; });
@@ -320,7 +320,7 @@
     if (E.state.activeModuleId !== "pocreg") return; // left before a reply came back: do not draw over the next screen
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var h = '<div class="poc"><button class="poc-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("pocreg")) + '</button>' +
-      '<div class="poc-top"><div><h1>Point-of-care tests</h1><p class="poc-sub">Blood pressure, glucose, cholesterol and other tests, per patient.</p></div>' + (S.adding || S.view ? "" : '<button class="poc-btn p" data-act="add">Record a test</button>') + "</div>";
+      '<div class="poc-top"><div><h1>Point-of-care tests</h1><p class="poc-sub">Blood pressure, glucose, cholesterol and other tests, per patient.</p></div>' + (S.adding || S.view ? "" : '<button class="poc-btn p" data-act="add">New test</button>') + "</div>";
     if (S.adding) h += formHtml();
     if (S.loading && !S.records.length && !S.patients.length) h += '<div class="poc-skel" role="status" aria-busy="true"><span class="poc-sr">Opening the tests</span><i></i><i></i><i></i><i></i><i></i></div>';
     else if (S.error) h += '<div class="poc-quiet" role="alert">' + esc(S.error) + ' <button type="button" class="poc-btn" data-act="retry" style="margin-left:6px">Try again</button></div>';
@@ -372,7 +372,7 @@
     f.addEventListener("change", function (ev) { if (ev.target && ev.target.tagName === "SELECT") upd(); });
   }
 
-  function unmark(el) { // a field being corrected loses its red mark at once; the message stays until the next Record
+  function unmark(el) { // a field being corrected loses its red mark at once; the message stays until the next Save test
     var i = el && el.name ? S.miss.indexOf(el.name) : -1; if (i < 0) return;
     S.miss.splice(i, 1); el.removeAttribute("aria-invalid"); el.removeAttribute("aria-describedby"); var l = el.closest("label"); if (l) l.classList.remove("miss");
   }
@@ -443,7 +443,7 @@
     else if (t === "chol" && res.tc === "" && res.hdl === "" && res.ldl === "" && res.tg === "") say(["tc", "hdl", "ldl", "tg"], "Write at least one cholesterol value.");
     else if (t === "bmi" && (res.weight === null || res.height === null)) say([res.weight === null ? "weight" : "", res.height === null ? "height" : ""].filter(Boolean), "Write the weight and the height.");
     var bad = RES[t].filter(function (k) { return ["sys", "dia", "pulse", "glucose", "pct", "mmol", "tc", "hdl", "ldl", "tg", "weight", "height", "waist"].indexOf(k) >= 0 && has(a[k]) && (num(a[k]) === null || num(a[k]) < 0); });
-    if (bad.length) { if (errs.length > resBefore) { errs.pop(); } say(bad, "One of the values is not a number. Check it and press Record again."); }
+    if (bad.length) { if (errs.length > resBefore) { errs.pop(); } say(bad, "One of the values is not a number. Check it and press Save test again."); }
     S.miss = miss;
     if (errs.length) { S.err = errs.join(" ") + " Nothing was saved."; paint(true); var first = S.mount && S.mount.querySelector("#poc-add [aria-invalid=true]"); if (first) first.focus(); return; }
     // the ID card and the person (E.people.confirmPerson): asked before anything is saved; Go back keeps the form
@@ -461,7 +461,7 @@
         try { var st0 = await E.apiFetch("/poct/state", { method: "GET" }); var s0 = (st0 && (st0.state || st0.data)) || st0 || {}; if (Array.isArray(s0.patients)) S.patients = s0.patients; } catch (e0) {}
       }
     }
-    if (!a.recId) a.recId = uid(); // kept for retries: the server stores by this id, so pressing Record again never adds a second test
+    if (!a.recId) a.recId = uid(); // kept for retries: the server stores by this id, so pressing Save test again never adds a second test
     var pt = { name: a.name, patientId: pid(a.patientId), phone: a.phone, age: num(a.age), address: a.address };
     var rec = { id: a.recId, testType: t, testLabel: LABEL[t], performedAtIso: d.toISOString(), performedAtLocal: a.dt, patient: pt, feeDue: 0, notes: a.notes, intervention: a.intervention, results: res, updatedAtIso: new Date().toISOString() };
     var mc = master(pt, rec);
@@ -478,7 +478,7 @@
       }
       S.adding = null; S.miss = []; S.view = pt.patientId; S.q = ""; S.lastType = t; try { localStorage.setItem("eikon_pocreg_type", t); } catch (e2) {}
       if (E.linkPerson) E.linkPerson({ name: pt.name, id_card: pt.patientId, phone: pt.phone, address: pt.address }, "register:poct", asked); // one person in Customers, found or added
-      E.toast(mc.conflict ? "Recorded. This ID card was on file with a different name or phone; the patient's details were kept." : NICE[t] + " recorded for " + pt.name, mc.conflict ? "warning" : "success");
+      E.toast(mc.conflict ? "Saved. This ID card was on file with a different name or phone; the patient's details were kept." : "Saved · " + NICE[t] + " for " + pt.name, mc.conflict ? "warning" : "success");
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }

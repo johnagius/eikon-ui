@@ -2,6 +2,7 @@
 // This is the case that would have caught .127 (the new screen sent contact/pick_up_date/deposit, the server reads
 // client_phone/pickup_date/deposit_amount: phone, pick-up date and deposit came back empty).
 import { ymd } from "../lib.mjs";
+import diary from "./_orddiary.mjs"; // b4-5: run after this case, in the same job, so no other case adds rows to the table between its reads
 const IN = { name: "Camilleri Rita", phone: "79222333", items: "Augmentin 625 x14", needed: ymd(2), pickup: ymd(3), deposit: "5.50", priority: "1", notes: "Call after 5" };
 export default {
   title: "Orders",
@@ -27,5 +28,6 @@ export default {
     const fresh = t.since(T, m)[0];
     t.has("orders(new)", fresh, { client_name: IN.name, client_phone: IN.phone, items_text: IN.items, needed_by: IN.needed, pickup_date: IN.pickup, priority: 1, notes: IN.notes });
     t.same("orders", classic, fresh, { order_code: "the classic makes a 6-letter pick-up code; the new screen has none (ordreg.js add)" });
+    await diary.run(t);
   },
 };

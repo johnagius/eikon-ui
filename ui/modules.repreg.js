@@ -103,14 +103,14 @@
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var qi = m.querySelector("#rep-q"); if (qi) S.q = qi.value;
     var h = '<div class="rep"><button class="rep-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("repreg") : "‹ Registers") + "</button>" +
-      '<div class="rep-top"><div><h1>Repeat prescriptions</h1><p class="rep-sub">Prescriptions on file, and when each one runs out.</p></div>' + (S.adding ? "" : '<button class="rep-btn p" data-act="add">Record a prescription</button>') + "</div>";
+      '<div class="rep-top"><div><h1>Repeat prescriptions</h1><p class="rep-sub">Prescriptions on file, and when each one runs out.</p></div>' + (S.adding ? "" : '<button class="rep-btn p" data-act="add">New prescription</button>') + "</div>";
     if (S.adding) {
       var a = S.adding, bad = S.bad || {}, fld = function (k, label, extra, hint) { return "<label" + (bad[k] ? ' class="miss"' : "") + "><span>" + label + '</span><input name="' + k + '" value="' + esc(a[k] || "") + '"' + (extra || "") + (bad[k] ? ' aria-invalid="true"' : "") + ">" + (hint || "") + "</label>"; };
       h += '<form class="rep-form" id="rep-add" autocomplete="off">' + fld("entry_date", "Written", ' type="date" max="' + esc(today()) + '"') + fld("client_id", "ID card", ' placeholder="e.g. 123456M" autocapitalize="characters"', a.known ? "<small>Known</small>" : "") +
         fld("client_name", "Patient", ' placeholder="Name and surname"') + fld("medicine_name_dose", "Medicine", ' placeholder="e.g. Atorvastatin 20mg"') + fld("posology", "Dose", ' placeholder="e.g. 1 at night"') +
         fld("prescriber_name", "Prescriber", ' list="rep-docs" placeholder="Dr name"') + fld("prescriber_reg_no", "Reg no.", ' inputmode="numeric"') +
         '<div class="note">Valid for six months from the day it was written.</div>' + '<div class="rep-err" role="alert">' + esc(S.err) + "</div>" +
-        '<div class="acts"><button type="button" class="rep-btn" data-act="add-cancel">Cancel</button><button type="submit" class="rep-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div>" +
+        '<div class="acts"><button type="button" class="rep-btn" data-act="add-cancel">Cancel</button><button type="submit" class="rep-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save prescription") + "</button></div>" +
         '<datalist id="rep-docs">' + uniq(S.entries.map(function (e) { return e.prescriber_name; })).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
     }
     if (S.loading && !S.entries.length) h += '<div class="rep-quiet">Opening repeat prescriptions…</div>';
@@ -244,7 +244,7 @@
       var r = await E.postOnce("/repeat-prescriptions/entries", body, { list: async function () { var r0 = await E.apiFetch("/repeat-prescriptions/entries?from=" + body.entry_date + "&to=" + body.entry_date, { method: "GET" }); return (r0 && r0.ok && r0.entries) || []; },
         same: function (e) { return e.entry_date === body.entry_date && String(e.client_id || "").trim().toLowerCase() === String(body.client_id || "").trim().toLowerCase() && String(e.medicine_name_dose || "").trim().toLowerCase() === String(body.medicine_name_dose || "").trim().toLowerCase() && String(e.prescriber_reg_no || "").trim().toLowerCase() === String(body.prescriber_reg_no || "").trim().toLowerCase(); } });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.adding = null; S.bad = {}; E.toast("Recorded for " + a.client_name, "success");
+      S.adding = null; S.bad = {}; E.toast("Saved · " + (body.medicine_name_dose ? body.medicine_name_dose + " for " : "prescription for ") + a.client_name, "success");
       if (E.linkPerson) E.linkPerson({ name: body.client_name, id_card: body.client_id }, "register:repeat", asked); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false;

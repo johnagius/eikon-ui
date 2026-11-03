@@ -384,7 +384,7 @@
       '<button type="button" class="esr-btn" data-act="close">Close</button></div>' +
       '<div class="esr-camwrap"></div>' +
       '<div class="esr-list" id="esr-list"></div>' +
-      '<div class="esr-foot"><span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>Enter</kbd> opens</span><span><kbd>Esc</kbd> closes</span><span>A scanned ID card or order code opens it</span></div></div>';
+      '<div class="esr-foot"><span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>Enter</kbd> opens</span><span><kbd>Esc</kbd> closes</span><span><kbd>N</kbd> new, on a screen</span><span><kbd>' + (/Mac|iPhone|iPad/.test(navigator.platform || "") ? "⌘" : "Ctrl") + '</kbd> <kbd>Enter</kbd> saves a form</span><span>A scanned ID card or order code opens it</span></div></div>';
     document.body.appendChild(ov);
     dlg.root = ov; dlg.open = true;
     var input = ov.querySelector("#esr-q");

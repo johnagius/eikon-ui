@@ -4,7 +4,7 @@
    - Opens on what needs the pharmacy now, in the order it needs it
    - One button per row; the fridge is logged inline, nothing opens
    - Never says "Saved" before the server says so; says plainly when offline
-   - The old dashboard stays one click away (#dashboard)
+   - The old dashboard stays in Settings › Help (#dashboard)
    Enabled as the opening screen with ?ui=2 (remembered) or #today any time.
    ============================================================ */
 (function () {
@@ -68,7 +68,7 @@
       ".tdy-col{grid-column:1;min-width:0}.tdy-side{grid-column:2;grid-row:2/4;display:flex;flex-direction:column;gap:12px;margin-top:18px}" +
       ".tdy-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:14px 0 7px;display:flex;align-items:center;gap:8px}.tdy-lab b{color:var(--text);font-size:11px}.tdy-lab a{margin-left:auto;color:var(--accent);font-weight:600;text-transform:none;letter-spacing:0;font-size:12.5px;cursor:pointer}" +
       ".tdy-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
-      ".tdy-row{display:flex;align-items:center;gap:12px;padding:11px 14px 11px 0;border-top:1px solid var(--border);border-left:3px solid transparent}.tdy-row:first-child{border-top:0}" +
+      ".tdy-row{display:flex;align-items:center;gap:12px;padding:11px 14px 11px 0;border-top:1px solid var(--border);border-left:3px solid transparent}.tdy-row:first-child{border-top:0}html[data-ui2] .tdy .tdy-row[tabindex]:focus-visible{outline-offset:-3px}" + // the next check, focused after Log or Done, shows inside the card
       ".tdy-row.red{border-left-color:var(--danger)}.tdy-row.amb{border-left-color:#C98A12}.tdy-row.grn{border-left-color:var(--ok)}.tdy-row.blu{border-left-color:var(--accent)}" +
       ".tdy-av{width:36px;height:36px;border-radius:50%;flex:none;margin-left:12px;display:grid;place-items:center;font-weight:700;font-size:12.5px;color:#fff}.tdy-av.sq{border-radius:9px}.tdy-av.nt{background:rgba(120,120,128,.12);color:#3A3A3C;font-size:14px}.tdy-av.tm{background:rgba(10,143,106,.10);color:#0A7A5B}" +
       ".tdy-t{flex:1;min-width:0}.tdy-t b{display:block;font-size:14.5px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tdy-t span{display:block;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tdy-t span.u{color:var(--danger)}.tdy-t span.w{color:var(--warn,#A06A0E);font-weight:600;white-space:normal}" +
@@ -135,7 +135,7 @@
     var minEl = rowEl.querySelector("[data-min]"), maxEl = rowEl.querySelector("[data-max]");
     // Some keyboards type a decimal comma ("3,4"): read it as 3.4.
     var minS = (minEl.value || "").trim().replace(",", "."), maxS = (maxEl.value || "").trim().replace(",", ".");
-    var name = row.title.replace(/ · reading$/, "");
+    var name = devName(row);
     if (!minS || !maxS) return rowError(rowEl, "Write both the lowest and the highest reading, then press Log.", [!minS ? minEl : null, !maxS ? maxEl : null].filter(Boolean));
     var minV = Number(minS), maxV = Number(maxS);
     if (!isFinite(minV) || !isFinite(maxV)) return rowError(rowEl, "Write the readings as numbers, like 3.4.", [!isFinite(minV) ? minEl : null, !isFinite(maxV) ? maxEl : null].filter(Boolean));
@@ -153,6 +153,7 @@
       var out = (row.limits && ((row.limits.min != null && minV < row.limits.min) || (row.limits.max != null && maxV > row.limits.max)));
       E.toast(name + " logged " + minV + " to " + maxV + " °C · " + mt() + (out ? " · outside the limits, add a note in the register" : ""), out ? "warn" : "success");
       await load({ silent: true });
+      if (E.focusAfter) E.focusAfter(nextCheck);
     } catch (e) {
       setRowBusy(rowEl, false); rowError(rowEl, E.saveFailText ? E.saveFailText(e) : "Not saved: " + String(e && (e.message || e) || "error")); // the readings stay typed
     } finally { state.busy[key] = false; }
@@ -185,11 +186,15 @@
       try { localStorage.setItem(cleanerKey(), who); } catch (e0) {}
       E.toast("Cleaning recorded · " + mt() + " · " + who, "success");
       await load({ silent: true });
+      if (E.focusAfter) E.focusAfter(nextCheck);
     } catch (e) {
       setRowBusy(rowEl, false); rowError(rowEl, E.saveFailText ? E.saveFailText(e) : "Not saved: " + String(e && (e.message || e) || "error"));
     } finally { state.busy[key] = false; }
   }
 
+  // After a reading or a cleaning is saved, focus goes to the next check still to do (the row: Tab is then its first
+  // field, and the minute refresh still runs), or to the heading when none is left.
+  function nextCheck(m) { var x = m.querySelector(".tdy-row[data-kind=temperature] input[data-min], .tdy-row[data-kind=daily_register].amb [data-open], .tdy-row[data-kind=cleaning] [data-act=clean]"); return x ? x.closest(".tdy-row") : m.querySelector("h1"); }
   function setRowBusy(rowEl, busy) {
     rowEl.querySelectorAll("button,input").forEach(function (el) { el.disabled = !!busy; });
   }
@@ -224,6 +229,22 @@
     clean: ico('<path d="M10 3.5 11.7 8.3 16.5 10 11.7 11.7 10 16.5 8.3 11.7 3.5 10 8.3 8.3z"/><path d="M17.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>')
   };
   function num(v) { return v == null || v === "" ? NaN : Number(v); }
+  // b4-9: what a fridge or room is called on screen (display only; the stored name is unchanged). The server titles each
+  // device "<name> · reading", and the room sensor is seeded with the pharmacy's own name, so "Pharmacy · reading" sat next
+  // to "Pharmacy Fridge · reading" and did not say it was the room. A device named just "Pharmacy" or the pharmacy's name
+  // reads "Room"; every other name is shown as it was typed.
+  function devName(r) {
+    var n = String((r && r.title) || "").replace(/ · reading$/, "").trim(), k = n.toLowerCase();
+    var here = String(((state.data && state.data.pharmacy) || {}).name || (E.state.user || {}).location_name || "").trim().toLowerCase();
+    return k === "pharmacy" || (here && k === here) ? "Room" : n;
+  }
+  // b4-9: the time of day decides the words, never the data. The heading reads "Before opening" in the morning and
+  // "Today's checks" from noon (/today does not send the opening hours, so noon stands in for them, as the headline
+  // already does). The Daily register is a to-do only once the day is closing (decision D3: End of day started, or
+  // from 19:30, the app's default closing time): before that, on a day with no prescription-only sale, it is not owed.
+  function hourOf(d) { var hr = parseInt(String((d && d.time) || mt()).split(":")[0], 10); return isNaN(hr) ? new Date().getHours() : hr; }
+  function regOwed(d) { var t = String((d && d.time) || mt()); return !!(d && d.takings && d.takings.end_of_day_saved) || t >= "19:30"; }
+  function owed(r, d) { return (r.status === "todo" || r.status === "overdue") && !(r.kind === "daily_register" && r.status === "todo" && !regOwed(d)); }
   // Yesterday's reading against the limits: the server sends both; only today's was ever judged.
   function yesterdayOut(r) {
     var y = r && r.yesterday, l = (r && r.limits) || {};
@@ -245,15 +266,15 @@
       '<button class="tdy-btn p" data-act="temp">Log</button>';
     return '<div class="tdy-row ' + cls + '" data-kind="temperature" data-device="' + esc(r.device_id) + '">' +
       '<div class="tdy-av sq nt">' + (r.limits && r.limits.max != null && r.limits.max <= 10 ? ICO.fridge : ICO.room) + '</div>' +
-      '<div class="tdy-t"><b>' + esc(r.title) + '</b>' +
+      '<div class="tdy-t"><b>' + esc(devName(r)) + '</b>' +
       (yo ? '<span class="w">Outside limits yesterday: ' + esc(yo.reading) + ' · limits ' + esc(yo.limits) + '</span>' : '<span>' + esc(r.sub) + '</span>') + '</div>' + pill + inl + '</div>';
   }
   function rowDaily(r) {
-    var done = r.status === "done";
-    return '<div class="tdy-row ' + (done ? "grn" : "amb") + '" data-kind="daily_register">' +
+    var done = r.status === "done", due = !done && owed(r, state.data); // b4-9: one line says it ("No entry yet today"); amber only once it is owed (D3), never red
+    return '<div class="tdy-row' + (done ? " grn" : due ? " amb" : "") + '" data-kind="daily_register">' +
       '<div class="tdy-av sq nt">' + ICO.register + '</div>' +
       '<div class="tdy-t"><b>Daily register</b><span>' + esc(r.sub) + '</span></div>' +
-      (done ? '<span class="tdy-pill grn">Done</span>' : '<span class="tdy-pill amb">No entry yet</span>') +
+      (done ? '<span class="tdy-pill grn">Done</span>' : "") +
       '<button class="tdy-btn" data-open="' + esc(r.action.path) + '">Open</button></div>';
   }
   function rowClean(r) {
@@ -307,16 +328,16 @@
     }
 
     var before = d.before_opening || [], waiting = d.customers_waiting || [], attention = d.attention || [];
-    var nBefore = d.counts.before_opening, nWait = waiting.length;
+    var nBefore = before.filter(function (x) { return owed(x, d); }).length, nWait = waiting.length; // b4-9: counted here, so the Daily register is owed only at closing (D3)
     var h1;
-    var hr = parseInt(String(d.time || mt()).split(":")[0], 10); if (isNaN(hr)) hr = new Date().getHours();
+    var hr = hourOf(d);
     var part = hr < 12 ? "morning" : hr < 17 ? "afternoon" : "evening";
     if (nBefore === 0 && nWait === 0) h1 = "A quiet " + part + ". <span>" + (hr < 12 ? "Nothing needs you yet." : "Everything is done.") + "</span>";
     else if (nBefore === 0) h1 = plural(nWait, "customer") + " waiting. <span>The registers are done.</span>";
     else h1 = (hr < 12 ? plural(nBefore, "thing") + " before the doors open" : plural(nBefore, "check") + " still to do today") + (nWait ? "<span>, " + plural(nWait, "customer") + " waiting.</span>" : "<span>.</span>");
     var leg = [];
     var overdue = before.filter(function (x) { return x.status === "overdue"; }).length;
-    var todo = before.filter(function (x) { return x.status === "todo"; }).length;
+    var todo = before.filter(function (x) { return x.status === "todo" && owed(x, d); }).length;
     if (overdue) leg.push('<span><i style="background:var(--danger)"></i>' + plural(overdue, "register") + " overdue</span>");
     if (todo) leg.push('<span><i style="background:#C98A12"></i>' + todo + " to fill</span>");
     var ready = waiting.filter(function (x) { return x.kind === "order"; }).length, qs = waiting.filter(function (x) { return x.kind === "question"; }).length;
@@ -328,18 +349,18 @@
 
     html += '<div class="tdy-col">';
     html += setupCard(before);
-    html += '<div class="tdy-lab">Before opening <b>' + nBefore + '</b></div>';
+    html += '<div class="tdy-lab">' + (hr < 12 ? "Before opening" : "Today's checks") + ' <b>' + nBefore + '</b></div>';
     // A fridge or room outside its limits yesterday is the first thing to see in the morning, in words and colour.
     var yOut = before.filter(function (r) { return r.kind === "temperature" && yesterdayOut(r); });
     if (yOut.length) html += '<div class="tdy-warn" role="alert">' + yOut.map(function (r) {
-      var yo = yesterdayOut(r), name = String(r.title || "").replace(/ · reading$/, "");
+      var yo = yesterdayOut(r), name = devName(r);
       return '<p><b>' + esc(name) + ' was ' + esc(yo.reading) + ' yesterday</b>, outside its limits of ' + esc(yo.limits) + '. Add a note saying what was done.' +
         ' <a href="#tempreg" data-yday="' + esc(r.device_id) + '">See yesterday ›</a></p>';
     }).join("") + '</div>';
     var orderKind = { temperature: 0, daily_register: 1, cleaning: 2 };
     var sorted = before.slice().sort(function (a, b) {
-      var sa = a.status === "overdue" ? 0 : a.status === "todo" ? 1 : a.status === "ok" ? 2 : 3;
-      var sb = b.status === "overdue" ? 0 : b.status === "todo" ? 1 : b.status === "ok" ? 2 : 3;
+      var sa = a.status === "overdue" ? 0 : a.status === "todo" && owed(a, d) ? 1 : a.status === "ok" || a.status === "todo" ? 2 : 3;
+      var sb = b.status === "overdue" ? 0 : b.status === "todo" && owed(b, d) ? 1 : b.status === "ok" || b.status === "todo" ? 2 : 3;
       var ya = a.kind === "temperature" && yesterdayOut(a) ? 0 : 1, yb = b.kind === "temperature" && yesterdayOut(b) ? 0 : 1;
       return sa - sb || ya - yb || (orderKind[a.kind] - orderKind[b.kind]);
     });
@@ -395,8 +416,8 @@
       '<button class="tdy-btn" data-open="#instructions">Handover</button>' + (E.modules.rotreg ? ' <button class="tdy-btn" data-open="#rotreg">Who\'s in</button>' : "") + '</div>';
     html += '</div>';
 
-    if (E.setRailBadge) { try { E.setRailBadge("today", before.filter(function (r) { return r.status === "todo" || r.status === "overdue"; }).length); E.setRailBadge("customers", nWait); E.setRailBadge("stock", attention.filter(function (a) { return a.kind === "near_expiry" || a.kind === "returns" || a.kind === "alert"; }).length); } catch (eB) {} }
-    html += '<div class="tdy-foot"><span>Updated ' + esc(state.loadedAt ? mt(state.loadedAt) : "–") + ' · refreshes every minute</span><a class="right" data-open="#dashboard">Old dashboard ›</a></div>';
+    if (E.setRailBadge) { try { E.setRailBadge("today", nBefore); E.setRailBadge("customers", nWait); E.setRailBadge("stock", attention.filter(function (a) { return a.kind === "near_expiry" || a.kind === "returns" || a.kind === "alert"; }).length); } catch (eB) {} }
+    html += '<div class="tdy-foot"><span>Updated ' + esc(state.loadedAt ? mt(state.loadedAt) : "–") + ' · refreshes every minute</span></div>'; // b4-9: the old dashboard is in Settings › Help, not one tap from Today
     html += '</div>';
     m.innerHTML = html;
     bind();

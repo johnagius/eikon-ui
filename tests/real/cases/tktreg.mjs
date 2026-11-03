@@ -1,5 +1,6 @@
 // Questions (tktreg) vs classic Client Tickets.
 import { ymd } from "../lib.mjs";
+import printOne from "./_tktprint.mjs"; // b4-5: run after this case, in the same job, so no other case adds rows to the table between its reads
 const IN = { name: "Borg Anna", phone: "79111222", issue: "Is Panadol syrup back in stock?", cat: "General Enquiry", priority: "1", follow: ymd(2) };
 export default {
   title: "Questions",
@@ -22,5 +23,6 @@ export default {
     t.has("questions(new)", fresh, { client_name: IN.name, phone: IN.phone, issue: IN.issue, category: IN.cat, priority: 1, followup_date: IN.follow, status: "Open" });
     t.ok(/^TKT-\d{5}$/.test(fresh && fresh.ticket_id), "questions(new): ticket_id is TKT-nnnnn: " + (fresh && fresh.ticket_id));
     t.same("questions", classic, fresh, { ticket_id: "the next number in the sequence (each screen takes the next one)" });
+    await printOne.run(t);
   },
 };

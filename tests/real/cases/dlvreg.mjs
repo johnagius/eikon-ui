@@ -1,5 +1,6 @@
 // Deliveries (dlvreg) vs classic Deliveries.
 import { ymd } from "../lib.mjs";
+import change from "./_dlvchange.mjs"; // b4-5: run after this case, in the same job, so no other case adds rows to the table between its reads
 const IN = { name: "Vella Joe", phone: "79333444", addr: "3 Triq San Pawl, Naxxar", notes: "Blue door", items: ["Panadol", "Augmentin 625"], day: ymd(1), slot: "Afternoon" };
 export default {
   title: "Deliveries",
@@ -31,5 +32,6 @@ export default {
       delivery_id: "the next number in the sequence (each screen takes the next one)",
       delivery_log: "the new screen starts the log with a dated 'Delivery recorded.' line; the classic starts it empty",
     });
+    await change.run(t);
   },
 };

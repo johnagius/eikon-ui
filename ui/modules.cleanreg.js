@@ -108,7 +108,7 @@
     var f = S.form, bad = f.bad || [], names = [];
     (S.recent || []).forEach(function (e) { var n = String(e.cleaner_name || "").trim(); if (n && names.indexOf(n) < 0) names.push(n); }); // newest first
     var lab = function (k, label, input) { var b = bad.indexOf(k) >= 0; return "<label" + (b ? ' class="miss"' : "") + "><span>" + label + "</span>" + input.replace("<input", "<input" + (b ? ' aria-invalid="true" aria-describedby="clr-err"' : "")) + "</label>"; };
-    return '<form class="clr-form" id="clr-form" novalidate aria-label="Record a cleaning">' +
+    return '<form class="clr-form" id="clr-form" novalidate aria-label="New cleaning">' +
       lab("entry_date", "Date", '<input type="date" name="entry_date" value="' + esc(f.entry_date) + '" max="' + esc(ymd(new Date())) + '">') +
       lab("time_in", "Time in", '<input type="time" name="time_in" value="' + esc(f.time_in) + '">') +
       lab("time_out", "Time out", '<input type="time" name="time_out" placeholder="Optional" value="' + esc(f.time_out) + '">') +
@@ -116,7 +116,7 @@
       '<datalist id="clr-names">' + names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>" +
       lab("notes", "Notes", '<input name="notes" autocomplete="off" placeholder="Optional" value="' + esc(f.notes) + '">') +
       (f.err ? '<div class="clr-err" id="clr-err" role="alert">' + esc(f.err) + "</div>" : "") +
-      '<div class="acts"><button type="button" class="clr-btn" data-act="cancel">Cancel</button><button type="submit" class="clr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div></form>";
+      '<div class="acts"><button type="button" class="clr-btn" data-act="cancel">Cancel</button><button type="submit" class="clr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save cleaning") + "</button></div></form>";
   }
 
   function paint() {
@@ -125,7 +125,7 @@
     var MB = E.months, user = E.state.user || {};
     var h = '<div class="clr"><button class="clr-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("cleanreg") : "‹ Registers") + "</button>" +
       '<div class="clr-top"><div><h1>Cleaning</h1><p class="clr-sub">Dispensary and fridge, at least once a week.</p></div>' +
-      '<div class="clr-acts">' + (S.form ? "" : '<button class="clr-btn p" data-act="new">Record a cleaning</button>') + "</div></div>" +
+      '<div class="clr-acts">' + (S.form ? "" : '<button class="clr-btn p" data-act="new">New cleaning</button>') + "</div></div>" +
       '<p class="clr-pmeta">' + esc((user.location_name || "") + " · Cleaning register · " + monthLabel(S.month) + " · printed " + ymd(new Date())) + "</p>";
     if (S.form) h += formHtml();
     h += statusHtml();
@@ -198,7 +198,7 @@
     try {
       var r = await E.apiFetch("/cleaning/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.form = null; E.toast("Cleaning recorded · " + dayShort(body.entry_date) + " · " + body.cleaner_name, "success");
+      S.form = null; E.toast("Saved · cleaning by " + body.cleaner_name + " · " + dayShort(body.entry_date), "success");
       S.month = body.entry_date.slice(0, 7);
     } catch (e) {
       S.form.err = E.saveFailText(e);

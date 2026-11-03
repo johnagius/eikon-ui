@@ -4,7 +4,9 @@
    Open an order to change it: the order is read again from the server and sent whole, with only what was changed
    different, under the classic screen's names (both the screen's and the server's: client_phone, items_text,
    pickup_date, deposit_amount). "Done" lists the orders already ready, six months at a time. Delete is for the
-   pharmacist only: the reason is written on the order first, so the audit's copy of the deleted order carries it. */
+   pharmacist only: the reason is written on the order first, so the audit's copy of the deleted order carries it.
+   After a new order, the classic screen's question follows in place: put its items in the order diary (one diary
+   line per line of items, for the order's day, with an optional supplier: the classic promptAddToOrderDiary call). */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -114,6 +116,8 @@
       ".ord-skel{display:block;height:58px;border-top:.5px solid var(--border);background:linear-gradient(90deg,rgba(118,118,128,.06),rgba(118,118,128,.14),rgba(118,118,128,.06));background-size:200% 100%;animation:ordsk 1.2s linear infinite}.ord-skel:first-child{border-top:0}" +
       "@keyframes ordsk{to{background-position:-200% 0}}@media (prefers-reduced-motion:reduce){.ord-skel{animation:none}}" +
       "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .ord-ferr{color:#FF7A72}}" + // 5:1 on the tinted row being typed in
+      // The order diary offer after a new order (b4-5).
+      ".ord-dia{border-color:var(--accent)}.ord-dia .ord-meta{color:var(--text);font-size:14.5px;padding:8px 16px 4px}" +
       ".ord-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       "@media (max-width:600px){.ord{padding:4px 16px 0}.ord h1{font-size:32px}.ord-row{flex-wrap:wrap;row-gap:8px}.ord-row .t{flex-basis:100%}.ord-row .ord-btn{margin-left:auto}" +
       ".ord-btn,.ord-tabs button{height:44px;border-radius:22px}.ord-tabs button{border-radius:9px}.ord-ferr{margin-left:0}.ord-form label>span{flex-basis:88px}.ord-q{height:44px;font-size:16px}.ord-ph input{height:44px}}";
@@ -216,6 +220,7 @@
 
   function keepEdit() { // what is typed in the open order (and in a phone asked for in a row) survives a redraw
     var ph = S.mount && S.mount.querySelector("#ord-ph-in"); if (ph) S.phDraft = String(ph.value || "");
+    var sp = S.mount && S.mount.querySelector("#ord-diary [name=supplier]"); if (sp && S.diary && !S.diary.saving) S.diary.supplier = String(sp.value || "");
     var f = S.mount && S.mount.querySelector("#ord-edit"); if (!f || !S.edit) return;
     EDIT.forEach(function (k) { var el = f.querySelector("[name=" + k + "]"); if (el) S.edit[k] = String(el.value || ""); });
     var r = f.querySelector("[name=del_reason]"); if (r) S.delReason = String(r.value || "");
@@ -223,6 +228,16 @@
   function keepAdd() { // and in the new order
     var f = S.mount && S.mount.querySelector("#ord-add"); if (!f || !S.adding) return;
     ["client_name", "id_card", "contact", "items", "needed_by", "pick_up_date", "deposit", "priority", "notes"].forEach(function (k) { var el = f.querySelector("[name=" + k + "]"); if (el) S.adding[k] = String(el.value || ""); });
+  }
+
+  // The classic screen's next question after a new order: its items into the order diary, for the order's day.
+  function diaryHtml() {
+    var d = S.diary, one = d.lines.length === 1;
+    return '<form class="ord-form ord-dia" id="ord-diary" autocomplete="off" aria-label="Order diary">' +
+      '<div class="ord-meta">Put ' + (one ? "“" + esc(d.lines[0]) + "”" : d.lines.length + " items") + " in the order diary for " + esc(d.date === today() ? "today" : dmy(d.date)) + "?</div>" +
+      '<label><span>Supplier</span><input name="supplier" value="' + esc(d.supplier || "") + '" placeholder="Optional, e.g. PharmaCo"></label>' +
+      (d.err ? '<div class="ord-err" role="alert">' + esc(d.err) + "</div>" : "") +
+      '<div class="acts"><button type="button" class="ord-btn" data-act="diary-no">Not now</button><button type="submit" class="ord-btn p"' + (d.saving ? " disabled" : "") + ">" + (d.saving ? "Adding…" : "Add to diary") + "</button></div></form>";
   }
 
   function addHtml() {
@@ -240,7 +255,7 @@
       '<label><span>Priority</span><select name="priority"><option value="2">Normal</option><option value="1"' + (String(a.priority) === "1" ? " selected" : "") + '>Urgent</option><option value="3"' + (String(a.priority) === "3" ? " selected" : "") + ">Low</option></select></label>" +
       f("notes", "Notes", ' placeholder="Optional"') +
       (S.err ? '<div class="ord-err" role="alert">' + esc(S.err) + "</div>" : "") +
-      '<div class="acts"><button type="button" class="ord-btn" data-act="add-cancel">Cancel</button><button type="submit" class="ord-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Add order") + "</button></div></form>";
+      '<div class="acts"><button type="button" class="ord-btn" data-act="add-cancel">Cancel</button><button type="submit" class="ord-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save order") + "</button></div></form>";
   }
 
   function matchOf() { var q = S.q.trim().toLowerCase(); return function (e) { return !q || [e.client_name, e.items_text, e.items, e.client_phone, e.contact, e.notes, e.order_code].some(function (v) { return String(v || "").toLowerCase().indexOf(q) >= 0; }); }; }
@@ -279,12 +294,13 @@
     var h = '<div class="ord"><button class="ord-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("ordreg") : "‹ Customers") + "</button>" +
       '<div class="ord-top"><div><h1>Orders</h1><p class="ord-sub">What customers are waiting for, by when they need it.</p></div>' + (S.adding ? "" : '<button class="ord-btn p" data-act="add">New order</button>') + "</div>";
     if (S.adding) h += addHtml();
+    if (S.diary) h += diaryHtml();
     h += '<div class="ord-tabs" role="group" aria-label="Which orders"><button type="button" data-act="view-open" aria-pressed="' + (S.view === "open") + '">Waiting</button><button type="button" data-act="view-done" aria-pressed="' + (S.view === "done") + '">Done</button></div>';
     var many = S.view === "done" ? S.done.length > 8 : S.entries.length > 8;
     if (many || S.q) h += '<input class="ord-q" aria-label="Search orders" id="ord-q" type="search" autocomplete="off" placeholder="Search customer, phone or item" value="' + esc(S.q) + '">';
     h += '<div id="ord-res">' + resultsHtml() + "</div>";
-    h += E.months.history("ordreg", E.months.preset("orders", { paint: function () { paint(); }, dep: function () { return S.loading ? undefined : S.entries; } })); // every order of a month, and its printout (eikon.months.js)
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Adding orders to the order diary is in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += E.months.history("ordreg", E.months.preset("orders", { paint: function () { E.repaintKeepingFocus(S.mount, paint); }, dep: function () { return S.loading ? undefined : S.entries; } })); // every order of a month, and its printout (eikon.months.js)
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Taking a deleted order\'s items off the order diary is in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
     return h;
   }
 
@@ -329,6 +345,7 @@
         else if (a === "view-open") { S.view = "open"; S.editing = null; S.edit = null; S.del = null; S.askPhone = null; paint(); focusOn("[data-act=view-open]"); }
         else if (a === "view-done") { S.view = "done"; S.editing = null; S.edit = null; S.del = null; S.askPhone = null; if (!S.done.length) loadDone(false); else paint(); focusOn("[data-act=view-done]"); }
         else if (a === "older") loadDone(true);
+        else if (a === "diary-no") { S.diary = null; paint(); focusOn(".ord-top [data-act=add]"); }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "ordreg"); } catch (e) {} E.openClassic("clientorders"); }
       });
     });
@@ -344,6 +361,11 @@
     }
     if (f && E.personPick) E.personPick.attach({ key: "ordreg", form: f, fields: { id: "id_card", name: "client_name", phone: "contact" },
       local: function () { return S.entries.map(function (e) { return { name: e.client_name, phone: e.client_phone || e.contact, address: e.client_address, date: String(e.order_date || "").slice(0, 10), from: "order" }; }); } });
+    var fd = root.querySelector("#ord-diary");
+    if (fd) {
+      fd.addEventListener("submit", function (ev) { ev.preventDefault(); toDiary(); });
+      fd.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && S.diary && !S.diary.saving) { ev.preventDefault(); S.diary = null; paint(); focusOn(".ord-top [data-act=add]"); } });
+    }
     var fe = root.querySelector("#ord-edit");
     if (fe) {
       fe.addEventListener("submit", function (ev) { ev.preventDefault(); if (S.del) return; saveEdit(); });
@@ -435,6 +457,26 @@
     S.editSaving = false; return reloadAll();
   }
 
+  // The classic call, line by line (POST /order-diary/entries { order_date, item_name, qty: 1, supplier, notes: "" }).
+  // A line whose answer was lost counts as added when the diary for that day now has it (E.postOnce); a failure keeps
+  // the lines still to add, and the supplier, for Try again.
+  async function toDiary() {
+    var d = S.diary; if (!d || d.saving) return;
+    keepEdit(); d.saving = true; d.err = ""; paint();
+    var supplier = String(d.supplier || "").trim(), n = d.lines.length;
+    try {
+      while (d.lines.length) {
+        var line = d.lines[0];
+        await E.postOnce("/order-diary/entries", { order_date: d.date, item_name: line, qty: 1, supplier: supplier, notes: "" },
+          { list: async function () { var r = await E.apiFetch("/order-diary/entries?date=" + encodeURIComponent(d.date), { method: "GET" }); return (r && r.entries) || []; },
+            same: function (x) { return String(x.item_name || "").trim() === line; } });
+        d.lines.shift();
+      }
+      S.diary = null; E.toast(n === 1 ? "Added to the order diary" : n + " items added to the order diary", "success");
+    } catch (x) { d.saving = false; d.err = E.saveFailText(x); paint(); return focusOn("#ord-diary [type=submit]"); }
+    paint(); focusOn(".ord-top [data-act=add]");
+  }
+
   function reloadAll() { var p = load(); return S.view === "done" ? Promise.all([p, loadDone(false)]) : p; }
 
   async function ready(id, on, ph) {
@@ -493,7 +535,9 @@
     try {
       var r = await E.apiFetch("/client-orders/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.adding = null; S.fe = {}; E.toast("Order added for " + body.client_name, "success"); S.justAdded = true;
+      S.adding = null; S.fe = {}; E.toast("Saved · order for " + body.client_name, "success"); S.justAdded = true;
+      var lines = String(body.items || "").split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean); // the classic splitItemLines
+      S.diary = lines.length ? { lines: lines, date: body.order_date, supplier: "", err: "", saving: false } : null;
       if (E.linkPerson) E.linkPerson({ name: body.client_name, phone: body.contact, id_card: idc }, "register:orders", asked); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; await load();
@@ -504,7 +548,7 @@
     id: "ordreg", title: "Orders", order: 3, icon: "◎", ui2Only: true,
     render: function (ctx) {
       S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.editing = null; S.edit = null; S.del = null; S.editErr = ""; S.editSaving = false; S.view = "open"; S.done = [];
-      S.fe = {}; S.efe = {}; S.err = ""; S.askPhone = null; S.phErr = ""; S.phDraft = "";
+      S.fe = {}; S.efe = {}; S.err = ""; S.askPhone = null; S.phErr = ""; S.phDraft = ""; S.diary = null;
       // From the search (eikon.search.js): show the order that was chosen or scanned (its code, or the customer's name).
       // That filter is for this visit only: the next visit opens on every order again.
       if (S.qFromSearch) { S.q = ""; S.qFromSearch = false; }

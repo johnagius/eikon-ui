@@ -192,7 +192,7 @@
       txt("notes", "Additional notes", "Anything else") + "</div>";
     h += (S.err ? '<div class="pvr-err" id="pvr-errmsg" role="alert">' + esc(S.err) + "</div>" : "") +
       '<div class="pvr-acts"><span><button type="button" class="pvr-btn" data-act="form-cancel">Cancel</button><button type="submit" class="pvr-btn p"' + (S.saving ? " disabled" : "") + ">" +
-      (S.saving ? "Saving…" : S.force ? "Save mine over it" : editing ? "Save changes" : "Record") + "</button></span></div>" +
+      (S.saving ? "Saving…" : S.force ? "Save mine over it" : editing ? "Save changes" : "Save report") + "</button></span></div>" +
       '<datalist id="pvr-meddra">' + MEDDRA.map(function (t) { return '<option value="' + esc(t) + '">'; }).join("") + "</datalist></form>";
     return h;
   }
@@ -217,12 +217,12 @@
     var h = '<div class="pvr"><button class="pvr-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("pvreg")) + '</button>';
     var one = S.view === "one" ? S.reports.filter(function (r) { return String(r.id) === S.openId; })[0] : null;
     if (S.view === "form" && S.adding) {
-      h += '<div class="pvr-top"><div><h1>' + (S.base ? "Correct the report" : "Record a reaction") + '</h1><p class="pvr-sub">Fill in what you know; the rest can be added later.</p></div></div>' + formHtml();
+      h += '<div class="pvr-top"><div><h1>' + (S.base ? "Correct the report" : "New report") + '</h1><p class="pvr-sub">Fill in what you know; the rest can be added later.</p></div></div>' + formHtml();
     } else if (S.view === "one" && one) {
       h += '<div class="pvr-top"><div><h1 style="overflow-wrap:anywhere">' + esc(one.reaction_meddra || one.reaction_description || "Reaction") + '</h1><p class="pvr-sub">' + esc([dm(when(one)), one.report_type, one.status].filter(Boolean).join(" · ")) + "</p></div>" +
         '<span style="display:flex;gap:8px"><button class="pvr-btn" data-act="list">All reports</button><button class="pvr-btn p" data-act="edit" data-id="' + esc(one.id) + '">Correct</button></span></div>' + oneHtml(one);
     } else {
-      h += '<div class="pvr-top"><div><h1>Adverse reactions</h1><p class="pvr-sub">Reactions to medicines reported here, and where each report stands.</p></div><button class="pvr-btn p" data-act="add">Record a reaction</button></div>';
+      h += '<div class="pvr-top"><div><h1>Adverse reactions</h1><p class="pvr-sub">Reactions to medicines reported here, and where each report stands.</p></div><button class="pvr-btn p" data-act="add">New report</button></div>';
       if (S.loading && !S.reports.length) h += '<div class="pvr-skel" role="status" aria-busy="true"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Opening the reports</span><i></i><i></i><i></i><i></i></div>';
       else if (S.error) h += '<div class="pvr-quiet" role="alert">' + esc(S.error) + ' <button type="button" class="pvr-btn" data-act="retry" style="margin-left:6px">Try again</button></div>';
       else if (!S.reports.length) h += '<div class="pvr-quiet">No reaction reported yet. When a patient has a reaction to a medicine, record it here.</div>';
@@ -349,7 +349,7 @@
     S.openId = String(rec.id); S.view = "one";
     var i = -1; S.reports.forEach(function (x, j) { if (String(x.id) === String(rec.id)) i = j; });
     if (i >= 0) S.reports[i] = rec; else S.reports.unshift(rec);
-    E.toast(editing ? "Report corrected" : "Reaction recorded", "success");
+    E.toast(editing ? "Saved · report corrected" : "Saved · reaction report", "success");
   }
 
   E.registerModule({

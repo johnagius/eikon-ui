@@ -76,7 +76,7 @@
     if (S.adding && !S.saving) keep(); // a reply landing while someone types must not wipe the form
     var mn = MON[Number(S.month.slice(5)) - 1] + " " + S.month.slice(0, 4);
     var h = '<div class="cdp"><button class="cdp-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("cdpreg") : "‹ Registers") + "</button>" +
-      '<div class="cdp-top"><div><h1>Controlled drugs received</h1><p class="cdp-sub">Every delivery of a controlled drug, by invoice.</p></div>' + (S.adding ? "" : '<button class="cdp-btn p" data-act="add">Record a delivery</button>') + "</div>";
+      '<div class="cdp-top"><div><h1>Controlled drugs received</h1><p class="cdp-sub">Every delivery of a controlled drug, by invoice.</p></div>' + (S.adding ? "" : '<button class="cdp-btn p" data-act="add">New invoice</button>') + "</div>";
     if (S.adding) {
       var a = S.adding, bad = S.bad || {}, inv = function (k) { return bad[k] ? ' aria-invalid="true"' : ""; }, lab = function (k) { return "<label" + (bad[k] ? ' class="miss"' : "") + ">"; };
       h += '<form class="cdp-form" id="cdp-add" autocomplete="off">' +
@@ -90,7 +90,7 @@
             (l.saved ? "<small>Saved</small>" : '<input class="q" data-i="' + i + '" data-k="quantity" inputmode="numeric" value="' + esc(l.quantity) + '" placeholder="0" aria-label="Quantity' + ln + '"' + inv("q" + i) + ">") + "</div>";
         }).join("") +
         '<div class="cdp-err" role="alert">' + esc(S.err) + "</div>" +
-        '<div class="acts"><button type="button" class="cdp-btn t" data-act="line">Add a line</button><span style="display:flex;gap:8px"><button type="button" class="cdp-btn" data-act="add-cancel">' + (a.lines.some(function (l) { return l.saved; }) ? "Close" : "Cancel") + '</button><button type="submit" class="cdp-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></span></div>" +
+        '<div class="acts"><button type="button" class="cdp-btn t" data-act="line">Add a line</button><span style="display:flex;gap:8px"><button type="button" class="cdp-btn" data-act="add-cancel">' + (a.lines.some(function (l) { return l.saved; }) ? "Close" : "Cancel") + '</button><button type="submit" class="cdp-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save invoice") + "</button></span></div>" +
         '<datalist id="cdp-names">' + S.known.names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>" +
         '<datalist id="cdp-agents">' + S.known.agents.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
     }
@@ -184,11 +184,11 @@
         var after = await monthList();
         if (after.filter(function (e) { return same(e, lost); }).length > before.filter(function (e) { return same(e, lost); }).length) { lost.saved = true; done++; failed = todo[done] ? "the connection dropped (the line before it did save)" : ""; }
         else failed = "the connection dropped and it is not in the register";
-      } catch (e1) { failed = "the connection dropped. Check the register below before pressing Record again"; }
+      } catch (e1) { failed = "the connection dropped. Check the register below before pressing Save invoice again"; }
     }
     S.saving = false;
-    if (!failed) { S.adding = null; S.bad = {}; E.toast(done === 1 ? "1 line recorded" : done + " lines recorded", "success"); if (monthOf(a.entry_date) !== S.month) S.month = monthOf(a.entry_date); }
-    else S.err = (done ? done + " saved. " : "") + "Not saved from " + (todo[done] || {}).dda_name_dose + ": " + String(failed).replace(/\.$/, "") + ". Press Record to try the rest again.";
+    if (!failed) { S.adding = null; S.bad = {}; E.toast("Saved · " + (done === 1 ? "1 line" : done + " lines") + " from " + a.agent, "success"); if (monthOf(a.entry_date) !== S.month) S.month = monthOf(a.entry_date); }
+    else S.err = (done ? done + " saved. " : "") + "Not saved from " + (todo[done] || {}).dda_name_dose + ": " + String(failed).replace(/\.$/, "") + ". Press Save invoice to try the rest again.";
     return load();
   }
 

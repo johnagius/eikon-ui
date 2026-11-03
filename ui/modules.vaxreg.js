@@ -350,7 +350,7 @@
           JSON.stringify((o.items || []).map(function (it) { return [low(it.name), toInt(it.qty, 1)]; }).sort()) === JSON.stringify(JSON.parse(sig).sort()); }
       });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.adding = null; S.fe = {}; E.toast("Order saved for " + body.client_first + " " + body.client_last, "success");
+      S.adding = null; S.fe = {}; E.toast("Saved · order for " + body.client_first + " " + body.client_last, "success");
       if (E.linkPerson) E.linkPerson({ name: body.client_first + " " + body.client_last, phone: body.phone, email: body.email }, "register:vaccines"); // one person in Customers, found or added
       var oid = r.order && r.order.id; if (oid) { S.printFor = oid; S.justSaved = oid; } // like the classic screen, offer to print it straight away
       S.q = "";

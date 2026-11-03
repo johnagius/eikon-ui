@@ -5,7 +5,7 @@
 //   - after every Tab, focus is on the next field in the form, never on BODY;
 //   - the lookups still work: the reg no. / supplier is filled when Tab reaches it;
 //   - every typed value is still in its field before saving (a lookup filled only empty fields);
-//   - after saving, every typed value is in what the server stored.
+//   - after saving, every typed value is in what the server stored, and focus is not on BODY (BACKLOG4 item 2).
 // Dates and times that start empty are set before the sweep (typing a date is the browser's own control).
 //   TABSWEEP=cdsreg,repreg  only those screens
 import { ymd } from "../lib.mjs";
@@ -17,27 +17,27 @@ const ADDR = "5 Triq il-Mosta, Rabat"; // not the known address: a lookup that o
 // screen, the button that opens the form, the form, and values for fields the generic guess would get wrong.
 // save: false for forms whose save is not a plain stored row (labels print; calculators save nothing).
 const SCREENS = [
-  { id: "cdsreg", open: "Record a prescription", form: "#cds-add", values: { client_address: ADDR }, filled: { doctor_reg_no: KNOWN.reg } },
-  { id: "poyreg", open: "Record a prescription", form: "#cds-add", values: { client_address: ADDR } },
-  { id: "repreg", open: "Record a prescription", form: "#rep-add", filled: { prescriber_reg_no: KNOWN.reg } },
+  { id: "cdsreg", open: "New prescription", form: "#cds-add", values: { client_address: ADDR }, filled: { doctor_reg_no: KNOWN.reg } },
+  { id: "poyreg", open: "New prescription", form: "#cds-add", values: { client_address: ADDR } },
+  { id: "repreg", open: "New prescription", form: "#rep-add", filled: { prescriber_reg_no: KNOWN.reg } },
   { id: "drreg", open: "New entry", form: "#drr-form" },
-  { id: "cdpreg", open: "Record a delivery", form: "#cdp-add", values: { agent: "Sweep Pharma Ltd" } },
+  { id: "cdpreg", open: "New invoice", form: "#cdp-add", values: { agent: "Sweep Pharma Ltd" } },
   { id: "lrcreg", open: "New receipt", form: "#lrc-add", values: { locum_full_name: LOCUM.name, registration_number: LOCUM.reg, hours: "7.5", fee_per_hour: "18" }, filled: { registration_number: LOCUM.reg } },
-  { id: "locreg", open: "Record a locum", form: "#lcr-form", values: { locum_full_name: LOCUM.name, registration_number: LOCUM.reg } },
+  { id: "locreg", open: "New locum", form: "#lcr-form", values: { locum_full_name: LOCUM.name, registration_number: LOCUM.reg } },
   { id: "odreg", open: "Add an item", form: "#odr-add", values: { item_name: ITEM.name, supplier: "Other Supplier Ltd", qty: "3" }, filled: { supplier: ITEM.supplier } },
-  { id: "cleanreg", open: "Record a cleaning", form: "#clr-form" },
+  { id: "cleanreg", open: "New cleaning", form: "#clr-form" },
   { id: "nexreg", open: "Add an item", form: "#nex-add" },
-  { id: "alertreg", open: "Record an alert", form: "#alr-add" },
+  { id: "alertreg", open: "New alert", form: "#alr-add" },
   { id: "ordreg", open: "New order", form: "#ord-add", values: { client_name: "Sweep Order Client", id_card: "0333333M" } },
   { id: "tktreg", open: "New question", form: "#tkt-add", values: { client_name: "Sweep Question Client" } },
   { id: "dlvreg", open: "New delivery", form: "#dlv-add", values: { client_name: "Sweep Delivery Client", delivery_address: ADDR, scheduled_time_slot: "10:00-12:00" } },
-  { id: "poreg", open: "Record a payment", form: "#por-add", values: { fee: "12.50" } },
+  { id: "poreg", open: "New payment", form: "#por-add", values: { fee: "12.50" } },
   { id: "cnreg", open: "New credit note", form: "#cnr-add", values: { amount: "12.50" } },
-  { id: "qtreg", open: "Record a quote", form: "#qtr-add", values: { cost_excl_vat: "4.20", discount_euro: "0.20", retail_price: "6.50", qty_purchased: "3", qty_free: "1", barcode: "5012345678900" } },
+  { id: "qtreg", open: "New quote", form: "#qtr-add", values: { cost_excl_vat: "4.20", discount_euro: "0.20", retail_price: "6.50", qty_purchased: "3", qty_free: "1", barcode: "5012345678900" } },
   { id: "ssreg", open: "Ask for something", form: "#ssr-add" },
   { id: "scsreg", open: "Share stock", form: "#scs-add" },
   { id: "conreg", open: "Add a contact", form: "#con-form" },
-  { id: "pocreg", open: "Record a test", form: "#poc-add", values: { patientId: "0444444M", name: "Sweep Test Patient", age: "61", sys: "128", dia: "82", pulse: "71" } },
+  { id: "pocreg", open: "New test", form: "#poc-add", values: { patientId: "0444444M", name: "Sweep Test Patient", age: "61", sys: "128", dia: "82", pulse: "71" } },
   { id: "teamreg", open: "Add a person", form: "#tmr-add", values: { "tmr-name": "Sweep Person", "tmr-email": "sweep.person@example.com" } },
   { id: "lblreg", open: null, form: "#lbl-add", save: false },
 ];
@@ -133,6 +133,8 @@ export default {
       if (sc.save === false) continue;
       await p.locator(sc.form + " button[type=submit]").first().click();
       await p.waitForTimeout(1500);
+      const after = await p.evaluate(() => { const a = document.activeElement; return !a || a === document.body ? "BODY" : a.tagName + ":" + (a.getAttribute("data-act") || a.getAttribute("name") || a.textContent || "").trim().slice(0, 30); });
+      t.ok(after !== "BODY", `${tag}: after the save focus fell to the page (BODY); it should be on the new row, the button that opened the form, or the heading`);
       const changed = changedRows(t.db, rowsBefore);
       if (!changed.length) { const err = await p.evaluate((form) => { const f = document.querySelector(form); return f ? f.innerText.replace(/\s+/g, " ").slice(-220) : "(form closed)"; }, sc.form); t.fail(`${tag}: nothing was stored after Record · form: ${err}`); continue; }
       const blob = norm(changed.join("\n"));

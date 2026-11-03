@@ -204,13 +204,13 @@
   function campHtml(c) {
     var k = counts(c), st = statusOf(c), ps = parts(c);
     var h = '<div class="scr-top"><div><h1>' + esc(c.name || "Untitled campaign") + '</h1><p class="scr-sub">' + esc([c.type, period(c), c.location].filter(Boolean).join(" · ")) + " " + "</p></div>" +
-      '<span class="scr-acts-top"><button class="scr-btn" data-act="list">All campaigns</button><button class="scr-btn p" data-act="add">Record a screening</button></span></div>';
+      '<span class="scr-acts-top"><button class="scr-btn" data-act="list">All campaigns</button><button class="scr-btn p" data-act="add">New screening</button></span></div>';
     h += '<div class="scr-stats" role="group" aria-label="Campaign totals">' +
       "<div><b>" + k.n + (k.goal ? ' <span style="display:inline;font-size:14px">/ ' + k.goal + "</span>" : "") + "</b><span>Screened" + (k.goal ? " of the goal" : "") + "</span></div>" +
       "<div><b>" + k.abn + "</b><span>Abnormal</span></div><div><b>" + k.ref + "</b><span>Referrals</span></div><div><b>" + k.od + "</b><span>Follow-ups overdue</span></div></div>";
     h += '<div style="margin-top:10px">' + statusPill(st) + "</div>";
     if (has(c.notes)) h += '<div class="scr-hd">Notes</div>' + dl([["Notes", c.notes]]);
-    if (!ps.length) return h + '<div class="scr-quiet">Nobody screened yet. Press Record a screening for each person you check.</div>';
+    if (!ps.length) return h + '<div class="scr-quiet">Nobody screened yet. Press New screening for each person you check.</div>';
     if (ps.length > 6) h += '<input class="scr-q" id="scr-pq" type="search" aria-label="Search people in this campaign" placeholder="Search by name, ID card or phone" value="' + esc(S.pq) + '">';
     var q = low(S.pq).replace(/\s+/g, ""), list = ps.slice().reverse().filter(function (p) { // the latest screened first
       return !q || low(p.name).replace(/\s+/g, "").indexOf(q) >= 0 || low(p.idCard).indexOf(q) >= 0 || low(p.phone).replace(/\s+/g, "").indexOf(q) >= 0;
@@ -250,8 +250,8 @@
 
   function addHtml(c) {
     var a = S.adding, t = testOf(c), def = t ? FIELDS[t] : null;
-    var h = '<div class="scr-top"><div><h1>Record a screening</h1><p class="scr-sub">' + esc([c.name, c.type].filter(Boolean).join(" · ")) + "</p></div></div>" +
-      '<form id="scr-add" autocomplete="off" novalidate aria-label="Record a screening">';
+    var h = '<div class="scr-top"><div><h1>New screening</h1><p class="scr-sub">' + esc([c.name, c.type].filter(Boolean).join(" · ")) + "</p></div></div>" +
+      '<form id="scr-add" autocomplete="off" novalidate aria-label="New screening">';
     h += '<div class="scr-hd">Person</div><div class="scr-form">' +
       fld("idCard", "ID card", ' placeholder="e.g. 123456M" autocapitalize="characters"', a.found ? "<small>Known</small>" : "") +
       fld("name", "Name", ' placeholder="Name and surname"') + fld("phone", "Phone", ' type="tel" inputmode="tel" placeholder="+356 …"') +
@@ -268,7 +268,7 @@
     h += '<div class="scr-hd">Assessment</div><div class="scr-form">' + txt("resultNotes", "Result notes", "Describe the screening results") +
       sel("resultCategory", "Category", RESULT_CATEGORIES, "Not chosen") + sel("referral", "Referral", REFERRAL_OPTIONS) + txt("referralNotes", "Referral notes", "Optional") + "</div>";
     h += (S.err ? '<div class="scr-err" id="scr-errmsg" role="alert">' + esc(S.err) + "</div>" : "") +
-      '<div class="scr-acts"><button type="button" class="scr-btn" data-act="cancel">Cancel</button><button type="submit" class="scr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div></form>";
+      '<div class="scr-acts"><button type="button" class="scr-btn" data-act="cancel">Cancel</button><button type="submit" class="scr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save screening") + "</button></div></form>";
     return h;
   }
 
@@ -458,7 +458,7 @@
     if (E.linkPerson) E.linkPerson({ name: rec.name, id_card: rec.idCard, phone: rec.phone, email: rec.email, date_of_birth: rec.dob }, "register:screening", S.asked); S.asked = null; // one person in Customers, found or added
     S.adding = null; S.err = ""; S.view = "part"; S.campId = String(cid); S.partId = String(rec.id);
     var c = campOf(cid); if (c && !parts(c).some(function (p) { return String(p.id) === String(rec.id); })) c.participants = parts(c).concat([rec]);
-    E.toast("Screening recorded for " + (rec.name || rec.idCard), "success");
+    E.toast("Saved · screening for " + (rec.name || rec.idCard), "success");
     focusSel(".scr-acts-top [data-act=camp]");
   }
 

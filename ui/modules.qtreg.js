@@ -76,7 +76,7 @@
     if (S.adding && !S.saving && !fromState) keep();
     var qi = m.querySelector("#qtr-q"); if (qi) S.q = qi.value;
     var h = '<div class="qtr"><button class="qtr-back" data-act="back">' + esc(E.ui2BackLabel("qtreg")) + '</button>' +
-      '<div class="qtr-top"><div><h1>Price check</h1><p class="qtr-sub">Supplier quotes, cheapest first, with your margin.</p></div>' + (S.adding ? "" : '<button class="qtr-btn p" data-act="add">Record a quote</button>') + "</div>";
+      '<div class="qtr-top"><div><h1>Price check</h1><p class="qtr-sub">Supplier quotes, cheapest first, with your margin.</p></div>' + (S.adding ? "" : '<button class="qtr-btn p" data-act="add">New quote</button>') + "</div>";
     if (S.adding) h += formHtml();
     h += '<div class="qtr-bar"><input class="qtr-q" id="qtr-q" type="search" aria-label="Search quotes" placeholder="Item, barcode or supplier" value="' + esc(S.q) + '"><label class="qtr-sw"><input type="checkbox" id="qtr-all"' + (S.all ? " checked" : "") + "> All our pharmacies</label></div>";
     h += '<div id="qtr-res">' + listHtml() + "</div>";
@@ -139,7 +139,7 @@
       fld("qty_purchased", "Buy", ' inputmode="numeric"') + fld("qty_free", "Free", ' inputmode="numeric" placeholder="e.g. 2 for a 10+2 deal"') + fld("retail_price", "Retail € each", ' inputmode="decimal" placeholder="Optional"') +
       fld("barcode", "Barcode", ' placeholder="Optional" inputmode="numeric"') +
       '<div class="qtr-prev" id="qtr-prev">' + previewHtml() + "</div>" + (S.err ? '<div class="qtr-err" role="alert">' + esc(S.err) + "</div>" : "") +
-      '<div class="acts"><button type="button" class="qtr-btn" data-act="add-cancel">Cancel</button><button type="submit" class="qtr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div>" +
+      '<div class="acts"><button type="button" class="qtr-btn" data-act="add-cancel">Cancel</button><button type="submit" class="qtr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save quote") + "</button></div>" +
       '<datalist id="qtr-items">' + items.slice(0, 300).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + '</datalist><datalist id="qtr-sups">' + sups.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
   }
   function keep() {
@@ -165,7 +165,7 @@
     try {
       await E.postOnce("/quotations/entries", body, { list: function () { return fetchList(false); },
         same: function (e) { return e.quote_date === body.quote_date && low(e.item_description) === low(body.item_description) && low(e.supplier) === low(body.supplier) && Math.abs((Number(e.cost_excl_vat) || 0) - cost) < 0.005; } });
-      S.q = body.item_description; S.adding = null; E.toast("Quote recorded · " + eur(calc(body).unit) + " a unit", "success");
+      S.q = body.item_description; S.adding = null; E.toast("Saved · quote for " + body.item_description + " · " + eur(calc(body).unit) + " a unit", "success");
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }

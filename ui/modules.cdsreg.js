@@ -91,7 +91,7 @@
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var mn = MON[Number(S.month.slice(5)) - 1] + " " + S.month.slice(0, 4);
     var h = '<div class="cds"><button class="cds-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel(C.id) : "‹ Registers") + "</button>" +
-      '<div class="cds-top"><div><h1>' + esc(C.title) + '</h1><p class="cds-sub">' + esc(C.sub) + '</p></div>' + (S.adding ? "" : '<button class="cds-btn p" data-act="add">Record a prescription</button>') + "</div>";
+      '<div class="cds-top"><div><h1>' + esc(C.title) + '</h1><p class="cds-sub">' + esc(C.sub) + '</p></div>' + (S.adding ? "" : '<button class="cds-btn p" data-act="add">New prescription</button>') + "</div>";
     if (S.adding) {
       var a = S.adding, saved = a.lines.some(function (l) { return l.saved; }), lock = saved ? " disabled" : "";
       var bad = S.bad || {}, inv = function (k) { return bad[k] ? ' aria-invalid="true"' : ""; };
@@ -114,7 +114,7 @@
       if (S.dup) h += '<div class="cds-dup"><b>Serial ' + esc(a.prescription_serial_no) + " already has " + S.dup.entries.length + (S.dup.entries.length === 1 ? " entry" : " entries") + " (" + esc(S.dup.total_qty) + " given). If this is the rest of the prescription, press Yes, record.</b>" +
         S.dup.entries.slice(0, 4).map(function (e) { return "<div>" + esc(dmy(e.entry_date)) + " · " + esc(e.client_name) + " · " + esc(e.medicine_name_dose) + " × " + esc(e.quantity) + "</div>"; }).join("") + "</div>";
       h += '<div class="cds-err" role="alert">' + esc(S.err) + "</div>" +
-        '<div class="acts"><button type="button" class="cds-btn t" data-act="line">Add a medicine</button><span style="display:flex;gap:8px"><button type="button" class="cds-btn" data-act="add-cancel">' + (saved ? "Close" : "Cancel") + '</button><button type="submit" class="cds-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : S.dup ? "Yes, record" : "Record") + "</button></span></div>" +
+        '<div class="acts"><button type="button" class="cds-btn t" data-act="line">Add a medicine</button><span style="display:flex;gap:8px"><button type="button" class="cds-btn" data-act="add-cancel">' + (saved ? "Close" : "Cancel") + '</button><button type="submit" class="cds-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : S.dup ? "Yes, save it" : "Save prescription") + "</button></span></div>" +
         '<datalist id="cds-docs">' + uniq(S.doctors.map(function (d) { return d.doctor_name; })).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>" +
         '<datalist id="cds-meds">' + uniq(S.entries.map(function (e) { return e.medicine_name_dose; })).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
     }
@@ -281,12 +281,12 @@
         var after = await monthList();
         if (after.filter(function (e) { return same(e, lost); }).length > before.filter(function (e) { return same(e, lost); }).length) { lost.saved = true; done++; failed = todo[done] ? "the connection dropped (the line before it did save)" : ""; }
         else failed = "the connection dropped and it is not in the register";
-      } catch (e1) { failed = "the connection dropped. Check the register below before pressing Record again"; }
+      } catch (e1) { failed = "the connection dropped. Check the register below before pressing Save prescription again"; }
     }
     S.saving = false;
     if (done && E.linkPerson) E.linkPerson({ name: a.client_name, id_card: a.client_id_card, address: a.client_address, doctor_name: a.doctor_name }, C.id === "poyreg" ? "register:poyc" : "register:dda-sales", asked); // one person in Customers, found or added
-    if (!failed) { S.adding = null; S.bad = {}; S.dup = null; S.dupOk = ""; E.toast(done === 1 ? "Recorded" : done + " medicines recorded", "success"); if (a.entry_date.slice(0, 7) !== S.month) S.month = a.entry_date.slice(0, 7); }
-    else S.err = (done ? done + " saved. " : "") + "Not saved from " + (todo[done] || {}).medicine_name_dose + ": " + String(failed).replace(/\.$/, "") + ". Press Record to try the rest again.";
+    if (!failed) { S.adding = null; S.bad = {}; S.dup = null; S.dupOk = ""; E.toast("Saved · " + (done === 1 ? ((a.lines.filter(function (l) { return l.saved; })[0] || a.lines[0] || {}).medicine_name_dose || "1 medicine") : done + " medicines") + " for " + a.client_name, "success"); if (a.entry_date.slice(0, 7) !== S.month) S.month = a.entry_date.slice(0, 7); }
+    else S.err = (done ? done + " saved. " : "") + "Not saved from " + (todo[done] || {}).medicine_name_dose + ": " + String(failed).replace(/\.$/, "") + ". Press Save prescription to try the rest again.";
     return load();
   }
 

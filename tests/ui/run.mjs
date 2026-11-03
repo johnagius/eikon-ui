@@ -29,12 +29,12 @@ let todayState = { tempDone: false, cleanDone: false };
 function todayPayload() {
   const t = todayYmd;
   return {
-    ok: true, date: t, time: "09:12", timezone: "Europe/Malta", pharmacy: { name: "Demo Pharmacy", location_id: 12, org: "Test" },
-    before_opening: [
+    ok: true, date: t, time: todayState.time || "09:12", timezone: "Europe/Malta", pharmacy: { name: "Demo Pharmacy", location_id: 12, org: "Test" },
+    before_opening: (todayState.room ? [{ kind: "temperature", device_id: 8, title: "Pharmacy · reading", sub: "Yesterday 21 to 23 · limits 15 to 25", status: "todo", out_of_range: false, limits: { min: 15, max: 25 }, yesterday: { min: 21, max: 23 }, today: null, action: { method: "POST", path: "/temperature/entries", body: { device_id: 8, entry_date: t }, fields: ["min_temp", "max_temp", "notes"], label: "Log" } }] : []).concat([
       { kind: "temperature", device_id: 7, title: "Fridge 1 · reading", sub: "Yesterday 3.8 to 6.4 · limits 2 to 8", status: todayState.tempDone ? "done" : "todo", out_of_range: false, limits: { min: 2, max: 8 }, yesterday: todayState.yOut ? { min: 3.8, max: 9.1 } : { min: 3.8, max: 6.4 }, today: todayState.tempDone ? { min: 3.9, max: 6.1 } : null, action: { method: "POST", path: "/temperature/entries", body: { device_id: 7, entry_date: t }, fields: ["min_temp", "max_temp", "notes"], label: "Log" } },
       { kind: "daily_register", title: "Daily register", sub: "No entry yet today", status: "todo", count_today: 0, action: { type: "open", path: "#dailyregister", label: "Open" } },
       { kind: "cleaning", title: "Cleaning", sub: "Last done 14 days ago by Karl", status: todayState.cleanDone ? "done" : "overdue", days_since: 14, last_date: "2026-10-17", action: { method: "POST", path: "/cleaning/entries", body: { entry_date: t }, fields: ["time_in", "cleaner_name", "staff_name"], label: "Done now" } }
-    ].filter((x) => !(todayState.noFridge && x.kind === "temperature")),
+    ]).filter((x) => !(todayState.noFridge && x.kind === "temperature")),
     customers_waiting: [
       { kind: "order", id: 1, name: "Grech Carmen", phone: "79123456", detail: "Augmentin 625 ×14", code: "A1B2C3", needed_by: t, pickup_date: t, priority: 1, waiting_days: 0, due_today: true, action: { type: "open", path: "#clientorders", label: "Open" } },
       { kind: "question", id: 2, ref: "TKT-00001", name: "Vella Joseph", phone: "79000000", detail: "do you stock the Omron M3 monitor?", status: "Open", priority: 2, waiting_days: 3, followup_date: null, action: { type: "open", path: "#tickets", label: "Reply" } }
@@ -44,7 +44,7 @@ function todayPayload() {
       { kind: "near_expiry", expired_count: 0, due30_count: 1, first: "Enalapril 20mg", first_expiry: t, title: "1 expiring within 30 days", action: { type: "open", path: "#nearexpiry", label: "Open" } },
       { kind: "certificate", title: "Fire extinguisher", status: "due_soon", due: t, days: 12, action: { type: "open", path: "#certificates", label: "Open" } }
     ],
-    takings: { end_of_day_saved: false, end_of_day_locked: false, paid_out_today: 12.5, paid_out_count: 1, action: { type: "open", path: "#endofday", label: "Close the day" } },
+    takings: { end_of_day_saved: !!todayState.eodSaved, end_of_day_locked: false, paid_out_today: 12.5, paid_out_count: 1, action: { type: "open", path: "#endofday", label: "Close the day" } },
     stock: { supplier_orders_pending: 1, supplier_orders_shipped: 0 },
     team: { on_today: [{ name: "Maria", role: "pharmacist", from: "09:00", to: "19:00" }, { name: "Karl", role: "assistant", from: "13:00", to: "19:00" }], handover_incoming: [{ text: "Courier at 16:00, box for Dr Galea", sev: "g" }, { text: "Methadone for Mr Vella at 9", sev: "r" }], notes_today: "" },
     counts: { before_opening: (todayState.tempDone ? 0 : 1) + 1 + (todayState.cleanDone ? 0 : 1), customers_waiting: 2, attention: 2 },
@@ -567,7 +567,7 @@ const today1 = await page.evaluate(() => ({
 const callsBoot = await (await fetch(`http://localhost:${PORT}/__calls`)).json();
 const todayCalls = callsBoot.filter((c) => c.path === "/today").length;
 const otherGets = callsBoot.filter((c) => c.method === "GET" && c.path !== "/today" && c.path !== "/auth/me").length;
-report("today: opens first under the flag, light shell, no intro, headline and rows render", today1.hash === "#today" && today1.light && !today1.intro && /3 things before the doors open/.test(today1.h1) && today1.rows === 5 && today1.oldLink, JSON.stringify(today1));
+report("today: opens first under the flag, light shell, no intro, headline and rows render", today1.hash === "#today" && today1.light && !today1.intro && /2 things before the doors open/.test(today1.h1) && today1.rows === 5 && !today1.oldLink, JSON.stringify(today1)); // b4-9: the Daily register is not owed in the morning (D3); the old dashboard link is in Settings › Help
 report("today: the screen is one request", todayCalls >= 1 && otherGets === 0, `today=${todayCalls} otherGets=${otherGets} ${JSON.stringify(callsBoot.map((c) => c.path))}`);
 
 // blank fridge fields are refused, nothing posted
@@ -585,7 +585,7 @@ await page.press('.tdy-row[data-kind="temperature"] [data-max]', "Enter");
 await page.waitForTimeout(900);
 posts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/temperature/entries");
 const afterLog = await page.evaluate(() => ({ h1: document.querySelector(".tdy-head h1").textContent, pill: (document.querySelector('.tdy-row[data-kind="temperature"] .tdy-pill') || {}).textContent, inputs: document.querySelectorAll('.tdy-row[data-kind="temperature"] input').length }));
-report("today: min (typed with a comma), max, Enter logs the fridge in one request and the row turns done", posts.length === 1 && posts[0].body && posts[0].body.device_id === 7 && posts[0].body.min_temp === 3.9 && posts[0].body.max_temp === 6.1 && /Logged 3.9 to 6.1/.test(afterLog.pill || "") && afterLog.inputs === 0 && /2 things/.test(afterLog.h1), JSON.stringify({ posts, afterLog }));
+report("today: min (typed with a comma), max, Enter logs the fridge in one request and the row turns done", posts.length === 1 && posts[0].body && posts[0].body.device_id === 7 && posts[0].body.min_temp === 3.9 && posts[0].body.max_temp === 6.1 && /Logged 3.9 to 6.1/.test(afterLog.pill || "") && afterLog.inputs === 0 && /1 thing before/.test(afterLog.h1), JSON.stringify({ posts, afterLog }));
 
 // cleaning: Done now asks for one name, then records
 await fetch(`http://localhost:${PORT}/__reset`);
@@ -637,7 +637,7 @@ const shell = await page.evaluate(() => ({
   pharmacy: (document.querySelector(".eikon-rail-brand span") || {}).textContent, who: (document.querySelector(".eikon-rail-who b") || {}).textContent,
   badgeToday: (document.querySelector('.eikon-rail-badge[data-badge="today"]') || {}).textContent
 }));
-report("shell: the rail is Today, Customers, Bookings, Stock, Registers, Services, Money, Team, Settings and nothing else", JSON.stringify(shell.rail) === JSON.stringify(["Today", "Customers", "Bookings", "Stock", "Registers", "Services", "Money", "Team", "Settings"]) && shell.cats === 0 && !shell.help && !shell.search && shell.topbar === "none" && shell.mark && shell.pharmacy === "Demo Pharmacy" && shell.who === "Maria Borg" && /^\d+$/.test(shell.badgeToday || ""), JSON.stringify(shell));
+report("shell: the rail is Today, Customers, Bookings, Stock, Registers, Services, Money, Team, Settings and nothing else", JSON.stringify(shell.rail) === JSON.stringify(["Today", "Customers", "Bookings", "Stock", "Registers", "Services", "Money", "Team", "Settings"]) && shell.cats === 0 && !shell.help && !shell.search && shell.topbar === "none" && shell.mark && shell.pharmacy === "Demo Pharmacy" && shell.who === "Maria Borg" && /^\d*$/.test(shell.badgeToday || ""), JSON.stringify(shell));
 await page.evaluate(() => { location.hash = "#registers"; });
 await page.waitForFunction(() => document.querySelector(".hub-card"), null, { timeout: 8000 });
 const hub = await page.evaluate(() => ({ h1: document.querySelector(".hub h1").textContent, cards: document.querySelectorAll(".hub-card").length, temp: !!document.querySelector('.hub-card[data-open="temperature"]'), topbar: getComputedStyle(document.querySelector(".eikon-topbar")).display }));
@@ -927,7 +927,7 @@ try {
   await page.press("#lcr-form [name=locum_full_name]", "Escape"); await page.waitForTimeout(100);
   const lqEsc = await page.evaluate(() => ({ form: !!document.querySelector("#lcr-form"), focus: document.activeElement && document.activeElement.getAttribute("data-act") }));
   report("locum quality: 'Record a locum'; missing fields and a future date reported together, each marked; Escape closes and refocuses",
-    lqBtn === "Record a locum" && /the pharmacist/.test(lq.err) && /future/.test(lq.err) && lq.inv === "entry_date,locum_full_name,registration_number" && lq.focus === "locum_full_name" && !lqEsc.form && lqEsc.focus === "new", JSON.stringify({ lqBtn, lq, lqEsc }));
+    lqBtn === "New locum" && /the pharmacist/.test(lq.err) && /future/.test(lq.err) && lq.inv === "entry_date,locum_full_name,registration_number" && lq.focus === "locum_full_name" && !lqEsc.form && lqEsc.focus === "new", JSON.stringify({ lqBtn, lq, lqEsc }));
 
   // Registers hub: the lead says what the page is for
   await page.goto(base + "&ui=2#registers"); await page.waitForFunction(() => document.querySelector(".hub .lead"), null, { timeout: 15000 });
@@ -1107,6 +1107,100 @@ report("deliveries: open in the new layout, overdue first, done hidden; Delivere
   JSON.parse(dvb.items)[0].batch_ref === "B7" && JSON.parse(dvb.delivery_log).length === 2 && dvb.cold_chain_required === 1 && dvb.signature_required === 1,
   JSON.stringify({ dl1, dlErr, dlPuts }));
 
+// b4-5: the daily classic-only actions of the Customers group, in the new layout.
+// Deliveries: open one by its name and change it. The record is read again and sent whole in the classic body, with only
+// the edit different (an item kept with its batch, a new one as the classic item editor adds it); what the classic edit
+// has no field for is kept; errors stop the save; Escape closes an unchanged form; staff see no Delete; the pharmacist's
+// Delete writes the reason in the log, then deletes.
+try {
+  const C = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.path !== "/client-log");
+  const actNow = () => page.evaluate(() => { const a = document.activeElement; return a ? (a.getAttribute("data-act") || a.name || a.tagName) + (a.getAttribute("data-id") ? "#" + a.getAttribute("data-id") : "") : ""; });
+  await page.goto(base + "&ui=2#customers"); await page.goto(base + "&ui=2#deliveries");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "dlvreg" && document.querySelector('.dlv-name[data-id="72"]'), null, { timeout: 15000 });
+  await page.evaluate(() => { window.EIKON.state.user.role = "staff"; });
+  await page.click('.dlv-name[data-id="72"]'); await page.waitForSelector("#dlv-edit");
+  const ev0 = await page.evaluate(() => { const f = document.querySelector("#dlv-edit"), v = (n) => f.querySelector("[name=" + n + "]"); return { focus: document.activeElement.name, items: v("itemsText").value, cd: v("contains_controlled").checked, cold: v("cold_chain_required").checked, addr: v("delivery_address").value, del: !!f.querySelector("[data-act=del]"), exp: document.querySelector('.dlv-name[data-id="72"]').getAttribute("aria-expanded"), foot: document.querySelector(".dlv > p:last-child").textContent }; });
+  await page.press("#dlv-edit [name=client_name]", "Escape"); await page.waitForTimeout(100);
+  const evEsc = { form: !!(await page.$("#dlv-edit")), focus: await actNow() };
+  await page.click('.dlv-name[data-id="72"]'); await page.waitForSelector("#dlv-edit");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.fill("#dlv-edit [name=delivery_address]", ""); await page.click("#dlv-edit button[type=submit]"); await page.waitForTimeout(150);
+  const evErr = await page.evaluate(() => ({ inv: [...document.querySelectorAll("#dlv-edit [aria-invalid=true]")].map((e) => e.name), alert: (document.querySelector("#dlv-edit [role=alert]") || {}).textContent || "", focus: document.activeElement.name }));
+  const evNone = (await C()).filter((c) => c.method !== "GET").length;
+  await page.fill("#dlv-edit [name=delivery_address]", "14 Triq il-Kbira, Mosta"); await page.fill("#dlv-edit [name=scheduled_time_slot]", "Morning"); await page.fill("#dlv-edit [name=itemsText]", "2× Morphine 10mg, Panadol");
+  await page.click("#dlv-edit button[type=submit]"); await page.waitForTimeout(700);
+  const evC = await C(), evPut = evC.filter((c) => c.method === "PUT"), eb = (evPut[0] || {}).body || {};
+  const evReread = evC.findIndex((c) => c.method === "GET" && c.path === "/client-deliveries/entries") < evC.findIndex((c) => c.method === "PUT");
+  const evItems = (() => { try { return JSON.parse(eb.items); } catch (e) { return []; } })();
+  const evWant = { delivery_id: "DEL-00005", scheduled_time_slot: "Morning", actual_delivery_date: "", actual_delivery_time: "", client_name: "Camilleri Rita", phone: "79222333", email: "rita@x.com", delivery_address: "14 Triq il-Kbira, Mosta", address_notes: "Blue door", id_doc_ref: "123456M", delivery_method: "Courier", priority: 1, assigned_driver: "Kevin Mifsud", tracking_number: "TRK9", status: "Scheduled", signature_required: true, signature_obtained: false, recipient_name: "", proof_of_delivery: "", delivery_attempts: 0, failure_reason: "", contains_controlled: true, cold_chain_required: true, ticket_ref: "TKT-00007", delivery_log: JSON.stringify([{ ts: "2026-10-30T09:00:00Z", author: "Maria", text: "Packed" }]), internal_notes: "Call first" };
+  const evDiff = Object.keys(evWant).filter((k) => JSON.stringify(eb[k]) !== JSON.stringify(evWant[k]));
+  await page.waitForFunction(() => document.activeElement && document.activeElement.getAttribute("data-act") === "open", null, { timeout: 3000 }).catch(() => {});
+  const evAfter = { focus: await actNow(), form: !!(await page.$("#dlv-edit")) };
+  // delete: the pharmacist only, with a reason
+  await page.evaluate(() => { window.EIKON.state.user.role = "admin"; });
+  await page.click('.dlv-name[data-id="72"]'); await page.waitForSelector("#dlv-edit [data-act=del]");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("#dlv-edit [data-act=del]"); await page.waitForSelector("#dlv-edit [name=del_reason]");
+  const edFocus = await page.evaluate(() => document.activeElement.name);
+  await page.click("#dlv-edit [data-act=del-go]"); await page.waitForTimeout(150);
+  const edNo = { calls: (await C()).filter((c) => c.method !== "GET").length, err: await page.evaluate(() => (document.querySelector("#dlv-edit [role=alert]") || {}).textContent || "") };
+  await page.fill("#dlv-edit [name=del_reason]", "Entered twice"); await page.click("#dlv-edit [data-act=del-go]"); await page.waitForTimeout(700);
+  const edC = (await C()).filter((c) => c.method !== "GET"), edLog = (() => { try { return JSON.parse(edC[0].body.delivery_log); } catch (e) { return []; } })();
+  report("deliveries (b4-5): open one by its name, change it: re-read, the classic body whole with only the edit different, items keep their batch; errors stop it; Escape closes an unchanged form; Delete is the pharmacist's, with a reason in the log first",
+    ev0.focus === "client_name" && ev0.items === "2× Morphine 10mg" && ev0.cd && ev0.cold && ev0.addr === "12 Triq il-Kbira, Mosta" && !ev0.del && ev0.exp === "true" && /^Drivers and item batches are in the classic screen\.$/.test(ev0.foot.trim()) &&
+    !evEsc.form && evEsc.focus === "open#72" &&
+    evErr.inv.join() === "delivery_address" && /address.*Nothing was saved/.test(evErr.alert) && evErr.focus === "delivery_address" && evNone === 0 &&
+    evReread && evPut.length === 1 && evPut[0].path === "/client-deliveries/entries/72" && evDiff.length === 0 && Object.keys(eb).length === 29 &&
+    evItems.length === 2 && evItems[0].batch_ref === "B7" && evItems[0].schedule === "CD" && evItems[0].qty === 2 && JSON.stringify(evItems[1]) === JSON.stringify({ name: "Panadol", qty: 1, schedule: "OTC", batch_ref: "", expiry: "" }) &&
+    !evAfter.form && evAfter.focus === "open#72" &&
+    edFocus === "del_reason" && edNo.calls === 0 && /why/i.test(edNo.err) &&
+    edC.length === 2 && edC[0].method === "PUT" && edLog.length === 2 && edLog[1].text === "Deleted: Entered twice" && edLog[1].author === "Maria Borg" && edC[1].method === "DELETE" && edC[1].path === "/client-deliveries/entries/72",
+    JSON.stringify({ ev0, evEsc, evErr, evNone, evDiff, eb, evAfter, edFocus, edNo, edC }));
+} catch (e) { report("deliveries (b4-5): change and delete", false, String(e).slice(0, 300)); }
+
+// Orders: after a new order, the classic screen's next question in place: its items into the order diary (the classic
+// call: one line, the order's day, qty 1, the supplier typed, no notes); "Not now" and Escape add nothing.
+try {
+  const C = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.path !== "/client-log");
+  await page.goto(base + "&ui=2#customers"); await page.goto(base + "&ui=2#clientorders");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector(".ord-row"), null, { timeout: 15000 });
+  const addOne = async (items) => { await page.click(".ord-top [data-act=add]"); await page.waitForSelector("#ord-add"); await page.fill("#ord-add [name=client_name]", "Ċachia Ġorġ"); await page.fill("#ord-add [name=contact]", "79444555"); await page.fill("#ord-add [name=items]", items); await page.fill("#ord-add [name=needed_by]", todayYmd); await page.click("#ord-add button[type=submit]"); await page.waitForSelector("#ord-diary"); await page.waitForTimeout(150); };
+  await addOne("Ħ-brand syrup 200ml");
+  await page.waitForFunction(() => document.activeElement && document.activeElement.getAttribute("data-act") === "add", null, { timeout: 3000 }).catch(() => {}); // after the list is read again
+  const od0 = await page.evaluate(() => ({ text: document.querySelector("#ord-diary .ord-meta").textContent, focus: document.activeElement.getAttribute("data-act"), foot: document.querySelector(".ord > p:last-child").textContent }));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.fill("#ord-diary [name=supplier]", "PharmaCo"); await page.click("#ord-diary button[type=submit]"); await page.waitForTimeout(500);
+  const odC = (await C()).filter((c) => c.path.startsWith("/order-diary")), odPost = odC.filter((c) => c.method === "POST");
+  const od1 = { gone: !(await page.$("#ord-diary")), focus: await page.evaluate(() => document.activeElement.getAttribute("data-act")) };
+  await addOne("Panadol"); await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=diary-no]"); await page.waitForTimeout(150);
+  const odNo = { gone: !(await page.$("#ord-diary")), posts: (await C()).filter((c) => c.method === "POST").length };
+  await addOne("Ventolin"); await fetch(`http://localhost:${PORT}/__reset`);
+  await page.press("#ord-diary [name=supplier]", "Escape"); await page.waitForTimeout(150);
+  const odEsc = { gone: !(await page.$("#ord-diary")), posts: (await C()).filter((c) => c.method === "POST").length, focus: await page.evaluate(() => document.activeElement.getAttribute("data-act")) };
+  report("orders (b4-5): after a new order its items go into the order diary in place: the classic call, once; Not now and Escape add nothing; the footer names only what is left",
+    od0.text === "Put “Ħ-brand syrup 200ml” in the order diary for today?" && od0.focus === "add" && /^Taking a deleted order's items off the order diary is in the classic screen\.$/.test(od0.foot.trim()) &&
+    odPost.length === 1 && JSON.stringify(odPost[0].body) === JSON.stringify({ order_date: todayYmd, item_name: "Ħ-brand syrup 200ml", qty: 1, supplier: "PharmaCo", notes: "" }) && odC.some((c) => c.method === "GET" && c.query === "?date=" + todayYmd) &&
+    od1.gone && od1.focus === "add" && odNo.gone && odNo.posts === 0 && odEsc.gone && odEsc.posts === 0 && odEsc.focus === "add",
+    JSON.stringify({ od0, odC, od1, odNo, odEsc }));
+} catch (e) { report("orders (b4-5): into the order diary", false, String(e).slice(0, 300)); }
+
+// Questions: an open question prints on the classic one-question page; the customer's email is a mail link on the card.
+try {
+  await page.goto(base + "&ui=2#customers"); await page.goto(base + "&ui=2#tickets");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "tktreg" && document.querySelector('.tkt-name[data-id="61"]'), null, { timeout: 15000 });
+  const tq0 = await page.evaluate(() => ({ mail: (document.querySelector('.tkt-card a[href^="mailto:"]') || {}).href || "", label: (document.querySelector('.tkt-card a[href^="mailto:"]') || { getAttribute() {} }).getAttribute("aria-label"), mails: document.querySelectorAll('.tkt-card a[href^="mailto:"]').length, foot: document.querySelector(".tkt > p:last-child").textContent }));
+  await page.click('.tkt-name[data-id="61"]'); await page.waitForSelector("#tkt-edit [data-act=print]");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  const [pw] = await Promise.all([page.waitForEvent("popup"), page.click("#tkt-edit [data-act=print]")]);
+  await pw.waitForLoadState(); const tqHtml = await pw.evaluate(() => ({ title: document.title, text: document.body.innerText, btn: !!document.querySelector("[data-eikon-print=print]") })); await pw.close();
+  const tqCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method !== "GET" && c.path !== "/client-log").length;
+  report("questions (b4-5): Print in an open question opens the classic one-question page; the email on the card is a mail link; nothing is sent; the footer names only what is left",
+    tq0.mail === "mailto:rita@x.com?subject=Your%20question%20(TKT-00007)" && tq0.label === "Email Camilleri Rita, rita@x.com" && tq0.mails === 1 && /^New categories and staff names are in the classic screen\.$/.test(tq0.foot.trim()) &&
+    tqHtml.title === "TKT-00007" && /Camilleri Rita/.test(tqHtml.text) && /Called, no answer/.test(tqHtml.text) && /Priority: 2 — Medium/.test(tqHtml.text) && /Notes Log \(1 entry\)/.test(tqHtml.text) && tqHtml.btn && tqCalls === 0,
+    JSON.stringify({ tq0, tqHtml, tqCalls }));
+} catch (e) { report("questions (b4-5): print one, email", false, String(e).slice(0, 300)); }
+
 // Customers' registers, quality pass (Orders, Questions, Deliveries, Vaccines, Contacts): every problem in a form at once,
 // each beside its field (aria-invalid + aria-describedby) and summed up in one alert, nothing sent; typing in a field
 // clears its mark; Escape closes an untouched form or line and gives focus back to what opened it (a form with typing
@@ -1136,7 +1230,8 @@ try {
   const dS = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
   await page.route("**/client-orders/entries?*", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: Array.from({ length: 12 }, (_, i) => ({ id: 300 + i, order_date: dS(0), client_name: (i % 3 ? "Borg " : "Ħili Ġorġ ") + i, client_phone: "7900" + i, items_text: "Item " + i, priority: 2, needed_by: dS(i - 2), fulfilled: 0 })) }) }));
   await page.goto(base + "&ui=2#customers"); await page.goto(base + "&ui=2#clientorders"); // a real visit, so the list is read again
-  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector("#ord-q"), null, { timeout: 15000 });
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector("#ord-q") && document.querySelectorAll(".ord-row").length === 12, null, { timeout: 15000 }); // the list has arrived, so the marker tests a search, not the first paint
+  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {}); await page.waitForTimeout(300); // the months history arrives after the list and repaints the screen once; a search is measured after that
   await page.evaluate(() => { document.querySelector("#ord-q").__same = 1; });
   await page.focus("#ord-q"); await page.keyboard.type("ħili", { delay: 30 });
   const oQ = await page.evaluate(() => ({ same: document.querySelector("#ord-q").__same === 1, focus: document.activeElement.id, rows: document.querySelectorAll(".ord-row").length, lab: document.querySelector(".ord-lab").textContent }));
@@ -1232,8 +1327,8 @@ const cds1 = await page.evaluate(() => ({ name: document.querySelector("[name=cl
 const cdsBefore = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST").length;
 await page.click("#cds-add button[type=submit]"); await settleSave();
 const cdsPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/dda-sales/entries").map((c) => c.body);
-report("controlled drugs supplied: ID card and prescriber fill in; a repeated serial shows and waits for 'Yes, record'; then one entry",
-  cds1.name === "Zammit Carmel" && cds1.reg === "R1201" && cds1.dup && cds1.btn === "Yes, record" && cdsBefore === 0 && cdsPosts.length === 1 && cdsPosts[0].client_id_card === "0012345M" && cdsPosts[0].client_address === "1 Triq il-Knisja" && cdsPosts[0].quantity === 10 && cdsPosts[0].prescription_serial_no === "RX-1",
+report("controlled drugs supplied: ID card and prescriber fill in; a repeated serial shows and waits for 'Yes, save it'; then one entry",
+  cds1.name === "Zammit Carmel" && cds1.reg === "R1201" && cds1.dup && cds1.btn === "Yes, save it" && cdsBefore === 0 && cdsPosts.length === 1 && cdsPosts[0].client_id_card === "0012345M" && cdsPosts[0].client_address === "1 Triq il-Knisja" && cdsPosts[0].quantity === 10 && cdsPosts[0].prescription_serial_no === "RX-1",
   JSON.stringify({ cds1, cdsBefore, cdsPosts }));
 
 // DDA stock takes in the new layout (ddstreg): the old link lands here. Start one, add lines (a fraction is refused),
@@ -3555,6 +3650,92 @@ try {
     JSON.stringify({ wErr, before, after }));
 } catch (e) { report("classic pharmacy calculators: Warfarin Clear ran", false, String(e).slice(0, 300)); }
 
+// b4-9: Today reads right at any hour (display only: the same one GET /today, nothing else)
+try {
+  const tdyAt = async (st) => {
+    todayState = Object.assign({ tempDone: false, cleanDone: false }, st);
+    await page.goto(base + "&ui=2#today"); await page.reload();
+    await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".tdy-head h1") && !/Loading/.test(document.querySelector(".tdy-head h1").textContent), null, { timeout: 15000 });
+    await page.waitForTimeout(300);
+    await fetch(`http://localhost:${PORT}/__reset`);
+    await page.evaluate(() => window.EIKON.__todayRefresh()); await page.waitForTimeout(400);
+    const c = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).map((x) => x.method + " " + x.path);
+    return page.evaluate((c) => {
+      const dr = document.querySelector(".tdy-row[data-kind=daily_register]");
+      return { calls: c, lab: (document.querySelector(".tdy-col .tdy-lab") || {}).textContent, h1: document.querySelector(".tdy-head h1").textContent,
+        drText: dr ? dr.innerText.replace(/\s+/g, " ") : "", drPill: dr ? dr.querySelectorAll(".tdy-pill").length : -1, drAmb: dr ? dr.classList.contains("amb") : null, drRed: dr ? dr.classList.contains("red") : null,
+        badge: (document.querySelector('.eikon-rail-badge[data-badge="today"]') || {}).textContent || "",
+        temps: [...document.querySelectorAll(".tdy-row[data-kind=temperature] .tdy-t b")].map((b) => b.textContent),
+        oldLink: !!document.querySelector('.tdy [data-open="#dashboard"]'), foot: (document.querySelector(".tdy-foot") || {}).textContent || "" };
+    }, c);
+  };
+  const m = await tdyAt({ room: true });
+  const pm = await tdyAt({ time: "14:05" });
+  const ev = await tdyAt({ time: "20:12" });
+  const ed = await tdyAt({ time: "16:40", eodSaved: true });
+  const onlyToday = (r) => r.calls.length === 1 && r.calls[0] === "GET /today";
+  report("today at any hour: 09:12 says Before opening; 14:05 and 20:12 say Today's checks",
+    /^Before opening/.test(m.lab) && /^Today's checks/.test(pm.lab) && /^Today's checks/.test(ev.lab) && /before the doors open/.test(m.h1) && /still to do today/.test(ev.h1), JSON.stringify({ m: m.lab, pm: pm.lab, ev: ev.lab, mh: m.h1, eh: ev.h1 }));
+  report("today at any hour: the Daily register is one line with no pill, not owed before closing (2 checks, badge 2, not amber), owed at 20:12 or once End of day is started (3, amber, never red)",
+    /No entry yet today/.test(m.drText) && !/No entry yet(?! today)/.test(m.drText) && m.drPill === 0 && !m.drAmb && m.lab.replace(/\s+/g, " ").trim() === "Before opening 3" && /2 checks/.test(pm.h1) && pm.badge === "2" && !pm.drAmb &&
+    /3 checks/.test(ev.h1) && ev.badge === "3" && ev.drAmb && !ev.drRed && ev.drPill === 0 && /3 checks/.test(ed.h1) && ed.drAmb,
+    JSON.stringify({ m, pm: [pm.h1, pm.badge, pm.drAmb], ev: [ev.h1, ev.badge, ev.drAmb, ev.drRed], ed: [ed.h1, ed.drAmb] }));
+  report("today at any hour: the room sensor named after the pharmacy reads Room, the fridge keeps its name; no Old dashboard link on Today",
+    JSON.stringify(m.temps) === JSON.stringify(["Room", "Fridge 1"]) && !m.oldLink && !/Old dashboard/.test(m.foot) && !ev.oldLink, JSON.stringify({ temps: m.temps, oldLink: m.oldLink, foot: m.foot }));
+  report("today at any hour: display only, each refresh is the one GET /today it was before", onlyToday(m) && onlyToday(pm) && onlyToday(ev) && onlyToday(ed), JSON.stringify([m.calls, pm.calls, ev.calls, ed.calls]));
+  // Settings › Help still has the old dashboard
+  await page.evaluate(() => { location.hash = "#settings"; }); await page.waitForTimeout(800);
+  const helpOld = await page.evaluate(() => document.body.innerText.indexOf("Old dashboard") >= 0);
+  report("today at any hour: the old dashboard is still in Settings", helpOld, String(helpOld));
+} catch (e) { report("today at any hour: ran to the end", false, String(e).slice(0, 300)); }
+todayState = { tempDone: false, cleanDone: false };
+
+// b4-10: one word for one thing: New X opens, Save X saves, success says Saved · what for who; Waiting / Done; ID card on Deliveries
+try {
+  const callsNow = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json());
+  const lastToast = () => page.evaluate(() => { const t = [...document.querySelectorAll(".eikon-toast")]; return t.length ? t[t.length - 1].textContent : ""; });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // Orders
+  await page.goto(base + "&ui=2#clientorders");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector(".ord-top [data-act=add]"), null, { timeout: 15000 });
+  await page.click(".ord-top [data-act=add]"); await page.waitForSelector("#ord-add");
+  const ow = await page.evaluate(() => ({ open: document.querySelector(".ord-tabs").innerText.replace(/\s+/g, " "), save: document.querySelector("#ord-add button[type=submit]").textContent }));
+  await page.fill("#ord-add [name=client_name]", "Borġ Ċensina"); await page.fill("#ord-add [name=items]", "Augmentin 625"); await page.fill("#ord-add [name=needed_by]", todayYmd);
+  await page.click("#ord-add button[type=submit]"); await page.waitForTimeout(700);
+  const oT = await lastToast();
+  // Questions
+  await page.goto(base + "&ui=2#tickets");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "tktreg" && document.querySelector(".tkt-tabs"), null, { timeout: 15000 });
+  const qw = await page.evaluate(() => ({ tabs: [...document.querySelectorAll(".tkt-tabs button")].map((b) => b.textContent), lab: (document.querySelector(".tkt-lab") || {}).textContent || "", opener: (document.querySelector(".tkt-top [data-act=add]") || {}).textContent }));
+  await page.click(".tkt-top [data-act=add]"); await page.waitForSelector("#tkt-add");
+  qw.save = await page.evaluate(() => document.querySelector("#tkt-add button[type=submit]").textContent);
+  // Deliveries: the ID card goes in id_doc_ref only when typed; the rest of the body is as before
+  await page.goto(base + "&ui=2#deliveries");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "dlvreg" && document.querySelector(".dlv-top [data-act=add]"), null, { timeout: 15000 });
+  const addDlv = async (id) => {
+    await fetch(`http://localhost:${PORT}/__reset`);
+    await page.click(".dlv-top [data-act=add]"); await page.waitForSelector("#dlv-add");
+    await page.fill("#dlv-add [name=client_name]", id ? "Fenech Ġorġ" : "Borġ Ċensina"); if (id) await page.fill("#dlv-add [name=id_doc_ref]", id);
+    await page.fill("#dlv-add [name=phone]", "79111222"); await page.fill("#dlv-add [name=delivery_address]", "Triq il-Ħamrun, Żebbuġ");
+    const save = await page.evaluate(() => document.querySelector("#dlv-add button[type=submit]").textContent);
+    await page.click("#dlv-add button[type=submit]");
+    await page.waitForFunction(() => !document.querySelector("#dlv-add") || document.querySelector(".epp-confirm,[role=alertdialog]"), null, { timeout: 8000 }).catch(() => {});
+    for (let i = 0; i < 3; i++) { const b = await page.$("[role=alertdialog] [data-epc=no], [role=alertdialog] [data-epc=skip], [role=alertdialog] [data-epc=go]"); if (!b) break; await b.click(); await page.waitForTimeout(400); } // the ID card question: "No, just save the delivery"
+    await page.waitForTimeout(500);
+    const post = (await callsNow()).filter((c) => c.method === "POST" && c.path === "/client-deliveries/entries").map((c) => c.body)[0] || null;
+    return { save, post, toast: await lastToast(), hasField: true };
+  };
+  const d0 = await addDlv(""), d1 = await addDlv("7654321m");
+  const keys0 = d0.post ? Object.keys(d0.post).sort().join() : "", keys1 = d1.post ? Object.keys(d1.post).filter((k) => k !== "id_doc_ref").sort().join() : "";
+  report("words: Orders 'New order' → 'Save order', Waiting / Done, success 'Saved · order for Borġ Ċensina'",
+    ow.open === "Waiting Done" && ow.save === "Save order" && oT.indexOf("Saved · order for Borġ Ċensina") >= 0, JSON.stringify({ ow, oT }));
+  report("words: Questions 'New question' → 'Save question', filters Waiting / Done (Open is only a button)",
+    qw.opener === "New question" && qw.save === "Save question" && JSON.stringify(qw.tabs) === JSON.stringify(["Waiting", "Done"]) && !/^Open/.test(qw.lab), JSON.stringify(qw));
+  report("words: Deliveries 'Save delivery', success 'Saved · delivery for Borġ Ċensina · DEL-…'; no ID card typed = no id_doc_ref in the body; 7654321m typed = id_doc_ref as typed (as the classic stores it) and nothing else changes",
+    d0.save === "Save delivery" && d0.post && !("id_doc_ref" in d0.post) && d1.post && d1.post.id_doc_ref === "7654321m" && keys0 === keys1 && /Saved · delivery for Borġ Ċensina · DEL-\d+/.test(d0.toast),
+    JSON.stringify({ d0s: d0.save, d0t: d0.toast, d0k: keys0, d1k: keys1, id: d1.post && d1.post.id_doc_ref }));
+} catch (e) { report("words: ran to the end", false, String(e).slice(0, 300)); }
+
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });
@@ -3782,6 +3963,101 @@ try {
   report("stock screens: no page errors", sErr.length === 0, sErr.slice(0, 3).join(" | "));
   await sx.close();
 } catch (e) { report("stock screens: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
+
+// Focus is never lost (BACKLOG4 item 2): a screen opened from a link puts focus on its heading with the main button one
+// Tab away; N opens the main form; Ctrl/Cmd+Enter saves from a text box; Escape cancels (and never throws away typing);
+// after a save or a redraw focus is on a control or the heading, never on the page; it never jumps out of a form being
+// typed in; Today goes to the next check after Log; the search dialog lists the keys. The classic layout is left alone.
+try {
+  const fx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await fx.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: "window.XLSX={};" }));
+  await fx.route(/cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "application/javascript", body: "" }));
+  await fx.addInitScript(() => { try { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); localStorage.setItem("eikon_install_never", "1"); } catch (e) {} });
+  const fp = await fx.newPage(); const fErr = []; fp.on("pageerror", (e) => fErr.push(e.message));
+  const fcalls = async (m, path) => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === m && c.path === path);
+  const at = () => fp.evaluate(() => { const a = document.activeElement; return !a || a === document.body ? "BODY" : a.tagName === "H1" ? "H1:" + a.textContent.trim() : (a.getAttribute("data-act") || a.name || a.getAttribute("data-kind") || a.tagName) + ":" + (a.textContent || "").trim().slice(0, 24); });
+  const openFrom = async (from, to, sel) => { await fp.evaluate((h) => { location.hash = "#" + h; }, from); await fp.waitForFunction((m) => window.EIKON.state.activeModuleId === m, from, { timeout: 15000 }); await fp.waitForTimeout(400);
+    await fp.evaluate(() => { const c = document.querySelector("#eikon-content button, #eikon-content a[href]"); if (c) c.focus(); }); // a card on the hub, as Enter on it leaves it
+    await fp.evaluate((h) => { location.hash = "#" + h; }, to); await fp.waitForFunction(([m, s]) => window.EIKON.state.activeModuleId === m && document.querySelector(s), [to, sel], { timeout: 15000 }); await fp.waitForTimeout(700); };
+  await fp.goto(base + "&ui=2#today"); await fp.waitForFunction(() => window.EIKON && window.EIKON.state.user && document.querySelector(".tdy-head h1"), null, { timeout: 15000 }); await fp.waitForTimeout(800);
+  const boot = await at();
+
+  // 1. Opened from a hub: focus on the heading, the main button is the next Tab, for each screen of the sample
+  const opened = {};
+  for (const [hub, id, sel, main] of [["customers", "ordreg", ".ord-top", "New order"], ["customers", "tktreg", ".tkt-top h1", "New question"], ["customers", "dlvreg", ".dlv-top h1", "New delivery"], ["registers", "cdsreg", ".cds-top h1", "New prescription"], ["money", "poreg", ".por-top h1", "New payment"]]) {
+    await openFrom(hub, id, sel);
+    const h = await at(); await fp.keyboard.press("Tab"); const next = await at();
+    opened[id] = { h, next, ok: /^H1:/.test(h) && next.endsWith(":" + main.slice(0, 24)) };
+  }
+  report("focus: a screen opened from a hub has focus on its heading, and the main button is the very next Tab (was 12 to 14 Tabs from the page); the first screen after sign-in leaves focus alone", Object.values(opened).every((o) => o.ok) && boot === "BODY", JSON.stringify({ boot, opened }));
+
+  // 2. N opens the main form; typing an n in a field types it; Escape on an untouched form closes it with focus back on the opener
+  await openFrom("customers", "tktreg", ".tkt-top h1");
+  await fp.keyboard.press("n"); await fp.waitForSelector("#tkt-add", { timeout: 3000 }).catch(() => {}); await fp.waitForTimeout(300);
+  const nOpen = { form: await fp.$("#tkt-add") !== null, at: await at() };
+  await fp.keyboard.type("Grech Anna"); await fp.waitForTimeout(150);
+  const typedN = await fp.evaluate(() => (document.querySelector("#tkt-add [name=client_name]") || {}).value);
+  report("focus: N opens the screen's main form (New question) with focus in it; an n typed in a field is just a letter", nOpen.form && /client_name/.test(nOpen.at) && typedN === "Grech Anna", JSON.stringify({ nOpen, typedN }));
+
+  // 3. Escape after typing never throws it away: focus goes to Cancel; Enter there cancels; focus comes back to the opener
+  await fp.focus("#tkt-add [name=issue]"); await fp.keyboard.press("Escape"); await fp.waitForTimeout(250);
+  const esc1 = { form: await fp.$("#tkt-add") !== null, at: await at(), kept: await fp.evaluate(() => (document.querySelector("#tkt-add [name=client_name]") || {}).value) };
+  await fp.keyboard.press("Enter"); await fp.waitForTimeout(400);
+  const esc2 = { form: await fp.$("#tkt-add") !== null, at: await at() };
+  report("focus: Escape in a form with typing goes to Cancel and keeps what was typed (one key never throws it away); Enter on Cancel closes it and focus is back on New question", esc1.form && /Cancel/i.test(esc1.at) && esc1.kept === "Grech Anna" && !esc2.form && /New question/.test(esc2.at), JSON.stringify({ esc1, esc2 }));
+
+  // 4. Ctrl+Enter in the question box saves (one POST); afterwards focus is on a control of the screen, not the page
+  const tkBefore = (await fcalls("POST", "/client-tickets/entries")).length;
+  await fp.keyboard.press("n"); await fp.waitForSelector("#tkt-add [name=issue]", { timeout: 3000 });
+  await fp.fill("#tkt-add [name=client_name]", "Borġ Ċensina"); await fp.fill("#tkt-add [name=phone]", "79123456"); await fp.fill("#tkt-add [name=issue]", "Can I take ibuprofen?");
+  await fp.focus("#tkt-add [name=issue]"); await fp.keyboard.press("Control+Enter"); await fp.waitForTimeout(1500);
+  const tkPosts = (await fcalls("POST", "/client-tickets/entries")).slice(tkBefore);
+  const afterTk = await at();
+  report("focus: Ctrl+Enter in a text box saves the form once, with the same body as the Add button; after the save focus is on New question, not the page", tkPosts.length === 1 && tkPosts[0].body.client_name === "Borġ Ċensina" && tkPosts[0].body.issue === "Can I take ibuprofen?" && afterTk !== "BODY" && /New question/.test(afterTk), JSON.stringify({ n: tkPosts.length, body: tkPosts[0] && tkPosts[0].body, afterTk }));
+
+  // 5. A redraw that removes the focused control: focus goes to the same control redrawn, else the heading; never the page
+  await openFrom("customers", "ordreg", ".ord-top");
+  const redraw = await fp.evaluate(async () => {
+    const c = document.getElementById("eikon-content"), b = c.querySelector(".ord-top [data-act=add]"); b.focus();
+    const keep = b.outerHTML; b.outerHTML = keep; // the same button drawn again
+    await new Promise((r) => setTimeout(r, 400)); const one = document.activeElement && document.activeElement.getAttribute("data-act");
+    const b2 = c.querySelector(".ord-top [data-act=add]"); b2.focus(); b2.remove(); // gone for good
+    await new Promise((r) => setTimeout(r, 400)); const two = document.activeElement ? document.activeElement.tagName : "";
+    return { one, two };
+  });
+  report("focus: when a redraw replaces the focused button focus is on the new copy; when it is gone, on the heading; never on the page", redraw.one === "add" && redraw.two === "H1", JSON.stringify(redraw));
+
+  // 6. Never out of a form being typed in: a late E.focusAfter waits until focus leaves the form
+  await openFrom("customers", "ordreg", ".ord-top"); await fp.keyboard.press("n"); await fp.waitForSelector("#ord-add [name=client_name]");
+  await fp.focus("#ord-add [name=client_name]"); await fp.keyboard.type("Vel");
+  await fp.evaluate(() => window.EIKON.focusAfter("h1")); await fp.waitForTimeout(300);
+  const steal = { at: await at(), v: await fp.evaluate(() => document.querySelector("#ord-add [name=client_name]").value) };
+  report("focus: E.focusAfter never takes focus from a form being typed in", /client_name/.test(steal.at) && steal.v === "Vel", JSON.stringify(steal));
+  await fp.evaluate(() => { const c = document.querySelector("#ord-add [data-act=add-cancel]"); if (c) c.click(); });
+
+  // 7. Today: after Log, focus is on the next check still to do (the next reading), not the page
+  await fp.evaluate(() => { location.hash = "#today"; }); await fp.waitForFunction(() => window.EIKON.state.activeModuleId === "today" && document.querySelector(".tdy-row[data-kind=temperature] [data-min]"), null, { timeout: 15000 }); await fp.waitForTimeout(400);
+  const nTemp = await fp.$$eval(".tdy-row[data-kind=temperature] [data-min]", (l) => l.length);
+  await fp.fill(".tdy-row[data-kind=temperature] [data-min] >> nth=0", "3.2"); await fp.fill(".tdy-row[data-kind=temperature] [data-max] >> nth=0", "6.8");
+  await fp.press(".tdy-row[data-kind=temperature] [data-max] >> nth=0", "Enter"); await fp.waitForTimeout(1500);
+  const tdy = await fp.evaluate(() => { const a = document.activeElement; return { tag: a && a.tagName, kind: a && a.getAttribute("data-kind"), row: !!(a && a.classList.contains("tdy-row")), body: a === document.body }; });
+  report("focus: on Today, after Log focus is on the next check still to do (a row, so the minute refresh still runs), not the page", !tdy.body && (tdy.row || tdy.tag === "H1") && (nTemp < 2 || tdy.kind), JSON.stringify({ nTemp, tdy }));
+
+  // 8. The search dialog lists the keys
+  await fp.keyboard.press("/"); await fp.waitForSelector(".esr-foot", { timeout: 3000 });
+  const foot = await fp.$eval(".esr-foot", (e) => e.textContent);
+  await fp.keyboard.press("Escape");
+  report("focus: the search dialog's footer lists N (new), Ctrl+Enter (save) and Esc", /N\s*new/i.test(foot) && /Enter\s*saves/i.test(foot), foot);
+
+  // 9. The classic layout is left alone: N does nothing there and a screen's opening leaves focus where it was
+  await fp.goto(base + "&ui=classic#tickets"); await fp.waitForFunction(() => window.EIKON && window.EIKON.state.activeModuleId === "tickets", null, { timeout: 15000 }); await fp.waitForTimeout(900);
+  const cl0 = await fp.evaluate(() => document.querySelectorAll(".eikon-modal-overlay[style*='flex'], dialog[open]").length);
+  await fp.evaluate(() => document.activeElement && document.activeElement.blur && document.activeElement.blur()); await fp.keyboard.press("n"); await fp.waitForTimeout(300);
+  const cl = { at: await at(), modals: await fp.evaluate(() => document.querySelectorAll(".eikon-modal-overlay[style*='flex'], dialog[open]").length), helper: await fp.evaluate(() => typeof window.EIKON.focusAfter) };
+  report("focus: the classic layout is unchanged (N opens nothing, focus stays on the page as before)", cl.at === "BODY" && cl.modals === cl0 && cl.helper === "function", JSON.stringify({ cl0, cl }));
+  report("focus: no page errors", fErr.length === 0, fErr.slice(0, 3).join(" | "));
+  await fx.close();
+} catch (e) { report("focus: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
 
 await browser.close();
 server.close();

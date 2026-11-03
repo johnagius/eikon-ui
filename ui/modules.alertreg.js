@@ -93,7 +93,7 @@
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "alertreg") return; // left before a reply came back: do not draw over the next screen
     var h = '<div class="alr"><button class="alr-back" data-act="back">' + esc(E.ui2BackLabel("alertreg")) + '</button>' +
-      '<div class="alr-top"><div><h1>Alerts</h1><p class="alr-sub">Recalls and quarantines, with each step ticked off.</p></div>' + (S.adding ? "" : '<button class="alr-btn p" data-act="add">Record an alert</button>') + "</div>";
+      '<div class="alr-top"><div><h1>Alerts</h1><p class="alr-sub">Recalls and quarantines, with each step ticked off.</p></div>' + (S.adding ? "" : '<button class="alr-btn p" data-act="add">New alert</button>') + "</div>";
     if (S.adding) {
       var a = S.adding;
       h += '<form class="alr-form" id="alr-add" autocomplete="off"><label><span>Type</span><select name="alert_type"><option value="recall"' + (a.alert_type !== "quarantine" ? " selected" : "") + '>Recall</option><option value="quarantine"' + (a.alert_type === "quarantine" ? " selected" : "") + ">Quarantine</option></select></label>" +
@@ -105,7 +105,7 @@
         '<label><span>Kept in</span><select name="storage_location"><option value="room">Room</option><option value="fridge"' + (a.storage_location === "fridge" ? " selected" : "") + ">Fridge</option></select></label>" +
         '<label><span>Supplier</span><input name="supplier" value="' + esc(a.supplier || "") + '" placeholder="Optional"></label>' +
         (S.err ? '<div class="alr-err" role="alert">' + esc(S.err) + "</div>" : "") +
-        '<div class="acts"><button type="button" class="alr-btn" data-act="add-cancel">Cancel</button><button type="submit" class="alr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div></form>";
+        '<div class="acts"><button type="button" class="alr-btn" data-act="add-cancel">Cancel</button><button type="submit" class="alr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save alert") + "</button></div></form>";
     }
     if (S.loading && !S.entries.length) h += '<div class="alr-quiet">Opening alerts…</div>';
     else if (S.error) h += '<div class="alr-quiet" role="alert">' + esc(S.error) + '<button class="alr-btn" data-act="retry">Try again</button></div>';
@@ -165,7 +165,7 @@
     try {
       var r = await E.apiFetch("/alerts/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.adding = null; E.toast("Alert recorded · " + body.item_name, "success");
+      S.adding = null; E.toast("Saved · alert for " + body.item_name, "success");
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
   }

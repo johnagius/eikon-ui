@@ -107,7 +107,7 @@
       h += '<form class="cnr-form" id="cnr-add" autocomplete="off">' + fld("client_name", "Name") + fld("client_surname", "Surname") + fld("telephone", "Phone", ' type="tel"') + fld("amount", "Amount €", ' inputmode="decimal" placeholder="0.00"') +
         fld("receipt_number", "Receipt no.", ' placeholder="Optional"') + fld("issue_date", "Issued", ' type="date" max="' + esc(today()) + '"') + fld("expiry_date", "Expires", ' type="date" min="' + esc(a.issue_date || today()) + '"') +
         (S.err && !S.using ? '<div class="cnr-err" id="cnr-err" role="alert">' + esc(S.err) + "</div>" : "") +
-        '<div class="acts"><span style="margin-right:auto;font-size:12.5px;color:var(--muted)">Leave Expires empty for no end date.</span><button type="button" class="cnr-btn" data-act="add-cancel">Cancel</button><button type="submit" class="cnr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div></form>";
+        '<div class="acts"><span style="margin-right:auto;font-size:12.5px;color:var(--muted)">Leave Expires empty for no end date.</span><button type="button" class="cnr-btn" data-act="add-cancel">Cancel</button><button type="submit" class="cnr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save credit note") + "</button></div></form>";
     }
     if (S.loading && !S.entries.length) h += '<div class="cnr-quiet">Opening credit notes…</div>';
     else if (S.error) h += '<div class="cnr-quiet">' + esc(S.error) + "</div>";
@@ -202,7 +202,7 @@
     try {
       var r = await E.apiFetch("/creditnotes/entries", { method: "POST", body: JSON.stringify({ issue_date: a.issue_date, client_name: a.client_name, client_surname: a.client_surname, telephone: a.telephone, email: "", receipt_number: a.receipt_number || "", amount: amt, expiry_date: a.expiry_date || "", no_expiry: 0 }) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.adding = null; E.toast("Credit note of " + eur(amt) + " for " + a.client_name, "success");
+      S.adding = null; E.toast("Saved · credit note of " + eur(amt) + " for " + a.client_name, "success");
       if (E.linkPerson) E.linkPerson({ name: a.client_name + " " + a.client_surname, phone: a.telephone }, "register:credit-notes"); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();

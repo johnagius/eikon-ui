@@ -1866,6 +1866,157 @@
     if (again !== document.activeElement) { try { again.focus({ preventScroll: true }); } catch (e) { again.focus(); } }
     if (s0 != null) { try { again.setSelectionRange(s0, s1); } catch (e) {} }
   };
+  // Focus is never lost (BACKLOG4 item 2). One place keeps the keyboard where the person is, in the new layout only:
+  //  - E.focusAfter(target) puts focus on target as soon as it is on the screen: an element, a selector inside the
+  //    screen, or a function (screen) => element. A heading or a row is given tabindex=-1 so it can hold focus. It
+  //    never takes focus from a form being typed in (E.whenFormIdle) or from a place the person chose meanwhile.
+  //  - Focus that falls to the page because the screen redrew (a save, a reload) is put back once the requests have
+  //    settled (so a screen that places it itself goes first): on the same control if it is still there, else on the
+  //    button that opened the form, else on the screen's heading. Nothing is left on <body>.
+  //  - A screen opened from a hub, the search, Back or a link puts focus on its heading: the next Tab is its main button.
+  //  - Keys: N opens the screen's main form (when not typing); in a form, Ctrl/Cmd+Enter saves and Escape cancels.
+  (function () {
+    var net = 0, sawNet = false, last = null, lastUser = null, opener = null, placed = null, pending = null, timer = 0, since = 0, observed = null, mo = null, typed = {};
+    var raw = E.apiFetch; // count the requests on their way, so a lost focus waits for the screen's own answer first
+    E.apiFetch = function () {
+      net++; var done = function () { net = Math.max(0, net - 1); };
+      var p; try { p = raw.apply(this, arguments); } catch (e) { done(); throw e; }
+      return Promise.resolve(p).then(function (v) { done(); return v; }, function (x) { done(); throw x; });
+    };
+    function screen() { var c = document.getElementById("eikon-content"); return c && E._sectionDashboardId === "today" && E.isUi2() ? c : null; }
+    function lostNow() { var a = document.activeElement; return !a || a === document.body || a === document.documentElement || !a.isConnected; }
+    function shown(el) { return !!el && el.isConnected && !el.disabled && !(el.closest && el.closest("[hidden],[inert]")) && el.getClientRects().length > 0; }
+    function inForm(el) { return !!(el && el.closest && el.closest("form")); }
+    function keyOf(el, c) { var k = E.focusKey(el); return k ? { k: k, n: Math.max(0, Array.prototype.indexOf.call(c.querySelectorAll(k), el)) } : null; }
+    function byKey(c, o) { if (!o) return null; var l; try { l = c.querySelectorAll(o.k); } catch (e) { return null; } return shown(l[o.n]) ? l[o.n] : null; }
+    function formKey(f) { return f.id ? "#" + f.id : "form"; }
+    function heading(c) { return c.querySelector("h1"); }
+    function resolve(t, c) { try { return typeof t === "function" ? t(c) : typeof t === "string" ? c.querySelector(t) : t; } catch (e) { return null; } }
+    function put(el, scroll) {
+      if (!el) return false;
+      if (!el.matches("a[href],button,input,select,textarea,[tabindex]")) el.setAttribute("tabindex", "-1");
+      placed = el;
+      try { el.focus({ preventScroll: !scroll }); } catch (e) { try { el.focus(); } catch (e2) {} }
+      return document.activeElement === el;
+    }
+    E.focusAfter = function (target, opts) {
+      var c = screen(); if (!c) return false;
+      pending = { t: target, at: Date.now(), from: document.activeElement, scroll: !(opts && opts.scroll === false) };
+      return tryPending(c);
+    };
+    function tryPending(c) {
+      var p = pending; if (!p) return false;
+      if (Date.now() - p.at > 6000) { pending = null; return false; }
+      var el = resolve(p.t, c); if (!shown(el)) return false; // not on the screen yet: the next redraw tries again
+      var a = document.activeElement;
+      pending = null;
+      if (lostNow() || a === placed || (a === p.from && !inForm(a))) return put(el, p.scroll);
+      if (c.contains(a) && inForm(a)) E.whenFormIdle(c, function () { if (lostNow()) put(resolve(p.t, c), p.scroll); }); // typing: only a focus that fell is taken
+      return false; // the person went somewhere else meanwhile: leave them there
+    }
+    function schedule() { if (timer) return; since = Date.now(); sawNet = net > 0; timer = setTimeout(tick, 80); }
+    function tick() {
+      timer = 0;
+      var c = screen(); if (!c) return;
+      if (pending && !tryPending(c) && pending) return;
+      if (!lostNow() || !last) return;
+      if ((net > 0 || sawNet) && Date.now() - since < 4000) { sawNet = net > 0; timer = setTimeout(tick, 80); return; } // a save or a reload is on its way
+      var l = last, el;
+      if (l.el.isConnected && c.contains(l.el)) { if (!shown(l.el)) return; el = l.el; } // still there: enabled again after a failed save
+      else el = byKey(c, l.key) || (l.h1 && heading(c)) || (l.form && byKey(c, opener)) || null;
+      if (el) put(el, true); else put(heading(c), false);
+    }
+    function watch(c) {
+      if (observed === c || !window.MutationObserver) return;
+      if (mo) mo.disconnect();
+      observed = c;
+      mo = new MutationObserver(function () {
+        Object.keys(typed).forEach(function (k) { var f = null; try { f = c.querySelector(k); } catch (e) {} if (k !== "form" && !f) delete typed[k]; }); // a form that closed opens clean next time
+        if (pending) tryPending(c);
+        if (last && lostNow()) schedule();
+      });
+      mo.observe(c, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled", "hidden"] });
+    }
+    document.addEventListener("focusin", function (ev) {
+      var c = screen(), el = ev.target; if (!c) return;
+      watch(c);
+      if (!c.contains(el)) { if (!(el.closest && el.closest("[role=dialog],[aria-modal=true],.eikon-modal-overlay,.esr-ov"))) last = null; return; } // a dialog gives focus back here
+      last = { el: el, key: keyOf(el, c), h1: el.tagName === "H1", form: inForm(el) };
+      if (el === placed) return; // where Eikon put focus is not where the person went
+      if (last.form && lastUser && !lastUser.form && lastUser.key) opener = lastUser.key; // the button that opened this form
+      lastUser = last;
+    }, true);
+    document.addEventListener("focusout", function (ev) {
+      var t = ev.target;
+      setTimeout(function () {
+        var c = screen(); if (!c || !lostNow() || !last) return;
+        if (t && t === last.el && shown(t) && c.contains(t)) { last = null; return; } // put down on purpose (a click on empty space)
+        schedule();
+      }, 0);
+    }, true);
+    // The router: a screen about to be drawn. Focus moves to its heading when it was on the page or on the old screen
+    // (a hub card, a result, Back, a link); a rail tab keeps it. The first screen after sign-in leaves it alone.
+    E._focusScreenOpening = function (c) {
+      if (!screen()) return false;
+      watch(c);
+      var a = document.activeElement, first = !c._eikonSeen; c._eikonSeen = true;
+      last = lastUser = opener = pending = null; typed = {};
+      return !first && (lostNow() || c.contains(a));
+    };
+    E._focusScreenOpened = function (move) { if (move && lostNow()) E.focusAfter(heading, { scroll: false }); }; // a screen that placed focus itself keeps it
+    // The screen's main button: the first primary button after its heading, in the heading's own block.
+    E.mainButton = function (c) {
+      c = c || screen(); var h = c && heading(c); if (!h) return null;
+      for (var box = h.parentElement, i = 0; box && i < 2 && c.contains(box); box = box.parentElement, i++) {
+        var bs = box.querySelectorAll("button.p");
+        for (var j = 0; j < bs.length; j++) if ((h.compareDocumentPosition(bs[j]) & 4) && shown(bs[j]) && !inForm(bs[j])) return bs[j];
+      }
+      return null;
+    };
+    function textish(el) { return !!el && (el.isContentEditable || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || (el.tagName === "INPUT" && !/^(checkbox|radio|button|submit|reset|file|range|color|image)$/i.test(el.type || ""))); }
+    function overlay() { return !!document.querySelector(".esr-ov, [aria-modal=true]:not([hidden])") || Array.prototype.some.call(document.querySelectorAll(".eikon-modal-overlay"), function (o) { return o.style.display === "flex"; }); }
+    document.addEventListener("submit", function (ev) { if (ev.target) ev.target._eikonSentAt = Date.now(); }, true);
+    ["input", "change"].forEach(function (t) {
+      document.addEventListener(t, function (ev) { var c = screen(), f = c && ev.target && ev.target.closest && ev.target.closest("form"); if (f && c.contains(f)) typed[formKey(f)] = true; }, true);
+    });
+    function hub(id) { return id === "today" || id === "bookings" || (E.UI2_RAIL || []).concat(E.UI2_RAIL_FOOT || []).some(function (r) { return r.id === id; }); }
+    var nTimer = 0;
+    document.addEventListener("keydown", function (ev) {
+      if (nTimer) { clearTimeout(nTimer); nTimer = 0; } // another key straight after N: a scanner or typing, not the shortcut
+      var c = screen(); if (!c || ev.defaultPrevented || ev.isComposing || ev.altKey) return;
+      var a = document.activeElement, f = a && c.contains(a) && a.closest ? a.closest("form") : null, mod = ev.ctrlKey || ev.metaKey;
+      // Ctrl/Cmd+Enter saves from anywhere in the form, a text box included (once: not if the browser already sent it)
+      if (f && ev.key === "Enter" && mod && !ev.shiftKey) {
+        var t0 = Date.now();
+        setTimeout(function () {
+          if (ev.defaultPrevented || (f._eikonSentAt || 0) >= t0) return;
+          var sb = f.querySelector("button[type=submit],input[type=submit],button:not([type])");
+          if (sb && shown(sb)) sb.click();
+        }, 0);
+        return;
+      }
+      // Escape cancels the form. Something typed is never thrown away by one key: Escape then goes to Cancel.
+      if (f && ev.key === "Escape" && !mod && !ev.shiftKey) {
+        var list = a.getAttribute("aria-expanded") === "true" || !!f.querySelector("[role=listbox]:not([hidden]) [role=option], .epp-list:not([hidden])");
+        if (list) return; // Escape closes the suggestions first
+        setTimeout(function () {
+          if (ev.defaultPrevented || !f.isConnected) return;
+          var cancel = Array.prototype.filter.call(f.querySelectorAll("button"), function (b) { return b.type !== "submit" && shown(b) && (/cancel|close/i.test(b.getAttribute("data-act") || "") || /^(cancel|close)$/i.test((b.textContent || "").trim())); })[0];
+          if (!cancel) return;
+          if (typed[formKey(f)]) { cancel.focus(); return; }
+          cancel.click();
+        }, 0);
+        return;
+      }
+      // N: the screen's main form, when not typing and no dialog is open
+      if ((ev.key === "n" || ev.key === "N") && !mod && !f && !textish(a) && !overlay() && !hub(E.state.activeModuleId) && !Object.keys(typed).length) {
+        nTimer = setTimeout(function () {
+          nTimer = 0; if (ev.defaultPrevented || overlay()) return;
+          var b = E.mainButton(c); if (b && /^(new|add|record|log|start|share|ask|offer)\b/i.test((b.textContent || "").trim())) b.click(); // a button that starts something, never Save or Download
+        }, 90);
+      }
+    });
+  })();
   E.carryPerson = function (p) {
     try { sessionStorage.setItem("eikon_carry_person", JSON.stringify({ id: p.id, name: p.name || "", id_card: p.id_card || "", phone: p.phone || "", alt_phone: p.alt_phone || "", email: p.email || "", address: p.address || "", at: Date.now() })); } catch (e) {}
   };
@@ -2302,6 +2453,7 @@
       userLabel.textContent = u ? (u.full_name + " • " + u.location_name) : "";
     }
 
+    var moveFocus = E._focusScreenOpening ? E._focusScreenOpening(content) : false; // focus to the new screen's heading (BACKLOG4 item 2)
     // render module
     content.innerHTML = "";
     E.dbg("[router] render module:", id);
@@ -2320,6 +2472,7 @@
         "</pre>" +
         "</div>";
     }
+    if (E._focusScreenOpened) E._focusScreenOpened(moveFocus);
   };
 
   E.bootAuthed = async function () {

@@ -116,7 +116,7 @@
     h += '<datalist id="drr-presc">' + Object.keys(prescribers).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>";
     h += '<datalist id="drr-ids">' + Object.keys(ids).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>";
     h += '<div class="drr-err" role="alert">' + esc(f.err || "") + "</div>";
-    h += '<div class="acts"><small>Every line is needed for the register.</small><button type="button" class="drr-btn" data-act="cancel">Cancel</button><button type="submit" class="drr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Add to register") + "</button></div></form>";
+    h += '<div class="acts"><small>Every line is needed for the register.</small><button type="button" class="drr-btn" data-act="cancel">Cancel</button><button type="submit" class="drr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save entry") + "</button></div></form>";
     return h;
   }
 
@@ -253,7 +253,7 @@
       var r = await E.postOnce("/daily-register/entries", body, { list: async function () { var r0 = await E.apiFetch("/daily-register/entries?month=" + body.entry_date.slice(0, 7), { method: "GET" }); return (r0 && r0.ok && r0.entries) || []; },
         same: function (e) { return e.entry_date === body.entry_date && String(e.client_id || "").trim().toLowerCase() === String(body.client_id || "").trim().toLowerCase() && String(e.medicine_name_dose || "").trim().toLowerCase() === String(body.medicine_name_dose || "").trim().toLowerCase() && String(e.prescriber_reg_no || "").trim().toLowerCase() === String(body.prescriber_reg_no || "").trim().toLowerCase() && String(e.client_name || "").trim().toLowerCase() === String(body.client_name || "").trim().toLowerCase(); } });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.form = null; E.toast("Added · " + body.medicine_name_dose + " · " + body.client_name, "success");
+      S.form = null; E.toast("Saved · " + body.medicine_name_dose + " for " + body.client_name, "success");
       S.last = { entry_date: body.entry_date, client_id: body.client_id, client_name: body.client_name, prescriber_name: body.prescriber_name, prescriber_reg_no: body.prescriber_reg_no }; // "Another for …": the next line of the same prescription
       S.month = body.entry_date.slice(0, 7);
     } catch (e) {

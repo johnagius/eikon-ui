@@ -66,7 +66,7 @@
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var mn = MON[Number(S.month.slice(5)) - 1];
     var h = '<div class="por"><button class="por-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("poreg")) + '</button>' +
-      '<div class="por-top"><div><h1>Paid out</h1><p class="por-sub">Money paid from the till: couriers, cleaners, small suppliers.</p></div>' + (S.adding ? "" : '<button class="por-btn p" data-act="add">Record a payment</button>') + "</div>";
+      '<div class="por-top"><div><h1>Paid out</h1><p class="por-sub">Money paid from the till: couriers, cleaners, small suppliers.</p></div>' + (S.adding ? "" : '<button class="por-btn p" data-act="add">New payment</button>') + "</div>";
     if (S.adding) {
       var a = S.adding;
       h += '<form class="por-form" id="por-add" autocomplete="off">' +
@@ -78,7 +78,7 @@
         '<label><span>What for</span><input name="reason" value="' + esc(a.reason) + '" placeholder="Optional, e.g. Delivery to Gozo"></label>' +
         '<label><span>When</span><input name="entry_date" type="date" max="' + esc(today()) + '" value="' + esc(a.entry_date) + '"><input name="entry_time" type="time" value="' + esc(a.entry_time) + '" style="flex:0 0 96px"></label>' +
         (S.err ? '<div class="por-err" id="por-err" role="alert">' + esc(S.err) + "</div>" : "") +
-        '<div class="acts"><button type="button" class="por-btn" data-act="add-cancel">Cancel</button><button type="submit" class="por-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record") + "</button></div>" +
+        '<div class="acts"><button type="button" class="por-btn" data-act="add-cancel">Cancel</button><button type="submit" class="por-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save payment") + "</button></div>" +
         '<datalist id="por-names">' + S.names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
     }
     h += E.months.bar(S.month, { label: "Paid out" });
@@ -164,7 +164,7 @@
         var now = null; try { now = (await monthList()).filter(same).length; } catch (e1) { throw x0; }
         if (now <= had) throw x0;
       }
-      S.adding = null; E.toast("Paid out " + eur(fee) + " to " + a.payee_name, "success");
+      S.adding = null; E.toast("Saved · " + eur(fee) + " paid out to " + a.payee_name, "success");
       if (a.entry_date.slice(0, 7) !== S.month) S.month = a.entry_date.slice(0, 7);
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
