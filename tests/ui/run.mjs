@@ -57,6 +57,7 @@ let eodState = { rec: null, n: 0 };
 let pvState = { reports: [{ id: "pv_1_abc", created_at: "2026-10-30T09:00:00.000Z", updated_at: "2026-10-30T09:00:00.000Z", status: "Draft", report_type: "Initial", pt_initials: "J.D.", pt_age: "65", pt_sex: "Female", pt_weight: "", pt_height: "", pt_dob_day: "5", pt_dob_month: "3", pt_id: "123456M", pt_medical_history: "",
   drugs: [{ name: "Amoxicillin 500mg", dose: "500mg", route: "Oral", frequency: "TDS", start_date: "", stop_date: "", indication: "URTI", batch_no: "AX12", mah: "" }], reaction_description: "Itchy rash", reaction_start: "", reaction_stop: "", reaction_seriousness: "Serious – Other medically important", reaction_outcome: "Recovering", reaction_causality: "Possible", reaction_meddra: "Rash",
   reporter_name: "Maria Borg", reporter_qualification: "Pharmacist", reporter_email: "", reporter_phone: "", reporter_institution: "Demo Pharmacy", reporter_address: "", report_date: "2026-10-30", notes: "", mpa_ref: "MPA-7" }] };
+let lblState = { history: [{ patientName: "", drugName: "Amoxicillin 500mg", dose: "1 capsule", frequency: "Three times daily", route: "Oral", customInstructions: "", selectedWarnings: ["w10"], templateId: "tpl_std", id: "lb_1_seed", printedAt: "2026-11-01 10:00", printedBy: "Maria Borg" }], templates: [{ id: "tpl_std", name: "Standard Label", size: "standard", fields: [], isDefault: true }], pharm: { name: "Demo Pharmacy", phone: "21234567", licence: "" } };
 let peopleState = { adopted: false, carmel: { id: 1, name: "Zammit Carmel", id_card: "0012345M", phone: "79123456", alt_phone: "", email: "", address: "1 Triq il-Knisja", doctor_name: "", date_of_birth: "", notes: "", source: "history", version: 1, updated_at: "2026-10-31 09:00:00" } };
 function mockApi(req, res, body) {
   const url = new URL(req.url, "http://x");
@@ -206,6 +207,21 @@ function mockApi(req, res, body) {
     if (req.method === "PUT") { const s = (body && body.state) || {}; (s.campaigns || []).forEach((c) => { const i = st.campaigns.findIndex((x) => x.id === c.id); if (i >= 0) st.campaigns[i] = c; else st.campaigns.unshift(c); }); st.campaigns = st.campaigns.filter((c) => !(s.deleted_ids || []).includes(c.id)); return res.end(JSON.stringify({ ok: true, saved: (s.campaigns || []).length })); }
   }
   // Contraceptive pills (new layout ocpreg): no mock needed. Like the classic OCP finder it is a fixed list in the page and calls no endpoint.
+  // Dispensing labels (new layout lblreg): one earlier label, settings kept as sent; a PUT upserts history by id, as the worker does
+  if (p === "/labels/state" && req.method === "GET") return res.end(JSON.stringify({ ok: true, state: { labelHistory: lblState.history, templates: lblState.templates, pharmacyDetails: lblState.pharm } }));
+  if (p === "/labels/state" && req.method === "PUT") { const st = (body && body.state) || {}; (st.labelHistory || []).forEach((l) => { if (!lblState.history.some((x) => x.id === l.id)) lblState.history.unshift(l); }); lblState.templates = st.templates || []; lblState.pharm = st.pharmacyDetails || {}; return res.end(JSON.stringify({ ok: true })); }
+  // Supplier stock (sinreg): a 10+2 deal line, an out-of-stock line, a line at a second supplier; one shipped order; the saved draft
+  if (p === "/supplier-products/inventory" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [
+    { id: 501, location_id: 400, supplier_name: "Supplier Depot", description: "Augmentin 625mg x14", barcode: "5000001", stock_code: "AUG625", cost_excl_vat: 4.2, vat_rate: 0, retail_price: 7.5, profit_margin: 53, qty_purchased: 10, qty_free: 2, discount_pct: 0, discount_euro: 0, batch: "B77", expiry_date: "2099-01-01", out_of_stock: 0 },
+    { id: 502, location_id: 400, supplier_name: "Supplier Depot", description: "Ventolin inhaler", barcode: "5000002", stock_code: "VEN100", cost_excl_vat: 3.1, vat_rate: 0, retail_price: 5.2, profit_margin: 40, qty_purchased: 1, qty_free: 0, out_of_stock: 1 },
+    { id: 503, location_id: 401, supplier_name: "Medi Wholesale", description: "Panadol 500mg x24", barcode: "5000004", stock_code: "PAN24", cost_excl_vat: 1.9, vat_rate: 18, retail_price: 3.6, profit_margin: 47, qty_purchased: 1, qty_free: 0, discount_pct: 5, out_of_stock: 0 }] }));
+  if (p === "/supplier-products/inventory-settings" && req.method === "GET") return res.end(JSON.stringify({ ok: true, settings: { expiry_red_months: 6, expiry_yellow_months: 12 } }));
+  if (p === "/supplier-orders/cart-draft" && req.method === "GET") return res.end(JSON.stringify({ ok: true, cart: {} }));
+  if (p === "/supplier-orders/cart-draft" && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
+  if (p === "/supplier-orders" && req.method === "POST") return res.end(JSON.stringify({ ok: true, id: 88 }));
+  if (p === "/supplier-orders/sent" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [{ id: 87, supplier_name: "Supplier Depot", supplier_location_id: 400, status: "shipped", notes: "", created_at: "2026-11-02 09:00:00", item_count: 1, items_summary: "Ventolin inhaler" }] }));
+  if (p === "/supplier-orders/87" && req.method === "GET") return res.end(JSON.stringify({ ok: true, order: { id: 87, supplier_name: "Supplier Depot", status: "shipped", notes: "", supplier_notes: "Arrives Thursday", scheduled_delivery_date: "2026-11-06" }, items: [{ id: 9001, description: "Ventolin inhaler", barcode: "5000002", qty_requested: 2, qty_free: 0, cost_excl_vat: 3.1, unavailable: 0 }], feedbacks: [] }));
+  if (p === "/supplier-orders/87" && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -1309,6 +1325,88 @@ try {
     JSON.stringify({ ocpRail, ocpAll, ocpAdele, ocpHits, ocpLike, ocpClair, ocpCalls }));
 } catch (e) { report("contraceptive pills: ran to the end", false, String(e).slice(0, 300)); }
 
+// Dispensing labels: the old link opens the new screen under Registers; a medicine labelled before fills its dose; Print
+// opens the classic print page and sends one PUT with only that entry and the settings unchanged.
+try {
+  await page.goto(base + "&ui=2#labels");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "lblreg" && document.querySelector("#lbl-add") && document.querySelector(".lbl-row"), null, { timeout: 15000 });
+  const lblRail = await page.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join());
+  await page.fill("[name=drugName]", "Amoxicillin 500mg"); await page.waitForTimeout(200);
+  const lblDose = await page.inputValue("[name=dose]"), lblPrev = await page.textContent("#lbl-prev");
+  await page.evaluate(() => { window.__lblPrinted = []; window.open = (u) => { fetch(u).then((r) => r.text()).then((t) => window.__lblPrinted.push(t)); return {}; }; });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("#lbl-add button[type=submit]");
+  await page.waitForFunction(() => window.__lblPrinted.length === 1 && /saved to recent labels/.test(document.querySelector("#lbl-status").textContent), null, { timeout: 8000 });
+  const lblHtml = await page.evaluate(() => window.__lblPrinted[0]);
+  const lblPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT" && c.path === "/labels/state").map((c) => c.body.state);
+  const e0 = ((lblPuts[0] || {}).labelHistory || [])[0] || {};
+  report("dispensing labels: #labels opens it under Registers; a known medicine fills its dose; Print opens the classic print page; one PUT with only the new entry and the settings unchanged",
+    lblRail === "registers" && lblDose === "1 capsule" && /Rx: Amoxicillin 500mg/.test(lblPrev) && /Dose\/Freq: 1 capsule \| Three times daily/.test(lblPrev) &&
+    /<b>Rx:<\/b> Amoxicillin 500mg/.test(lblHtml) && /@page\{margin:0;\}/.test(lblHtml) && /T:21234567/.test(lblHtml) && /window\.print\(\)/.test(lblHtml) &&
+    lblPuts.length === 1 && lblPuts[0].labelHistory.length === 1 && e0.drugName === "Amoxicillin 500mg" && e0.dose === "1 capsule" && e0.templateId === "tpl_std" && /^lb_\d+_/.test(e0.id) &&
+    JSON.stringify(Object.keys(e0)) === JSON.stringify(["patientName", "drugName", "dose", "frequency", "route", "customInstructions", "selectedWarnings", "templateId", "id", "printedAt", "printedBy"]) &&
+    lblPuts[0].templates.length === 1 && lblPuts[0].templates[0].id === "tpl_std" && lblPuts[0].pharmacyDetails.phone === "21234567",
+    JSON.stringify({ lblRail, lblDose, lblPrev, lblPuts }).slice(0, 600));
+} catch (e) { report("dispensing labels: ran to the end", false, String(e).slice(0, 300)); }
+// Supplier stock: the old link opens the new screen under Stock; the deal line goes in at 10 and 14 snaps back to 10;
+// sending posts the classic's order body once; the draft is saved with PUT (never DELETE); Mark as received sends only the status.
+try {
+  await page.goto(base + "&ui=2#supplier-inventory");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "sinreg" && document.querySelector(".sin-row"), null, { timeout: 15000 });
+  const sinRail = await page.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join());
+  const sinRows = await page.$$eval(".sin-row", (l) => l.map((r) => r.textContent));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.fill("#sin-q", "augm"); await page.waitForTimeout(250);
+  await page.click(".sin-row [data-act=cart]"); await page.waitForSelector("[data-qty]");
+  await page.fill("[data-qty]", "14"); await page.press("[data-qty]", "Enter"); await page.waitForTimeout(200);
+  const sinQty = await page.inputValue("[data-qty]");
+  await page.fill('[data-notes="Supplier Depot"]', "Back door");
+  await page.click('[data-act=send][data-sup="Supplier Depot"]'); await page.click("[data-act=send-yes]");
+  let sinPosts = []; for (let i = 0; i < 40 && !sinPosts.length; i++) { await page.waitForTimeout(100); sinPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/supplier-orders"); }
+  await page.waitForTimeout(1300);
+  const sinAll = await (await fetch(`http://localhost:${PORT}/__calls`)).json();
+  const sinDraft = sinAll.filter((c) => c.path === "/supplier-orders/cart-draft" && c.method !== "GET");
+  await page.click("[data-act=view][data-v=orders]"); await page.waitForSelector(".sin-ord"); await page.click(".sin-ord"); await page.waitForSelector("[data-act=received]");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=received]"); await page.waitForTimeout(600);
+  const sinPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT");
+  const sb = (sinPosts[0] || {}).body || {}, si = (sb.items || [])[0] || {};
+  report("supplier stock: old link opens it under Stock; deal line in 10s (14 snaps to 10); one classic order POST; draft saved with PUT, never DELETE; Mark as received sends only the status",
+    sinRail === "stock" && sinRows.length === 3 && /Out of stock/.test(sinRows[2]) && /Buy 10 \+ 2 free/.test(sinRows[0]) && sinQty === "10" && sinPosts.length === 1 &&
+    JSON.stringify(sb) === JSON.stringify({ supplier_location_id: 400, supplier_name: "Supplier Depot", items: [{ product_id: 501, description: "Augmentin 625mg x14", barcode: "5000001", stock_code: "AUG625", qty_requested: 10, qty_free_included: 2, qty_free: 2, cost_excl_vat: 4.2, vat_rate: 18, retail_price: 7.5, batch: "B77", expiry_date: "2099-01-01", discount_pct: 0, discount_euro: 0 }], notes: "Back door" }) &&
+    sinDraft.length >= 1 && sinDraft.every((c) => c.method === "PUT") && JSON.stringify(sinDraft[sinDraft.length - 1].body) === JSON.stringify({ cart: {} }) &&
+    sinPuts.length === 1 && sinPuts[0].path === "/supplier-orders/87" && JSON.stringify(sinPuts[0].body) === JSON.stringify({ status: "received" }),
+    JSON.stringify({ sinRail, sinRows, sinQty, sinPosts, sinDraft, sinPuts }).slice(0, 900));
+} catch (e) { report("supplier stock: ran to the end", false, String(e).slice(0, 300)); }
+// Over the counter (new layout otcreg): the old link opens it under Registers; it reads the classic OTC mindmap's own
+// files (no API call); a symptom shows its products in the classic's score order; a product shows its cautions first,
+// in words; search ranks like the classic; Escape steps back; nothing wider than a phone.
+try {
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.goto(base + "&ui=2#otcmindmap");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "otcreg" && document.querySelectorAll(".otc-side .otc-row").length === 88, null, { timeout: 15000 });
+  const otcRail = await page.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join());
+  await page.click('.otc-side [data-open="symptom:S002"]'); await page.waitForSelector("#otc-title"); await page.waitForTimeout(150);
+  const otcSym = await page.evaluate(() => ({ title: document.querySelector("#otc-title").textContent, n: document.querySelector(".otc-detail .otc-lab b").textContent,
+    first: document.querySelector('[data-sec="symptom"] .otc-row b').textContent, sub: document.querySelector('[data-sec="symptom"] .otc-row .s').textContent, focus: document.activeElement.id }));
+  await page.fill("#otc-q", "actifed"); await page.waitForTimeout(100);
+  const otcRes = await page.evaluate(() => [...document.querySelectorAll("#otc-res .otc-row b")].map((b) => b.textContent));
+  await page.click('#otc-res [data-open="product:P0001"]'); await page.waitForSelector(".otc-caution");
+  const otcCaut = await page.textContent(".otc-caution");
+  const otcFirst = await page.evaluate(() => document.querySelector(".otc-detail .otc-caution, .otc-detail .otc-lab").className);
+  await page.click('.otc-caution [data-open="product:P0285"]'); await page.waitForFunction(() => /Medofed/.test((document.querySelector("#otc-title") || {}).textContent || ""));
+  await page.keyboard.press("Escape"); await page.waitForTimeout(200);
+  const otcBack = await page.textContent("#otc-title");
+  await page.setViewportSize({ width: 360, height: 780 }); await page.waitForTimeout(200);
+  const otcW = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth && ![...document.querySelectorAll("#eikon-content *")].some((e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 0.5));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const otcApi = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => /productmap|otc/i.test(c.path));
+  report("over the counter: #otcmindmap opens it under Registers; 88 symptoms; acid reflux lists its 29 products, best score first; a product's cautions come first, in words; Escape steps back; fits 360 px; reads only the classic's files",
+    otcRail === "registers" && otcSym.title === "acid reflux" && otcSym.n === "29" && otcSym.first === "Acidex Oral Suspension" && /^Primary · Imported symptom tags · Score 92$/.test(otcSym.sub) && otcSym.focus === "otc-title" &&
+    otcRes.join("|") === "Actifed 60mg/2.5mg Tablets|ACTIFED 30mg/1.25mg per 5ml Syrup" && /Caution: 2 guardrails/.test(otcCaut) && /Do not cross-sell together by default; show as alternative options instead\./.test(otcCaut) && /Medofed/.test(otcCaut) &&
+    /otc-caution/.test(otcFirst) && otcBack === "ACTIFED 30mg/1.25mg per 5ml Syrup" && otcW && otcApi.length === 0,
+    JSON.stringify({ otcRail, otcSym, otcRes: otcRes.slice(0, 3), otcCaut: otcCaut.slice(0, 200), otcFirst, otcBack, otcW, otcApi }).slice(0, 700));
+} catch (e) { report("over the counter: ran to the end", false, String(e).slice(0, 300)); }
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });
