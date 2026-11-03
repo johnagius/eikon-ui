@@ -808,3 +808,8 @@ All of it waits only on the worker deploy.
 - Round 95's supplier change had not been run. Added a supplier account to a local stack (org 3, location 400, sup@demo.mt; serve-sup.mjs) and drove it with a fake clock (sup-vis.mjs).
 - That showed the change was only half the story: the Supplier Dashboard has its own 30-second refresh (orders, feedback and more), which also kept going from hidden tabs: 7 requests in two hidden minutes even after round 95.
 - Fixed the same way: the dashboard skips its refresh while the tab is hidden and catches up at once on return if due; its listener is removed when you leave the screen. Now, with a supplier signed in: visible → badge poll and dashboard each ask once per 30 s; hidden two minutes → nothing; back → both catch up at once; no page errors. UI suite 140/140.
+
+## Round 97 — Supplier and Company Administrator portals swept
+
+- The sweeps so far covered the pharmacy side. Added a Company Administrator account (location 600) next to the supplier one in serve-sup.mjs and opened every screen in each portal's sidebar with UI .103, against both the waiting worker (bookings-15) and the live one (fixes-1): Supplier Dashboard, Product List, Received Orders, Order Feedback; Company Dashboard, Admin Overview.
+- Looked for page errors, the fatal overlay, server 500s, console errors and "undefined/NaN/[object Object]/HTTP nnn" on screen. All clean on both servers. Nothing to fix.
