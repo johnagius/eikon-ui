@@ -169,6 +169,11 @@ function mockApi(req, res, body) {
   if (p === "/shifts/assignments" && req.method === "POST") return res.end(JSON.stringify({ ok: true, shift_id: 77 }));
   if (/^\/shifts\/assignments\/\d+$/.test(p) && (req.method === "PUT" || req.method === "DELETE")) return res.end(JSON.stringify({ ok: true }));
   if (/^\/shifts\/leaves\/\d+\/(approve|reject)$/.test(p) && req.method === "POST") return res.end(JSON.stringify({ ok: true }));
+  // POCT (new layout): one known patient with one earlier blood pressure; PUT is the classic upsert
+  if (p === "/poct/state" && req.method === "GET") return res.end(JSON.stringify({ ok: true, state: {
+    records: [{ id: "r_1", testType: "bp", testLabel: "Blood Pressure", performedAtIso: "2026-10-01T08:00:00.000Z", performedAtLocal: "2026-10-01T10:00", patient: { name: "Zammit Carmel", patientId: "0012345M", phone: "79123456", age: 64, address: "Zebbug" }, feeDue: 0, notes: "", intervention: "", results: { sys: 150, dia: 95, pulse: 70, arm: "Left", position: "Sitting" }, updatedAtIso: "2026-10-01T08:00:00.000Z" }],
+    patients: [{ patientId: "0012345M", name: "Zammit Carmel", phone: "79123456", age: 64, address: "Zebbug", createdAtIso: "2026-10-01T08:00:00.000Z", updatedAtIso: "2026-10-01T08:00:00.000Z", lastSeenIso: "2026-10-01T08:00:00.000Z", conflicts: [] }] } }));
+  if (p === "/poct/state" && req.method === "PUT") return res.end(JSON.stringify({ ok: true, patients_upserted: 1, records_upserted: 1, patients_deleted: 0, records_deleted: 0 }));
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -1122,6 +1127,29 @@ try {
     shfW.map((c) => c.method + " " + c.path).join() === "PUT /shifts/assignments/1,POST /shifts/assignments,DELETE /shifts/assignments/1,POST /shifts/leaves/3/approve", JSON.stringify({ shfRail, shfAsk, shfW }));
 } catch (e) { report("plan shifts: ran to the end", false, String(e).slice(0, 300)); }
 await page.unroute(/\/shifts\/assignments-range/).catch(() => {}); await page.unroute(/\/shifts\/leaves\?/).catch(() => {});
+
+// POCT in the new layout: the old #poct link lands on it; a known ID card fills the patient; a high glucose is marked in words;
+// one PUT with the record and the whole patient card in the classic shape, and never a delete or a wipe.
+try {
+  await page.goto(base + "&ui=2#poct");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "pocreg" && document.querySelector(".poc-list"), null, { timeout: 15000 });
+  const poc1 = await page.evaluate(() => ({ list: document.querySelector(".poc-list").textContent, rail: [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod) }));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=add]"); await page.click('.poc-seg [data-type="bg"]');
+  await page.fill("[name=patientId]", "12345m"); await page.press("[name=patientId]", "Tab"); await page.waitForTimeout(300);
+  await page.fill("[name=glucose]", "12.4"); await page.waitForTimeout(100);
+  const pocLive = await page.textContent("#poc-live");
+  await page.click("#poc-add button[type=submit]"); await settleSave();
+  const pocPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT" && c.path === "/poct/state").map((c) => c.body);
+  const pr = pocPuts[0] && pocPuts[0].records[0], pc = pocPuts[0] && pocPuts[0].patients[0];
+  report("poct: #poct opens the new screen with the earlier High BP; a known ID card fills the patient; glucose 12.4 is High; one PUT, classic shape, no deletes",
+    /150\/95/.test(poc1.list) && /High/.test(poc1.list) && poc1.rail.includes("registers") && /High/.test(pocLive) && pocPuts.length === 1 &&
+    pr.testType === "bg" && pr.testLabel === "Blood Glucose" && pr.results.glucose === 12.4 && pr.results.timing === "Random" && pr.patient.patientId === "0012345M" && pr.patient.name === "Zammit Carmel" && pr.patient.phone === "79123456" && pr.patient.age === 64 &&
+    pc.patientId === "0012345M" && pc.createdAtIso === "2026-10-01T08:00:00.000Z" && pc.lastSeenIso === pr.performedAtIso && Array.isArray(pc.conflicts) && pc.conflicts.length === 0 &&
+    !("wipe_all" in pocPuts[0]) && !("deleted_record_ids" in pocPuts[0]) && !("deleted_patient_ids" in pocPuts[0]) && pocPuts[0].records.length === 1 && pocPuts[0].patients.length === 1 &&
+    !!(await page.$(".poc-who")),
+    JSON.stringify({ poc1, pocLive, pocPuts }).slice(0, 900));
+} catch (e) { report("poct: new layout flow ran to the end", false, String(e).slice(0, 300)); }
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
