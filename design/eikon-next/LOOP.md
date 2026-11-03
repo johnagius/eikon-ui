@@ -813,3 +813,12 @@ All of it waits only on the worker deploy.
 
 - The sweeps so far covered the pharmacy side. Added a Company Administrator account (location 600) next to the supplier one in serve-sup.mjs and opened every screen in each portal's sidebar with UI .103, against both the waiting worker (bookings-15) and the live one (fixes-1): Supplier Dashboard, Product List, Received Orders, Order Feedback; Company Dashboard, Admin Overview.
 - Looked for page errors, the fatal overlay, server 500s, console errors and "undefined/NaN/[object Object]/HTTP nnn" on screen. All clean on both servers. Nothing to fix.
+
+## Round 98 — Staff Bookings on a phone, with real bookings (UI .105)
+
+- New bk-phone.mjs: two practitioners (Pharm. Maria Borg; Dr Joe Camilleri, Physiotherapy), three services, bookings today and through the week; phone screenshots of the day, the week, a booking's sheet and the New booking sheet, light and dark. The layout holds up well.
+- Fixed:
+  - The Book button read "Book blood pressure check · today 08:45" and wrapped to two lines; the service is picked just above, so it now says "Book today at 08:45" on one line.
+  - Dark mode: the green Book button and the + button had white text on #2BC48A (about 2:1). Round 76 had fixed the day, time and chip buttons by an override but missed these two. Now one token, --ti (white in light, near-black in dark), for every green fill in Bookings.
+  - Light: the practitioner filter chips (grey on grey, 4.2:1; they only show with two or more people) now use the text colour.
+- axe-bk now also opens the New booking and booking sheets: all clean in light and dark. bk-e2e 13/13 (fresh data), bk-settings 13/13, UI suite 140/140.
