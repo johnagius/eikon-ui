@@ -149,7 +149,8 @@
     S.saving = true; paint(true);
     try {
       var body = {}; F.forEach(function (k) { body[k] = a[k]; }); body.expires_date = ""; // the server sets six months on
-      var r = await E.apiFetch("/repeat-prescriptions/entries", { method: "POST", body: JSON.stringify(body) });
+      var r = await E.postOnce("/repeat-prescriptions/entries", body, { list: async function () { var r0 = await E.apiFetch("/repeat-prescriptions/entries?from=" + body.entry_date + "&to=" + body.entry_date, { method: "GET" }); return (r0 && r0.ok && r0.entries) || []; },
+        same: function (e) { return e.entry_date === body.entry_date && String(e.client_id || "").trim().toLowerCase() === String(body.client_id || "").trim().toLowerCase() && String(e.medicine_name_dose || "").trim().toLowerCase() === String(body.medicine_name_dose || "").trim().toLowerCase() && String(e.prescriber_reg_no || "").trim().toLowerCase() === String(body.prescriber_reg_no || "").trim().toLowerCase(); } });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; E.toast("Recorded for " + a.client_name, "success");
     } catch (x) { S.err = E.saveFailText(x); }

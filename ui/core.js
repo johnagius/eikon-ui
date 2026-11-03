@@ -1386,6 +1386,23 @@
     if (x && x.network) return /timed out/i.test(String(x.message || "")) ? "No answer from the server in time. It may have been saved: check the list before doing it again." : "The connection dropped. Check the list: if it is not there, try again.";
     return "Not saved: " + String((x && (x.message || x)) || "error");
   };
+  // POST a new record at most once. When the answer is lost (timeout, dropped connection) the list is read again and
+  // a record that arrived counts as saved, so pressing Save again can never add it twice.
+  // check = { list: async () => rows of the period the record falls in, same: row => true when it is this record }
+  E.postOnce = async function (path, body, check) {
+    var count = async function () { return (await check.list()).filter(check.same).length; };
+    var had = null; if (check) { try { had = await count(); } catch (e0) { had = null; } }
+    try {
+      var r = await E.apiFetch(path, { method: "POST", body: JSON.stringify(body) });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      return r;
+    } catch (x) {
+      if (!(x && x.network) || had == null) throw x;
+      var now; try { now = await count(); } catch (e1) { throw x; }
+      if (now <= had) throw x;
+      return { ok: true, recovered: true };
+    }
+  };
   E.carryPerson = function (p) {
     try { sessionStorage.setItem("eikon_carry_person", JSON.stringify({ id: p.id, name: p.name || "", id_card: p.id_card || "", phone: p.phone || "", alt_phone: p.alt_phone || "", email: p.email || "", address: p.address || "", at: Date.now() })); } catch (e) {}
   };

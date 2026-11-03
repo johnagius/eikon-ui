@@ -183,7 +183,8 @@
     if (body.entry_date > ymd(new Date())) { S.form.err = "The date is in the future. Nothing was saved."; return paint(); }
     S.saving = true; paint();
     try {
-      var r = await E.apiFetch("/daily-register/entries", { method: "POST", body: JSON.stringify(body) });
+      var r = await E.postOnce("/daily-register/entries", body, { list: async function () { var r0 = await E.apiFetch("/daily-register/entries?month=" + body.entry_date.slice(0, 7), { method: "GET" }); return (r0 && r0.ok && r0.entries) || []; },
+        same: function (e) { return e.entry_date === body.entry_date && String(e.client_id || "").trim().toLowerCase() === String(body.client_id || "").trim().toLowerCase() && String(e.medicine_name_dose || "").trim().toLowerCase() === String(body.medicine_name_dose || "").trim().toLowerCase() && String(e.prescriber_reg_no || "").trim().toLowerCase() === String(body.prescriber_reg_no || "").trim().toLowerCase() && String(e.client_name || "").trim().toLowerCase() === String(body.client_name || "").trim().toLowerCase(); } });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.form = null; E.toast("Added · " + body.medicine_name_dose + " · " + body.client_name, "success");
       S.month = body.entry_date.slice(0, 7);
