@@ -637,3 +637,7 @@ All of it waits only on the worker deploy.
 - Live: BUILD .84. modules.qtreg.js: item search → quotes by unit cost (discount + free stock), Best flag, margin;
   all_org switch; record with live preview using computeItemProfitFields' formula; postOnce. Real worker: server
   profit/margin = preview. UI 135/135. BUILD .85. 23 screens rebuilt.
+
+## Round 71 — dark-mode pass of the screens added since round 51
+- Live: BUILD .85. Dark phone screenshots of Handover, Who's in, Repeat Rx, Credit notes, Locum receipts, Paid out,
+  Order diary, Price check: all legible (tokens from round 51 carry through), no fixes needed.
