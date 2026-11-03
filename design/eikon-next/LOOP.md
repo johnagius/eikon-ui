@@ -641,3 +641,10 @@ All of it waits only on the worker deploy.
 ## Round 71 — dark-mode pass of the screens added since round 51
 - Live: BUILD .85. Dark phone screenshots of Handover, Who's in, Repeat Rx, Credit notes, Locum receipts, Paid out,
   Order diary, Price check: all legible (tokens from round 51 carry through), no fixes needed.
+
+## Round 72 — Shortages (scarce-stock needs) in the new layout
+- Live: BUILD .85. modules.ssreg.js, own Stock card beside classic Scarce stock (surplus offers stay there).
+  Sections: To send / You asked for / Other pharmacies need; Ask for something. Accept and confirm only where the
+  server allows (owner / offerer); confirm shown only after accept, like classic. postOnce for creates.
+- Local server now has a second pharmacy in another group (other@demo.mt) for network tests; full flow verified.
+- A Price-check UI test flaked (fixed wait vs. postOnce's extra read) → it now polls for the POST. UI 137/137. BUILD .86.
