@@ -119,6 +119,10 @@ function mockApi(req, res, body) {
   if (p === "/order-diary/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: url.searchParams.get("date") === todayYmd ? [{ id: 101, order_date: todayYmd, item_name: "Augmentin 625", qty: 2, supplier: "Actavis", status: "pending", notes: "For Mrs Borg" }] : [] }));
   if (p.startsWith("/order-diary/entries/") && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
   if (p === "/order-diary/items") return res.end(JSON.stringify({ ok: true, items: [] }));
+  if (p === "/quotations/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [
+    { id: 1, quote_date: "2026-10-29", item_description: "Panadol 500mg x24", supplier: "GSK", vat_rate: 18, cost_excl_vat: 2.4, discount_euro: 0, qty_purchased: 10, qty_free: 0, retail_price: 4.5 },
+    { id: 2, quote_date: "2026-11-01", item_description: "Panadol 500mg x24", supplier: "Actavis", vat_rate: 18, cost_excl_vat: 2.6, discount_euro: 0, qty_purchased: 10, qty_free: 2, retail_price: 4.5 }] }));
+  if (p === "/quotations/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, id: 3 }));
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -882,6 +886,17 @@ await page.click('[data-st=received][data-id="101"]'); await page.waitForTimeout
 const odPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT");
 report("order diary: opens from the old link grouped by supplier; Received sends only the status",
   /Actavis/.test(od1 || "") && odPuts.length === 1 && odPuts[0].path === "/order-diary/entries/101" && JSON.stringify(odPuts[0].body) === JSON.stringify({ status: "received" }), JSON.stringify({ od1, odPuts }));
+
+// Price check: a 10+2 deal at €2.60 is the best unit cost; a recorded quote sends cost, discount, VAT-inclusive cost and quantities.
+await page.goto(base + "&ui=2#quotations");
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "qtreg" && document.querySelector(".qtr-row"), null, { timeout: 15000 });
+const qt1 = await page.evaluate(() => [...document.querySelectorAll(".qtr-row")].map((r) => r.textContent));
+await fetch(`http://localhost:${PORT}/__reset`);
+await page.click("[data-act=add]"); await page.fill("[name=item_description]", "Panadol 500mg x24"); await page.fill("[name=supplier]", "Medicare"); await page.fill("[name=cost_excl_vat]", "2,50"); await page.fill("[name=discount_euro]", "0.3"); await page.fill("[name=qty_purchased]", "10"); await page.fill("[name=retail_price]", "4.5");
+await page.click("#qtr-add button[type=submit]"); await page.waitForTimeout(700);
+const qtPost = ((await (await fetch(`http://localhost:${PORT}/__calls`)).json()).find((c) => c.method === "POST" && c.path === "/quotations/entries") || {}).body || {};
+report("price check: opens from the old link; the 10+2 deal is Best at €2.17 a unit; a quote sends the server's inputs",
+  /Actavis.*Best/.test(qt1[0] || "") && /€2\.17/.test(qt1[0] || "") && qtPost.cost_excl_vat === 2.5 && qtPost.discount_euro === 0.3 && qtPost.cost_incl_vat === 2.95 && qtPost.vat_rate === 18 && qtPost.qty_purchased === 10 && qtPost.qty_free === 0 && qtPost.retail_price === 4.5, JSON.stringify({ qt1, qtPost }));
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
