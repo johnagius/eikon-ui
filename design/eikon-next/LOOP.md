@@ -656,3 +656,7 @@ All of it waits only on the worker deploy.
   leaves the form (23 screens), so slow lists never redraw under someone typing.
 - UI tests: settleSave() waits for the disabled submit to clear instead of fixed sleeps (8 places).
 - Repro 0/15 failures; UI 137/137; real-worker checks (7 screens) pass. BUILD .87.
+
+## Round 74 — typing fix confirmed on other screens
+- Live: BUILD .87. Fast-typing save loop (arrive from another screen, fill quickly, save; 10 each) on Paid out,
+  Repeat Rx, Order diary: 0 lost saves. Tool: scratchpad/tools/typeloop.mjs (qtloop.mjs for Price check).
