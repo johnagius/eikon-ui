@@ -11,34 +11,43 @@
   E.PARENT_ORIGIN = "https://swiftdataautomation.com";
   E.VERSION = "2026-02-20-05";
 
-  // ---- Clean addresses (eikonhq.com/today instead of /ui/index.html#today) ----
+  // ---- Clean addresses: the address bar shows just eikonhq.com ----
   // Only on a page the worker served outside /ui/ (index.html reads its mark into EIKON_UI_BASE). The screens still
-  // name each other by the old #ids: a #id set anywhere becomes the path at once (replaceState, so the history keeps
-  // one entry per screen), and Back/Forward between paths reaches the router as a hashchange. Opened as
-  // /ui/index.html (other sites, tablets, the home-screen app) none of this runs and the #hash works as before.
+  // name each other by the old #ids: a #id set anywhere is moved into the history entry's state at once (replaceState
+  // to "/", so the history keeps one entry per screen and the bar stays bare), and Back/Forward reaches the router as a
+  // hashchange. A deep link (eikonhq.com/endofday, or an old /#endofday) still opens that screen, then the bar goes back
+  // to "/". Refresh keeps the screen (the browser keeps history.state). Opened as /ui/index.html (other sites,
+  // tablets, the home-screen app) none of this runs and the #hash works as before.
   E.CLEAN_URLS = !!window.EIKON_UI_BASE;
   E.uiUrl = function (rel) { var b = window.EIKON_UI_BASE || ""; return b ? b + String(rel).replace(/^\.\//, "") : rel; };
   var ROUTE_ID = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
-  // The screen in the address, as "#id" (or ""): the hash, or with clean addresses the path.
+  function stateRoute() { try { var s = window.history.state; return s && typeof s.eikonRoute === "string" && ROUTE_ID.test(s.eikonRoute) ? s.eikonRoute : ""; } catch (e) { return ""; } }
+  function bare(id) {
+    var s = {}; try { var o = window.history.state; if (o && typeof o === "object") for (var k in o) s[k] = o[k]; } catch (e) {}
+    s.eikonRoute = id;
+    try { window.history.replaceState(s, "", "/" + window.location.search); return true; } catch (e) { return false; }
+  }
+  // The screen being shown, as "#id" (or ""): the hash, or with clean addresses the history entry's state (or a deep link's path).
   E.routeHash = function () {
     var h = String(window.location.hash || "");
     if (!E.CLEAN_URLS || h) return h;
+    var r = stateRoute(); if (r) return "#" + r;
     var p = String(window.location.pathname || "").replace(/^\//, "");
     return ROUTE_ID.test(p) ? "#" + p : "";
   };
-  // The app's own "this is the screen now" (boot, fallbacks): the hash as before, or the path in place.
+  // The app's own "this is the screen now" (boot, fallbacks): the hash as before, or the state in place.
   E.setRoute = function (id) {
-    if (E.CLEAN_URLS) { try { window.history.replaceState(window.history.state, "", "/" + id + window.location.search); return; } catch (e) {} }
+    if (E.CLEAN_URLS && bare(id)) return;
     window.location.hash = "#" + id;
   };
   if (E.CLEAN_URLS) {
-    var hashToPath = function () {
+    var hashToState = function () {
       var h = String(window.location.hash || "").replace(/^#/, "");
-      if (!ROUTE_ID.test(h)) return;
-      try { window.history.replaceState(window.history.state, "", "/" + h + window.location.search); } catch (e) {}
+      if (ROUTE_ID.test(h)) bare(h);
     };
-    hashToPath(); // an old link: eikonhq.com/#endofday -> /endofday
-    window.addEventListener("hashchange", hashToPath); // first listener, so the router and the screens read the path
+    hashToState(); // an old link: eikonhq.com/#endofday -> eikonhq.com, showing End of day
+    if (!window.location.hash && !stateRoute()) { var p0 = String(window.location.pathname || "").replace(/^\//, ""); if (ROUTE_ID.test(p0)) bare(p0); } // eikonhq.com/endofday
+    window.addEventListener("hashchange", hashToState); // first listener, so the router and the screens read the state
     window.addEventListener("popstate", function () {
       if (window.location.hash) return; // a #id change: its own hashchange follows
       var ev; try { ev = new HashChangeEvent("hashchange"); } catch (e) { ev = document.createEvent("Event"); ev.initEvent("hashchange", false, false); }

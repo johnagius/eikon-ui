@@ -1669,19 +1669,19 @@ try {
   await cp.click('.eikon-rail-btn[data-mod="registers"]'); const t2 = await on("registers"), p2 = cpath();
   await cp.waitForSelector('.hub-card[data-open="temperature"]', { timeout: 15000 });
   await cp.click('.hub-card[data-open="temperature"]'); const t3 = await on("tempreg"), p3 = cpath();
-  await cp.goBack(); const b1 = (await on("registers")) && cpath() === "/registers?intro=0";
-  await cp.goBack(); const b2 = (await on("today")) && cpath() === "/today?intro=0";
-  await cp.goForward(); const f1 = (await on("registers")) && cpath() === "/registers?intro=0";
-  await cp.goto(`http://localhost:${PORT}/endofday?intro=0`); const d1 = (await on("eodreg")) && cpath() === "/eodreg?intro=0";
-  await cp.reload(); const r1 = (await on("eodreg")) && cpath() === "/eodreg?intro=0";
-  await cp.goto("about:blank"); await cp.goto(`http://localhost:${PORT}/?intro=0#customers`); const h1 = (await on("customers")) && cpath() === "/customers?intro=0";
+  await cp.goBack(); const b1 = (await on("registers")) && cpath() === "/?intro=0";
+  await cp.goBack(); const b2 = (await on("today")) && cpath() === "/?intro=0";
+  await cp.goForward(); const f1 = (await on("registers")) && cpath() === "/?intro=0";
+  await cp.goto(`http://localhost:${PORT}/endofday?intro=0`); const d1 = (await on("eodreg")) && cpath() === "/?intro=0";
+  await cp.reload(); const r1 = (await on("eodreg")) && cpath() === "/?intro=0";
+  await cp.goto("about:blank"); await cp.goto(`http://localhost:${PORT}/?intro=0#customers`); const h1 = (await on("customers")) && cpath() === "/?intro=0";
   const files = await cp.evaluate(() => [...document.scripts].map((s) => s.src).filter((s) => s && !/xlsx/.test(s)).every((s) => /\/ui\/[^/]+\.js\?v=/.test(s)));
   // the old address keeps its #hash exactly as before
   await cp.goto("about:blank"); await cp.goto(`http://localhost:${PORT}/ui/index.html?intro=0#endofday`); const o1 = (await on("eodreg")) && cpath() === "/ui/index.html?intro=0#eodreg";
   const o2 = await cp.evaluate(() => window.EIKON.CLEAN_URLS === false && window.EIKON.uiUrl("./assets/x.png") === "./assets/x.png");
   await cp.close();
-  report("clean addresses: / signs in to /today; Registers, a register, Back/Forward, a deep link, refresh and an old /#customers link use clean paths; files from /ui/; /ui/index.html#endofday unchanged",
-    atRoot === "/?intro=0" && t1 && p1 === "/today?intro=0" && t2 && p2 === "/registers?intro=0" && t3 && p3 === "/tempreg?intro=0" && b1 && b2 && f1 && d1 && r1 && h1 && files && o1 && o2 && cErr.length === 0,
+  report("clean addresses: the bar stays eikonhq.com/ (no screen path) through sign-in, Registers, a register, Back/Forward, a deep link /endofday, refresh and an old /#customers link, each on the right screen; files from /ui/; /ui/index.html#endofday unchanged",
+    atRoot === "/?intro=0" && t1 && p1 === "/?intro=0" && t2 && p2 === "/?intro=0" && t3 && p3 === "/?intro=0" && b1 && b2 && f1 && d1 && r1 && h1 && files && o1 && o2 && cErr.length === 0,
     JSON.stringify({ atRoot, t1, p1, t2, p2, t3, p3, b1, b2, f1, d1, r1, h1, files, o1, o2, cErr: cErr.slice(0, 5) }));
 } catch (e) { report("clean addresses: ran to the end", false, String(e).slice(0, 300)); }
 // Orders: Ready on an order with no phone (saved blank, or dropped by this screen before 3 Nov) asks for the phone and sends it
