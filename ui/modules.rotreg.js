@@ -36,6 +36,8 @@
       ".rot-av{flex:0 0 30px;height:30px;border-radius:15px;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}" +
       ".rot-p .t{flex:1;min-width:0}.rot-p .t b{font-size:14.5px;font-weight:600}.rot-p .t span{display:block;font-size:12px;color:var(--muted)}.rot-p em{font-style:normal;font-variant-numeric:tabular-nums;font-size:14px;font-weight:600}" +
       ".rot-p.off{opacity:.75}.rot-p.off em{font-weight:500;color:var(--warn,#A06A0E)}" +
+      ".rot-empty{padding:22px 18px;display:flex;flex-direction:column;align-items:flex-start;gap:6px}.rot-empty b{font-size:17px}.rot-empty span{color:var(--muted);font-size:14px}" +
+      ".rot-btn{font:inherit;font-size:14px;font-weight:600;height:36px;padding:0 16px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;margin-top:8px}.rot-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}" +
       ".rot-none{padding:8px 14px 12px;color:var(--muted);font-size:13.5px}" +
       ".rot-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       "@media (max-width:600px){.rot{padding:4px 16px 0}.rot h1{font-size:32px}}";
@@ -57,6 +59,10 @@
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
+  function weekHas() {
+    var a = ymd(S.monday), z = ymd(plus(S.monday, 6));
+    return S.shifts.some(function (x) { return x.shift_date >= a && x.shift_date <= z; }) || S.leaves.some(function (l) { return l.start_date <= z && l.end_date >= a; });
+  }
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "rotreg") return; // left before a reply came back: do not draw over the next screen
@@ -66,6 +72,11 @@
       '<div class="rot-nav"><button data-act="prev" aria-label="Previous week">‹</button><b>' + esc(label) + "</b>" + (thisWeek ? "" : '<button class="now" data-act="now">This week</button>') + '<button data-act="next" aria-label="Next week">›</button></div>';
     if (S.loading && !S.shifts.length) h += '<div class="rot-quiet">Opening the rota…</div>';
     else if (S.error) h += '<div class="rot-quiet">' + esc(S.error) + "</div>";
+    else if (!weekHas()) {
+      // An empty week reads as one quiet card, not seven "No one on the rota" boxes.
+      h += '<div class="rot-day rot-empty"><b>Nothing planned this week</b><span>No shifts and no leave from ' + esc(label.replace(" – ", " to ")) + '.</span>' +
+        '<button class="rot-btn p" data-act="classic">Plan shifts</button></div>';
+    }
     else {
       var today = ymd(new Date());
       for (var i = 0; i < 7; i++) {
