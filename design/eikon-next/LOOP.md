@@ -708,3 +708,10 @@ All of it waits only on the worker deploy.
 - Phone (390×844) screenshots of Who's in, Shortages, Price check, Order diary, Locum receipts, Credit notes, Repeat prescriptions and Handover, empty-state view. Most read well. Who's in was the weak one: an empty week drew seven identical "No one on the rota." boxes, a full phone screen of nothing. Now one card, "Nothing planned this week · No shifts and no leave from 2 Nov to 8 Nov", with a Plan shifts button to the classic Shifts screen. Weeks with any shift or leave draw as before (the suite's rota test still passes).
 - Checked on 8 screens that, scrolled to the bottom, the last line clears the floating tab bar. It does.
 - UI suite 138/138. Light and dark checked.
+
+## Round 82 — Phone review with real data (UI .94)
+
+- Seeded the local stack through the *-real scripts (rota, handover, order diary, price check, repeat Rx, credit notes, locum receipts, shortages, deliveries, questions: 80 checks, all pass) and took phone screenshots of the ten screens with content in them.
+- Who's in: a week with two working days still spent five full cards on "No one on the rota." Empty days are now one slim line ("Thursday · 5 Nov · Nobody on", muted), so the working days stand out and the whole week plus footer fits on one phone screen.
+- Repeat prescriptions, credit notes and price check wrote the year on every date, which pushed medicine lines onto three rows next to the status chip. They now leave out the year when it is this year (3 Nov; 4 Mar 2027 keeps it). Legal/expiry screens (alerts, certificates, near expiry, returns, transfers) keep full dates on purpose.
+- rot/rep/cn real scripts re-run after the change: all pass. UI suite 138/138.
