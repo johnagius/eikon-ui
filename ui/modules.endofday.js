@@ -713,7 +713,15 @@
   }
 
   async function apiUpsertRecord(rec) {
-    var body = JSON.stringify({ record: rec });
+    // A day loaded from the server carries both names for four fields (staff/staff_name, deposit/bov_deposit,
+    // bag_number/bov_bag_number, contact_id/bov_contact_id). This screen edits the first; the server reads the
+    // second first, so edits to a saved day were silently dropped. Send the edited value under both names.
+    var out = {}; for (var k in rec) if (Object.prototype.hasOwnProperty.call(rec, k)) out[k] = rec[k];
+    if ("staff" in out) out.staff_name = out.staff;
+    if ("deposit" in out) out.bov_deposit = out.deposit;
+    if ("bag_number" in out) out.bov_bag_number = out.bag_number;
+    if ("contact_id" in out) out.bov_contact_id = out.contact_id;
+    var body = JSON.stringify({ record: out });
     try {
       await apiTryFetch(
         ["/endofday/record", "/endofday", "/eod/record", "/eod"],
