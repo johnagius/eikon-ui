@@ -116,6 +116,7 @@
       });
     });
     var f = m.querySelector("#cdp-add"); if (f) f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
+    if (f && E.ddaMedSuggest) f.querySelectorAll("input.n").forEach(function (el) { E.ddaMedSuggest(el, { path: "/dda-purchases", field: "dda_name_dose", known: function () { return S.known.names; }, back: [2] }); }); // generic or brand, and what was written before
   }
 
   function keep() { // what is typed survives every repaint

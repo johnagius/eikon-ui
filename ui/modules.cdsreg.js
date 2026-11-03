@@ -131,6 +131,7 @@
     var f = m.querySelector("#cds-add");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
+      if (E.ddaMedSuggest) f.querySelectorAll("input.n").forEach(function (el) { E.ddaMedSuggest(el, { path: C.path, field: "medicine_name_dose", known: function () { return S.entries.map(function (e) { return e.medicine_name_dose; }); } }); }); // generic or brand, and what was written before
       // lookups run as the ID card is completed and when the prescriber field is left (a repaint can swallow a "change" event)
       var idIn = f.querySelector("[name=client_id_card]"); if (idIn) { idIn.addEventListener("input", function () { clearTimeout(S.idT); S.idT = setTimeout(function () { lookupPatient(idIn.value); }, 300); }); idIn.addEventListener("blur", function () { lookupPatient(idIn.value); }); }
       var dn = f.querySelector("[name=doctor_name]"); if (dn) dn.addEventListener("blur", function () { lookupDoctor(dn.value); });

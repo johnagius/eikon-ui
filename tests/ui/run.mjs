@@ -1437,6 +1437,37 @@ try {
     epKept === 1 && /Not saved: busy/.test(epErr) && epAll.length === 2 && epFailed && epFailed.offline_id === epAll[1].offline_id && epAll[1].payment_method === "card" && epDay === "€19.97" && epQ === 0,
     JSON.stringify({ epTot, epPosts, epKept, epErr, n: epAll.length, epDay, epQ }).slice(0, 900));
 } catch (e) { report("emergency POS: ran to the end", false, String(e).slice(0, 300)); }
+// Controlled-drug medicine box (new layout): a brand finds the generic ("ativ" → Lorazepam — Ativan), the classic fixed
+// list and the pharmacy's own earlier entries are offered, the keyboard chooses, and choosing sends nothing.
+try {
+  await page.goto(base + "&ui=2#dda-sales");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "cdsreg" && document.querySelector("[data-act=add]"), null, { timeout: 15000 });
+  await page.click("[data-act=add]"); await page.waitForTimeout(300);
+  await fetch(`http://localhost:${PORT}/__reset`);
+  const ddaMed = '[data-i="0"][data-k=medicine_name_dose]';
+  await page.click(ddaMed); await page.type(ddaMed, "ativ"); await page.waitForTimeout(200);
+  const ddaOpts = await page.$$eval(".ddam-lb:not([hidden]) [role=option]", (l) => l.map((o) => o.textContent));
+  const ddaAria = await page.evaluate((s) => { const i = document.querySelector(s); return i.getAttribute("role") + "|" + i.getAttribute("aria-expanded") + "|" + !!document.getElementById(i.getAttribute("aria-controls")); }, ddaMed);
+  const ddaIdx = ddaOpts.findIndex((t) => t.startsWith("Lorazepam 1mg"));
+  for (let n = 0; n <= ddaIdx; n++) await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter"); await page.waitForTimeout(100);
+  const ddaVal = await page.inputValue(ddaMed), ddaShut = await page.getAttribute(ddaMed, "aria-expanded");
+  await page.fill(ddaMed, ""); await page.type(ddaMed, "oxycontin"); await page.waitForTimeout(150);
+  const ddaOxy = await page.$$eval(".ddam-lb:not([hidden]) [role=option]", (l) => l.map((o) => o.textContent));
+  await page.keyboard.press("Escape"); await page.click("[data-act=add-cancel]");
+  await page.goto(base + "&ui=2#dda-purchases");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "cdpreg" && document.querySelector(".cdp-inv"), null, { timeout: 15000 });
+  await page.click("[data-act=add]"); await page.waitForTimeout(200);
+  const ddaP = '[data-i="0"][data-k=dda_name_dose]';
+  await page.click(ddaP); await page.type(ddaP, "mst"); await page.waitForTimeout(200);
+  const ddaOwn = await page.$$eval(".ddam-lb:not([hidden]) [role=option]", (l) => l.map((o) => o.textContent));
+  await page.keyboard.press("Escape"); await page.click("[data-act=add-cancel]");
+  const ddaWrites = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method !== "GET");
+  report("controlled drugs: 'ativ' offers Lorazepam — Ativan and the classic 'Lorazepam 1mg'; arrows + Enter fill it; 'oxycontin' finds oxycodone; 'mst' finds this pharmacy's 'Morphine 10mg'; nothing sent",
+    ddaOpts.some((t) => /^Lorazepam — Ativan/.test(t)) && ddaIdx >= 0 && ddaAria === "combobox|true|true" && ddaVal === "Lorazepam 1mg" && ddaShut === "false" &&
+    ddaOxy.some((t) => /^Oxycodone — OxyContin/.test(t)) && ddaOwn.some((t) => /^Morphine 10mg/.test(t) && /written here before/.test(t)) && ddaWrites.length === 0,
+    JSON.stringify({ ddaOpts, ddaAria, ddaVal, ddaShut, ddaOxy, ddaOwn, ddaWrites }));
+} catch (e) { report("controlled drugs: medicine suggestions ran to the end", false, String(e).slice(0, 300)); }
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });
