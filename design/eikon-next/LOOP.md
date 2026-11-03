@@ -632,3 +632,8 @@ All of it waits only on the worker deploy.
 - modules.odreg.js: day view by supplier; status-only PUTs (PARTIAL endpoint); add via postOnce; carry-over
   (server idempotent) with the banner switching to "on tomorrow's list" once carried (caught in screenshot).
   Real worker checked. UI 133/133. BUILD .84. 22 screens rebuilt.
+
+## Round 70 — Quotations as Price check
+- Live: BUILD .84. modules.qtreg.js: item search → quotes by unit cost (discount + free stock), Best flag, margin;
+  all_org switch; record with live preview using computeItemProfitFields' formula; postOnce. Real worker: server
+  profit/margin = preview. UI 135/135. BUILD .85. 23 screens rebuilt.
