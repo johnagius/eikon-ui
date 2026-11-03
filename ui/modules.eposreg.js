@@ -1,0 +1,589 @@
+/* Emergency POS, new layout: the fallback till for when the main POS is down. Find a product (name or barcode, Enter adds
+   it), the basket (quantity, remove), the total with the VAT it includes, take the payment (cash with change, card or
+   other, the classic's 0–10 % discount), then the day's sales with their totals, by payment method; a sale can be voided.
+   Same endpoints, the same sale body and the same sums as the classic screen (copied from modules.emergencypos.js, which
+   exposes nothing to share): cartTotals, round2/round3, the line totals, parseGs1, the item mapping and the offline queue.
+   The basket, the queue and the product list live under the classic screen's own localStorage keys, so a sale queued in
+   either screen is sent once: the server keeps one sale per offline_id, and a sale is only taken off the queue when the
+   server has it. A sale is put on the queue before it is sent (as the classic does), so closing the tab mid-save never
+   loses it. If the server refuses it (not a lost connection), the screen looks for it in the day's list: there, it is
+   saved; not there, it comes off the queue and the basket stays as it was, and pressing Take again sends the same
+   offline_id, so a retry can never make a second sale. A lost connection queues the sale, as in the classic screen.
+   Scanning with the camera, photo search, a barcode per line, importing and clearing the product list and printing the
+   day's receipts stay in the classic screen. */
+(function () {
+  "use strict";
+  var E = window.EIKON;
+  if (!E) return;
+
+  var LS = { CART: "eikon_epos_cart", PENDING: "eikon_epos_pending", CATALOG: "eikon_epos_catalog" }; // the classic screen's keys
+  var HITS = 8;
+  var S = {
+    mount: null, catalog: [], catLoading: false, catNote: "", cart: [], payment: { method: "cash", tendered: "" }, discount: 0,
+    q: "", sales: [], date: "", salesLoading: false, salesErr: "", salesSeq: 0, saving: false, err: "", attempt: null, inflight: {},
+    syncing: false, syncErr: "", done: null, askClear: false, voidId: null, voidReason: "", voiding: false, voidErr: "", open: null, said: ""
+  };
+
+  function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
+  function eur(n) { return "€" + fmt2(n); }
+
+  // ---- the classic screen's helpers and sums, unchanged (modules.emergencypos.js) ----
+  function pad2(n) { return String(n).padStart(2, "0"); }
+  function todayYmd() { var d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+  function fmt2(n) { return (Math.round((Number(n) || 0) * 100) / 100).toFixed(2); }
+  function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
+  function round3(n) { return Math.round((Number(n) || 0) * 1000) / 1000; }
+  function uid() { return Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 9); }
+  function norm(s) { return String(s == null ? "" : s).toLowerCase().trim(); }
+  function lsGet(key) { try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+  function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+
+  // GS1 / FMD DataMatrix (what a scanner types into the search box), as the classic screen reads it
+  function parseGs1(raw) {
+    if (!raw) return null;
+    var s = String(raw);
+    s = s.replace(/^\][a-zA-Z]\d/, "");
+    if (s.indexOf("(") >= 0) {
+      var norm_s = "", re = /\((\d{2,4})\)([^(]*)/g, m, first = true;
+      while ((m = re.exec(s)) !== null) { if (!first) norm_s += "\x1d"; norm_s += m[1] + m[2]; first = false; }
+      if (norm_s) s = norm_s;
+    }
+    var GS = "\x1d";
+    var result = { gtin: null, expiry: null, batch: null, serial: null, raw: raw };
+    var pos = 0;
+    while (pos < s.length) {
+      if (s[pos] === GS) { pos++; continue; }
+      var ai2 = s.substr(pos, 2);
+      if (ai2 === "01" && s.length >= pos + 2 + 14) { result.gtin = s.substr(pos + 2, 14); pos += 16; continue; }
+      if (ai2 === "17" && s.length >= pos + 2 + 6) { var exp = s.substr(pos + 2, 6); result.expiry = "20" + exp.slice(0, 2) + "-" + exp.slice(2, 4) + "-" + exp.slice(4, 6); pos += 8; continue; }
+      if (ai2 === "10") { pos += 2; var end10 = s.indexOf(GS, pos); if (end10 < 0) end10 = s.length; result.batch = s.slice(pos, end10).slice(0, 20); pos = end10; continue; }
+      if (ai2 === "21") { pos += 2; var end21 = s.indexOf(GS, pos); if (end21 < 0) end21 = s.length; result.serial = s.slice(pos, end21).slice(0, 20); pos = end21; continue; }
+      if (ai2 === "30" && s.length >= pos + 10) { pos += 10; continue; }
+      var nextGs = s.indexOf(GS, pos + 2);
+      if (nextGs < 0) break;
+      pos = nextGs;
+    }
+    return (result.gtin || result.batch || result.serial) ? result : null;
+  }
+
+  function cartTotals() {
+    var subtotal = 0, vatTotal = 0;
+    S.cart.forEach(function (line) {
+      var lineTotal = round2(line.qty * line.product.price);
+      subtotal = round2(subtotal + lineTotal);
+      var vatRate = Number(line.product.vat_rate) || 0;
+      if (vatRate > 0) {
+        var vatPart = round2(lineTotal - lineTotal / (1 + vatRate / 100));
+        vatTotal = round2(vatTotal + vatPart);
+      }
+    });
+    var discPct = Math.min(10, Math.max(0, Number(S.discount) || 0));
+    var discountAmt = round2(subtotal * discPct / 100);
+    var total = round2(subtotal - discountAmt);
+    vatTotal = round2(vatTotal * (1 - discPct / 100)); // VAT is part of the price; a discount reduces it in proportion
+    return { subtotal: subtotal, vatTotal: vatTotal, discountPct: discPct, discountAmt: discountAmt, total: total };
+  }
+  function fmtQty(q) { q = Number(q) || 0; if (q === Math.floor(q)) return String(q); return q.toFixed(3).replace(/0+$/, ""); }
+  function parseFraction(input) {
+    if (!input) return null;
+    var s = String(input).trim();
+    if (s.indexOf("/") >= 0) { var parts = s.split("/"); var num = parseFloat(parts[0]); var den = parseFloat(parts[1]); if (isNaN(num) || isNaN(den) || den === 0) return null; return num / den; }
+    var val = parseFloat(s);
+    return isNaN(val) ? null : val;
+  }
+  function addToCart(product, qty, fmdInfo) {
+    qty = Math.max(0.001, parseFloat(qty) || 1);
+    var existing = null;
+    for (var i = 0; i < S.cart.length; i++) { if (S.cart[i].product.barcode === product.barcode) { existing = S.cart[i]; break; } }
+    if (existing && !fmdInfo) existing.qty = round3(existing.qty + qty);
+    else S.cart.push({ id: uid(), product: product, qty: qty, fmdInfo: fmdInfo || null });
+    saveCart();
+  }
+  function lineById(id) { for (var i = 0; i < S.cart.length; i++) if (S.cart[i].id === id) return S.cart[i]; return null; }
+  function setQty(id, q) { var l = lineById(id); if (l) l.qty = round3(Math.max(0.001, q)); saveCart(); }
+  function changeQty(id, delta) { var l = lineById(id); if (l) l.qty = round3(Math.max(0.001, l.qty + delta)); saveCart(); }
+  function removeFromCart(id) { S.cart = S.cart.filter(function (l) { return l.id !== id; }); saveCart(); }
+  function clearCart() { S.cart = []; S.payment = { method: "cash", tendered: "" }; S.discount = 0; saveCart(); }
+  function saveCart() { lsSet(LS.CART, { cart: S.cart, payment: S.payment, discount: S.discount }); }
+  function loadCart() {
+    var saved = lsGet(LS.CART);
+    if (saved && Array.isArray(saved.cart)) {
+      S.cart = saved.cart;
+      S.payment = saved.payment || { method: "cash", tendered: "" };
+      S.discount = Math.min(10, Math.max(0, Number(saved.discount) || 0));
+    } else { S.cart = []; S.payment = { method: "cash", tendered: "" }; S.discount = 0; }
+  }
+  function findProduct(barcode) {
+    var b = norm(barcode); if (!b) return null;
+    for (var i = 0; i < S.catalog.length; i++) { var pb = norm(S.catalog[i].barcode); if (pb && pb === b) return S.catalog[i]; }
+    return null;
+  }
+  function filteredCatalog() {
+    var q = norm(S.q); if (!q) return S.catalog;
+    return S.catalog.filter(function (p) { return norm(p.name).indexOf(q) >= 0 || norm(p.barcode).indexOf(q) >= 0 || norm(p.category).indexOf(q) >= 0; });
+  }
+
+  // ---- the offline queue: always read fresh, so the classic screen's additions are never written over ----
+  function pending() { var v = lsGet(LS.PENDING); return Array.isArray(v) ? v : []; }
+  function addPending(sale) { var l = pending(); l.push(sale); lsSet(LS.PENDING, l); }
+  function removePending(ids) { var drop = {}; ids.forEach(function (i) { drop[i] = 1; }); lsSet(LS.PENDING, pending().filter(function (s) { return !drop[s.offline_id]; })); }
+
+  // ---- server ----
+  async function loadCatalog() { // the classic screen's paging, and its copy on this device when the server cannot be reached
+    S.catLoading = true; S.catNote = "";
+    try {
+      var all = [], offset = 0, limit = 2000;
+      while (true) {
+        var resp = await E.apiFetch("/emergency-pos/catalog?limit=" + limit + "&offset=" + offset, { method: "GET" });
+        if (resp && Array.isArray(resp.products)) {
+          all = all.concat(resp.products);
+          if (resp.next_offset != null && resp.products.length > 0) { offset = resp.next_offset; continue; }
+        }
+        break;
+      }
+      if (all.length) { S.catalog = all; lsSet(LS.CATALOG, all); }
+      else S.catalog = [];
+    } catch (e) {
+      var cached = lsGet(LS.CATALOG);
+      if (cached && cached.length) { S.catalog = cached; S.catNote = "The server cannot be reached: using the product list saved on this device."; }
+      else S.catNote = "The product list could not be read. Check the connection and open this screen again.";
+    }
+    S.catLoading = false;
+  }
+  async function loadSales() {
+    var seq = ++S.salesSeq, date = S.date; S.salesLoading = true; S.salesErr = "";
+    try {
+      var r = await E.apiFetch("/emergency-pos/sales?date=" + encodeURIComponent(date), { method: "GET" });
+      if (seq !== S.salesSeq) return;
+      S.sales = (r && Array.isArray(r.sales)) ? r.sales : [];
+    } catch (e) { if (seq !== S.salesSeq) return; S.salesErr = e && e.network ? "The sales cannot be read: no connection." : "The sales could not be read: " + String((e && e.message) || e); }
+    S.salesLoading = false;
+    E.whenFormIdle(S.mount, paint);
+  }
+  async function syncPending() {
+    if (S.syncing) return;
+    var list = pending().filter(function (s) { return s && s.offline_id && !S.inflight[s.offline_id]; });
+    if (!list.length) return;
+    S.syncing = true; S.syncErr = ""; paint();
+    try {
+      var r = await E.apiFetch("/emergency-pos/sales/sync", { method: "POST", body: JSON.stringify({ sales: list }) });
+      if (r && Array.isArray(r.results)) {
+        var okIds = r.results.filter(function (x) { return x && x.ok; }).map(function (x) { return x.offline_id; });
+        removePending(okIds);
+        if (okIds.length) E.toast(okIds.length === 1 ? "1 waiting sale sent to the server." : okIds.length + " waiting sales sent to the server.", "success");
+        if (okIds.length < list.length) S.syncErr = (list.length - okIds.length) + " could not be sent; they stay on this device.";
+      }
+    } catch (e) { S.syncErr = e && e.network ? "Still no connection. The sales stay on this device and go when it is back." : "Not sent: " + String((e && e.message) || e) + ". They stay on this device."; }
+    S.syncing = false;
+    paint();
+    loadSales();
+  }
+  async function landed(sale) { // the server refused the sale: is it there after all?
+    try {
+      var r = await E.apiFetch("/emergency-pos/sales?date=" + encodeURIComponent(sale.sale_date), { method: "GET", retry: false });
+      return ((r && r.sales) || []).some(function (s) { return s && s.offline_id === sale.offline_id; });
+    } catch (e) { return null; }
+  }
+
+  function sig() { return JSON.stringify([S.cart.map(function (l) { return [l.id, l.qty, l.product.barcode, l.product.price, l.product.vat_rate, l.scannedBarcode || "", l.fmdInfo || null]; }), S.discount, S.payment.method, S.payment.tendered]); }
+
+  async function take() {
+    if (S.saving) return;
+    keep();
+    S.err = ""; S.askClear = false;
+    if (!S.cart.length) { S.err = "The basket is empty. Add a product first."; return paint(); }
+    var tots = cartTotals();
+    var payMethod = S.payment.method || "cash";
+    var tendered = parseFloat(S.payment.tendered) || 0;
+    var change = payMethod === "cash" ? round2(tendered - tots.total) : 0;
+    if (payMethod === "cash" && tendered + 0.005 < tots.total) {
+      S.err = (tendered > 0 ? "€" + tendered.toFixed(2) + " is less than the total, €" + tots.total.toFixed(2) + "." : "Write the cash the customer handed over, or press Exact.") + " Nothing was saved.";
+      paint(); return focus('[data-k="tendered"]');
+    }
+    var s0 = sig();
+    if (!S.attempt || S.attempt.sig !== s0 || S.attempt.sale_date !== todayYmd()) // the same basket keeps its offline_id, so a retry is the same sale
+      S.attempt = { sig: s0, offline_id: uid(), sale_date: todayYmd(), receipt_no: "R-" + new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14) };
+    var a = S.attempt;
+    var items = S.cart.map(function (l) { // the classic screen's lines, unchanged
+      var effectiveBarcode = l.scannedBarcode || l.product.barcode;
+      if (l.fmdInfo && l.fmdInfo.gtin && !l.scannedBarcode) effectiveBarcode = l.fmdInfo.gtin;
+      return { barcode: effectiveBarcode, name: l.product.name, qty: l.qty, price: l.product.price, vat_rate: l.product.vat_rate, line_total: round2(l.qty * l.product.price), fmd: l.fmdInfo || null };
+    });
+    var sale = {
+      offline_id: a.offline_id, sale_date: a.sale_date, receipt_no: a.receipt_no, items: items,
+      subtotal: tots.subtotal, vat_total: tots.vatTotal, discount_pct: tots.discountPct, discount_amt: tots.discountAmt, total: tots.total,
+      payment_method: payMethod, amount_tendered: payMethod === "cash" ? tendered : null, change_given: payMethod === "cash" ? change : null, notes: ""
+    };
+    S.saving = true; S.inflight[sale.offline_id] = 1; paint();
+    // As the classic screen: the sale goes on the queue first and the stored basket is emptied, so a tab closed now still sends it, once
+    addPending(sale);
+    lsSet(LS.CART, { cart: [], payment: { method: "cash", tendered: "" }, discount: 0 });
+    var outcome = null, failure = null;
+    try {
+      var r = await E.apiFetch("/emergency-pos/sales", { method: "POST", body: JSON.stringify(sale) });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      outcome = "saved";
+    } catch (x) {
+      if (x && x.network) outcome = "queued"; // no answer: it stays on the queue and is sent when the connection is back
+      else if (await landed(sale)) outcome = "saved";
+      else { outcome = "failed"; failure = x; }
+    }
+    delete S.inflight[sale.offline_id];
+    if (outcome === "failed") {
+      removePending([sale.offline_id]); saveCart(); // not on the server: off the queue, and the basket back as it was
+      S.saving = false; S.err = E.saveFailText(failure) + " The basket is kept: press Take again.";
+      paint(); return;
+    }
+    if (outcome === "saved") removePending([sale.offline_id]);
+    S.cart = []; S.payment = { method: "cash", tendered: "" }; S.discount = 0; saveCart(); S.attempt = null; S.saving = false;
+    S.done = { total: sale.total, change: sale.change_given, method: payMethod, receipt: sale.receipt_no, queued: outcome === "queued" };
+    S.said = (outcome === "queued" ? "No connection: sale of " : "Sale saved: ") + eur(sale.total) + (payMethod === "cash" ? ", change " + eur(change) : "") + (outcome === "queued" ? ", waiting on this device." : ".");
+    E.toast(S.said, outcome === "queued" ? "warning" : "success");
+    S.q = ""; paint(); focus("#epr-q");
+    loadSales();
+  }
+
+  async function doVoid(id) {
+    if (S.voiding) return;
+    keep();
+    S.voiding = true; S.voidErr = ""; paint();
+    try {
+      await E.apiFetch("/emergency-pos/sales/" + id, { method: "DELETE", body: JSON.stringify({ reason: S.voidReason || "" }) }); // the classic screen's body
+      S.voidId = null; S.voidReason = ""; E.toast("Sale voided.", "success");
+    } catch (x) { S.voidErr = E.saveFailText(x).replace(/^Not saved/, "Not voided"); }
+    S.voiding = false; paint(); loadSales();
+  }
+
+  // ---- drawing ----
+  function css() {
+    if (document.getElementById("eikon-eposreg-css")) return;
+    var st = document.createElement("style");
+    st.id = "eikon-eposreg-css";
+    st.textContent =
+      ".epr{max-width:1180px;margin:0 auto;padding-bottom:8px}" +
+      ".epr [hidden]{display:none!important}" +
+      ".epr-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".epr h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.epr-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
+      ".epr h2{font-size:17px;font-weight:700;margin:0;letter-spacing:-.01em}" +
+      ".epr :is(button,input,select){font:inherit}" +
+      ".epr-btn{font-size:14px;font-weight:600;height:36px;padding:0 15px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
+      ".epr-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.epr-btn:disabled{opacity:.55;cursor:default}" +
+      ".epr-btn.red{color:var(--danger)}.epr-btn.big{height:48px;border-radius:14px;font-size:17px;padding:0 18px}" +
+      ".epr-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
+      ".epr-wait{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;padding:12px 14px;border-radius:12px;background:var(--warn-soft,rgba(201,138,18,.13));color:var(--text);font-size:14px}" +
+      ".epr-wait b{color:var(--warn,#8A5A08)}.epr-wait .t{flex:1;min-width:200px}" +
+      ".epr-grid{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:18px;align-items:start;margin-top:16px}" +
+      ".epr-card{background:var(--panel2);border:1px solid var(--border);border-radius:14px}" +
+      ".epr-find{padding:14px}.epr-q{width:100%;box-sizing:border-box;height:46px;border-radius:12px;border:1px solid var(--border);background:var(--bg,transparent);color:var(--text);font-size:17px;padding:0 14px;outline:0}" +
+      ".epr-q:focus{border-color:var(--accent)}" +
+      ".epr-hits{margin-top:10px;border-top:.5px solid var(--border)}" +
+      ".epr-hit{display:flex;width:100%;align-items:center;gap:12px;text-align:left;border:0;border-bottom:.5px solid var(--border);background:none;color:var(--text);padding:11px 4px;cursor:pointer;min-height:48px}" +
+      ".epr-hit:hover,.epr-hit.on{background:rgba(118,118,128,.1)}.epr-hit .t{flex:1;min-width:0}.epr-hit b{display:block;font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+      ".epr-hit span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+      ".epr-hit em{font-style:normal;font-weight:600;font-variant-numeric:tabular-nums;font-size:15px}" +
+      ".epr-hint{font-size:13px;color:var(--muted);padding:10px 4px 2px}" +
+      ".epr-bask{padding:14px 14px 16px;position:sticky;top:12px}" +
+      ".epr-bh{display:flex;justify-content:space-between;align-items:center;gap:8px}.epr-bh small{color:var(--muted);font-size:13px}" +
+      ".epr-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;padding:10px 0;border-bottom:.5px solid var(--border)}" +
+      ".epr-line .n{min-width:0}.epr-line .n b{display:block;font-size:15px;font-weight:600;overflow-wrap:anywhere}.epr-line .n span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}" +
+      ".epr-line .lt{font-weight:600;font-variant-numeric:tabular-nums;font-size:15px;text-align:right}" +
+      ".epr-qty{display:flex;align-items:center;gap:6px;grid-column:1/-1}" +
+      ".epr-qty button{width:36px;height:36px;border-radius:18px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:18px;line-height:1;cursor:pointer}.epr-qty button:disabled{opacity:.4;cursor:default}" +
+      ".epr-qty input{width:64px;height:36px;box-sizing:border-box;text-align:center;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--text);font-size:16px;font-variant-numeric:tabular-nums}" +
+      ".epr-qty input:focus{border-color:var(--accent);outline:0}.epr-qty .x{margin-left:auto;width:auto;padding:0 12px;font-size:14px;font-weight:600;color:var(--danger)}" +
+      ".epr-empty{color:var(--muted);font-size:14px;padding:18px 0 8px}" +
+      ".epr-tot{margin-top:10px;font-size:14px}.epr-tot div{display:flex;justify-content:space-between;padding:3px 0;font-variant-numeric:tabular-nums}.epr-tot .m{color:var(--muted)}" +
+      ".epr-big{display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;padding-top:8px;border-top:1px solid var(--border)}" +
+      ".epr-big span{font-size:15px;font-weight:600}.epr-big b{font-size:38px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}" +
+      ".epr-pay{margin-top:12px}.epr-seg{display:flex;gap:6px}.epr-seg button{flex:1;height:40px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:15px;font-weight:600;cursor:pointer}" +
+      ".epr-seg button.on{background:var(--accent);border-color:var(--accent);color:#fff}" +
+      ".epr-f{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}.epr-f>label{flex:0 0 112px;font-size:15px}" +
+      ".epr-f input{flex:1;min-width:90px;height:40px;box-sizing:border-box;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--text);font-size:17px;padding:0 10px;font-variant-numeric:tabular-nums}" +
+      ".epr-f input:focus{border-color:var(--accent);outline:0}" +
+      ".epr-chg{display:flex;justify-content:space-between;margin-top:10px;font-size:15px;font-variant-numeric:tabular-nums}.epr-chg b{font-size:20px}" +
+      ".epr-err{color:var(--danger);font-size:13.5px;margin-top:10px}" +
+      ".epr-acts{display:flex;gap:8px;margin-top:14px}.epr-acts .p{flex:1}" +
+      ".epr-done{margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--ok-soft,rgba(28,138,91,.12));font-size:14px}.epr-done b{font-variant-numeric:tabular-nums}" +
+      ".epr-done .c{display:block;font-size:24px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums}" +
+      ".epr-done.q{background:var(--warn-soft,rgba(201,138,18,.13))}" +
+      ".epr-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:26px 2px 8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}" +
+      ".epr-lab input{font-size:15px;letter-spacing:0;text-transform:none;font-weight:500;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:10px;height:36px;padding:0 10px}" +
+      ".epr-sum{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.epr-sum div{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;min-width:0}" +
+      ".epr-sum small{display:block;font-size:12px;color:var(--muted)}.epr-sum b{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}.epr-sum .tt{grid-column:span 1}" +
+      ".epr-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:10px}" +
+      ".epr-s{border-top:.5px solid var(--border)}.epr-s:first-child{border-top:0}" +
+      ".epr-sr2{display:flex;align-items:center;gap:10px;padding:10px 14px}" +
+      ".epr-sb{flex:1;min-width:0;display:flex;align-items:center;gap:12px;text-align:left;border:0;background:none;color:var(--text);padding:2px 0;cursor:pointer}" +
+      ".epr-sb .t{flex:1;min-width:0}.epr-sb b{font-size:15px;font-weight:600}.epr-sb span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+      ".epr-sb em{font-style:normal;font-weight:600;font-variant-numeric:tabular-nums;font-size:15px}" +
+      ".epr-s.vd .epr-sb em{text-decoration:line-through;color:var(--muted)}.epr-vd{font-size:12.5px;font-weight:600;color:var(--danger)}" +
+      ".epr-det{padding:0 14px 12px;font-size:13.5px}.epr-det div{display:flex;justify-content:space-between;gap:12px;padding:2px 0;font-variant-numeric:tabular-nums}.epr-det .m{color:var(--muted)}" +
+      ".epr-vbox{padding:0 14px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}.epr-vbox input{flex:1;min-width:160px;height:36px;box-sizing:border-box;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--text);font-size:15px;padding:0 10px}" +
+      ".epr-vbox input:focus{border-color:var(--accent);outline:0}.epr-vbox .q{flex-basis:100%;font-size:14px}" +
+      ".epr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:18px;color:var(--muted);margin-top:10px;font-size:14px}" +
+      ".epr-note{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.5}" +
+      ".epr :focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:2px}" +
+      "@media (max-width:900px){.epr-grid{grid-template-columns:minmax(0,1fr)}.epr-bask{position:static}.epr-sum{grid-template-columns:repeat(2,minmax(0,1fr))}.epr-sum .tt{grid-column:1/-1}}" +
+      "@media (max-width:600px){.epr{padding:4px 16px 0}.epr h1{font-size:30px}.epr-f>label{flex-basis:100%}.epr-big b{font-size:34px}}" +
+      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .epr-seg button.on{color:#00160E}" +
+      "html[data-ui2]:not([data-ui2-visit]) :is(.epr-err,.epr-btn.red,.epr-qty .x,.epr-vd){color:#FF7A72}" +
+      "html[data-ui2]:not([data-ui2-visit]) .epr-wait b{color:#FFB340}html[data-ui2]:not([data-ui2-visit]) .epr-hit:hover{background:rgba(118,118,128,.2)}}";
+    document.head.appendChild(st);
+  }
+
+  function hitsHtml() {
+    if (S.catLoading && !S.catalog.length) return '<div class="epr-hint">Opening the product list…</div>';
+    if (!S.catalog.length) return '<div class="epr-hint">No products yet. The product list is imported in the <a href="#" data-act="classic">classic Emergency POS</a> (Catalog).</div>';
+    var list = filteredCatalog();
+    if (!S.q) return '<div class="epr-hint">' + S.catalog.length + " products. Type a name or a barcode, or scan into this box, then Enter.</div>";
+    if (!list.length) return '<div class="epr-hint">No product matches “' + esc(S.q) + "”.</div>";
+    return list.slice(0, HITS).map(function (p, i) {
+      return '<button type="button" class="epr-hit' + (i === 0 ? " on" : "") + '" data-act="add" data-i="' + i + '" data-k="hit:' + i + '"><div class="t"><b>' + esc(p.name) + "</b><span>" +
+        esc([p.barcode && !/^NOBAR-/.test(p.barcode) ? p.barcode : "", p.category, Number(p.vat_rate) ? "VAT " + p.vat_rate + "%" : ""].filter(Boolean).join(" · ") || " ") + "</span></div><em>" + eur(p.price) + "</em></button>";
+    }).join("") + (list.length > HITS ? '<div class="epr-hint">' + HITS + " of " + list.length + ". Type more to narrow it.</div>" : "");
+  }
+
+  function basketHtml() {
+    var t = cartTotals(), n = S.cart.length;
+    var h = '<section class="epr-card epr-bask" aria-labelledby="epr-bh"><div class="epr-bh"><h2 id="epr-bh">Basket</h2><small>' + (n ? n + (n === 1 ? " line" : " lines") : "") + "</small></div>";
+    if (!n) h += '<div class="epr-empty">' + (S.done ? "Ready for the next customer." : "Nothing yet. Find a product to add it.") + "</div>";
+    S.cart.forEach(function (l) {
+      var f = l.fmdInfo, sub = [eur(l.product.price) + " each"];
+      if (f && f.batch) sub.push("Batch " + f.batch); if (f && f.expiry) sub.push("Exp " + f.expiry);
+      h += '<div class="epr-line"><div class="n"><b>' + esc(l.product.name) + "</b><span>" + esc(sub.join(" · ")) + '</span></div><div class="lt">' + eur(l.qty * l.product.price) + "</div>" +
+        '<div class="epr-qty"><button type="button" data-act="dec" data-id="' + esc(l.id) + '" data-k="dec:' + esc(l.id) + '" aria-label="One less ' + esc(l.product.name) + '"' + (l.qty > 1 ? "" : " disabled") + ">−</button>" +
+        '<input data-k="qty:' + esc(l.id) + '" data-id="' + esc(l.id) + '" inputmode="decimal" autocomplete="off" value="' + esc(fmtQty(l.qty)) + '" aria-label="Quantity of ' + esc(l.product.name) + ' (a fraction like 1/6 works)">' +
+        '<button type="button" data-act="inc" data-id="' + esc(l.id) + '" data-k="inc:' + esc(l.id) + '" aria-label="One more ' + esc(l.product.name) + '">+</button>' +
+        '<button type="button" class="x" data-act="rm" data-id="' + esc(l.id) + '" data-k="rm:' + esc(l.id) + '" aria-label="Remove ' + esc(l.product.name) + '">Remove</button></div></div>';
+    });
+    h += '<div class="epr-tot"><div class="m"><span>Subtotal</span><span data-b="sub">' + eur(t.subtotal) + "</span></div>" +
+      '<div class="m" data-b="discrow"' + (t.discountAmt > 0 ? "" : " hidden") + '><span data-b="disclab">Discount ' + t.discountPct + '%</span><span data-b="disc">−' + eur(t.discountAmt) + "</span></div>" +
+      '<div class="m"><span>VAT included</span><span data-b="vat">' + eur(t.vatTotal) + "</span></div></div>" +
+      '<div class="epr-big"><span>Total</span><b data-b="total">' + eur(t.total) + "</b></div>";
+    var cash = S.payment.method === "cash";
+    h += '<form class="epr-pay" id="epr-pay" autocomplete="off"><div class="epr-seg" role="group" aria-label="Payment">' +
+      [["cash", "Cash"], ["card", "Card"], ["other", "Other"]].map(function (m) { return '<button type="button" data-act="method" data-m="' + m[0] + '" data-k="m:' + m[0] + '" class="' + (S.payment.method === m[0] ? "on" : "") + '" aria-pressed="' + (S.payment.method === m[0]) + '">' + m[1] + "</button>"; }).join("") + "</div>";
+    if (cash) h += '<div class="epr-f"><label for="epr-tend">Cash handed €</label><input id="epr-tend" data-k="tendered" inputmode="decimal" placeholder="0.00" value="' + esc(S.payment.tendered) + '"><button type="button" class="epr-btn" data-act="exact" data-k="exact">Exact</button></div>' +
+      '<div class="epr-chg"><span>Change</span><b data-b="change">' + eur(Math.max(0, round2((parseFloat(S.payment.tendered) || 0) - t.total))) + "</b></div>";
+    h += '<div class="epr-f"><label for="epr-disc">Discount %</label><input id="epr-disc" data-k="discount" inputmode="decimal" placeholder="0, up to 10" value="' + esc(S.discount ? String(S.discount) : "") + '"></div>';
+    if (S.err) h += '<div class="epr-err" role="alert">' + esc(S.err) + "</div>";
+    if (S.askClear) h += '<div class="epr-err" role="alert">Empty the basket? Every line is removed.</div><div class="epr-acts"><button type="button" class="epr-btn" data-act="clear-no" data-k="clear-no">Keep it</button><button type="button" class="epr-btn red" data-act="clear-yes" data-k="clear-yes">Empty the basket</button></div>';
+    else h += '<div class="epr-acts">' + (n ? '<button type="button" class="epr-btn big" data-act="clear" data-k="clear">Clear</button>' : "") +
+      '<button type="submit" class="epr-btn big p" data-k="take"' + (S.saving || !n ? " disabled" : "") + '><span data-b="take">' + (S.saving ? "Saving…" : "Take " + eur(t.total)) + "</span></button></div>";
+    h += "</form>";
+    if (S.done && !n) {
+      var d = S.done;
+      h += '<div class="epr-done' + (d.queued ? " q" : "") + '">' + (d.queued ? "No connection. The sale of <b>" + eur(d.total) + "</b> waits on this device and is sent when the connection is back." : "Saved: <b>" + eur(d.total) + "</b> " + esc(d.method) + " · " + esc(d.receipt)) +
+        (d.method === "cash" && d.change != null ? '<span class="c">Change ' + eur(d.change) + "</span>" : "") + "</div>";
+    }
+    return h + "</section>";
+  }
+
+  function itemsOf(s) { try { var a = JSON.parse(s.items_json || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function hm(ts) { // the server writes UTC ("2026-11-03 09:12:00"); shown in local time
+    var s = String(ts || ""); if (!s) return ""; var d = new Date(/T|Z/.test(s) ? s : s.replace(" ", "T") + "Z"); if (isNaN(d.getTime())) return "";
+    return pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+  }
+  function salesHtml() {
+    var isToday = S.date === todayYmd();
+    var h = '<div class="epr-lab"><span>' + (isToday ? "Today’s sales" : "Sales on " + esc(S.date)) + '</span><label><span class="epr-sr">Day</span><input type="date" id="epr-day" data-k="day" max="' + esc(todayYmd()) + '" value="' + esc(S.date) + '"></label></div>';
+    if (S.salesErr) return h + '<div class="epr-quiet">' + esc(S.salesErr) + ' <button type="button" class="epr-btn" data-act="reload">Try again</button></div>';
+    if (S.salesLoading && !S.sales.length) return h + '<div class="epr-quiet">Opening the sales…</div>';
+    var live = S.sales.filter(function (s) { return s.voided !== 1; });
+    var sum = function (l, k) { return l.reduce(function (t, s) { return t + (Number(s[k]) || 0); }, 0); }; // as the classic day report adds them
+    var by = function (m) { return sum(live.filter(function (s) { return String(s.payment_method || "") === m; }), "total"); };
+    h += '<div class="epr-sum"><div class="tt"><small>Total, ' + live.length + (live.length === 1 ? " sale" : " sales") + '</small><b data-b="daytotal">' + eur(sum(live, "total")) + "</b></div>" +
+      '<div><small>Cash</small><b data-b="daycash">' + eur(by("cash")) + '</b></div><div><small>Card</small><b data-b="daycard">' + eur(by("card")) + '</b></div><div><small>Other</small><b data-b="dayother">' + eur(by("other")) + "</b></div>" +
+      '<div><small>VAT included</small><b data-b="dayvat">' + eur(sum(live, "vat_total")) + "</b></div></div>";
+    if (!S.sales.length) return h + '<div class="epr-quiet">No sales on this day.</div>';
+    h += '<div class="epr-list">' + S.sales.map(function (s) {
+      var it = itemsOf(s), vd = s.voided === 1, open = S.open === s.id;
+      var names = it.slice(0, 3).map(function (x) { return x.name; }).join(", ") + (it.length > 3 ? " +" + (it.length - 3) + " more" : "");
+      var r = '<div class="epr-s' + (vd ? " vd" : "") + '"><div class="epr-sr2"><button type="button" class="epr-sb" data-act="open" data-id="' + s.id + '" data-k="open:' + s.id + '" aria-expanded="' + open + '"><div class="t"><b>' + esc(hm(s.created_at)) + " · " + esc(s.payment_method || "") + "</b><span>" + esc(names || s.receipt_no) + "</span></div><em>" + eur(s.total) + "</em></button>" +
+        (vd ? '<span class="epr-vd">Voided</span>' : (S.voidId === s.id ? "" : '<button type="button" class="epr-btn red" data-act="void" data-id="' + s.id + '" data-k="void:' + s.id + '" aria-label="Void sale ' + esc(s.receipt_no) + '">Void</button>')) + "</div>";
+      if (open) {
+        r += '<div class="epr-det">' + it.map(function (x) { return "<div><span>" + esc(fmtQty(x.qty) + " × " + x.name) + "</span><span>" + eur(x.line_total) + "</span></div>"; }).join("") +
+          '<div class="m"><span>Subtotal</span><span>' + eur(s.subtotal) + '</span></div><div class="m"><span>VAT included</span><span>' + eur(s.vat_total) + "</span></div><div><b>Total</b><b>" + eur(s.total) + "</b></div>" +
+          (s.payment_method === "cash" && s.amount_tendered != null ? '<div class="m"><span>Cash handed · change</span><span>' + eur(s.amount_tendered) + " · " + eur(s.change_given) + "</span></div>" : "") +
+          '<div class="m"><span>Receipt</span><span>' + esc(s.receipt_no) + "</span></div>" + (s.notes ? '<div class="m"><span>Note</span><span>' + esc(s.notes) + "</span></div>" : "") +
+          (vd && s.voided_reason ? '<div class="m"><span>Why voided</span><span>' + esc(s.voided_reason) + "</span></div>" : "") + "</div>";
+      }
+      if (S.voidId === s.id && !vd) {
+        r += '<div class="epr-vbox"><span class="q">Void this sale of ' + eur(s.total) + "? It stays in the list, crossed out, and is left out of the totals.</span>" +
+          '<label class="epr-sr" for="epr-vr">Reason</label><input id="epr-vr" data-k="void-reason" placeholder="Reason, e.g. rung up twice" value="' + esc(S.voidReason) + '">' +
+          '<button type="button" class="epr-btn" data-act="void-no" data-k="void-no">Keep</button><button type="button" class="epr-btn red" data-act="void-yes" data-id="' + s.id + '" data-k="void-yes"' + (S.voiding ? " disabled" : "") + ">" + (S.voiding ? "Voiding…" : "Void sale") + "</button>" +
+          (S.voidErr ? '<span class="epr-err" role="alert" style="flex-basis:100%;margin:0">' + esc(S.voidErr) + "</span>" : "") + "</div>";
+      }
+      return r + "</div>";
+    }).join("") + "</div>";
+    return h;
+  }
+
+  function paint() {
+    var m = S.mount; if (!m) return;
+    if (E.state.activeModuleId !== "eposreg") return; // left before a reply came back: do not draw over the next screen
+    var wait = pending(), waitTot = wait.reduce(function (t, s) { return t + (Number(s && s.total) || 0); }, 0);
+    var h = '<div class="epr"><button class="epr-back" data-act="back">‹ Registers</button>' +
+      '<h1>Emergency POS</h1><p class="epr-sub">Sell when the main till is down. A sale with no connection waits on this device and is sent when it is back.</p>';
+    if (wait.length) h += '<div class="epr-wait" role="status"><div class="t"><b>' + wait.length + (wait.length === 1 ? " sale is" : " sales are") + " waiting on this device</b> (" + eur(waitTot) + "), not yet on the server." + (S.syncErr ? " " + esc(S.syncErr) : "") + "</div>" +
+      '<button type="button" class="epr-btn" data-act="sync" data-k="sync"' + (S.syncing ? " disabled" : "") + ">" + (S.syncing ? "Sending…" : "Send now") + "</button></div>";
+    if (S.catNote) h += '<div class="epr-wait" role="status"><div class="t">' + esc(S.catNote) + "</div></div>";
+    h += '<div class="epr-grid"><section class="epr-card epr-find" aria-label="Find a product"><label class="epr-sr" for="epr-q">Find a product by name or barcode</label>' +
+      '<input type="search" id="epr-q" class="epr-q" data-k="q" placeholder="Name or barcode, then Enter" autocomplete="off" value="' + esc(S.q) + '" aria-controls="epr-hits">' +
+      '<div class="epr-hits" id="epr-hits">' + hitsHtml() + "</div></section>" + basketHtml() + "</div>";
+    h += salesHtml();
+    h += '<p class="epr-note">Scanning with the camera, photo search, setting a barcode per line, importing or clearing the product list and printing the day’s receipts are in the <a href="#" data-act="classic">classic Emergency POS</a>.</p>' +
+      '<div class="epr-sr" role="status" aria-live="polite" id="epr-said">' + esc(S.said) + "</div></div>";
+    var ae = document.activeElement, back = ae && m.contains(ae) && ae.getAttribute ? ae.getAttribute("data-k") : null, caret = null;
+    if (back) try { caret = typeof ae.selectionStart === "number" ? ae.selectionStart : null; } catch (e) { caret = null; }
+    m.innerHTML = h;
+    if (back) { var again = m.querySelector('[data-k="' + back + '"]'); if (again && !again.disabled) { again.focus(); if (caret != null) try { again.setSelectionRange(caret, caret); } catch (e) {} } else if (/^(dec|inc|rm|clear)/.test(back)) { var q = m.querySelector("#epr-q"); if (q) q.focus(); } } // a redraw keeps your place
+    wire(m);
+  }
+
+  // Just the numbers, while typing (no redraw under the fingers)
+  function drawTotals() {
+    var m = S.mount; if (!m) return;
+    var t = cartTotals(), set = function (k, v) { var el = m.querySelector('[data-b="' + k + '"]'); if (el) el.textContent = v; };
+    set("sub", eur(t.subtotal)); set("vat", eur(t.vatTotal)); set("total", eur(t.total)); set("disc", "−" + eur(t.discountAmt)); set("disclab", "Discount " + t.discountPct + "%");
+    var dr = m.querySelector('[data-b="discrow"]'); if (dr) dr.hidden = !(t.discountAmt > 0);
+    set("change", eur(Math.max(0, round2((parseFloat(S.payment.tendered) || 0) - t.total))));
+    if (!S.saving) set("take", "Take " + eur(t.total));
+  }
+  function drawHits() { var el = S.mount && S.mount.querySelector("#epr-hits"); if (el) { el.innerHTML = hitsHtml(); wireHits(el); } }
+
+  function focus(sel) { setTimeout(function () { var x = S.mount && S.mount.querySelector(sel); if (x && !(document.activeElement && document.activeElement !== document.body && S.mount.contains(document.activeElement) && document.activeElement.matches("input:not(#epr-q)"))) x.focus(); }, 30); }
+
+  function keep() {
+    var m = S.mount; if (!m) return;
+    var t = m.querySelector('[data-k="tendered"]'); if (t) S.payment.tendered = money(t.value);
+    var d = m.querySelector('[data-k="discount"]'); if (d) S.discount = disc(d.value);
+    var v = m.querySelector('[data-k="void-reason"]'); if (v) S.voidReason = v.value;
+    var q = m.querySelector("#epr-q"); if (q) S.q = q.value;
+  }
+  function money(raw) { return String(raw || "").replace(/[€\s]/g, "").replace(",", "."); } // a comma, as some keyboards type it; read with parseFloat like the classic
+  function disc(raw) { var v = parseFloat(money(raw)) || 0; if (v > 10) v = 10; if (v < 0) v = 0; return v; } // the classic's 0–10 %
+
+  function addHit(i) {
+    if (S.saving) return;
+    var list = filteredCatalog(), p = list[i]; if (!p) return;
+    addToCart(p, 1, null); added(p);
+  }
+  function added(p) {
+    S.q = ""; S.err = ""; S.done = null; S.askClear = false;
+    S.said = "Added " + p.name + ". Total " + eur(cartTotals().total) + ".";
+    paint(); var q = S.mount.querySelector("#epr-q"); if (q) q.focus();
+  }
+  function enter() { // a scanned or typed barcode first (as the classic screen's Enter), else the first match
+    var raw = String(S.q || "").trim(); if (!raw || S.saving) return;
+    var gs1 = parseGs1(raw), product = null;
+    if (gs1 && gs1.gtin) product = findProduct(gs1.gtin) || findProduct(gs1.gtin.replace(/^0+/, ""));
+    if (!product) product = findProduct(raw);
+    if (product) { addToCart(product, 1, gs1); return added(product); }
+    var list = filteredCatalog();
+    if (list.length) { addToCart(list[0], 1, null); return added(list[0]); }
+    S.said = "No product matches " + raw + "."; var sd = S.mount.querySelector("#epr-said"); if (sd) sd.textContent = S.said;
+  }
+
+  function wireHits(root) {
+    root.querySelectorAll("[data-act=add]").forEach(function (b) {
+      b.addEventListener("click", function () { addHit(Number(b.getAttribute("data-i"))); });
+      b.addEventListener("keydown", function (ev) {
+        var all = Array.prototype.slice.call(root.querySelectorAll("[data-act=add]")), i = all.indexOf(b);
+        if (ev.key === "ArrowDown" && all[i + 1]) { ev.preventDefault(); all[i + 1].focus(); }
+        else if (ev.key === "ArrowUp") { ev.preventDefault(); (all[i - 1] || S.mount.querySelector("#epr-q")).focus(); }
+      });
+    });
+    root.querySelectorAll("[data-act=classic]").forEach(function (a) { a.addEventListener("click", classic); });
+  }
+  function classic(ev) { if (ev) ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "eposreg"); } catch (x) {} E.openClassic("emergency-pos"); }
+
+  function wire(m) {
+    m.querySelectorAll("[data-act]").forEach(function (b) {
+      var act = b.getAttribute("data-act"); if (act === "add") return;
+      b.addEventListener("click", function (ev) {
+        var id = b.getAttribute("data-id");
+        if (S.saving && /^(inc|dec|rm|method|exact|clear|clear-yes)$/.test(act)) return; // the basket being saved is not changed under it
+        if (act === "back") window.location.hash = "#registers";
+        else if (act === "classic") classic(ev);
+        else if (act === "inc") { keep(); changeQty(id, 1); S.err = ""; paint(); }
+        else if (act === "dec") { keep(); var l = lineById(id); if (l && l.qty > 1) changeQty(id, -1); S.err = ""; paint(); }
+        else if (act === "rm") { keep(); removeFromCart(id); S.err = ""; paint(); }
+        else if (act === "method") { keep(); S.payment.method = b.getAttribute("data-m"); saveCart(); S.err = ""; paint(); if (S.payment.method === "cash") focus('[data-k="tendered"]'); }
+        else if (act === "exact") { keep(); S.payment.tendered = fmt2(cartTotals().total); saveCart(); S.err = ""; paint(); }
+        else if (act === "clear") { keep(); S.askClear = true; paint(); focus('[data-k="clear-no"]'); }
+        else if (act === "clear-no") { S.askClear = false; paint(); focus("#epr-q"); }
+        else if (act === "clear-yes") { S.askClear = false; clearCart(); S.err = ""; S.attempt = null; paint(); focus("#epr-q"); }
+        else if (act === "sync") syncPending();
+        else if (act === "reload") loadSales();
+        else if (act === "open") { keep(); S.open = S.open === Number(id) ? null : Number(id); paint(); }
+        else if (act === "void") { keep(); S.voidId = Number(id); S.voidReason = ""; S.voidErr = ""; paint(); focus("#epr-vr"); }
+        else if (act === "void-no") { var vid = S.voidId; S.voidId = null; S.voidErr = ""; paint(); focus('[data-k="void:' + vid + '"]'); }
+        else if (act === "void-yes") doVoid(Number(id));
+      });
+    });
+    wireHits(m.querySelector("#epr-hits"));
+    var q = m.querySelector("#epr-q");
+    if (q) {
+      q.addEventListener("input", function () { S.q = q.value; clearTimeout(S.qT); S.qT = setTimeout(drawHits, 60); });
+      q.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter") { ev.preventDefault(); clearTimeout(S.qT); S.q = q.value; enter(); }
+        else if (ev.key === "ArrowDown") { var f = m.querySelector("#epr-hits [data-act=add]"); if (f) { ev.preventDefault(); clearTimeout(S.qT); S.q = q.value; drawHits(); f = m.querySelector("#epr-hits [data-act=add]"); if (f) f.focus(); } }
+        else if (ev.key === "Escape" && q.value) { ev.preventDefault(); ev.stopPropagation(); q.value = ""; S.q = ""; drawHits(); }
+      });
+    }
+    m.querySelectorAll('.epr-qty input[data-id]').forEach(function (inp) {
+      var apply = function () {
+        var id = inp.getAttribute("data-id"), l = lineById(id); if (!l || S.saving) return;
+        var v = parseFraction(inp.value);
+        if (v === null || v <= 0) { inp.value = fmtQty(l.qty); S.said = "Quantity not changed: write a number like 2, 0.5 or 1/6."; var sd = m.querySelector("#epr-said"); if (sd) sd.textContent = S.said; return; }
+        if (round3(Math.max(0.001, v)) === l.qty) { inp.value = fmtQty(l.qty); return; }
+        keep(); setQty(id, v); S.err = ""; paint();
+      };
+      inp.addEventListener("change", apply);
+      inp.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); apply(); } });
+    });
+    var t = m.querySelector('[data-k="tendered"]');
+    if (t) t.addEventListener("input", function () { S.payment.tendered = money(t.value); saveCart(); drawTotals(); });
+    var d = m.querySelector('[data-k="discount"]');
+    if (d) {
+      d.addEventListener("input", function () { S.discount = disc(d.value); saveCart(); drawTotals(); });
+      d.addEventListener("change", function () { S.discount = disc(d.value); if (parseFloat(money(d.value)) > 10) d.value = "10"; saveCart(); drawTotals(); });
+    }
+    var f = m.querySelector("#epr-pay"); if (f) f.addEventListener("submit", function (ev) { ev.preventDefault(); take(); });
+    var day = m.querySelector("#epr-day");
+    if (day) day.addEventListener("change", function () { if (!/^\d{4}-\d{2}-\d{2}$/.test(day.value)) return; S.date = day.value; S.open = null; S.voidId = null; S.sales = []; paint(); loadSales(); });
+    var vr = m.querySelector("#epr-vr");
+    if (vr) vr.addEventListener("input", function () { S.voidReason = vr.value; });
+    if (vr) vr.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); doVoid(S.voidId); } });
+  }
+
+  // Escape: closes what is open (void, clear), otherwise back to Registers (the basket stays on this device)
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Escape" || ev.defaultPrevented || !E.state || E.state.activeModuleId !== "eposreg" || !S.mount) return;
+    if (document.querySelector(".eikon-modal-overlay:not([style*='none'])")) return;
+    if (S.voidId != null) { var vid = S.voidId; S.voidId = null; S.voidErr = ""; paint(); focus('[data-k="void:' + vid + '"]'); return; }
+    if (S.askClear) { S.askClear = false; paint(); focus("#epr-q"); return; }
+    window.location.hash = "#registers";
+  });
+  // Back online while the screen is open: send what waits
+  window.addEventListener("online", function () { if (E.state && E.state.activeModuleId === "eposreg") syncPending(); });
+
+  async function load() {
+    S.salesLoading = true; paint();
+    await Promise.all([loadCatalog().then(function () { E.whenFormIdle(S.mount, paint); }), loadSales()]);
+    if (pending().length) syncPending(); // as the classic screen does when it opens
+  }
+
+  E.registerModule({
+    id: "eposreg", title: "Emergency POS", order: 3, icon: "€", ui2Only: true,
+    render: function (ctx) {
+      S.mount = ctx && ctx.mount; S.date = todayYmd(); S.q = ""; S.err = ""; S.done = null; S.askClear = false; S.voidId = null; S.voidErr = ""; S.open = null; S.said = ""; S.syncErr = "";
+      if (!S.saving) { loadCart(); S.attempt = null; }
+      if (!S.catalog.length) { var c = lsGet(LS.CATALOG); if (Array.isArray(c)) S.catalog = c; } // something to search at once; the server's list follows
+      css(); paint(); focus("#epr-q"); return load();
+    }
+  });
+  if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("eposreg") < 0) E.UI2_DESTINATIONS.push("eposreg");
+  if (E.UI2_PARENT) E.UI2_PARENT.eposreg = "registers";
+})();

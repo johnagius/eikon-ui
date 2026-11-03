@@ -54,6 +54,7 @@ let boardState = { msgs: [
   { id: 11, user_id: 7, user_name: "Sara Vella", location_name: "Sliema Pharmacy", body: "Who has Ozempic 1mg? @Demo Pharmacy", scope: "all", is_pinned: 1, created_at: "2026-11-02 08:00:00" },
   { id: 12, user_id: 3, user_name: "Karl Vella", location_name: "Demo Pharmacy", body: "Courier at 16:00", scope: "org", is_pinned: 0, created_at: new Date().toISOString().slice(0, 19).replace("T", " ") }] };
 let eodState = { rec: null, n: 0 };
+let eposSales = [];
 let pvState = { reports: [{ id: "pv_1_abc", created_at: "2026-10-30T09:00:00.000Z", updated_at: "2026-10-30T09:00:00.000Z", status: "Draft", report_type: "Initial", pt_initials: "J.D.", pt_age: "65", pt_sex: "Female", pt_weight: "", pt_height: "", pt_dob_day: "5", pt_dob_month: "3", pt_id: "123456M", pt_medical_history: "",
   drugs: [{ name: "Amoxicillin 500mg", dose: "500mg", route: "Oral", frequency: "TDS", start_date: "", stop_date: "", indication: "URTI", batch_no: "AX12", mah: "" }], reaction_description: "Itchy rash", reaction_start: "", reaction_stop: "", reaction_seriousness: "Serious – Other medically important", reaction_outcome: "Recovering", reaction_causality: "Possible", reaction_meddra: "Rash",
   reporter_name: "Maria Borg", reporter_qualification: "Pharmacist", reporter_email: "", reporter_phone: "", reporter_institution: "Demo Pharmacy", reporter_address: "", report_date: "2026-10-30", notes: "", mpa_ref: "MPA-7" }] };
@@ -222,6 +223,11 @@ function mockApi(req, res, body) {
   if (p === "/supplier-orders/sent" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [{ id: 87, supplier_name: "Supplier Depot", supplier_location_id: 400, status: "shipped", notes: "", created_at: "2026-11-02 09:00:00", item_count: 1, items_summary: "Ventolin inhaler" }] }));
   if (p === "/supplier-orders/87" && req.method === "GET") return res.end(JSON.stringify({ ok: true, order: { id: 87, supplier_name: "Supplier Depot", status: "shipped", notes: "", supplier_notes: "Arrives Thursday", scheduled_delivery_date: "2026-11-06" }, items: [{ id: 9001, description: "Ventolin inhaler", barcode: "5000002", qty_requested: 2, qty_free: 0, cost_excl_vat: 3.1, unavailable: 0 }], feedbacks: [] }));
   if (p === "/supplier-orders/87" && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
+  // Emergency POS (new layout eposreg): two products; sales kept in memory, one per offline_id like the worker
+  if (p === "/emergency-pos/catalog" && req.method === "GET") return res.end(JSON.stringify({ ok: true, total: 2, next_offset: null, products: [{ id: 1, barcode: "5012345678900", name: "Panadol 500mg x24", price: 3.49, vat_rate: 0, category: "Pain" }, { id: 2, barcode: "5098765432109", name: "Sun cream SPF50", price: 12.99, vat_rate: 18, category: "Skin" }] }));
+  if (p === "/emergency-pos/sales" && req.method === "GET") return res.end(JSON.stringify({ ok: true, sales: eposSales }));
+  if (p === "/emergency-pos/sales" && req.method === "POST") { if (!eposSales.some((s) => s.offline_id === body.offline_id)) eposSales.unshift({ id: eposSales.length + 1, sale_date: body.sale_date, receipt_no: body.receipt_no, items_json: JSON.stringify(body.items), subtotal: body.subtotal, vat_total: body.vat_total, total: body.total, payment_method: body.payment_method, amount_tendered: body.amount_tendered, change_given: body.change_given, offline_id: body.offline_id, voided: 0, created_at: new Date().toISOString().slice(0, 19).replace("T", " ") }); return res.end(JSON.stringify({ ok: true, id: eposSales.length })); }
+  if (p === "/emergency-pos/sales/sync" && req.method === "POST") return res.end(JSON.stringify({ ok: true, synced: 0, results: ((body && body.sales) || []).map((s) => ({ offline_id: s.offline_id, ok: true })) }));
   if (p === "/alerts/entries" && req.method === "GET") {
     const d = new Date().toISOString().slice(0, 10);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -1407,6 +1413,30 @@ try {
     /otc-caution/.test(otcFirst) && otcBack === "ACTIFED 30mg/1.25mg per 5ml Syrup" && otcW && otcApi.length === 0,
     JSON.stringify({ otcRail, otcSym, otcRes: otcRes.slice(0, 3), otcCaut: otcCaut.slice(0, 200), otcFirst, otcBack, otcW, otcApi }).slice(0, 700));
 } catch (e) { report("over the counter: ran to the end", false, String(e).slice(0, 300)); }
+// Emergency POS in the new layout: the old link lands on it; Enter adds the first match; Exact fills the cash; a double-click on Take
+// sends one POST with the classic body and sums; a refused save (500) keeps the basket and Take again resends the same offline_id.
+try {
+  await page.goto(base + "&ui=2#emergency-pos");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "eposreg" && /2 products/.test((document.querySelector("#epr-hits") || {}).textContent || ""), null, { timeout: 15000 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.fill("#epr-q", "sun"); await page.press("#epr-q", "Enter"); await page.fill("#epr-q", "5012345678900"); await page.press("#epr-q", "Enter");
+  await page.click("[data-act=exact]"); const epTot = await page.textContent('[data-b="total"]');
+  await page.dblclick("[data-k=take]"); await page.waitForTimeout(800);
+  const epPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/emergency-pos/sales").map((c) => c.body);
+  const e0 = epPosts[0] || {};
+  await page.fill("#epr-q", "panadol"); await page.press("#epr-q", "Enter"); await page.click("[data-act=method][data-m=card]");
+  let epFail = 0, epFailed = null; await page.route("**/emergency-pos/sales", (r) => r.request().method() === "POST" && !epFail++ ? (epFailed = r.request().postDataJSON(), r.fulfill({ status: 500, contentType: "application/json", body: '{"ok":false,"error":"busy"}' })) : r.continue()); // answered here: never reaches the mock
+  await page.click("[data-k=take]"); await page.waitForTimeout(600);
+  const epKept = await page.$$eval(".epr-line", (l) => l.length), epErr = await page.textContent(".epr-err").catch(() => "");
+  await page.click("[data-k=take]"); await page.waitForTimeout(800); await page.unroute("**/emergency-pos/sales");
+  const epAll = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/emergency-pos/sales").map((c) => c.body);
+  const epDay = await page.textContent('[data-b="daytotal"]'), epQ = await page.evaluate(() => JSON.parse(localStorage.getItem("eikon_epos_pending") || "[]").length);
+  report("emergency POS: #emergency-pos opens eposreg; Enter adds; double-click Take = one POST, classic body and sums; a 500 keeps the basket, Take again = same offline_id",
+    epTot === "€16.48" && epPosts.length === 1 && e0.total === 16.48 && e0.subtotal === 16.48 && e0.vat_total === 1.98 && e0.payment_method === "cash" && e0.amount_tendered === 16.48 && e0.change_given === 0 && e0.items.length === 2 && e0.items[0].line_total === 12.99 &&
+    Object.keys(e0).join() === "offline_id,sale_date,receipt_no,items,subtotal,vat_total,discount_pct,discount_amt,total,payment_method,amount_tendered,change_given,notes" &&
+    epKept === 1 && /Not saved: busy/.test(epErr) && epAll.length === 2 && epFailed && epFailed.offline_id === epAll[1].offline_id && epAll[1].payment_method === "card" && epDay === "€19.97" && epQ === 0,
+    JSON.stringify({ epTot, epPosts, epKept, epErr, n: epAll.length, epDay, epQ }).slice(0, 900));
+} catch (e) { report("emergency POS: ran to the end", false, String(e).slice(0, 300)); }
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });
