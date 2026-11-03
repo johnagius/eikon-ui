@@ -766,3 +766,9 @@ All of it waits only on the worker deploy.
 - Found: the page redraws whole on every choice, so after picking a service or a time with Enter, focus fell to the top: the name field was 89 Tabs away (72 time slots on a day with 10-minute slots). And the name, email, phone and code fields showed no focus at all (border 0, outline 0).
 - Fixed in the worker's page script: each redraw puts focus back on the same control; a time chosen by keyboard (click with detail 0) moves on to the name field when it is empty (a tap does not, so no phone keyboard pops up); the row being typed in is tinted (.f:focus-within, theme --ts), like the staff app.
 - Re-run: booked by keyboard alone, every stop shows focus, name field reached straight after the time; axe clean at every step, light and dark; mouse flow still books. Worker tests 99/99. Ships with John's next deploy (bookings-15).
+
+## Round 90 — The customer booking page, shorter (worker bookings-15, needs deploy)
+
+- Phone screenshots of the public page with 10-minute slots: after a time was chosen, the whole grid (72 buttons) stayed on screen through the name form and the code step, so the form sat several screens down and the chosen time was a small highlighted button somewhere in the middle. The grid also left a ragged gap on the right (fixed-width buttons in a flex row).
+- Now: once a time is chosen, the day and time grid folds into one line in a card, "Today at 08:20", with a Change button (no Change once the code is sent); Change reopens the grid with the chosen time marked and keyboard focus on it. A slot taken in the meantime clears the choice, so the grid comes back with the message, as before. The grid is a CSS grid (auto-fill, min 76px) that fills the row evenly.
+- Checked: fold/Change/rebook flow, booked by mouse and by keyboard alone, every stop shows focus, axe clean at every step in light and dark. Worker tests 99/99. Ships with John's next deploy (bookings-15).
