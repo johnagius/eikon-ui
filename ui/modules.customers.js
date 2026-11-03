@@ -57,7 +57,7 @@
     st.id = "eikon-customers-css";
     st.textContent =
       ".cus{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:360px minmax(0,1fr);gap:18px;align-items:start}" +
-      ".cus-back{display:none}@media (max-width:900px){.cus{grid-template-columns:1fr}.cus-detail{order:-1}.cus-pick{display:none}.cus.has-sel .cus-side{display:none}.cus-back{display:inline-block;border:0;background:none;color:var(--accent);font:inherit;font-size:16px;font-weight:500;padding:4px 0 12px;cursor:pointer}}@media (max-width:600px){.cus{padding:0 16px}}" +
+      ".cus-back{display:none}@media (max-width:900px){.cus{grid-template-columns:minmax(0,1fr)}.cus-side,.cus-detail{min-width:0}.cus-detail{order:-1}.cus-pick{display:none}.cus.has-sel .cus-side{display:none}.cus-back{display:inline-block;border:0;background:none;color:var(--accent);font:inherit;font-size:16px;font-weight:500;padding:4px 0 12px;cursor:pointer}}@media (max-width:600px){.cus{padding:0 16px}}" +
       ".cus-search{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:0 14px;height:48px}" +
       ".cus-search input{flex:1;border:0;outline:0;background:transparent;color:var(--text);font-size:15.5px;min-width:0}.cus-search input::placeholder{color:var(--muted)}" +
       ".cus-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 2px 7px;display:flex;gap:8px;align-items:center}.cus-lab b{color:var(--text)}.cus-lab a{margin-left:auto;color:var(--accent);font-weight:600;text-transform:none;letter-spacing:0;font-size:12.5px;cursor:pointer}" +
