@@ -20,7 +20,7 @@ database_id = "049c6f25-93b7-4513-909d-a43fb53988cc"
 [vars]
 # Which GitHub branch the /ui/* files are served from. "main" for production;
 # a feature branch for a pilot. Dashboard values for other variables are kept.
-UI_GITHUB_BRANCH = "claude/eloquent-newton-7ib4gb"
+UI_GITHUB_BRANCH = "main"
 # UI files carry a fixed build stamp (index.html BUILD), so they can be cached.
 UI_CACHE_SECONDS = "300"
 
