@@ -856,3 +856,12 @@ All of it waits only on the worker deploy.
 - Signed in as the demo pharmacy John provided (pharmacist role). Bookings was empty there; no email sender; the server reports canSend and canStoreKeys true (BOOKINGS_KEY in place).
 - Set up a practitioner ("Demo Pharmacist", weekdays 09:00–13:00 and 16:00–19:00, Saturday morning) and a service ("Blood pressure check", 15 min, free, online). Free times offered correctly from 10:00. Booked 10:30 for "Test Booking (Claude)"; a second booking at the same time was refused with the next free times; Today listed it; then cancelled it (the server rightly insisted on the record's version and a reason). The practitioner and service are left in place for the email test.
 - Real email end to end still needs a sender for the demo pharmacy (Resend or Brevo key, or SMTP) and an inbox to receive it.
+
+## Round 103 — Customers fits a phone; real booking emails tested end to end on the live server (UI .111)
+
+- Customers on a phone: with "From history" results the list column grew to 400 px on a 390 px screen (a 1fr grid column cannot shrink below its longest line), cutting off the Add buttons and the search box's clear button. Now minmax(0,1fr): long lines end in "…". New ovf-all.mjs: all 31 new-layout destinations with data, at 360 and 390 px, nothing past the edge. UI suite 141/141.
+- Email end to end, live server, demo pharmacy, John's Brevo key (testing only; pharmacies will add their own): added a Brevo sender (from labrint@gmail.com; the key is stored encrypted with BOOKINGS_KEY and never returned), switched emails on, opened the public page /book/demo-pharmacy-test. Then:
+  1. staff booking with the customer's email → confirmation sent by Brevo;
+  2. as a customer on the public page: hold → code email sent; John read the code from his inbox (829252) → confirmed → booking made, confirmation sent, private link given;
+  3. cancelled both test bookings from staff → two cancellation emails sent; the private link now says "you're not booked".
+  Five emails, no sender error. Then removed the sender, switched emails and the public page off (page answers 404 again), deleted the key from the scratchpad. The demo pharmacy keeps the test practitioner and service.
