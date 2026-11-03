@@ -980,3 +980,10 @@ All of it waits only on the worker deploy.
 - b4-1 rebased by its agent onto exactly 35f8756 (tree hashes checked equal), merged as one commit: New order / question / delivery from a customer's page opens the new screen with the person filled in (empty fields only), Cancel/Escape goes back to the customer; count chips and the Registers strip are keyboard-reachable links; the Story shows a delivery's items, not raw JSON; Bookings-not-set-up note.
 - Checks on that tree: UI 325/0, worker 192/192, real 26/0 (new customers-carry). POST bodies and stored rows identical.
 - main and claude/eloquent-newton-7ib4gb both dd64d6f. b4-3, b4-4, b4-7, consistency told to base on dd64d6f; b4-3 folds its search hand-over into b4-1's one reader per screen. Batch 5 → .149+.
+
+## Round 134 — Batch 5 LIVE (worker batch-5 550951a7, UI .149 on main da12c66)
+
+- Batch-5 integrator re-based everything onto dd64d6f: temperature notes and late logging, repeats coming due, Correct (11 registers + End of day, reason in the audit), Inspection check, Help guides and What's new. Worker 209/209, UI 356/0, real 41/41, predeploy 10/10, upgrade rehearsals rows unchanged.
+- John said yes to the deploy and to the What's new note about orders that lost phone / pick-up day / deposit.
+- Restore point 00000b5f-00000000-00005118-85ddf560ea98efb3b482472eb0cfc11d; worker deployed 21:39 UTC (550951a7, 1149.85 KiB / gzip 190.03 KiB) from an export identical to the tested code; /health batch-5, signed-out 401s, old-address 302 → eikonhq.com. Then UI pushed to main (root-level shots/ and correct-checks.mjs left out); .149 and the new files serve live.
+- Next: integrator merging b4-4 (counter defaults), b4-7 (first day), b4-3 (search actions) onto da12c66 as .150 (they combined green on dd64d6f: worker 192/0, real 28/0); consistency agent after that.

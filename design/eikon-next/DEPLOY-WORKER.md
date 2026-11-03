@@ -13,7 +13,8 @@ does not: it changes only when someone runs `wrangler deploy`.
 
 | | Version | Cloudflare version id |
 |---|---|---|
-| Live now (17:35 UTC) | `2026-11-03-batch-4`: whole-state saves write only changes, bulk imports safe, people links server side (UI flag off), CSP-safe print tabs | `f368bd4b-85dd-4a57-b9ad-c5f31ee5c1bd` |
+| Live now (21:39 UTC) | `2026-11-03-batch-5`: temperature notes and late logging, repeats coming due (two added columns on repeat_prescription_entries), Correct with an audit reason, Inspection check; UI .149 on main | `550951a7-b084-4c80-8612-11ccd9822a36` |
+| Before that (17:35 UTC) | `2026-11-03-batch-4`: whole-state saves write only changes, bulk imports safe, people links server side (UI flag off), CSP-safe print tabs | `f368bd4b-85dd-4a57-b9ad-c5f31ee5c1bd` |
 | Before that (17:20) | `2026-11-03-batch-3`, website now served from **main** (UI_GITHUB_BRANCH = main; same code) | `0c89cc74-a552-473d-8e74-a4e807edc828` |
 | Before that (16:15) | `2026-11-03-batch-3`: old address → eikonhq.com, install offer, months/print, Orders/Questions, staff accounts + idle lock, CSP report-only, DDA rewrites stopped, scale indexes, labels save | `b58f4ddc-f464-43b7-a1eb-9849a83253cd` |
 | Before that (14:26) | `2026-11-03-batch-2`: per-pharmacy isolation in groups, full audit (before/after), names Title Case on save + fix endpoint (not run), error reports, ID-card change with undo | `23481a98-c741-4359-99e1-c09345369ba2` |
@@ -90,6 +91,7 @@ open Bookings and press "Set up bookings".
 
 ## Restore points
 
+- Before batch-5 (21:38 UTC): `00000b5f-00000000-00005118-85ddf560ea98efb3b482472eb0cfc11d`.
 - Before batch-4 (17:34 UTC): `00000b3d-00000000-00005118-b2156fabccf982d1974cd87086fdfc5f`.
 - Before batch-3 (16:14 UTC): `00000b2b-00000000-00005118-a70517b43d851ec0ae40841274e7dbc7`.
 - Before batch-2 (14:25 UTC): D1 Time Travel bookmark `00000b19-00000000-00005118-09a92e471007090dbaeb92cbef7e982d`.
