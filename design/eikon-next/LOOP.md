@@ -743,3 +743,12 @@ All of it waits only on the worker deploy.
 - "customers: a stale edit is refused…" failed once in 3 runs in round 85. Six more full runs and two runs with the browser's CPU slowed 6× and 8× around the Customers steps: never again. Reading the flow found no background load that can land after Edit. The only timing dependency was the test's fixed 700 ms pause after Save; it now waits for the outcome itself (the warning, or a "Saved"/"Not saved" message, ignoring the earlier "added to Customers" toast that can still be up). Logged as a test-timing flake, not an app bug.
 - Reading the save code showed a real gap: when someone else saved the customer first, the screen showed their version and said "make your change again", but what this person had typed was gone (the comment claimed it stayed in a toast; it did not). The warning now ends with what they had typed, field by field, e.g. "Yours was: Notes “Prefers SMS”." (only fields they changed that differ from the other version). Same idea as Handover's notes conflict.
 - Suite test extended to check that text. 139/139 (three runs).
+
+## Round 87 — Dark mode and contrast with real data (UI .100)
+
+- Phone screenshots in dark mode of ten screens seeded with data: consistent, nothing broken. Then axe (WCAG A/AA) on all 29 new-layout screens with data in them, light and dark. Round 76 had found them clean, but those were mostly empty; with data it found:
+  - green text on its own pale green tags (Received, Best, role tags on Today, Sent): 4.34:1 at #077A5B (needs 4.5);
+  - initials circles (Today, Who's in): white on hsl(h,45%,42%), as low as 2.9:1 for light greens/yellows; leave rows faded with opacity to 2.7–3.5:1;
+  - phone numbers inside a line of text (Credit notes, dark): told apart from the text by colour only (1.27:1).
+- Fixed: light green token #077A5B → #066B4F everywhere (app.css --accent/--ok and Bookings --t): white on it 6.5:1, on page grey 5.8:1, on its tints 5.2:1+. Initials circles at 32% lightness (worst hue 4.75:1). Leave rows keep full contrast (name muted, "Asked for leave" in --warn #8A5A08). Phone links inside text are underlined.
+- Re-run: no WCAG A/AA violations on any of the 29 screens with data, light and dark; Bookings and login clean too. UI suite 139/139.
