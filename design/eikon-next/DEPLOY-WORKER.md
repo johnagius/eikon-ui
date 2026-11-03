@@ -6,13 +6,21 @@ does not: it changes only when someone runs `wrangler deploy`.
 
 ## Where things stand
 
-| | Version | How to check |
-|---|---|---|
-| Live server | `2026-11-02-fixes-1` | https://eikon-api.labrint.workers.dev/health → `"version"` |
-| Waiting to deploy | `2026-11-03-bookings-15` | `WORKER_VERSION` at the top of `cloudflare-worker/code` on the branch |
+**Deployed 2026-11-03 08:23 UTC** from this session (wrangler 4.48.0, from commit 3ec681c of
+`claude/eloquent-newton-7ib4gb`, worker tests 99/99 first, dry run checked).
 
-The website already copes with the older server: Bookings shows "not switched on" and
-everything else works. Nothing breaks while the deploy waits.
+| | Version | Cloudflare version id |
+|---|---|---|
+| Live now | `2026-11-03-bookings-15` + `BOOKINGS_KEY` set (08:27 UTC) | `712c756e-f4e8-4554-bf6d-2a0b019df65f` |
+| Same code, before the key | `2026-11-03-bookings-15` | `c586a98f-4a79-499c-a5db-9057522b6bdb` |
+| Before (roll back to this) | `2026-11-02-fixes-1` | `4b2cf8da-5410-46b1-93b7-103606d7a7f8` |
+
+Checked after: `/health` reports bookings-15; all 10 bindings and vars unchanged (keep_vars);
+signed-out calls still answer 401; `/bookings/setup` exists (401, was 404); a made-up
+`/book/...` page and a bad `/b/...` link show their "not available" pages; UI .108 serves.
+
+**Do not change `BOOKINGS_KEY`.** Sender keys that pharmacies save are encrypted with it; a
+new key would make them unreadable (they would have to be entered again).
 
 ## What the deploy brings
 
@@ -72,7 +80,7 @@ open Bookings and press "Set up bookings".
 ## If something looks wrong
 
 ```bash
-cd cloudflare-worker && npx wrangler rollback
+cd cloudflare-worker && npx wrangler rollback 4b2cf8da-5410-46b1-93b7-103606d7a7f8
 ```
 
 puts the previous version back (the new booking tables stay, unused, and harm nothing).
