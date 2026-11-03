@@ -35,6 +35,7 @@
     ssreg: "What other pharmacies are looking for, and what you asked for.",
     certificates: "Calibrations, services and licences, with what is due.",
     audit: "Who changed what, across the whole system.",
+    expreg: "Your registers as a spreadsheet, or printed for an inspector, for any month or year.",
     endofday: "Close the till: X readings, cash, cheques and the bank bag.",
     paidout: "Money paid from the till, such as couriers and cleaners.",
     "emergency-pos": "Sell when the main till is down; the sales sync later.",
@@ -123,7 +124,7 @@
           { title: "Password", desc: "Change the password you sign in with.", run: function () { E.showChangePassword(); } },
           { title: "Sign out", desc: "Sign out on this device.", run: function () { E.logout(); } }
         ] },
-        { label: "This pharmacy", ids: ["certificates", "audit", "contacts"] },
+        { label: "This pharmacy", ids: ["certificates", "audit", "expreg", "contacts"] },
         { label: "Help", actions: [
           { title: "Help & guides", desc: "Short guides for every register.", run: function () { E.showHelpGuide(); } },
           { title: "Classic layout", desc: "The previous look, with the old sidebar. The link you were given brings you back here.", run: function () { try { localStorage.setItem("eikon_ui2", "0"); } catch (e) {} var u = new URL(window.location.href); u.searchParams.set("ui", "1"); u.hash = "#dashboard"; window.location.href = u.toString(); } },
@@ -164,6 +165,7 @@
         (g.ids || []).forEach(function (mid) {
           var mod = E.modules[mid];
           if (!mod) return; // not in this build or this portal
+          if (mod.adminOnly && E.state.user && E.state.user.role && E.state.user.role !== "admin") return; // the pharmacist's own tools
           var nat = (E.UI2_NATIVE || {})[mid], shown = (nat && E.modules[nat] && E.modules[nat].title) || mod.title || mid; // the name the screen itself shows
           cards += '<button class="hub-card" data-open="' + esc(mid) + '"><b>' + esc(sentence(shown)) + '</b><span>' + esc(DESC[mid] || "") + '</span></button>';
         });

@@ -1795,6 +1795,102 @@ try {
   report("people: Customers' + New with a name and phone already there opens that person instead of adding a second",
     pplPosts.length === 0 && /Pace Rita already exists, opened/.test(cusToast), JSON.stringify({ pplPosts, cusToast }));
 } catch (e) { report("people: ran to the end", false, String(e).slice(0, 300)); }
+// ---- Download our records (expreg): a mocked year 2025 exported as a workbook (read back with SheetJS in the page),
+// the same year as CSV files in a zip when the spreadsheet library is missing, at most 2 requests in flight, a month per
+// request, Cancel saves nothing, and a staff account gets a note instead of the screen (and no card in Settings).
+try {
+  // The real SheetJS for reading the workbook back: XLSX_JS=<path>, or a copy in .cache/ (not in git). Without one the
+  // workbook half is skipped and said so; the zip half always runs.
+  const xlsxPath = [process.env.XLSX_JS, path.join(here, "..", "..", ".cache", "xlsx-0.18.5.full.min.js")].find((f) => f && fs.existsSync(f));
+  const XLSX_REAL = xlsxPath ? fs.readFileSync(xlsxPath, "utf8") : "";
+  const MONTHLY = { "/temperature/entries": ["entries", "entry_date"], "/cleaning/entries": ["entries", "entry_date"], "/daily-register/entries": ["entries", "entry_date"], "/locumregister/entries": ["entries", "entry_date"],
+    "/dda-purchases/entries": ["entries", "entry_date"], "/dda-sales/entries": ["entries", "entry_date"], "/dda-poyc/entries": ["entries", "entry_date"], "/repeat-prescriptions/entries": ["entries", "entry_date"],
+    "/paid-out/entries": ["entries", "entry_date"], "/locumreceipts/receipts": ["receipts", "receipt_date"], "/client-orders/entries": ["entries", "order_date"] };
+  const ONCE = { "/creditnotes/list": "issue_date", "/client-tickets/entries": "open_date", "/client-deliveries/entries": "order_date" };
+  const keys = Object.keys(MONTHLY);
+  const nFor = (p, m) => ((m + keys.indexOf(p)) % 4) + 1; // 1 to 4 lines a month, different per register
+  const onceDays = []; for (let t = Date.UTC(2024, 5, 3); t < Date.UTC(2026, 1, 1); t += 19 * 864e5) onceDays.push(new Date(t).toISOString().slice(0, 10));
+  let inflight = 0, maxInflight = 0, seen = [], delay = 5;
+  const handler = async (route) => {
+    const u = new URL(route.request().url()), p = u.pathname; seen.push(p + u.search);
+    inflight++; maxInflight = Math.max(maxInflight, inflight); await new Promise((r) => setTimeout(r, delay)); inflight--;
+    const reply = (o) => route.fulfill({ contentType: "application/json", body: JSON.stringify(o) }).catch(() => {});
+    if (p === "/temperature/devices") return reply({ ok: true, devices: [{ id: 7, name: "Fridge 1", device_type: "fridge", min_limit: 2, max_limit: 8, active: 1 }] });
+    if (MONTHLY[p]) { const ym = u.searchParams.get("month"), m = +ym.slice(5), [key, df] = MONTHLY[p], rows = [];
+      for (let i = 0; i < nFor(p, m); i++) rows.push({ id: m * 100 + i, [df]: ym + "-" + String(3 + i * 5).padStart(2, "0"), device_id: 7, device_name: "Fridge 1", device_type: "fridge", min_temp: 3, max_temp: 6, min_limit: 2, max_limit: 8, client_name: "Zammit, \"Carmel\"", fee: 12.5, total_fee: 60, deposit_amount: 5, created_at: ym + "-03 08:15:00" });
+      return reply({ ok: true, [key]: rows }); }
+    if (ONCE[p]) return reply({ ok: true, entries: onceDays.map((d, i) => ({ id: i + 1, [ONCE[p]]: d, client_name: "Vella Anna", amount: 20, purchase_entries: [{ amount: 5 }] })) });
+    if (p === "/endofday/dates") { const ym = u.searchParams.get("month"); return reply({ ok: true, dates: [ym + "-05", ym + "-20"] }); }
+    if (p === "/endofday/record") { const d = u.searchParams.get("date"); return reply({ ok: true, record: { id: +d.replace(/-/g, ""), date: d, eod_date: d, staff: "Maria", float_amount: "500", x: [{ amount: "100.10" }], epos: [{ amount: "20" }], cheques: [], paid_outs: [], cash: { n50: "2", coins_total: "1" }, deposit: {} } }); }
+    return route.fallback();
+  };
+  const RX = /localhost:\d+\/(temperature\/(devices|entries)|cleaning\/entries|daily-register\/entries|locumregister\/entries|dda-(purchases|sales|poyc)\/entries|repeat-prescriptions\/entries|paid-out\/entries|locumreceipts\/receipts|client-orders\/entries|creditnotes\/list|client-tickets\/entries|client-deliveries\/entries|endofday\/(dates|record))\?/;
+  const RX1 = /localhost:\d+\/(temperature\/devices|creditnotes\/list|client-tickets\/entries|client-deliveries\/entries)$/;
+  await page.route(RX, handler); await page.route(RX1, handler);
+  if (XLSX_REAL) await page.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: XLSX_REAL }));
+  const expected = {}; const TITLES = { "/temperature/entries": "Temperature", "/cleaning/entries": "Cleaning", "/daily-register/entries": "Daily register", "/locumregister/entries": "Locum register", "/dda-purchases/entries": "DDA purchases", "/dda-sales/entries": "DDA sales", "/dda-poyc/entries": "DDA POYC", "/repeat-prescriptions/entries": "Repeat prescriptions", "/paid-out/entries": "Paid out", "/locumreceipts/receipts": "Locum receipts", "/client-orders/entries": "Orders" };
+  for (const k of keys) { let c = 0; for (let m = 1; m <= 12; m++) c += nFor(k, m); expected[TITLES[k]] = c; }
+  const inY = onceDays.filter((d) => d.startsWith("2025")).length; expected["Credit notes"] = inY; expected.Questions = inY; expected.Deliveries = inY; expected["End of day"] = 24;
+  const openExp = async () => {
+    await page.goto(base + "&ui=2&exp=" + Date.now() + "#settings");
+    await page.waitForFunction(() => window.EIKON.state.activeModuleId === "settings" && document.querySelector('[data-open="expreg"]'), null, { timeout: 15000 });
+    await page.click('[data-open="expreg"]');
+    await page.waitForFunction(() => window.EIKON.state.activeModuleId === "expreg" && document.querySelector(".exp [data-act=download]"), null, { timeout: 15000 });
+    await page.click('[data-range="year"]'); await page.selectOption("#exp-year", "2025");
+  };
+  if (!XLSX_REAL) console.log("  skip export: workbook read-back (no SheetJS copy: set XLSX_JS)");
+  else {
+  await openExp();
+  const expRail = await page.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join());
+  const safe = await page.textContent(".exp-safe");
+  seen = []; maxInflight = 0;
+  await page.click('[data-act="download"]');
+  await page.waitForFunction(() => window.EIKON.expLast && window.EIKON.expLast.file, null, { timeout: 30000 });
+  const xl = await page.evaluate(async () => { const L = window.EIKON.expLast, wb = window.XLSX.read(await L.file.blob.arrayBuffer(), { type: "array", cellNF: true }), o = {};
+    wb.SheetNames.forEach((n) => { o[n] = window.XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false }); });
+    return { format: L.format, name: L.file.name, names: wb.SheetNames, sheets: o, calls: L.calls, money: wb.Sheets["Paid out"]["E2"] }; });
+  const counts = {}; for (const n of xl.names) counts[n] = xl.sheets[n].length - 1;
+  const xlOk = xl.format === "xlsx" && xl.names[0] === "Summary" && Object.entries(expected).every(([k, v]) => counts[k] === v) && xl.names.length === 16;
+  const monthCalls = seen.filter((s) => /month=2025-\d\d/.test(s)).length, allMonths = seen.filter((s) => s.startsWith("/dda-sales/entries")).map((s) => s.split("month=")[1]).sort().join();
+  report("export: a mocked 2025 makes one workbook, Summary then a sheet per register, every sheet with the right row count", xlOk, JSON.stringify({ format: xl.format, names: xl.names, counts, expected }));
+  report("export: a month per request (12 per register for the year), one register at a time, never more than 2 requests in flight; " + xl.calls + " requests in all",
+    monthCalls === 11 * 12 + 12 && allMonths === Array.from({ length: 12 }, (_, i) => "2025-" + String(i + 1).padStart(2, "0")).join() && maxInflight <= 2 && xl.calls === seen.length && xl.calls === 11 * 12 + 1 + 3 + 12 + 24, JSON.stringify({ monthCalls, maxInflight, calls: xl.calls, seen: seen.length }));
+  const cn = xl.sheets["Credit notes"], ord = xl.sheets.Orders, sumS = xl.sheets.Summary.map((r) => r.join("|")).join("\n");
+  report("export: plain headings, Record no. first, dd/mm/yyyy, money with 2 decimals, the Summary names the pharmacy, days and who; the screen says to keep it safe; rail keeps Settings lit",
+    cn[0].join() === "Record no.,Issued,Name,Surname,Phone,Email,Receipt no,Amount €,Used €,Left €,Expires" && /^\d\d\/\d\d\/2025$/.test(cn[1][1]) && cn[1][9] === "15.00" && xl.money && xl.money.z === "0.00" && ord[1][2] === 'Zammit, "Carmel"' &&
+    /Pharmacy\|Demo Pharmacy/.test(sumS) && /Exported by\|Maria Borg/.test(sumS) && /Days\|Year 2025/.test(sumS) && /Keep it safe/.test(safe) && expRail === "settings", JSON.stringify({ cn: cn.slice(0, 2), money: xl.money, sumS, safe, expRail }));
+  await page.unroute("**/xlsx.full.min.js");
+  }
+  // Without SheetJS: one CSV per register in a zip (store only), read back here
+  await openExp();
+  await page.evaluate(() => { window.XLSX = {}; window.EIKON.expLast = null; });
+  await page.click('[data-act="download"]');
+  await page.waitForFunction(() => window.EIKON.expLast && window.EIKON.expLast.file, null, { timeout: 30000 });
+  const zb = Buffer.from(await page.evaluate(async () => { const b = new Uint8Array(await window.EIKON.expLast.file.blob.arrayBuffer()); let s = ""; for (const x of b) s += String.fromCharCode(x); return btoa(s); }), "base64");
+  const files = {}; let off = 0;
+  while (zb.readUInt32LE(off) === 0x04034b50) { const size = zb.readUInt32LE(off + 18), nl = zb.readUInt16LE(off + 26), name = zb.slice(off + 30, off + 30 + nl).toString(); files[name] = zb.slice(off + 30 + nl, off + 30 + nl + size).toString("utf8"); off += 30 + nl + size; }
+  const csvRows = (t) => { let n = 0, q = false; for (let i = 0; i < t.length; i++) { const c = t[i]; if (c === '"') q = !q; else if (c === "\n" && !q) n++; } return n - 1; };
+  const zc = {}; for (const [n, t] of Object.entries(files)) zc[n] = csvRows(t);
+  const zipOk = /\.zip$/.test(await page.evaluate(() => window.EIKON.expLast.file.name)) && files["Summary.csv"] && Object.entries(expected).every(([k, v]) => zc[k.replace(/ /g, "-") + ".csv"] === v) && files["Paid-out.csv"].charCodeAt(0) === 0xfeff && /,12\.50,/.test(files["Paid-out.csv"]) && files["Orders.csv"].includes('"Zammit, ""Carmel"""') && zb.readUInt32LE(zb.length - 22) === 0x06054b50;
+  report("export: without the spreadsheet library the same year is a zip of CSV files (BOM, quoted commas, 2-decimal money), same row counts", zipOk, JSON.stringify({ zc, names: Object.keys(files) }));
+  // Cancel: stops at the next request and saves nothing
+  await page.evaluate(() => { window.EIKON.expLast = null; }); delay = 120; seen = [];
+  await page.click('[data-act="download"]'); await page.waitForTimeout(400);
+  const cancelFocus = await page.evaluate(() => document.activeElement && document.activeElement.getAttribute("data-act"));
+  await page.click('[data-act="cancel"]'); const atCancel = seen.length; await page.waitForTimeout(900);
+  const cTxt = await page.textContent(".exp-live"), afterCancel = seen.length;
+  report("export: Cancel stops the reading (no more than the requests already in flight) and saves nothing; focus moves to Cancel while it runs",
+    /Cancelled/.test(cTxt) && afterCancel - atCancel <= 2 && atCancel < 20 && (await page.evaluate(() => window.EIKON.expLast)) === null && cancelFocus === "cancel", JSON.stringify({ cTxt, atCancel, afterCancel, cancelFocus }));
+  delay = 5;
+  // Staff: no card, and the screen says who can
+  await page.evaluate(() => { window.EIKON.state.user.role = "staff"; location.hash = "#settings"; }); await page.waitForTimeout(600);
+  const staffCard = await page.$('[data-open="expreg"]');
+  seen = []; await page.evaluate(() => { location.hash = "#expreg"; }); await page.waitForTimeout(600);
+  const staffTxt = await page.textContent(".exp");
+  report("export: a staff account sees no card and, at the address, a note instead of the screen; nothing is asked of the server", !staffCard && /Only the pharmacist/.test(staffTxt) && !(await page.$(".exp [data-act=download]")) && seen.length === 0, JSON.stringify({ staffCard: !!staffCard, staffTxt: staffTxt.slice(0, 200), seen }));
+  await page.evaluate(() => { window.EIKON.state.user.role = "admin"; });
+  await page.unroute(RX); await page.unroute(RX1);
+} catch (e) { report("export: download our records", false, String(e).slice(0, 400)); }
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };
 await page.evaluate(() => { location.hash = "#today"; });
