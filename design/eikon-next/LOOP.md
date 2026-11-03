@@ -822,3 +822,9 @@ All of it waits only on the worker deploy.
   - Dark mode: the green Book button and the + button had white text on #2BC48A (about 2:1). Round 76 had fixed the day, time and chip buttons by an override but missed these two. Now one token, --ti (white in light, near-black in dark), for every green fill in Bookings.
   - Light: the practitioner filter chips (grey on grey, 4.2:1; they only show with two or more people) now use the text colour.
 - axe-bk now also opens the New booking and booking sheets: all clean in light and dark. bk-e2e 13/13 (fresh data), bk-settings 13/13, UI suite 140/140.
+
+## Round 99 — Every new screen in one round trip (UI .106)
+
+- New screen-speed.mjs: on a simulated phone link (150 ms each way), with data seeded, opens each of the 30 new-layout destinations from Today and times it until no "Opening…/Loading…" is left, counting API requests. 25 screens open in one round trip (~186 ms); hubs and Settings need none; Customers is cached (28 ms).
+- Two were serial: Bookings asked setup, then the day, then the waiting list (3 round trips, 495 ms); Temperature asked devices, then the month (2, 338 ms). Neither depends on the previous answer. Both now ask at once: Bookings 184 ms, Temperature 189 ms. On the live server (no Bookings yet) the screen still says "not switched on", in the new layout, no errors.
+- bk-e2e 13/13, bk-settings 13/13, kbd-bk 12/12, UI suite 140/140.
