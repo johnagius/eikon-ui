@@ -569,3 +569,6 @@ All of it waits only on the worker deploy.
 - modules.rotreg.js: week view of shifts + leave (approved = Away, pending = Asked for leave, rejected hidden;
   found while testing that every new leave starts pending, so approved-only hid real requests). Own Team card
   beside Shifts (planner not hijacked); hubs open ui2Only cards directly. No writes (verified). UI 123/123. BUILD .74.
+
+## Round 59 — Today's team tile
+- Live: BUILD .74. Team tile: handover points sorted critical first (red), Who's in button. UI 124/124. BUILD .75.
