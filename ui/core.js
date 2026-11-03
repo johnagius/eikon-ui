@@ -1375,6 +1375,13 @@
     who.innerHTML = '<b>' + E.escapeHtml(String(u.full_name || u.email || "")) + '</b><span>' + E.escapeHtml(u.role === "admin" ? "Pharmacist" : "Staff") + ' · signed in ' + hm + '</span>';
     foot.appendChild(who);
     nav.appendChild(foot);
+    // "Skip to content" (WCAG 2.4.1): the first Tab shows it, Enter jumps past the rail to the screen.
+    var layout = side && side.parentNode;
+    if (layout && !layout.querySelector(".eikon-skip")) {
+      var sk = document.createElement("a"); sk.className = "eikon-skip"; sk.href = "#"; sk.textContent = "Skip to content";
+      sk.addEventListener("click", function (ev) { ev.preventDefault(); var c = document.getElementById("eikon-content"); if (!c) return; c.setAttribute("tabindex", "-1"); c.focus(); });
+      layout.insertBefore(sk, layout.firstChild);
+    }
     E.highlightNav();
   };
 

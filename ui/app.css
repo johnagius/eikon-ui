@@ -1061,3 +1061,10 @@ html[data-ui2] .eikon-content a[href^="tel:"]:not([class]){text-decoration:under
 @media (prefers-color-scheme: dark){ html[data-ui2]:not([data-ui2-visit]) .eikon-content :is([class*="-btn"].p, .hnd-seg button.on[data-sev="g"], .por-seg button.on){color:#00160E} }
 /* Dark mode: text on the bright green is near-black (login button, bookings' chosen day, slot and chips) */
 @media (prefers-color-scheme: dark){ html[data-ui2]:not([data-ui2-visit]) :is(#eikon-login-btn, .bkx-day.on, .bkx-slot.on, .bkx-chip.on){color:#00160E} }
+
+/* Skip to content: hidden until the first Tab, then a pill at the top left. */
+html[data-ui2] .eikon-skip{position:fixed;left:12px;top:-64px;z-index:10000;background:var(--accent);color:#fff;padding:10px 16px;border-radius:12px;font-weight:600;font-size:15px;text-decoration:none;transition:top .15s}
+html[data-ui2] .eikon-skip:focus{top:12px;outline:3px solid rgba(10,143,106,.5);outline-offset:2px}
+html[data-ui2] #eikon-content:focus{outline:none}
+html:not([data-ui2]) .eikon-skip{display:none}
+@media (prefers-color-scheme: dark){ html[data-ui2] .eikon-skip{color:#00160E} }
