@@ -1,5 +1,5 @@
-/* Who's in, new layout: the week's rota, day by day: who works and when, who is on leave. Read only; planning
-   shifts, patterns, leave requests and the calendar link stay in the classic Shifts screen. */
+/* Who's in, new layout: the week's rota, day by day: who works and when, who is on leave. Read only: shifts are
+   planned, and leave asked for, in Plan shifts; patterns and the calendar link stay in the classic Shifts screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -107,7 +107,7 @@
       }
       h += "</div>";
     }
-    h += '<p class="rot-foot">Plan the week in <a href="#" data-act="plan">Plan shifts</a>. Patterns, new leave requests and the calendar link are in the <a href="#" data-act="classic">classic Shifts screen</a>.</p></div>';
+    h += '<p class="rot-foot">Plan the week in <a href="#" data-act="plan">Plan shifts</a>, or <a href="#" data-act="leave">ask for leave</a>. Patterns and the calendar link are in the <a href="#" data-act="classic">classic Shifts screen</a>.</p></div>';
     m.innerHTML = h;
     if (keepAct) { var back = m.querySelector('[data-act="' + keepAct + '"]') || (keepAct === "now" ? m.querySelector('[data-act="next"]') : null); if (back) back.focus(); }
     m.querySelectorAll("[data-act]").forEach(function (b) {
@@ -119,6 +119,7 @@
         else if (a === "next") { S.monday = plus(S.monday, 7); S.shifts = []; load(); }
         else if (a === "now") { S.monday = mondayOf(new Date()); S.shifts = []; load(); }
         else if (a === "plan") { ev.preventDefault(); location.hash = "#shfreg"; }
+        else if (a === "leave") { ev.preventDefault(); E._shfLeaveNew = true; location.hash = "#shfreg"; } // Plan shifts opens with a new leave request
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "rotreg"); } catch (x) {} E.openClassic("shifts"); }
       });
     });

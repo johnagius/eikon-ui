@@ -60,10 +60,17 @@
   // what is sent to the server: an ID card without its leading zeros, so padded and unpadded both match the LIKE
   // A name of several words is sent as its longest word (the server matches one run of text, so "Carmel Zammit" would
   // miss "Zammit Carmel"); every word is then checked here (matches), in any order.
+  // ċ ġ ħ ż: the server's LOWER()/LIKE know only A to Z, so "ħabela" never found "Ħabela". A name with them is sent as
+  // its longest stretch without them ("abela"); matches() then keeps the names with every word typed, compared with
+  // the browser's own lower case, which knows Maltese (as Customers and the search do).
+  var MT = /[ċġħżĊĠĦŻ]/;
+  function longest(list) { return list.reduce(function (a, b) { return b.length > a.length ? b : a; }, ""); }
   function wire(q) {
     var s = str(q).trim(); if (idLike(s)) return s.replace(/\s+/g, "").replace(/^0+(?=\d)/, "");
-    var w = s.split(/\s+/); return w.length > 1 ? w.reduce(function (a, b) { return b.length > a.length ? b : a; }) : s;
+    if (MT.test(s)) { var best = longest(s.split(/[\sċġħżĊĠĦŻ]+/)); if (best.length >= 2) return best; }
+    var w = s.split(/\s+/); return w.length > 1 ? longest(w) : s;
   }
+  E.personPickWire = wire; // for the tests
 
   var SOURCES = {
     people: function (q) {

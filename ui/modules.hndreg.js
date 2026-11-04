@@ -3,13 +3,15 @@
    The day's record is replaced whole on every save and deleted if left empty (UPDATE-AUDIT.md), so every save first
    reads the day afresh and changes only the one thing asked: a point added or removed by someone else on another
    till is kept. Notes edited elsewhere since you opened them are never overwritten: theirs are shown instead.
-   Editing the standing instructions and other days stay in the classic screen. */
+   The standing instructions ("Always") are changed here too, with the classic Instructions screen's call: PUT
+   /instructions/global with the whole set, read afresh just before, and only permanent_handover changed.
+   Other days, and the opening, closing and how-to instructions, stay in the classic screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, ymd: "", incoming: [], mine: null, standing: "", loading: false, error: "", sev: "g", draft: "", notes: null, notesBase: "", saving: false, err: "", warn: "", fromYmd: "" };
+  var S = { mount: null, ymd: "", incoming: [], mine: null, standing: "", loading: false, error: "", sev: "g", draft: "", notes: null, notesBase: "", saving: false, err: "", warn: "", fromYmd: "", std: null, stdBusy: false, stdMsg: "" };
   var SEV = { r: ["Critical", 0], y: ["Medium", 1], g: ["Low", 2] };
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
@@ -22,6 +24,20 @@
   function fromLabel() { if (!S.fromYmd || S.fromYmd === daysAgo(1)) return "From yesterday"; var p = S.fromYmd.split("-"); return "From " + WD[new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay()]; }
   function dirty() { return (S.notes || "") !== (S.notesBase || ""); }
   function bySev(a, b) { return (SEV[a.sev] || SEV.g)[1] - (SEV[b.sev] || SEV.g)[1]; }
+  // The classic Instructions screen's normalizeState, for the global set only (modules.instructions.js): every section
+  // it knows is there with a text and an updated_at (HIV and Concerta also with enabled), other keys are kept as they
+  // are. The new screen sends exactly the object the classic screen would send.
+  var GLOBAL_KEYS = ["opening", "closing", "endofday", "pos", "poyc", "ordering", "loyalty", "hiv", "concerta", "doctors_process", "doctors_fees", "clinic_fees", "permanent_handover"];
+  function normGlobal(g) {
+    var s = g && typeof g === "object" ? g : {};
+    GLOBAL_KEYS.forEach(function (k) {
+      if (!s[k] || typeof s[k] !== "object") s[k] = {};
+      if (k === "hiv" || k === "concerta") { if (typeof s[k].enabled !== "boolean") s[k].enabled = false; }
+      if (typeof s[k].text !== "string") s[k].text = "";
+      if (typeof s[k].updated_at !== "string") s[k].updated_at = "";
+    });
+    return s;
+  }
   function clean(rec) { return { notes: String((rec && rec.notes) || ""), handover_out: Array.isArray(rec && rec.handover_out) ? rec.handover_out : [] }; }
 
   function css() {
@@ -47,9 +63,11 @@
       ".hnd-err{color:var(--danger);font-size:13px;margin-top:6px}.hnd-warn{font-size:13.5px;margin-top:8px;padding:10px 12px;border-radius:10px;background:rgba(201,138,18,.12)}" +
       ".hnd-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:12px;padding:16px;color:var(--muted)}.hnd-quiet .hnd-btn{display:block;margin-top:12px}" +
       ".hnd-dirty{font-size:13px;color:var(--muted);margin-right:auto}" +
+      ".hnd-lab .hnd-ch{margin-left:auto;text-transform:none;letter-spacing:0;font-size:13px;font-weight:600;color:var(--accent);border:0;background:none;font-family:inherit;cursor:pointer;padding:0 2px;min-height:24px}" +
+      ".hnd-addstd{display:block;width:100%;text-align:left;font:inherit;font-size:14.5px;font-weight:600;color:var(--accent);background:var(--panel2);border:1px dashed var(--border);border-radius:12px;padding:11px 14px;cursor:pointer;min-height:44px;margin-top:22px}" +
       ".hnd-sk{height:120px;margin-top:22px;border-radius:12px;background:rgba(118,118,128,.1)}.hnd-sk+.hnd-sk{height:96px}" +
       ".hnd-foot{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.6}.hnd-foot a{color:var(--accent)}" +
-      "@media (max-width:600px){.hnd{padding:4px 16px 0}.hnd h1{font-size:32px}.hnd-btn{height:44px;border-radius:22px}.hnd-btn.x{height:44px;padding:0 10px}.hnd-in{height:44px}.hnd-seg button{height:44px;padding:0 12px}.hnd-foot a{display:inline-block;padding:12px 0;margin:-12px 0}}";
+      "@media (max-width:600px){.hnd{padding:4px 16px 0}.hnd h1{font-size:32px}.hnd-btn{height:44px;border-radius:22px}.hnd-btn.x{height:44px;padding:0 10px}.hnd-in{height:44px}.hnd-seg button{height:44px;padding:0 12px}.hnd-foot a{display:inline-block;padding:12px 0;margin:-12px 0}.hnd-lab .hnd-ch{min-height:44px;margin:-12px 0 -12px auto;padding:0 4px}}";
     document.head.appendChild(st);
   }
 
@@ -71,6 +89,7 @@
       S.mine = res[1];
       if (S.notes == null) { S.notes = S.mine.notes; S.notesBase = S.mine.notes; }
       var g = res[2] && res[2].ok && res[2].global; S.standing = g && g.permanent_handover && g.permanent_handover.text ? String(g.permanent_handover.text) : "";
+      S.stdRead = !!(res[2] && res[2].ok); // the standing instructions could not be read: they are not offered for change
     } catch (e) { if (!quiet) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the handover"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
@@ -86,12 +105,13 @@
     if (E.state.activeModuleId !== "hndreg") return; // left before a reply came back: do not draw over the next screen
     var ta = m.querySelector("#hnd-notes"); if (ta && !fromState) S.notes = ta.value; // typing survives every repaint
     var inp = m.querySelector("#hnd-new"); if (inp) S.draft = inp.value;
+    var sta = m.querySelector("#hnd-std"); if (sta && S.std && !fromState) S.std.text = sta.value;
     var h = '<div class="hnd"><button class="hnd-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("hndreg") : "‹ Team") + '</button><h1>Handover</h1><p class="hnd-sub">What the last shift left you, and what you leave the next one.</p>';
     if (S.error) h += '<div class="hnd-quiet" style="margin-top:16px" role="alert">' + esc(S.error) + '<button class="hnd-btn" data-act="retry">Try again</button></div>';
     else if (!S.mine) h += '<div role="status" aria-label="Opening the handover"><div class="hnd-sk"></div><div class="hnd-sk"></div></div>'; // the shape of the page, not a spinner
     else {
       h += '<h2 class="hnd-lab">' + esc(fromLabel()) + " <b>" + S.incoming.length + "</b></h2>" + (S.incoming.length ? '<div class="hnd-list">' + S.incoming.map(function (b) { return pt(b, false); }).join("") + "</div>" : '<div class="hnd-quiet">Nothing was handed over in the last few days.</div>');
-      if (S.standing) h += '<h2 class="hnd-lab">Always</h2><div class="hnd-box">' + esc(S.standing) + "</div>";
+      h += stdHtml();
       h += '<h2 class="hnd-lab"><label for="hnd-notes">Today\'s notes</label></h2><textarea class="hnd-ta" id="hnd-notes" aria-describedby="hnd-dirty" placeholder="Anything for today\'s team">' + esc(S.notes || "") + "</textarea>" +
         (S.warn ? '<div class="hnd-warn" role="alert">' + esc(S.warn) + "</div>" : "") +
         '<div class="hnd-row" style="justify-content:flex-end"><span class="hnd-dirty" id="hnd-dirty" aria-live="polite">' + (dirty() ? "Not saved yet" : "") + '</span><button class="hnd-btn p" data-act="notes" title="Save notes (Ctrl+Enter)"' + (S.saving || !dirty() ? " disabled" : "") + ">Save notes</button></div>";
@@ -102,7 +122,7 @@
         '<button type="submit" class="hnd-btn p"' + (S.saving ? " disabled" : "") + ">Add</button></form>" +
         (S.err ? '<div class="hnd-err" role="alert">' + esc(S.err) + "</div>" : "");
     }
-    h += '<p class="hnd-foot">To change the standing instructions or another day, use the <a href="#" data-act="classic">classic screen</a>.</p></div>';
+    h += '<p class="hnd-foot">Another day\'s handover, and the opening, closing and how-to instructions, are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
     m.innerHTML = h;
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
@@ -111,6 +131,8 @@
         else if (act === "retry") load();
         else if (act === "notes") saveNotes();
         else if (act === "rm") change(function (rec) { var id = b.getAttribute("data-id"); rec.handover_out = rec.handover_out.filter(function (x) { return String(x.id) !== id; }); }, "Removed").then(function () { var i = S.mount && S.mount.querySelector("#hnd-new"); if (i && !document.activeElement.closest("form, textarea")) i.focus(); });
+        else if (act === "std") { S.std = { text: S.standing, base: S.standing, err: "", warn: "" }; S.stdMsg = ""; paint(); var ta2 = S.mount && S.mount.querySelector("#hnd-std"); if (ta2) { ta2.focus(); try { ta2.setSelectionRange(ta2.value.length, ta2.value.length); } catch (e2) {} } }
+        else if (act === "std-cancel") closeStd();
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "hndreg"); } catch (x) {} E.openClassic("instructions"); }
       });
     });
@@ -119,6 +141,14 @@
       t.addEventListener("input", function () { S.notes = t.value; var btn = m.querySelector('[data-act="notes"]'); if (btn) btn.disabled = S.saving || !dirty(); var d = m.querySelector("#hnd-dirty"), w = dirty() ? "Not saved yet" : ""; if (d && d.textContent !== w) d.textContent = w; });
       t.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey) && !S.saving && dirty()) { ev.preventDefault(); saveNotes(); } }); // Ctrl+Enter saves; Enter is a new line
     }
+    var sf = m.querySelector("#hnd-stdf"); if (sf) {
+      sf.addEventListener("input", function (ev) { if (S.std && ev.target && ev.target.id === "hnd-std") S.std.text = ev.target.value; }); // kept on leaving and coming back
+      sf.addEventListener("submit", function (ev) { ev.preventDefault(); saveStd(); });
+      sf.addEventListener("keydown", function (ev) {
+        if (ev.key === "Escape" && !S.stdBusy) { ev.preventDefault(); ev.stopPropagation(); closeStd(); }
+        else if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey) && !S.stdBusy) { ev.preventDefault(); saveStd(); } // Ctrl+Enter saves; Enter is a new line
+      });
+    }
     var f = m.querySelector("#hnd-add"); if (f) f.addEventListener("submit", function (ev) {
       ev.preventDefault();
       var text = String((m.querySelector("#hnd-new") || {}).value || "").trim(); S.draft = text;
@@ -126,6 +156,46 @@
       var sev = S.sev;
       change(function (rec) { rec.handover_out = rec.handover_out.concat([{ id: "b_" + Date.now() + "_" + String(Math.random()).slice(2), sev: sev, text: text, created_at: new Date().toISOString() }]); }, "Added for tomorrow", function () { S.draft = ""; var i = S.mount && S.mount.querySelector("#hnd-new"); if (i) i.value = ""; });
     });
+  }
+
+  // ---- The standing instructions ("Always"): shown to every shift; changed in place ----
+  function stdHtml() {
+    var d = S.std;
+    if (!d) {
+      if (S.standing) return '<h2 class="hnd-lab"><span id="hnd-std-l">Always</span>' + (S.stdRead ? '<button class="hnd-ch" data-act="std" aria-label="Change the standing instructions">Change</button>' : "") + '</h2><div class="hnd-box" aria-labelledby="hnd-std-l">' + esc(S.standing) + "</div>" +
+        (S.stdMsg ? '<div class="hnd-err" role="alert">' + esc(S.stdMsg) + "</div>" : "");
+      return S.stdRead ? '<button class="hnd-addstd" data-act="std">+ Standing instructions for every shift</button>' : "";
+    }
+    return '<h2 class="hnd-lab"><label for="hnd-std">Always</label></h2><form id="hnd-stdf" autocomplete="off">' +
+      '<textarea class="hnd-ta" id="hnd-std" aria-describedby="hnd-std-h" placeholder="e.g. Count the CD cupboard every evening"' + (S.stdBusy ? " disabled" : "") + ">" + esc(d.text) + "</textarea>" +
+      '<p class="hnd-foot" id="hnd-std-h" style="margin-top:6px">Every shift sees these, every day, until they are changed.</p>' +
+      (d.warn ? '<div class="hnd-warn" role="alert">' + esc(d.warn) + "</div>" : "") + (d.err ? '<div class="hnd-err" role="alert">' + esc(d.err) + "</div>" : "") +
+      '<div class="hnd-row" style="justify-content:flex-end"><button type="button" class="hnd-btn" data-act="std-cancel">Cancel</button><button type="submit" class="hnd-btn p" title="Save (Ctrl+Enter)"' + (S.stdBusy ? " disabled" : "") + ">" + (S.stdBusy ? "Saving…" : "Save standing instructions") + "</button></div></form>";
+  }
+  function closeStd() { S.std = null; paint(); var b = S.mount && S.mount.querySelector('[data-act="std"]'); if (b) b.focus(); }
+  // The classic screen's save (modules.instructions.js renderEditorCard → saveGlobalToServer): the whole global set,
+  // with permanent_handover.text as typed and updated_at the time now. Read afresh first, so a section changed on
+  // another till since is kept; standing instructions changed elsewhere since you opened them are never overwritten.
+  async function saveStd() {
+    var d = S.std; if (!d || S.stdBusy) return;
+    var ta = S.mount && S.mount.querySelector("#hnd-std"); if (ta) d.text = ta.value;
+    var mine = d.text; d.err = ""; d.warn = ""; S.stdBusy = true; paint();
+    try {
+      var r0 = await E.apiFetch("/instructions/global", { method: "GET" });
+      if (!r0 || !r0.ok) throw new Error((r0 && r0.error) || "the standing instructions could not be read");
+      var g = normGlobal(r0.global);
+      if (String(g.permanent_handover.text) !== String(d.base || "")) {
+        var theirs = String(g.permanent_handover.text); S.standing = theirs; d.base = theirs;
+        d.warn = "Someone changed the standing instructions on another till. Theirs are in the box now; yours were: “" + mine + "”. Change them again if still needed.";
+        d.text = theirs; S.stdBusy = false; paint(true); var t0 = S.mount && S.mount.querySelector("#hnd-std"); if (t0) E.focusIfIdle(t0, E.lastAction(), null); return;
+      }
+      g.permanent_handover.text = String(mine);
+      g.permanent_handover.updated_at = new Date().toISOString();
+      var r = await E.apiFetch("/instructions/global", { method: "PUT", body: JSON.stringify({ global: g }) });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      S.standing = mine; S.std = null; S.stdBusy = false; E.toast("Standing instructions saved", "success");
+      paint(); var b = S.mount && S.mount.querySelector('[data-act="std"]'); if (b) E.focusIfIdle(b, E.lastAction(), null); // after the reply: not from a field the person went to meanwhile
+    } catch (x) { S.stdBusy = false; d.err = E.saveFailText(x); paint(); var t1 = S.mount && S.mount.querySelector("#hnd-std"); if (t1) E.focusIfIdle(t1, E.lastAction(), null); }
   }
 
   // Read the day as it is now, change one thing, write it back whole.
@@ -161,7 +231,8 @@
     render: function (ctx) {
       // Notes typed and not saved, and a point not yet added, are still there when you come back the same day.
       var keepDraft = S.ymd === today();
-      S.mount = ctx && ctx.mount; S.ymd = today(); S.mine = null; S.err = ""; S.warn = "";
+      S.mount = ctx && ctx.mount; S.ymd = today(); S.mine = null; S.err = ""; S.warn = ""; S.stdBusy = false; S.stdMsg = "";
+      if (S.std && S.std.text === S.std.base) S.std = null; // a change typed and not saved is still open on coming back
       if (!keepDraft || !dirty()) S.notes = null;
       if (!keepDraft) S.draft = "";
       css(); paint(); return load();

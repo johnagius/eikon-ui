@@ -9,13 +9,13 @@ export default {
     let m = t.maxId(T);
     await t.fill(p, "", { "#cl-date": IN.date, "#cl-in": IN.tin, "#cl-out": IN.tout, "#cl-cleaner": IN.cleaner, "#cl-staff": IN.staff, "#cl-notes": IN.notes });
     await t.write(p, /\/cleaning\/entries$/, () => p.click("#cl-save"));
-    const classic = t.since(T, m)[0];
+    const classic = (await t.mine(T, m, { cleaner_name: IN.cleaner }))[0];
     await t.open(p, "2", "cleaning", "cleanreg", "[data-act=new]");
     m = t.maxId(T);
     await p.click("[data-act=new]"); await p.waitForSelector("#clr-form");
     await t.fill(p, "#clr-form", { entry_date: IN.date, time_in: IN.tin, time_out: IN.tout, cleaner_name: IN.cleaner, notes: IN.notes });
     await t.write(p, /\/cleaning\/entries$/, () => p.click("#clr-form button[type=submit]"));
-    const fresh = t.since(T, m)[0];
+    const fresh = (await t.mine(T, m, { cleaner_name: IN.cleaner }))[0];
     t.has("cleaning(new)", fresh, { entry_date: IN.date, time_in: IN.tin, time_out: IN.tout, cleaner_name: IN.cleaner, staff_name: IN.staff, notes: IN.notes });
     t.same("cleaning", classic, fresh);
   },

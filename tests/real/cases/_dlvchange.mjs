@@ -19,8 +19,8 @@ export default {
     };
     const newEdit = async (p, id, map, checks = {}) => {
       await t.open(p, "2", "deliveries", "dlvreg", `[data-act=open][data-id="${id}"]`);
-      await p.click(`[data-act=open][data-id="${id}"]`); await p.waitForSelector("#dlv-edit");
-      for (const [k, v] of Object.entries(map)) await p.fill("#dlv-edit [name=" + k + "]", v);
+      await p.click(`[data-act=open][data-id="${id}"]`); await p.waitForSelector("#dlv-edit"); await t.idle(p); // the record is read before typing
+      await t.fill(p, "#dlv-edit", map); // field by field, each checked to have stuck
       for (const [k, v] of Object.entries(checks)) await p.setChecked("#dlv-edit [name=" + k + "]", v);
       await t.write(p, new RegExp("/client-deliveries/entries/" + id + "$"), () => p.click("#dlv-edit button[type=submit]"), "PUT");
     };

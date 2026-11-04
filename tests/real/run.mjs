@@ -26,8 +26,9 @@ const results = [];
 // The correct-* cases write extra lines into the same tables as the screens' own cases, which find their row as "the
 // newest one": they run after all the others (in parallel among themselves: each uses its own table).
 // typerace writes orders, questions and deliveries too: it runs with them, after the cases that read "the newest row" there.
+// stock6a (b4-6a) adds returns, quotes and diary lines that stockq would otherwise take for its own newest row: later too.
 // "solo-" cases add rows to several of those tables: they run last, one at a time.
-const lateCase = (f) => f.startsWith("correct-") || f === "typerace.mjs";
+const lateCase = (f) => f.startsWith("correct-") || f === "typerace.mjs" || f === "stock6a.mjs";
 const queue = files.filter((f) => !lateCase(f) && !f.startsWith("solo-")), later = files.filter(lateCase), solo = files.filter((f) => f.startsWith("solo-"));
 async function worker() {
   while (queue.length) {

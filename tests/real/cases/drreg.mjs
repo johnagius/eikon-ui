@@ -10,13 +10,13 @@ export default {
     await p.click("#dr-new"); await p.waitForSelector("#dr-client-name");
     await t.fill(p, "", { "#dr-date": IN.date, "#dr-client-name": IN.name, "#dr-client-id": IN.id, "#dr-med": IN.med, "#dr-pos": IN.pos, "#dr-prescriber": IN.doc, "#dr-presc-reg": IN.reg });
     await t.write(p, /\/daily-register\/entries$/, () => p.click("#eikon-modal-actions .eikon-btn.primary"));
-    const classic = t.since(T, m)[0];
+    const classic = (await t.mine(T, m, { client_id: IN.id }))[0];
     await t.open(p, "2", "dailyregister", "drreg", "[data-act=new]");
     m = t.maxId(T);
     await p.click("[data-act=new]"); await p.waitForSelector("#drr-form");
     await t.fill(p, "#drr-form", { entry_date: IN.date, client_id: IN.id, client_name: IN.name, medicine_name_dose: IN.med, posology: IN.pos, prescriber_name: IN.doc, prescriber_reg_no: IN.reg });
     await t.write(p, /\/daily-register\/entries$/, () => p.click("#drr-form button[type=submit]"));
-    const fresh = t.since(T, m)[0];
+    const fresh = (await t.mine(T, m, { client_id: IN.id }))[0];
     t.has("daily(new)", fresh, { entry_date: IN.date, client_id: IN.id, client_name: IN.name, medicine_name_dose: IN.med, posology: IN.pos, prescriber_name: IN.doc, prescriber_reg_no: IN.reg });
     t.same("daily", classic, fresh);
   },

@@ -8,7 +8,7 @@ export async function rxCase(t, o) {
   await t.fill(p, "", { [M + "input[type=date]"]: IN.date, [M + "input[type=number]"]: IN.qty, ...Object.fromEntries(Object.entries(o.classicPh).map(([k, ph]) => [M + `input[placeholder="${ph}"]`, IN[k]])) });
   if (IN.urgent && o.urgent) await p.locator(M + "input[type=checkbox]").first().check();
   await t.write(p, new RegExp(o.path + "$"), () => p.click(M + "button.eikon-dda-btn:has-text('Save')"));
-  const classic = t.since(o.table, m)[0];
+  const classic = (await t.mine(o.table, m, { prescription_serial_no: IN.serial }))[0];
   await t.open(p, "2", o.hash, o.newId, "[data-act=add]");
   m = t.maxId(o.table);
   await p.click("[data-act=add]"); await p.waitForSelector("#cds-add");
@@ -18,7 +18,7 @@ export async function rxCase(t, o) {
   await p.click("#cds-add button[type=submit]"); await p.waitForSelector(".cds-dup");
   t.ok(/already has 1 entry/.test(await p.textContent(".cds-dup")), o.label + ": the serial already used is shown before saving");
   await t.write(p, new RegExp(o.path + "$"), () => p.click("#cds-add button[type=submit]"));
-  const fresh = t.since(o.table, m)[0];
+  const fresh = (await t.mine(o.table, m, { prescription_serial_no: IN.serial }))[0];
   t.has(o.label + "(new)", fresh, o.want);
   t.same(o.label, classic, fresh, o.allow || {});
 }

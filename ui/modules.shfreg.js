@@ -4,16 +4,19 @@
    before two pharmacists overlap, a warning before approving a pharmacist's leave with no one to cover.
    A change sends the shift's whole record (the server writes start, end, role and note together), so the role a
    pattern set is kept. A person can be added to the rota here (the classic "Add Employee" body, with its defaults), so a
-   new pharmacy's empty rota is never a dead end. Patterns, opening hours, new leave requests, changing a person's
-   details, balances and the calendar link stay in the classic Shifts screen. */
+   new pharmacy's empty rota is never a dead end. A new leave request is made here too (the classic Leave tab's
+   "Submit Leave Request": the same body, the same hours worked out, locums left out as there). Patterns, opening
+   hours, changing a person's details, leave balances and history, and the calendar link stay in the classic screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, monday: null, staff: {}, shifts: [], leaves: [], hours: null, loading: false, error: "", leaveErr: "", form: null, saving: false, ask: null, busy: 0, lvMsg: "", last: null, who: null };
+  var S = { mount: null, monday: null, staff: {}, shifts: [], leaves: [], hours: null, loading: false, error: "", leaveErr: "", form: null, saving: false, ask: null, busy: 0, lvMsg: "", last: null, who: null, lv: null, lvYears: [] };
   var DAY = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  // The classic Leave tab's leave types, in its order, in the words used on this screen ("Annual leave").
+  var LTYPES = [["annual", "Annual leave"], ["sick", "Sick leave"], ["urgent_family", "Urgent family leave (force majeure)"], ["maternity", "Maternity leave"], ["paternity", "Paternity leave"], ["parental", "Parental leave"], ["miscarriage", "Miscarriage leave"], ["other", "Other"]];
   var DESIG = { pharmacist: "Pharmacist", locum: "Locum pharmacist", assistant: "Pharmacy assistant", dispenser: "Dispenser", cashier: "Cashier", manager: "Manager", cleaner: "Cleaner", other: "Other" };
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
@@ -100,6 +103,8 @@
       ".shf-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".shf-note{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.6}.shf-note a{color:var(--accent)}.shf-quiet .shf-btn{display:block;margin-top:12px}" +
       ".shf-who{margin-top:14px}.shf-who h2{font-size:17px;font-weight:700;margin:0;padding:12px 14px 2px}.shf-who p{margin:0;padding:0 14px 8px;font-size:13.5px;color:var(--muted)}.shf-who .ok{color:var(--ok);font-weight:600}" +
+      ".shf-form .two{display:flex;gap:8px;flex:1;min-width:0;align-items:center}.shf-form .two input{flex:1}.shf-form .two i{font-style:normal;color:var(--muted)}" +
+      ".shf-form .hint{font-size:12.5px;color:var(--muted);padding:0 14px 8px 98px;margin-top:-6px}.shf-form [aria-invalid=true]{box-shadow:inset 0 -2px 0 var(--danger)}" +
       ".shf-sk{height:150px;margin-top:10px;border-radius:12px;background:rgba(118,118,128,.1)}.shf-sk+.shf-sk{height:110px}" +
       // A wide desktop shows the week in two columns (Monday to Sunday reading across), so most of it is seen without scrolling.
       "@media (min-width:1280px){.shf{max-width:1180px}.shf-week{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;align-items:start}}" +
@@ -107,7 +112,7 @@
     document.head.appendChild(st);
   }
 
-  function years() { var a = [S.monday.getFullYear(), plus(S.monday, 6).getFullYear(), new Date().getFullYear()]; return a.filter(function (y, i) { return a.indexOf(y) === i; }); }
+  function years() { var a = [S.monday.getFullYear(), plus(S.monday, 6).getFullYear(), new Date().getFullYear()].concat(S.lvYears); return a.filter(function (y, i) { return a.indexOf(y) === i; }); }
   async function load() {
     var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     var from = ymd(S.monday), to = ymd(plus(S.monday, 6)), ys = years();
@@ -192,13 +197,14 @@
     else if (S.error) h += '<div class="shf-quiet" role="alert">' + esc(S.error) + '<button class="shf-btn" data-act="retry">Try again</button></div>';
     else {
       var pending = S.leaves.filter(function (l) { return low(l.status) === "pending"; }).sort(function (a, b) { return String(a.start_date).localeCompare(String(b.start_date)); });
-      if (pending.length || S.lvMsg) {
+      if (pending.length || S.lvMsg || S.lv || leavers().length) {
         h += '<div class="shf-lab">Leave requests <b>' + pending.length + "</b></div>";
         if (S.lvMsg) h += '<div class="shf-err" role="alert" style="padding:0 2px 6px">' + esc(S.lvMsg) + "</div>";
-        if (pending.length) h += '<div class="shf-card">' + pending.map(leaveHtml).join("") + "</div>";
+        h += '<div class="shf-card">' + pending.map(leaveHtml).join("") +
+          (S.lv ? lvFormHtml() : leavers().length ? '<button class="shf-add"' + (pending.length ? "" : ' style="border-top:0"') + ' data-act="lv-new" data-k="lv-new">+ New leave request</button>' : "") + "</div>";
       }
       if (S.leaveErr) h += '<p class="shf-note">' + esc(S.leaveErr) + "</p>";
-      if (!active().length && !S.who) S.who = newWho(); // an empty rota opens on the one thing to do: add the people who work here
+      if (!active().length && !S.who && !S.loading) S.who = newWho(); // an empty rota opens on the one thing to do: add the people who work here
       if (S.who) h += whoHtml();
       h += '<div class="shf-nav"><button data-act="prev" aria-label="Previous week" title="Previous week (←)">‹</button><b>' + esc(label) + "</b>" + (thisWeek ? "" : '<button class="now" data-act="now">This week</button>') + '<button data-act="next" aria-label="Next week" title="Next week (→)">›</button></div>';
       var today = ymd(new Date());
@@ -226,7 +232,7 @@
       h += "</div>";
       if (!S.who && active().length) h += '<div class="shf-card" style="margin-top:10px"><button class="shf-add" style="border-top:0" data-act="who" data-k="who">+ Add a person to the rota</button></div>';
     }
-    h += '<p class="shf-note">Patterns, opening hours, new leave requests, changing a person’s details, leave balances and the calendar link are in the <a href="#" data-act="classic">classic Shifts screen</a>.</p></div>';
+    h += '<p class="shf-note">Patterns, opening hours, changing a person’s details, leave balances and history, and the calendar link are in the <a href="#" data-act="classic">classic Shifts screen</a>.</p></div>';
     m.innerHTML = h;
     if (keepAct && /^(prev|next|now)$/.test(keepAct)) { var kb = m.querySelector('[data-act="' + keepAct + '"]') || m.querySelector('[data-act="next"]'); if (kb) kb.focus(); }
     m.querySelectorAll("[data-act]").forEach(function (b) {
@@ -249,6 +255,8 @@
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "shfreg"); } catch (x2) {} E.openClassic("shifts"); }
         else if (a === "who") { S.who = newWho(); paint(true); var n = m.querySelector('#shf-who [name="full_name"]'); if (n) n.focus(); }
         else if (a === "who-done") closeWho();
+        else if (a === "lv-new") openLeave();
+        else if (a === "lv-cancel") closeLeave();
       });
     });
     var w = m.querySelector("#shf-who"); if (w) {
@@ -256,6 +264,16 @@
       w.addEventListener("input", function (ev) { var t = ev.target; if (t && t.name && S.who) { S.who[t.name] = t.value; t.removeAttribute("aria-invalid"); } });
       w.addEventListener("change", function (ev) { var t = ev.target; if (t && t.name && S.who) S.who[t.name] = t.value; });
       w.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && S.who && !S.who.saving && active().length) { ev.preventDefault(); ev.stopPropagation(); closeWho(); } });
+    }
+    var lf = m.querySelector("#shf-lvf"); if (lf) {
+      lf.addEventListener("submit", function (ev) { ev.preventDefault(); saveLeave(); });
+      lf.addEventListener("input", function (ev) { var t = ev.target; if (t && t.name && S.lv) { S.lv[t.name] = t.value; t.removeAttribute("aria-invalid"); } });
+      lf.addEventListener("change", function (ev) {
+        var t = ev.target; if (!t || !t.name || !S.lv) return; S.lv[t.name] = t.value;
+        if (t.name === "end_date") S.lv.endSet = !!t.value;
+        if (t.name === "start_date" && !S.lv.endSet) { var ed = lf.querySelector("[name=end_date]"); if (ed) ed.value = t.value; S.lv.end_date = t.value; } // one day unless the last day is chosen
+      });
+      lf.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !(S.lv && S.lv.saving)) { ev.preventDefault(); ev.stopPropagation(); closeLeave(); } });
     }
     var f = m.querySelector("#shf-form"); if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); save(); });
@@ -300,6 +318,66 @@
     } catch (e) {
       w.saving = false; w.err = E.saveFailText(e); paint(true);
       var b = S.mount && S.mount.querySelector('[data-k="who-add"]'); if (b) b.focus();
+    }
+  }
+
+  // ---- A new leave request: the classic Leave tab's "Submit Leave Request" (modules.shifts.js submitLeave) ----
+  // POST /shifts/leaves {staff_id, leave_type, start_date, start_time|null, end_date, end_time|null, hours_requested,
+  // reason, status:"pending"}, hours worked out as there: a part day is its hours, else 8 for each weekday. (The classic
+  // also puts its own local counter in an "id" key, which the server does not read; it is not sent.) Locum pharmacists
+  // are self-employed and take no leave: they are left out, as the classic screen refuses them.
+  function leavers() { return active().filter(function (p) { return low(p.designation) !== "locum"; }); }
+  function t2m(t) { if (!t) return 0; var p = t.split(":"); return +p[0] * 60 + (+p[1] || 0); } // as the classic screen
+  function wdCount(s, e) { var n = 0, dt = new Date(s), end = new Date(e); while (dt <= end) { var wd = dt.getDay(); if (wd !== 0 && wd !== 6) n++; dt.setDate(dt.getDate() + 1); } return n; } // as the classic screen
+  function leaveBody(v) {
+    var sid = parseInt(v.staff_id), sd = v.start_date, st = v.start_time, ed = v.end_date || sd, et = v.end_time, hrs = 0;
+    if (st && et) hrs = (t2m(et) - t2m(st)) / 60; else hrs = wdCount(sd, ed) * 8;
+    return { staff_id: sid, leave_type: v.leave_type, start_date: sd, start_time: st || null, end_date: ed, end_time: et || null, hours_requested: Math.max(0, +hrs.toFixed(1)), reason: String(v.reason || "").trim(), status: "pending" };
+  }
+  function openLeave() {
+    var one = leavers().length === 1 ? String(leavers()[0].id) : "";
+    S.lv = { staff_id: one, leave_type: "annual", start_date: ymd(new Date()), end_date: ymd(new Date()), endSet: false, start_time: "", end_time: "", reason: "", err: "", bad: [], saving: false };
+    S.lvMsg = ""; paint(true);
+    var el = S.mount && S.mount.querySelector("#shf-lvf [name=" + (one ? "leave_type" : "staff_id") + "]"); if (el) { el.focus(); if (el.scrollIntoView) try { el.scrollIntoView({ block: "center" }); } catch (e) {} }
+  }
+  function closeLeave() { S.lv = null; paint(true); var b = S.mount && S.mount.querySelector('[data-act="lv-new"]'); if (b) b.focus(); }
+  function lvFormHtml() {
+    var v = S.lv, bad = function (n) { return v.bad.indexOf(n) >= 0 ? ' aria-invalid="true" aria-describedby="shf-lv-err"' : ""; }, dis = v.saving ? " disabled" : "";
+    return '<form class="shf-form" id="shf-lvf" autocomplete="off" novalidate aria-label="New leave request"' + (S.leaves.some(function (l) { return low(l.status) === "pending"; }) ? "" : ' style="border-top:0"') + ">" +
+      '<label><span>Who</span><select name="staff_id"' + bad("staff_id") + dis + '><option value="">Choose a person</option>' + leavers().map(function (p) { return '<option value="' + p.id + '"' + (String(v.staff_id) === String(p.id) ? " selected" : "") + ">" + esc(p.full_name) + "</option>"; }).join("") + "</select></label>" +
+      '<label><span>Type</span><select name="leave_type"' + dis + ">" + LTYPES.map(function (t) { return '<option value="' + t[0] + '"' + (v.leave_type === t[0] ? " selected" : "") + ">" + esc(t[1]) + "</option>"; }).join("") + "</select></label>" +
+      '<label><span>From</span><input type="date" name="start_date" value="' + esc(v.start_date) + '"' + bad("start_date") + dis + "></label>" +
+      '<label><span>Until</span><input type="date" name="end_date" value="' + esc(v.end_date) + '"' + bad("end_date") + dis + "></label>" +
+      '<div class="row"><span id="shf-lv-hrs">Hours</span><div class="two" role="group" aria-labelledby="shf-lv-hrs" aria-describedby="shf-lv-hint"><input type="time" name="start_time" aria-label="Leave starts at" value="' + esc(v.start_time) + '"' + bad("start_time") + dis + '><i aria-hidden="true">–</i><input type="time" name="end_time" aria-label="Leave ends at" value="' + esc(v.end_time) + '"' + bad("end_time") + dis + "></div></div>" +
+      '<div class="hint" id="shf-lv-hint">Only for part of a day. Empty: whole days.</div>' +
+      '<label><span>Reason</span><input name="reason" value="' + esc(v.reason) + '" placeholder="Optional"' + dis + "></label>" +
+      (v.err ? '<div class="shf-err" role="alert" id="shf-lv-err">' + esc(v.err) + "</div>" : "") +
+      '<div class="acts"><button type="button" class="shf-btn" data-act="lv-cancel">Cancel</button><button type="submit" class="shf-btn p"' + dis + ">" + (v.saving ? "Saving…" : "Save leave request") + "</button></div></form>";
+  }
+  async function saveLeave() {
+    var v = S.lv; if (!v || v.saving) return;
+    var f = S.mount && S.mount.querySelector("#shf-lvf");
+    if (f) ["staff_id", "leave_type", "start_date", "end_date", "start_time", "end_time", "reason"].forEach(function (k) { var el = f.querySelector("[name=" + k + "]"); if (el) v[k] = String(el.value || ""); });
+    if (!v.end_date) v.end_date = v.start_date;
+    var errs = [], bad = [];
+    if (!v.staff_id) { errs.push("Choose who is asking for leave."); bad.push("staff_id"); }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v.start_date)) { errs.push("Choose the first day of leave."); bad.push("start_date"); }
+    else if (v.end_date < v.start_date) { errs.push("The last day must be on or after the first day."); bad.push("end_date"); }
+    else if (v.start_time && v.end_time && v.start_date === v.end_date && t2m(v.end_time) <= t2m(v.start_time)) { errs.push("The leave must end after it starts."); bad.push("end_time"); }
+    v.bad = bad; v.err = errs.length ? errs.join(" ") + " Nothing was saved." : "";
+    if (errs.length) { paint(true); var b0 = S.mount && S.mount.querySelector("#shf-lvf [name=" + bad[0] + "]"); if (b0) b0.focus(); return; }
+    var body = leaveBody(v), name = person(body.staff_id).full_name, yr = Number(body.start_date.slice(0, 4));
+    v.saving = true; paint(true);
+    try {
+      await E.postOnce("/shifts/leaves", body, { list: async function () { var r = await E.apiFetch("/shifts/leaves?year=" + yr, { method: "GET" }); return (r && r.leaves) || []; },
+        same: function (l) { return Number(l.staff_id) === body.staff_id && l.start_date === body.start_date && l.end_date === body.end_date && l.leave_type === body.leave_type && low(l.status) === "pending"; } });
+      if (S.lvYears.indexOf(yr) < 0) S.lvYears.push(yr); // a request for next year still shows in the list
+      S.lv = null; E.toast("Leave request saved for " + name, "success");
+      await load();
+      var nb = S.mount && S.mount.querySelector('[data-act="lv-new"]'); if (nb) E.focusIfIdle(nb, E.lastAction(), null); // the reply came late: not from a field the person went to meanwhile
+    } catch (x) {
+      v.saving = false; v.err = E.saveFailText(x); paint(true);
+      var sb = S.mount && S.mount.querySelector('#shf-lvf button[type=submit]'); if (sb) E.focusIfIdle(sb, E.lastAction(), null);
     }
   }
 
@@ -395,7 +473,7 @@
 
   // ← and → move a week, as the arrows do, whenever no shift is open and the keys are not typing somewhere.
   function onKey(ev) {
-    if (E.state.activeModuleId !== "shfreg" || !S.mount || !document.body.contains(S.mount) || S.form || S.who || S.saving || ev.altKey || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.defaultPrevented) return;
+    if (E.state.activeModuleId !== "shfreg" || !S.mount || !document.body.contains(S.mount) || S.form || S.who || S.lv || S.saving || ev.altKey || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.defaultPrevented) return;
     if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
     var a = document.activeElement; if (a && a !== document.body && !S.mount.contains(a)) return;
     if (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return;
@@ -404,7 +482,13 @@
   }
   E.registerModule({
     id: "shfreg", title: "Plan shifts", order: 3, icon: "◷", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.monday = mondayOf(new Date()); S.shifts = []; S.form = null; S.ask = null; S.lvMsg = ""; S.busy = 0; S.saving = false; S.who = null; css(); paint(); document.removeEventListener("keydown", onKey); document.addEventListener("keydown", onKey); return load(); },
+    render: function (ctx) {
+      S.mount = ctx && ctx.mount; S.monday = mondayOf(new Date()); S.shifts = []; S.form = null; S.ask = null; S.lvMsg = ""; S.busy = 0; S.saving = false; S.who = null; S.lv = null;
+      var wantLeave = E._shfLeaveNew; E._shfLeaveNew = false; // "Ask for leave" on Who's in opens the new request
+      S.loading = true; // the first paint is the skeleton (an empty rota is only offered "Who works here?" once it is known to be empty)
+      css(); paint(); document.removeEventListener("keydown", onKey); document.addEventListener("keydown", onKey);
+      return load().then(function () { if (wantLeave && !S.error && leavers().length && E.state.activeModuleId === "shfreg") openLeave(); });
+    },
     destroy: function () { document.removeEventListener("keydown", onKey); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("shfreg") < 0) E.UI2_DESTINATIONS.push("shfreg");

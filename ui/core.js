@@ -1937,6 +1937,55 @@
     var back = fk && now[fk], a = document.activeElement;
     if (back && !back.disabled && (!a || a === document.body || !a.isConnected)) { try { back.focus({ preventScroll: true }); } catch (e) { back.focus(); } if (s0 != null) { try { back.setSelectionRange(s0, s1); } catch (e) {} } }
   };
+  // Form problems, said one way on every screen. E.formErrors(form, problems, opts): problems is a list of
+  // { field: a [name] or the element, msg }. Every field named is marked aria-invalid and tied (aria-describedby) to ONE
+  // role=alert message saying all the problems at once; the first field gets the cursor; typing in a marked field
+  // unmarks it, and the message goes when none is left. Nothing typed is touched. An empty list clears the form.
+  //   opts.cls  the message's class (the screen's own red text); opts.id  its id (default: first field's id + "-err")
+  //   opts.at   "field": the message sits under the first field (in its label); default: at the top of the form
+  //   opts.onFix(el)  called as each marked field is typed in (a screen that keeps its own list of bad fields)
+  // Returns the first field marked (or null).
+  function feUnmark(form, st, el) {
+    el.removeEventListener("input", el.__eikonFeIn); el.__eikonFeIn = null;
+    el.removeAttribute("aria-invalid"); el.removeAttribute("aria-describedby");
+    var i = st.fields.indexOf(el); if (i >= 0) st.fields.splice(i, 1);
+    if (!st.fields.length) { if (st.box.parentNode) st.box.parentNode.removeChild(st.box); if (form.__eikonFE === st) form.__eikonFE = null; }
+  }
+  E.formErrors = function (form, problems, opts) {
+    if (!form) return null; opts = opts || {};
+    var prev = form.__eikonFE; if (prev) { prev.fields.slice().forEach(function (el) { feUnmark(form, prev, el); }); if (prev.box.parentNode) prev.box.parentNode.removeChild(prev.box); form.__eikonFE = null; }
+    var list = [];
+    (problems || []).forEach(function (p) {
+      var el = p && p.field && (p.field.nodeType ? p.field : form.querySelector('[name="' + p.field + '"]'));
+      if (el) list.push({ el: el, msg: String(p.msg || "") });
+    });
+    if (!list.length) return null;
+    var first = list[0].el, id = opts.id || ((first.id || form.id || "eikon-form") + "-err");
+    var box = document.getElementById(id);
+    if (!box) {
+      box = document.createElement(opts.at === "field" ? "span" : "div"); box.id = id;
+      if (opts.at === "field") first.parentNode.appendChild(box); else form.insertBefore(box, form.firstChild);
+    }
+    box.className = opts.cls || "eikon-ferr"; box.setAttribute("role", "alert");
+    box.textContent = list.map(function (m) { return m.msg; }).filter(Boolean).join(" ");
+    var st = { fields: [], box: box };
+    list.forEach(function (m) {
+      var el = m.el; if (st.fields.indexOf(el) >= 0) return;
+      el.setAttribute("aria-invalid", "true"); el.setAttribute("aria-describedby", id); st.fields.push(el);
+      el.__eikonFeIn = function () { if (form.__eikonFE !== st) return; feUnmark(form, st, el); if (opts.onFix) try { opts.onFix(el); } catch (e) {} };
+      el.addEventListener("input", el.__eikonFeIn);
+    });
+    form.__eikonFE = st;
+    try { first.focus(); } catch (e) {}
+    return first;
+  };
+  // A loading placeholder for a list (instead of a spinner): n grey rows that shimmer (still without motion when the
+  // device asks for less), announced once as "Opening …". `cls` adds the screen's own class for its row height.
+  E.skeleton = function (n, what, cls) {
+    var h = '<div class="eikon-skel' + (cls ? " " + cls : "") + '" role="status" aria-busy="true"><span class="eikon-sr">' + E.escapeHtml(what || "Opening") + "</span>";
+    for (var i = 0; i < (n || 3); i++) h += "<i></i>";
+    return h + "</div>";
+  };
   // E.repaintKeepingFocus(mount, paintFn) redraws, then puts back the field you were in, the cursor, and what you had
   // typed if the redraw brought an older copy. Called while focus is moving (from a "change", "blur" or "focusout"
   // handler, or between the two halves of a Tab) it waits for focus to land, so it brings back the field you went to.

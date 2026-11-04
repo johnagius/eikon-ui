@@ -1089,3 +1089,26 @@ html[data-ui2] .q44-days button[aria-pressed="true"]{background:var(--accent);bo
 html[data-ui2] .q44-days button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (max-width:600px){ html[data-ui2] .q44-days{padding-left:14px} html[data-ui2] .ord-form .q44-days{padding-left:16px} html[data-ui2] .q44-days button{height:44px;border-radius:22px;flex:1 1 0} }
 @media (prefers-color-scheme: dark){ html[data-ui2]:not([data-ui2-visit]) .q44-days button[aria-pressed="true"]{color:#00160E} }
+
+
+/* Sentence case everywhere in the new layout: nothing on screen is set in ALL CAPS (quality bar, "Words"). One rule
+   for the whole app instead of a text-transform per screen; typed text in fields is left alone (ID cards). Print
+   sheets are untouched (they open in their own window with their own styles). */
+@media screen{
+  html[data-ui2]:not([data-ui2-visit]) body :not(input,textarea){text-transform:none!important}
+  /* Section labels ("Before opening 3", hub group names, the month bar's "November 2026", form part headings):
+     the hierarchy now comes from size, weight and the muted colour, without the spacing that only suited capitals. */
+  html[data-ui2]:not([data-ui2-visit]) :is(.alr-lab,.aud-lab,.nxh-lab,.aud-h,.brd-lab,.cdp-lab,.cds-lab,.clr-lab,.cnr-lab,.con-lab,.crt-lab,.cus-lab,.dlv-lab,.drr-lab,.dst-lab,.dup-lab,.eod-lab,.epr-lab,.esr-lab,.exp-lab,.hnd-lab,.hub-lab,.lcr-lab,.lrc-lab,.nex-lab,.odr-lab,.ord-lab,.por-lab,.qtr-lab,.rep-lab,.rtn-lab,.scs-lab,.shf-lab,.sin-lab,.ssr-lab,.tdy-lab,.tkt-lab,.tmr-lab,.trf-lab,.vxr-lab,.emh-n,.cdp-form .hd,.cds-form .hd,.vxr-form .hd,.dst-form .t,.tmr-form .t){font-size:13px;font-weight:600;letter-spacing:0}
+  html[data-ui2]:not([data-ui2-visit]) :is(.tdy-lab,.eod-lab,.qtr-lab,.emh-n) > b{font-size:inherit;letter-spacing:0}
+  /* Small captions over values and table headings keep their size; only the capitals' spacing goes. */
+  html[data-ui2]:not([data-ui2-visit]) :is(.cus-facts small,.cus-form label,.cus-regs span,.aud-cr small,.alr-card .k,.dst-items .hd,.trg-wd,.drr-tbl th,.rep-tbl th,.bkx-lab,.bkx-day small,.bkx-wh small){letter-spacing:0}
+}
+
+/* Shared pieces for E.skeleton and E.formErrors (core.js). A screen adds its own class for row height or width. */
+.eikon-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.eikon-skel{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:20px}
+.eikon-skel i{display:block;height:52px;border-top:.5px solid var(--border);background:linear-gradient(90deg,transparent 0,rgba(118,118,128,.10) 50%,transparent 100%) 0 0/200% 100%;animation:eikonSvcSkel 1.3s linear infinite}
+.eikon-skel i:first-child{border-top:0}
+@keyframes eikonSvcSkel{from{background-position:100% 0}to{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.eikon-skel i{animation:none}}
+.eikon-ferr{display:block;font-size:13px;font-weight:600;color:var(--danger);margin:6px 2px}

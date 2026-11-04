@@ -268,7 +268,9 @@
   M.printHtml = function (doc) {
     var u = (E.state && E.state.user) || {}, loc = u.location_name || "", org = u.org_name || "";
     var period = doc.period || (doc.month ? M.label(doc.month) : ""), t = new Date();
-    var printed = pad(t.getDate()) + "/" + pad(t.getMonth() + 1) + "/" + t.getFullYear() + " " + pad(t.getHours()) + ":" + pad(t.getMinutes());
+    // stamped in Malta time (a laptop or phone on another clock zone still prints the time the register was printed here)
+    var mY = E.maltaYmd ? E.maltaYmd(t) : "", mH = E.maltaHm ? E.maltaHm(t) : "", mp = /^(\d{4})-(\d{2})-(\d{2})$/.exec(mY);
+    var printed = mp && mH ? mp[3] + "/" + mp[2] + "/" + mp[1] + " " + mH : pad(t.getDate()) + "/" + pad(t.getMonth() + 1) + "/" + t.getFullYear() + " " + pad(t.getHours()) + ":" + pad(t.getMinutes());
     var head = '<header class="ph"><div><b>' + esc(loc || org || "Pharmacy") + "</b>" + (org && loc && org !== loc ? "<span>" + esc(org) + "</span>" : "") + "</div>" +
       "<div><h1>" + esc(doc.register) + "</h1><span>" + esc(period) + "</span></div></header>";
     var body = (doc.intro || "") + (doc.sections || []).map(function (s) {

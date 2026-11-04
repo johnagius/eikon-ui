@@ -128,8 +128,7 @@
       ".scr-acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px}" +
       ".scr-err{color:var(--danger);font-size:13.5px;margin-top:12px;line-height:1.45}" +
       ".scr-form label.miss>span{color:var(--danger);font-weight:600}.scr-form label.miss{box-shadow:inset 3px 0 0 var(--danger)}" +
-      ".scr-skel{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:20px}.scr-skel i{display:block;height:64px;border-top:.5px solid var(--border);background:linear-gradient(90deg,transparent 0,rgba(118,118,128,.10) 50%,transparent 100%) 0 0/200% 100%;animation:eikonSvcSkel 1.3s linear infinite}.scr-skel i:first-child{border-top:0}" +
-      "@keyframes eikonSvcSkel{from{background-position:100% 0}to{background-position:-100% 0}}@media (prefers-reduced-motion:reduce){.scr-skel i{animation:none}}" +
+      ".scr-skel i{height:64px}" + // the rest is .eikon-skel in app.css (E.skeleton)
       ".scr-info{margin-top:10px;padding:10px 12px;border-radius:10px;background:rgba(201,138,18,.12);font-size:13.5px}" +
       ".scr-one{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:8px 0 0}" +
       ".scr-one div{display:flex;gap:12px;padding:9px 16px;border-top:.5px solid var(--border);font-size:14.5px}.scr-one div:first-child{border-top:0}" +
@@ -189,7 +188,7 @@
 
   function listHtml() {
     var h = '<div class="scr-top"><div><h1>Screening campaigns</h1><p class="scr-sub">Health checks run as events, and the people screened at each.</p></div><button class="scr-btn p" data-act="newcamp">New campaign</button></div>';
-    if (S.loading && !S.campaigns.length) return h + '<div class="scr-skel" role="status" aria-busy="true"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Opening the campaigns</span><i></i><i></i><i></i></div>';
+    if (S.loading && !S.campaigns.length) return h + E.skeleton(3, "Opening the campaigns", "scr-skel");
     if (S.error) return h + '<div class="scr-quiet" role="alert">' + esc(S.error) + ' <button type="button" class="scr-btn" data-act="retry" style="margin-left:6px">Try again</button></div>';
     if (!S.campaigns.length) return h + '<div class="scr-quiet">No campaign yet. Press New campaign to plan the first one, for example a blood pressure check day.</div>';
     h += '<input class="scr-q" id="scr-q" type="search" aria-label="Search campaigns" placeholder="Search campaigns by name or type" value="' + esc(S.q) + '">';

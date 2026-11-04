@@ -160,15 +160,8 @@
   }
 
   // A missing name is said under the field (and read out), the field is marked and focused; nothing typed is lost.
-  function fieldError(form, name, msg) {
-    var el = form.querySelector("[name=" + name + "]"); if (!el) return;
-    var id = el.id + "-err", e = form.querySelector("#" + id);
-    if (!msg) { if (e) e.remove(); el.removeAttribute("aria-invalid"); el.removeAttribute("aria-describedby"); return; }
-    if (!e) { e = document.createElement("span"); e.className = "cus-ferr"; e.id = id; e.setAttribute("role", "alert"); el.parentNode.appendChild(e); }
-    e.textContent = msg; el.setAttribute("aria-invalid", "true"); el.setAttribute("aria-describedby", id);
-    try { el.focus(); } catch (x) {}
-    el.addEventListener("input", function once() { el.removeEventListener("input", once); fieldError(form, name, ""); });
-  }
+  // (E.formErrors in core.js: the one way every screen marks, says and clears form problems)
+  function fieldError(form, name, msg) { E.formErrors(form, msg ? [{ field: name, msg: msg }] : [], { cls: "cus-ferr", at: "field" }); }
 
   async function save(form) {
     if (state.saving || !state.detail || !state.detail.person) return;

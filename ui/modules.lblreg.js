@@ -232,8 +232,7 @@
       ".lbl-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".lbl-row{display:flex;gap:10px;align-items:center;padding:10px 14px;border-top:.5px solid var(--border)}.lbl-row:first-child{border-top:0}" +
       ".lbl-row .t{flex:1;min-width:0}.lbl-row b{display:block;font-size:15px;font-weight:600;overflow-wrap:anywhere}.lbl-row span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}" +
-      ".lbl-skel{background:var(--panel2);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-top:16px;max-width:640px}.lbl-skel i{display:block;height:44px;border-top:.5px solid var(--border);background:linear-gradient(90deg,transparent 0,rgba(118,118,128,.10) 50%,transparent 100%) 0 0/200% 100%;animation:eikonSvcSkel 1.3s linear infinite}.lbl-skel i:first-child{border-top:0}" +
-      "@keyframes eikonSvcSkel{from{background-position:100% 0}to{background-position:-100% 0}}@media (prefers-reduced-motion:reduce){.lbl-skel i{animation:none}}" +
+      ".lbl-skel{border-radius:14px;margin-top:16px;max-width:640px}.lbl-skel i{height:44px}" + // the rest is .eikon-skel in app.css (E.skeleton)
       ".lbl-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".lbl-note{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5}" +
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) :is(.lbl-seg button.on,.lbl-chip.on){color:#00160E}html[data-ui2]:not([data-ui2-visit]) .lbl-err{color:#FF7A72}}" +
@@ -318,7 +317,7 @@
     if (S.f && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var h = '<div class="lbl"><button class="lbl-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("lblreg")) + '</button>' +
       '<h1>Dispensing labels</h1><p class="lbl-sub">Fill in the label, check it, print it.</p>';
-    if (S.loading && !S.f) h += '<div class="lbl-skel" role="status" aria-busy="true"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Opening labels</span><i></i><i></i><i></i><i></i><i></i></div>';
+    if (S.loading && !S.f) h += E.skeleton(5, "Opening labels", "lbl-skel");
     else if (S.error && !S.f) h += '<div class="lbl-quiet" role="alert">' + esc(S.error) + ' <button type="button" class="lbl-btn" data-act="reload" style="margin-left:6px">Try again</button></div>';
     else if (S.f) {
       h += '<div class="lbl-grid"><div style="min-width:0">' + formHtml() + "</div>" + '<div class="lbl-side" id="lbl-side">' + previewHtml() + "</div></div>";

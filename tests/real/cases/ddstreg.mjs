@@ -13,10 +13,17 @@ export default {
     await p.waitForSelector('input[placeholder="Name"]');
     for (const [n, d, q] of ITEMS) {
       await p.fill('input[placeholder="Name"]', n); await p.fill('input[placeholder="Dosage (e.g. 10mg)"]', d); await p.fill('input[placeholder="Qty tablets"]', q);
-      await t.write(p, /\/items$/, () => btn("Add Item").click()); await p.waitForTimeout(250);
+      await t.write(p, /\/items$/, () => btn("Add Item").click()); await t.idle(p); // the list re-read and redrawn
     }
-    await p.locator("tr", { hasText: COUNT[0] }).locator("button", { hasText: "Edit" }).click();
-    await p.locator("input.eikon-grid-input").nth(2).fill(COUNT[1]);
+    // the edit row is (name, dosage, qty): on a slow parallel run the list could redraw between Edit and typing, so
+    // wait for the row to settle and check the count went into the right one before saving
+    const grid = p.locator("input.eikon-grid-input");
+    for (let k = 0; k < 3; k++) {
+      await p.locator("tr", { hasText: COUNT[0] }).locator("button", { hasText: "Edit" }).click();
+      await grid.nth(2).waitFor(); await t.idle(p);
+      await grid.nth(2).fill(COUNT[1]);
+      if (await grid.nth(0).inputValue() === COUNT[0] && await grid.nth(2).inputValue() === COUNT[1]) break;
+    }
     await t.write(p, /\/items\/\d+$/, () => btn("Save").click(), "PUT"); await p.waitForTimeout(250);
     await t.write(p, /\/stocktakes\/\d+/, () => btn("Save & Close").click(), "PUT").catch(async () => {});
     for (let i = 0; i < 30 && !(t.since(S, ms)[0] || {}).closed_at; i++) await p.waitForTimeout(100);
@@ -26,7 +33,7 @@ export default {
     await p.click("[data-act=new]"); await p.waitForSelector("#dst-add [name=item_name]");
     for (const [n, d, q] of ITEMS) {
       await p.fill("#dst-add [name=item_name]", n); await p.fill("#dst-add [name=dosage]", d); await p.fill("#dst-add [name=qty_tablets]", q);
-      await t.write(p, /\/items$/, () => p.click("#dst-add button[type=submit]")); await p.waitForTimeout(250);
+      await t.write(p, /\/items$/, () => p.click("#dst-add button[type=submit]")); await t.idle(p);
     }
     const cnt = p.locator(".dst-items .row", { hasText: COUNT[0] }).locator("input.dst-cnt");
     await cnt.fill(COUNT[1]); await t.write(p, /\/items\/\d+$/, () => cnt.press("Enter"), "PUT"); await p.waitForTimeout(250);

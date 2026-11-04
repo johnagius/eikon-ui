@@ -21,6 +21,9 @@ export function makeT({ browser, stack, token, name }) {
       await ctx.addInitScript((tok) => { try { if (!localStorage.getItem("eikon_token")) localStorage.setItem("eikon_token", tok); if (!localStorage.getItem("eikon_active_role")) localStorage.setItem("eikon_active_role", "pharmacy"); } catch (e) {} }, token);
       await ctx.route("**/*", (r) => { const u = r.request().url(); return /^(about|blob|data):/.test(u) || new URL(u).hostname === "localhost" ? r.continue() : r.abort(); });
       const p = await ctx.newPage(); p.setDefaultTimeout(10000);
+      p.__pending = new Map(); const api = (r) => r.resourceType() === "fetch" || r.resourceType() === "xhr";
+      p.on("request", (r) => { if (api(r)) p.__pending.set(r, Date.now()); });
+      for (const ev of ["requestfinished", "requestfailed"]) p.on(ev, (r) => { p.__pending.delete(r); });
       p.on("pageerror", (e) => pageErrs.push(e.message));
       if (dialogs) p.on("dialog", (d) => (dialogs === "accept" ? d.accept() : d.dismiss()).catch(() => {}));
       return p;
@@ -31,6 +34,7 @@ export function makeT({ browser, stack, token, name }) {
       try { await p.waitForFunction((m) => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === m, moduleId, { timeout: 20000 }); }
       catch (e) { const st = await p.evaluate(() => ({ mod: window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId, url: location.href, text: document.body.innerText.slice(0, 200) })).catch(() => ({})); throw new Error(`${moduleId} did not open: ${JSON.stringify(st)}`); }
       if (readySel) await p.waitForSelector(readySel, { timeout: 15000 });
+      await t.idle(p); // the screen's first reads are back (and drawn) before anything is typed
     },
     // Fill fields one by one, letting each field's change handlers (autofill from history) run before the next is
     // typed, then check every value stuck. `sel` maps a selector (or a [name=…] under `scope`) to its value.
@@ -51,7 +55,29 @@ export function makeT({ browser, stack, token, name }) {
     async api(method, path, body) { const r = await stack.app.api(method, path, { token, body }); return r.json; },
     db: stack.app.DB.db,
     maxId(table) { try { return Number(t.db.prepare(`SELECT COALESCE(MAX(id),0) AS m FROM ${table}`).get().m); } catch (e) { if (/no such table/.test(e.message)) return 0; throw e; } },
-    since(table, id) { return t.db.prepare(`SELECT * FROM ${table} WHERE id > ? ORDER BY id`).all(id); },
+    // Rows written since `id`. Cases run in parallel and several write the same tables (the tab sweep writes nearly
+    // all of them, and seeds a repeat prescription, a locum receipt and an order), so a case picks its own rows by
+    // `match`, values only it uses ({ column: value }, compared as text).
+    since(table, id, match) {
+      const rows = t.db.prepare(`SELECT * FROM ${table} WHERE id > ? ORDER BY id`).all(id);
+      return match ? rows.filter((r) => Object.entries(match).every(([k, v]) => String(r[k]) === String(v))) : rows;
+    },
+    // The same, waiting (up to `ms`) until at least `n` such rows are there: a save answers before a slow parallel
+    // run lets the next read see it, and some screens write in the background after the reply.
+    async mine(table, id, match, n = 1, ms = 5000) {
+      for (let waited = 0; ; waited += 100) { const r = t.since(table, id, match); if (r.length >= n || waited >= ms) return r; await new Promise((ok) => setTimeout(ok, 100)); }
+    },
+    // Wait until this page has had no request to the API in flight for `quiet` ms (a screen still loading redraws
+    // after the reply: typing or a key press before that can land on a field that is about to be replaced).
+    // A request that has been open for `stale` ms is not waited for (a screen that drops a superseded read leaves it
+    // open in the browser's books for good).
+    async idle(p, quiet = 300, ms = 10000, stale = 4000) {
+      const t0 = Date.now(); let calm = 0;
+      const open = () => [...(p.__pending || new Map())].filter(([, at]) => Date.now() - at < stale);
+      while (Date.now() - t0 < ms) { if (!open().length) { calm += 50; if (calm >= quiet) return true; } else calm = 0; await p.waitForTimeout(50); }
+      t.note("still loading after " + ms + " ms: " + open().map(([r]) => r.method() + " " + new URL(r.url()).pathname).join(", "));
+      return false;
+    },
     row(table, id) { return t.db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(id); },
 
     // Every column of the new-layout row equals the classic row, except ALWAYS and `allow` ({ column: why }): the

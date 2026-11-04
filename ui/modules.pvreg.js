@@ -99,8 +99,7 @@
       ".pvr-acts{display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-top:14px}.pvr-acts span{display:flex;gap:8px;margin-left:auto}" +
       ".pvr-err{color:var(--danger);font-size:13.5px;margin-top:12px;line-height:1.45}" +
       ".pvr-form label.miss>span{color:var(--danger);font-weight:600}.pvr-form label.miss{box-shadow:inset 3px 0 0 var(--danger)}" +
-      ".pvr-skel{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:20px}.pvr-skel i{display:block;height:56px;border-top:.5px solid var(--border);background:linear-gradient(90deg,transparent 0,rgba(118,118,128,.10) 50%,transparent 100%) 0 0/200% 100%;animation:eikonSvcSkel 1.3s linear infinite}.pvr-skel i:first-child{border-top:0}" +
-      "@keyframes eikonSvcSkel{from{background-position:100% 0}to{background-position:-100% 0}}@media (prefers-reduced-motion:reduce){.pvr-skel i{animation:none}}" +
+      ".pvr-skel i{height:56px}" + // the rest is .eikon-skel in app.css (E.skeleton)
       ".pvr-one{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:8px}" +
       ".pvr-one div{display:flex;gap:12px;padding:9px 16px;border-top:.5px solid var(--border);font-size:14.5px}.pvr-one div:first-child{border-top:0}" +
       ".pvr-one dt{flex:0 0 120px;color:var(--muted);margin:0}.pvr-one dd{flex:1;min-width:0;margin:0;overflow-wrap:anywhere;white-space:pre-wrap}" +
@@ -223,7 +222,7 @@
         '<span style="display:flex;gap:8px"><button class="pvr-btn" data-act="list">All reports</button><button class="pvr-btn p" data-act="edit" data-id="' + esc(one.id) + '">Correct</button></span></div>' + oneHtml(one);
     } else {
       h += '<div class="pvr-top"><div><h1>Adverse reactions</h1><p class="pvr-sub">Reactions to medicines reported here, and where each report stands.</p></div><button class="pvr-btn p" data-act="add">New report</button></div>';
-      if (S.loading && !S.reports.length) h += '<div class="pvr-skel" role="status" aria-busy="true"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Opening the reports</span><i></i><i></i><i></i><i></i></div>';
+      if (S.loading && !S.reports.length) h += E.skeleton(4, "Opening the reports", "pvr-skel");
       else if (S.error) h += '<div class="pvr-quiet" role="alert">' + esc(S.error) + ' <button type="button" class="pvr-btn" data-act="retry" style="margin-left:6px">Try again</button></div>';
       else if (!S.reports.length) h += '<div class="pvr-quiet">No reaction reported yet. When a patient has a reaction to a medicine, record it here.</div>';
       else {

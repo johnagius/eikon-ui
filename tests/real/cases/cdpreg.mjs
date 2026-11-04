@@ -13,7 +13,7 @@ export default {
       await t.write(p, /\/dda-purchases\/entries$/, () => p.click(M + "button.eikon-dda-btn:has-text('Save')"));
       await p.waitForSelector(M + "input[type=date]", { state: "hidden" }).catch(() => {});
     }
-    const classic = t.since(T, m);
+    const classic = await t.mine(T, m, { invoice_number: IN.inv }, 2);
     await t.open(p, "2", "dda-purchases", "cdpreg", "[data-act=add]");
     m = t.maxId(T);
     await p.click("[data-act=add]"); await p.waitForSelector("#cdp-add");
@@ -21,8 +21,7 @@ export default {
     await p.click("#cdp-add [data-act=line]");
     await t.fill(p, "#cdp-add", { '#cdp-add [data-i="1"][data-k=dda_name_dose]': IN.lines[1][0], '#cdp-add [data-i="1"][data-k=quantity]': IN.lines[1][1] });
     await p.click("#cdp-add button[type=submit]");
-    for (let i = 0; i < 50 && t.since(T, m).length < 2; i++) await p.waitForTimeout(100);
-    const fresh = t.since(T, m);
+    const fresh = await t.mine(T, m, { invoice_number: IN.inv }, 2);
     t.ok(classic.length === 2 && fresh.length === 2, `two rows each (classic ${classic.length}, new ${fresh.length})`);
     for (let i = 0; i < 2; i++) {
       t.has("purchases(new) line " + (i + 1), fresh[i], { entry_date: IN.date, dda_name_dose: IN.lines[i][0], quantity: Number(IN.lines[i][1]), agent: IN.agent, invoice_number: IN.inv });

@@ -51,8 +51,7 @@
       ".otc-caution .otc-list{margin-top:6px}" +
       ".otc-dback{display:inline-block;border:0;background:none;color:var(--accent);font:inherit;font-size:16px;font-weight:500;padding:4px 0 12px;cursor:pointer;text-align:left;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
       "@media (min-width:901px){.otc-dback.root{display:none}}" +
-      ".otc-skel{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:16px;max-width:380px}.otc-skel i{display:block;height:48px;border-top:.5px solid var(--border);background:linear-gradient(90deg,transparent 0,rgba(118,118,128,.10) 50%,transparent 100%) 0 0/200% 100%;animation:eikonSvcSkel 1.3s linear infinite}.otc-skel i:first-child{border-top:0}" +
-      "@keyframes eikonSvcSkel{from{background-position:100% 0}to{background-position:-100% 0}}@media (prefers-reduced-motion:reduce){.otc-skel i{animation:none}}" +
+      ".otc-skel{margin-top:16px;max-width:380px}.otc-skel i{height:48px}" + // the rest is .eikon-skel in app.css (E.skeleton)
       ".otc-retry{font:inherit;font-size:14px;font-weight:600;min-height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;margin-left:6px}" +
       ".otc-foot{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.5}.otc-foot a{color:var(--accent)}" +
       "@media (max-width:900px){.otc-grid{grid-template-columns:minmax(0,1fr)}.otc.has-sel .otc-side,.otc.has-sel .otc-head{display:none}.otc.has-sel .otc-grid{margin-top:0}.otc-pick{display:none}}" +
@@ -211,7 +210,7 @@
     var sel = S.stack.length > 0;
     var h = '<div class="otc' + (sel ? " has-sel" : "") + '"><div class="otc-head"><button type="button" class="otc-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("otcreg")) + '</button>' +
       '<h1>Over the counter</h1><p class="otc-sub">What to recommend, by symptom. Search, or pick a symptom, then follow a product to its cautions and alternatives.</p></div>';
-    if (S.loading && !S.idx) h += '<div class="otc-skel" role="status" aria-busy="true"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Opening the OTC guide</span><i></i><i></i><i></i><i></i><i></i></div>';
+    if (S.loading && !S.idx) h += E.skeleton(5, "Opening the OTC guide", "otc-skel");
     else if (S.error) h += '<div class="otc-quiet" style="margin-top:16px" role="alert">' + esc(S.error) + ' <button type="button" class="otc-retry" data-act="retry">Try again</button></div>';
     else {
       h += '<div class="otc-grid"><div class="otc-side">' + side() + '</div><div class="otc-detail" aria-live="polite">' +

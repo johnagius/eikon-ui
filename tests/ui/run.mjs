@@ -215,12 +215,13 @@ function mockApi(req, res, body) {
   if (p === "/locumreceipts/receipts" && req.method === "GET") return res.end(JSON.stringify({ ok: true, receipts: url.searchParams.get("month") === todayYmd.slice(0, 7) ? [{ id: 5, receipt_date: todayYmd.slice(0, 7) + "-01", hours: 6, locum_full_name: "Paul Vella", registration_number: "PH1234", day_type: "normal", fee_per_hour: 15, total_fee: 90 }] : [] }));
   if (p === "/locumreceipts/receipts" && req.method === "POST") return res.end(JSON.stringify({ ok: true, id: 6 }));
   if (p === "/order-diary/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: url.searchParams.get("date") === todayYmd ? [{ id: 101, order_date: todayYmd, item_name: "Augmentin 625", qty: 2, supplier: "Actavis", status: "pending", notes: "For Mrs Borg" }] : [] }));
-  if (p.startsWith("/order-diary/entries/") && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
+  if (p.startsWith("/order-diary/entries/") && (req.method === "PUT" || req.method === "DELETE")) return res.end(JSON.stringify({ ok: true }));
   if (p === "/order-diary/items") return res.end(JSON.stringify({ ok: true, items: [] }));
   if (p === "/quotations/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [
     { id: 1, quote_date: "2026-10-29", item_description: "Panadol 500mg x24", supplier: "GSK", vat_rate: 18, cost_excl_vat: 2.4, discount_euro: 0, qty_purchased: 10, qty_free: 0, retail_price: 4.5 },
     { id: 2, quote_date: "2026-11-01", item_description: "Panadol 500mg x24", supplier: "Actavis", vat_rate: 18, cost_excl_vat: 2.6, discount_euro: 0, qty_purchased: 10, qty_free: 2, retail_price: 4.5 }] }));
   if (p === "/quotations/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, id: 3 }));
+  if (p.startsWith("/quotations/entries/") && (req.method === "PUT" || req.method === "DELETE")) return res.end(JSON.stringify({ ok: true }));
   if (p === "/scarce-stock/needs" && req.method === "GET") return res.end(JSON.stringify({ ok: true, needs: [
     { id: 7, org_name: "Demo Org", location_name: "Demo Pharmacy", entry_date: todayYmd, item_name: "Ozempic 1mg pen", quantity_needed: 3, remaining_quantity: 1, mine_owner: 1, offers: [{ id: 70, quantity_offered: 2, offerer_display: "Sliema Group — Sliema Pharmacy", note: "", mine: 0, accepted: 0, confirmed: 0 }] },
     { id: 8, org_name: "Gozo Group", location_name: "Victoria Pharmacy", entry_date: todayYmd, item_name: "Insulin pen needles", quantity_needed: 5, remaining_quantity: 5, mine_owner: 0, offers: [] }] }));
@@ -370,6 +371,7 @@ function mockApi(req, res, body) {
         return_arranged: 0, handed_over: 0, collection_note_received: 0, credit_note_received: 0, supplier_refused: 0, damaged: 0 }] }));
   }
   if (p.startsWith("/returns/entries/") && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
+  if (p === "/returns/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, id: 13 }));
   if (p === "/near-expiry/entries" && req.method === "GET") {
     const d = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -1862,6 +1864,87 @@ let qtPost = {}; for (let i = 0; i < 40 && !qtPost.item_description; i++) { awai
 report("price check: opens from the old link; the 10+2 deal is Best at €2.17 a unit; a quote sends the server's inputs",
   /Actavis.*Best/.test(qt1[0] || "") && /€2\.17/.test(qt1[0] || "") && qtPost.cost_excl_vat === 2.5 && qtPost.discount_euro === 0.3 && qtPost.cost_incl_vat === 2.95 && qtPost.vat_rate === 18 && qtPost.qty_purchased === 10 && qtPost.qty_free === 0 && qtPost.retail_price === 4.5, JSON.stringify({ qt1, qtPost, dbg: await page.evaluate(() => ({ err: (document.querySelector(".qtr-err") || {}).textContent, form: !!document.querySelector("#qtr-add"), dis: !!document.querySelector("#qtr-add button[type=submit][disabled]"), vals: [...document.querySelectorAll("#qtr-add input,#qtr-add select")].map((i) => i.name + "=" + i.value).join("&"), toasts: [...document.querySelectorAll(".eikon-toast")].map((t) => t.textContent).join("|") })), calls: (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).map((c) => c.method + " " + c.path + (c.query ? "?" + c.query : "")) }));
 
+// b4-6a: the order diary, price check and returns do in place what used to need the classic screen.
+{
+  const calls = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method !== "GET");
+  const focusName = () => page.evaluate(() => { const a = document.activeElement; return a ? (a.name || a.getAttribute("data-act") || a.tagName) : ""; });
+  // Order diary: tap an item, change it; a bad quantity says what to do and sends nothing; Delete… asks once.
+  await page.goto(base + "&ui=2#order-diary");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "odreg" && document.querySelector(".odr-row"), null, { timeout: 15000 });
+  const odName = await page.evaluate(() => { const b = document.querySelector('[data-act=open][data-id="101"]'); return b ? b.textContent + "|" + b.getAttribute("aria-expanded") : ""; });
+  await page.click('[data-act=open][data-id="101"]'); await page.waitForSelector("#odr-edit"); await page.waitForTimeout(60);
+  const odF = await focusName(), odFoot = await page.evaluate(() => document.querySelector(".odr").innerText);
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.fill("#odr-edit [name=qty]", "two"); await page.click("#odr-edit button[type=submit]"); await page.waitForTimeout(150);
+  const odBad = await page.evaluate(() => { const e = document.querySelector("#odr-edit [role=alert]"); return e ? e.textContent : ""; }), odBadCalls = (await calls()).length, odBadF = await focusName();
+  await page.fill("#odr-edit [name=qty]", "3"); await page.fill("#odr-edit [name=supplier]", "Ħili Pharma"); await page.click("#odr-edit button[type=submit]"); await page.waitForTimeout(700);
+  const odPut = (await calls()).filter((c) => c.path === "/order-diary/entries/101"), odBackF = await page.evaluate(() => document.activeElement && document.activeElement.getAttribute("data-id"));
+  report("order diary (b4-6a): tap an item to change it (form opens on Item); “two” is refused in words with nothing sent; Save sends the classic Edit Item body; focus goes back to the item; the footer no longer sends changes to classic",
+    odName === "Change Augmentin 625× 2|false" && odF === "item_name" && /Write how many/.test(odBad) && odBadCalls === 0 && odBadF === "qty" && odPut.length === 1 && odPut[0].method === "PUT" &&
+    JSON.stringify(odPut[0].body) === JSON.stringify({ item_name: "Augmentin 625", qty: 3, supplier: "Ħili Pharma", notes: "For Mrs Borg" }) && odBackF === "101" && /Tap an item to change it/.test(odFoot) && !/Changing or deleting/.test(odFoot),
+    JSON.stringify({ odName, odF, odBad, odBadCalls, odBadF, odPut, odBackF }));
+  await page.click('[data-act=open][data-id="101"]'); await page.waitForSelector("#odr-edit");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("#odr-edit [data-act=del]"); await page.waitForTimeout(60);
+  const odAsk = await page.textContent("#odr-edit"), odAskF = await focusName(), odNone = (await calls()).length;
+  await page.keyboard.press("Escape"); await page.waitForTimeout(80); const odKeepF = await focusName();
+  await page.click("#odr-edit [data-act=del]"); await page.click("#odr-edit [data-act=del-go]"); await page.waitForTimeout(700);
+  const odDel = (await calls()).filter((c) => c.path === "/order-diary/entries/101"), odDelF = await page.evaluate(() => { const a = document.activeElement; return a && a !== document.body ? (a.getAttribute("data-act") || a.tagName) : "body"; });
+  report("order diary (b4-6a): Delete… asks once in plain words, nothing is sent until Delete item; Escape keeps it; Delete item sends the classic DELETE; focus stays on the screen",
+    /Delete this item from the order diary\? This cannot be undone\./.test(odAsk) && odAskF === "del-cancel" && odNone === 0 && odKeepF === "del" && odDel.length === 1 && odDel[0].method === "DELETE" && odDelF !== "body", JSON.stringify({ odAskF, odNone, odKeepF, odDel, odDelF }));
+  // Staff see no Delete… (the pharmacist's, as on the other rebuilt screens).
+  await page.evaluate(() => { window.EIKON.state.user.role = "staff"; });
+  await page.goto(base + "&ui=2#odreg"); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "odreg" && document.querySelector(".odr-row"), null, { timeout: 15000 });
+  await page.evaluate(() => { window.EIKON.state.user.role = "staff"; });
+  await page.click('[data-act=open][data-id="101"]'); await page.waitForSelector("#odr-edit");
+  const odStaff = await page.evaluate(() => !!document.querySelector("#odr-edit [data-act=del]"));
+  await page.evaluate(() => { window.EIKON.state.user.role = "admin"; });
+  report("order diary (b4-6a): staff can change an item but see no Delete…", odStaff === false, String(odStaff));
+
+  // Price check: tap a supplier to change that quote (the classic Edit Entry body), Delete… asks once.
+  await page.goto(base + "&ui=2#quotations");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "qtreg" && document.querySelector(".qtr-row"), null, { timeout: 15000 });
+  await page.click('[data-act=open][data-id="1"]'); await page.waitForSelector("#qtr-edit"); await page.waitForTimeout(60);
+  const qtF = await focusName(), qtVals = await page.evaluate(() => ["cost_excl_vat", "retail_price", "qty_purchased", "quote_date"].map((k) => document.querySelector("#qtr-edit [name=" + k + "]").value).join("|"));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.fill("#qtr-edit [name=retail_price]", "4.95"); await page.click("#qtr-edit button[type=submit]"); await page.waitForTimeout(700);
+  const qtPut = (await calls()).filter((c) => c.path === "/quotations/entries/1"), qb = (qtPut[0] || {}).body || {};
+  report("price check (b4-6a): tap a supplier to change its quote (opens on Item, filled as classic fills it); Save sends the classic Edit Entry body (every field, in its order)",
+    qtF === "item_description" && qtVals === "2.40|4.50|10|2026-10-29" && qtPut.length === 1 && qtPut[0].method === "PUT" &&
+    Object.keys(qb).join() === "supplier,barcode,stock_code,item_description,qty_purchased,qty_free,vat_rate,cost_excl_vat,cost_incl_vat,discount_pct,discount_euro,total_incl_vat,retail_price,profit,profit_margin,quote_date,notes" &&
+    qb.retail_price === 4.95 && qb.cost_excl_vat === 2.4 && qb.cost_incl_vat === 2.83 && qb.discount_pct === 0 && qb.qty_purchased === 10 && qb.total_incl_vat === 28.3 && qb.profit === 25.5 && qb.quote_date === "2026-10-29", JSON.stringify({ qtF, qtVals, qtPut }));
+  await page.click('[data-act=open][data-id="1"]'); await page.waitForSelector("#qtr-edit");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("#qtr-edit [data-act=del]"); await page.waitForTimeout(60);
+  const qtAsk = await page.textContent("#qtr-edit"), qtNone = (await calls()).length;
+  await page.click("#qtr-edit [data-act=del-go]"); await page.waitForTimeout(700);
+  const qtDel = (await calls()).filter((c) => c.path === "/quotations/entries/1"), qtFoot = await page.evaluate(() => document.querySelector(".qtr").innerText);
+  report("price check (b4-6a): Delete… asks “Delete the GSK quote for Panadol 500mg x24? This cannot be undone.”, then sends the classic DELETE; the footer names only what is left in classic",
+    /Delete the GSK quote for Panadol 500mg x24\? This cannot be undone\./.test(qtAsk) && qtNone === 0 && qtDel.length === 1 && qtDel[0].method === "DELETE" && /Importing a price list/.test(qtFoot) && !/Changing or deleting/.test(qtFoot), JSON.stringify({ qtNone, qtDel }));
+
+  // Returns: New return, here; with nothing going back, the empty state offers it.
+  await page.route(/\/returns\/entries\?open=1$/, (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: [] }) }));
+  await page.goto(base + "&ui=2#returns");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "retreg" && document.querySelector(".rtn-quiet [data-act=add]"), null, { timeout: 15000 });
+  const rtEmpty = await page.evaluate(() => ({ text: document.querySelector(".rtn-quiet").innerText, top: !!document.querySelector(".rtn-top [data-act=add]"), main: (window.EIKON.mainButton() || {}).textContent }));
+  await page.unroute(/\/returns\/entries\?open=1$/);
+  await page.click(".rtn-quiet [data-act=add]"); await page.waitForSelector("#rtn-add"); await page.waitForTimeout(60);
+  const rtF = await focusName(), rtDate = await page.inputValue("#rtn-add [name=entry_date]");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("#rtn-add button[type=submit]"); await page.waitForTimeout(150);
+  const rtBad = await page.evaluate(() => { const e = document.querySelector("#rtn-add [role=alert]"); return e ? e.textContent : ""; }), rtBadCalls = (await calls()).length, rtBadF = await focusName(), rtInv = await page.getAttribute("#rtn-add [name=description]", "aria-invalid");
+  await page.fill("#rtn-add [name=description]", "Ċipro 500mg x10"); await page.fill("#rtn-add [name=quantity]", "2"); await page.fill("#rtn-add [name=supplier]", "Ħili Pharma"); await page.fill("#rtn-add [name=remarks]", "Expiring soon"); await page.fill("#rtn-add [name=expiry]", "2027-01-31");
+  await page.click("#rtn-add button[type=submit]");
+  let rtPost = null; for (let i = 0; i < 40 && !rtPost; i++) { await page.waitForTimeout(100); rtPost = (await calls()).find((c) => c.method === "POST" && c.path === "/returns/entries") || null; }
+  report("returns (b4-6a): with nothing going back the empty state offers New return (no classic); it opens on Item with today's date; no item is refused in words and nothing is sent; Save return sends the classic New + Save body",
+    /Nothing is going back/.test(rtEmpty.text) && !/classic/.test(rtEmpty.text) && !rtEmpty.top && rtEmpty.main === "New return" && rtF === "description" && rtDate === todayYmd && /Write the item/.test(rtBad) && rtBadCalls === 0 && rtBadF === "description" && rtInv === "true" && !!rtPost &&
+    JSON.stringify(rtPost.body) === JSON.stringify({ entry_date: todayYmd, description: "Ċipro 500mg x10", expiry: "2027-01-31", batch: "", quantity: "2", supplier: "Ħili Pharma", invoice_number: "", remarks: "Expiring soon", location_stored: "", return_arranged: 0, handed_over: 0, collection_note_received: 0, credit_note_received: 0, supplier_refused: 0, damaged: 0 }),
+    JSON.stringify({ rtEmpty, rtF, rtDate, rtBad, rtBadCalls, rtBadF, rtInv, rtPost }));
+  await page.waitForTimeout(500);
+  const rtTop = await page.evaluate(() => ({ top: !!document.querySelector(".rtn-top [data-act=add]"), foot: document.querySelector(".rtn").innerText }));
+  report("returns (b4-6a): with returns listed, New return is the heading's button; the footer no longer says new returns are in classic", rtTop.top && /Changes, deleting and refused or damaged stock/.test(rtTop.foot) && !/New returns/.test(rtTop.foot), JSON.stringify(rtTop));
+}
+
 // Shortages: its own Stock card; your request with an offer to accept; other pharmacies' requests with "I can help".
 await page.goto(base + "&ui=2#stock");
 await page.waitForFunction(() => document.querySelector('.hub-card[data-open="ssreg"]'), null, { timeout: 15000 });
@@ -2293,6 +2376,77 @@ try {
     shfW.map((c) => c.method + " " + c.path).join() === "PUT /shifts/assignments/1,POST /shifts/assignments,DELETE /shifts/assignments/1,POST /shifts/leaves/3/approve", JSON.stringify({ shfRail, shfAsk, shfW }));
 } catch (e) { report("plan shifts: ran to the end", false, String(e).slice(0, 300)); }
 await page.unroute(/\/shifts\/assignments-range/).catch(() => {}); await page.unroute(/\/shifts\/leaves\?/).catch(() => {});
+
+// BACKLOG4 6c, Team: the standing instructions are changed in Handover with the classic Instructions screen's call (the
+// whole global set, read afresh, only permanent_handover changed); a change made elsewhere meanwhile is never
+// overwritten; Escape closes and focus goes back to Change.
+try {
+  await page.goto(base + "&ui=2#hndreg");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "hndreg" && document.querySelector("[data-act=std]"), null, { timeout: 15000 });
+  const s0 = await page.evaluate(() => ({ foot: document.querySelector(".hnd-foot").textContent, ch: document.querySelector("[data-act=std]").textContent }));
+  await page.click("[data-act=std]"); await page.waitForSelector("#hnd-std");
+  const s1 = await page.evaluate(() => ({ v: document.querySelector("#hnd-std").value, focus: document.activeElement.id }));
+  await page.keyboard.press("Escape"); await page.waitForTimeout(80);
+  const s2 = await page.evaluate(() => ({ open: !!document.querySelector("#hnd-std"), focus: document.activeElement.getAttribute("data-act") }));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=std]"); await page.fill("#hnd-std", "Count the CD cupboard every evening.\nĦal Qormi deliveries leave at 3"); await page.keyboard.press("Control+Enter");
+  await page.waitForFunction(() => !document.querySelector("#hnd-std"), null, { timeout: 6000 });
+  const s3 = await page.evaluate(() => ({ focus: document.activeElement.getAttribute("data-act"), box: document.querySelector(".hnd-box").textContent }));
+  const gw = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.path === "/instructions/global");
+  const g = ((gw.find((c) => c.method === "PUT") || {}).body || {}).global || {};
+  const keys = Object.keys(g).join();
+  report("handover: Change opens the standing instructions with the text, Escape closes back to Change; Ctrl+Enter re-reads the set and PUTs it whole (every classic section, only permanent_handover changed), focus back on Change; footer no longer sends the standing instructions to classic",
+    !/standing/.test(s0.foot) && s0.ch === "Change" && /CD cupboard/.test(s1.v) && s1.focus === "hnd-std" && !s2.open && s2.focus === "std" &&
+    gw.map((c) => c.method).join() === "GET,PUT" && keys === "permanent_handover,opening,closing,endofday,pos,poyc,ordering,loyalty,hiv,concerta,doctors_process,doctors_fees,clinic_fees" &&
+    g.permanent_handover.text === "Count the CD cupboard every evening.\nĦal Qormi deliveries leave at 3" && !isNaN(Date.parse(g.permanent_handover.updated_at)) && Object.keys(g.permanent_handover).join() === "text,updated_at" &&
+    g.hiv.enabled === false && g.opening.text === "" && g.opening.updated_at === "" && s3.focus === "std" && /Ħal Qormi/.test(s3.box),
+    JSON.stringify({ s0, s1, s2, s3, gw }));
+  // Changed on another till meanwhile: nothing is sent, theirs are shown, yours are quoted.
+  await page.click("[data-act=std]"); await page.fill("#hnd-std", "Mine");
+  await page.route(/\/instructions\/global$/, (r) => r.request().method() === "GET" ? r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, global: { permanent_handover: { text: "Theirs", updated_at: "x" } } }) }) : r.continue());
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("#hnd-stdf button[type=submit]"); await page.waitForSelector("#hnd-stdf .hnd-warn", { timeout: 6000 });
+  const s4 = await page.evaluate(() => ({ v: document.querySelector("#hnd-std").value, warn: document.querySelector("#hnd-stdf .hnd-warn").textContent }));
+  const put4 = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT").length;
+  await page.unroute(/\/instructions\/global$/);
+  report("handover: standing instructions changed on another till meanwhile are not overwritten: theirs shown, yours quoted, nothing sent",
+    s4.v === "Theirs" && /another till/.test(s4.warn) && /“Mine”/.test(s4.warn) && put4 === 0, JSON.stringify({ s4, put4 }));
+} catch (e) { report("handover: standing instructions ran to the end", false, String(e).slice(0, 300)); }
+
+// BACKLOG4 6c, Team: a new leave request in Plan shifts sends the classic Leave tab's body (hours as it works them out:
+// 8 for each weekday, or a part day's hours); every problem is said at once with nothing sent; locums are not offered;
+// Who's in's "ask for leave" opens the form; the footers no longer send new leave requests to classic.
+try {
+  await page.goto(base + "&ui=2#rotreg");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "rotreg" && document.querySelector(".rot-foot [data-act=leave]"), null, { timeout: 15000 });
+  const rf = await page.evaluate(() => document.querySelector(".rot-foot").textContent);
+  await page.click(".rot-foot [data-act=leave]");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "shfreg" && document.querySelector("#shf-lvf"), null, { timeout: 15000 });
+  const l0 = await page.evaluate(() => ({ focus: document.activeElement.name, who: [...document.querySelectorAll("#shf-lvf [name=staff_id] option")].map((o) => o.textContent), from: document.querySelector("#shf-lvf [name=start_date]").value, until: document.querySelector("#shf-lvf [name=end_date]").value, foot: document.querySelector(".shf-note:last-of-type").textContent }));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.fill("#shf-lvf [name=start_date]", ""); await page.click("#shf-lvf button[type=submit]"); await page.waitForTimeout(150);
+  const l1 = await page.evaluate(() => ({ err: (document.querySelector("#shf-lv-err") || {}).textContent, bad: [...document.querySelectorAll("#shf-lvf [aria-invalid=true]")].map((x) => x.name).join(), focus: document.activeElement.name, role: (document.querySelector("#shf-lv-err") || {}).getAttribute && document.querySelector("#shf-lv-err").getAttribute("role") }));
+  await page.selectOption("#shf-lvf [name=staff_id]", "2"); await page.selectOption("#shf-lvf [name=leave_type]", "sick");
+  await page.fill("#shf-lvf [name=start_date]", "2026-11-13"); await page.locator("#shf-lvf [name=start_date]").dispatchEvent("change");
+  const l2 = await page.evaluate(() => document.querySelector("#shf-lvf [name=end_date]").value);
+  await page.fill("#shf-lvf [name=end_date]", "2026-11-17"); await page.locator("#shf-lvf [name=end_date]").dispatchEvent("change");
+  await page.fill("#shf-lvf [name=reason]", "  Flu  ");
+  await page.click("#shf-lvf button[type=submit]"); await settleSave();
+  await page.waitForFunction(() => !document.querySelector("#shf-lvf"), null, { timeout: 6000 });
+  const l3 = await page.evaluate(() => document.activeElement.getAttribute("data-act"));
+  await page.click("[data-act=lv-new]"); await page.selectOption("#shf-lvf [name=staff_id]", "1");
+  await page.fill("#shf-lvf [name=start_date]", "2026-11-20"); await page.locator("#shf-lvf [name=start_date]").dispatchEvent("change");
+  await page.fill("#shf-lvf [name=start_time]", "14:00"); await page.fill("#shf-lvf [name=end_time]", "17:30");
+  await page.keyboard.press("Enter"); await settleSave();
+  const lw = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/shifts/leaves");
+  const b1 = JSON.stringify(lw[0] && lw[0].body), b2 = JSON.stringify(lw[1] && lw[1].body);
+  report("plan shifts: a new leave request (from Who's in's 'ask for leave'): problems said at once with nothing sent; one day unless the last is chosen; the classic body and hours (3 weekdays = 24 h; 14:00–17:30 = 3.5 h); focus back on New leave request; footers shrink",
+    /ask for leave/.test(rf) && !/new leave requests/.test(rf) && !/new leave requests/.test(l0.foot) && l0.focus === "staff_id" && l0.who.join() === "Choose a person,Karl Vella,Maria Borg" && /^\d{4}-\d{2}-\d{2}$/.test(l0.from) && l0.until === l0.from &&
+    /Choose who is asking for leave\. Choose the first day of leave\. Nothing was saved\./.test(l1.err || "") && l1.bad === "staff_id,start_date" && l1.focus === "staff_id" && l1.role === "alert" && l2 === "2026-11-13" &&
+    lw.length === 2 && b1 === JSON.stringify({ staff_id: 2, leave_type: "sick", start_date: "2026-11-13", start_time: null, end_date: "2026-11-17", end_time: null, hours_requested: 24, reason: "Flu", status: "pending" }) &&
+    b2 === JSON.stringify({ staff_id: 1, leave_type: "annual", start_date: "2026-11-20", start_time: "14:00", end_date: "2026-11-20", end_time: "17:30", hours_requested: 3.5, reason: "", status: "pending" }) && l3 === "lv-new",
+    JSON.stringify({ rf, l0, l1, l2, l3, b1, b2 }));
+} catch (e) { report("plan shifts: new leave request ran to the end", false, String(e).slice(0, 300)); }
 
 // POCT in the new layout: the old #poct link lands on it; a known ID card fills the patient; a high glucose is marked in words;
 // one PUT with the record and the whole patient card in the classic shape, and never a delete or a wipe.
@@ -5188,6 +5342,90 @@ try {
     /Undo the use of €12\.50/.test(ask.text) && /leaving €30\.00/.test(ask.text) && ask.focus === "undo-yes" && esc.gone && esc.focus === "undo" &&
     dels.length === 1 && dels[0].path === "/creditnotes/entries/91/purchases/1" && back === "use", JSON.stringify({ ask, esc, dels, back }));
 } catch (e) { report("money part 2: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
+
+// Sentence case app-wide (one rule in ui/app.css): no element of a new-layout screen is drawn in capitals, and the
+// section labels share one look (13 px, semibold, no caps spacing). Typed text in fields is not touched.
+try {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const caps = {};
+  for (const h of ["today", "customers", "registers", "money", "services", "team", "settings", "eodreg", "tempreg", "cleanreg", "hndreg", "trfreg", "dupreg", "audreg"]) {
+    await page.goto(base + "&ui=2#" + h); await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId, null, { timeout: 15000 }); await page.waitForTimeout(700);
+    caps[h] = await page.evaluate(() => {
+      const up = [...document.querySelectorAll("body *")].filter((e) => !/^(INPUT|TEXTAREA|SCRIPT|STYLE)$/.test(e.tagName) && getComputedStyle(e).textTransform === "uppercase" && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())).map((e) => e.className || e.tagName);
+      const labs = [...document.querySelectorAll(".tdy-lab, .hub-lab, .eod-lab, .clr-lab, .hnd-lab, .trf-lab, .dup-lab, .aud-lab, .cus-lab")].map((e) => { const c = getComputedStyle(e); return c.fontSize + "/" + c.fontWeight + "/" + c.letterSpacing; });
+      return { up: up.slice(0, 5), labs: [...new Set(labs)] };
+    });
+  }
+  const capsBad = Object.entries(caps).filter(([, v]) => v.up.length || v.labs.some((l) => l !== "13px/600/normal" && l !== "13px/600/0px"));
+  report("sentence case: no new-layout screen draws anything in capitals and the section labels share one 13 px semibold style (Today, hubs, End of day, Temperature, Cleaning, Handover, Transfers, Duplicates, Audit)", capsBad.length === 0 && caps.today.labs.length > 0, JSON.stringify(capsBad.length ? capsBad : caps.today));
+} catch (e) { report("sentence case: ran to the end", false, String(e && e.stack || e).slice(0, 400)); }
+
+// People suggestions with ċ ġ ħ ż (ui/eikon.personpick.js wire()): the server's LOWER()/LIKE know only A to Z, so a
+// name with them is sent as its longest stretch without them; every typed word is still checked in the browser.
+try {
+  const w = await page.evaluate(() => { const f = window.EIKON.personPickWire; return f ? ["ħabela", "Ħabela", "Ċensina Ħabela", "Ġorġ", "Carmel Zammit", "0012345M", "ċ"].map(f) : null; });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.goto(base + "&ui=2#clientorders"); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector(".ord-top [data-act=add]"), null, { timeout: 15000 });
+  await page.click(".ord-top [data-act=add]"); await page.waitForSelector("#ord-add");
+  await page.locator("#ord-add [name=client_name]").pressSequentially("Ħabela", { delay: 20 }); await page.waitForTimeout(600);
+  const qs = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "GET" && c.path === "/people").map((c) => new URLSearchParams(c.query).get("q"));
+  report("people suggestions: a name with ċ ġ ħ ż asks the server for its longest stretch without them (\"Ħabela\" -> \"abela\"); plain names and ID cards are sent as before",
+    JSON.stringify(w) === JSON.stringify(["abela", "abela", "ensina", "or", "Carmel", "12345M", "ċ"]) && qs.includes("abela") && !qs.some((q) => /[ċġħżĊĠĦŻ]/.test(q)), JSON.stringify({ w, qs }));
+} catch (e) { report("people suggestions with Maltese letters: ran to the end", false, String(e && e.stack || e).slice(0, 400)); }
+
+// The month bar's printout (ui/eikon.months.js) stamps "printed" in Malta time, whatever the device's clock zone.
+try {
+  const tzc = await browser.newContext({ viewport: { width: 1280, height: 900 }, timezoneId: "Pacific/Auckland" });
+  await tzc.route(/cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "application/javascript", body: "" }));
+  await tzc.addInitScript(() => { try { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); } catch (e) {} });
+  const tp = await tzc.newPage();
+  await tp.goto(base + "&ui=2#today"); await tp.waitForFunction(() => window.EIKON && window.EIKON.months && window.EIKON.months.printHtml, null, { timeout: 15000 });
+  const mt = (d) => { const o = {}; new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Malta", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(d).forEach((x) => { o[x.type] = x.value; }); return o.day + "/" + o.month + "/" + o.year + " " + o.hour + ":" + o.minute; };
+  const before = mt(new Date());
+  const got = await tp.evaluate(() => { const m = /printed ([0-9/]+ [0-9:]+)/.exec(window.EIKON.months.printHtml({ register: "Test", period: "November 2026", sections: [] })); return { printed: m && m[1], device: new Date().getHours() + ":" + new Date().getMinutes(), tz: Intl.DateTimeFormat().resolvedOptions().timeZone }; });
+  const after = mt(new Date());
+  report("month bar print: \"printed\" is Malta time on a device set to another zone (Auckland)", got.tz === "Pacific/Auckland" && (got.printed === before || got.printed === after), JSON.stringify({ got, before }));
+  await tzc.close();
+} catch (e) { report("month bar print in Malta time: ran to the end", false, String(e && e.stack || e).slice(0, 400)); }
+
+// Shared form problems and loading rows (core.js E.formErrors / E.skeleton), and the screens switched to them.
+try {
+  await page.goto(base + "&ui=2#today"); await page.waitForFunction(() => window.EIKON && window.EIKON.formErrors && document.querySelector("#eikon-content"), null, { timeout: 15000 });
+  const fe = await page.evaluate(() => {
+    const E = window.EIKON, f = document.createElement("form"); f.id = "fe-t";
+    f.innerHTML = '<label>A <input name="a" id="fe-a"></label><label>B <input name="b"></label><label>C <input name="c"></label>';
+    document.getElementById("eikon-content").appendChild(f);
+    const fixed = []; const first = E.formErrors(f, [{ field: "a", msg: "Write A." }, { field: "b", msg: "Write B." }, { field: "zz", msg: "no such field" }], { onFix: (el) => fixed.push(el.name) });
+    const al = f.querySelectorAll("[role=alert]"), r = { first: first && first.name, focus: document.activeElement.name, alerts: al.length, text: al[0] && al[0].textContent, atTop: f.firstChild === al[0],
+      inv: [...f.querySelectorAll("[aria-invalid=true]")].map((x) => x.name + ">" + x.getAttribute("aria-describedby")) };
+    const a = f.querySelector("[name=a]"); a.value = "x"; a.dispatchEvent(new Event("input", { bubbles: true }));
+    r.afterA = { inv: [...f.querySelectorAll("[aria-invalid=true]")].map((x) => x.name), alert: !!f.querySelector("[role=alert]") };
+    const b = f.querySelector("[name=b]"); b.value = "y"; b.dispatchEvent(new Event("input", { bubbles: true }));
+    r.afterB = { inv: f.querySelectorAll("[aria-invalid]").length, alert: !!f.querySelector("[role=alert]"), desc: f.querySelectorAll("[aria-describedby]").length, fixed };
+    E.formErrors(f, [{ field: "c", msg: "Write C." }], { at: "field", cls: "x-ferr" }); const c = f.querySelector("[name=c]");
+    r.atField = { under: c.parentNode.querySelector(".x-ferr[role=alert]") ? c.parentNode.querySelector(".x-ferr").id : "", desc: c.getAttribute("aria-describedby") };
+    E.formErrors(f, []); r.cleared = !f.querySelector("[aria-invalid],[role=alert]");
+    f.remove();
+    const d = document.createElement("div"); d.innerHTML = E.skeleton(4, "Opening the <list>", "zz-skel"); const sk = d.firstChild;
+    r.skel = { cls: sk.className, role: sk.getAttribute("role"), busy: sk.getAttribute("aria-busy"), rows: sk.querySelectorAll("i").length, sr: sk.querySelector(".eikon-sr").textContent };
+    return r;
+  });
+  report("shared form problems (E.formErrors): every field marked and tied to one alert at the top, the first focused, a missing field ignored; typing unmarks each field and the alert goes with the last; under the field when asked; an empty list clears",
+    fe.first === "a" && fe.focus === "a" && fe.alerts === 1 && fe.text === "Write A. Write B." && fe.atTop && JSON.stringify(fe.inv) === JSON.stringify(["a>fe-a-err", "b>fe-a-err"]) &&
+    JSON.stringify(fe.afterA) === JSON.stringify({ inv: ["b"], alert: true }) && fe.afterB.inv === 0 && !fe.afterB.alert && fe.afterB.desc === 0 && fe.afterB.fixed.join() === "a,b" &&
+    fe.atField.under === "fe-t-err" && fe.atField.desc === "fe-t-err" && fe.cleared, JSON.stringify(fe));
+  report("shared loading rows (E.skeleton): one status, busy, n rows, the label escaped and read out once",
+    fe.skel.cls === "eikon-skel zz-skel" && fe.skel.role === "status" && fe.skel.busy === "true" && fe.skel.rows === 4 && fe.skel.sr === "Opening the <list>", JSON.stringify(fe.skel));
+  // the services screens switched to E.skeleton keep their own row height, corners and width
+  const sk = {};
+  for (const [h, mod, cls, n] of [["lblreg", "lblreg", "lbl-skel", 5], ["otcreg", "otcreg", "otc-skel", 5], ["pocreg", "pocreg", "poc-skel", 5], ["pvreg", "pvreg", "pvr-skel", 4], ["scrreg", "scrreg", "scr-skel", 3]]) {
+    await page.goto(base + "&ui=2#" + h); await page.waitForFunction((m) => window.EIKON.state.activeModuleId === m, mod, { timeout: 15000 }); await page.waitForTimeout(400);
+    sk[h] = await page.evaluate(([cls, n]) => { const d = document.createElement("div"); d.innerHTML = window.EIKON.skeleton(n, "Opening", cls); document.getElementById("eikon-content").appendChild(d); const b = d.firstChild, i = b.querySelector("i"), cb = getComputedStyle(b), ci = getComputedStyle(i);
+      const o = [ci.height, cb.borderTopLeftRadius, cb.marginTop, cb.maxWidth, ci.animationName].join(" "); d.remove(); return o; }, [cls, n]);
+  }
+  report("services loading rows look as before after the switch to E.skeleton (Labels 44 px/14 px corners/640 wide, OTC 48/380 wide, POCT 52, Pharmacovigilance 56, Screening 64)",
+    sk.lblreg === "44px 14px 16px 640px eikonSvcSkel" && sk.otcreg === "48px 12px 16px 380px eikonSvcSkel" && sk.pocreg === "52px 12px 20px none eikonSvcSkel" && sk.pvreg === "56px 12px 20px none eikonSvcSkel" && sk.scrreg === "64px 12px 20px none eikonSvcSkel", JSON.stringify(sk));
+} catch (e) { report("shared form problems and loading rows: ran to the end", false, String(e && e.stack || e).slice(0, 400)); }
 
 await browser.close();
 server.close();

@@ -161,8 +161,7 @@
       ".poc-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end}" +
       ".poc-err{color:var(--danger);font-size:13.5px;padding:6px 14px;line-height:1.45}" +
       ".poc-form label.miss>span{color:var(--danger);font-weight:600}.poc-form label.miss{box-shadow:inset 3px 0 0 var(--danger)}" +
-      ".poc-skel{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:20px}.poc-skel i{display:block;height:52px;border-top:.5px solid var(--border);background:linear-gradient(90deg,transparent 0,rgba(118,118,128,.10) 50%,transparent 100%) 0 0/200% 100%;animation:eikonSvcSkel 1.3s linear infinite}.poc-skel i:first-child{border-top:0}" +
-      "@keyframes eikonSvcSkel{from{background-position:100% 0}to{background-position:-100% 0}}@media (prefers-reduced-motion:reduce){.poc-skel i{animation:none}}" +
+      // the loading rows are .eikon-skel in app.css (E.skeleton)
       ".poc-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".poc-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       ".poc-note{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5}" +
@@ -322,7 +321,7 @@
     var h = '<div class="poc"><button class="poc-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("pocreg")) + '</button>' +
       '<div class="poc-top"><div><h1>Point-of-care tests</h1><p class="poc-sub">Blood pressure, glucose, cholesterol and other tests, per patient.</p></div>' + (S.adding || S.view ? "" : '<button class="poc-btn p" data-act="add">New test</button>') + "</div>";
     if (S.adding) h += formHtml();
-    if (S.loading && !S.records.length && !S.patients.length) h += '<div class="poc-skel" role="status" aria-busy="true"><span class="poc-sr">Opening the tests</span><i></i><i></i><i></i><i></i><i></i></div>';
+    if (S.loading && !S.records.length && !S.patients.length) h += E.skeleton(5, "Opening the tests", "poc-skel");
     else if (S.error) h += '<div class="poc-quiet" role="alert">' + esc(S.error) + ' <button type="button" class="poc-btn" data-act="retry" style="margin-left:6px">Try again</button></div>';
     else h += S.view ? patientHtml(S.view) : homeHtml();
     h += '<p class="poc-note">High and low marks are a guide for adults (blood pressure 140/90, fasting glucose 7.0 and random 11.1 mmol/L, HbA1c 48 mmol/mol, total cholesterol 5.0, LDL 3.0, HDL 1.0, BMI 25) and are not saved with the test. ' +

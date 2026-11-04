@@ -1,13 +1,16 @@
 /* Quotations, new layout: "who is cheapest for this?". Search an item; quotes are grouped by item with the real cost of
    one unit (discount and free stock counted), retail price and margin, the cheapest marked Best. A switch includes the
    quotes of every pharmacy in the group. Record a quote: the unit cost and the margin show as you type; the server
-   works out the stored totals with the same formula. Editing and deleting stay in the classic screen. */
+   works out the stored totals with the same formula. Tap a supplier to change that quote (the classic Edit Entry body,
+   worked out as the classic form does) or, for the pharmacist, delete it (the classic DELETE, after one plain question).
+   Importing a price list, merging duplicates and printing stay in the classic screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, entries: [], all: false, q: "", loading: false, error: "", adding: null, saving: false, err: "" };
+  var S = { mount: null, entries: [], all: false, q: "", loading: false, error: "", adding: null, saving: false, err: "", editing: null, edit: null, orig: null, editErr: "", editSaving: false, del: false };
+  var EDIT = ["item_description", "supplier", "vat_rate", "cost_excl_vat", "discount_euro", "qty_purchased", "qty_free", "retail_price", "barcode", "quote_date"];
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
@@ -17,6 +20,9 @@
   function dm(s) { var p = String(s || "").split("-"); return p.length === 3 ? Number(p[2]) + " " + MON[Number(p[1]) - 1] + (Number(p[0]) === new Date().getFullYear() ? "" : " " + p[0]) : ""; }
   function eur(n) { return "€" + (Math.round((Number(n) || 0) * 100) / 100).toFixed(2); }
   function num(raw) { var s = String(raw == null ? "" : raw).replace(/[€%\s]/g, "").replace(",", "."); return s === "" ? null : (/^\d+(\.\d+)?$/.test(s) ? Number(s) : NaN); }
+  function isAdmin() { var u = E.state && E.state.user; return !!(u && u.role === "admin"); } // the server lets staff delete too: this screen keeps it to the pharmacist, as the other rebuilt screens do
+  function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
+  function fmt2(n) { return round2(n).toFixed(2); }
   function low(s) { return String(s || "").trim().toLowerCase(); }
   // the server's formula (computeItemProfitFields): profit on cost excl. VAT, retail counted on bought + free
   function calc(f) {
@@ -54,7 +60,15 @@
       // Stock group: a 44 px way back, a pressed state on every button, 44 px buttons on a phone, a retry under a failed load.
       ".qtr-back{display:inline-flex;align-items:center;min-height:44px;padding:0 8px 0 0;margin:-8px 0 -2px}.qtr-btn:active:not(:disabled){filter:brightness(.9)}" +
       ".qtr-quiet .qtr-btn{margin-top:12px;display:block}" +
-      "@media (max-width:600px){.qtr-btn,.qtr-btn.s{height:44px;border-radius:22px}.qtr-q{height:44px}.qtr-sw{min-height:44px;display:flex;align-items:center}}";
+      "@media (max-width:600px){.qtr-btn,.qtr-btn.s{height:44px;border-radius:22px}.qtr-q{height:44px}.qtr-sw{min-height:44px;display:flex;align-items:center}}" +
+      // b4-6a: a quote opens to be changed in place; delete asks once.
+      ".qtr-name{border:0;background:none;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer;min-height:24px}.qtr-name:hover b,.qtr-name:focus-visible b{text-decoration:underline}" +
+      ".qtr-name,.qtr-form input{font-feature-settings:\"calt\" 0}" +
+      ".qtr-row .t>button{display:inline-block;vertical-align:middle}.qtr-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
+      ".qtr-ed{border-top:.5px solid var(--border);background:rgba(118,118,128,.05);padding:4px 0}.qtr-ed .qtr-form{margin:6px 12px 8px;background:var(--panel2)}" +
+      ".qtr-form .acts.l{justify-content:space-between}.qtr-form .acts.l span{display:flex;gap:8px}.qtr-ask{padding:10px 14px 2px;font-size:15px;font-weight:600;margin:0}" +
+      ".qtr-btn.d{color:var(--danger);border-color:var(--danger);background:transparent}.qtr-btn.dd{background:#B42318;border-color:#B42318;color:#fff}" +
+      "@media (max-width:600px){.qtr-name{min-height:44px}}";
     document.head.appendChild(st);
   }
 
@@ -67,34 +81,37 @@
 
   function rowHtml(e, best) {
     var c = calc(e), sub = [e.supplier || "No supplier", dm(e.quote_date)]; if (c.deal) sub.splice(1, 0, c.deal + " deal"); if (S.all && e.location_name) sub.push(e.location_name);
-    return '<div class="qtr-row"><div class="t"><b>' + esc(e.supplier || "No supplier") + "</b>" + (best ? '<i class="qtr-best" style="font-style:normal">Best</i>' : "") + "<span>" + esc(sub.slice(1).join(" · ")) + (e.notes ? " · " + esc(e.notes) : "") + '</span></div><div class="n"><em>' + eur(c.unit) + "</em><small>a unit" + (c.margin != null ? " · " + Math.round(c.margin) + "% margin" : "") + "</small></div></div>";
+    return '<div class="qtr-row"><div class="t"><button type="button" class="qtr-name" data-act="open" data-id="' + e.id + '" aria-expanded="' + (S.editing === e.id) + '"><span class="qtr-sr">Change the </span><b>' + esc(e.supplier || "No supplier") + '</b><span class="qtr-sr"> quote for ' + esc(e.item_description) + "</span></button>" + (best ? '<i class="qtr-best" style="font-style:normal">Best</i>' : "") + "<span>" + esc(sub.slice(1).join(" · ")) + (e.notes ? " · " + esc(e.notes) : "") + '</span></div><div class="n"><em>' + eur(c.unit) + "</em><small>a unit" + (c.margin != null ? " · " + Math.round(c.margin) + "% margin" : "") + "</small></div></div>" + (S.editing === e.id ? editHtml(e) : "");
   }
 
   function paint(fromState) {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "qtreg") return; // left before a reply came back: do not draw over the next screen
     if (S.adding && !S.saving && !fromState) keep();
+    if (S.editing && !S.editSaving && !fromState) keepEdit();
     var qi = m.querySelector("#qtr-q"); if (qi) S.q = qi.value;
     var h = '<div class="qtr"><button class="qtr-back" data-act="back">' + esc(E.ui2BackLabel("qtreg")) + '</button>' +
       '<div class="qtr-top"><div><h1>Price check</h1><p class="qtr-sub">Supplier quotes, cheapest first, with your margin.</p></div>' + (S.adding ? "" : '<button class="qtr-btn p" data-act="add">New quote</button>') + "</div>";
     if (S.adding) h += formHtml();
     h += '<div class="qtr-bar"><input class="qtr-q" id="qtr-q" type="search" aria-label="Search quotes" placeholder="Item, barcode or supplier" value="' + esc(S.q) + '"><label class="qtr-sw"><input type="checkbox" id="qtr-all"' + (S.all ? " checked" : "") + "> All our pharmacies</label></div>";
     h += '<div id="qtr-res">' + listHtml() + "</div>";
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Changing or deleting a quote is in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
-    var ae = document.activeElement, sel = ae && m.contains(ae) ? (ae.id === "qtr-q" ? "#qtr-q" : ae.name ? "[name=" + ae.name + "]" : "") : "";
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Tap a supplier to change or delete that quote. Importing a price list, merging duplicates and printing are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    var ae = document.activeElement, fm = ae && ae.closest ? ae.closest("form") : null, sel = ae && m.contains(ae) ? (ae.id === "qtr-q" ? "#qtr-q" : ae.name ? (fm && fm.id ? "#" + fm.id + " " : "") + "[name=" + ae.name + "]" : "") : "";
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) { again.focus(); try { var L = again.value.length; again.setSelectionRange(L, L); } catch (x) {} } }
     m.querySelectorAll("[data-act]").forEach(function (b) {
+      if (b.closest("#qtr-res")) return; // the list wires its own (wireList)
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
         if (act === "back") window.location.hash = E.ui2BackHash("qtreg");
         else if (act === "retry") load();
-        else if (act === "add") { S.adding = { quote_date: today(), vat_rate: "18", qty_purchased: "1", qty_free: "0", item_description: S.q || "" }; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=item_description]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (act === "add") { S.adding = { quote_date: today(), vat_rate: "18", qty_purchased: "1", qty_free: "0", item_description: S.q || "" }; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("#qtr-add [name=item_description]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); setTimeout(function () { var b = m.querySelector('[data-act="add"]'); if (b) b.focus(); }, 30); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "qtreg"); } catch (x) {} E.openClassic("quotations"); }
       });
     });
-    var qn = m.querySelector("#qtr-q"); if (qn) qn.addEventListener("input", function () { S.q = qn.value; var res = m.querySelector("#qtr-res"); if (res) { res.innerHTML = listHtml(); res.querySelectorAll('[data-act="retry"]').forEach(function (b) { b.addEventListener("click", function () { load(); }); }); } });
+    var qn = m.querySelector("#qtr-q"); if (qn) qn.addEventListener("input", function () { S.q = qn.value; keepEdit(); var res = m.querySelector("#qtr-res"); if (res) { res.innerHTML = listHtml(); wireList(res); } });
+    wireList(m.querySelector("#qtr-res"));
     var al = m.querySelector("#qtr-all"); if (al) al.addEventListener("change", function () { S.all = al.checked; S.entries = []; load(); });
     // Escape closes the open form (what is typed in it is dropped, as with Cancel) and puts you back where you were.
     m.querySelectorAll("form").forEach(function (f) { f.addEventListener("keydown", function (ev) { if (ev.key !== "Escape") return; var c = f.querySelector('[data-act$="-cancel"]'); if (c) { ev.preventDefault(); c.click(); } }); });
@@ -104,6 +121,27 @@
       f.addEventListener("input", function () { keep(); var pv = m.querySelector("#qtr-prev"); if (pv) pv.innerHTML = previewHtml(); });
     }
   }
+  // What is inside the list (redrawn alone while searching): retry, open a quote, its form.
+  function wireList(root) {
+    if (!root) return;
+    root.querySelectorAll("[data-act]").forEach(function (b) {
+      var act = b.getAttribute("data-act");
+      if (act === "retry") b.addEventListener("click", function () { load(); });
+      else if (act === "open") b.addEventListener("click", function () { openEdit(Number(b.getAttribute("data-id"))); });
+      else if (act === "edit-cancel") b.addEventListener("click", closeEdit);
+      else if (act === "del") b.addEventListener("click", function () { keepEdit(); S.del = true; S.editErr = ""; repaintList(); focusOn("#qtr-edit [data-act=del-cancel]"); });
+      else if (act === "del-cancel") b.addEventListener("click", function () { keepEdit(); S.del = false; S.editErr = ""; repaintList(); focusOn("#qtr-edit [data-act=del]"); });
+      else if (act === "del-go") b.addEventListener("click", remove);
+    });
+    var fe = root.querySelector("#qtr-edit");
+    if (fe) {
+      fe.addEventListener("submit", function (ev) { ev.preventDefault(); saveEdit(); });
+      fe.addEventListener("input", function () { keepEdit(); var pv = root.querySelector("#qtr-eprev"); if (pv) pv.innerHTML = previewHtml(S.edit); });
+      fe.addEventListener("keydown", function (ev) { if (ev.key !== "Escape") return; var c = fe.querySelector('[data-act$="-cancel"]'); if (c) { ev.preventDefault(); c.click(); } });
+    }
+  }
+  function repaintList() { var res = S.mount && S.mount.querySelector("#qtr-res"); if (!res) return paint(true); res.innerHTML = listHtml(); wireList(res); }
+  function focusOn(sel) { E.focusSoon(function () { return S.mount && S.mount.querySelector(sel); }, 0); } // never from a field the person went to meanwhile
   // The quotes alone: searching redraws only this, never the box being typed in.
   function listHtml() {
     var h = "";
@@ -123,16 +161,14 @@
     }
     return h;
   }
-  function previewHtml() {
-    var a = S.adding || {}, ok = [a.cost_excl_vat, a.retail_price].every(function (v) { var n = num(v); return n != null && !isNaN(n); });
+  function previewHtml(src) {
+    var a = src || S.adding || {}, ok = [a.cost_excl_vat, a.retail_price].every(function (v) { var n = num(v); return n != null && !isNaN(n); });
     if (num(a.cost_excl_vat) == null || isNaN(num(a.cost_excl_vat))) return "<span>One unit costs</span><b>—</b>";
     var c = calc({ cost_excl_vat: num(a.cost_excl_vat), discount_euro: num(a.discount_euro) || 0, qty_purchased: num(a.qty_purchased) || 1, qty_free: num(a.qty_free) || 0, retail_price: ok ? num(a.retail_price) : 0 });
     return "<span>One unit costs</span><b>" + eur(c.unit) + (ok && c.margin != null ? " · " + Math.round(c.margin) + "% margin" : "") + "</b>";
   }
   function formHtml() {
     var a = S.adding, fld = function (k, label, extra) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] || "") + '"' + (extra || "") + "></label>"; };
-    var items = []; var seen = {}; S.entries.forEach(function (e) { var k = low(e.item_description); if (k && !seen[k]) { seen[k] = 1; items.push(e.item_description); } });
-    var sups = []; seen = {}; S.entries.forEach(function (e) { var k = low(e.supplier); if (k && !seen[k]) { seen[k] = 1; sups.push(e.supplier); } });
     return '<form class="qtr-form" id="qtr-add" autocomplete="off">' + fld("item_description", "Item", ' list="qtr-items" placeholder="e.g. Panadol 500mg x24"') + fld("supplier", "Supplier", ' list="qtr-sups"') +
       '<label><span>VAT</span><select name="vat_rate">' + ["18", "5", "0"].map(function (v) { return '<option value="' + v + '"' + (String(a.vat_rate) === v ? " selected" : "") + ">" + v + "%</option>"; }).join("") + "</select></label>" +
       fld("cost_excl_vat", "Cost € (no VAT)", ' inputmode="decimal" placeholder="Per unit"') + fld("discount_euro", "Discount €", ' inputmode="decimal" placeholder="Per unit, optional"') +
@@ -140,7 +176,102 @@
       fld("barcode", "Barcode", ' placeholder="Optional" inputmode="numeric"') +
       '<div class="qtr-prev" id="qtr-prev">' + previewHtml() + "</div>" + (S.err ? '<div class="qtr-err" role="alert">' + esc(S.err) + "</div>" : "") +
       '<div class="acts"><button type="button" class="qtr-btn" data-act="add-cancel">Cancel</button><button type="submit" class="qtr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save quote") + "</button></div>" +
-      '<datalist id="qtr-items">' + items.slice(0, 300).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + '</datalist><datalist id="qtr-sups">' + sups.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
+      lists() + "</form>";
+  }
+  // The open quote: the same fields as a new one, plus its date; the rest of the quote (stock code, notes) is kept.
+  function editHtml(e) {
+    var a = S.edit || {}, fld = function (k, label, extra) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] == null ? "" : a[k]) + '"' + (extra || "") + "></label>"; };
+    var h = '<div class="qtr-ed"><form class="qtr-form" id="qtr-edit" autocomplete="off" aria-label="' + esc("Change the " + (e.supplier || "") + " quote for " + e.item_description) + '">' +
+      fld("item_description", "Item", ' list="qtr-items"') + fld("supplier", "Supplier", ' list="qtr-sups"') +
+      '<label><span>VAT</span><select name="vat_rate">' + ["18", "5", "0"].map(function (v) { return '<option value="' + v + '"' + (String(a.vat_rate) === v ? " selected" : "") + ">" + v + "%</option>"; }).join("") + "</select></label>" +
+      fld("cost_excl_vat", "Cost € (no VAT)", ' inputmode="decimal" placeholder="Per unit"') + fld("discount_euro", "Discount €", ' inputmode="decimal" placeholder="Per unit, optional"') +
+      fld("qty_purchased", "Buy", ' inputmode="numeric"') + fld("qty_free", "Free", ' inputmode="numeric"') + fld("retail_price", "Retail € each", ' inputmode="decimal" placeholder="Optional"') +
+      fld("barcode", "Barcode", ' placeholder="Optional" inputmode="numeric"') + fld("quote_date", "Date", ' type="date"') +
+      '<div class="qtr-prev" id="qtr-eprev">' + previewHtml(a) + "</div>" + (S.editErr ? '<div class="qtr-err" role="alert">' + esc(S.editErr) + "</div>" : "");
+    if (S.del) h += '<p class="qtr-ask" id="qtr-ask">' + esc("Delete the " + (e.supplier ? e.supplier + " " : "") + "quote for " + e.item_description + "? This cannot be undone.") + "</p>" +
+      '<div class="acts"><button type="button" class="qtr-btn" data-act="del-cancel">Keep it</button><button type="button" class="qtr-btn dd" data-act="del-go" aria-describedby="qtr-ask"' + (S.editSaving ? " disabled" : "") + ">" + (S.editSaving ? "Deleting…" : "Delete quote") + "</button></div>";
+    else h += '<div class="acts l">' + (isAdmin() ? '<button type="button" class="qtr-btn d" data-act="del">Delete…</button>' : "<i></i>") +
+      '<span><button type="button" class="qtr-btn" data-act="edit-cancel">Close</button><button type="submit" class="qtr-btn p"' + (S.editSaving ? " disabled" : "") + ">" + (S.editSaving ? "Saving…" : "Save changes") + "</button></span></div>";
+    if (!S.adding) h += lists(); // the suggestions, once on the screen
+    return h + "</form></div>";
+  }
+  function lists() {
+    var items = [], sups = [], seen = {}; S.entries.forEach(function (e) { var k = low(e.item_description); if (k && !seen[k]) { seen[k] = 1; items.push(e.item_description); } });
+    seen = {}; S.entries.forEach(function (e) { var k = low(e.supplier); if (k && !seen[k]) { seen[k] = 1; sups.push(e.supplier); } });
+    return '<datalist id="qtr-items">' + items.slice(0, 300).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + '</datalist><datalist id="qtr-sups">' + sups.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>";
+  }
+  // As the classic Edit Entry opens it: money with two decimals, empty when 0.
+  function editOf(e) { return { item_description: String(e.item_description || ""), supplier: String(e.supplier || ""), vat_rate: String(e.vat_rate != null ? e.vat_rate : "0"), cost_excl_vat: e.cost_excl_vat ? fmt2(e.cost_excl_vat) : "", discount_euro: e.discount_euro ? fmt2(e.discount_euro) : "",
+    qty_purchased: String(e.qty_purchased || "1"), qty_free: String(e.qty_free || "0"), retail_price: e.retail_price ? fmt2(e.retail_price) : "", barcode: String(e.barcode || ""), quote_date: String(e.quote_date || "") }; }
+  function keepEdit() {
+    var f = S.mount && S.mount.querySelector("#qtr-edit"); if (!f || !S.edit) return;
+    EDIT.forEach(function (k) { var el = f.querySelector("[name=" + k + "]"); if (el) S.edit[k] = String(el.value || ""); });
+  }
+  function editUnchanged() { var a = S.edit || {}, o = S.orig || {}; return EDIT.every(function (k) { return String(a[k] || "").trim() === String(o[k] || "").trim(); }); }
+  function openEdit(id) {
+    if (S.editing) { keepEdit(); if (!editUnchanged()) { focusOn("#qtr-edit [type=submit]"); return; } if (S.editing === id) return closeEdit(); } // unsaved changes stay in view; a second tap closes
+    var e = S.entries.find(function (x) { return x.id === id; }); if (!e) return;
+    S.editing = id; S.edit = editOf(e); S.orig = editOf(e); S.row = e; S.editErr = ""; S.del = false;
+    repaintList(); focusOn("#qtr-edit [name=item_description]");
+  }
+  function closeEdit() { var id = S.editing; S.editing = null; S.edit = null; S.editErr = ""; S.del = false; repaintList(); if (id) focusOn('[data-act=open][data-id="' + id + '"]'); }
+  // What is wrong with a quote's fields, in words ("" when it can be saved). The same checks for a new quote and a change.
+  function problem(a) {
+    var cost = num(a.cost_excl_vat), disc = num(a.discount_euro), buy = num(a.qty_purchased), free = num(a.qty_free), retail = num(a.retail_price);
+    if (!String(a.item_description || "").trim()) return "Write the item. Nothing was saved.";
+    if (cost == null || isNaN(cost)) return "Write the cost of one unit without VAT, e.g. 2.40. Nothing was saved.";
+    if (disc != null && (isNaN(disc) || disc > cost)) return "The discount must be a number no bigger than the cost. Nothing was saved.";
+    if (buy == null || isNaN(buy) || buy < 1 || buy % 1) return "Write how many you buy (a whole number). Nothing was saved.";
+    if (free != null && (isNaN(free) || free % 1)) return "Free stock must be a whole number. Nothing was saved.";
+    if (retail != null && isNaN(retail)) return "The retail price must be a number. Nothing was saved.";
+    return "";
+  }
+  // Save changes: PUT /quotations/entries/:id with the body the classic Edit Entry sends, worked out the way its form
+  // does (recalcItem with the cost as the figure typed): the VAT-inclusive cost from the cost, the discount % from the
+  // discount € when that was changed (else the quote's own %), the totals for completeness (the server works them out).
+  async function saveEdit() {
+    if (S.editSaving || !S.editing) return;
+    keepEdit();
+    var a = S.edit, o = S.orig, row = S.row || {}, id = S.editing;
+    S.editErr = problem(a);
+    if (!S.editErr && !/^\d{4}-\d{2}-\d{2}$/.test(String(a.quote_date || "").trim())) S.editErr = "Write the date of the quote. Nothing was saved.";
+    if (S.editErr) return repaintList();
+    if (editUnchanged()) return closeEdit(); // nothing to save
+    var vat = parseFloat(a.vat_rate); if (isNaN(vat)) vat = 0; var rv = (vat !== 0 && vat !== 5 && vat !== 18) ? 18 : vat, mult = 1 + rv / 100;
+    var excl = Math.max(0, num(a.cost_excl_vat) || 0), incl = rv === 0 ? excl : round2(excl * mult);
+    var discEuro = Math.max(0, num(a.discount_euro) || 0), discChanged = (num(a.discount_euro) || 0) !== (num(o.discount_euro) || 0);
+    var discPct = discChanged ? (excl > 0 ? round2(discEuro / excl * 100) : 0) : Math.max(0, round2(row.discount_pct || 0));
+    if (discEuro > excl) { discEuro = excl; discPct = 100; }
+    if (discPct > 100) { discPct = 100; discEuro = excl; }
+    var qty = Math.max(1, parseInt(a.qty_purchased, 10) || 1), free = Math.max(0, parseInt(a.qty_free, 10) || 0), retail = Math.max(0, num(a.retail_price) || 0);
+    var effExcl = Math.max(0, excl - discEuro), effIncl = rv === 0 ? effExcl : round2(effExcl * mult), totalRetail = round2(retail * (qty + free)), profit = round2(totalRetail - effExcl * qty);
+    var body = { supplier: a.supplier.trim(), barcode: a.barcode.trim(), stock_code: String(row.stock_code || "").trim(), item_description: a.item_description.trim(), qty_purchased: qty, qty_free: free, vat_rate: vat,
+      cost_excl_vat: round2(excl), cost_incl_vat: round2(incl), discount_pct: round2(discPct), discount_euro: round2(discEuro), total_incl_vat: round2(effIncl * qty), retail_price: retail,
+      profit: profit, profit_margin: totalRetail > 0 ? round2(profit / totalRetail * 100) : 0, quote_date: a.quote_date.trim(), notes: String(row.notes || "").trim() };
+    S.editSaving = true; repaintList();
+    try {
+      var r = await E.apiFetch("/quotations/entries/" + encodeURIComponent(String(id)), { method: "PUT", body: JSON.stringify(body) });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      E.toast("Saved · " + (body.supplier || "the") + " quote for " + body.item_description, "success"); S.editing = null; S.edit = null; S.del = false;
+    } catch (x) { S.editErr = E.saveFailText(x); S.editSaving = false; return repaintList(); }
+    S.editSaving = false; await load(); focusOn('[data-act=open][data-id="' + id + '"]');
+  }
+  // Delete (pharmacist only): the classic call, DELETE /quotations/entries/:id, after one plain question. Focus goes to
+  // the quote that took its place in the list, else the one before, else New quote.
+  async function remove() {
+    if (S.editSaving || !S.editing || !isAdmin()) return;
+    var id = S.editing, btns = Array.prototype.slice.call(S.mount.querySelectorAll("[data-act=open]")), i = btns.findIndex(function (b) { return Number(b.getAttribute("data-id")) === id; });
+    var near = btns[i + 1] || btns[i - 1] || null, nearId = near ? near.getAttribute("data-id") : null, row = S.row || {};
+    S.editSaving = true; S.editErr = ""; repaintList();
+    try {
+      var r = await E.apiFetch("/quotations/entries/" + encodeURIComponent(String(id)), { method: "DELETE" });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Delete failed");
+    } catch (x) {
+      var gone = false; if (x && x.network) { try { gone = !(await fetchList(S.all)).some(function (e) { return e.id === id; }); } catch (e2) { gone = false; } } // the answer was lost: look
+      if (!gone) { S.editErr = E.saveFailText(x).replace(/^Not saved/, "Not deleted"); S.editSaving = false; return repaintList(); }
+    }
+    E.toast("Deleted the " + (row.supplier ? row.supplier + " " : "") + "quote for " + (row.item_description || ""), "success"); S.editing = null; S.edit = null; S.del = false; S.editSaving = false;
+    await load(); focusOn(nearId ? '[data-act=open][data-id="' + nearId + '"]' : '[data-act="add"]');
   }
   function keep() {
     var f = S.mount && S.mount.querySelector("#qtr-add"); if (!f || !S.adding) return;
@@ -150,13 +281,7 @@
   async function add() {
     if (S.saving) return;
     keep();
-    var a = S.adding, cost = num(a.cost_excl_vat), disc = num(a.discount_euro), buy = num(a.qty_purchased), free = num(a.qty_free), retail = num(a.retail_price); S.err = "";
-    if (!a.item_description) S.err = "Write the item. Nothing was saved.";
-    else if (cost == null || isNaN(cost)) S.err = "Write the cost of one unit without VAT, e.g. 2.40. Nothing was saved.";
-    else if (disc != null && (isNaN(disc) || disc > cost)) S.err = "The discount must be a number no bigger than the cost. Nothing was saved.";
-    else if (buy == null || isNaN(buy) || buy < 1 || buy % 1) S.err = "Write how many you buy (a whole number). Nothing was saved.";
-    else if (free != null && (isNaN(free) || free % 1)) S.err = "Free stock must be a whole number. Nothing was saved.";
-    else if (retail != null && isNaN(retail)) S.err = "The retail price must be a number. Nothing was saved.";
+    var a = S.adding, cost = num(a.cost_excl_vat), disc = num(a.discount_euro), buy = num(a.qty_purchased), free = num(a.qty_free), retail = num(a.retail_price); S.err = problem(a);
     if (S.err) return paint(true);
     var vat = Number(a.vat_rate) || 0, body = { quote_date: today(), item_description: a.item_description, supplier: a.supplier || "", barcode: a.barcode || "", stock_code: "",
       vat_rate: vat, cost_excl_vat: cost, cost_incl_vat: Math.round(cost * (1 + vat / 100) * 100) / 100, discount_euro: disc || 0, discount_pct: cost > 0 && disc ? Math.round(disc / cost * 10000) / 100 : 0,
@@ -172,7 +297,7 @@
 
   E.registerModule({
     id: "qtreg", title: "Price check", order: 3, icon: "€", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.q = ""; css(); paint(); return E.takeOpenForm("qtreg", S.mount, load(), { btn: "[data-act=add]", form: "#qtr-add" }); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.editing = null; S.edit = null; S.del = false; S.q = ""; css(); paint(); return E.takeOpenForm("qtreg", S.mount, load(), { btn: "[data-act=add]", form: "#qtr-add" }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("qtreg") < 0) E.UI2_DESTINATIONS.push("qtreg");
   if (E.UI2_PARENT) E.UI2_PARENT.qtreg = "stock";

@@ -68,7 +68,7 @@ export default {
     // ---------- Handover ----------
     const today = ymdOf(new Date());
     await t.api("PUT", "/instructions/daily", { ymd: today, notes: "Inspector may visit", handover_out: [] });
-    await t.open(p, "2", "instructions", "hndreg", "#hnd-new");
+    await t.open(p, "2", "instructions", "hndreg", "#hnd-new"); await t.idle(p); // the day is read (and redrawn) before typing
     await p.fill("#hnd-new", "Ċempel lil Mrs Borg dwar l-insulina"); await p.click('.hnd-seg [data-sev="r"]');
     t.ok(await p.evaluate(() => document.querySelector('.hnd-seg [data-sev="r"]').getAttribute("aria-pressed") === "true"), "the chosen urgency is announced (aria-pressed)");
     const put = await t.write(p, /\/instructions\/daily$/, () => p.click("#hnd-add button[type=submit]"), "PUT");
@@ -83,7 +83,7 @@ export default {
     if (!process.env.TEAM_BASE) { // (TEAM_BASE=1: run on the code before this pass, to compare the stored rows only)
     await p.fill("#hnd-notes", "Inspector may visit at 10");
     await p.evaluate(() => { location.hash = "#team"; }); await p.waitForFunction(() => window.EIKON.state.activeModuleId === "team");
-    await p.evaluate(() => { location.hash = "#hndreg"; }); await p.waitForSelector("#hnd-notes");
+    await p.evaluate(() => { location.hash = "#hndreg"; }); await p.waitForSelector("#hnd-notes"); await t.idle(p); // re-read done: no redraw under Ctrl+Enter
     const back = await p.evaluate(() => ({ v: document.querySelector("#hnd-notes").value, hint: document.querySelector("#hnd-dirty").textContent, dis: document.querySelector('[data-act="notes"]').disabled }));
     t.ok(back.v === "Inspector may visit at 10" && back.hint === "Not saved yet" && !back.dis, "unsaved notes survive leaving and coming back: " + JSON.stringify(back));
     await p.focus("#hnd-notes");
@@ -120,7 +120,7 @@ export default {
     const U = "users";
     let u0 = t.maxId(U);
     await t.api("POST", "/team/users", { email: "karmenu@demo.mt", full_name: "Karmenu Ħili", role: "staff" });
-    const classicUser = t.since(U, u0)[0];
+    const classicUser = (await t.mine(U, u0, { email: "karmenu@demo.mt" }))[0];
     await t.open(p, "2", "teamreg", "teamreg", "[data-act=add]");
     await p.click("[data-act=add]"); await p.waitForSelector("#tmr-add");
     await p.click("#tmr-add button[type=submit]"); await p.waitForTimeout(100);
@@ -130,7 +130,7 @@ export default {
     await p.fill("#tmr-name", "Ġorġ Ħili"); await p.fill("#tmr-email", "gorg@demo.mt");
     await t.write(p, /\/team\/users$/, () => p.press("#tmr-email", "Enter"));
     await p.waitForSelector("#tmr-temp");
-    const freshUser = t.since(U, u0)[0];
+    const freshUser = (await t.mine(U, u0, { email: "gorg@demo.mt" }))[0];
     t.same("sign-in (add)", classicUser, freshUser, { email: "another person", full_name: "another person", pass_salt_b64: "random", pass_hash_b64: "from the random temporary password", last_sign_in_at: "clock" });
     t.has("sign-in(new)", freshUser, { email: "gorg@demo.mt", full_name: "Ġorġ Ħili", role: "staff" });
     if (process.env.TEAM_DUMP) { // the stored rows, without ids, clocks and random parts, to compare two versions of the screens
