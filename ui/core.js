@@ -770,10 +770,16 @@
     if (E._sessionExpiredShown) return;
     E._sessionExpiredShown = true;
     try { E._returnHash = String(E.routeHash() || ""); } catch (e) {}
+    // q6-1: the open half-typed form is kept for this person before anything is cleared; it comes back when the same
+    // person signs in again (E.renderActiveModule -> the screen's E.draft.take) and is dropped if anyone else does (E.draft.own).
+    var kept = false, email = "";
+    try { kept = !!(E.draft && E.draft.keepHere()); } catch (eK) {}
+    try { email = String((E.state.user && E.state.user.email) || ""); } catch (eM) {}
+    if (kept) message = (/another tab or window/.test(String(message || "")) ? "You were signed out in another tab or window." : "Your session has ended.") + " What you were typing is kept for when you sign in again.";
     if (E._supplierPollInterval) { try { clearInterval(E._supplierPollInterval); } catch (e) {} E._supplierPollInterval = null; }
     E.clearToken();
     E.state.user = null;
-    try { E.renderLogin(message || "Your session has ended. Sign in again to continue where you were."); } catch (e) {}
+    try { E.renderLogin(message || "Your session has ended. Sign in again to continue where you were.", email); } catch (e) {}
   };
   // Signed out in another tab or window of this address (the token is shared by all of them): show sign-in here at
   // once, instead of a screen whose every refresh is refused.
@@ -968,7 +974,7 @@
       bar.addEventListener("click", function (ev) {
         var b = ev.target && ev.target.closest ? ev.target.closest("button[data-act]") : null; if (!b) return;
         if (b.getAttribute("data-act") === "close") close();
-        else { b.disabled = true; b.textContent = "Reloading…"; try { window.location.reload(); } catch (e) {} }
+        else { b.disabled = true; b.textContent = "Reloading…"; try { if (E.draft) E.draft.keepHere(); } catch (eK) {} try { window.location.reload(); } catch (e) {} } // q6-1: the open form comes back after the reload
       });
       bar.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); close(); } });
       back = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
@@ -1218,6 +1224,7 @@
           setTok = resp.token;
           E.setToken(resp.token);
           E.state.user = resp.user || null;
+          try { if (E.draft) E.draft.own(); } catch (eD) {} // q6-1: a draft left by anyone else in this tab is dropped at once
           E.dbg("[auth] login OK:", resp.user);
           var roles = E.getRolesForUser(resp.user);
           E.dbg("[auth] available roles:", roles);
@@ -2083,10 +2090,23 @@
   E.draft = (function () {
     var PRE = "eikon_draft_v1|", specs = {}, NOUN = { ordreg: "order", tktreg: "question", dlvreg: "delivery", cdsreg: "controlled drug sale", cdpreg: "controlled drug purchase", poyreg: "POYC line", drreg: "register line", locreg: "locum line", cleanreg: "cleaning line", repreg: "repeat prescription", poreg: "payment", cnreg: "credit note", lrcreg: "locum receipt", odreg: "order diary item", qtreg: "quotation", nexreg: "near-expiry item", alertreg: "alert", pocreg: "test", pvreg: "report", conreg: "contact", vaxreg: "vaccine order", retreg: "return", ssreg: "request", scsreg: "stock to share", trfreg: "offer" };
     function on() { return !!(E.isUi2 && E.isUi2() && E._sectionDashboardId === "today"); }
-    function who() { var u = E.state && E.state.user; return u ? String(u.location_id) + "|" + String(u.id != null ? u.id : (u.email || "")) : ""; }
+    // q6-1: the person, the same whichever answer drew E.state.user (/auth/login gives id, /auth/me after a reload user_id).
+    function who() { var u = E.state && E.state.user; if (!u) return ""; var id = u.id != null ? u.id : (u.user_id != null ? u.user_id : String(u.email || "").toLowerCase()); return id === "" ? "" : String(u.location_id) + "|" + String(id); }
     function key(screen) { var w = who(); return w && screen ? PRE + w + "|" + screen : ""; }
     function ss() { try { return window.sessionStorage; } catch (e) { return null; } }
+    // q6-1: one person's drafts at a time in this tab. Whoever is signed in now, anything another person left (their
+    // session ended here and someone else signed in) is dropped before it could ever be read.
+    var OWNER = "eikon_draft_owner_v1"; // who the drafts in this tab belong to (not a draft itself)
+    function own() {
+      var s = ss(), w = who(); if (!s || !w) return;
+      try {
+        if (s.getItem(OWNER) === w) return;
+        for (var i = s.length - 1; i >= 0; i--) { var k = s.key(i); if (k && k.indexOf(PRE) === 0 && k.indexOf(PRE + w + "|") !== 0) s.removeItem(k); }
+        s.setItem(OWNER, w);
+      } catch (e) {}
+    }
     function read(screen) {
+      own();
       var s = ss(), k = key(screen), d = null; if (!s || !k) return null;
       try { d = JSON.parse(s.getItem(k) || "null"); } catch (e) { d = null; }
       if (d && (d.v !== 1 || d.day !== E.maltaYmd() || !Array.isArray(d.fields))) { try { s.removeItem(k); } catch (e) {} d = null; } // another day's: gone
@@ -2134,11 +2154,11 @@
       return list.length ? { f: f, list: list } : null;
     }
     function keep(screen, mount) {
-      if (!on() || window.EIKON_NO_DRAFTS) return; // EIKON_NO_DRAFTS: set only by the UI suite's shared page, whose older checks leave forms open on purpose
-      var c = changed(screen, mount), s = ss(), k = key(screen); if (!c || !s || !k) return;
+      if (!on() || window.EIKON_NO_DRAFTS) return false; // EIKON_NO_DRAFTS: set only by the UI suite's shared page, whose older checks leave forms open on purpose
+      own(); var c = changed(screen, mount), s = ss(), k = key(screen); if (!c || !s || !k) return false;
       var a = document.activeElement, fx = a && c.f.contains(a) ? fieldsOf(c.f).filter(function (x) { return x.el === a; })[0] : null;
       var d = { v: 1, day: E.maltaYmd(), at: Date.now(), fields: c.list.map(function (x) { return { k: x.k, n: x.n, v: x.v }; }), focus: fx ? { k: fx.k, n: fx.n } : null };
-      try { s.setItem(k, JSON.stringify(d)); } catch (e) {}
+      try { s.setItem(k, JSON.stringify(d)); return true; } catch (e) { return false; }
     }
     // Put values in, as typing would: each field in the form's order, the form looked up again after each (a choice
     // can redraw it). A field the person has typed in since `since` is theirs and is left alone.
@@ -2231,9 +2251,11 @@
         if (!f) return; snap(screen, mount); sp.shown = { mode: "offer", draft: d, fresh: sp.fresh ? Object.assign({}, sp.fresh) : {} }; line(screen, mount);
       });
     }
-    window.addEventListener("pagehide", function () { try { var c = document.getElementById("eikon-content"); if (E.state && E.state.activeModuleId) keep(E.state.activeModuleId, c); } catch (e) {} });
+    window.addEventListener("pagehide", function () { try { keepHere(); } catch (e) {} });
     function dropMine() { var s = ss(), w = who(); if (!s || !w) return; try { for (var i = s.length - 1; i >= 0; i--) { var k = s.key(i); if (k && k.indexOf(PRE + w + "|") === 0) s.removeItem(k); } } catch (e) {} }
-    return { spec: spec, keep: keep, take: take, offer: offer, clear: clear, dropMine: dropMine };
+    // q6-1: keepHere() keeps the open screen's half-typed form (before a reload, before the sign-in card); true when kept.
+    function keepHere() { var c = document.getElementById("eikon-content"), m = E.state && E.state.activeModuleId; return !!(c && m && keep(m, c)); }
+    return { spec: spec, keep: keep, keepHere: keepHere, own: own, take: take, offer: offer, clear: clear, dropMine: dropMine };
   })();
   // ==== end q5-2 ====================================================================================================
   // Form problems, said one way on every screen. E.formErrors(form, problems, opts): problems is a list of

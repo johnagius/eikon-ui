@@ -6138,6 +6138,109 @@ try {
   await dc.close();
 } catch (e) { report("drafts: ran to the end", false, String(e && e.stack || e).slice(0, 400)); }
 
+// ---- q6-1 (BACKLOG6 item 1): typing survives "Reload this screen" and a session that ends (core.js E.showErrorBar,
+// E.handleSessionExpired, E.renderLogin, E.draft). For a New order, controlled drug sale, payment and daily register
+// line: Reload this screen brings the half-typed form back; a 401 (and a sign-out in another tab) keeps it before the
+// sign-in card, which says so, has the e-mail filled in and the cursor in Password; the same person signing in again
+// is back on that screen with the form as typed. Someone else signing in sees none of it, and it is gone from the tab.
+// Nothing is sent by itself.
+try {
+  const qc = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, timezoneId: "Europe/Malta" });
+  await qc.route(/cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "application/javascript", body: "" }));
+  await qc.addInitScript(() => { try { if (!localStorage.getItem("eikon_token")) localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); } catch (e) {} });
+  const MARIA = { id: 1, email: "p@x.com", full_name: "Maria Borg", org_id: 1, location_id: 12, location_name: "Demo Pharmacy", role: "admin" };
+  await qc.route("**/auth/login", (r) => { const b = r.request().postDataJSON() || {}; return b.email === "p@x.com" && b.password === "maria-pass" ? r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, token: "maria-2", user: MARIA }) }) : r.fallback(); });
+  await qc.route("**/q61-ping", (r) => r.fulfill({ status: 401, contentType: "application/json", body: '{"ok":false,"error":"Unauthorized"}' })); // a refresh the server refuses: the session ended
+  const qp = await qc.newPage(); const qerr = []; qp.on("pageerror", (e) => qerr.push(e.message));
+  const at = (m) => qp.waitForFunction((m) => window.EIKON && window.EIKON.state && window.EIKON.state.user && window.EIKON.state.activeModuleId === m && window.EIKON._lateIn, m, { timeout: 15000 }).then(() => qp.waitForTimeout(500));
+  const hash = async (h) => { await qp.evaluate((h) => { location.hash = "#" + h; }, h); await at(h); };
+  const values = (f) => qp.evaluate((f) => { const x = document.querySelector(f); return x ? [...x.querySelectorAll("input,select,textarea")].filter((e) => e.type !== "hidden").map((e) => /^(checkbox|radio)$/.test(e.type) ? e.checked : e.value) : null; }, f);
+  const keys = () => qp.evaluate(() => Object.keys(sessionStorage).filter((k) => k.indexOf("eikon_draft_v1|") === 0));
+  const line = () => qp.evaluate(() => ((document.querySelector(".eikon-draft") || {}).innerText || "").replace(/\s+/g, " ").trim());
+  const writes = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method !== "GET" && !/^\/auth\//.test(c.path));
+  const noClock = (a) => (a || []).map((v) => (/^\d\d:\d\d$/.test(v) ? "hh:mm" : v));
+  const FORMS = [["ordreg", ".ord-top [data-act=add]", "#ord-add", "order"], ["cdsreg", ".cds-top [data-act=add]", "#cds-add", "controlled drug sale"],
+    ["poreg", "[data-act=add]", "#por-add", "payment"], ["drreg", "[data-act=new]", "#drr-form", "register line"]];
+  const type = async (form, tag) => {
+    const boxes = qp.locator(form + " input[type=text]:visible, " + form + " input:not([type]):visible, " + form + " textarea:visible");
+    const n = Math.min(2, await boxes.count());
+    for (let i = 0; i < n; i++) { await boxes.nth(i).click(); await qp.keyboard.type(i ? "Typed Ċġħż " + tag : "Żammit Ġorġ " + tag, { delay: 0 }); }
+    await qp.evaluate(() => document.activeElement && document.activeElement.blur && document.activeElement.blur());
+    return n;
+  };
+  const signIn = async (email, pass) => {
+    await qp.waitForSelector("#eikon-login-form");
+    await qp.fill("#eikon-login-email", email); await qp.fill("#eikon-login-pass", pass); await qp.keyboard.press("Enter");
+    await qp.waitForFunction(() => window.EIKON.state.user && document.getElementById("eikon-content"), null, { timeout: 15000 });
+  };
+  const cancel = async (form) => { const c = qp.locator(form + " [data-act$=cancel]").first(); if (await c.count()) await c.click(); };
+  await qp.goto(base + "&ui=2#today"); await at("today");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  const rel = [], ses = [];
+  for (const [id, btn, form, noun] of FORMS) {
+    // (a) Reload this screen
+    await hash("today"); await hash(id);
+    await qp.waitForSelector(btn); await qp.click(btn); await qp.waitForSelector(form);
+    const n = await type(form, "Reload"), typed = await values(form);
+    await qp.evaluate(() => window.EIKON.showErrorBar("q6-1 " + Date.now()));
+    await Promise.all([qp.waitForEvent("load"), qp.click("#eikon-error-bar [data-act=reload]")]);
+    await at(id); await qp.waitForSelector(".eikon-draft", { timeout: 5000 }).catch(() => {});
+    const got = await values(form), ln = await line();
+    rel.push({ id, n, same: JSON.stringify(noClock(got)) === JSON.stringify(noClock(typed)), line: ln === "Your unsaved " + noun + " is back · Clear", ...(JSON.stringify(noClock(got)) === JSON.stringify(noClock(typed)) ? {} : { typed, got, ln }) });
+    await cancel(form);
+    // (b) the session ends (a 401), the same person signs in again
+    await hash("today"); await hash(id);
+    await qp.waitForSelector(btn); await qp.click(btn); await qp.waitForSelector(form);
+    await type(form, "Session"); const typed2 = await values(form);
+    await qp.evaluate(() => window.EIKON.apiFetch("/q61-ping").catch(() => {}));
+    await qp.waitForSelector("#eikon-login-form");
+    const card = await qp.evaluate(() => ({ say: (document.querySelector("#eikon-login-form [role=alert]") || {}).textContent || "", email: document.getElementById("eikon-login-email").value, focus: document.activeElement && document.activeElement.id }));
+    await signIn("p@x.com", "maria-pass");
+    await at(id); await qp.waitForSelector(".eikon-draft", { timeout: 5000 }).catch(() => {});
+    const got2 = await values(form), ln2 = await line();
+    const ok2 = JSON.stringify(noClock(got2)) === JSON.stringify(noClock(typed2));
+    ses.push({ id, same: ok2, line: ln2 === "Your unsaved " + noun + " is back · Clear", card: card.say === "Your session has ended. What you were typing is kept for when you sign in again." && card.email === "p@x.com" && card.focus === "eikon-login-pass", ...(ok2 ? {} : { typed2, got2, ln2 }), ...(card.email === "p@x.com" ? {} : { card }) });
+    await cancel(form);
+  }
+  const w1 = await writes();
+  const rb = rel.filter((r) => !r.same || !r.line || !r.n), sb = ses.filter((r) => !r.same || !r.line || !r.card);
+  report("q6-1: Reload this screen brings back a half-typed New order, controlled drug sale, payment and daily register line exactly as typed, with \"Your unsaved … is back · Clear\" (4 of 4); nothing was written",
+    rel.length === 4 && !rb.length && !w1.length, JSON.stringify({ rb, w: w1.map((c) => c.method + " " + c.path) }));
+  report("q6-1: a session that ends keeps the open form before the sign-in card (\"What you were typing is kept for when you sign in again.\", e-mail filled in, cursor in Password); the same person signing in again is back on the screen with it exactly as typed (4 of 4); nothing was written",
+    ses.length === 4 && !sb.length && !w1.length, JSON.stringify({ sb, w: w1.length }));
+  // signed out in another tab (the shared token removed there): the same keep, its own words
+  await hash("ordreg"); await qp.click(".ord-top [data-act=add]"); await qp.waitForSelector("#ord-add");
+  await type("#ord-add", "Tab"); const typed3 = await values("#ord-add");
+  await qp.evaluate(() => { localStorage.removeItem("eikon_token"); window.dispatchEvent(new StorageEvent("storage", { key: "eikon_token", oldValue: "maria-2", newValue: null })); });
+  await qp.waitForSelector("#eikon-login-form");
+  const say3 = await qp.evaluate(() => (document.querySelector("#eikon-login-form [role=alert]") || {}).textContent || "");
+  await signIn("p@x.com", "maria-pass"); await at("ordreg"); await qp.waitForSelector(".eikon-draft", { timeout: 5000 }).catch(() => {});
+  const got3 = await values("#ord-add");
+  report("q6-1: signed out in another tab: \"You were signed out in another tab or window. What you were typing is kept for when you sign in again.\" and the order is back after signing in",
+    say3 === "You were signed out in another tab or window. What you were typing is kept for when you sign in again." && JSON.stringify(got3) === JSON.stringify(typed3), JSON.stringify({ say3, got3, typed3 }));
+  await cancel("#ord-add");
+  // nothing to keep: the words stay as they were
+  await hash("today"); await qp.evaluate(() => window.EIKON.apiFetch("/q61-ping").catch(() => {})); await qp.waitForSelector("#eikon-login-form");
+  const say4 = await qp.evaluate(() => (document.querySelector("#eikon-login-form [role=alert]") || {}).textContent || "");
+  report("q6-1: with nothing typed the sign-in card does not promise a draft", say4 === "Your session has ended. Sign in again to continue where you were." && !(await keys()).length, JSON.stringify({ say4, k: await keys() }));
+  await signIn("p@x.com", "maria-pass"); await at("today");
+  // someone else signs in: none of it shown, and it is dropped from the tab
+  await hash("ordreg"); await qp.click(".ord-top [data-act=add]"); await qp.waitForSelector("#ord-add"); await type("#ord-add", "Other");
+  await qp.evaluate(() => window.EIKON.apiFetch("/q61-ping").catch(() => {})); await qp.waitForSelector("#eikon-login-form");
+  const keptMaria = (await keys()).length;
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await signIn("karl@x.com", "karl-pass"); await qp.waitForFunction(() => window.EIKON.state.activeModuleId && window.EIKON._lateIn, null, { timeout: 15000 }); await qp.waitForTimeout(1200);
+  const other = await qp.evaluate(() => ({ user: window.EIKON.state.user && window.EIKON.state.user.email, mod: window.EIKON.state.activeModuleId, line: !!document.querySelector(".eikon-draft"), form: !!document.querySelector("#ord-add"), typed: [...document.querySelectorAll("#eikon-content input, #eikon-content textarea")].some((e) => /Other/.test(e.value)) }));
+  const otherKeys = await keys(), w2 = await writes();
+  report("q6-1: after maria's session ends with an order half-typed, karl signing in sees none of it (no form, no line) and it is gone from the tab; nothing was written",
+    keptMaria === 1 && other.user === "karl@x.com" && !other.line && !other.form && !other.typed && !otherKeys.length && !w2.length, JSON.stringify({ keptMaria, other, otherKeys, w2: w2.length }));
+  // the key is the person whichever answer drew them: /auth/me (user_id) after a reload, /auth/login (id) after signing in
+  const same = await qp.evaluate(() => { const E = window.EIKON, u = E.state.user; const a = Object.assign({}, u); E.state.user = { user_id: 7, email: "a@x.com", location_id: 12 }; E.draft.own(); sessionStorage.setItem("eikon_draft_v1|12|7|zz", "{}"); E.state.user = { id: 7, email: "a@x.com", location_id: 12 }; E.draft.own(); const kept = !!sessionStorage.getItem("eikon_draft_v1|12|7|zz"); E.state.user = { id: 8, email: "b@x.com", location_id: 12 }; E.draft.own(); const gone = !sessionStorage.getItem("eikon_draft_v1|12|7|zz"); E.state.user = a; E.draft.own(); return { kept, gone }; });
+  report("q6-1: a draft belongs to the same person after a reload (/auth/me user_id) and after signing in (/auth/login id); another person signing in drops it", same.kept && same.gone, JSON.stringify(same));
+  report("q6-1: no page errors", !qerr.length, qerr.join(" | ").slice(0, 300));
+  await qc.close();
+} catch (e) { report("q6-1: ran to the end", false, String(e && e.stack || e).slice(0, 400)); }
+
 // q5-1 (BACKLOG5 item 1): nothing ever freezes the app.
 // (a) After boot an unexpected error is a calm bar (role=alert, focus kept, what is typed kept, Reload / Close; Close
 //     or Escape in it puts it away and focus back; the same error does not bring it back), reported once; the
