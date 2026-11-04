@@ -1035,3 +1035,9 @@ All of it waits only on the worker deploy.
 
 - q5-3: "grech order" and credit notes created a second card when the name came in the other order; Customers printed "1 undefined" for 5 kinds. One shared rule (E.people.sameAs/cardOf, never merges or writes) links to the single matching card; history rows already on a card show as "Also in the registers as …". Proof: no POST /people on the grech path, order body identical; real case onecard. Worker 209/0, UI 417/0, real 48/2 parallel (stock6a classic modal + typerace scanner under load; both green alone).
 - Started q5-7 (search finds Żammit/Ċassar, missing words, uses cardOf) and q5-5 (Today short, Open lands on the exact record; D2, D5 defaults).
+
+## Round 143 — UI .157 on main (fd11c6c): End of day defaults, Help matches screens
+
+- q5-6: new day's float = last saved day's (was €1000.00), source said under the summary, shift by Malta time; rows identical to classic for the same visible values. q5-9: every Help guide matches its screen; new helpmatch check in both suites (old guides 66 problems, new none).
+- Worker 209/0; real 51/0; UI 419/1 and 415/1 (different known timing checks). Test fix: returns-empty waits for load.
+- q5-1 (freeze fix) held: on current main the solo-refno case shows an empty Deliveries after classic screens; agent fixing at the root. q5-2 (drafts kept on leaving; 24/24 kept, bodies identical) merged onto .157 in agents/m-158, tests running.
