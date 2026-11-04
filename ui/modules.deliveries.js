@@ -113,16 +113,28 @@
   // Delivery ID generator
   // ------------------------------------------------------------
   var DELID_KEY = "eikon_deliveries_seq_v1";
-  function nextDeliveryId() {
+  // The next number is one above both the highest stored for the pharmacy (the list read for this screen, read again
+  // just before the save) and this browser's counter, which the new layout shares (the same rule): a second device or
+  // a fresh browser never hands out a number already in use. The format is unchanged.
+  var idSeen = { max: 0, at: 0 };
+  function seenIds(list) {
+    (list||[]).forEach(function(e){ var m=/^DEL-(\d+)$/i.exec(String((e&&e.delivery_id)||"").trim()); if (m) idSeen.max=Math.max(idSeen.max, Number(m[1])); });
+    if (list) idSeen.at = Date.now();
+  }
+  async function nextDeliveryId() {
+    try { var resp = await apiFetch("/client-deliveries/entries",{method:"GET"}); if (resp && Array.isArray(resp.entries)) seenIds(resp.entries); } catch(e0) {}
+    var seq;
     try {
       var raw = window.localStorage.getItem(DELID_KEY);
-      var seq = raw ? (parseInt(raw,10)||0) : 0;
+      seq = Math.max(raw ? (parseInt(raw,10)||0) : 0, idSeen.max);
       seq++;
       window.localStorage.setItem(DELID_KEY, String(seq));
-      return "DEL-" + String(seq).padStart(5,"0");
     } catch(e) {
-      return "DEL-" + String(Date.now()).slice(-5);
+      if (!idSeen.at && !idSeen.max) return "DEL-" + String(Date.now()).slice(-5);
+      seq = idSeen.max + 1;
     }
+    idSeen.max = seq;
+    return "DEL-" + String(seq).padStart(5,"0");
   }
 
   // ------------------------------------------------------------
@@ -258,6 +270,7 @@
     try {
       var resp = await apiFetch("/client-deliveries/entries",{method:"GET"});
       var entries = Array.isArray(resp)?resp:(resp&&Array.isArray(resp.entries)?resp.entries:[]);
+      seenIds(entries);
       return {mode:"api", entries:entries};
     } catch(e) {
       if (shouldFallback(e,allow500)) {
@@ -1711,7 +1724,7 @@
             var items = itemEditorState.filter(function(it){ return it&&String(it.name||"").trim(); });
 
             var payloadUi = validateAndBuild({
-              delivery_id:         isEdit?initial.delivery_id:nextDeliveryId(),
+              delivery_id:         isEdit?initial.delivery_id:await nextDeliveryId(),
               order_date:          (E.q("#dv-order-date")?E.q("#dv-order-date").value:"").trim(),
               scheduled_date:      (E.q("#dv-sched-date")?E.q("#dv-sched-date").value:"").trim(),
               scheduled_time_slot: (E.q("#dv-sched-time")?E.q("#dv-sched-time").value:"").trim(),

@@ -48,9 +48,21 @@
   function when(s) { var n = daysUntil(s); if (n === 0) return "today"; if (n === 1) return "tomorrow"; if (n === -1) return "yesterday"; var p = s.split("-"); return Number(p[2]) + " " + MON[Number(p[1]) - 1]; }
   function arr(raw) { if (Array.isArray(raw)) return raw; try { var a = JSON.parse(String(raw || "[]")); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
   function isYmd(s) { return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "")); }
-  function nextId() { // same counter as the classic screen, so numbers carry on
-    try { var k = "eikon_deliveries_seq_v1", n = (parseInt(localStorage.getItem(k), 10) || 0) + 1; localStorage.setItem(k, String(n)); return "DEL-" + String(n).padStart(5, "0"); }
-    catch (e) { return "DEL-" + String(Date.now()).slice(-5); }
+  // The next number is one above both the highest stored for the pharmacy (the list this screen has read, read again
+  // just before the save) and this browser's counter, which the classic screen shares (modules.deliveries.js
+  // nextDeliveryId, the same rule): a second device or a fresh browser never hands out a number in use.
+  var SEQ = { max: 0, at: 0 };
+  function seen(list) {
+    (list || []).forEach(function (e) { var m = /^DEL-(\d+)$/i.exec(String((e && e.delivery_id) || "").trim()); if (m) SEQ.max = Math.max(SEQ.max, Number(m[1])); });
+    if (list) SEQ.at = Date.now();
+  }
+  async function nextId() {
+    try { var r = await E.apiFetch("/client-deliveries/entries", { method: "GET" }); if (r && r.ok) seen(r.entries); } catch (e) {}
+    var n;
+    try { var k = "eikon_deliveries_seq_v1"; n = Math.max(parseInt(localStorage.getItem(k), 10) || 0, SEQ.max) + 1; localStorage.setItem(k, String(n)); }
+    catch (e) { if (!SEQ.at && !SEQ.max) return "DEL-" + String(Date.now()).slice(-5); n = SEQ.max + 1; }
+    SEQ.max = n; // this tab never hands the same one out twice, even with no storage
+    return "DEL-" + String(n).padStart(5, "0");
   }
   function author() { var u = E.state.user || {}; return u.full_name || u.display_name || ""; }
   function isAdmin() { var u = E.state && E.state.user; return !!(u && u.role === "admin"); } // the server lets staff delete too: this screen keeps it to the pharmacist
@@ -90,6 +102,7 @@
   }
   async function reread(id) { // there is no single-delivery read: the list holds them all
     var r = await E.apiFetch("/client-deliveries/entries", { method: "GET" });
+    seen(r && r.entries);
     return ((r && r.entries) || []).find(function (x) { return x.id === id; }) || null;
   }
   // A change whose answer was lost counts as saved only when the delivery now holds what was sent.
@@ -144,6 +157,7 @@
     try {
       var r = await E.apiFetch("/client-deliveries/entries", { method: "GET" });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load deliveries");
+      seen(r.entries);
       S.entries = (r.entries || []).filter(function (e) { return ACTIVE.indexOf(e.status) >= 0; })
         .sort(function (a, b) { return String(a.scheduled_date || a.order_date || "").localeCompare(String(b.scheduled_date || b.order_date || "")) || (Number(a.priority) || 2) - (Number(b.priority) || 2) || a.id - b.id; });
     } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load deliveries"); }
@@ -453,7 +467,7 @@
     S.fe = fe; S.err = Object.keys(fe).map(function (k) { return fe[k]; }).join(" ") + (Object.keys(fe).length ? " Nothing was saved." : "");
     if (S.err) { paint(); focusOn("#dlv-add [name=" + Object.keys(fe)[0] + "]"); return; }
     var items = a.itemsText ? a.itemsText.split(",").map(function (s) { return s.trim(); }).filter(Boolean).map(function (n) { return { name: n, qty: 1, schedule: a.contains_controlled ? "" : "OTC", batch_ref: "", expiry: "" }; }) : [];
-    var body = { delivery_id: nextId(), order_date: today(), scheduled_date: isYmd(a.scheduled_date) ? a.scheduled_date : today(), scheduled_time_slot: a.scheduled_time_slot,
+    var body = { delivery_id: "", order_date: today(), scheduled_date: isYmd(a.scheduled_date) ? a.scheduled_date : today(), scheduled_time_slot: a.scheduled_time_slot,
       client_name: a.client_name, phone: a.phone, email: "", delivery_address: a.delivery_address, address_notes: a.address_notes, delivery_method: "In-house Driver", priority: 2,
       status: "Scheduled", signature_required: a.signature_required, signature_obtained: 0, delivery_attempts: 0, contains_controlled: a.contains_controlled, cold_chain_required: a.cold_chain_required,
       items: JSON.stringify(items), delivery_log: JSON.stringify([{ ts: new Date().toISOString(), author: author(), text: "Delivery recorded." }]), internal_notes: "" };
@@ -473,6 +487,7 @@
     }
     S.saving = true; paint();
     try {
+      body.delivery_id = await nextId(); // taken at the last moment: going back from the ID-card question uses no number
       var r = await E.apiFetch("/client-deliveries/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; S.carry = null; S.fe = {}; E.toast("Saved · delivery for " + body.client_name + " · " + body.delivery_id, "success"); var added = true;

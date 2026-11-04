@@ -1157,6 +1157,47 @@ report("questions: open in the new layout, high first; a note keeps the old ones
   /customer's name/.test(tkErr) && tkCalls[2].path === "/client-tickets/entries" && tkNew.client_name === "Borg Anna" && /^TKT-\d{5}$/.test(tkNew.ticket_id) && tkNew.category === "General Enquiry" && tkNew.status === "Open" && tkNew.notes_log === "[]",
   JSON.stringify({ tk1, tkErr, tkCalls }));
 
+// q5-4: a new question or delivery takes one above both the highest number in the pharmacy's list and this browser's
+// counter (shared by both layouts), with the whole list read just before the save; the format is unchanged.
+{
+  const posts = async (path) => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.path === path && (c.method === "POST" || (c.method === "GET" && !c.query)));
+  const lastPost = (cs) => { const i = cs.map((c) => c.method).lastIndexOf("POST"); return { id: i >= 0 ? cs[i].body : null, readFirst: i > 0 && cs[i - 1].method === "GET" }; };
+  const seq = async (k, v) => page.evaluate(([k, v]) => { if (v === null) localStorage.removeItem(k); else if (v !== undefined) localStorage.setItem(k, v); return localStorage.getItem(k); }, [k, v]);
+  const fresh = (hash) => base + "&ui=2&fresh=" + Date.now() + hash; // a full load: the screen starts with nothing remembered in memory
+  const out = {};
+  const tkNewOne = async (name) => {
+    await page.goto(fresh("#tickets")); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "tktreg" && document.querySelector(".tkt-card"), null, { timeout: 15000 });
+    await fetch(`http://localhost:${PORT}/__reset`);
+    await page.click("[data-act=add]"); await page.fill("#tkt-add [name=client_name]", name); await page.fill("#tkt-add [name=issue]", "Number check"); await page.click("#tkt-add button[type=submit]"); await page.waitForTimeout(700);
+    const r = lastPost(await posts("/client-tickets/entries")); return { id: r.id && r.id.ticket_id, readFirst: r.readFirst };
+  };
+  await seq("eikon_tickets_seq_v1", "3"); out.tkBehind = await tkNewOne("Behind Bella"); out.tkCounter = await seq("eikon_tickets_seq_v1");   // list max TKT-00008
+  await seq("eikon_tickets_seq_v1", "40"); out.tkAhead = await tkNewOne("Ahead Albert");                                                     // counter ahead
+  await seq("eikon_tickets_seq_v1", "3");
+  await page.goto(base + "&ui=classic&fresh=" + Date.now() + "#tickets"); await page.waitForSelector("#tk-new", { timeout: 15000 }); await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("#tk-new"); await page.waitForSelector("#tk-client"); await page.fill("#tk-client", "Classic Clara"); await page.fill("#tk-issue", "Number check");
+  await page.click("#eikon-modal-actions .eikon-btn.primary"); await page.waitForTimeout(700);
+  { const r = lastPost(await posts("/client-tickets/entries")); out.tkClassic = { id: r.id && r.id.ticket_id, readFirst: r.readFirst }; }
+  await seq("eikon_deliveries_seq_v1", null);
+  await page.goto(fresh("#deliveries")); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "dlvreg" && document.querySelector(".dlv-card"), null, { timeout: 15000 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=add]"); await page.fill("#dlv-add [name=client_name]", "Fresh Frida"); await page.fill("#dlv-add [name=phone]", "79000999"); await page.fill("#dlv-add [name=delivery_address]", "Qormi");
+  await page.click("#dlv-add button[type=submit]"); await page.waitForTimeout(700);
+  { const r = lastPost(await posts("/client-deliveries/entries")); out.dlFresh = { id: r.id && r.id.delivery_id, readFirst: r.readFirst }; }
+  out.dlCounter = await seq("eikon_deliveries_seq_v1");
+  await page.goto(base + "&ui=classic&fresh=" + Date.now() + "#deliveries"); await page.waitForSelector("#dv-btn-new", { timeout: 15000 }); await fetch(`http://localhost:${PORT}/__reset`);
+  await seq("eikon_deliveries_seq_v1", "2");
+  await page.click("#dv-btn-new"); await page.waitForSelector("#dv-client"); await page.fill("#dv-client", "Classic Carlo"); await page.fill("#dv-phone", "79000888"); await page.fill("#dv-address", "Zebbug");
+  await page.click("#eikon-modal-actions .eikon-btn.primary"); await page.waitForTimeout(700);
+  { const r = lastPost(await posts("/client-deliveries/entries")); out.dlClassic = { id: r.id && r.id.delivery_id, readFirst: r.readFirst }; }
+  await seq("eikon_tickets_seq_v1", null); await seq("eikon_deliveries_seq_v1", null);
+  await page.evaluate(() => { try { window.EIKON.modal && window.EIKON.modal.hide && window.EIKON.modal.hide(); } catch (e) {} });
+  report("reference numbers: one above the highest in the list or this browser's counter, the list read just before the save, both layouts (TKT-nnnnn / DEL-nnnnn)",
+    out.tkBehind.id === "TKT-00009" && out.tkBehind.readFirst && out.tkCounter === "9" && out.tkAhead.id === "TKT-00041" && out.tkClassic.id === "TKT-00009" && out.tkClassic.readFirst &&
+    out.dlFresh.id === "DEL-00006" && out.dlFresh.readFirst && out.dlCounter === "6" && out.dlClassic.id === "DEL-00006" && out.dlClassic.readFirst,
+    JSON.stringify(out));
+}
+
 // Orders, changing one (new layout): the order is read again and sent whole, as the classic screen sends it (its names
 // and the server's: client_phone, items_text, pickup_date, deposit_amount), with only what was edited different; a field
 // changed elsewhere since the screen opened is kept. Staff do not see Delete; the pharmacist's delete writes the reason

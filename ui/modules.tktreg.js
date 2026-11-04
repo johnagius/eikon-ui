@@ -3,7 +3,7 @@
    fields it is not sent (UPDATE-AUDIT.md: PARTIAL), but every change here sends what the classic screen sends: the whole
    question as read again from the server, with only the change made here different. Open one to change it, assign it
    or set its status; "Done" lists resolved and closed ones, 20 at a time; delete is for the pharmacist, with a reason
-   written as a note first so the audit's copy carries it. Numbers come from the same per-browser counter as the classic screen.
+   written as a note first so the audit's copy carries it. Numbers carry on the classic screen's counter, never below the highest already stored (seq).
    An open question prints on its own, on the classic screen's one-question page (printSingleTicket); a customer with
    an email address can be written to from the card (the device's mail app: the classic screen sends no email). */
 (function () {
@@ -60,6 +60,7 @@
   }
   async function reread(id) { // there is no single-question read: the list holds them all
     var r = await E.apiFetch("/client-tickets/entries", { method: "GET" });
+    seen(r && r.entries, true);
     return ((r && r.entries) || []).find(function (x) { return x.id === id; }) || null;
   }
   // A change whose answer was lost counts as saved only when the question now holds what was sent.
@@ -68,9 +69,21 @@
       return ["client_name", "phone", "email", "category", "status", "issue", "assigned_to", "followup_date", "notes_log", "open_date"].every(function (k) { return String(b2[k]) === String(body[k]); }) && b2.priority === body.priority;
     } catch (e) { return false; }
   }
-  function nextId() { // same counter as the classic screen, so numbers carry on
-    try { var k = "eikon_tickets_seq_v1", n = (parseInt(localStorage.getItem(k), 10) || 0) + 1; localStorage.setItem(k, String(n)); return "TKT-" + String(n).padStart(5, "0"); }
-    catch (e) { return "TKT-" + String(Date.now()).slice(-5); }
+  // The next number is one above both the highest stored for the pharmacy (the lists this screen has read, and the
+  // whole list read again just before the save) and this browser's counter, which the classic screen shares
+  // (modules.tickets.js nextTicketId, the same rule): a second device or a fresh browser never hands out a number in use.
+  var SEQ = { max: 0, at: 0 };
+  function seen(list, whole) {
+    (list || []).forEach(function (e) { var m = /^TKT-(\d+)$/i.exec(String((e && e.ticket_id) || "").trim()); if (m) SEQ.max = Math.max(SEQ.max, Number(m[1])); });
+    if (whole && list) SEQ.at = Date.now();
+  }
+  async function nextId() {
+    try { var r = await E.apiFetch("/client-tickets/entries", { method: "GET" }); if (r && r.ok) seen(r.entries, true); } catch (e) {}
+    var n;
+    try { var k = "eikon_tickets_seq_v1"; n = Math.max(parseInt(localStorage.getItem(k), 10) || 0, SEQ.max) + 1; localStorage.setItem(k, String(n)); }
+    catch (e) { if (!SEQ.at && !SEQ.max) return "TKT-" + String(Date.now()).slice(-5); n = SEQ.max + 1; }
+    SEQ.max = n; // this tab never hands the same one out twice, even with no storage
+    return "TKT-" + String(n).padStart(5, "0");
   }
 
   // The classic screen's one-question print (modules.tickets.js printSingleTicket), the same page, through E.printTab.
@@ -175,6 +188,7 @@
     try {
       var r = await E.apiFetch("/client-tickets/entries?resolved=0", { method: "GET" });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load questions");
+      seen(r.entries);
       S.entries = (r.entries || []).filter(function (e) { return !isDone(e); })
         .sort(function (a, b) { return (Number(a.priority) || 2) - (Number(b.priority) || 2) || String(a.followup_date || "9") .localeCompare(String(b.followup_date || "9")) || String(a.open_date).localeCompare(String(b.open_date)); });
     } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load questions"); }
@@ -186,6 +200,7 @@
     try {
       var r = await E.apiFetch("/client-tickets/entries?resolved=1", { method: "GET" });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load questions");
+      seen(r.entries);
       S.done = (r.entries || []).filter(isDone).sort(function (a, b) { return String(b.resolved_at || b.open_date || "").localeCompare(String(a.resolved_at || a.open_date || "")) || b.id - a.id; });
     } catch (e) { S.doneError = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load questions"); }
     S.doneLoading = false; E.whenFormIdle(S.mount, paint);
@@ -486,9 +501,9 @@
     if (!body.issue) fe.issue = "Write what they asked.";
     S.fe = fe; S.err = sumUp(fe);
     if (S.err) { paint(); focusOn("#tkt-add [name=" + Object.keys(fe)[0] + "]"); return; }
-    body.ticket_id = nextId();
     S.saving = true; paint();
     try {
+      body.ticket_id = await nextId();
       var r = await E.apiFetch("/client-tickets/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.adding = null; S.carry = null; S.fe = {}; setLastCat(body.category); E.toast("Saved · question for " + body.client_name + " · " + body.ticket_id, "success"); var added = true;

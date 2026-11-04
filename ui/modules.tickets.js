@@ -122,16 +122,28 @@
   // Ticket ID generator
   // ------------------------------------------------------------
   var TKID_KEY = "eikon_tickets_seq_v1";
-  function nextTicketId() {
+  // The next number is one above both the highest stored for the pharmacy (the list read for this screen, read again
+  // just before the save) and this browser's counter, which the new layout shares (the same rule): a second device or
+  // a fresh browser never hands out a number already in use. The format is unchanged.
+  var idSeen = { max: 0, at: 0 };
+  function seenIds(list) {
+    (list||[]).forEach(function(e){ var m=/^TKT-(\d+)$/i.exec(String((e&&e.ticket_id)||"").trim()); if (m) idSeen.max=Math.max(idSeen.max, Number(m[1])); });
+    if (list) idSeen.at = Date.now();
+  }
+  async function nextTicketId() {
+    try { var resp = await apiFetch("/client-tickets/entries",{method:"GET"},"seq"); if (resp && Array.isArray(resp.entries)) seenIds(resp.entries); } catch(e0) {}
+    var seq;
     try {
       var raw = window.localStorage.getItem(TKID_KEY);
-      var seq = raw ? (parseInt(raw,10)||0) : 0;
+      seq = Math.max(raw ? (parseInt(raw,10)||0) : 0, idSeen.max);
       seq++;
       window.localStorage.setItem(TKID_KEY, String(seq));
-      return "TKT-" + String(seq).padStart(5,"0");
     } catch(e) {
-      return "TKT-" + String(Date.now()).slice(-5);
+      if (!idSeen.at && !idSeen.max) return "TKT-" + String(Date.now()).slice(-5);
+      seq = idSeen.max + 1;
     }
+    idSeen.max = seq;
+    return "TKT-" + String(seq).padStart(5,"0");
   }
 
   // ------------------------------------------------------------
@@ -276,6 +288,7 @@
     try {
       var resp = await apiFetch("/client-tickets/entries",{method:"GET"},"list");
       var entries = Array.isArray(resp)?resp:(resp&&Array.isArray(resp.entries)?resp.entries:[]);
+      seenIds(entries);
       return {mode:"api", entries:entries};
     } catch(e) {
       if (shouldFallback(e,allow500)) {
@@ -951,7 +964,7 @@
             if (!isResolved) resolvedAt = "";
 
             var payloadUi = validateAndBuild({
-              ticket_id:    isEdit?initial.ticket_id:nextTicketId(),
+              ticket_id:    isEdit?initial.ticket_id:await nextTicketId(),
               open_date:    (E.q("#tk-open-date")?E.q("#tk-open-date").value:"").trim(),
               client_name:  (E.q("#tk-client")?E.q("#tk-client").value:"").trim(),
               phone:        (E.q("#tk-phone")?E.q("#tk-phone").value:"").trim(),
