@@ -152,10 +152,43 @@ function b47Mock(req, res, p, body, url) {
   if (p === "/returns/entries" && req.method === "GET") return J({ ok: true, entries: [] });
   return false;
 }
+// How we're doing (ownreg): the worker's /owner/summary and /owner/records for one pharmacy, or a group of two when
+// globalThis.__ownGroup is set; every day from..to has an end of day (takings 100 + day of month), paid outs 5 a day.
+function ownerMock(req, res, p, url) {
+  if (p !== "/owner/summary" && p !== "/owner/records") return false;
+  const J = (o, st) => { res.writeHead(st || 200, { "content-type": "application/json" }); res.end(JSON.stringify(o)); return true; };
+  const from = url.searchParams.get("from"), to = url.searchParams.get("to"), loc = url.searchParams.get("loc") || "all", group = !!globalThis.__ownGroup;
+  const all = group ? [{ id: 3, name: "Ħamrun Pharmacy" }, { id: 4, name: "Żebbuġ Pharmacy" }] : [{ id: 12, name: "Demo Pharmacy" }];
+  if (group && loc !== "all" && !all.some((x) => String(x.id) === loc)) return J({ ok: false, error: "That pharmacy is not in your group" }, 403);
+  const locs = group && loc !== "all" ? all.filter((x) => String(x.id) === loc) : all;
+  const days = []; for (let d = from; d <= to && d < todayYmd; d = new Date(Date.parse(d + "T12:00:00Z") + 864e5).toISOString().slice(0, 10)) days.push(d);
+  if (p === "/owner/records") {
+    const kinds = (url.searchParams.get("kinds") || "").split(","), records = {};
+    kinds.forEach((k) => { records[k] = []; locs.forEach((l) => days.forEach((d, i) => {
+      if (k === "paid_outs") records[k].push({ id: i + 1, location_id: l.id, pharmacy: l.name, entry_date: d, entry_time: "10:00", payee_name: "Courier Ċassar", fee: 5, payment_method: "cash", invoice_no: "", cheque_no: "", reason: "Delivery" });
+      if (k === "dda_supplied" && i < 2) records[k].push({ id: i + 1, location_id: l.id, pharmacy: l.name, entry_date: d, client_name: group ? "" : "Żammit Ġorġ", client_id_card: group ? "" : "1234M", medicine_name_dose: "Morphine 10mg", quantity: 2, doctor_name: "Dr Abela", prescription_serial_no: "S" + i });
+      if (k === "credit_notes" && i < 1) records[k].push({ id: 9, location_id: l.id, pharmacy: l.name, issue_date: d, client_name: group ? "" : "Rita", client_surname: group ? "" : "Pace", amount: 30, used: 10, no_expiry: 1 }); })); });
+    return J({ ok: true, from, to, group, patient_details: !group, records, capped: {}, unread: [] });
+  }
+  const ph = locs.map((l, li) => {
+    const ds = days.map((d) => ({ date: d, staff: "Maria", shift: "PM", takings: 100 + Number(d.slice(8)) + li, epos: 10, cheques: 0, paid_outs: 0, expected: 90, cash: 90, over_under: d.slice(8) === "02" ? -5 : 0, locked: true, paid_out_register: 5 }));
+    const sum = (k) => Math.round(ds.reduce((t, x) => t + x[k], 0) * 100) / 100;
+    return { id: l.id, name: l.name, days: ds, money: { takings: sum("takings"), epos: sum("epos"), cheques: 0, cash: sum("cash"), till_paid_outs: 0, paid_outs: 5 * ds.length, paid_out_lines: ds.length, over_under: sum("over_under"), short_days: ds.filter((x) => x.over_under < 0).length, over_days: 0, short_total: sum("over_under"), days_closed: ds.length, locum_cost: 80, locum_hours: 4, locum_receipts: 1 },
+      prev: { takings: 1000, days_closed: 10, paid_outs: 0, over_under: 0, locum_cost: 0 }, credit: { open: 1, open_total: 20, expiring_30: 0, expiring_30_total: 0, issued: 1, issued_total: 30, used_total: 10 },
+      orders: { new: 3, done: 1, open: 4, overdue: 2, waiting_30: 0 }, questions: { new: 2, done: 1, open: 1, overdue: 0, waiting_7: 0 }, deliveries: { new: 1, done: 1, open: 1, late: 1 }, repeats: { running_out_14: 3, people_14: 2 },
+      registers: { temperature_devices: 2, temperature_gaps: [{ device_id: 1, name: "Pharmacy Fridge", missing: 2, first: days[0] || todayYmd, days: days.slice(0, 2) }], temperature_missing: 2, temperature_out_no_note: 0, cleaning_last: todayYmd, cleaning_days_since: 0, cleaning_empty_weeks: [],
+        certificates_overdue: [], certificates_due_30: [], dda_last_stocktake: todayYmd, dda_days_since_stocktake: 0, eod_not_closed: [], eod_not_locked: [], daily_register_lines: 4 },
+      dda: { supplied: [{ name: "Morphine 10mg", lines: 2, qty: 4 }], poyc: [], received: [{ name: "Morphine 10mg", lines: 1, qty: 20 }] },
+      staff: [{ staff_id: 1, name: "Ġanni Borg", role: "pharmacist", contracted_week: 40, shifts: 3, hours: 24, leave_hours: 0, leave_days: 0 }], locums: [{ name: "Dr Locum", days: 1, hours: 4 }],
+      services: { bookings: 5, bookings_cancelled: 1, bookings_no_show: 0, tests: 2, tests_fees: 10 } };
+  });
+  return J({ ok: true, today: todayYmd, from, to, cmp: { from: url.searchParams.get("cmp_from"), to: url.searchParams.get("cmp_to") }, group, scope: group ? (loc === "all" ? "all" : "one") : "own", pharmacies_allowed: all, pharmacies: ph, unread: [] });
+}
 function mockApi(req, res, body) {
   const url = new URL(req.url, "http://x");
   const p = url.pathname;
   calls.push({ method: req.method, path: p, query: url.search, body });
+  if (ownerMock(req, res, p, url)) return;
   if (p === "/__test401") { res.writeHead(401, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "Unauthorized" })); }
   if (teamMock(req, res, p, body)) return;
   if (b47Mock(req, res, p, body, url)) return;
@@ -2183,7 +2216,7 @@ try {
   const mv3 = await page.evaluate(() => ({ note: document.querySelector(".bkx-sheet .bkx-ok").textContent, tel: !!document.querySelector(".bkx-sheet .bkx-ok a[href='tel:79000000']") }));
   const patches = (await calls2()).filter((c) => c.method === "PATCH" && c.path === "/bookings/501").map((c) => c.body);
   report("bookings q6-2: Change time beside Arrived and Done; the day's free times without the booking's own; a taken time (409) says so and offers the next; Move sends exactly {version,date,start}; no e-mail: the number to call stays on screen",
-    mv0.tel === "tel:79000000" && mv0.btns.join() === "Arrived,Done,Change time,No-show,Cancel booking" && mv1.title === "Change time" && mv1.slots.join() === "23:35,23:40" && /Anna Vella has no e-mail, so call them: 79000000/.test(mv1.mail) && mv1.dis && mv1.btn === "Choose a new time" &&
+    mv0.tel === "tel:79000000" && mv0.btns.filter((b) => !/^Remind /.test(b)).join() === "Arrived,Done,Change time,No-show,Cancel booking" && mv1.title === "Change time" && mv1.slots.join() === "23:35,23:40" && /Anna Vella has no e-mail, so call them: 79000000/.test(mv1.mail) && mv1.dis && mv1.btn === "Choose a new time" &&
     /Someone just took that time\. Here are the next free ones\./.test(mv2.err) && mv2.role === "alert" && /^23:40/.test(mv2.on || "") && mv2.slots.length === 2 && /^Move to .* at 23:40$/.test(mv2.btn) &&
     patches.length === 2 && patches.every((b) => JSON.stringify(Object.keys(b)) === JSON.stringify(["version", "date", "start"]) && b.version === 3 && b.date === todayYmd) && patches[0].start === "23:35" && patches[1].start === "23:40" &&
     /Moved to .* at 23:40 · Anna Vella has no e-mail: call 79000000/.test(mv3.note) && mv3.tel,
@@ -2574,7 +2607,7 @@ try {
   report("money screens: a new day names who is signed in; Save and the over/under stay in reach on a phone; a missing value puts the cursor in its box (marked, announced, nothing sent); the credit-note search redraws only its list; an empty basket has no payment buttons; hub groups in plain words",
     !!mStaff && mStaff === mWho && mReach0 && mReach1 && mEod.name === "float_amount" && mEod.inv === "true" && mEod.by === "eod-err" && /Write the float/.test(mEod.alert) && mEodPuts === 0 &&
     mPo.name === "payee_name" && mPo.inv === "true" && /Write who was paid/.test(mPo.alert) && mPo.fee === "4" && mPo.pressed === "true" && mPoPosts === 0 &&
-    mCn.kept === "kept" && mCn.none && mCn.focus === "cnr-q" && !!mCn.label && mCnUse.name === "amount" && mCnUse.inv === "true" && !mPos0 && mPos1 && mHub === "Till|Customers and locums" && !mExp.jargon && mExp.btn === "Download spreadsheet",
+    mCn.kept === "kept" && mCn.none && mCn.focus === "cnr-q" && !!mCn.label && mCnUse.name === "amount" && mCnUse.inv === "true" && !mPos0 && mPos1 && mHub === "How we're doing|Till|Customers and locums" && !mExp.jargon && mExp.btn === "Download spreadsheet",
     JSON.stringify({ mStaff, mWho, mReach0, mReach1, mEod, mEodPuts, mPo, mPoPosts, mCn, mCnUse, mPos0, mPos1, mHub, mExp }));
 } catch (e) { report("money screens: ran to the end", false, String(e).slice(0, 300)); }
 await page.setViewportSize({ width: 1440, height: 900 }).catch(() => {});
@@ -3370,7 +3403,7 @@ try {
   const navDeskMore = await page.evaluate(() => [...document.querySelectorAll(".hub-card")].some((x) => x.offsetParent && /^(Team|Services|Money)$/.test(x.querySelector("b").textContent)));
   report("places: Registers keeps the legal books; Services has tests, vaccines, screening, reactions and lookups; Money has the till and what is owed; the old doors (Registers › Proof, Stock › Price) stay",
     !/endofday|paidout|emergency-pos|poct|vaccines|screening|pharmacovigilance|ocps|labels|otcmindmap|creditnotes|locumreceipts/.test(navReg) && /certificates,audit$/.test(navReg) && /temperature/.test(navReg) && /dda-sales/.test(navReg) && /repeatprescriptions/.test(navReg) &&
-    /^poct,vaccines,screening,pharmacovigilance,ocps/.test(navSvc) && /otcmindmap/.test(navSvc) && /labels/.test(navSvc) && navSvcLit === "services" && /^endofday,paidout,emergency-pos/.test(navMon) && /creditnotes/.test(navMon) && /locumreceipts/.test(navMon) && navMonLit === "money" &&
+    /^poct,vaccines,screening,pharmacovigilance,ocps/.test(navSvc) && /otcmindmap/.test(navSvc) && /labels/.test(navSvc) && navSvcLit === "services" && /^ownreg,endofday,paidout,emergency-pos/.test(navMon) && /creditnotes/.test(navMon) && /locumreceipts/.test(navMon) && navMonLit === "money" &&
     /quotations,creditnotes$/.test(navStk) &&
     navEod.lit === "money" && navEod.back === "‹ Money" && navCn.lit === "money" && navCn.back === "‹ Money" && !navDeskMore,
     JSON.stringify({ navReg, navSvc, navSvcLit, navMon, navMonLit, navStk, navEod, navCn, navDeskMore }));
@@ -3688,6 +3721,91 @@ try {
   await page.evaluate(() => { window.EIKON.state.user.role = "admin"; });
   await page.unroute(RX); await page.unroute(RX1);
 } catch (e) { report("export: download our records", false, String(e).slice(0, 400)); }
+// ---- How we're doing (ownreg): the period maths in Malta days, what needs the pharmacist, one request per period, a
+// figure opens its records (Escape closes, focus back), a week and the month before, a group's head office choosing a
+// pharmacy, staff kept out, and the three reports printed (pharmacy, page numbers, Malta time) and as spreadsheets.
+try {
+  const XLSX_OWN = fs.readFileSync(path.join(root, "vendor", "xlsx-0.20.3", "xlsx.full.min.js"), "utf8");
+  await page.goto(base + "&ui=2&own=" + Date.now() + "#money");
+  await page.waitForFunction(() => window.EIKON && window.EIKON.owner && window.EIKON.state.activeModuleId === "money", null, { timeout: 15000 });
+  const pm = await page.evaluate(() => { const P = window.EIKON.owner.period; return { m: P("month", "2026-11-04", "2026-11-04"), w: P("week", "2026-11-04", "2026-11-04"), past: P("month", "2026-10-15", "2026-11-04"), mar: P("month", "2026-03-31", "2026-03-31"), wk2: P("week", "2026-10-27", "2026-11-04") }; });
+  report("owner: periods in Malta days — this month 1–30 Nov compared with 1–4 Oct; this week Mon 2–Sun 8 Nov with 26–28 Oct; a past month with the whole month before; 31 March with all of February",
+    pm.m.from === "2026-11-01" && pm.m.to === "2026-11-30" && pm.m.cmp.from === "2026-10-01" && pm.m.cmp.to === "2026-10-04" && pm.m.cmpLabel === "the same days of October" &&
+    pm.w.from === "2026-11-02" && pm.w.to === "2026-11-08" && pm.w.cmp.from === "2026-10-26" && pm.w.cmp.to === "2026-10-28" && pm.w.label === "2–8 Nov 2026" &&
+    pm.past.cmp.from === "2026-09-01" && pm.past.cmp.to === "2026-09-30" && pm.past.cmpLabel === "September" && pm.mar.cmp.to === "2026-02-28" && pm.wk2.label === "26 Oct–1 Nov 2026" && pm.wk2.cmpLabel === "the week before", JSON.stringify(pm));
+  const nd = await page.evaluate(() => window.EIKON.owner.needs({ id: 1, money: { short_days: 1, short_total: -12.5 }, credit: { expiring_30: 1, expiring_30_total: 15 }, orders: { overdue: 2, waiting_30: 0 }, questions: { overdue: 0 }, deliveries: { late: 0 }, dda: { supplied: [{ name: "x" }] },
+    registers: { temperature_gaps: [{ name: "Pharmacy Fridge", missing: 2, first: "2026-10-05", days: ["2026-10-05", "2026-10-09"] }], temperature_out_no_note: 1, cleaning_last: "2026-10-20", cleaning_days_since: 15, cleaning_empty_weeks: [], certificates_overdue: ["Fire extinguisher"], certificates_due_30: [], dda_days_since_stocktake: null, eod_not_closed: ["2026-10-06"], eod_not_locked: [] } }, "2026-11-04", "").map((n) => n.level + ": " + n.text));
+  report("owner: Needs you on fixed data — missing first (fridge days named, reading without a note, cleaning 15 days ago, certificate, orders late), then a look (day not closed, short at closing, never counted, credit notes running out)",
+    nd.join("|") === ["missing: Pharmacy Fridge has 2 days without a reading (Mon 5 Oct, Fri 9 Oct).", "missing: 1 reading outside the limits without a note.", "missing: Cleaning last recorded 15 days ago (20 Oct). It is due once a week.", "missing: Fire extinguisher is overdue.", "missing: 2 orders are past the day the customer needed it.",
+      "look: End of day not saved on 1 day (Tue 6 Oct).", "look: Short at closing on 1 day, €12.50 in all.", "look: Controlled drugs have never been counted in Eikon.", "look: 1 credit note (€15.00) run out within 30 days."].join("|"), JSON.stringify(nd));
+  const card = await page.$('[data-open="ownreg"]');
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await card.click();
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ownreg" && document.querySelector(".own-tiles"), null, { timeout: 15000 });
+  const own1 = await page.evaluate(() => ({ hash: location.hash, rail: [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join(), tiles: [...document.querySelectorAll(".own-tile")].map((t) => t.innerText.replace(/\n+/g, " / ")), needs: document.querySelectorAll(".own-need").length, back: document.querySelector(".own-back").textContent }));
+  const reqs1 = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => /^\/owner\//.test(c.path));
+  report("owner: Money › How we're doing opens in the new layout with one request for the month (and the days to compare), four figures, Needs you, back to Money",
+    own1.hash === "#ownreg" && own1.rail === "money" && own1.back === "‹ Money" && reqs1.length === 1 && reqs1[0].path === "/owner/summary" && new RegExp("from=" + todayYmd.slice(0, 7) + "-01&to=" + todayYmd.slice(0, 7) + "-\\d\\d&cmp_from=").test(reqs1[0].query) &&
+    own1.tiles.length === 4 && /^Takings \/ €[\d,]+\.\d\d/.test(own1.tiles[0]) && /Paid out/.test(own1.tiles[1]) && /Credit notes held \/ €20\.00/.test(own1.tiles[3]) && own1.needs >= 3, JSON.stringify({ own1, reqs1 }));
+  // a figure opens its records; Escape closes and focus goes back to it
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('.own-tile[data-rec="paid_outs"]');
+  await page.waitForFunction(() => document.querySelector("#own-dlg table") || document.querySelector("#own-dlg .own-note"), null, { timeout: 10000 });
+  const dl = await page.evaluate(() => ({ title: document.querySelector("#own-dlg h2").textContent, rows: document.querySelectorAll("#own-dlg tbody tr").length, foot: (document.querySelector("#own-dlg tfoot") || {}).textContent || "", open: !!document.querySelector('#own-dlg [data-dact="open"]'), focus: document.activeElement.dataset.dact, modal: document.querySelector("#own-dlg [role=dialog]").getAttribute("aria-modal") }));
+  const reqs2 = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => /^\/owner\//.test(c.path));
+  await page.keyboard.press("Escape"); await page.waitForTimeout(150);
+  const after = await page.evaluate(() => ({ gone: !document.querySelector("#own-dlg"), focus: document.activeElement.dataset.rec }));
+  const nDays = Number(todayYmd.slice(8)) - 1;
+  report("owner: Paid out opens its payments (one request, kinds=paid_outs), with the total and Open Paid out; Escape closes and focus is back on the figure",
+    dl.title === "Paid out" && dl.rows === nDays && (nDays === 0 || /Total.*€/.test(dl.foot)) && dl.open && dl.focus === "close" && dl.modal === "true" && reqs2.length === 1 && /kinds=paid_outs/.test(reqs2[0].query) && after.gone && after.focus === "paid_outs", JSON.stringify({ dl, reqs2, after }));
+  // Week, then the week before: one request each, compared with the week before that
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('[data-view="week"]'); await page.waitForFunction(() => !window.EIKON.owner.state.loading && window.EIKON.owner.state.period.view === "week");
+  await page.click('[data-move="-1"]'); await page.waitForFunction(() => !window.EIKON.owner.state.loading && !window.EIKON.owner.state.period.cur);
+  const reqs3 = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => /^\/owner\//.test(c.path)).map((c) => c.query);
+  const wk = await page.evaluate(() => ({ p: window.EIKON.owner.state.period, lab: document.querySelector(".emb-lab").textContent, now: !!document.querySelector('[data-act="now"]'), saved: localStorage.getItem("eikon_own_view") }));
+  report("owner: Week shows Monday to Sunday; ‹ goes to the week before with one request, compared with the whole week before it; This week comes back; the choice is remembered",
+    reqs3.length === 2 && wk.p.view === "week" && wk.p.cmpLabel === "the week before" && reqs3[1].indexOf("?from=" + wk.p.from + "&to=" + wk.p.to + "&cmp_from=" + wk.p.cmp.from + "&cmp_to=" + wk.p.cmp.to) === 0 && new Date(wk.p.from + "T12:00:00Z").getUTCDay() === 1 && wk.now && /"view":"week"/.test(wk.saved), JSON.stringify({ reqs3, wk }));
+  // Reports: printed with the pharmacy's name, page numbers and Malta time; the spreadsheet read back with SheetJS
+  await page.click('[data-view="month"]'); await page.waitForFunction(() => !window.EIKON.owner.state.loading && window.EIKON.owner.state.period.view === "month");
+  await page.evaluate((x) => { if (!window.XLSX || !window.XLSX.utils) { (0, eval)(x); } window.__ownPrint = null; window.EIKON.openPrintUrlOrLink = function () { window.__ownPrint = window.EIKON.months.lastPrint; return {}; }; }, XLSX_OWN);
+  const reps = {};
+  for (const k of ["month", "cd", "hours"]) {
+    await page.click(`[data-rep="${k}"][data-how="print"]`); await page.waitForFunction(() => window.__ownPrint && !window.EIKON.owner.state.busy, null, { timeout: 10000 });
+    const h = await page.evaluate(() => window.__ownPrint.html); await page.evaluate(() => { window.__ownPrint = null; });
+    await page.click(`[data-rep="${k}"][data-how="sheet"]`); await page.waitForFunction((n) => window.EIKON.owner.lastSheet && !window.EIKON.owner.state.busy && window.EIKON.owner.lastSheet.name.indexOf(n) >= 0, k === "month" ? "month-end" : k === "cd" ? "controlled-drugs" : "staff-hours", { timeout: 10000 });
+    reps[k] = { h, sheet: await page.evaluate(() => ({ name: window.EIKON.owner.lastSheet.name, sheets: window.EIKON.owner.lastSheet.sheets.map((s) => s.name + ":" + s.rows.length), size: window.EIKON.owner.lastSheet.size })) };
+  }
+  const pOk = (h, title) => h.indexOf("<b>Demo Pharmacy</b>") > 0 && h.indexOf("<h1>" + title + "</h1>") > 0 && /counter\(page\) " of " counter\(pages\)/.test(h) && /printed \d\d\/\d\d\/\d{4} \d\d:\d\d/.test(h) && !/<script/i.test(h) && /color:#000;background:#fff/.test(h);
+  report("owner: the three reports print black on white with the pharmacy's name, page numbers and the time printed (Malta), no script; month end lists the days and paid outs, controlled drugs the totals with lines to sign, staff hours the rota",
+    pOk(reps.month.h, "Month end for the accountant") && /End of day, day by day/.test(reps.month.h) && /Paid outs/.test(reps.month.h) && /Locum receipts/.test(reps.month.h) && pOk(reps.cd.h, "Controlled drugs totals") && /DDA Sales — controlled drugs supplied/.test(reps.cd.h) && /Morphine 10mg/.test(reps.cd.h) && /Pharmacist in charge/.test(reps.cd.h) && pOk(reps.hours.h, "Staff hours") && /Ġanni Borg/.test(reps.hours.h),
+    JSON.stringify(Object.keys(reps).map((k) => [k, reps[k].h.length])));
+  report("owner: each report downloads as a workbook (Summary, End of day, Paid outs, credit notes, locum receipts; totals and lines; hours, shifts and the locum register)",
+    reps.month.sheet.sheets.slice(0, 3).map((x) => x.split(":")[0]).join() === "Summary,End of day,Paid outs" && reps.month.sheet.sheets.length === 6 && reps.cd.sheet.sheets.length === 6 && reps.hours.sheet.sheets.length === 4 && /\.xlsx$/.test(reps.hours.sheet.name) && reps.month.sheet.size > 1000, JSON.stringify(reps.month.sheet) + JSON.stringify(reps.cd.sheet) + JSON.stringify(reps.hours.sheet));
+  // A group's head office: All pharmacies, then one; no patient details in the lines
+  globalThis.__ownGroup = true;
+  await page.evaluate(() => { localStorage.removeItem("eikon_own_view"); window.EIKON.owner.state.data = null; location.hash = "#money"; }); await page.waitForTimeout(300);
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.evaluate(() => { location.hash = "#ownreg"; });
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ownreg" && document.querySelector("#own-loc") && !window.EIKON.owner.state.loading, null, { timeout: 15000 });
+  const g1 = await page.evaluate(() => ({ opts: [...document.querySelectorAll("#own-loc option")].map((o) => o.textContent), rows: [...document.querySelectorAll(".own-ph tbody tr")].length, needs: [...document.querySelectorAll(".own-need .t")].map((x) => x.textContent) }));
+  await page.selectOption("#own-loc", "4"); await page.waitForFunction(() => !window.EIKON.owner.state.loading && window.EIKON.owner.state.data.scope === "one");
+  const reqs4 = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => /^\/owner\//.test(c.path)).map((c) => c.query);
+  await page.click('[data-rec="dda_supplied"]'); await page.waitForFunction(() => document.querySelector("#own-dlg tbody") || document.querySelector("#own-dlg .own-note"), null, { timeout: 10000 });
+  const g2 = await page.evaluate(() => ({ txt: document.querySelector("#own-dlg").innerText, open: !!document.querySelector('#own-dlg [data-dact="open"]') }));
+  await page.keyboard.press("Escape");
+  globalThis.__ownGroup = false;
+  report("owner: head office sees All 2 pharmacies (a row each, Needs you named by pharmacy), chooses one (loc=4 on the next request), and the lines come without patients' details and without Open (another pharmacy's screen)",
+    g1.opts.join() === "All 2 pharmacies,Ħamrun Pharmacy,Żebbuġ Pharmacy" && g1.rows === 2 && g1.needs.some((t) => /^Ħamrun Pharmacy: /.test(t)) && /loc=4/.test(reqs4[reqs4.length - 1]) && !/Żammit|1234M/.test(g2.txt) && /left out for head office/.test(g2.txt) && !g2.open, JSON.stringify({ g1, reqs4, g2: g2.txt.slice(0, 300) }));
+  // Staff: no card in Money, and the screen says who can, without asking the server
+  await page.evaluate(() => { localStorage.removeItem("eikon_own_view"); window.EIKON.owner.state.data = null; window.EIKON.owner.state.loc = "all"; window.EIKON.state.user.role = "staff"; location.hash = "#money"; }); await page.waitForTimeout(500);
+  const staffCard = await page.$('[data-open="ownreg"]');
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.evaluate(() => { location.hash = "#ownreg"; }); await page.waitForTimeout(600);
+  const sTxt = await page.textContent(".own"), sReq = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => /^\/owner\//.test(c.path));
+  await page.evaluate(() => { window.EIKON.state.user.role = "admin"; });
+  report("owner: a staff account has no How we're doing card and, at the address, a note instead of the figures; nothing is asked of the server", !staffCard && /Only the pharmacist in charge/.test(sTxt) && sReq.length === 0, JSON.stringify({ staffCard: !!staffCard, sTxt: sTxt.slice(0, 120), sReq }));
+} catch (e) { report("owner: how we're doing", false, String(e).slice(0, 400)); }
 // ---- Inspection check (insreg, backlog 3 item 9): each check's maths on fixed data with a fixed Malta day, the reads it
 // makes (a month per call, 3 in flight at most, stock-take months skip the DDA reads), the screen from Registers, its links
 // to the exact month, the printout with sign-off lines, and the first page of the inspection pack.
@@ -6541,6 +6659,95 @@ try {
     tg.n > 60 && tg.min >= 44 && tap === "none" && key.o === "solid" && !key.ptr && (badge === null || badge === "rgb(251, 227, 225) rgb(176, 30, 23)"), JSON.stringify({ tg, tap, key, badge }));
   await page.unroute("**/client-orders/entries?*");
 } catch (e) { await page.setViewportSize({ width: 1440, height: 900 }).catch(() => {}); await page.unroute("**/client-orders/entries?*").catch(() => {}); report("busy lists (q5-8): ran to the end", false, String(e && e.stack || e).slice(0, 400) + " " + (await page.evaluate(() => location.href + " " + (window.EIKON && window.EIKON.state.activeModuleId) + " rows=" + document.querySelectorAll(".ord-row").length + " " + (document.querySelector("main,#eikon-content") || document.body).innerText.slice(0, 300)).catch((x) => String(x)))); }
+
+// d-cust: the customer record (waiting now, good to know, loyalty, messages in the story) and Tell the customer (E.tell).
+// The new routes are answered here (page.route) as the worker's d-cust block answers them.
+try {
+  const dQ = (n) => maltaYmd(n);
+  const NOW = () => ({ ok: true, person: peopleState.carmel, today: dQ(0),
+    waiting: { orders: [{ id: 41, code: "", items: "Insulin pen needles", order_date: dQ(-9), needed_by: dQ(-2), priority: 2 }],
+      ready: [{ id: 42, code: "A1B2", items: "Ventolin inhaler", order_date: dQ(-3), ready_at: dQ(0) + " 09:00:00" }],
+      questions: [{ id: 51, ref: "TKT-00051", issue: "Is the Omron M3 back?", status: "Resolved", open_date: dQ(-4), followup_date: "", done: true, done_at: dQ(0), last_note: "Yes, back in stock at €49.90" }],
+      deliveries: [{ id: 61, ref: "DEL-00061", items: "Box", status: "Scheduled", date: dQ(1), slot: "Afternoon", address: "1 Triq il-Knisja" }],
+      repeats: [{ id: 71, entry_date: dQ(-26), expires_date: dQ(150), client_name: "Zammit Carmel", client_id: "0012345M", medicine_name_dose: "Atorvastatin 20mg", posology: "1 nocte", collect_every_days: 28, last_collected_date: null }],
+      bookings: [{ id: 81, ref: "B-81", date: dQ(2), time: "10:30", status: "booked", service: "Flu vaccine" }] },
+    activity: [{ kind: "dda_sale", label: "DDA sale", date: "2026-10-05", title: "Morphine 10mg", ref: "S-1", doctor: "Dr Abela" }], counts: { dda_sale: 1, loyalty: 1, order: 2 },
+    profile: Object.assign({ prefers: "whatsapp", email_ok: null, sms_ok: false, whatsapp_ok: null, lang: "", allergies: "Penicillin", version: 3, updated_at: "" }, globalThis.__dcProf || {}),
+    messages: globalThis.__dcMsgs || [], email: { ready: false, why: "Set up e-mail first: Bookings, Settings, Messages.", opted_out: false }, pharmacy: { name: "Demo Pharmacy", phone: "21234567", address: "" } });
+  const posts = [];
+  globalThis.__dcMsgs = [];
+  await page.route("**/people/1/now*", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify(NOW()) }));
+  await page.route("**/messages/setup*", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, email: { ready: false, why: "Set up e-mail first: Bookings, Settings, Messages." }, pharmacy: { name: "Demo Pharmacy", phone: "21234567" } }) }));
+  await page.route("**/messages", (r) => { const b = JSON.parse(r.request().postData() || "{}"); posts.push(["/messages", b]); const m = { id: 900 + posts.length, person_id: b.person_id, channel: b.channel, purpose: b.purpose, ref_kind: b.ref_kind, ref_id: b.ref_id, to: b.to, body: b.body, status: "device", by: "Maria Borg", at: dQ(0) + " 10:00:00" }; globalThis.__dcMsgs = [m].concat(globalThis.__dcMsgs); r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, message: m }) }); });
+  await page.route("**/people/1/profile", (r) => { const b = JSON.parse(r.request().postData() || "{}"); posts.push(["/profile", b]); globalThis.__dcProf = Object.assign({}, b, { version: 4 }); r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, profile: Object.assign(NOW().profile, { version: 4 }) }) }); });
+  await page.route("**/loyalty/campaigns*", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, campaigns: [{ id: "c1", name: "Vitamin stamps", type: "stamp_card", active: true, open_ended: true, stamp_target: 10, reward: "Free vitamins" }, { id: "c2", name: "Old points", type: "points", active: false, redeem_threshold: 100 }] }) }));
+  await page.route("**/loyalty/transactions*", (r) => { if (r.request().method() === "POST") { posts.push(["/loyalty", JSON.parse(r.request().postData())]); return r.fulfill({ contentType: "application/json", body: '{"ok":true}' }); } r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, transactions: [{ id: 1, client_id: "0012345M", campaign_id: "c1", stamps_awarded: 3, points_awarded: 0, total: 0, date: "2026-10-01" }, { id: 2, client_id: "0012345M", campaign_id: "c2", stamps_awarded: 0, points_awarded: 120, total: 0, date: "2026-09-01" }] }) }); });
+  const was = peopleState.adopted; peopleState.adopted = true;
+  await page.evaluate(() => window.EIKON.tell && window.EIKON.tell._reset());
+  await toCarmel();
+  await page.waitForSelector(".cus-now .cus-w", { timeout: 8000 }); await page.waitForTimeout(300);
+  const r1 = await page.evaluate(() => ({ rows: [...document.querySelectorAll(".cus-now .cus-w")].map((li) => li.querySelector(".t b").textContent + " [" + [...li.querySelectorAll("button")].map((b) => b.textContent).join("/") + "] " + li.querySelector("i").className),
+    allergy: (document.querySelector(".cus-allergy") || {}).textContent, pills: [...document.querySelectorAll(".cus-head .cus-pill")].map((e) => e.textContent), loy: (document.querySelector("#cus-loy-box") || {}).innerText,
+    sms: document.querySelector("input[name=sms_ok]").checked, pref: (document.querySelector("input[name=prefers]:checked") || {}).value, save: document.querySelector("[data-act=pref-save]").disabled, counts: document.querySelectorAll(".cus-counts a").length }));
+  report("d-cust record: Waiting now lists, most urgent first, the late order (red), the due repeat, the ready order and the answered question with Tell, the delivery and the booking (Remind); allergies in red under the name; Prefers WhatsApp; loyalty stamps from the classic list; a 'no' to SMS ticked; Save off until a change",
+    /^Order waiting · Insulin pen needles \[Open\] red$/.test(r1.rows[0]) && r1.rows.some((x) => /^Due today · Atorvastatin 20mg|^Overdue|^Due in/.test(x) && /Tell Carmel/.test(x)) && r1.rows.some((x) => /^Ready to collect · Ventolin inhaler \[Tell Carmel\/Open\]/.test(x)) &&
+    r1.rows.some((x) => /^Answered · Is the Omron M3 back\? \[Tell Carmel\/Open\]/.test(x)) && r1.rows.some((x) => /^Delivery tomorrow · afternoon · Box \[Tell Carmel\/Open\]/.test(x)) && r1.rows.some((x) => /^Booking .* at 10:30 · Flu vaccine \[Remind Carmel\/Open\]/.test(x)) &&
+    /Allergies\s*Penicillin/.test(r1.allergy || "") && r1.pills.includes("Prefers WhatsApp") && /3 of 10 stamps/.test(r1.loy || "") && /Old points \(ended\)/.test(r1.loy || "") && r1.sms === true && r1.pref === "whatsapp" && r1.save === true && r1.counts === 3, JSON.stringify(r1));
+
+  // Tell: the ready order, by WhatsApp (their preference), the words written; SMS cannot be chosen (they said no); e-mail says why
+  await fetch(`http://localhost:${PORT}/__reset`);
+  const tellBtn = page.locator(".cus-now .cus-w", { hasText: "Ready to collect" }).locator("[data-tell]");
+  await tellBtn.click(); await page.waitForSelector(".tl-ov [data-act=open]:not([aria-disabled=true])", { timeout: 8000 }); await page.waitForTimeout(150);
+  const d1 = await page.evaluate(() => ({ h: document.querySelector("#tl-h").textContent, ch: document.querySelector("input[name=tl-ch]:checked").value, sms: document.querySelector("input[name=tl-ch][value=sms]").getAttribute("aria-disabled"), email: document.querySelector("input[name=tl-ch][value=email]").getAttribute("aria-disabled"),
+    text: document.querySelector("#tl-text").value, href: document.querySelector("[data-act=open]").getAttribute("href"), focus: document.activeElement && document.activeElement.getAttribute("data-act"), why: document.querySelector("#tl-why").textContent }));
+  await page.click(".tl-ov label:has(input[value=email])", { force: true }); await page.waitForTimeout(100);
+  const d2 = await page.evaluate(() => ({ ch: document.querySelector("input[name=tl-ch]:checked").value, why: document.querySelector("#tl-why").textContent }));
+  await page.click(".tl-ov [data-lang=mt]"); await page.waitForTimeout(80);
+  const mt = await page.evaluate(() => document.querySelector("#tl-text").value);
+  await page.click(".tl-ov [data-lang=en]"); await page.fill("#tl-text", "Hi Carmel, your Ventolin is ready. Demo Pharmacy");
+  await page.keyboard.press("Escape"); await page.waitForTimeout(100);
+  const esc1 = await page.evaluate(() => ({ open: !!document.querySelector(".tl-ov"), focus: document.activeElement && document.activeElement.getAttribute("data-tell") != null }));
+  await tellBtn.click(); await page.waitForSelector(".tl-ov [data-act=open]", { timeout: 8000 });
+  const kept = await page.evaluate(() => document.querySelector("#tl-text").value);
+  const popUrl = await page.evaluate(() => document.querySelector(".tl-ov [data-act=open]").getAttribute("href"));
+  const popup = page.context().waitForEvent("page", { timeout: 4000 }).catch(() => null);
+  await page.click(".tl-ov [data-act=open]"); const pp = await popup; if (pp) await pp.close().catch(() => {});
+  await page.waitForFunction(() => !document.querySelector(".tl-ov"), null, { timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(600);
+  const mp = posts.filter((x) => x[0] === "/messages").map((x) => x[1]);
+  const after = await page.evaluate(() => ({ told: [...document.querySelectorAll(".cus-now .cus-w")].map((li) => li.innerText).filter((t) => /Ventolin/.test(t))[0] || "", story: (document.querySelector(".cus-story li.msg") || {}).innerText || "" }));
+  const writes = (await callsNow()).filter((c) => c.method !== "GET");
+  report("d-cust Tell: one tap from the record opens 'Tell Carmel' on WhatsApp (her choice) with the order's words and its wa.me link, focus on Open WhatsApp; SMS can't be chosen (she said no), e-mail says how to set it up; Malti words on a tap; Escape closes, focus back, what was typed comes back; Open WhatsApp records one message (ref, channel, client key) and nothing else is written; the record says Told and the story shows it",
+    d1.h === "Tell Carmel" && d1.ch === "whatsapp" && d1.sms === "true" && d1.email === "true" && /^Hi Carmel, your order \(Ventolin inhaler\) is ready to collect at Demo Pharmacy\. Your order number is A1B2\./.test(d1.text) && d1.href.indexOf("https://wa.me/35679123456?text=Hi%20Carmel") === 0 && d1.focus === "open" &&
+    d2.ch === "whatsapp" && /Set up e-mail first/.test(d2.why) && /^Bonġu Carmel, l-ordni tiegħek \(Ventolin inhaler\) hija lesta/.test(mt) && !esc1.open && esc1.focus && kept === "Hi Carmel, your Ventolin is ready. Demo Pharmacy" &&
+    mp.length === 1 && mp[0].channel === "whatsapp" && mp[0].person_id === 1 && mp[0].purpose === "ready" && mp[0].ref_kind === "order" && mp[0].ref_id === 42 && mp[0].to === "79123456" && mp[0].body === kept && /^[a-z0-9]+-[a-z0-9]+$/.test(mp[0].client_key) &&
+    popUrl.indexOf("https://wa.me/35679123456?text=Hi%20Carmel%2C%20your%20Ventolin") === 0 && writes.length === 0 && /Told by WhatsApp today/.test(after.told) && /WhatsApp · Order ready/.test(after.story),
+    JSON.stringify({ d1, d2, mt: mt.slice(0, 80), esc1, kept, mp, popUrl: popUrl.slice(0, 80), writes, after }));
+
+  // Good to know: only what was changed is sent, with the version
+  await page.fill("#cus-allergy", "Penicillin, aspirin"); await page.click("label.cus-chip:has(input[name=email_ok])"); await page.click("[data-act=pref-save]"); await page.waitForTimeout(400);
+  const pf = posts.filter((x) => x[0] === "/profile").map((x) => x[1]);
+  report("d-cust good to know: Save sends only the changes (allergies, a 'no' to e-mail) with the version it was read at", pf.length === 1 && JSON.stringify(pf[0]) === JSON.stringify({ version: 3, email_ok: false, allergies: "Penicillin, aspirin" }), JSON.stringify(pf));
+
+  // Loyalty from the record: the classic screen's body
+  await page.waitForSelector("#cus-loy-box [data-act=loy-add]"); await page.click("#cus-loy-box [data-act=loy-add]"); await page.waitForSelector("#cus-loy");
+  await page.click("#cus-loy [data-act=loy-save]"); await page.waitForTimeout(150);
+  const lerr = await page.evaluate(() => [...document.querySelectorAll("#cus-loy .cus-ferr")].map((e) => e.textContent));
+  await page.fill("#cus-ly-d", "Vitamin C"); await page.fill("#cus-ly-q", "2"); await page.fill("#cus-ly-r", "R-9"); await page.click("#cus-loy [data-act=loy-save]"); await page.waitForTimeout(500);
+  const lp = posts.filter((x) => x[0] === "/loyalty").map((x) => x[1]);
+  const lb = lp[0] || {};
+  report("d-cust loyalty: Add a purchase says what is missing (nothing sent), then posts the classic Loyalty body (same keys in the same order, stamps and words as the classic screen works them out)",
+    lerr.length === 1 && /what they bought/i.test(lerr[0]) && lp.length === 1 && Object.keys(lb).join(",") === "id,client_id,client_name,campaign_id,receipt_no,items,total,notes,stamps_awarded,points_awarded,action,action_label,date,created_at" &&
+    lb.client_id === "0012345M" && lb.client_name === "Zammit Carmel" && lb.campaign_id === "c1" && JSON.stringify(lb.items) === '[{"desc":"Vitamin C","qty":2}]' && lb.stamps_awarded === 2 && lb.points_awarded === 0 && lb.action_label === "Awarded 2 stamps" && lb.receipt_no === "R-9" && lb.total === 0 && lb.date === dQ(0),
+    JSON.stringify({ lerr, lp }));
+
+  // The helpers
+  const u = await page.evaluate(() => { const T = window.EIKON.tell; return [T.firstName("Zammit Carmel"), T.firstName("Maria Borg"), T.firstName("Ċassar Ryan"), T.firstName("Borg Vella"), T.intl("7912 3456"), T.intl("+44 7700 900123"), T.intl("0035699123456"), T.intl("123"), T.isMobile("21234567"), T.isMobile("99123456"), T.smsLink("79123456", "a b&c")].join("|"); });
+  report("d-cust Tell helpers: the greeting name (a Maltese surname first is passed over), Maltese numbers get 356, the SMS link works on Android and iPhone",
+    u === "Carmel|Maria|Ryan|Borg|35679123456|447700900123|35699123456||false|true|sms:+35679123456?&body=a%20b%26c", u);
+  peopleState.adopted = was;
+  for (const pat of ["**/people/1/now*", "**/messages/setup*", "**/messages", "**/people/1/profile", "**/loyalty/campaigns*", "**/loyalty/transactions*"]) await page.unroute(pat);
+} catch (e) { report("d-cust record and Tell: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
 
 await browser.close();
 server.close();

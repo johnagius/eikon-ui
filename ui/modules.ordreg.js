@@ -207,7 +207,9 @@
     if (e.notes) sub.push(esc(e.notes));
     var pill = done ? "Ready " + when(String(e.fulfilled_at || "").slice(0, 10)) : need ? (n < 0 ? "Late · needed " + when(need) : "Needed " + when(need)) : "No date";
     var open = S.editing === e.id, ask = S.askPhone === e.id;
-    var btn = ask ? "" : done ? '<button class="ord-btn" data-act="unready" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ' aria-label="' + esc("Not ready: " + e.client_name + "'s order is waiting again") + '">' + (S.busy[e.id] ? "Saving…" : "Not ready") + "</button>"
+    // d-cust: an order that is ready can be told to the customer in one tap (E.tell: WhatsApp, SMS or e-mail, nothing sent by itself)
+    var tell = done && !ask && E.tell && String(e.fulfilled_at || "").slice(0, 10) >= daysAgoYmd(14) ? '<button class="ord-btn p" data-act="tell" data-id="' + e.id + '" aria-label="' + esc("Tell " + e.client_name + " the order is ready") + '">Tell ' + esc(E.tell.firstName(e.client_name)) + "</button>" : "";
+    var btn = ask ? "" : done ? tell + '<button class="ord-btn" data-act="unready" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ' aria-label="' + esc("Not ready: " + e.client_name + "'s order is waiting again") + '">' + (S.busy[e.id] ? "Saving…" : "Not ready") + "</button>"
       : '<button class="ord-btn p" data-act="ready" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ' aria-label="' + esc("Ready: " + e.client_name + "'s order is in") + '">' + (S.busy[e.id] ? "Saving…" : "Ready") + "</button>";
     var h = '<div class="ord-row ' + cls + (Number(e.priority) === 1 && !done ? " hi" : "") + (S.hit === e.id ? " q55-hit" : "") + '"' + (ask ? ' style="flex-wrap:wrap"' : "") + '><div class="t"><button type="button" class="ord-name" data-act="open" data-id="' + e.id + '" aria-expanded="' + (open ? "true" : "false") + '" aria-label="' + esc("Open the order for " + e.client_name) + '"><b>' + esc(e.client_name) + '</b><div class="it">' + esc(e.items_text || e.items || "") + "</div></button><span>" + sub.join(" · ") + "</span></div>" +
       '<span class="ord-pill ' + (done ? "done" : cls) + '">' + esc(pill) + "</span>" + btn;
@@ -389,6 +391,7 @@
         else if (a === "add-cancel") closeAdd();
         else if (a === "q58-more") { var nx = E.listPage.more(b.getAttribute("data-key")); paintResults(); if (nx != null) focusOn('[data-act=open][data-id="' + nx + '"]'); } // q5-8: the first new row
         else if (a === "ready") ready(id, true);
+        else if (a === "tell") tellOrder(id, b);
         else if (a === "unready") ready(id, false);
         else if (a === "ph-cancel") { var pid = S.askPhone; S.askPhone = null; S.phErr = ""; S.phDraft = ""; paint(); focusOn('[data-act=' + (S.askOn ? "ready" : "unready") + '][data-id="' + pid + '"]'); }
         else if (a === "retry") reloadAll();
@@ -549,6 +552,12 @@
     S.hit = null; if (S.hitName && !S.q) { S.q = S.hitName; S.qFromSearch = true; E.whenFormIdle(m, paint); }
   }
 
+  function daysAgoYmd(n) { var d = new Date(); d.setDate(d.getDate() - n); return ymd(d); }
+  function tellOrder(id, b) {
+    var e = findOrder(id); if (!e || !E.tell) return;
+    E.tell.open({ person: { name: e.client_name, phone: e.client_phone || e.contact || "", alt_phone: e.client_alt_phone || e.alternate || "", email: e.client_email || e.email || "" },
+      purpose: "ready", ref: { kind: "order", id: e.id }, vars: { items: e.items_text || e.items || "", code: e.order_code || "" }, subtitle: e.items_text || e.items || "", back: b });
+  }
   async function ready(id, on, ph) {
     var e = findOrder(id); if (!e || S.busy[id]) return;
     // The server refuses any change to an order without client_phone (creating one does not need it), so an order saved
@@ -570,7 +579,8 @@
       else { var why = E.saveFailText(x); if (S.askPhone === id) S.phErr = why; E.toast(why, "error"); }
     }
     S.busy[id] = false; E.listPage.reveal("ord", id); await reloadAll();
-    focusOn('[data-act=open][data-id="' + id + '"]'); // the order keeps the focus, wherever its row went (Waiting or Ready)
+    var tb = on && S.mount && S.mount.querySelector('[data-act=tell][data-id="' + id + '"]');
+    focusOn(tb ? '[data-act=tell][data-id="' + id + '"]' : '[data-act=open][data-id="' + id + '"]'); // the order keeps the focus, wherever its row went (Waiting or Ready); ready: on Tell, the next thing to do
   }
 
   async function add(f) {

@@ -62,7 +62,8 @@
       ["Look up and print", "Contraceptive pills, Pharmacy calculators, Over the counter and Dispensing labels."]
     ], "", []],
 
-    ["money", "money", "Money", "The till and what the pharmacy owes or holds for others.", [
+    ["money", "money", "Money", "How the pharmacy is doing, the till, and what it owes or holds for others.", [
+      ["How we're doing", "Takings against the week or month before, what needs you, hours and the month-end reports (the pharmacist in charge)."],
       ["Till", "End of day, Paid out and Emergency POS."],
       ["Customers and locums", "Credit notes and Locum receipts."]
     ], "", []],
@@ -194,6 +195,14 @@
       ["Finish", "Press Save and close."],
       ["Print a stock take", "Open it and press Print."]
     ], "Deleting a line is in the classic screen.", []],
+
+    ["ownreg", "money", "How we're doing", "Takings, what customers are waiting for and whether the registers are in order, for a week or a month. The pharmacist in charge only.", [
+      ["See a week or a month", "Press Week or Month, then change it with ‹ and ›. Each figure is compared with the same days of the week or month before."],
+      ["See the records behind a figure", "Tap the figure: the lines behind it open in a list, with their total.", "Press Close (or Escape) to go back."],
+      ["Fix what needs you", "Each line under Needs you opens the register it is about, on that month."],
+      ["Reports", "Under Reports, press Print or Spreadsheet: Month end for the accountant, Controlled drugs totals for the inspector, Staff hours for payroll."],
+      ["More than one pharmacy", "Head office chooses one pharmacy or all of them together. It sees the figures, never a patient's details."]
+    ], "", []],
 
     ["poreg", "money", "Paid out", "Money paid from the till: couriers, cleaners, small suppliers.", [
       ["Record a payment", "Press New payment.", "Fill in who it was paid to, the amount, cash or cheque, and what for.", "Press Save payment."],

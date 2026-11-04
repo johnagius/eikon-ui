@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-04-batch-6";
+const WORKER_VERSION = "2026-11-04-batch-7";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -17524,6 +17524,8 @@ export default {
     request = await nameCaseRequest(request, env, url, null); // people's names in Title Case (public booking form)
     // A customer's private booking link (public, signed, rate-limited)
     if (url.pathname.startsWith("/b/")) return await handleBookingLink(request, env, url);
+    // The stop link at the foot of a customer e-mail (public, signed): d-cust block at the end of this file
+    if (url.pathname.startsWith("/m/")) return await handleCustMsgLink(request, env, url);
     // The pharmacy's public booking page (only when switched on)
     if (url.pathname.startsWith("/book/")) return await handlePublicBooking(request, env, url);
 
@@ -17769,6 +17771,11 @@ const authUser = await authFromRequest(request, env);
     if (url.pathname === "/people/not-same" && (request.method === "GET" || request.method === "POST")) return await handlePeopleNotSame(request, env, corsOkHeaders, authUser, false);
     if (url.pathname === "/people/not-same/undo" && request.method === "POST") return await handlePeopleNotSame(request, env, corsOkHeaders, authUser, true);
     { const m = url.pathname.match(/^\/people\/(\d+)$/); if (m && request.method === "GET") return await handlePersonGet(request, env, corsOkHeaders, authUser, Number(m[1])); }
+    // Customers: what they need now, how they like to be told, telling them (d-cust block at the end of this file)
+    { const m = url.pathname.match(/^\/people\/(\d+)\/now$/); if (m && request.method === "GET") return await handleCustNow(request, env, corsOkHeaders, authUser, Number(m[1])); }
+    { const m = url.pathname.match(/^\/people\/(\d+)\/profile$/); if (m && request.method === "POST") return await handleCustProfile(request, env, corsOkHeaders, authUser, Number(m[1])); }
+    if (url.pathname === "/messages/setup" && request.method === "GET") return await handleCustMsgSetup(request, env, corsOkHeaders, authUser);
+    if (url.pathname === "/messages" && request.method === "POST") return await handleCustMsgSend(request, env, corsOkHeaders, authUser);
     { const m = url.pathname.match(/^\/people\/(\d+)\/merge$/); if (m && request.method === "POST") return await handlePersonMerge(request, env, corsOkHeaders, authUser, Number(m[1])); }
     { const m = url.pathname.match(/^\/people\/(\d+)\/change-id-card$/); if (m && request.method === "POST") return await handlePersonChangeIdCard(request, env, corsOkHeaders, authUser, Number(m[1])); } // ID card change (block after handlePeopleBackfill)
     { const m = url.pathname.match(/^\/people\/(\d+)\/id-card-changes$/); if (m && request.method === "GET") return await handlePersonIdCardChanges(request, env, corsOkHeaders, authUser, Number(m[1])); }
@@ -19099,6 +19106,9 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
       return await handleAdminPharmacyOverview(request, env, corsOkHeaders, authUser, url);
     }
     // ── End Admin Pharmacy Overview ──────────────────────────────────────
+    // ── How we are doing (owner's view and reports; read only, admins, own pharmacy or own group) ──
+    if (url.pathname === "/owner/summary" && request.method === "GET") return await handleOwnerSummary(request, env, corsOkHeaders, authUser, url);
+    if (url.pathname === "/owner/records" && request.method === "GET") return await handleOwnerRecords(request, env, corsOkHeaders, authUser, url);
     if (url.pathname.startsWith("/admin/names/")) { if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders); return await handleNamesAdmin(request, env, corsOkHeaders, authUser, url); }
 
     return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
@@ -21022,6 +21032,288 @@ async function handleContactsBulk(request, env, corsOkHeaders, authUser, tableKe
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "CONTACT_BULK_IMPORT", def.db, "", { count: rows.length }, authUser.location_id);
   return jsonResponse({ ok: true, ids: ids }, 200, corsOkHeaders);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HOW WE ARE DOING (the owner's view and reports) — read only
+//   GET /owner/summary?from=&to=[&cmp_from=&cmp_to=][&loc=all|<id>]   figures for the days chosen, per pharmacy
+//   GET /owner/records?kinds=a,b&from=&to=[&loc=all|<id>]              the records behind a figure
+// Nothing here writes, creates or alters anything: every read is a SELECT, and a table a pharmacy has never used
+// (not created yet) reads as nothing. Who may see what (ownerScope):
+//   - only an admin (the pharmacist in charge); staff are refused (403), whatever they ask for;
+//   - a pharmacy's admin (location 0-399) sees that pharmacy only; naming any other location is refused (403);
+//   - a group's head office (company admin, location 600-900, the numbers John set aside for chains) sees every
+//     pharmacy of its own group (same org, location below 400), each and combined; another group's pharmacy, a
+//     supplier (400-599) or head office itself named as loc is refused (403);
+//   - suppliers and any other location are refused (403).
+//   Head office gets figures and lines, never a patient's name, ID card, address or phone (stripped in records).
+// Days are Malta days (tzYmd); a server clock column (UTC datetime) is turned into its Malta day before counting.
+// ═══════════════════════════════════════════════════════════════════════════
+const OWNER_MAX_DAYS = 400;
+const OWNER_MAX_ROWS = 5000;
+function ownerIsYmd(s) { s = String(s || ""); if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false; const d = new Date(s + "T12:00:00Z"); return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s; }
+// A server clock value ("YYYY-MM-DD HH:MM:SS" UTC, or ISO) as the Malta day it fell on; a bare date stays itself.
+function ownerMaltaDay(v) {
+  const s = String(v == null ? "" : v).trim();
+  if (!/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(s)) return ownerIsYmd(s.slice(0, 10)) ? s.slice(0, 10) : "";
+  const ms = Date.parse(s.replace(" ", "T") + (/[zZ]$|[+-]\d\d:?\d\d$/.test(s) ? "" : "Z"));
+  return isNaN(ms) ? s.slice(0, 10) : tzYmd(new Date(ms));
+}
+function ownerHm(v) { const m = String(v || "").match(/^(\d{1,2}):(\d{2})/); return m ? Number(m[1]) * 60 + Number(m[2]) : null; }
+function ownerHours(a, b) { const x = ownerHm(a), y = ownerHm(b); if (x == null || y == null) return 0; let d = y - x; if (d < 0) d += 1440; return Math.round(d / 6) / 10; }
+function ownerR2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
+// The End of day screen's own number rules (ui/modules.eodreg.js), so a figure here is the same to the cent.
+function ownerMnum(raw) { let s = String(raw == null ? "" : raw).trim(); if (!s) return 0; if (s.indexOf(",") >= 0 && s.indexOf(".") === -1) s = s.replace(/,/g, "."); if (s === ".") return 0; const v = Number(s); return isFinite(v) ? v : 0; }
+function ownerInum(raw) { const s = String(raw == null ? "" : raw).trim(); if (!s) return 0; const v = parseInt(s, 10); return isFinite(v) ? v : 0; }
+function ownerJson(s, d) { try { const v = JSON.parse(s); return v == null ? d : v; } catch (e) { return d; } }
+function ownerEodFigures(row) {
+  const tot = (j) => { const a = ownerJson(j, []); return Array.isArray(a) ? a.reduce((t, r) => t + ownerMnum(r && r.amount), 0) : 0; };
+  const A = tot(row.x_json), B = tot(row.epos_json), C = tot(row.cheques_json), D = tot(row.paid_outs_json);
+  const c = ownerJson(row.cash_json, {}) || {};
+  const notes = 500 * ownerInum(c.n500) + 200 * ownerInum(c.n200) + 100 * ownerInum(c.n100) + 50 * ownerInum(c.n50) + 20 * ownerInum(c.n20) + 10 * ownerInum(c.n10) + 5 * ownerInum(c.n5);
+  const till = notes + ownerMnum(c.coins_total), exp = A - B - C - D;
+  let cash = till - ownerMnum(row.float_amount); if (cash < 0) cash = 0;
+  const counted = till > 0;
+  return { date: row.eod_date, staff: String(row.staff_name || ""), shift: String(row.time_of_day || ""), takings: ownerR2(A), epos: ownerR2(B), cheques: ownerR2(C),
+    paid_outs: ownerR2(D), expected: ownerR2(exp), cash: ownerR2(cash), over_under: counted ? ownerR2(cash - exp) : null, locked: !!row.locked_at };
+}
+
+async function ownerScope(env, authUser, url) {
+  const no = (status, error) => ({ err: { status, error } });
+  if (!authUser) return no(401, "Unauthorized");
+  if (authUser.role !== "admin") return no(403, "Only the pharmacist in charge can see how the pharmacy is doing");
+  const own = Number(authUser.location_id);
+  const want = String(url.searchParams.get("loc") || "").trim();
+  if (want && want !== "all" && !/^\d+$/.test(want)) return no(400, "Choose a pharmacy");
+  if (own >= 0 && own <= 399) {
+    if (want && want !== "all" && Number(want) !== own) return no(403, "That pharmacy is not yours");
+    return { group: false, own, locs: [{ id: own, name: String(authUser.location_name || "") }] };
+  }
+  if (own >= 600 && own <= 900) {
+    let locs = [];
+    try { locs = await dbAll(env, "SELECT id, name FROM locations WHERE org_id = ? AND id < 400 ORDER BY name ASC, id ASC", [authUser.org_id]); } catch (e) { locs = []; }
+    locs = locs.map((l) => ({ id: Number(l.id), name: String(l.name || "") }));
+    const all = locs.slice();
+    if (want && want !== "all") {
+      locs = locs.filter((l) => l.id === Number(want));
+      if (!locs.length) return no(403, "That pharmacy is not in your group");
+    }
+    return { group: true, own, locs, all };
+  }
+  return no(403, "Only a pharmacy or its group's head office can see these figures");
+}
+
+function ownerRange(url, today) {
+  let from = String(url.searchParams.get("from") || "").trim(), to = String(url.searchParams.get("to") || "").trim();
+  if (!from && !to) { from = today.slice(0, 8) + "01"; to = today; }
+  if (!ownerIsYmd(from) || !ownerIsYmd(to) || to < from) return { error: "Choose the days: from and to, as YYYY-MM-DD" };
+  if (ymdDiffDays(from, to) > OWNER_MAX_DAYS) return { error: "Choose at most " + OWNER_MAX_DAYS + " days" };
+  let cf = String(url.searchParams.get("cmp_from") || "").trim(), ct = String(url.searchParams.get("cmp_to") || "").trim(), cmp = null;
+  if (cf || ct) {
+    if (!ownerIsYmd(cf) || !ownerIsYmd(ct) || ct < cf || ymdDiffDays(cf, ct) > OWNER_MAX_DAYS) return { error: "Choose the days to compare with: cmp_from and cmp_to, as YYYY-MM-DD" };
+    cmp = { from: cf, to: ct };
+  }
+  return { from, to, cmp };
+}
+
+async function handleOwnerSummary(request, env, cors, authUser, url) {
+  const sc = await ownerScope(env, authUser, url);
+  if (sc.err) return jsonResponse({ ok: false, error: sc.err.error }, sc.err.status, cors);
+  const today = tzYmd(), yest = ymdPlusDays(today, -1);
+  const rg = ownerRange(url, today);
+  if (rg.error) return jsonResponse({ ok: false, error: rg.error }, 400, cors);
+  const org = authUser.org_id, ids = sc.locs.map((l) => l.id);
+  const { from, to, cmp } = rg;
+  const wideFrom = cmp && cmp.from < from ? cmp.from : from, wideTo = cmp && cmp.to > to ? cmp.to : to;
+  const unread = {};
+  // Every read starts at once and is awaited where used; a table never created reads as nothing (noted in unread).
+  const q = (key, mk, after) => (ids.length ? dbAllChunked(env, mk, ids, [org], after || []) : Promise.resolve([])).catch((e) => {
+    if (!/no such table/i.test(String(e && e.message))) unread[key] = true; return []; });
+  const P = {
+    eod: q("eod", (ph) => `SELECT location_id, eod_date, time_of_day, staff_name, float_amount, x_json, epos_json, cheques_json, paid_outs_json, cash_json, locked_at FROM end_of_day WHERE org_id = ? AND location_id IN (${ph}) AND eod_date >= ? AND eod_date <= ?`, [wideFrom, wideTo]),
+    po: q("paid_outs", (ph) => `SELECT location_id, entry_date, COUNT(*) AS n, COALESCE(SUM(fee), 0) AS total FROM paid_out_entries WHERE org_id = ? AND location_id IN (${ph}) AND entry_date >= ? AND entry_date <= ? GROUP BY location_id, entry_date`, [wideFrom, wideTo]),
+    cn: q("credit_notes", (ph) => `SELECT c.id, c.location_id, c.issue_date, c.amount, c.expiry_date, c.no_expiry, COALESCE((SELECT SUM(p.amount) FROM credit_note_purchases p WHERE p.credit_note_id = c.id AND p.org_id = c.org_id), 0) AS used FROM credit_notes c WHERE c.org_id = ? AND c.location_id IN (${ph})`),
+    cnUse: q("credit_notes", (ph) => `SELECT c.location_id, p.amount, p.timestamp FROM credit_note_purchases p JOIN credit_notes c ON c.id = p.credit_note_id AND c.org_id = p.org_id WHERE c.org_id = ? AND c.location_id IN (${ph}) AND p.timestamp >= ? AND p.timestamp < ?`, [ymdPlusDays(wideFrom, -1), ymdPlusDays(wideTo, 2)]),
+    lrc: q("locum_receipts", (ph) => `SELECT location_id, receipt_date, hours, total_fee FROM locum_receipts WHERE org_id = ? AND location_id IN (${ph}) AND receipt_date >= ? AND receipt_date <= ?`, [wideFrom, wideTo]),
+    ordDone: q("orders", (ph) => `SELECT location_id, fulfilled_at FROM client_orders_entries WHERE org_id = ? AND location_id IN (${ph}) AND fulfilled = 1 AND fulfilled_at >= ? AND fulfilled_at < ?`, [ymdPlusDays(from, -1), ymdPlusDays(to, 2)]),
+    tkt: q("questions", (ph) => `SELECT location_id, open_date, followup_date, resolved, status, resolved_at FROM client_tickets_entries WHERE org_id = ? AND location_id IN (${ph}) AND ((resolved = 0 AND status NOT IN ('Resolved', 'Closed')) OR open_date >= ? OR resolved_at >= ?)`, [from, ymdPlusDays(from, -1)]),
+    dlv: q("deliveries", (ph) => `SELECT location_id, order_date, scheduled_date, actual_delivery_date, status FROM client_deliveries WHERE org_id = ? AND location_id IN (${ph}) AND (status IN ('Scheduled', 'Dispatched', 'Out for Delivery') OR order_date >= ? OR actual_delivery_date >= ?)`, [from, from]),
+    rep: q("repeats", (ph) => `SELECT location_id, COUNT(*) AS n, COUNT(DISTINCT lower(replace(client_id, ' ', ''))) AS people FROM repeat_prescription_entries WHERE org_id = ? AND location_id IN (${ph}) AND expires_date >= ? AND expires_date <= ? GROUP BY location_id`, [today, ymdPlusDays(today, 14)]),
+    dev: q("temperature", (ph) => `SELECT id, location_id, name, created_at FROM temperature_devices WHERE org_id = ? AND location_id IN (${ph}) AND active = 1 ORDER BY id`),
+    temp: q("temperature", (ph) => `SELECT e.location_id, e.device_id, e.entry_date, e.min_temp, e.max_temp, e.notes, d.min_limit, d.max_limit FROM temperature_entries e LEFT JOIN temperature_devices d ON d.id = e.device_id WHERE e.org_id = ? AND e.location_id IN (${ph}) AND e.entry_date >= ? AND e.entry_date <= ?`, [from, to]),
+    clean: q("cleaning", (ph) => `SELECT location_id, entry_date FROM cleaning_entries WHERE org_id = ? AND location_id IN (${ph}) AND entry_date >= ? AND entry_date <= ?`, [ymdPlusDays(from, -7), to]),
+    cleanLast: q("cleaning", (ph) => `SELECT location_id, MAX(entry_date) AS last FROM cleaning_entries WHERE org_id = ? AND location_id IN (${ph}) AND entry_date <= ? GROUP BY location_id`, [today]),
+    cert: q("certificates", (ph) => `SELECT location_id, title, last_date, interval_months FROM certificates_items WHERE org_id = ? AND location_id IN (${ph})`),
+    take: q("dda", (ph) => `SELECT location_id, MAX(created_at) AS last FROM dda_stocktakes WHERE org_id = ? AND location_id IN (${ph}) GROUP BY location_id`),
+    dds: q("dda", (ph) => `SELECT location_id, medicine_name_dose AS name, COUNT(*) AS n, COALESCE(SUM(quantity), 0) AS qty FROM dda_sales_entries WHERE org_id = ? AND location_id IN (${ph}) AND entry_date >= ? AND entry_date <= ? GROUP BY location_id, medicine_name_dose`, [from, to]),
+    ddp: q("dda", (ph) => `SELECT location_id, medicine_name_dose AS name, COUNT(*) AS n, COALESCE(SUM(quantity), 0) AS qty FROM dda_poyc_entries WHERE org_id = ? AND location_id IN (${ph}) AND entry_date >= ? AND entry_date <= ? GROUP BY location_id, medicine_name_dose`, [from, to]),
+    ddr: q("dda", (ph) => `SELECT location_id, dda_name_dose AS name, COUNT(*) AS n, COALESCE(SUM(quantity), 0) AS qty FROM dda_purchases_entries WHERE org_id = ? AND location_id IN (${ph}) AND entry_date >= ? AND entry_date <= ? GROUP BY location_id, dda_name_dose`, [from, to]),
+    shf: q("staff", (ph) => `SELECT a.location_id, a.staff_id, s.full_name, s.designation, s.contracted_hours, a.shift_date, a.start_time, a.end_time FROM shift_assignments a JOIN shift_staff s ON s.id = a.staff_id WHERE a.org_id = ? AND a.location_id IN (${ph}) AND a.shift_date >= ? AND a.shift_date <= ?`, [from, to]),
+    leave: q("staff", (ph) => `SELECT l.location_id, l.staff_id, s.full_name, l.leave_type, l.start_date, l.end_date, l.hours_requested FROM shift_leaves l JOIN shift_staff s ON s.id = l.staff_id WHERE l.org_id = ? AND l.location_id IN (${ph}) AND l.status = 'approved' AND l.start_date <= ? AND l.end_date >= ?`, [to, from]),
+    loc: q("locum_register", (ph) => `SELECT location_id, entry_date, locum_full_name, time_in, time_out FROM locum_register_entries WHERE org_id = ? AND location_id IN (${ph}) AND entry_date >= ? AND entry_date <= ?`, [from, to]),
+    bk: q("bookings", (ph) => `SELECT location_id, status, COUNT(*) AS n FROM bk_bookings WHERE org_id = ? AND location_id IN (${ph}) AND date >= ? AND date <= ? GROUP BY location_id, status`, [from, to]),
+    poct: q("poct", (ph) => `SELECT location_id, performed_at_iso, fee_due FROM poct_records WHERE org_id = ? AND location_id IN (${ph}) AND performed_at_iso >= ? AND performed_at_iso < ?`, [ymdPlusDays(from, -1), ymdPlusDays(to, 2)]),
+    dr: q("daily_register", (ph) => `SELECT location_id, COUNT(*) AS n FROM daily_register_entries WHERE org_id = ? AND location_id IN (${ph}) AND entry_date >= ? AND entry_date <= ? GROUP BY location_id`, [from, to])
+  };
+  // The orders counts bind their dates before org: built here with their own order of values.
+  P.ord = ids.length ? dbAllChunked(env, (ph) => `SELECT location_id,
+        SUM(CASE WHEN order_date >= ? AND order_date <= ? THEN 1 ELSE 0 END) AS new_n,
+        SUM(CASE WHEN fulfilled = 0 THEN 1 ELSE 0 END) AS open_n,
+        SUM(CASE WHEN fulfilled = 0 AND COALESCE(needed_by, '') <> '' AND needed_by < ? THEN 1 ELSE 0 END) AS overdue_n,
+        SUM(CASE WHEN fulfilled = 0 AND order_date < ? THEN 1 ELSE 0 END) AS old_n
+      FROM client_orders_entries WHERE org_id = ? AND location_id IN (${ph}) GROUP BY location_id`, ids, [from, to, today, ymdPlusDays(today, -30), org], [])
+    .catch((e) => { if (!/no such table/i.test(String(e && e.message))) unread.orders = true; return []; }) : Promise.resolve([]);
+
+  const R = {};
+  for (const k of Object.keys(P)) R[k] = await P[k];
+  const inR = (d, a, b) => !!d && d >= a && d <= b;
+  const out = sc.locs.map((l) => {
+    const id = l.id, mine = (rows) => rows.filter((r) => Number(r.location_id) === id);
+    // Money: the end-of-day days, the paid-out register, credit notes, locums
+    const eodAll = mine(R.eod).map(ownerEodFigures);
+    const days = eodAll.filter((d) => inR(d.date, from, to)).sort((a, b) => (a.date < b.date ? -1 : 1));
+    const sumOf = (list, k) => ownerR2(list.reduce((t, d) => t + (Number(d[k]) || 0), 0));
+    const poRows = mine(R.po);
+    const poIn = (a, b) => poRows.filter((r) => inR(r.entry_date, a, b));
+    const moneyOf = (a, b, list) => {
+      const ou = list.filter((d) => d.over_under != null);
+      return { takings: sumOf(list, "takings"), epos: sumOf(list, "epos"), cheques: sumOf(list, "cheques"), cash: sumOf(list, "cash"), till_paid_outs: sumOf(list, "paid_outs"),
+        paid_outs: ownerR2(poIn(a, b).reduce((t, r) => t + Number(r.total || 0), 0)), paid_out_lines: poIn(a, b).reduce((t, r) => t + Number(r.n || 0), 0),
+        over_under: sumOf(ou, "over_under"), short_days: ou.filter((d) => d.over_under < -0.005).length, over_days: ou.filter((d) => d.over_under > 0.005).length,
+        short_total: ownerR2(ou.filter((d) => d.over_under < 0).reduce((t, d) => t + d.over_under, 0)), days_closed: list.length };
+    };
+    const money = moneyOf(from, to, days);
+    const paidByDay = {}; poIn(from, to).forEach((r) => { paidByDay[r.entry_date] = ownerR2(r.total); });
+    const lrc = mine(R.lrc);
+    const lrcIn = (a, b) => lrc.filter((r) => inR(r.receipt_date, a, b));
+    money.locum_cost = ownerR2(lrcIn(from, to).reduce((t, r) => t + Number(r.total_fee || 0), 0));
+    money.locum_hours = ownerR2(lrcIn(from, to).reduce((t, r) => t + Number(r.hours || 0), 0));
+    money.locum_receipts = lrcIn(from, to).length;
+    let prev = null;
+    if (cmp) {
+      prev = moneyOf(cmp.from, cmp.to, eodAll.filter((d) => inR(d.date, cmp.from, cmp.to)));
+      prev.locum_cost = ownerR2(lrcIn(cmp.from, cmp.to).reduce((t, r) => t + Number(r.total_fee || 0), 0));
+    }
+    // Days not closed: Monday to Saturday up to yesterday with no end of day saved (a pharmacy open on Sunday sees its Sundays counted only when saved)
+    const closed = {}; days.forEach((d) => { closed[d.date] = 1; });
+    const notClosed = [];
+    for (let d = from; d <= to && d <= yest && notClosed.length < 400; d = ymdPlusDays(d, 1)) if (!closed[d] && new Date(d + "T12:00:00Z").getUTCDay() !== 0) notClosed.push(d);
+    const notLocked = days.filter((d) => !d.locked && d.date < today).map((d) => d.date);
+    // Credit notes
+    const cnRows = mine(R.cn);
+    const cnLeft = (c) => ownerR2(Number(c.amount || 0) - Number(c.used || 0));
+    const live = cnRows.filter((c) => cnLeft(c) > 0.005 && (Number(c.no_expiry) === 1 || !c.expiry_date || String(c.expiry_date) >= today));
+    const soon = live.filter((c) => Number(c.no_expiry) !== 1 && c.expiry_date && String(c.expiry_date) <= ymdPlusDays(today, 30));
+    const issued = cnRows.filter((c) => inR(c.issue_date, from, to));
+    const uses = mine(R.cnUse).filter((u) => inR(ownerMaltaDay(u.timestamp), from, to));
+    const credit = { open: live.length, open_total: ownerR2(live.reduce((t, c) => t + cnLeft(c), 0)), expiring_30: soon.length, expiring_30_total: ownerR2(soon.reduce((t, c) => t + cnLeft(c), 0)),
+      issued: issued.length, issued_total: ownerR2(issued.reduce((t, c) => t + Number(c.amount || 0), 0)), used_total: ownerR2(uses.reduce((t, u) => t + Number(u.amount || 0), 0)) };
+    // Customers waiting
+    const o = mine(R.ord)[0] || {};
+    const orders = { new: Number(o.new_n || 0), done: mine(R.ordDone).filter((r) => inR(ownerMaltaDay(r.fulfilled_at), from, to)).length, open: Number(o.open_n || 0), overdue: Number(o.overdue_n || 0), waiting_30: Number(o.old_n || 0) };
+    const tk = mine(R.tkt), tkOpen = tk.filter((t) => Number(t.resolved) === 0 && t.status !== "Resolved" && t.status !== "Closed");
+    const questions = { new: tk.filter((t) => inR(t.open_date, from, to)).length, done: tk.filter((t) => inR(ownerMaltaDay(t.resolved_at), from, to)).length, open: tkOpen.length,
+      overdue: tkOpen.filter((t) => t.followup_date && String(t.followup_date) < today).length, waiting_7: tkOpen.filter((t) => t.open_date && String(t.open_date) < ymdPlusDays(today, -7)).length };
+    const dv = mine(R.dlv), dvOpen = dv.filter((d) => ["Scheduled", "Dispatched", "Out for Delivery"].indexOf(d.status) >= 0);
+    const deliveries = { new: dv.filter((d) => inR(d.order_date, from, to)).length, done: dv.filter((d) => d.status === "Delivered" && inR(String(d.actual_delivery_date || ""), from, to)).length,
+      open: dvOpen.length, late: dvOpen.filter((d) => String(d.scheduled_date || d.order_date || "") < today).length };
+    const rp = mine(R.rep)[0] || {};
+    const repeats = { running_out_14: Number(rp.n || 0), people_14: Number(rp.people || 0) };
+    // Registers in order
+    const tempEnd = to < yest ? to : yest;
+    const devs = mine(R.dev), tmp = mine(R.temp);
+    const gaps = devs.map((dv0) => {
+      let start = from; const made = ownerMaltaDay(dv0.created_at); if (made && made > start) start = made;
+      const at = {}; tmp.forEach((e) => { if (Number(e.device_id) === Number(dv0.id)) at[e.entry_date] = 1; });
+      const miss = []; for (let d = start; d <= tempEnd && miss.length < 400; d = ymdPlusDays(d, 1)) if (!at[d]) miss.push(d);
+      return { device_id: dv0.id, name: String(dv0.name || ""), missing: miss.length, first: miss[0] || "", days: miss.slice(0, 31) };
+    }).filter((g) => g.missing);
+    const nz = (v) => (v == null || v === "" ? null : Number(v));
+    const outNoNote = tmp.filter((e) => { const lo = nz(e.min_limit), hi = nz(e.max_limit), a = nz(e.min_temp), b = nz(e.max_temp);
+      return ((lo != null && a != null && a < lo) || (hi != null && b != null && b > hi)) && !String(e.notes || "").trim(); }).length;
+    const cl = {}; mine(R.clean).forEach((c) => { cl[c.entry_date] = 1; });
+    let mon = from; while (new Date(mon + "T12:00:00Z").getUTCDay() !== 1) mon = ymdPlusDays(mon, 1);
+    const emptyWeeks = [];
+    for (; ymdPlusDays(mon, 6) <= to && ymdPlusDays(mon, 6) < today; mon = ymdPlusDays(mon, 7)) { let any = false; for (let i = 0; i < 7; i++) if (cl[ymdPlusDays(mon, i)]) { any = true; break; } if (!any) emptyWeeks.push(mon); }
+    const lastClean = (mine(R.cleanLast)[0] || {}).last || "";
+    const certs = mine(R.cert).map((c) => { const ld = String(c.last_date || "").slice(0, 10); if (!ownerIsYmd(ld)) return { title: c.title, due: "" };
+      const p = ld.split("-").map(Number), dt = new Date(Date.UTC(p[0], p[1] - 1 + Number(c.interval_months || 12), p[2])); return { title: String(c.title || ""), due: dt.toISOString().slice(0, 10) }; });
+    const lastTake = ownerMaltaDay((mine(R.take)[0] || {}).last || "");
+    const registers = { temperature_devices: devs.length, temperature_gaps: gaps, temperature_missing: gaps.reduce((t, g) => t + g.missing, 0), temperature_out_no_note: outNoNote,
+      cleaning_last: lastClean, cleaning_days_since: lastClean ? ymdDiffDays(lastClean, today) : null, cleaning_empty_weeks: emptyWeeks,
+      certificates_overdue: certs.filter((c) => c.due && c.due < today).map((c) => c.title), certificates_due_30: certs.filter((c) => c.due && c.due >= today && c.due <= ymdPlusDays(today, 30)).map((c) => c.title),
+      dda_last_stocktake: lastTake, dda_days_since_stocktake: lastTake ? ymdDiffDays(lastTake, today) : null,
+      eod_not_closed: notClosed, eod_not_locked: notLocked, daily_register_lines: Number((mine(R.dr)[0] || {}).n || 0) };
+    // Controlled drugs: totals per medicine for the days chosen
+    const ddaList = (rows) => mine(rows).map((r) => ({ name: String(r.name || ""), lines: Number(r.n || 0), qty: Number(r.qty || 0) })).sort((a, b) => a.name.localeCompare(b.name));
+    const dda = { supplied: ddaList(R.dds), poyc: ddaList(R.ddp), received: ddaList(R.ddr) };
+    // Staff hours from the rota, and pharmacists in charge from the locum register
+    const people = {};
+    mine(R.shf).forEach((a) => { const k = String(a.staff_id); const p = people[k] || (people[k] = { staff_id: Number(a.staff_id), name: String(a.full_name || ""), role: String(a.designation || ""), contracted_week: Number(a.contracted_hours || 0), shifts: 0, hours: 0, leave_hours: 0, leave_days: 0 });
+      p.shifts++; p.hours = ownerR2(p.hours + ownerHours(a.start_time, a.end_time)); });
+    mine(R.leave).forEach((v) => { const k = String(v.staff_id); const p = people[k] || (people[k] = { staff_id: Number(v.staff_id), name: String(v.full_name || ""), role: "", contracted_week: 0, shifts: 0, hours: 0, leave_hours: 0, leave_days: 0 });
+      const s = v.start_date > from ? v.start_date : from, e = v.end_date < to ? v.end_date : to, n = Math.max(0, (ymdDiffDays(s, e) || 0) + 1), all = Math.max(1, (ymdDiffDays(v.start_date, v.end_date) || 0) + 1);
+      p.leave_days += n; p.leave_hours = ownerR2(p.leave_hours + Number(v.hours_requested || 0) * n / all); });
+    const staff = Object.keys(people).map((k) => people[k]).sort((a, b) => a.name.localeCompare(b.name));
+    const locums = {}; mine(R.loc).forEach((r) => { const k = String(r.locum_full_name || "").trim(); const p = locums[k] || (locums[k] = { name: k, days: 0, hours: 0 }); p.days++; p.hours = ownerR2(p.hours + ownerHours(r.time_in, r.time_out)); });
+    // Services
+    const bk = {}; mine(R.bk).forEach((r) => { bk[String(r.status || "")] = Number(r.n || 0); });
+    const poctIn = mine(R.poct).filter((r) => inR(ownerMaltaDay(r.performed_at_iso), from, to));
+    const services = { bookings: Object.keys(bk).reduce((t, k) => t + (k === "cancelled" ? 0 : bk[k]), 0), bookings_cancelled: bk.cancelled || 0, bookings_no_show: bk.no_show || bk.noshow || 0,
+      tests: poctIn.length, tests_fees: ownerR2(poctIn.reduce((t, r) => t + Number(r.fee_due || 0), 0)) };
+    return { id, name: l.name, money, prev, days: days.map((d) => Object.assign({}, d, { paid_out_register: paidByDay[d.date] || 0 })), paid_by_day: paidByDay,
+      credit, orders, questions, deliveries, repeats, registers, dda, staff, locums: Object.keys(locums).map((k) => locums[k]).sort((a, b) => a.name.localeCompare(b.name)), services };
+  });
+  return jsonResponse({ ok: true, today, from, to, cmp, group: sc.group, scope: sc.group ? (sc.locs.length === (sc.all || []).length ? "all" : "one") : "own",
+    pharmacies_allowed: (sc.group ? sc.all : sc.locs).map((l) => ({ id: l.id, name: l.name })), pharmacies: out, unread: Object.keys(unread) }, 200, cors);
+}
+
+// The records behind a figure. kinds: a comma list (at most 12). Head office never gets a patient's details.
+const OWNER_KINDS = {
+  eod: { sql: (ph) => `SELECT location_id, eod_date, time_of_day, staff_name, float_amount, x_json, epos_json, cheques_json, paid_outs_json, cash_json, locked_at FROM end_of_day WHERE org_id = ? AND location_id IN (${ph}) AND eod_date >= ? AND eod_date <= ? ORDER BY eod_date`, map: ownerEodFigures },
+  paid_outs: { sql: (ph) => `SELECT id, location_id, entry_date, entry_time, payee_name, fee, payment_method, invoice_no, cheque_no, reason FROM paid_out_entries WHERE org_id = ? AND location_id IN (${ph}) AND entry_date >= ? AND entry_date <= ? ORDER BY entry_date, entry_time, id` },
+  locum_receipts: { sql: (ph) => `SELECT id, location_id, receipt_date, locum_full_name, registration_number, hours, day_type, fee_per_hour, total_fee FROM locum_receipts WHERE org_id = ? AND location_id IN (${ph}) AND receipt_date >= ? AND receipt_date <= ? ORDER BY receipt_date, id` },
+  credit_notes: { bind: () => [], patient: ["client_name", "client_surname", "telephone", "email"], sql: (ph) => `SELECT c.id, c.location_id, c.issue_date, c.client_name, c.client_surname, c.telephone, c.email, c.receipt_number, c.amount, c.expiry_date, c.no_expiry, COALESCE((SELECT SUM(p.amount) FROM credit_note_purchases p WHERE p.credit_note_id = c.id AND p.org_id = c.org_id), 0) AS used FROM credit_notes c WHERE c.org_id = ? AND c.location_id IN (${ph}) ORDER BY c.issue_date, c.id` },
+  credit_note_uses: { sql: (ph) => `SELECT p.id, c.location_id, p.credit_note_id, p.amount, p.receipt_number, p.timestamp, c.receipt_number AS note_receipt FROM credit_note_purchases p JOIN credit_notes c ON c.id = p.credit_note_id AND c.org_id = p.org_id WHERE c.org_id = ? AND c.location_id IN (${ph}) AND p.timestamp >= ? AND p.timestamp < ? ORDER BY p.timestamp`, day: "timestamp", bind: (rg) => [ymdPlusDays(rg.from, -1), ymdPlusDays(rg.to, 2)] },
+  orders: { bind: () => [], patient: ["client_name", "client_phone"], sql: (ph) => `SELECT id, location_id, order_date, client_name, client_phone, items_text, needed_by, priority, order_code FROM client_orders_entries WHERE org_id = ? AND location_id IN (${ph}) AND fulfilled = 0 ORDER BY COALESCE(NULLIF(needed_by, ''), '9999-12-31'), order_date LIMIT ${OWNER_MAX_ROWS + 1}` },
+  questions: { bind: () => [], patient: ["client_name", "phone"], sql: (ph) => `SELECT id, location_id, ticket_id, open_date, client_name, phone, category, status, followup_date, issue FROM client_tickets_entries WHERE org_id = ? AND location_id IN (${ph}) AND resolved = 0 AND status NOT IN ('Resolved', 'Closed') ORDER BY open_date LIMIT ${OWNER_MAX_ROWS + 1}` },
+  deliveries: { bind: () => [], patient: ["client_name", "phone", "delivery_address"], sql: (ph) => `SELECT id, location_id, delivery_id, order_date, scheduled_date, client_name, phone, delivery_address, status FROM client_deliveries WHERE org_id = ? AND location_id IN (${ph}) AND status IN ('Scheduled', 'Dispatched', 'Out for Delivery') ORDER BY COALESCE(NULLIF(scheduled_date, ''), order_date) LIMIT ${OWNER_MAX_ROWS + 1}` },
+  repeats: { patient: ["client_name", "client_id"], sql: (ph) => `SELECT id, location_id, entry_date, expires_date, client_name, client_id, medicine_name_dose FROM repeat_prescription_entries WHERE org_id = ? AND location_id IN (${ph}) AND expires_date >= ? AND expires_date <= ? ORDER BY expires_date LIMIT ${OWNER_MAX_ROWS + 1}`, bind: (rg, today) => [today, ymdPlusDays(today, 14)] },
+  dda_supplied: { patient: ["client_name", "client_id_card", "client_address"], sql: (ph) => `SELECT id, location_id, entry_date, client_name, client_id_card, client_address, medicine_name_dose, quantity, doctor_name, doctor_reg_no, prescription_serial_no, urgent FROM dda_sales_entries WHERE org_id = ? AND location_id IN (${ph}) AND entry_date >= ? AND entry_date <= ? ORDER BY entry_date, id LIMIT ${OWNER_MAX_ROWS + 1}` },
+  dda_poyc: { patient: ["client_name", "client_id_card", "client_address"], sql: (ph) => `SELECT id, location_id, entry_date, client_name, client_id_card, client_address, medicine_name_dose, quantity, doctor_name, doctor_reg_no, prescription_serial_no FROM dda_poyc_entries WHERE org_id = ? AND location_id IN (${ph}) AND entry_date >= ? AND entry_date <= ? ORDER BY entry_date, id LIMIT ${OWNER_MAX_ROWS + 1}` },
+  dda_received: { sql: (ph) => `SELECT id, location_id, entry_date, dda_name_dose, quantity, agent, invoice_number FROM dda_purchases_entries WHERE org_id = ? AND location_id IN (${ph}) AND entry_date >= ? AND entry_date <= ? ORDER BY entry_date, id LIMIT ${OWNER_MAX_ROWS + 1}` },
+  shifts: { sql: (ph) => `SELECT a.id, a.location_id, a.shift_date, a.start_time, a.end_time, a.staff_id, s.full_name, s.designation FROM shift_assignments a JOIN shift_staff s ON s.id = a.staff_id WHERE a.org_id = ? AND a.location_id IN (${ph}) AND a.shift_date >= ? AND a.shift_date <= ? ORDER BY s.full_name, a.shift_date, a.start_time LIMIT ${OWNER_MAX_ROWS + 1}`,
+    map: (r) => Object.assign({}, r, { hours: ownerHours(r.start_time, r.end_time) }) },
+  locum_register: { sql: (ph) => `SELECT id, location_id, entry_date, time_in, time_out, locum_full_name, registration_number FROM locum_register_entries WHERE org_id = ? AND location_id IN (${ph}) AND entry_date >= ? AND entry_date <= ? ORDER BY entry_date, time_in LIMIT ${OWNER_MAX_ROWS + 1}`,
+    map: (r) => Object.assign({}, r, { hours: ownerHours(r.time_in, r.time_out) }) }
+};
+async function handleOwnerRecords(request, env, cors, authUser, url) {
+  const sc = await ownerScope(env, authUser, url);
+  if (sc.err) return jsonResponse({ ok: false, error: sc.err.error }, sc.err.status, cors);
+  const today = tzYmd();
+  const rg = ownerRange(url, today);
+  if (rg.error) return jsonResponse({ ok: false, error: rg.error }, 400, cors);
+  const kinds = String(url.searchParams.get("kinds") || url.searchParams.get("kind") || "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (!kinds.length || kinds.length > 12 || kinds.some((k) => !Object.prototype.hasOwnProperty.call(OWNER_KINDS, k))) return jsonResponse({ ok: false, error: "Choose what to show: " + Object.keys(OWNER_KINDS).join(", ") }, 400, cors);
+  const ids = sc.locs.map((l) => l.id), names = {}; sc.locs.forEach((l) => { names[l.id] = l.name; });
+  const records = {}, capped = {};
+  await Promise.all(kinds.map(async (k) => {
+    const K = OWNER_KINDS[k];
+    let rows = [];
+    try { rows = ids.length ? await dbAllChunked(env, K.sql, ids, [authUser.org_id], K.bind ? K.bind(rg, today) : [rg.from, rg.to]) : []; }
+    catch (e) { if (!/no such table/i.test(String(e && e.message))) { records[k] = null; return; } rows = []; }
+    if (K.day) rows = rows.filter((r) => { const d = ownerMaltaDay(r[K.day]); return d >= rg.from && d <= rg.to; });
+    if (rows.length > OWNER_MAX_ROWS) { rows = rows.slice(0, OWNER_MAX_ROWS); capped[k] = OWNER_MAX_ROWS; }
+    rows = rows.map((r) => {
+      const o = K.map ? K.map(r) : Object.assign({}, r);
+      o.location_id = Number(r.location_id); o.pharmacy = names[o.location_id] || "";
+      if (sc.group && K.patient) K.patient.forEach((f) => { if (f in o) o[f] = ""; }); // head office: no patient details
+      return o;
+    });
+    records[k] = rows;
+  }));
+  const failed = kinds.filter((k) => records[k] === null);
+  return jsonResponse({ ok: true, today, from: rg.from, to: rg.to, group: sc.group, patient_details: !sc.group, records, capped, unread: failed }, 200, cors);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -23475,4 +23767,293 @@ async function handleUnlock(request, env, cors, authUser) {
   await clearLoginFailures(env, email);
   await writeAudit(env, authUser.org_id, authUser.user_id, "UNLOCK", "user", String(authUser.user_id), {}, authUser.location_id);
   return jsonResponse({ ok: true }, 200, cors);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   CUSTOMERS — what a person needs now, how they like to be told, and telling them (d-cust).
+   Additive only: three new tables (CREATE TABLE IF NOT EXISTS), new routes, nothing existing is changed.
+     GET  /people/:id/now       the person's open orders, orders ready to collect, open questions, deliveries
+                                under way, repeat prescription lines, upcoming bookings, their contact profile,
+                                the messages sent to them, and whether e-mail can go out here. Reads only.
+     POST /people/:id/profile   how they like to be told (WhatsApp, SMS, e-mail, a call), yes/no per channel,
+                                language, allergies. Versioned like people; audited (CUST_PROFILE).
+     GET  /messages/setup       whether e-mail can be sent, and the pharmacy's name and phone (for the wording).
+     POST /messages             a message a person pressed Send on. E-mail goes out now through the pharmacy's own
+                                Bookings senders (bk_senders, keys under BOOKINGS_KEY; never Eikon's); SMS and
+                                WhatsApp are sent from the pharmacy's own phone (sms: / wa.me links in the browser)
+                                and only recorded here. Refused when the person said no to that channel, or the
+                                address stopped e-mails (bk_optout or cust_msg_optout). client_key makes a retry
+                                after a lost answer return the first one: never two e-mails. Audited (CUST_MESSAGE).
+     GET|POST /m/<token>/stop   public: the link at the foot of each e-mail. GET asks, POST stops e-mails from this
+                                pharmacy to that address (cust_msg_optout). Signed (HMAC under BOOKINGS_KEY).
+   Nothing is ever sent by a timer or by the server on its own in this release.
+   ══════════════════════════════════════════════════════════════════════════════ */
+async function ensureCustMsgSchema__impl(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS cust_profile (
+    org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, person_id INTEGER NOT NULL,
+    prefers TEXT NOT NULL DEFAULT '', email_ok INTEGER, sms_ok INTEGER, whatsapp_ok INTEGER, lang TEXT NOT NULL DEFAULT '',
+    allergies TEXT NOT NULL DEFAULT '', version INTEGER NOT NULL DEFAULT 1,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')), updated_by INTEGER,
+    PRIMARY KEY (org_id, location_id, person_id))`, []);
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS cust_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+    person_id INTEGER NOT NULL DEFAULT 0, person_name TEXT NOT NULL DEFAULT '',
+    channel TEXT NOT NULL, purpose TEXT NOT NULL DEFAULT 'other', ref_kind TEXT NOT NULL DEFAULT '', ref_id INTEGER NOT NULL DEFAULT 0,
+    to_addr TEXT NOT NULL DEFAULT '', subject TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending', error TEXT NOT NULL DEFAULT '', sender TEXT NOT NULL DEFAULT '',
+    client_key TEXT NOT NULL DEFAULT '', created_by INTEGER, created_by_name TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')))`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_cust_msg_person ON cust_messages (org_id, location_id, person_id, created_at)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_cust_msg_ref ON cust_messages (org_id, location_id, ref_kind, ref_id)`, []);
+  await dbRun(env, `CREATE UNIQUE INDEX IF NOT EXISTS uq_cust_msg_key ON cust_messages (org_id, location_id, client_key) WHERE client_key <> ''`, []);
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS cust_msg_optout (email TEXT NOT NULL, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (email, org_id, location_id))`, []);
+}
+const ensureCustMsgSchema = schemaOnce("ensureCustMsgSchema", ensureCustMsgSchema__impl);
+
+const CM_CHANNELS = ["email", "sms", "whatsapp"];
+const CM_PURPOSES = ["ready", "repeat", "answer", "booking", "delivery", "other"];
+const CM_PREFERS = ["", "whatsapp", "sms", "email", "call"];
+
+function cmProfileOut(r) {
+  const yn = (v) => (v === null || v === undefined ? null : Number(v) ? true : false);
+  return r ? { prefers: r.prefers || "", email_ok: yn(r.email_ok), sms_ok: yn(r.sms_ok), whatsapp_ok: yn(r.whatsapp_ok), lang: r.lang || "", allergies: r.allergies || "", version: Number(r.version) || 1, updated_at: r.updated_at || "" }
+    : { prefers: "", email_ok: null, sms_ok: null, whatsapp_ok: null, lang: "", allergies: "", version: 0, updated_at: "" };
+}
+function cmMsgOut(r) {
+  return { id: r.id, person_id: r.person_id, channel: r.channel, purpose: r.purpose, ref_kind: r.ref_kind, ref_id: r.ref_id, to: r.to_addr, subject: r.subject, body: r.body,
+    status: r.status, error: r.error, sender: r.sender, by: r.created_by_name || "", at: r.created_at };
+}
+async function cmPharmacy(env, org, loc) {
+  let name = "", phone = "", address = "";
+  try { const l = await dbFirst(env, `SELECT name FROM locations WHERE id=? AND org_id=?`, [loc, org]); name = (l && l.name) || ""; } catch (e) {}
+  try { await ensureBookingsMsgSchema(env); const s = await bkGetSettings(env, org, loc); phone = s.phone || ""; address = s.address || ""; } catch (e) {}
+  return { name, phone, address };
+}
+// Can e-mail go out here, and if not, why (plain words for the screen).
+async function cmEmailState(env, org, loc) {
+  try {
+    await ensureBookingsMsgSchema(env);
+    if (String(env.BOOKINGS_KEY || "").length < 16) return { ready: false, why: "E-mail is not switched on for Eikon yet." };
+    const s = await bkGetSettings(env, org, loc);
+    const list = await bkSenders(env, org, loc, s);
+    const ok = list.some((r) => r.enabled && r.cred_enc && (r.from_email || s.from_email));
+    return ok ? { ready: true, why: "" } : { ready: false, why: "Set up e-mail first: Bookings, Settings, Messages." };
+  } catch (e) { return { ready: false, why: "E-mail is not set up here." }; }
+}
+async function cmOptedOut(env, org, loc, email) {
+  const e = String(email || "").trim().toLowerCase(); if (!e) return false;
+  try { await ensureBookingsMsgSchema(env); if (await dbFirst(env, `SELECT 1 AS x FROM bk_optout WHERE lower(email)=? AND org_id=? AND location_id=?`, [e, org, loc])) return true; } catch (e1) {}
+  try { if (await dbFirst(env, `SELECT 1 AS x FROM cust_msg_optout WHERE email=? AND org_id=? AND location_id=?`, [e, org, loc])) return true; } catch (e2) {}
+  return false;
+}
+// The names a person's records may carry: their own and merged-in names, each also with its two words turned round
+// ("Zammit Carmel" / "Carmel Zammit"), lower case; and their ID card keys.
+async function cmNamesOf(env, org, loc, person) {
+  const aliases = await dbAll(env, "SELECT name, id_card FROM people WHERE id = ? AND org_id = ? AND location_id = ? UNION ALL SELECT name, id_card FROM people WHERE merged_into = ? AND org_id = ? AND location_id = ?", [person.id, org, loc, person.id, org, loc]);
+  // SQLite's LOWER() knows only A to Z: LOWER('Micallef Ċettina') is 'micallef Ċettina'. Each name is asked both as
+  // JavaScript lower-cases it and as SQLite does, so a name with Ċ, Ġ, Ħ or Ż as a capital is found (GET /people/:id
+  // misses those: its Story and counts come back empty; written up for John, that route is not changed here).
+  const names = new Set();
+  const asciiLower = (x) => x.replace(/[A-Z]/g, (c) => c.toLowerCase());
+  for (const a of aliases) {
+    const n0 = String(a.name || "").trim().replace(/\s+/g, " "); if (!n0) continue;
+    const w0 = n0.split(" "), forms = [n0]; if (w0.length === 2) forms.push(w0[1] + " " + w0[0]);
+    for (const f of forms) { names.add(f.toLowerCase()); names.add(asciiLower(f)); }
+  }
+  const idKeys = Array.from(new Set(aliases.flatMap((a) => mtIdCardLookupKeys(a.id_card)).filter(Boolean)));
+  return { names: Array.from(names), idKeys };
+}
+
+// GET /people/:id/now
+async function handleCustNow(request, env, cors, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, cors);
+  const org = authUser.org_id, loc = authUser.location_id;
+  await ensurePeopleSchema(env); await ensureCustMsgSchema(env);
+  let person = await peopleLoad(env, org, loc, id);
+  if (!person) return jsonResponse({ ok: false, error: "Not found" }, 404, cors);
+  if (person.merged_into) { const t = await peopleLoad(env, org, loc, person.merged_into); if (t) person = t; }
+  const { names, idKeys } = await cmNamesOf(env, org, loc, person);
+  const today = tzYmd(), back14 = ymdPlusDays(today, -14);
+  const all = async (sql, bind) => { try { return await dbAll(env, sql, bind); } catch (e) { return []; } };
+  const inN = (col) => names.length ? "LOWER(TRIM(" + col + ")) IN (" + names.map(() => "?").join(",") + ")" : "0";
+  const inI = (col) => idKeys.length ? "upper(replace(" + col + ", ' ', '')) IN (" + idKeys.map(() => "?").join(",") + ")" : "0";
+  await Promise.all([ensureClientOrdersSchema, ensureClientTicketsSchema, ensureDeliveriesSchema, ensureRepeatPrescriptionsSchema].map((fn) => Promise.resolve().then(() => fn(env)).catch(() => {})));
+  const [orders, ready, questions, deliveries, repeats, bookings, prof, msgs, email, pharmacy] = await Promise.all([
+    all(`SELECT id, order_code, items_text, order_date, needed_by, pickup_date, priority, follow_up_status, client_phone, client_email FROM client_orders_entries
+          WHERE org_id = ? AND location_id = ? AND fulfilled = 0 AND ${inN("client_name")} ORDER BY COALESCE(NULLIF(needed_by, ''), '9999-12-31') ASC, id ASC LIMIT 30`, [org, loc, ...names]),
+    all(`SELECT id, order_code, items_text, order_date, fulfilled_at, client_phone, client_email FROM client_orders_entries
+          WHERE org_id = ? AND location_id = ? AND fulfilled = 1 AND substr(COALESCE(fulfilled_at, ''), 1, 10) >= ? AND ${inN("client_name")} ORDER BY fulfilled_at DESC LIMIT 10`, [org, loc, back14, ...names]),
+    all(`SELECT id, ticket_id, issue, status, open_date, followup_date, resolved, resolved_at, notes_log, phone, email FROM client_tickets_entries
+          WHERE org_id = ? AND location_id = ? AND ${inN("client_name")} AND (resolved = 0 AND status NOT IN ('Resolved', 'Closed') OR substr(COALESCE(resolved_at, ''), 1, 10) >= ?) ORDER BY open_date DESC LIMIT 20`, [org, loc, ...names, back14]),
+    all(`SELECT id, delivery_id, items, status, scheduled_date, scheduled_time_slot, delivery_address, order_date FROM client_deliveries
+          WHERE org_id = ? AND location_id = ? AND status IN ('Scheduled', 'Dispatched', 'Out for Delivery') AND ${inN("client_name")} ORDER BY COALESCE(NULLIF(scheduled_date, ''), order_date) ASC LIMIT 20`, [org, loc, ...names]),
+    idKeys.length || names.length ? all(`SELECT id, entry_date, expires_date, client_name, client_id, medicine_name_dose, posology, collect_every_days, last_collected_date FROM repeat_prescription_entries
+          WHERE org_id = ? AND location_id = ? AND expires_date >= ? AND (${inI("client_id")} OR ${inN("client_name")}) ORDER BY expires_date ASC, id ASC LIMIT 60`, [org, loc, today, ...idKeys, ...names]) : [],
+    all(`SELECT b.id, b.ref, b.date, b.start_time, b.status, b.person_email, b.person_phone, s.name AS service FROM bk_bookings b LEFT JOIN bk_services s ON s.id = b.service_id
+          WHERE b.org_id = ? AND b.location_id = ? AND b.date >= ? AND b.status IN ('booked', 'confirmed') AND (${inN("b.person_name")} OR ${inI("b.person_id_card")}) ORDER BY b.date ASC, b.start_time ASC LIMIT 10`, [org, loc, today, ...names, ...idKeys]),
+    dbFirst(env, `SELECT * FROM cust_profile WHERE org_id = ? AND location_id = ? AND person_id = ?`, [org, loc, person.id]),
+    all(`SELECT * FROM cust_messages WHERE org_id = ? AND location_id = ? AND (person_id = ? OR (person_id = 0 AND ${inN("person_name")})) ORDER BY id DESC LIMIT 60`, [org, loc, person.id, ...names]),
+    cmEmailState(env, org, loc),
+    cmPharmacy(env, org, loc)
+  ]);
+  const optedOut = person.email ? await cmOptedOut(env, org, loc, person.email) : false;
+  // The person's story across every register (as GET /people/:id gives it, with the names asked as above).
+  const activity = [], counts = {};
+  const per = await Promise.all(PEOPLE_SOURCES.map(async (src) => {
+    const conds = [], bb = [org, loc];
+    if (names.length) { conds.push(inN(src.name)); bb.push(...names); }
+    if (src.id_card && idKeys.length) { conds.push(inI(src.id_card)); bb.push(...idKeys); }
+    if (!conds.length) return null;
+    try { return { src, rows: await dbAll(env, peopleSourceSelect(src) + " WHERE org_id = ? AND location_id = ? AND (" + conds.join(" OR ") + ") ORDER BY " + src.date + " DESC LIMIT 60", bb) }; } catch (e) { return null; }
+  }));
+  for (const got of per) {
+    if (!got) continue;
+    counts[got.src.kind] = got.rows.length;
+    for (const r of got.rows) activity.push({ kind: got.src.kind, label: got.src.label, id: r.id, date: String(r.date || "").slice(0, 10), title: String(r.title || "").slice(0, 200), ref: r.ref || "", doctor: r.doctor || "" });
+  }
+  activity.sort((x, y) => (y.date > x.date ? 1 : y.date < x.date ? -1 : 0));
+  const lastNote = (j) => { try { const a = JSON.parse(j || "[]"); const l = Array.isArray(a) ? a[a.length - 1] : null; return l && l.text ? String(l.text).slice(0, 300) : ""; } catch (e) { return ""; } };
+  return jsonResponse({ ok: true, person, today,
+    waiting: {
+      orders: orders.map((o) => ({ id: o.id, code: o.order_code || "", items: o.items_text || "", order_date: o.order_date || "", needed_by: o.needed_by || "", pickup_date: o.pickup_date || "", priority: Number(o.priority) || 2, follow_up: o.follow_up_status || "" })),
+      ready: ready.map((o) => ({ id: o.id, code: o.order_code || "", items: o.items_text || "", order_date: o.order_date || "", ready_at: o.fulfilled_at || "" })),
+      questions: questions.map((t) => ({ id: t.id, ref: t.ticket_id || "", issue: t.issue || "", status: t.status || "Open", open_date: t.open_date || "", followup_date: t.followup_date || "", done: !!Number(t.resolved) || t.status === "Resolved" || t.status === "Closed", done_at: t.resolved_at || "", last_note: lastNote(t.notes_log) })),
+      deliveries: deliveries.map((d) => ({ id: d.id, ref: d.delivery_id || "", items: d.items || "", status: d.status || "", date: d.scheduled_date || d.order_date || "", slot: d.scheduled_time_slot || "", address: d.delivery_address || "" })),
+      repeats, bookings: bookings.map((b) => ({ id: b.id, ref: b.ref || "", date: b.date, time: b.start_time, status: b.status, service: b.service || "" }))
+    },
+    activity: activity.slice(0, 80), counts,
+    profile: cmProfileOut(prof), messages: msgs.map(cmMsgOut),
+    email: { ready: email.ready, why: email.why, opted_out: optedOut }, pharmacy }, 200, cors);
+}
+
+// POST /people/:id/profile { prefers, email_ok, sms_ok, whatsapp_ok, lang, allergies, version }
+async function handleCustProfile(request, env, cors, authUser, id) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, cors);
+  const org = authUser.org_id, loc = authUser.location_id;
+  await ensurePeopleSchema(env); await ensureCustMsgSchema(env);
+  const person = await peopleLoad(env, org, loc, id);
+  if (!person || person.merged_into) return jsonResponse({ ok: false, error: "Not found" }, 404, cors);
+  const b = (await readJson(request)) || {};
+  const beforeRow = await dbFirst(env, `SELECT * FROM cust_profile WHERE org_id = ? AND location_id = ? AND person_id = ?`, [org, loc, id]);
+  const before = cmProfileOut(beforeRow);
+  const sent = b.version === undefined || b.version === null ? null : Number(b.version);
+  if (sent !== null && sent !== before.version) return jsonResponse({ ok: false, error: "Changed elsewhere", current: before }, 409, cors);
+  const yn = (v, cur) => (v === undefined ? cur : v === null || v === "" ? null : (v === true || v === 1 || v === "1" || v === "yes") ? 1 : 0);
+  const prefers = b.prefers === undefined ? before.prefers : String(b.prefers || "").toLowerCase();
+  if (!CM_PREFERS.includes(prefers)) return jsonResponse({ ok: false, error: "Choose WhatsApp, SMS, e-mail or a call" }, 400, cors);
+  const lang = b.lang === undefined ? before.lang : String(b.lang || "").toLowerCase();
+  if (!["", "en", "mt"].includes(lang)) return jsonResponse({ ok: false, error: "Language is English or Maltese" }, 400, cors);
+  const cur = (k) => (beforeRow ? beforeRow[k] : null);
+  const next = { prefers, lang, email_ok: yn(b.email_ok, cur("email_ok")), sms_ok: yn(b.sms_ok, cur("sms_ok")), whatsapp_ok: yn(b.whatsapp_ok, cur("whatsapp_ok")),
+    allergies: b.allergies === undefined ? before.allergies : String(b.allergies || "").trim().slice(0, 500) };
+  if (beforeRow) {
+    const r = await dbRun(env, `UPDATE cust_profile SET prefers=?, email_ok=?, sms_ok=?, whatsapp_ok=?, lang=?, allergies=?, version=version+1, updated_at=datetime('now'), updated_by=? WHERE org_id=? AND location_id=? AND person_id=? AND version=?`,
+      [next.prefers, next.email_ok, next.sms_ok, next.whatsapp_ok, next.lang, next.allergies, authUser.user_id, org, loc, id, before.version]);
+    if (r && r.meta && !r.meta.changes) return jsonResponse({ ok: false, error: "Changed elsewhere", current: cmProfileOut(await dbFirst(env, `SELECT * FROM cust_profile WHERE org_id = ? AND location_id = ? AND person_id = ?`, [org, loc, id])) }, 409, cors);
+  } else {
+    try {
+      await dbRun(env, `INSERT INTO cust_profile (org_id, location_id, person_id, prefers, email_ok, sms_ok, whatsapp_ok, lang, allergies, updated_by) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+        [org, loc, id, next.prefers, next.email_ok, next.sms_ok, next.whatsapp_ok, next.lang, next.allergies, authUser.user_id]);
+    } catch (e) { return jsonResponse({ ok: false, error: "Changed elsewhere", current: cmProfileOut(await dbFirst(env, `SELECT * FROM cust_profile WHERE org_id = ? AND location_id = ? AND person_id = ?`, [org, loc, id])) }, 409, cors); }
+  }
+  const after = cmProfileOut(await dbFirst(env, `SELECT * FROM cust_profile WHERE org_id = ? AND location_id = ? AND person_id = ?`, [org, loc, id]));
+  await writeAudit(env, org, authUser.user_id, "CUST_PROFILE", "people", String(id), { location_id: loc, before, after }, loc);
+  return jsonResponse({ ok: true, profile: after }, 200, cors);
+}
+
+// GET /messages/setup
+async function handleCustMsgSetup(request, env, cors, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, cors);
+  const org = authUser.org_id, loc = authUser.location_id;
+  const [email, pharmacy] = await Promise.all([cmEmailState(env, org, loc), cmPharmacy(env, org, loc)]);
+  return jsonResponse({ ok: true, email, pharmacy, channels: CM_CHANNELS }, 200, cors);
+}
+
+async function cmStopToken(env, msgId) { const sig = await bkHmac(env, "cm1|stop|" + msgId); return sig ? msgId.toString(36) + "." + sig : ""; }
+function cmEmailHtml({ lines, pharmacy, address, phone, stop }) {
+  const e = (s) => String(s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  return `<!doctype html><html><body style="margin:0;background:#F2F2F7;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#000">
+<div style="max-width:480px;margin:0 auto;padding:28px 18px"><div style="background:#fff;border-radius:20px;padding:24px 22px">
+${lines.map((l) => `<div style="font-size:16px;line-height:23px;margin:4px 0;min-height:8px">${e(l)}</div>`).join("")}
+</div><div style="font-size:13px;line-height:19px;color:#6b6b70;text-align:center;margin-top:16px">${e(pharmacy)}${address ? " · " + e(address) : ""}${phone ? " · " + e(phone) : ""}<br>
+${stop ? `<a href="${e(stop)}" style="color:#6b6b70">Stop e-mails from ${e(pharmacy)}</a>` : ""}</div></div></body></html>`;
+}
+
+// POST /messages { person_id?, name?, channel, purpose, ref_kind?, ref_id?, to, subject?, body, client_key? }
+async function handleCustMsgSend(request, env, cors, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, cors);
+  const org = authUser.org_id, loc = authUser.location_id;
+  await ensurePeopleSchema(env); await ensureCustMsgSchema(env);
+  const b = (await readJson(request)) || {};
+  const channel = String(b.channel || "").toLowerCase();
+  if (!CM_CHANNELS.includes(channel)) return jsonResponse({ ok: false, error: "Choose WhatsApp, SMS or e-mail" }, 400, cors);
+  const purpose = CM_PURPOSES.includes(String(b.purpose || "")) ? String(b.purpose) : "other";
+  const text = String(b.body || "").replace(/\r\n/g, "\n").trim();
+  if (!text) return jsonResponse({ ok: false, error: "Write the message" }, 400, cors);
+  if (text.length > 2000) return jsonResponse({ ok: false, error: "The message is too long (2,000 letters at most)" }, 400, cors);
+  const key = String(b.client_key || "").slice(0, 64);
+  if (key) { const dup = await dbFirst(env, `SELECT * FROM cust_messages WHERE org_id=? AND location_id=? AND client_key=?`, [org, loc, key]); if (dup) return jsonResponse({ ok: dup.status !== "failed", repeat: true, message: cmMsgOut(dup), error: dup.status === "failed" ? dup.error : undefined }, dup.status === "failed" ? 502 : 200, cors); }
+  let pid = Number(b.person_id || 0) || 0, person = null;
+  if (pid) { person = await peopleLoad(env, org, loc, pid); if (!person) return jsonResponse({ ok: false, error: "Not found" }, 404, cors); if (person.merged_into) { const t = await peopleLoad(env, org, loc, person.merged_into); if (t) person = t; } pid = person.id; }
+  const name = String((person && person.name) || b.name || "").trim().slice(0, 120);
+  let to = String(b.to || "").trim();
+  if (channel === "email") { to = to.toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return jsonResponse({ ok: false, error: "Write their e-mail address" }, 400, cors); }
+  else { to = to.replace(/[^\d+]/g, ""); if (to.replace(/\D/g, "").length < 8) return jsonResponse({ ok: false, error: "Write their mobile number" }, 400, cors); }
+  if (pid) {
+    const pr = cmProfileOut(await dbFirst(env, `SELECT * FROM cust_profile WHERE org_id = ? AND location_id = ? AND person_id = ?`, [org, loc, pid]));
+    const said = { email: pr.email_ok, sms: pr.sms_ok, whatsapp: pr.whatsapp_ok }[channel];
+    if (said === false) return jsonResponse({ ok: false, error: name + " asked not to get " + ({ email: "e-mails", sms: "text messages", whatsapp: "WhatsApp messages" })[channel] + ".", refused: "consent" }, 409, cors);
+  }
+  if (channel === "email" && await cmOptedOut(env, org, loc, to)) return jsonResponse({ ok: false, error: "This address stopped e-mails from the pharmacy.", refused: "opted-out" }, 409, cors);
+  const subject = String(b.subject || "").trim().slice(0, 150);
+  const refKind = String(b.ref_kind || "").slice(0, 20), refId = Math.max(0, Number(b.ref_id) || 0);
+  const by = String((authUser.full_name || authUser.email || "")).slice(0, 80);
+  let row;
+  try {
+    row = await dbFirst(env, `INSERT INTO cust_messages (org_id, location_id, person_id, person_name, channel, purpose, ref_kind, ref_id, to_addr, subject, body, status, client_key, created_by, created_by_name)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`, [org, loc, pid, name, channel, purpose, refKind, refId, to, subject, text, channel === "email" ? "sending" : "device", key, authUser.user_id, by]);
+  } catch (e) { const dup = key ? await dbFirst(env, `SELECT * FROM cust_messages WHERE org_id=? AND location_id=? AND client_key=?`, [org, loc, key]) : null; if (dup) return jsonResponse({ ok: true, repeat: true, message: cmMsgOut(dup) }, 200, cors); throw e; }
+  const id = row.id;
+  let status = channel === "email" ? "sent" : "device", error = "", sender = "";
+  if (channel === "email") {
+    const st = await cmEmailState(env, org, loc);
+    if (!st.ready) { status = "failed"; error = st.why; }
+    else {
+      try {
+        const s = await bkGetSettings(env, org, loc);
+        const ph = await cmPharmacy(env, org, loc);
+        const base = bkBaseUrl(env, request), tok = await cmStopToken(env, id);
+        const html = cmEmailHtml({ lines: text.split("\n"), pharmacy: ph.name || "Your pharmacy", address: s.address, phone: s.phone, stop: tok && base ? `${base}/m/${tok}/stop` : "" });
+        const r = await bkSendEmail(env, s, { to, toName: name, subject: subject || ("A message from " + (ph.name || "your pharmacy")), html, ics: null });
+        sender = (r && r.sender) || "";
+      } catch (e) { status = "failed"; error = String(e && e.message || e).slice(0, 300); }
+    }
+  }
+  await dbRun(env, `UPDATE cust_messages SET status=?, error=?, sender=? WHERE id=?`, [status, error, sender, id]);
+  const out = cmMsgOut(await dbFirst(env, `SELECT * FROM cust_messages WHERE id=?`, [id]));
+  await writeAudit(env, org, authUser.user_id, "CUST_MESSAGE", "cust_messages", String(id), { location_id: loc, person_id: pid, channel, purpose, ref_kind: refKind, ref_id: refId, to, status, error: error || undefined }, loc);
+  if (status === "failed") return jsonResponse({ ok: false, error: "Not sent: " + error, message: out }, 502, cors);
+  return jsonResponse({ ok: true, message: out }, 200, cors);
+}
+
+// GET|POST /m/<token>/stop — public
+async function handleCustMsgLink(request, env, url) {
+  await ensureCustMsgSchema(env);
+  const m = /^\/m\/([0-9a-z]{1,10})\.([A-Za-z0-9_-]{43})\/stop$/.exec(url.pathname);
+  const gone = () => bkPage("Link not valid", `<div class="c"><h1>This link is not valid</h1><div class="s">Please call the pharmacy.</div></div>`, 404);
+  if (!m) return gone();
+  const id = parseInt(m[1], 36), want = await bkHmac(env, "cm1|stop|" + id);
+  if (!want || !bkSafeEq(want, m[2])) return gone();
+  const msg = await dbFirst(env, `SELECT org_id, location_id, to_addr, channel FROM cust_messages WHERE id=?`, [id]);
+  if (!msg || msg.channel !== "email") return gone();
+  const loc = await dbFirst(env, `SELECT name FROM locations WHERE id=?`, [msg.location_id]);
+  const e = (x) => String(x || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const pharmacy = (loc && loc.name) || "the pharmacy";
+  if (request.method === "POST") {
+    await dbRun(env, `INSERT OR IGNORE INTO cust_msg_optout (email, org_id, location_id) VALUES (?,?,?)`, [String(msg.to_addr).toLowerCase(), msg.org_id, msg.location_id]);
+    await writeAudit(env, msg.org_id, null, "CUST_MSG_OPTOUT", "cust_messages", String(id), { location_id: msg.location_id }, msg.location_id);
+    return bkPage("Done", `<div class="c"><h1>Done</h1><div class="s">${e(pharmacy)} won't e-mail you any more.</div></div>`);
+  }
+  return bkPage("Stop e-mails", `<div class="c"><h1>Stop e-mails?</h1><div class="s">From ${e(pharmacy)} only.</div><form method="post"><button class="b r">Stop e-mails</button></form></div>`);
 }

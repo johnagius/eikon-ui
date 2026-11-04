@@ -406,6 +406,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
             (b.status !== "done" ? '<button class="bkx-btn tint lg" data-act="st" data-s="done">Done</button>' : "") +
             (canMove ? '<button class="bkx-btn lg" data-act="move">Change time</button>' : "") +
             (b.status === "booked" || b.status === "confirmed" ? '<button class="bkx-btn lg" data-act="st" data-s="no_show">No-show</button>' : "") +
+            ((b.status === "booked" || b.status === "confirmed") && E.tell ? '<button class="bkx-btn lg" data-act="remind">Remind ' + esc(E.tell.firstName(b.personName)) + "</button>" : "") + // d-cust: a reminder by WhatsApp, SMS or e-mail, nothing sent by itself
             '<button class="bkx-btn red lg" data-act="cancel">Cancel booking</button></div>');
     }
     if (sh.kind === "move") inner = moveHtml(sh);
@@ -899,6 +900,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     }
     if (act === "open") { var osh = S.sheet = { kind: "booking", id: Number(t.getAttribute("data-id")) }; paint(); return findCard(osh); }
     if (act === "cancel") { S.sheet.cancelling = true; S.sheet.err = ""; paint(); setTimeout(function () { var r = document.getElementById("bkx-reason"); if (r) r.focus(); }, 30); return; }
+    if (act === "remind") { var rb0 = S.bookings.find(function (x) { return x.id === S.sheet.id; }); if (rb0 && E.tell) E.tell.open({ person: { name: rb0.personName, phone: rb0.personPhone || "", email: rb0.personEmail || "" }, purpose: "booking", ref: { kind: "booking", id: rb0.id }, vars: { service: (svc(rb0.serviceId) || {}).name || "", date: rb0.date, time: rb0.start }, subtitle: (svc(rb0.serviceId) || {}).name || "", back: t }); return; }
     if (act === "nocancel") { S.sheet.cancelling = false; S.sheet.err = ""; return paint(); }
     if (act === "st" || act === "docancel") {
       var b = (S.bookings.find(function (x) { return x.id === S.sheet.id; }) || S.sheet.b); if (!b) return;

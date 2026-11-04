@@ -37,6 +37,7 @@
     audit: "Who changed what, across the whole system.",
     expreg: "Your registers as a spreadsheet, or printed for an inspector, for any month or year.",
     insreg: "Is every register in order? Days not logged, notes missing, certificates due; printed with sign-off lines.",
+    ownreg: "Takings this week and month against the last, what needs you, hours, controlled-drug totals and month-end reports.",
     endofday: "Close the till: X readings, cash, cheques and the bank bag.",
     paidout: "Money paid from the till, such as couriers and cleaners.",
     "emergency-pos": "Sell when the main till is down; sales are sent when the connection is back.",
@@ -99,8 +100,9 @@
       ]
     },
     money: {
-      title: "Money", lead: "The till and what the pharmacy owes or holds for others.",
+      title: "Money", lead: "How the pharmacy is doing, the till, and what it owes or holds for others.",
       groups: [
+        { label: "How we're doing", ids: ["ownreg"] }, // the pharmacist in charge only (adminOnly)
         { label: "Till", ids: ["endofday", "paidout", "emergency-pos"] },
         { label: "Customers and locums", ids: ["creditnotes", "locumreceipts"] } // was "Owed": a locum receipt is money paid, not owed
       ]
@@ -121,7 +123,7 @@
         { label: "More", phoneOnly: true, actions: [
           { title: "Team", desc: "Who is in, handover, shifts and contacts.", run: function () { window.location.hash = "#team"; } },
           { title: "Services", desc: "Tests, vaccines, screening and counter tools.", run: function () { window.location.hash = "#services"; } },
-          { title: "Money", desc: "End of day, paid out, the emergency till, credit notes and locum receipts.", run: function () { window.location.hash = "#money"; } }
+          { title: "Money", desc: "How we're doing, end of day, paid out, the emergency till, credit notes and locum receipts.", run: function () { window.location.hash = "#money"; } }
         ] },
         { label: "You", actions: [
           { title: "Password", desc: "Change the password you sign in with.", run: function () { E.showChangePassword(); } },

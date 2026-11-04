@@ -238,7 +238,7 @@
     if (S.editing === e.id) h += editHtml(e);
     else if (S.noting === e.id) h += '<form class="tkt-in" id="tkt-note" autocomplete="off" aria-label="' + esc("A note on the question from " + e.client_name) + '"><label><input name="text" aria-label="Note" placeholder="What happened, e.g. Called, will come Friday" value="' + esc(S.noteDraft || "") + '"' + (S.err ? ' aria-invalid="true" aria-describedby="tkt-note-err"' : "") + "></label>" + (S.err ? '<div class="tkt-err" id="tkt-note-err" role="alert">' + esc(S.err) + "</div>" : "") +
       '<div class="acts"><button type="button" class="tkt-btn" data-act="note-cancel">Cancel</button><button type="submit" class="tkt-btn p"' + (S.busy[e.id] ? " disabled" : "") + ">" + (S.busy[e.id] ? "Saving…" : "Add note") + "</button></div></form>";
-    else if (done) h += '<div class="a"><button class="tkt-btn" data-act="reopen" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ">" + (S.busy[e.id] ? "Saving…" : "Open again") + "</button></div>";
+    else if (done) h += '<div class="a">' + (E.tell ? '<button class="tkt-btn p" data-act="tell" data-id="' + e.id + '" aria-label="' + esc("Tell " + e.client_name + " the answer") + '">Tell ' + esc(E.tell.firstName(e.client_name)) + "</button>" : "") + '<button class="tkt-btn" data-act="reopen" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ">" + (S.busy[e.id] ? "Saving…" : "Open again") + "</button></div>";
     else h += '<div class="a"><button class="tkt-btn" data-act="note" data-id="' + e.id + '" aria-label="' + esc("Add a note for " + e.client_name) + '">Add a note</button><button class="tkt-btn p" data-act="resolve" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ' aria-label="' + esc("Resolved: " + e.client_name + " has their answer") + '">' + (S.busy[e.id] ? "Saving…" : "Resolved") + "</button></div>";
     return h + "</div>";
   }
@@ -383,6 +383,7 @@
         else if (a === "note") { keepEdit(); S.noting = id; S.noteDraft = ""; S.err = ""; S.editing = null; S.edit = null; paint(); E.focusSoon(function () { return m.querySelector("#tkt-note input"); }, 30); }
         else if (a === "note-cancel") closeNote();
         else if (a === "resolve") { var at = S.entries.filter(matchQ).map(function (x) { return x.id; }).indexOf(id); change(id, function (r) { r.status = "Resolved"; }, "Marked resolved").then(function (ok) { if (!ok) return focusOn('[data-act=resolve][data-id="' + id + '"]'); var bs = S.mount.querySelectorAll("#tkt-res [data-act=open]"); var nx = bs[Math.min(at, bs.length - 1)]; if (nx) nx.focus(); else focusOn(".tkt-top [data-act=add]"); }); } // focus moves to the next question in the list
+        else if (a === "tell") { var te = findQ(id); if (te && E.tell) { var ln = notes(te).slice(-1)[0]; E.tell.open({ person: { name: te.client_name, phone: te.phone || "", email: te.email || "" }, purpose: "answer", ref: { kind: "question", id: te.id }, vars: { issue: te.issue || "", answer: (ln && ln.text) || "" }, subtitle: te.issue || "", back: b }); } } // d-cust
         else if (a === "reopen") change(id, function (r) { r.status = "Open"; r.resolved_at = ""; }, "Open again");
         else if (a === "retry") reloadAll();
         else if (a === "open") openEdit(id);

@@ -266,7 +266,7 @@
   // ---- the printout
   function cellHtml(v) { return v && typeof v === "object" && "html" in v ? String(v.html) : esc(v == null ? "" : v); }
   M.printHtml = function (doc) {
-    var u = (E.state && E.state.user) || {}, loc = u.location_name || "", org = u.org_name || "";
+    var u = (E.state && E.state.user) || {}, loc = doc.pharmacy || u.location_name || "", org = u.org_name || ""; // doc.pharmacy: a report for another pharmacy of the group
     var period = doc.period || (doc.month ? M.label(doc.month) : ""), t = new Date();
     // stamped in Malta time (a laptop or phone on another clock zone still prints the time the register was printed here)
     var mY = E.maltaYmd ? E.maltaYmd(t) : "", mH = E.maltaHm ? E.maltaHm(t) : "", mp = /^(\d{4})-(\d{2})-(\d{2})$/.exec(mY);
@@ -274,7 +274,7 @@
     var head = '<header class="ph"><div><b>' + esc(loc || org || "Pharmacy") + "</b>" + (org && loc && org !== loc ? "<span>" + esc(org) + "</span>" : "") + "</div>" +
       "<div><h1>" + esc(doc.register) + "</h1><span>" + esc(period) + "</span></div></header>";
     var body = (doc.intro || "") + (doc.sections || []).map(function (s) {
-      var cols = s.cols || [], h = "<section" + (s.wide ? ' class="wide"' : "") + ">";
+      var cols = s.cols || [], h = "<section" + (s.wide || s.pageBreak ? ' class="' + (s.wide ? "wide" : "") + (s.pageBreak ? " pb" : "") + '"' : "") + ">";
       if (s.heading) h += "<h2>" + esc(s.heading) + "</h2>";
       if (s.sub) h += '<p class="sub">' + esc(s.sub) + "</p>";
       h += "<table><thead><tr>" + cols.map(function (c) { var n = typeof c === "string" ? c : c.h; return "<th" + (c.num ? ' class="n"' : "") + ">" + esc(n) + "</th>"; }).join("") + "</tr></thead><tbody>";
@@ -296,6 +296,7 @@
       "th{background:#eee;font-weight:700}td.n,th.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}td.none{font-style:italic}tfoot td{font-weight:700;background:#f4f4f4}" +
       "td.bad{font-weight:700}td.miss{font-style:italic}tr{break-inside:avoid;page-break-inside:avoid}thead{display:table-header-group}" +
       ".sign{display:flex;gap:28px;margin-top:28px;break-inside:avoid}.sign div{flex:1}.sign span{display:block;border-bottom:1px solid #000;height:30px}.sign small{font-size:10px}" +
+      "section.pb{break-before:page;page-break-before:always}" +
       ".pf{margin-top:10px;font-size:10px}@media print{body{margin:0}.pf{display:none}}" +
       "</style></head><body>" + head + body + sign +
       "<p class='pf'>" + esc(foot) + " · printed " + esc(printed) + "</p>" +
