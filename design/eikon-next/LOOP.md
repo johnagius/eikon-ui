@@ -1087,3 +1087,8 @@ All of it waits only on the worker deploy.
 - John approved. Restore point 00000ba8-00000000-00005119-8c54f9937fa18ee469a7a28723518781; deployed 09:18 UTC (1209.42 KiB / gzip 204.67 KiB); /health batch-7; signed-out 401s incl. /owner/summary, /messages/setup, /people/1/now; old-address 302.
 - .166 Bookings (move a booking, past/any day, refresh, Settings keeps hours) shipped before it.
 - Building: d-stock (Stock & ordering), d-book (Bookings as the full appointment system).
+
+## Round 152 — Batch-8 LIVE (1c2dfcb9, UI .168): Stock & ordering; Bookings full system
+
+- All four departments John chose are now live: Owner's view (.167), Customers & messaging (.167), Stock & ordering (.168), Bookings as the full appointment system (.166 + .168).
+- Restore point 00000bb2-00000000-00005119-68bdf9813a05ae612d0c1d05d46cadac; deployed 10:36 UTC (1232.30 KiB / gzip 209.53 KiB); /health batch-8 (first probe hit the old instance mid-rollout, then batch-8 ×4); signed-out 401s on new routes; old-address 302. GitHub push needed a retry (500 from GitHub).
