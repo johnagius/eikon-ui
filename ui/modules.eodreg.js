@@ -13,8 +13,10 @@
    reason, and the day opens as an unlocked day; the reason goes with every save of that day here until it is locked
    again (correction_reason, written into the audit entries by the worker). Print on A4 prints the day on the classic
    screen's A4 sheet (its rows and wording; page numbers and the time printed, Malta time, in the page margin); the
-   unlock and the print leave the classic screen's own audit note in this browser, as it does. The date-range report,
-   the audit log, copying the deposit to an email and managing contacts stay in the classic screen. */
+   unlock and the print leave the classic screen's own audit note in this browser, as it does. "Copy for the bank email"
+   (q5-10a) puts on the clipboard exactly what the classic "Copy Deposit to Email (Outlook)" puts there: the contact's
+   address, "Dear <name>,", the day, the pharmacy and the BOV cash deposit table, as HTML and as plain text, after the
+   classic's check (a bag number). The date-range report, the audit log and managing contacts stay in the classic screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -115,7 +117,7 @@
   }
   async function loadContacts() {
     try { var r = await E.apiFetch("/endofday/contacts", { method: "GET" }); var list = (r && (r.contacts || r.items)) || [];
-      S.contacts = list.map(function (x) { return { id: String(x.id), name: String(x.name || x.display_name || x.title || "").trim() }; }).filter(function (x) { return x.name; });
+      S.contacts = list.map(function (x) { return { id: String(x.id), name: String(x.name || x.display_name || x.title || "").trim(), phone: String(x.phone || "").trim(), email: String(x.email || "").trim() }; }).filter(function (x) { return x.name; });
     } catch (e) { S.contacts = S.contacts || []; }
   }
   async function loadMonth(ym) {
@@ -273,6 +275,7 @@
       ".eod-acts .eod-btn{min-height:44px}.eod [aria-invalid=true]{box-shadow:inset 0 -2px 0 var(--danger)}" +
       ".eod-acts .ou{flex:1;min-width:120px;font-size:13px;color:var(--muted)}.eod-acts .ou b{display:block;font-size:16px;color:var(--text);font-variant-numeric:tabular-nums}" +
       ".eod-err{color:var(--danger);font-size:13.5px;margin-top:10px}" +
+      ".eod-depcopy{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border-top:.5px solid var(--border)}.eod-depcopy .eod-btn{min-height:44px}.eod-depcopy span{flex:1;min-width:180px;font-size:12.5px;color:var(--muted)}" +
       ".eod-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".eod-foot{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.5}" +
       ".eod .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
@@ -299,7 +302,7 @@
     if (S.loading && !S.w) h += '<div class="eod-quiet">Opening ' + esc(dayLabel(S.date).toLowerCase() === "today" ? "today" : dayLabel(S.date)) + "…</div>";
     else if (S.error && !S.w) h += '<div class="eod-quiet">' + esc(S.error) + ' <button class="eod-btn" data-act="retry" style="margin-left:8px">Try again</button></div>';
     else if (S.w) h += dayHtml(locked, ro);
-    h += '<p class="eod-foot">' + (E.correct && E.correct.can() ? "A locked day is corrected here with Correct this day, saying what was wrong. " : "A locked day is corrected by the pharmacist. ") + 'A date-range report across months, the audit log, copying the deposit to an email and managing bank contacts are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += '<p class="eod-foot">' + (E.correct && E.correct.can() ? "A locked day is corrected here with Correct this day, saying what was wrong. " : "A locked day is corrected by the pharmacist. ") + 'A date-range report across months, the audit log and managing bank contacts are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
     var ae = document.activeElement, sel = ae && m.contains(ae) && ae.name ? '[name="' + ae.name + '"]' : (ae && (ae.id === "eod-day" || ae.id === "eod-fixnote") ? "#" + ae.id : "");
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) again.focus(); }
@@ -411,7 +414,8 @@
     DEN.forEach(function (d) {
       h += '<label class="eod-cr"><span class="d">€' + d + '</span><input name="dep:n' + d + '" inputmode="numeric" value="' + esc(shown(w.deposit["n" + d], true)) + '" placeholder="0" aria-label="€' + d + ' notes in the bag, how many"' + RO + '><em data-b="d' + d + '">' + esc(eur(inum(w.deposit["n" + d]) * d)) + "</em></label>";
     });
-    h += '<div class="eod-hint wn" data-b="bagdiff"' + (Math.abs(c.bov - c.F) < 0.005 ? " hidden" : "") + ">" + esc(bagDiff(c)) + "</div></div>";
+    h += '<div class="eod-hint wn" data-b="bagdiff"' + (Math.abs(c.bov - c.F) < 0.005 ? " hidden" : "") + ">" + esc(bagDiff(c)) + "</div>" +
+      '<div class="eod-depcopy"><button type="button" class="eod-btn" data-act="copy-dep">Copy for the bank email</button><span>The contact, the day, the pharmacy and the bag, ready to paste into the email.</span></div></div>';
     // the month
     h += monthHtml();
     h += "</form>";
@@ -509,7 +513,7 @@
   function printA4() {
     if (!S.w) return;
     if (!(S.base && S.base.locked_at) && !S.saving) keep();
-    var loc = String((S.base && S.base.location_name) || user().location_name || "").trim(), had = !!S.err;
+    var loc = String((S.base && S.base.location_name) || user().location_name || "").trim(), had = !!S.err || !!(S.mount && S.mount.querySelector("#eod-err"));
     S.err = printProblem(S.w, loc);
     if (S.err) { if (S.bad === "staff" || S.bad === "float_amount") S.whoOpen = true; paint(true); return toBad(); }
     var html = a4Html(S.w, loc); E.eodLastA4 = html;
@@ -526,6 +530,60 @@
     try { var all = JSON.parse(localStorage.getItem("eikon_eod_audit_v1") || "[]"); if (!Array.isArray(all)) all = []; all.push(entry); localStorage.setItem("eikon_eod_audit_v1", JSON.stringify(all)); } catch (e) {}
     var body = JSON.stringify({ audit: entry }), paths = ["/endofday/audit", "/eod/audit"], i = 0;
     (function next() { if (i >= paths.length) return; E.apiFetch(paths[i++], { method: "POST", headers: { "Content-Type": "application/json" }, body: body }).then(function (r) { if (r && r.ok === false) next(); }, next); })();
+  }
+
+  // ---- the classic "Copy Deposit to Email (Outlook)" (modules.endofday.js buildDepositHTML, buildDepositPlain,
+  // copyDepositToClipboard): the same HTML and plain text, character for character, from the day as it is on screen.
+  var DEP_ROWS = [["€500.00", 500], ["€200.00", 200], ["€100.00", 100], ["€50.00", 50], ["€20.00", 20], ["€10.00", 10], ["€5.00", 5]];
+  function depositHtml(w) {
+    var bag = esc(String(w.bag_number || "").trim()), qty = function (den) { return inum((w.deposit || {})["n" + den]); }, sum = 0;
+    DEP_ROWS.forEach(function (r) { sum += r[1] * qty(r[1]); });
+    var headerBag = '<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">' +
+      '<tr><td style="text-align:center;font-weight:bold">BAG NO.</td></tr>' +
+      '<tr><td style="text-align:center;border-top:1px solid #000;padding-top:4px">' + bag + '</td></tr></table>';
+    return '<table role="presentation" cellpadding="4" cellspacing="0" style="border-collapse:collapse;border:2px solid #000;font-family:Arial,Helvetica,sans-serif;font-size:12px">' +
+      '<tr><th style="border:1px solid #000;text-align:center;font-weight:bold;padding:6px" colspan="2">BOV CASH DEPOSIT</th><th style="border:1px solid #000;padding:0">' + headerBag + '</th></tr>' +
+      '<tr><th style="border:1px solid #000;text-align:left;padding:6px">NOTES</th><th style="border:1px solid #000;text-align:center;padding:6px;background:#ffe8db">NO.</th><th style="border:1px solid #000;text-align:right;padding:6px;background:#daf5df;color:#000">TOTAL</th></tr>' +
+      DEP_ROWS.map(function (r) {
+        var q = qty(r[1]);
+        return '<tr><td style="border:1px solid #000;text-align:left;padding:6px">' + esc(r[0]) + '</td><td style="border:1px solid #000;text-align:center;padding:6px;background:#ffe8db">' + esc(String(q)) + '</td>' +
+          '<td style="border:1px solid #000;text-align:right;padding:6px;background:#daf5df;color:#000">€' + esc(Number(r[1] * q).toFixed(2)) + '</td></tr>';
+      }).join("") +
+      '<tr><th style="border:1px solid #000;text-align:left;padding:6px" colspan="2">CASH DEPOSITED</th><th style="border:1px solid #000;text-align:right;padding:6px;background:#daf5df;color:#000">€' + esc(Number(sum).toFixed(2)) + '</th></tr></table>';
+  }
+  function depositPlain(w) {
+    var e2 = function (n) { return "€" + Number(n || 0).toFixed(2); }, lines = [], sum = 0;
+    lines.push(["BOV CASH DEPOSIT", "BAG NO.", String(w.bag_number || "")].join("\t"));
+    lines.push(["NOTES", "NO.", "TOTAL"].join("\t"));
+    DEP_ROWS.forEach(function (r) { var q = inum((w.deposit || {})["n" + r[1]]), v = r[1] * q; sum += v; lines.push([r[0], q, e2(v)].join("\t")); });
+    lines.push(["CASH DEPOSITED", "", e2(sum)].join("\t"));
+    return lines.join("\n");
+  }
+  function depositMail(w, loc) { // { html, plain }: what the classic puts on the clipboard
+    var k = S.contacts.filter(function (x) { return String(x.id) === String(w.contact_id); })[0] || null;
+    var email = k && k.email ? String(k.email) : "", name = k && k.name ? String(k.name) : "", greet = name ? "Dear " + name + "," : "Dear,";
+    var dateLine = "Date: " + S.date.slice(8, 10) + "/" + S.date.slice(5, 7) + "/" + S.date.slice(0, 4), locLine = "Location: " + loc;
+    return { html: (email ? "<div>" + esc(email) + "</div><div style='height:8px'></div>" : "") + "<div>" + esc(greet) + "</div><div style='height:16px'></div><div>" + esc(dateLine) + "</div><div>" + esc(locLine) + "</div><div style='height:12px'></div>" + depositHtml(w),
+      plain: (email ? email + "\n\n" : "") + greet + "\n\n\n" + dateLine + "\n" + locLine + "\n\n" + depositPlain(w) + "\n" };
+  }
+  async function copyDeposit() {
+    if (!S.w) return;
+    if (!(S.base && S.base.locked_at) && !S.saving) keep();
+    var had = !!S.err || !!(S.mount && S.mount.querySelector("#eod-err")); S.err = ""; S.bad = ""; // typing clears S.err but leaves the message drawn
+    if (!String(S.w.bag_number || "").trim()) { S.err = "Write the bag number, then copy."; S.bad = "bag_number"; paint(true); return toBad(); }
+    var mail = depositMail(S.w, String((S.base && S.base.location_name) || user().location_name || "")); E.eodLastDeposit = mail;
+    try {
+      if (!(navigator.clipboard && window.ClipboardItem)) throw new Error("no HTML clipboard");
+      await navigator.clipboard.write([new ClipboardItem({ "text/html": new Blob([mail.html], { type: "text/html" }), "text/plain": new Blob([mail.plain], { type: "text/plain" }) })]);
+    } catch (e) {
+      try { // the classic's fallback: the table selected in a hidden box and copied
+        var div = document.createElement("div"); div.contentEditable = "true"; div.style.position = "fixed"; div.style.left = "-9999px"; div.style.top = "0"; div.innerHTML = mail.html;
+        document.body.appendChild(div); var range = document.createRange(); range.selectNodeContents(div); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+        var ok = document.execCommand("copy"); sel.removeAllRanges(); div.remove(); if (ok === false) throw new Error("copy refused");
+      } catch (e2) { S.err = "This browser did not allow copying. Allow the clipboard for this site, then press Copy for the bank email again."; return paint(true); }
+    }
+    E.toast("Copied · paste it into the email to the bank", "success");
+    if (had) paint(true);
   }
 
   function monthHtml() {
@@ -576,6 +634,7 @@
         else if (act === "retry") load();
         else if (act === "print-month") printMonth();
         else if (act === "print-a4") printA4();
+        else if (act === "copy-dep") copyDeposit();
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "eodreg"); } catch (x) {} E.openClassic("endofday"); }
         else if (act === "addrow") { keep(); var L = b.getAttribute("data-l"); S.w[L].push({ amount: "0", remark: "" }); S.dirty = true; paint(true); var n = S.w[L].length - 1;
           setTimeout(function () { var f = m.querySelector('[name="row:' + L + ":" + n + ':amount"]'); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form") && document.activeElement !== b)) f.focus(); }, 30); }

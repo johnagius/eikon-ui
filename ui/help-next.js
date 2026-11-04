@@ -239,8 +239,9 @@
       ["Use a credit note", "Press Use on the customer's note and type what they spend, or press Use all."],
       ["Put back a use made by mistake (the pharmacist)", "Find the note: a search also finds notes used up.", "Press Undo on the use, then Undo the use."],
       ["Correct a note (the pharmacist)", "Press Correct on the note.", "Change what was wrong and say why, then press Save correction."],
+      ["Print a note, or write on it", "Press Print on the customer's note for its page.", "Press Add a note, type it and press Save note. The pharmacist can press Remove on a note, then Remove the note."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Deleting a credit note, notes and printing a note are in the classic screen.", []],
+    ], "Deleting a credit note is in the classic screen.", []],
 
     ["lrcreg", "money", "Locum receipts", "What each locum was paid, ready to print and sign.", [
       ["Write a receipt", "Press New receipt.", "Fill in the locum, reg no., day, hours and € per hour.", "Press Save receipt."],
@@ -291,10 +292,11 @@
     ["eodreg", "money", "End of day", "Close the till: X readings, cash, cheques and the bank bag.", [
       ["Close the day", "Check the day, staff, shift and float at the top; press Change to change them.", "Add an X reading for each till, then count the cash.", "Add any cheques, EPOS lines and paid outs.", "Press Save and lock when it balances, or Save to finish later."],
       ["Print the day", "Press Print on A4."],
+      ["Send the bag to the bank", "Fill in the bag number and choose the contact.", "Press Copy for the bank email, then paste it into the email."],
       ["Print the month", "Press Print with the month's name. Choose a day in another month to print that one."],
       ["Correct a locked day (the pharmacist)", "Open the locked day. Press Correct this day to write what was wrong.", "Press Unlock to correct.", "Change what was wrong, then press Save and lock."],
       ["From Today", "Press Close the day on Today at closing time."]
-    ], "A date-range report across months, the audit log, copying the deposit to an email and managing bank contacts are in the classic screen.", [["X reading", "the till's total for the day so far, printed by the till."]]],
+    ], "A date-range report across months, the audit log and managing bank contacts are in the classic screen.", [["X reading", "the till's total for the day so far, printed by the till."]]],
 
     ["pocreg", "services", "Point-of-care tests", "Blood pressure, glucose, cholesterol and other tests, per patient.", [
       ["Record a test", "Press New test, then choose the test, such as Blood pressure.", "Find the patient or fill in their details, then the results.", "Press Save test."],

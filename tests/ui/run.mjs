@@ -234,7 +234,7 @@ function mockApi(req, res, body) {
   if (p === "/repeat-prescriptions/entries" && req.method === "GET") { const d = (n) => maltaYmd(n);
     return res.end(JSON.stringify({ ok: true, entries: [{ id: 81, entry_date: d(-170), expires_date: d(12), client_name: "Zammit Carmel", client_id: "123456M", medicine_name_dose: "Atorvastatin 20mg", posology: "1 at night", prescriber_name: "Dr Abela", prescriber_reg_no: "R1201" }] })); }
   if (p === "/repeat-prescriptions/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, entry_id: 82 }));
-  if (p === "/creditnotes/list") return res.end(JSON.stringify({ ok: true, entries: [{ id: 91, issue_date: "2026-10-01", client_name: "Rita", client_surname: "Camilleri", telephone: "79222333", amount: 30, expiry_date: "", no_expiry: false, purchase_entries: [{ id: 1, amount: 12.5 }], notes: [] }] }));
+  if (p === "/creditnotes/list") return res.end(JSON.stringify({ ok: true, entries: [{ id: 91, issue_date: "2026-10-01", client_name: "Rita", client_surname: "Camilleri", telephone: "79222333", amount: 30, expiry_date: "", no_expiry: false, purchase_entries: [{ id: 1, amount: 12.5 }], notes: [{ id: 7, text: "Rang, no answer", timestamp: "2026-10-02 08:00:00" }] }] }));
   if (/^\/creditnotes\/entries\/\d+\/purchases$/.test(p) && req.method === "POST") return res.end(JSON.stringify({ ok: true, id: 2 }));
   if (/^\/creditnotes\/entries\/\d+\/purchases\/\d+$/.test(p) && req.method === "DELETE") return res.end(JSON.stringify({ ok: true }));
   if (p === "/locumreceipts/receipts" && req.method === "GET") return res.end(JSON.stringify({ ok: true, receipts: url.searchParams.get("month") === todayYmd.slice(0, 7) ? [{ id: 5, receipt_date: todayYmd.slice(0, 7) + "-01", hours: 6, locum_full_name: "Paul Vella", registration_number: "PH1234", day_type: "normal", fee_per_hour: 15, total_fee: 90 }] : [] }));
@@ -5776,6 +5776,58 @@ try {
     dels.length === 1 && dels[0].path === "/creditnotes/entries/91/purchases/1" && back === "use", JSON.stringify({ ask, esc, dels, back }));
 } catch (e) { report("money part 2: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
 
+// Money 10a: Credit notes prints one note (the classic one-note page, through E.openPrint) and keeps its notes (add:
+// the classic POST with the text trimmed; remove: the pharmacist, one question, the classic DELETE); End of day copies
+// the deposit for the bank email (the classic's HTML and plain text) after the classic's check (a bag number).
+try {
+  await page.goto("about:blank"); await page.goto(base + "&ui=2#creditnotes");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "cnreg" && document.querySelector(".cnr-card [data-act=print]"), null, { timeout: 15000 });
+  await page.evaluate(() => { window.__pr = []; window.EIKON.openPrint = function (h, o) { window.__pr.push({ h: h, o: o }); return {}; }; });
+  await page.click(".cnr-card [data-act=print]");
+  const pr = await page.evaluate(() => ({ n: window.__pr.length, h: window.__pr[0] && window.__pr[0].h, delay: window.__pr[0] && window.__pr[0].o.delay, last: window.EIKON.cnLastPrint === (window.__pr[0] || {}).h }));
+  const noteShown = await page.evaluate(() => (document.querySelector(".cnr-notes") || {}).textContent || "");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click(".cnr-card [data-act=note]"); await page.waitForTimeout(80);
+  const nf = await page.evaluate(() => document.activeElement && document.activeElement.name);
+  await page.keyboard.press("Enter"); await page.waitForTimeout(100);
+  const nEmpty = await page.evaluate(() => ({ msg: (document.querySelector("#cnr-nerr") || {}).textContent || "", inv: document.querySelector("#cnr-note [name=note_text]").getAttribute("aria-invalid") }));
+  await page.keyboard.type("  Will call Friday  "); await page.keyboard.press("Enter"); await settleSave(); await page.waitForTimeout(300);
+  const posts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && /\/notes$/.test(c.path));
+  const nBack = await page.evaluate(() => ({ focus: document.activeElement && document.activeElement.getAttribute("data-act"), form: !!document.querySelector("#cnr-note") }));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click(".cnr-card [data-act=rmnote]"); await page.waitForSelector(".cnr-ask");
+  const rAsk = { text: (await page.textContent(".cnr-ask")).replace(/\s+/g, " "), focus: await page.evaluate(() => document.activeElement.getAttribute("data-act")) };
+  await page.keyboard.press("Escape");
+  const rEsc = await page.evaluate(() => ({ gone: !document.querySelector(".cnr-ask"), focus: document.activeElement.getAttribute("data-act") }));
+  await page.click(".cnr-card [data-act=rmnote]"); await page.click("[data-act=rmnote-yes]"); await settleSave(); await page.waitForTimeout(300);
+  const rDels = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "DELETE");
+  const foot = await page.evaluate(() => (document.querySelector(".ecr-foot") || {}).textContent || "");
+  report("credit notes: Print opens the classic one-note page through E.openPrint (the note, its use and its notes, no script)",
+    pr.n === 1 && pr.last && pr.delay === 150 && /<title>Credit Note #91<\/title>/.test(pr.h) && /Rang, no answer/.test(pr.h) && /Purchase History/.test(pr.h) && /€17\.50/.test(pr.h) && !/<script/i.test(pr.h) && /Rang, no answer/.test(noteShown), JSON.stringify({ n: pr.n, delay: pr.delay, noteShown }));
+  report("credit notes: Add a note puts the cursor in the box, says so when empty, sends the classic POST with the text trimmed, focus back on Add a note",
+    nf === "note_text" && /Write the note first/.test(nEmpty.msg) && nEmpty.inv === "true" && posts.length === 1 && posts[0].path === "/creditnotes/entries/91/notes" && JSON.stringify(posts[0].body) === '{"text":"Will call Friday"}' && nBack.focus === "note" && !nBack.form,
+    JSON.stringify({ nf, nEmpty, posts, nBack }));
+  report("credit notes: Remove on a note asks once in plain words (Escape keeps it, focus back), then sends the classic DELETE; the footer leaves only deleting a note in the classic screen",
+    /Remove this note\?/.test(rAsk.text) && /Rang, no answer/.test(rAsk.text) && rAsk.focus === "rmnote-yes" && rEsc.gone && rEsc.focus === "rmnote" && rDels.length === 1 && rDels[0].path === "/creditnotes/entries/91/notes/7" &&
+    /Deleting a credit note is in the classic screen\.$/.test(foot.trim()) && !/printing/i.test(foot), JSON.stringify({ rAsk, rEsc, rDels, foot }));
+  // End of day: the deposit for the bank email
+  eodState = { rec: { id: 1, date: todayYmd, eod_date: todayYmd, staff: "Ġorġ", float_amount: "100", x: [{ amount: "300" }], epos: [], cheques: [], paid_outs: [], cash: { n50: "4", n20: "5", coins_total: "0" }, deposit: { n50: 3, n20: 5 }, bov_deposit: { n50: 3, n20: 5 }, bag_number: "", contact_id: "4", deposit_edited: true, updated_at: "2026-11-03 18:00:00" }, n: 0 };
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.goto("about:blank"); await page.goto(base + "&ui=2#endofday");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "eodreg" && document.querySelector("[data-act=copy-dep]"), null, { timeout: 15000 });
+  await page.evaluate(() => { window.__clip = null; navigator.clipboard.write = async (items) => { window.__clip = { html: await (await items[0].getType("text/html")).text(), plain: await (await items[0].getType("text/plain")).text() }; }; });
+  await page.click("[data-act=copy-dep]"); await page.waitForTimeout(150);
+  const cNo = await page.evaluate(() => ({ clip: window.__clip, focus: document.activeElement && document.activeElement.name, msg: (document.querySelector("#eod-err") || {}).textContent || "" }));
+  await page.fill("#eod-form [name=bag_number]", "B-1"); await page.click("[data-act=copy-dep]"); await page.waitForFunction(() => window.__clip, null, { timeout: 5000 }); await page.waitForTimeout(150);
+  const clip = await page.evaluate(() => ({ c: window.__clip, err: !!document.querySelector("#eod-err"), saved: 0 }));
+  const dmyT = todayYmd.slice(8, 10) + "/" + todayYmd.slice(5, 7) + "/" + todayYmd.slice(0, 4);
+  const wantPlain = new RegExp("^Dear BOV Paola,\\n\\n\\nDate: " + dmyT.replace(/\//g, "\\/") + "\\nLocation: [^\\n]*\\n\\nBOV CASH DEPOSIT\\tBAG NO\\.\\tB-1\\nNOTES\\tNO\\.\\tTOTAL\\n€500\\.00\\t0\\t€0\\.00\\n€200\\.00\\t0\\t€0\\.00\\n€100\\.00\\t0\\t€0\\.00\\n€50\\.00\\t3\\t€150\\.00\\n€20\\.00\\t5\\t€100\\.00\\n€10\\.00\\t0\\t€0\\.00\\n€5\\.00\\t0\\t€0\\.00\\nCASH DEPOSITED\\t\\t€250\\.00\\n$");
+  const puts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT" && c.path === "/endofday/record");
+  report("end of day: Copy for the bank email asks for the bag number first (nothing copied, cursor in the box), then copies the classic HTML and plain text (greeting, day, pharmacy, the bag's table) and saves nothing",
+    cNo.clip === null && cNo.focus === "bag_number" && /Write the bag number/.test(cNo.msg) && clip.c && wantPlain.test(clip.c.plain) && /BOV CASH DEPOSIT<\/th>/.test(clip.c.html) && /<div>Dear BOV Paola,<\/div>/.test(clip.c.html) && /€250\.00<\/th><\/tr><\/table>$/.test(clip.c.html) && !clip.err && puts.length === 0,
+    JSON.stringify({ cNo, plain: clip.c && clip.c.plain, puts: puts.length }));
+} catch (e) { report("money 10a: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
+
 // Sentence case app-wide (one rule in ui/app.css): no element of a new-layout screen is drawn in capitals, and the
 // section labels share one look (13 px, semibold, no caps spacing). Typed text in fields is not touched.
 try {
@@ -5955,7 +6007,7 @@ try {
   const w = {};
   const open = async (h, mod, sel) => { await page.goto(base + "&ui=2#" + h); await page.waitForFunction(([m, s]) => window.EIKON.state.activeModuleId === m && document.querySelector(s), [mod, sel], { timeout: 15000 }); await page.waitForTimeout(300); };
   const foot = () => page.evaluate(() => [...document.querySelectorAll('#eikon-content [data-act="classic"]')].map((a) => ({ p: (a.closest("p") || a.parentElement).innerText.replace(/\s+/g, " ").trim(), a: a.textContent })));
-  for (const [h, mod, want] of [["cleanreg", "cleanreg", "Deleting a line is in the classic screen."], ["drreg", "drreg", "Deleting a line is in the classic screen."], ["poreg", "poreg", "Deleting a payment is in the classic screen."], ["cnreg", "cnreg", "Deleting a credit note, notes and printing a note are in the classic screen."]]) {
+  for (const [h, mod, want] of [["cleanreg", "cleanreg", "Deleting a line is in the classic screen."], ["drreg", "drreg", "Deleting a line is in the classic screen."], ["poreg", "poreg", "Deleting a payment is in the classic screen."], ["cnreg", "cnreg", "Deleting a credit note is in the classic screen."]]) {
     await open(h, mod, ".ecr-foot"); const f = await foot(); w[h] = f.length === 1 && f[0].a === "classic screen" && f[0].p.endsWith(want) && !/not deleted/.test(f[0].p) ? "ok" : f;
   }
   await open("cleanreg", "cleanreg", ".ecr-foot [data-act=classic]");
