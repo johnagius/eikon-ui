@@ -1054,3 +1054,8 @@ All of it waits only on the worker deploy.
 - One combined batch on .158: q5-1 (calm closable error bar instead of the developer overlay; Escape fixes in Order diary/Locum receipts; the classic look no longer sticks, classic addresses always honoured), q5-2 (drafts of half-typed New forms come back with "· Clear", tab-only, end of Malta day, never sent by themselves), q5-11 (footers say where deleting is, one classic-link name, plain words, Download names match registers, Save item / Add point / Date and Time, temperature print "Room (…)", help guides updated). Render lines in ordreg/tktreg/dlvreg combine drafts with Today's landing.
 - The 4 focus failures earlier were load timing (q5-1 agent ran the pair twice: 430/0). Final: worker 209/0, UI 447/0, real 55/0 (2568 checks).
 - Running: q5-8 lists/targets, q5-10a credit-note print + EOD deposit e-mail, q5-10b alerts/near expiry/POCT.
+
+## Round 146 — UI .160 on main (d055420): light lists, thumb targets, contrast
+
+- q5-8 (rebased onto 3daa3ad by its agent; tree checked equal): E.listPage draws 30 rows at a time with "Show 30 more" across Orders, Questions done, Deliveries, Credit notes, Repeat prescriptions, Contacts; 44 px phone targets; red badges and lit tab solid for contrast; title ring only after keys. Orders phone 16,859 → 4,837 px. UI 450/0, real 56/0, axe clean everywhere; worker 209/0.
+- Running: q5-10a (credit-note print, EOD deposit e-mail), q5-10b (alerts change/close, near-expiry offer, POCT print/change).
