@@ -1069,3 +1069,9 @@ All of it waits only on the worker deploy.
 
 - q5-10b (rebased onto d055420 by its agent; tree checked equal): Alerts Change/Close, Near expiry Offer to Scarce stock, POCT Change and Print one test — classic bodies, rows and audit identical; print HTML identical. Worker 209/0, UI 453/0, real 59/0.
 - For John: Scarce stock is visible to every pharmacy on Eikon (classic too; the server has no group filter) — if chains should offer only within their group, that's a worker change.
+
+## Round 149 — refocus on departments (John); UI .162/.163
+
+- John: stop polishing small things; work on whole departments that users notice. Chosen: Bookings & appointments, Customers & messaging, Owner's view & reports, Stock & ordering. Running one department agent each (d-cust, d-owner, d-stock; Bookings via q6-2 then a follow-on). Lean pace otherwise; small items (browser Maltese patch, Possible duplicates) stopped.
+- John approved four server fixes, being built together as worker batch-6 (agents/w6): Maltese folding in people search, server-issued TKT/DEL numbers, Malta dates for server-filled dates, Scarce stock only within the same group.
+- Shipped .162 (delete a contact) and .163 (print one credit note + its notes; End of day copies the deposit for the bank e-mail).
