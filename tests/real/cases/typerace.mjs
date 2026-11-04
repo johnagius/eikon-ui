@@ -72,8 +72,9 @@ export default {
       dbodies.push(w.body); t.note(`body deliveries change ${slow ? "slow" : "racy"}: ${strip(w.body, ["id"])}`);
       await calm(p);
     }
-    t.ok(strip(dbodies[0], ["id"]) === strip(dbodies[1], ["id"]), "deliveries change: the racy body is the slow body: " + strip(dbodies[0], ["id"]) + " vs " + strip(dbodies[1], ["id"]));
-    t.same("deliveries change", t.row(DT, da), t.row(DT, db));
+    // batch 6 (W3): the second seeded row got the next number from the server, so delivery_id differs by design
+    t.ok(strip(dbodies[0], ["id", "delivery_id"]) === strip(dbodies[1], ["id", "delivery_id"]), "deliveries change: the racy body is the slow body: " + strip(dbodies[0], ["id", "delivery_id"]) + " vs " + strip(dbodies[1], ["id", "delivery_id"]));
+    t.same("deliveries change", t.row(DT, da), t.row(DT, db), { delivery_id: "batch 6 (W3): seeded twice with DEL-08001, the server gave the second DEL-08002" });
 
     // 3. New order, question, delivery: by the button, and from a customer's page; the second field at once.
     const P = { name: "Ħili Ġorġa", id_card: "0771122M", phone: "79222333", address: "7 Triq il-Wied, Qormi" };

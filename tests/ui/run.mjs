@@ -207,7 +207,8 @@ function mockApi(req, res, body) {
       { id: 62, ticket_id: "TKT-00008", open_date: d(-1), client_name: "Farrugia Tony", phone: "", category: "Billing", priority: 1, status: "In Progress", issue: "Charged twice", assigned_to: "", followup_date: null, notes_log: "[]", resolved: 0 }] }));
   }
   if (p.startsWith("/client-tickets/entries/") && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
-  if (p === "/client-tickets/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, entry_id: 63 }));
+  if (p === "/client-tickets/entries" && req.method === "POST") return res.end(JSON.stringify(todayState.serverNo ? { ok: true, entry_id: 63, ticket_id: "TKT-00090" } : { ok: true, entry_id: 63 }));
+  if (p === "/client-deliveries/entries" && req.method === "POST" && todayState.serverNo) return res.end(JSON.stringify({ ok: true, id: 79, delivery_id: "DEL-00090" })); // batch 6 (W3): the server's number
   if (p === "/client-deliveries/entries" && req.method === "GET") {
     const d = (n) => maltaYmd(n);
     return res.end(JSON.stringify({ ok: true, entries: [
@@ -4850,6 +4851,32 @@ try {
     d0.save === "Save delivery" && d0.post && !("id_doc_ref" in d0.post) && d1.post && d1.post.id_doc_ref === "7654321m" && keys0 === keys1 && /Saved · delivery for Borġ Ċensina · DEL-\d+/.test(d0.toast),
     JSON.stringify({ d0s: d0.save, d0t: d0.toast, d0k: keys0, d1k: keys1, id: d1.post && d1.post.id_doc_ref }));
 } catch (e) { report("words: ran to the end", false, String(e).slice(0, 300)); }
+
+// batch 6 (W3): the server issues the number; the success line shows the server's (r.ticket_id / r.delivery_id), and
+// the device's own when an older server sends none (the b4-10 checks above).
+try {
+  const lastToast = () => page.evaluate(() => { const t = [...document.querySelectorAll(".eikon-toast")]; return t.length ? t[t.length - 1].textContent : ""; });
+  todayState.serverNo = true;
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(base + "&ui=2#tickets");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "tktreg" && document.querySelector(".tkt-top [data-act=add]"), null, { timeout: 15000 });
+  await page.click(".tkt-top [data-act=add]"); await page.waitForSelector("#tkt-add");
+  await page.fill("#tkt-add [name=client_name]", "Ċachia Marija"); await page.fill("#tkt-add [name=issue]", "Is the repeat ready?");
+  await page.click("#tkt-add button[type=submit]"); await page.waitForTimeout(800);
+  const tT = await lastToast();
+  await page.goto(base + "&ui=2#deliveries");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "dlvreg" && document.querySelector(".dlv-top [data-act=add]"), null, { timeout: 15000 });
+  await page.click(".dlv-top [data-act=add]"); await page.waitForSelector("#dlv-add");
+  await page.fill("#dlv-add [name=client_name]", "Żammit Ġorġ"); await page.fill("#dlv-add [name=phone]", "79111333"); await page.fill("#dlv-add [name=delivery_address]", "Triq il-Kbira, Qormi");
+  await page.click("#dlv-add button[type=submit]");
+  await page.waitForFunction(() => !document.querySelector("#dlv-add") || document.querySelector("[role=alertdialog]"), null, { timeout: 8000 }).catch(() => {});
+  for (let i = 0; i < 3; i++) { const b = await page.$("[role=alertdialog] [data-epc=no], [role=alertdialog] [data-epc=skip], [role=alertdialog] [data-epc=go]"); if (!b) break; await b.click(); await page.waitForTimeout(400); }
+  await page.waitForTimeout(600);
+  const dT = await lastToast();
+  report("batch 6 (W3): Questions and Deliveries say the server's number (TKT-00090 / DEL-00090), not the one the device sent",
+    /Saved · question for .* · TKT-00090/.test(tT) && /Saved · delivery for .* · DEL-00090/.test(dT), JSON.stringify({ tT, dT }));
+} catch (e) { report("batch 6 (W3): ran to the end", false, String(e).slice(0, 300)); }
+todayState.serverNo = false;
 
 // screenshot for the review (reset the mock so the screen shows a morning with work to do)
 todayState = { tempDone: false, cleanDone: false };

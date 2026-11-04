@@ -523,7 +523,7 @@
       body.ticket_id = await nextId();
       var r = await E.apiFetch("/client-tickets/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.adding = null; S.carry = null; S.fe = {}; setLastCat(body.category); E.toast("Saved · question for " + body.client_name + " · " + body.ticket_id, "success"); var added = true;
+      S.adding = null; S.carry = null; S.fe = {}; setLastCat(body.category); E.toast("Saved · question for " + body.client_name + " · " + (r.ticket_id || body.ticket_id), "success"); var added = true;
       if (E.linkPerson) E.linkPerson({ name: body.client_name, phone: body.phone }, "register:questions"); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; await load();

@@ -497,7 +497,7 @@
       body.delivery_id = await nextId(); // taken at the last moment: going back from the ID-card question uses no number
       var r = await E.apiFetch("/client-deliveries/entries", { method: "POST", body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
-      S.adding = null; S.carry = null; S.fe = {}; E.toast("Saved · delivery for " + body.client_name + " · " + body.delivery_id, "success"); var added = true;
+      S.adding = null; S.carry = null; S.fe = {}; E.toast("Saved · delivery for " + body.client_name + " · " + (r.delivery_id || body.delivery_id), "success"); var added = true;
       if (E.linkPerson) E.linkPerson({ name: body.client_name, phone: body.phone, address: body.delivery_address, id_card: idc }, "register:deliveries", asked); // one person in Customers, found or added
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; await load();

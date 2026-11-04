@@ -7,7 +7,7 @@
 // must not show the row. Then A must still be able to change and delete its own row.
 //
 // The second half pins down what a group shares ON PURPOSE (Cherubino head office, stock transfers,
-// scarce stock, board 'org'/'all' messages (board.test.mjs), shared contact lists, quotations' "All our pharmacies",
+// scarce stock (offers inside the group only since batch 6; needs to everyone), board 'org'/'all' messages (board.test.mjs), shared contact lists, quotations' "All our pharmacies",
 // order-diary item suggestions, the company-admin overview, the POS catalogue fallback). Those must
 // keep working exactly as before.
 import { test, eq, ok } from "./lib.mjs";
@@ -334,12 +334,13 @@ test("isolation, group sharing kept: stock transfers between branches of a group
   eq((await api("PUT", "/stock-transfers/items/" + itemId, { token: T.branch, body: { quantity_available: 1 } })).status, 403, "only the owner edits the item (as before)");
 });
 
-test("isolation, group sharing kept: scarce stock offers and needs are seen by every pharmacy", async (app) => {
+test("isolation, group sharing kept: scarce stock offers are seen inside the group only (batch 6), needs by every pharmacy", async (app) => {
   const { api } = app;
   const T = await world(app);
   const of = await api("POST", "/scarce-stock/offers", { token: T.A, body: { entry_date: D, item_name: "Ozempic", quantity_available: 2, expiry_date: "2027-06-30" } });
   eq(of.status, 200, of.text);
-  for (const who of ["branch", "stranger"]) ok((await api("GET", "/scarce-stock/offers", { token: T[who] })).text.includes("Ozempic"), who + " sees the offer");
+  ok((await api("GET", "/scarce-stock/offers", { token: T.branch })).text.includes("Ozempic"), "branch (same group) sees the offer");
+  ok(!(await api("GET", "/scarce-stock/offers", { token: T.stranger })).text.includes("Ozempic"), "another group does not (batch 6, W4)");
   const nd = await api("POST", "/scarce-stock/needs", { token: T.A, body: { entry_date: D, item_name: "Mounjaro", quantity_needed: 1 } });
   eq(nd.status, 200, nd.text);
   for (const who of ["branch", "stranger"]) ok((await api("GET", "/scarce-stock/needs", { token: T[who] })).text.includes("Mounjaro"), who + " sees the need");

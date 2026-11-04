@@ -36,7 +36,7 @@ export default {
     const ca = t.row(T, a), nb = t.row(T, b);
     t.has("change(new)", nb, { delivery_address: "14 Triq il-Ħamrun, Żebbuġ", scheduled_date: ymd(2), scheduled_time_slot: "Morning", cold_chain_required: 1, email: "censina@example.mt", tracking_number: "TRK1", delivery_attempts: 1, failure_reason: "Not home", internal_notes: "Ring twice", delivery_log: seed().delivery_log });
     t.ok(nb && nb.items === JSON.stringify([{ name: "Insulin pens", qty: 2, schedule: "OTC", batch_ref: "B12", expiry: "2027-01" }, { name: "Panadol", qty: 1, schedule: "OTC", batch_ref: "", expiry: "" }]), "change(new): the item kept its batch and expiry, the new one is the classic default: " + (nb && nb.items));
-    t.same("change", ca, nb);
+    t.same("change", ca, nb, { delivery_id: "batch 6 (W3): the two rows were seeded with the same number; the server gave the second the next one" });
 
     // 2. A change to one field only: the new screen keeps what the classic edit has no field for.
     [a, b] = await two({ id_doc_ref: "123456M", assigned_driver: "Joe Abela", contains_controlled: 1 });
@@ -45,6 +45,7 @@ export default {
     const ca2 = t.row(T, a), nb2 = t.row(T, b);
     t.has("keep(new)", nb2, { scheduled_time_slot: "Evening", id_doc_ref: "123456M", assigned_driver: "Joe Abela", contains_controlled: 1 });
     t.same("keep", ca2, nb2, {
+      delivery_id: "batch 6 (W3): the two rows were seeded with the same number; the server gave the second the next one",
       id_doc_ref: "the classic edit sends #dv-id-doc, a field its form does not have, so it empties the ID document; the new screen keeps it",
       assigned_driver: "the classic edit's driver list is this browser's; a driver it does not list is emptied; the new screen keeps it",
       contains_controlled: "the classic edit has no controlled-drug box and clears the flag unless an item is CD; the new screen keeps it",

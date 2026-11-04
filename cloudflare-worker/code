@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-03-batch-5";
+const WORKER_VERSION = "2026-11-04-batch-6";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -3723,7 +3723,7 @@ async function handleClientOrdersEntriesList(request, env, corsOkHeaders, authUs
       ${hasFulfilled ? "AND fulfilled = ?" : ""}
       ${hasQ ? `AND (
         order_date LIKE ?
-        OR client_name LIKE ?
+        OR ${mtFoldSql("client_name")} LIKE ?
         OR client_phone LIKE ?
         OR client_email LIKE ?
         OR client_address LIKE ?
@@ -3737,7 +3737,7 @@ async function handleClientOrdersEntriesList(request, env, corsOkHeaders, authUs
 
   const bind = [authUser.org_id, authUser.location_id, range.startStr, range.endStr];
   if (hasFulfilled) bind.push(fulfilledVal);
-  if (hasQ) bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+  if (hasQ) bind.push(qLike, mtFoldText(qLike), qLike, qLike, qLike, qLike, qLike, qLike, qLike); // W2: the name with Maltese letters folded
 
   const rows = await dbAll(env, sql, bind);
   const entries = rows.map(clientOrderRowToUi);
@@ -4066,6 +4066,7 @@ async function ensureClientTicketsSchema__impl(env) {
   // Indexes — covering the most common query patterns
   const indexes = [
     "CREATE INDEX IF NOT EXISTS idx_client_tickets_org_loc_date     ON client_tickets_entries (org_id, location_id, open_date)",
+    "CREATE INDEX IF NOT EXISTS idx_client_tickets_org_loc_ticket_id ON client_tickets_entries (org_id, location_id, ticket_id)", // W3: the number check and the next number
     "CREATE INDEX IF NOT EXISTS idx_client_tickets_org_loc_status   ON client_tickets_entries (org_id, location_id, resolved, open_date)",
     "CREATE INDEX IF NOT EXISTS idx_client_tickets_org_loc_priority ON client_tickets_entries (org_id, location_id, priority)",
     "CREATE INDEX IF NOT EXISTS idx_client_tickets_org_loc_client   ON client_tickets_entries (org_id, location_id, client_name)",
@@ -4146,7 +4147,7 @@ async function handleClientTicketsEntriesList(request, env, corsOkHeaders, authU
       ${hasResolved ? "AND resolved = ?" : ""}
       ${hasQ ? `AND (
         ticket_id    LIKE ?
-        OR client_name   LIKE ?
+        OR ${mtFoldSql("client_name")} LIKE ?
         OR phone         LIKE ?
         OR email         LIKE ?
         OR category      LIKE ?
@@ -4159,7 +4160,7 @@ async function handleClientTicketsEntriesList(request, env, corsOkHeaders, authU
 
   const bind = [authUser.org_id, authUser.location_id];
   if (hasResolved) bind.push(resolvedVal);
-  if (hasQ)        bind.push(qLike, qLike, qLike, qLike, qLike, qLike, qLike, qLike);
+  if (hasQ)        bind.push(qLike, mtFoldText(qLike), qLike, qLike, qLike, qLike, qLike, qLike); // W2
 
   const rows    = await dbAll(env, sql, bind);
   const entries = rows.map(clientTicketRowToUi);
@@ -4168,6 +4169,16 @@ async function handleClientTicketsEntriesList(request, env, corsOkHeaders, authU
 }
 
 // --------------- CREATE ---------------------------------------
+
+// W3: SQL for the number a new question/delivery gets, inside INSERT ... SELECT. Binds: ?1 org, ?2 location, ?3 the
+// number the device sent ('' when none). Kept when not empty and not already used in this pharmacy; otherwise prefix +
+// five digits, one above the highest number with that prefix stored in this pharmacy (TKT-00001 twice still gives TKT-00002).
+function serverNumberSql(table, col, prefix) {
+  const p = "'" + prefix + "'";
+  return "(CASE WHEN ?3 <> '' AND NOT EXISTS (SELECT 1 FROM " + table + " WHERE org_id = ?1 AND location_id = ?2 AND " + col + " = ?3) THEN ?3" +
+    " ELSE " + p + " || printf('%05d', COALESCE((SELECT MAX(CAST(SUBSTR(" + col + ", " + (prefix.length + 1) + ") AS INTEGER)) FROM " + table +
+    " WHERE org_id = ?1 AND location_id = ?2 AND " + col + " GLOB '" + prefix + "[0-9]*'), 0) + 1) END)";
+}
 
 async function handleClientTicketsEntryCreate(request, env, corsOkHeaders, authUser) {
   if (!requireRole(authUser, ["admin", "staff"])) {
@@ -4212,27 +4223,31 @@ async function handleClientTicketsEntryCreate(request, env, corsOkHeaders, authU
     return jsonResponse({ ok: false, error: "notes_log must be a JSON array string" }, 400, corsOkHeaders);
   }
 
+  // W3: the server issues the number. One statement (D1 runs it alone, so two devices saving at once cannot both take
+  // the same number): the number the device sent is kept when this pharmacy has not used it, otherwise (or when none
+  // was sent) the next one above the highest TKT- number stored here. Existing rows are never renumbered.
   const row = await dbFirst(
     env,
     `INSERT INTO client_tickets_entries
       (org_id, location_id, ticket_id, open_date, client_name, phone, email,
        category, priority, status, issue, assigned_to, followup_date,
        notes_log, resolved, resolved_at, created_by, created_at, updated_at)
-     VALUES
-      (?, ?, ?, ?, ?, ?, ?,  ?, ?, ?, ?, ?, ?,  ?, ?, ?, ?, datetime('now'), datetime('now'))
-     RETURNING id`,
+     SELECT
+      ?1, ?2, ${serverNumberSql("client_tickets_entries", "ticket_id", "TKT-")}, ?4, ?5, ?6, ?7,  ?8, ?9, ?10, ?11, ?12, ?13,  ?14, ?15, ?16, ?17, datetime('now'), datetime('now')
+     RETURNING id, ticket_id`,
     [
       authUser.org_id, authUser.location_id, ticketId, openDate, clientName, phone, email,
       category, priority, status, issue, assignedTo, followupDate,
       notesLog, resolved, resolvedAt, authUser.user_id
     ]
   );
+  const issuedTicketId = String(row.ticket_id || "");
 
   await writeAudit(env, authUser.org_id, authUser.user_id, "CLIENT_TICKET_CREATE", "client_tickets_entries", String(row.id), {
-    ticket_id: ticketId, client_name: clientName, priority, status
+    ticket_id: issuedTicketId, ...(issuedTicketId !== ticketId ? { ticket_id_sent: ticketId } : {}), client_name: clientName, priority, status
   }, authUser.location_id);
 
-  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+  return jsonResponse({ ok: true, entry_id: row.id, ticket_id: issuedTicketId }, 200, corsOkHeaders);
 }
 
 // --------------- UPDATE ---------------------------------------
@@ -5442,7 +5457,7 @@ async function handleNearExpiryCreateReturn(request, env, corsOkHeaders, authUse
   // Prevent duplicate returns
   if (ne.return_id) return jsonResponse({ ok: false, error: "A return already exists for this item" }, 409, corsOkHeaders);
 
-  const entryDate = new Date().toISOString().slice(0, 10);
+  const entryDate = tzYmd(); // the pharmacy's (Malta's) day, not UTC's
 
   // Create the return entry
   const res = await dbRun(env, `
@@ -5508,7 +5523,7 @@ async function handleNearExpiryCreateReturnsBulk(request, env, corsOkHeaders, au
   if (!ids.length) return jsonResponse({ ok: false, error: "No items selected" }, 400, corsOkHeaders);
   if (ids.length > 100) return jsonResponse({ ok: false, error: "Too many items (max 100)" }, 400, corsOkHeaders);
 
-  const entryDate = new Date().toISOString().slice(0, 10);
+  const entryDate = tzYmd(); // the pharmacy's (Malta's) day, not UTC's
   const returnIds = [];
   let skipped = 0;
 
@@ -7380,7 +7395,7 @@ async function handleReturnsEntriesList(request, env, corsOkHeaders, authUser, u
     bind.push(month + "-%");
   }
   // open=1: what still needs doing (no credit note yet) plus the last 60 days, instead of the whole history.
-  if (url.searchParams.get("open") === "1") where += " AND (COALESCE(credit_note_received,0)=0 OR entry_date >= date('now','-60 days'))";
+  if (url.searchParams.get("open") === "1") { where += " AND (COALESCE(credit_note_received,0)=0 OR entry_date >= ?)"; bind.push(ymdPlusDays(tzYmd(), -60)); }
 
   if (qRaw) {
     const like = "%" + qRaw + "%";
@@ -7686,6 +7701,7 @@ async function ensureDeliveriesSchema__impl(env) {
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_client_deliveries_org_loc ON client_deliveries(org_id, location_id)`);
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_client_deliveries_org_loc_status ON client_deliveries(org_id, location_id, status)`);
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_client_deliveries_org_loc_order_date ON client_deliveries(org_id, location_id, order_date)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_client_deliveries_org_loc_delivery_id ON client_deliveries(org_id, location_id, delivery_id)`); // W3
 }
 
 async function handleDeliveriesEntriesList(request, env, corsOkHeaders, authUser, url) {
@@ -7761,7 +7777,8 @@ async function handleDeliveriesEntryCreate(request, env, corsOkHeaders, authUser
   if (!delivery_address) return jsonResponse({ ok: false, error: "Delivery address required" }, 400, corsOkHeaders);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(order_date)) return jsonResponse({ ok: false, error: "Invalid order_date" }, 400, corsOkHeaders);
 
-  const res = await dbRun(env, `
+  // W3: the server issues the number (see handleClientTicketsEntryCreate): the device's when unused here, else the next DEL-.
+  const res = await dbFirst(env, `
     INSERT INTO client_deliveries (
       org_id, location_id,
       delivery_id, order_date, scheduled_date, scheduled_time_slot,
@@ -7773,9 +7790,9 @@ async function handleDeliveriesEntryCreate(request, env, corsOkHeaders, authUser
       contains_controlled, cold_chain_required,
       ticket_ref, items, delivery_log, internal_notes,
       created_at, updated_at, created_by, updated_by
-    ) VALUES (
-      ?, ?,
-      ?, ?, ?, ?,
+    ) SELECT
+      ?1, ?2,
+      ${serverNumberSql("client_deliveries", "delivery_id", "DEL-")}, ?, ?, ?,
       ?, ?,
       ?, ?, ?, ?, ?, ?,
       ?, ?, ?, ?, ?,
@@ -7784,7 +7801,7 @@ async function handleDeliveriesEntryCreate(request, env, corsOkHeaders, authUser
       ?, ?,
       ?, ?, ?, ?,
       datetime('now'), datetime('now'), ?, ?
-    )
+    RETURNING id, delivery_id
   `, [
     authUser.org_id, authUser.location_id,
     delivery_id, order_date, scheduled_date, scheduled_time_slot,
@@ -7798,10 +7815,11 @@ async function handleDeliveriesEntryCreate(request, env, corsOkHeaders, authUser
     authUser.user_id, authUser.user_id
   ]);
 
-  const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DELIVERY_CREATE", "client_deliveries", String(newId || ""), { delivery_id, client_name, status }, authUser.location_id);
+  const newId = res && res.id != null ? Number(res.id) : null;
+  const issuedDeliveryId = String((res && res.delivery_id) || "");
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DELIVERY_CREATE", "client_deliveries", String(newId || ""), { delivery_id: issuedDeliveryId, ...(issuedDeliveryId !== delivery_id ? { delivery_id_sent: delivery_id } : {}), client_name, status }, authUser.location_id);
 
-  return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
+  return jsonResponse({ ok: true, id: newId, delivery_id: issuedDeliveryId }, 200, corsOkHeaders);
 }
 
 async function handleDeliveriesEntryUpdate(request, env, corsOkHeaders, authUser, id) {
@@ -8433,9 +8451,9 @@ async function handleDdaSalesClientsSearch(request, env, corsOkHeaders, authUser
   if (qRaw) {
     const q = "%" + qRaw.toLowerCase() + "%";
     const cardKeys = /^\d{1,7}[A-Za-z]$/.test(qRaw.replace(/\s+/g, "")) ? mtIdCardLookupKeys(qRaw) : [];
-    sql += " AND (LOWER(client_name) LIKE ? OR LOWER(client_id_card) LIKE ? OR LOWER(client_address) LIKE ?" +
+    sql += " AND (" + mtFoldSql("LOWER(client_name)") + " LIKE ? OR LOWER(client_id_card) LIKE ? OR LOWER(client_address) LIKE ?" +
       (cardKeys.length ? " OR upper(replace(client_id_card, ' ', '')) IN (" + cardKeys.map(() => "?").join(", ") + ")" : "") + ") ";
-    bind.push(q, q, q, ...cardKeys);
+    bind.push(mtFoldText(q), q, q, ...cardKeys); // W2
   }
 
   sql += `
@@ -11563,6 +11581,11 @@ function ssText(v, max) {
 }
 function ssBool01(v) { return (v === 1 || v === "1" || v === true) ? 1 : 0; }
 
+// W4: scarce stock offers are shared inside a group only. A group (a chain) is one org: orgs.id, the org_id every
+// location and sign-in belongs to (the same rule Stock transfers use). A pharmacy alone in its org sees only its own.
+// Location numbers (the 400-599 supplier and 600-900 company-admin ranges) and group data are not touched or read.
+function ssSameGroup(authUser, orgId) { return Number(authUser.org_id) === Number(orgId); }
+
 function ssCanSeeSensitive(authUser, aOrg, aLoc, bOrg, bLoc) {
   const uOrg = authUser.org_id, uLoc = authUser.location_id;
   const isA = (uOrg === aOrg && uLoc === aLoc);
@@ -11613,7 +11636,7 @@ async function handleScarceOffersList(request, env, corsOkHeaders, authUser, url
 
   // Auto-migrate expired offers owned by this location into Near Expiry
   await ensureNearExpirySchema(env);
-  const todayYmd = new Date().toISOString().slice(0, 10);
+  const todayYmd = tzYmd();
   const expiredOwn = await dbAll(env, `
     SELECT id, item_name, expiry_date, batch, near_expiry_id
     FROM scarce_stock_offers
@@ -11688,10 +11711,10 @@ async function handleScarceOffersList(request, env, corsOkHeaders, authUser, url
     JOIN orgs org ON org.id = o.org_id
     JOIN locations loc ON loc.id = o.location_id
     LEFT JOIN scarce_stock_offer_requests r ON r.offer_id = o.id
-    ${openOnly ? "WHERE o.is_closed = 0" : ""}
+    WHERE o.org_id = ?${openOnly ? " AND o.is_closed = 0" : ""}
     GROUP BY o.id
     ORDER BY o.is_closed ASC, o.entry_date DESC, o.id DESC
-  `, []);
+  `, [authUser.org_id]); // W4: this pharmacy's group only
 
   const offerIds = offersBase.map(x => Number(x.id)).filter(n => Number.isFinite(n) && n > 0);
   let reqRows = [];
@@ -11704,9 +11727,9 @@ async function handleScarceOffersList(request, env, corsOkHeaders, authUser, url
       FROM scarce_stock_offer_requests r
       JOIN orgs org ON org.id = r.requester_org_id
       JOIN locations loc ON loc.id = r.requester_location_id
-      WHERE r.offer_id IN (SELECT id FROM scarce_stock_offers${openOnly ? " WHERE is_closed = 0" : ""})
+      WHERE r.offer_id IN (SELECT id FROM scarce_stock_offers WHERE org_id = ?${openOnly ? " AND is_closed = 0" : ""})
       ORDER BY r.created_at ASC, r.id ASC
-    `, []); // a subquery, not one bound parameter per offer (D1 allows at most 100)
+    `, [authUser.org_id]); // a subquery, not one bound parameter per offer (D1 allows at most 100)
   }
 
   const reqByOffer = new Map();
@@ -11798,7 +11821,7 @@ async function handleScarceOfferCreate(request, env, corsOkHeaders, authUser) {
     if (!neRow) return jsonResponse({ ok: false, error: "Near expiry item not found" }, 404, corsOkHeaders);
     if (neRow.scarce_stock_offer_id) return jsonResponse({ ok: false, error: "This item is already in Scarce Stock" }, 409, corsOkHeaders);
     if (neRow.expiry_date) {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = tzYmd();
       if (neRow.expiry_date <= today) return jsonResponse({ ok: false, error: "Cannot add expired item to Scarce Stock" }, 400, corsOkHeaders);
     }
   }
@@ -11936,7 +11959,7 @@ async function handleScarceOfferRequestCreate(request, env, corsOkHeaders, authU
   if (!Number.isFinite(id) || id <= 0) return jsonResponse({ ok: false, error: "Invalid offer id" }, 400, corsOkHeaders);
 
   const offer = await dbFirst(env, `SELECT id, is_closed, org_id, location_id, quantity_available FROM scarce_stock_offers WHERE id = ?`, [id]);
-  if (!offer) return jsonResponse({ ok: false, error: "Offer not found" }, 404, corsOkHeaders);
+  if (!offer || !ssSameGroup(authUser, offer.org_id)) return jsonResponse({ ok: false, error: "Offer not found" }, 404, corsOkHeaders); // W4: another group's offer is not there for this pharmacy
   if (Number(offer.is_closed || 0) === 1) return jsonResponse({ ok: false, error: "Offer is closed" }, 400, corsOkHeaders);
   if (offer.org_id === authUser.org_id && offer.location_id === authUser.location_id) {
     return jsonResponse({ ok: false, error: "You cannot request your own offer" }, 400, corsOkHeaders);
@@ -11985,6 +12008,9 @@ async function handleScarceOfferRequestUpdate(request, env, corsOkHeaders, authU
   if (!(existing.requester_org_id === authUser.org_id && existing.requester_location_id === authUser.location_id)) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   }
+  // W4: a request made earlier on another group's offer can still be withdrawn (DELETE), not changed.
+  const offerOf = await dbFirst(env, "SELECT org_id FROM scarce_stock_offers WHERE id = ?", [existing.offer_id]);
+  if (!offerOf || !ssSameGroup(authUser, offerOf.org_id)) return jsonResponse({ ok: false, error: "Offer not found" }, 404, corsOkHeaders);
 
   const body = await readJson(request);
   const qty = ssIntNonNeg(body.quantity_requested);
@@ -12409,7 +12435,7 @@ async function handleScarceOfferPlaceOnTransfer(request, env, corsOkHeaders, aut
   if (offer.is_closed) return jsonResponse({ ok: false, error: "Offer is closed" }, 400, corsOkHeaders);
   if (offer.transfer_item_id) return jsonResponse({ ok: false, error: "Already placed on Transfer" }, 409, corsOkHeaders);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = tzYmd();
   if (offer.expiry_date && offer.expiry_date < todayStr) {
     return jsonResponse({ ok: false, error: "Expired items cannot be placed for transfer" }, 400, corsOkHeaders);
   }
@@ -12497,7 +12523,7 @@ function isValidYmdSt(s) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
 }
 function todayYmdSt() {
-  return new Date().toISOString().slice(0, 10);
+  return tzYmd();
 }
 
 // ----- List all transfer items (visible to same org)
@@ -13704,8 +13730,8 @@ async function handleShiftStaffDelete(request, env, corsOkHeaders, authUser, sta
 
 async function handleShiftAssignmentsList(request, env, corsOkHeaders, authUser, url) {
   await ensureShiftsSchema(env);
-  const year = parseInt(url.searchParams.get("year") || new Date().getFullYear());
-  const month = parseInt(url.searchParams.get("month") || new Date().getMonth() + 1);
+  const year = parseInt(url.searchParams.get("year") || tzYmd().slice(0, 4));
+  const month = parseInt(url.searchParams.get("month") || tzYmd().slice(5, 7));
   if (!year || !month) return jsonResponse({ ok: false, error: "year and month required" }, 400, corsOkHeaders);
   const from = `${year}-${String(month).padStart(2,"0")}-01`;
   const nextM = month === 12 ? `${year+1}-01-01` : `${year}-${String(month+1).padStart(2,"0")}-01`;
@@ -13872,7 +13898,7 @@ async function handleShiftApplyPattern(request, env, corsOkHeaders, authUser) {
 
 async function handleShiftLeavesList(request, env, corsOkHeaders, authUser, url) {
   await ensureShiftsSchema(env);
-  const year = parseInt(url.searchParams.get("year") || new Date().getFullYear());
+  const year = parseInt(url.searchParams.get("year") || tzYmd().slice(0, 4));
   const from = `${year}-01-01`, to = `${year}-12-31`;
   const leaves = await dbAll(env,
     `SELECT id, staff_id, leave_type, start_date, start_time, end_date, end_time,
@@ -14907,8 +14933,8 @@ async function handleApptList(request, env, corsOkHeaders, authUser, url) {
   if (status && VALID_APPT_STATUSES.includes(status)) { where.push("status=?"); bind.push(status); }
   if (q) {
     const qLike = `%${q}%`;
-    where.push("(patient_name LIKE ? OR patient_id_card LIKE ? OR patient_phone LIKE ? OR appt_ref LIKE ? OR medicines LIKE ? OR notes LIKE ?)");
-    bind.push(qLike, qLike, qLike, qLike, qLike, qLike);
+    where.push("(" + mtFoldSql("patient_name") + " LIKE ? OR patient_id_card LIKE ? OR patient_phone LIKE ? OR appt_ref LIKE ? OR medicines LIKE ? OR notes LIKE ?)");
+    bind.push(mtFoldText(qLike), qLike, qLike, qLike, qLike, qLike); // W2
   }
 
   bind.push(limit);
@@ -15138,8 +15164,8 @@ async function handleApptWaitlistList(request, env, corsOkHeaders, authUser, url
   if (doctorId) { where.push("doctor_id=?"); bind.push(Number(doctorId)); }
   if (q) {
     const qLike = `%${q}%`;
-    where.push("(patient_name LIKE ? OR patient_id_card LIKE ? OR patient_phone LIKE ? OR wl_ref LIKE ? OR preferred_dates LIKE ? OR notes LIKE ?)");
-    bind.push(qLike, qLike, qLike, qLike, qLike, qLike);
+    where.push("(" + mtFoldSql("patient_name") + " LIKE ? OR patient_id_card LIKE ? OR patient_phone LIKE ? OR wl_ref LIKE ? OR preferred_dates LIKE ? OR notes LIKE ?)");
+    bind.push(mtFoldText(qLike), qLike, qLike, qLike, qLike, qLike); // W2
   }
 
   const rows = await dbAll(env,
@@ -15188,10 +15214,10 @@ async function handleApptWaitlistCreate(request, env, corsOkHeaders, authUser) {
     `INSERT INTO appt_waitlist
       (org_id, location_id, wl_ref, patient_name, patient_id_card, patient_phone, patient_email,
        doctor_id, clinic_id, preferred_dates, flexibility, notes, added_date, created_by)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,COALESCE(?,date('now')),?) RETURNING id`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,COALESCE(?,?),?) RETURNING id`,
     [authUser.org_id, authUser.location_id, "",
      patientName, patientIdCard, patientPhone, patientEmail,
-     doctorId, clinicId, preferredDates, flexibility, notes, addedDate, authUser.user_id]);
+     doctorId, clinicId, preferredDates, flexibility, notes, addedDate, tzYmd(), authUser.user_id]);
 
   const wlRef = buildWlRef(row.id);
   await dbRun(env, `UPDATE appt_waitlist SET wl_ref=? WHERE id=?`, [wlRef, row.id]);
@@ -16255,15 +16281,23 @@ function personKey(idCard, name) {
   return n ? "name:" + n : "";
 }
 
+// W2: Maltese letters in name searches. ċ ġ ħ ż (and Ċ Ġ Ħ Ż) count as c g h z, in the query and in the stored name,
+// so "cachia" finds Ċachia and "zammit" Żammit. No schema change: the stored name is folded in the query itself
+// (eight nested REPLACEs). A name or query without those letters compares exactly as before.
+const MT_FOLD_PAIRS = [["ċ", "c"], ["Ċ", "c"], ["ġ", "g"], ["Ġ", "g"], ["ħ", "h"], ["Ħ", "h"], ["ż", "z"], ["Ż", "z"]];
+function mtFoldText(s) { let out = String(s == null ? "" : s); for (const [a, b] of MT_FOLD_PAIRS) out = out.split(a).join(b); return out; }
+function mtFoldSql(expr) { let out = expr; for (const [a, b] of MT_FOLD_PAIRS) out = "replace(" + out + ", '" + a + "', '" + b + "')"; return out; }
+
 function peopleQueryParts(q) {
   const raw = String(q || "").trim();
   const like = "%" + raw.toLowerCase() + "%";
+  const nameLike = "%" + mtFoldText(raw.toLowerCase()) + "%"; // W2: for name columns only
   const digits = raw.replace(/\D+/g, "");
   // Only a query made of digits (and phone punctuation) is tried against phone numbers;
   // "123456M" is an ID card, not a phone.
   const phoneLike = digits.length >= 3 && /^[\d\s+\-()]+$/.test(raw) ? "%" + digits + "%" : null;
   const idc = /^\d{1,7}[A-Za-z]$/.test(raw.replace(/\s+/g, "")) ? normalizeMtIdCard(raw) : "";
-  return { raw, like, phoneLike, idc };
+  return { raw, like, nameLike, phoneLike, idc };
 }
 
 function peopleRowToPerson(r) {
@@ -16304,7 +16338,7 @@ async function handlePeopleSearch(request, env, corsOkHeaders, authUser) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   const url = new URL(request.url);
   const org = authUser.org_id, loc = authUser.location_id;
-  const { raw, like, phoneLike, idc } = peopleQueryParts(url.searchParams.get("q"));
+  const { raw, like, nameLike, phoneLike, idc } = peopleQueryParts(url.searchParams.get("q"));
   const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 20)));
   await ensurePeopleSchema(env);
 
@@ -16313,8 +16347,8 @@ async function handlePeopleSearch(request, env, corsOkHeaders, authUser) {
     return jsonResponse({ ok: true, q: raw, people: recent.map(peopleRowToPerson), history: [] }, 200, corsOkHeaders);
   }
 
-  const where = ["LOWER(name) LIKE ?", "LOWER(id_card) LIKE ?", "LOWER(email) LIKE ?"];
-  const bind = [org, loc, like, like, like];
+  const where = [mtFoldSql("LOWER(name)") + " LIKE ?", "LOWER(id_card) LIKE ?", "LOWER(email) LIKE ?"];
+  const bind = [org, loc, nameLike, like, like];
   if (phoneLike) { where.push("replace(replace(phone, ' ', ''), '+', '') LIKE ?", "replace(replace(alt_phone, ' ', ''), '+', '') LIKE ?"); bind.push(phoneLike, phoneLike); }
   if (idc) { where.push("id_card = ?"); bind.push(idc); }
   bind.push(limit);
@@ -16323,8 +16357,8 @@ async function handlePeopleSearch(request, env, corsOkHeaders, authUser) {
   // The eleven sources are independent reads: sent together, so a keystroke waits for one D1 round trip, not eleven.
   // Results keep PEOPLE_SOURCES order, as before.
   const rowsByKind = (await Promise.all(PEOPLE_SOURCES.map(async (src) => {
-    const conds = ["LOWER(" + src.name + ") LIKE ?"];
-    const b = [org, loc, like];
+    const conds = [mtFoldSql("LOWER(" + src.name + ")") + " LIKE ?"];
+    const b = [org, loc, nameLike];
     if (src.id_card) { conds.push("LOWER(" + src.id_card + ") LIKE ?"); b.push(like); if (idc) { const ks = mtIdCardLookupKeys(idc); conds.push("upper(replace(" + src.id_card + ", ' ', '')) IN (" + ks.map(() => "?").join(",") + ")"); b.push(...ks); } }
     if (src.phone && phoneLike) { conds.push("replace(replace(" + src.phone + ", ' ', ''), '+', '') LIKE ?"); b.push(phoneLike); }
     try {
@@ -19448,9 +19482,9 @@ async function handleLoyaltyClientsList(request, env, corsOkHeaders, authUser, u
     rows = await dbAll(env,
       `SELECT id, id_card, name, created_at, updated_at
        FROM loyalty_clients
-       WHERE org_id=? AND location_id=? AND (id_card LIKE ? OR name LIKE ?)
+       WHERE org_id=? AND location_id=? AND (id_card LIKE ? OR ${mtFoldSql("name")} LIKE ?)
        ORDER BY name ASC LIMIT 200`,
-      [authUser.org_id, authUser.location_id, like, like]);
+      [authUser.org_id, authUser.location_id, like, mtFoldText(like)]); // W2
   } else {
     rows = await dbAll(env,
       `SELECT id, id_card, name, created_at, updated_at
@@ -19627,7 +19661,7 @@ async function handleLoyaltyTransactionCreate(request, env, corsOkHeaders, authU
     [campaignId, authUser.org_id, authUser.location_id]);
   if (!camp) return jsonResponse({ ok: false, error: "Campaign not found" }, 404, corsOkHeaders);
 
-  const txnDate    = String(body.date || body.txn_date || "").trim() || new Date().toISOString().slice(0,10);
+  const txnDate    = String(body.date || body.txn_date || "").trim() || tzYmd();
   if (!isValidYmd(txnDate)) return jsonResponse({ ok: false, error: "Invalid date (YYYY-MM-DD)" }, 400, corsOkHeaders);
 
   const itemsJson = (() => {
@@ -20400,7 +20434,7 @@ async function handlePosCatalogClear(request, env, corsOkHeaders, authUser) {
 
 async function handlePosSalesList(request, env, corsOkHeaders, authUser, url) {
   await ensurePosSchema(env);
-  const date = (url.searchParams.get("date") || "").trim() || new Date().toISOString().slice(0, 10);
+  const date = (url.searchParams.get("date") || "").trim() || tzYmd();
   const rows = await dbAll(env, `SELECT id, sale_date, receipt_no, items_json, subtotal, vat_total, total,
     payment_method, amount_tendered, change_given, notes, client_name, client_id,
     offline_id, voided, voided_at, voided_reason, created_by, created_at
@@ -20437,7 +20471,7 @@ function posComputeSale(body) {
 async function handlePosSaleCreate(request, env, corsOkHeaders, authUser) {
   await ensurePosSchema(env);
   const body = await readJson(request);
-  const saleDate = String(body.sale_date || "").trim() || new Date().toISOString().slice(0, 10);
+  const saleDate = String(body.sale_date || "").trim() || tzYmd();
   const receiptNo = String(body.receipt_no || "").trim();
   const itemsJson = JSON.stringify(Array.isArray(body.items) ? body.items : []);
   // A retried sale (same offline_id) is answered idempotently before any validation.
@@ -20501,7 +20535,7 @@ async function handlePosSalesSync(request, env, corsOkHeaders, authUser) {
       const existing = await dbFirst(env, `SELECT id FROM pos_sales WHERE org_id=? AND location_id=? AND offline_id=?`,
         [authUser.org_id, authUser.location_id, offlineId]);
       if (existing) { results.push({ offline_id: offlineId, ok: true, id: existing.id, duplicate: true }); continue; }
-      const saleDate = String(s.sale_date || "").trim() || new Date().toISOString().slice(0, 10);
+      const saleDate = String(s.sale_date || "").trim() || tzYmd();
       const itemsJson = JSON.stringify(Array.isArray(s.items) ? s.items : []);
       // Queued offline sales are accepted (the money already changed hands) but recomputed;
       // a short cash sale is kept and flagged in the notes rather than lost.
@@ -21003,9 +21037,7 @@ async function handleAdminPharmacyOverview(request, env, corsOkHeaders, authUser
 
   const orgId = authUser.org_id;
   const now = new Date();
-  const todayStr = now.getUTCFullYear() + "-" +
-    String(now.getUTCMonth() + 1).padStart(2, "0") + "-" +
-    String(now.getUTCDate()).padStart(2, "0");
+  const todayStr = tzYmd(now); // the pharmacies' day (Malta), not UTC's
 
   // Parse month param (YYYY-MM), default to current month
   let monthParam = (url.searchParams.get("month") || "").trim();
@@ -21025,7 +21057,7 @@ async function handleAdminPharmacyOverview(request, env, corsOkHeaders, authUser
   // If viewing current month, count up to today; otherwise count the whole month
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate(); // last day of month
   const isCurrentMonth = monthParam === todayStr.slice(0, 7);
-  const countUpTo = isCurrentMonth ? now.getUTCDate() : lastDay;
+  const countUpTo = isCurrentMonth ? Number(todayStr.slice(8, 10)) : lastDay;
   let workingDays = 0;
   for (let d = 1; d <= countUpTo; d++) {
     const dt = new Date(Date.UTC(year, month - 1, d));
