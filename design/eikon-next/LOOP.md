@@ -1059,3 +1059,8 @@ All of it waits only on the worker deploy.
 
 - q5-8 (rebased onto 3daa3ad by its agent; tree checked equal): E.listPage draws 30 rows at a time with "Show 30 more" across Orders, Questions done, Deliveries, Credit notes, Repeat prescriptions, Contacts; 44 px phone targets; red badges and lit tab solid for contrast; title ring only after keys. Orders phone 16,859 → 4,837 px. UI 450/0, real 56/0, axe clean everywhere; worker 209/0.
 - Running: q5-10a (credit-note print, EOD deposit e-mail), q5-10b (alerts change/close, near-expiry offer, POCT print/change).
+
+## Round 147 — BACKLOG6 written; q6-1 and q6-2 started
+
+- Planner 6 walked .160 on a busy stack (Malta time): BACKLOG5's numbers all moved the right way. New top items: (1) typing must survive the error bar's Reload and a session that ends (the promise "What you typed is kept" isn't yet true there); (2) Bookings: staff can't move a booking, only 7 days visible, no refresh, and Settings' Done silently throws away changed hours (data loss); (3) errors in plain words (raw "D1_ERROR: database is locked" reaches staff); (4) Maltese names via a 2-letter stretch miss Ċachia/Ħaġġar (W2 now urgent); (5) one team / hours set once; (6) same number and word everywhere (Waiting 59/32/23); (7) screen reader titles/headings/"Open" names; (8) thumbs part 2; (9) Possible duplicates sends 60 requests; (10) Settings calm.
+- Started q6-1 and q6-2 (D2: moving a booking offers "Tell the customer by e-mail", on by default; D3: past bookings read-only — both reversible, for John). q5-10a/b/c still running.
