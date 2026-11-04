@@ -14,7 +14,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var state = { mount: null, q: "", results: null, loading: false, error: "", selected: null, detail: null, detailLoading: false, editing: false, saving: false, timer: null, seq: 0 };
+  var state = { mount: null, q: "", also: {}, results: null, loading: false, error: "", selected: null, detail: null, detailLoading: false, editing: false, saving: false, timer: null, seq: 0 };
 
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
   function initials(name) {
@@ -42,10 +42,17 @@
     if (diff > 1 && diff < 7) return d.toLocaleDateString("en-GB", { weekday: "long" });
     return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   }
+  // One word for every kind of record the server's people search returns (PEOPLE_SOURCES in the worker; a UI test
+  // reads that list, so a kind added there without a word here fails the suite). Unknown: "record", never "undefined".
+  var WORDS = { order: ["order", "orders"], question: ["question", "questions"], delivery: ["delivery", "deliveries"], dda_sale: ["DDA sale", "DDA sales"], poyc: ["POYC", "POYC"],
+    repeat: ["repeat prescription", "repeat prescriptions"], poct: ["POCT", "POCT"], loyalty: ["loyalty card", "loyalty cards"], appointment: ["appointment", "appointments"],
+    waitlist: ["waiting list", "waiting lists"], calculator: ["calculator record", "calculator records"], booking: ["booking", "bookings"], booking_waitlist: ["Bookings waiting list", "Bookings waiting lists"],
+    vaccine: ["vaccine order", "vaccine orders"], credit_note: ["credit note", "credit notes"], contact: ["contact", "contacts"] };
   function sourceWords(sources) {
-    var names = { order: "order", question: "question", delivery: "delivery", dda_sale: "DDA sale", poyc: "POYC", repeat: "repeat prescription", poct: "POCT", loyalty: "loyalty card", appointment: "appointment", waitlist: "waiting list", calculator: "calculator" };
-    return Object.keys(sources || {}).map(function (k) { var n = sources[k]; return n + " " + names[k] + (n === 1 || names[k].slice(-1) === "s" || k === "poyc" ? "" : "s"); }).join(", ");
+    return Object.keys(sources || {}).map(function (k) { var n = Number(sources[k]) || 0, w = WORDS[k] || ["record", "records"]; return n + " " + w[n === 1 ? 0 : 1]; }).join(", ");
   }
+  E.customersSourceWords = sourceWords; // for the tests
+  E.customersSourceKinds = Object.keys(WORDS);
   // A delivery's title comes as its stored item list (JSON): show the item names, never the raw text.
   function storyTitle(t) {
     var s = String(t || "").trim(); if (s.charAt(0) !== "[") return s;
@@ -55,7 +62,8 @@
   E.customersStoryTitle = storyTitle; // for the tests
   function kindMeta(kind) {
     return ({ order: ["Order", "#clientorders", "blu"], question: ["Question", "#tickets", "amb"], delivery: ["Delivery", "#deliveries", "blu"], dda_sale: ["DDA sale", "#dda-sales", "red"], poyc: ["POYC", "#dda-poyc", "red"],
-      repeat: ["Repeat prescription", "#repeatprescriptions", "grn"], poct: ["POCT", "#poct", "grn"], loyalty: ["Loyalty", "#loyalty", "gry"], appointment: ["Appointment", "#appointments", "blu"], waitlist: ["Waiting list", "#appointments", "gry"], calculator: ["Calculator", "#pharmacycalc", "gry"] })[kind] || [kind, "#dashboard", "gry"];
+      repeat: ["Repeat prescription", "#repeatprescriptions", "grn"], poct: ["POCT", "#poct", "grn"], loyalty: ["Loyalty", "#loyalty", "gry"], appointment: ["Appointment", "#appointments", "blu"], waitlist: ["Waiting list", "#appointments", "gry"], calculator: ["Calculator", "#pharmacycalc", "gry"],
+      booking: ["Booking", "#bookings", "blu"], booking_waitlist: ["Bookings waiting list", "#bookings", "gry"], vaccine: ["Vaccine order", "#vaccines", "grn"], credit_note: ["Credit note", "#creditnotes", "gry"], contact: ["Contact", "#contacts", "gry"] })[kind] || ["Record", "#dashboard", "gry"];
   }
 
   function injectCss() {
@@ -89,6 +97,7 @@
       ".cus-form input,.cus-form textarea{width:100%;box-sizing:border-box;height:38px;border:1px solid var(--border);border-radius:9px;background:var(--bg);padding:0 10px;color:var(--text);font-size:14px}.cus-form textarea{height:70px;padding:8px 10px;resize:vertical}.cus-form input:focus,.cus-form textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--shadow,rgba(10,143,106,.18))}" +
       ".cus-warn{background:rgba(201,138,18,.14);border:1px solid rgba(201,138,18,.35);color:var(--warn,#A06A0E);border-radius:10px;padding:8px 12px;font-size:13px;margin-top:12px}" +
       ".cus-src{font-size:12px;color:var(--muted);margin-top:6px}" +
+      ".cus-t span.cus-also{white-space:normal;color:var(--text);font-size:12.5px;margin-top:2px}" +
       ".cus-regs{display:flex;gap:4px 12px;flex-wrap:wrap;align-items:center;margin-top:18px;padding-top:12px;border-top:1px solid var(--border);font-size:12.5px}.cus-regs span{color:var(--muted);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:11px;margin-right:4px}.cus-regs a{color:var(--accent);font-weight:600;cursor:pointer}" +
       ".cus-story .t b{overflow-wrap:anywhere}.cus-counts a,.cus-regs a{text-decoration:none}.cus-counts a b+b{font-weight:500}"; // links now (keyboard and a long-press reach them), still looking like chips
     document.head.appendChild(st);
@@ -265,7 +274,7 @@
   function goCount(kind) {
     var p = state.detail && state.detail.person; if (!p) return;
     var old = kindMeta(kind)[1].replace(/^#/, "");
-    if ((kind === "appointment" || kind === "waitlist") && E.bookingsReady && E.bookingsReady()) { window.location.hash = "#bookings"; return; }
+    if (((kind === "appointment" || kind === "waitlist") && E.bookingsReady && E.bookingsReady()) || kind === "booking" || kind === "booking_waitlist") { window.location.hash = "#bookings"; return; }
     var nat = E.UI2_NATIVE && E.UI2_NATIVE[old];
     if (nat) { if (FIND[nat]) E.customerHandoff(nat, "find", p, ""); window.location.hash = "#" + nat; return; }
     // the classic look (Loyalty; Appointments while Bookings is not set up): the person is carried, and its back link returns here
@@ -322,6 +331,25 @@
       .map(function (x) { var nat = E.UI2_NATIVE && E.UI2_NATIVE[x[0]]; return [x[0], x[1], x[0] === "appointments" && bk ? "bookings" : nat || x[0]]; });
   }
 
+  // A history row that is a card in the list (same ID card, or same phone and name in any order: E.people.cardOf) is
+  // that person, not someone to Add: it is said on their card ("Also in the registers as Claire Grech") and on their
+  // page. Nothing is merged or written; the rows stay as the registers have them.
+  function alsoSplit(r) {
+    var people = r.people || [], all = r.history || [], also = {}, hist = [];
+    all.forEach(function (h) {
+      var c = E.people && E.people.cardOf ? E.people.cardOf(h, people) : null;
+      if (c) (also[c.id] = also[c.id] || []).push(h); else hist.push(h);
+    });
+    state.also = also;
+    return { hist: hist, also: also };
+  }
+  E.customersAlsoSplit = alsoSplit; // for the tests
+  function alsoLine(list, long) {
+    return "Also in the registers as " + list.map(function (h) {
+      return h.name + (long ? ": " + sourceWords(h.sources) + (h.last_date ? ", last " + when(String(h.last_date).slice(0, 10)) : "") : "");
+    }).join(long ? "; " : ", ") + (long ? "." : "");
+  }
+
   function renderList() {
     if (E.state.activeModuleId !== "customers") return; // left before a reply came back: do not draw over the next screen
     var m = state.mount; if (!m) return;
@@ -330,13 +358,14 @@
     var html = "";
     if (state.error) html += '<div class="cus-warn">' + esc(state.error) + ' <a data-act="retry" style="cursor:pointer;font-weight:600">Try again</a></div>';
     if (!r) { box.innerHTML = html + (state.loading ? '<div class="cus-lab">Searching…</div>' : ""); bindList(); return; }
-    var people = r.people || [], hist = r.history || [];
+    var people = r.people || [], hist = alsoSplit(r).hist, also = state.also;
     var qq = String(r.q || "").trim();
     html += '<div class="cus-lab">' + (qq.length >= 2 ? 'Customers <b>' + people.length + '</b>' : 'Recent customers') + (state.loading ? ' · searching…' : '') + '<a data-act="new">+ New</a></div>';
     if (people.length) {
       html += '<div class="cus-list">' + people.map(function (p) {
         var sub = [p.phone, p.id_card].filter(Boolean).join(" · ") || p.email || p.address || "No details yet";
-        return '<button class="cus-item' + (p.id === state.selected ? " on" : "") + '" data-person="' + p.id + '">' + av(p.name) + '<span class="cus-t"><b>' + esc(p.name) + '</b><span>' + esc(sub) + '</span></span></button>';
+        var aka = also[p.id] ? '<span class="cus-also">' + esc(alsoLine(also[p.id])) + '</span>' : "";
+        return '<button class="cus-item' + (p.id === state.selected ? " on" : "") + '" data-person="' + p.id + '">' + av(p.name) + '<span class="cus-t"><b>' + esc(p.name) + '</b><span>' + esc(sub) + '</span>' + aka + '</span></button>';
       }).join("") + '</div>';
     } else if (qq && qq.trim().length < 2 && !state.loading) {
       // The search starts at two letters (the server answers one letter with the recent list): do not say "no one" yet.
@@ -349,6 +378,7 @@
     if (hist.length) {
       html += '<div class="cus-lab">From history <b>' + hist.length + '</b></div><div class="cus-list">' + hist.map(function (h, i) {
         var sub = [h.phone, h.id_card].filter(Boolean).join(" · ");
+        i = (r.history || []).indexOf(h); // Add takes the row by its place in the server's list
         return '<div class="cus-item" data-hist="' + i + '">' + av(h.name, "ghost") + '<span class="cus-t"><b>' + esc(h.name) + '</b><span>' + esc(sub ? sub + " · " : "") + esc(sourceWords(h.sources)) + (h.last_date ? ", last " + esc(when(h.last_date)) : "") + '</span></span><button class="cus-btn sm p" data-adopt="' + i + '" aria-label="Add ' + esc(h.name) + ' as a customer">Add</button></div>';
       }).join("") + '</div>';
     }
@@ -444,6 +474,8 @@
     html += '</div><div class="cus-card"><div class="cus-lab" style="margin-top:0">In the registers</div>';
     var ck = Object.keys(counts).filter(function (k) { return counts[k]; });
     html += ck.length ? '<div class="cus-counts">' + ck.map(function (k) { var km = kindMeta(k); return '<a href="' + km[1] + '" data-count="' + esc(k) + '">' + esc(km[0]) + ' <b>' + counts[k] + '</b>' + (classicLook(k) ? '<b>(classic look)</b>' : "") + '</a>'; }).join("") + '</div>' : '<div class="cus-src">Not in any register yet.</div>';
+    var aka = state.also && (state.also[p.id] || state.also[state.selected]);
+    if (aka && aka.length) html += '<div class="cus-src" data-cus-also>' + esc(alsoLine(aka, true)) + '</div>';
     html += '<div class="cus-src">' + (p.source && p.source.indexOf("history") === 0 ? "Added from the registers" : "Added by hand") + (p.updated_at ? ", last changed " + esc(when(String(p.updated_at).slice(0, 10))) : "") + '.</div>';
     html += '</div></div>';
     box.innerHTML = html;

@@ -57,6 +57,7 @@
     return d;
   }
   function phonesOf(p) { return [normPhone(p && p.phone), normPhone(p && p.alt_phone)].filter(Boolean); }
+  function longestWord(n) { return str(n).trim().split(/\s+/).reduce(function (a, b) { return b.length > a.length ? b : a; }, ""); }
 
   // People's names in Title Case. The function below is the worker's eikonNameCase, character for character
   // (left at the margin so the two can be compared as text; tests do). The worker also applies it when a
@@ -157,6 +158,14 @@ function eikonNameCase(value) {
     // No card: the one person with this name and nothing that differs. Two of them: do not guess.
     if (ok.length === 1) return { person: ok[0], how: "name" };
     if (ok.length > 1) return { person: null, ambiguous: ok };
+    // The same person with the words of the name in another order ("Claire Grech" on a credit note, "Grech Claire" on
+    // the card): found by phone, or else by the longest word, and kept only with nothing that differs (E.people.sameAs).
+    if (E.people.sameAs) {
+      var digits = phonesOf(w)[0] || "", other = await search(digits.length >= 6 ? digits : longestWord(w.name));
+      var turned = other.people.filter(function (p) { return !p.merged_into && nameKey(p.name) !== k && E.people.sameAs(w, p); });
+      if (turned.length === 1) return { person: turned[0], how: "name-order" };
+      if (turned.length > 1) return { person: null, ambiguous: turned };
+    }
     // A card-less entry whose name is in history with exactly one ID card is that person (the backfill's rule).
     var hist = byName.history.filter(function (g) { return g && g.id_card && nameKey(g.name) === k && !conflicts(g, w); });
     if (hist.length === 1) return { person: null, adopt: hist[0] };
@@ -533,6 +542,29 @@ function eikonNameCase(value) {
     var d = new Dialog();
     try { return await offerStamp(d, person, { name: person.name, id_card: person.id_card }, {}); } catch (e) { return null; } finally { d.close(); }
   }
+  // Is this record (a history row, or what a form is about to save) the person on this card? Used so one person never
+  // becomes two cards: Customers shows such a history row on the card ("Also in the registers as …") instead of Add,
+  // and find() above links the record to the card. Never merges, never writes. The rules, all of them needed:
+  //   - nothing on the two sides tells them apart (another ID card, phone or e-mail: a namesake)
+  //   - the same ID card; or the same phone or e-mail and a compatible name (no case, accents or word order, as the
+  //     worker's personNamesCompatible); or exactly the same words of the name in another order.
+  // A shared family phone with another first name ("Grech Maria", "Grech Claire") is never the same person.
+  function sameAs(rec, card) {
+    if (!rec || !card || card.merged_into) return false;
+    var w = { id_card: P.normIdCard(rec.id_card), phone: str(rec.phone), alt_phone: str(rec.alt_phone), email: P.normEmail(rec.email) };
+    if (w.id_card && card.id_card) return P.sameIdCard(w.id_card, card.id_card);
+    if (contactDiffers(card, w)) return false;
+    if (!namesCompatible(rec.name, card.name)) return false;
+    var cp = phonesOf(card), byContact = phonesOf(w).some(function (x) { return cp.indexOf(x) >= 0; }) || (!!w.email && P.normEmail(card.email) === w.email);
+    return byContact || nameWords(rec.name).join(" ") === nameWords(card.name).join(" ");
+  }
+  // The one card in `people` that this history row belongs to, or null (none, or more than one: never guessed).
+  function cardOf(rec, people) {
+    var hits = (people || []).filter(function (p) { return sameAs(rec, p); });
+    return hits.length === 1 ? hits[0] : null;
+  }
+  P.sameAs = sameAs;
+  P.cardOf = cardOf;
   P.confirmCardEdit = confirmCardEdit;
   P.stampAfterEdit = stampAfterEdit;
   P.nameWords = nameWords;

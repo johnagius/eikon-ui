@@ -870,6 +870,51 @@ await page.click('[data-act="who-all"]').catch(() => {}); await page.waitForTime
 finds.dlvAll = await page.evaluate(() => document.querySelectorAll(".dlv-card").length);
 const story = await page.evaluate(() => [window.EIKON.customersStoryTitle('[{"name":"Panadol","qty":1},{"name":"Augmentin 625","qty":2}]'), window.EIKON.customersStoryTitle("Morphine 10mg"), window.EIKON.customersStoryTitle("[not json")]);
 report("customers: a delivery in the Story shows its item names, not the stored list", story.join("|") === "Panadol, Augmentin 625|Morphine 10mg|[not json", JSON.stringify(story));
+// One person, one card (BACKLOG5 item 3). Every kind the worker's people search returns has a word (read from the
+// worker's own PEOPLE_SOURCES lists, so a new kind without a word fails here); "undefined" never prints.
+{
+  const wsrc3 = fs.readFileSync(path.join(here, "..", "..", "cloudflare-worker", "code"), "utf8");
+  const block = (start) => { const i = wsrc3.indexOf(start); return wsrc3.slice(i, wsrc3.indexOf("];", i)); };
+  const kinds = [...(block("const PEOPLE_SOURCES = [") + block("const PEOPLE_SOURCES_MORE = [")).matchAll(/kind: "([a-z_]+)"/g)].map((m) => m[1]);
+  const sw = await page.evaluate((kinds) => ({ all: window.EIKON.customersSourceWords(Object.fromEntries(kinds.map((k) => [k, 2]))), one: kinds.map((k) => window.EIKON.customersSourceWords({ [k]: 1 })),
+    known: window.EIKON.customersSourceKinds, odd: window.EIKON.customersSourceWords({ something_new: 1 }), cn: window.EIKON.customersSourceWords({ credit_note: 1, delivery: 3 }) }), kinds);
+  report("customers: every kind of record the server's people search returns has its own word (credit note, booking, vaccine order, contact…), never 'undefined'",
+    kinds.length >= 16 && kinds.every((k) => sw.known.includes(k)) && !/undefined/.test(sw.all + sw.one.join() + sw.odd) && sw.odd === "1 record" && sw.cn === "1 credit note, 3 deliveries" && kinds.includes("credit_note"), JSON.stringify({ kinds, sw }));
+}
+// A history row that is a card in the list: the same ID card, or the same phone and the name in any order, or exactly
+// the same words in another order with nothing that differs. A shared family phone with another first name, a
+// different phone or ID card, or two possible cards: still offered as Add (never guessed).
+{
+  const cards = [{ id: 307, name: "Grech Claire", phone: "79441430", id_card: "0002159M" }, { id: 11, name: "Abela Claire", phone: "79211278", id_card: "0035010M" }, { id: 12, name: "Abela Claire", phone: "79432230", id_card: "0548491M" },
+    { id: 20, name: "Grech Maria", phone: "79555000", id_card: "" }, { id: 30, name: "Farrugia Ninu Maria Assunta", phone: "", id_card: "" }, { id: 40, name: "Ċassar Ryan", phone: "79001122", id_card: "0012345M" }];
+  const hist = [
+    { name: "Claire Grech", phone: "79441430", sources: { credit_note: 1 } },            // → 307 (phone, name turned)
+    { name: "Claire Abela", phone: "+356 7921 1278", sources: { credit_note: 1 } },      // → 11 (phone picks the one of two namesakes)
+    { name: "Claire Abela", phone: "", sources: { vaccine: 1 } },                        // two cards, no phone: Add
+    { name: "Claire Grech", phone: "79555000", sources: { booking: 1 } },                // family phone of Grech Maria, other name, and 307's phone differs: Add
+    { name: "Ninu Maria Assunta Farrugia", phone: "", sources: { contact: 1 } },        // → 30 (same words, nothing differs)
+    { name: "Ryan Ċassar", id_card: "12345M", sources: { calculator: 1 } },              // → 40 (same ID card)
+    { name: "Ryan Ċassar", id_card: "0099999M", phone: "79001122", sources: { poct: 1 } } // another ID card: Add
+  ];
+  const sp = await page.evaluate(([people, history]) => { const r = window.EIKON.customersAlsoSplit({ people, history }); const out = {}; Object.keys(r.also).forEach((k) => out[k] = r.also[k].map((h) => history.indexOf(h))); return { also: out, hist: r.hist.map((h) => history.indexOf(h)) }; }, [cards, hist]);
+  report("customers: a history row that is a card (ID card, or phone and name in any order, or the same words turned) shows on that card, not as Add; namesakes, family phones and other cards stay Add",
+    JSON.stringify(sp) === JSON.stringify({ also: { 11: [1], 30: [4], 40: [5], 307: [0] }, hist: [2, 3, 6] }), JSON.stringify(sp));
+  // the same rule when a register links its person after a save: "Claire Grech" with Grech Claire's phone is Grech Claire, no new card
+  const lk = await page.evaluate(async (people) => {
+    const E = window.EIKON, real = E.apiFetch, posts = [], gets = [];
+    E.apiFetch = async (u, o) => { if (o && o.method === "POST") { posts.push(JSON.parse(o.body)); return { ok: true, person: { id: 999, name: "new" }, created: true }; }
+      const q = decodeURIComponent((/q=([^&]*)/.exec(u) || [])[1] || "").toLowerCase(); gets.push(q);
+      return { ok: true, people: people.filter((p) => (p.name + " " + p.phone + " " + p.id_card).toLowerCase().includes(q)), history: [] }; };
+    try {
+      const a = await E.people.link({ name: "Claire Grech", phone: "79441430" }, "register:orders");
+      const b = await E.people.link({ name: "Ninu Maria Assunta Farrugia" }, "register:credit-notes");
+      const c = await E.people.link({ name: "Claire Grech", phone: "79555000" }, "register:orders");
+      return { a: [a.person && a.person.id, a.created, a.how], b: [b.person && b.person.id, b.how], c: [c.created, c.how], posts, gets };
+    } finally { E.apiFetch = real; }
+  }, cards);
+  report("people link: a record whose name is a card's in another order is linked to that card (no second card); a family phone with another name still gets its own",
+    JSON.stringify(lk.a) === JSON.stringify([307, false, "name-order"]) && JSON.stringify(lk.b) === JSON.stringify([30, "name-order"]) && lk.c[0] === true && lk.posts.length === 1 && lk.posts[0].name === "Claire Grech" && lk.posts[0].phone === "79555000", JSON.stringify(lk));
+}
 report("step 1: the counts and the strip open rebuilt registers in the new layout (Orders, Questions and Deliveries showing the person; Show all clears it); only Loyalty and Appointments are labelled classic look",
   chips.join("|") === "DDA sale 1|Loyalty 1(classic look)" && strip.join() === "Orders,Questions,Deliveries,Appointments (classic look),Loyalty (classic look)" && ddaGo.hash === "#cdsreg" && !ddaGo.classic &&
   finds.ordreg === "Grech Carmen" && finds.tktreg === "Farrugia Tony" && /^Deliveries for Camilleri Rita/.test(finds.dlvreg.lab) && finds.dlvreg.names.length >= 1 && finds.dlvreg.names.every((n) => /Camilleri Rita/.test(n)) && finds.dlvAll > finds.dlvreg.names.length,
