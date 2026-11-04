@@ -12,7 +12,7 @@ test("login: ten wrong passwords lock the e-mail for a while, success clears it"
   ok(blocked.headers.get("Retry-After"), "Retry-After header present");
   ok(DB.q("SELECT COUNT(*) AS c FROM audit_log WHERE action='LOGIN_FAILED'")[0].c >= 10, "failures audited");
   // Age the attempts and the account signs in again, which clears the counter
-  DB.db.prepare("UPDATE login_attempts SET attempted_at = datetime('now', '-20 minutes')").run();
+  await DB.prepare("UPDATE login_attempts SET attempted_at = datetime('now', '-20 minutes')").run(); // through the shim: 'now' follows a faked clock
   const good = await api("POST", "/auth/login", { body: { email, password } });
   eq(good.status, 200, good.text);
   eq(DB.q("SELECT COUNT(*) AS c FROM login_attempts")[0].c, 0);

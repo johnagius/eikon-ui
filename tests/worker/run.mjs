@@ -1,6 +1,8 @@
 // Minimal test runner for the worker. Run: node tests/worker/run.mjs [filter]
 // Each test gets a fresh in-memory database and a bootstrapped admin session.
 import { makeApp } from "./harness.mjs";
+import { installNodeClock } from "../clock.mjs";
+installNodeClock(); // EIKON_FAKE_NOW=2026-11-03T23:30:00Z runs the worker at that moment
 import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";

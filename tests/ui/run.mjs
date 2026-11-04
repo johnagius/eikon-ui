@@ -9,6 +9,10 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 // Playwright is installed globally in the cloud container; ESM import does not see NODE_PATH.
 const { chromium } = createRequire(import.meta.url)("playwright");
+// Malta's calendar and clock for the mock and the pages, whatever zone this machine is on (tests/clock.mjs):
+// EIKON_FAKE_NOW runs the suite at a given moment, EIKON_BROWSER_TZ puts the pages in another zone.
+import { installNodeClock, maltaYmd, contextTz, prepareContext, CLOCK_OFFSET, BROWSER_TZ } from "../clock.mjs";
+installNodeClock();
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const root = path.join(here, "..", "..", "ui");
@@ -16,7 +20,7 @@ const PORT = 8781;
 const mime = { html: "text/html", js: "application/javascript", css: "text/css", png: "image/png", gif: "image/gif", json: "application/json", svg: "image/svg+xml" };
 
 const calls = []; // every non-asset request the UI makes
-const todayYmd = new Date().toISOString().slice(0, 10);
+const todayYmd = maltaYmd(0); // the worker's /today date (Malta's day), and the day the pages call today
 const genericList = {
   ok: true, entries: [], items: [], rows: [], data: [], results: [], devices: [], staff: [], assignments: [], leaves: [], settings: {}, state: {},
   appointments: [], slots: [], doctors: [], clinics: [], schedules: [], waitlist: [], campaigns: [], clients: [], transactions: [], records: [], patients: [],
@@ -167,16 +171,16 @@ function mockApi(req, res, body) {
   if (p === "/dda-purchases/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [{ id: 5, entry_date: todayYmd, dda_name_dose: "Morphine 10mg", quantity: 2, agent: "Supplier", invoice_number: "INV-1" }] }));
   if (p === "/temperature/entries" && req.method === "POST") { todayState.tempDone = true; return res.end(JSON.stringify({ ok: true, entry_id: 1 })); }
   if (p === "/client-orders/entries" && req.method === "GET") {
-    const q = new URL(req.url, "http://x").searchParams, d = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+    const q = new URL(req.url, "http://x").searchParams, d = (n) => maltaYmd(n);
     if (q.get("from")) return res.end(JSON.stringify({ ok: false, error: "Missing/invalid month (YYYY-MM)" })); // like the live server today (no ranges)
-    const thisMonth = new Date().toISOString().slice(0, 7);
+    const thisMonth = maltaYmd(0).slice(0, 7);
     return res.end(JSON.stringify({ ok: true, entries: q.get("month") !== thisMonth ? [] : [
       { id: 51, order_date: d(-3), client_name: "Grech Carmen", client_phone: "79123456", items_text: "Augmentin 625 x14", priority: 2, needed_by: d(-1), deposit_amount: 0, fulfilled: 0, notes: "" },
       { id: 52, order_date: d(-1), client_name: "Vella Joseph", client_phone: "79000111", items_text: "Nexium 20mg", priority: 1, needed_by: d(3), deposit_amount: 5, fulfilled: 0, notes: "", order_code: "KX7P2Q" }] }));
   }
   if (p.startsWith("/client-orders/entries/") && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
   if (p === "/client-tickets/entries" && req.method === "GET") {
-    const d = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+    const d = (n) => maltaYmd(n);
     return res.end(JSON.stringify({ ok: true, entries: [
       { id: 61, ticket_id: "TKT-00007", open_date: d(-4), client_name: "Camilleri Rita", phone: "79222333", email: "rita@x.com", category: "Prescription", priority: 2, status: "Open", issue: "Is her repeat ready?", assigned_to: "John", followup_date: d(-1), notes_log: JSON.stringify([{ ts: "2026-10-30T09:00:00Z", author: "Maria", text: "Called, no answer" }]), resolved: 0 },
       { id: 62, ticket_id: "TKT-00008", open_date: d(-1), client_name: "Farrugia Tony", phone: "", category: "Billing", priority: 1, status: "In Progress", issue: "Charged twice", assigned_to: "", followup_date: null, notes_log: "[]", resolved: 0 }] }));
@@ -184,7 +188,7 @@ function mockApi(req, res, body) {
   if (p.startsWith("/client-tickets/entries/") && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
   if (p === "/client-tickets/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, entry_id: 63 }));
   if (p === "/client-deliveries/entries" && req.method === "GET") {
-    const d = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+    const d = (n) => maltaYmd(n);
     return res.end(JSON.stringify({ ok: true, entries: [
       { id: 71, delivery_id: "DEL-00004", order_date: d(-2), scheduled_date: d(2), scheduled_time_slot: "", client_name: "Later Lino", phone: "79000222", delivery_address: "Gozo", status: "Scheduled", priority: 2, items: "[]", delivery_log: "[]", delivery_attempts: 0 },
       { id: 72, delivery_id: "DEL-00005", order_date: d(-2), scheduled_date: d(-1), scheduled_time_slot: "Afternoon", actual_delivery_date: "", actual_delivery_time: "", client_name: "Camilleri Rita", phone: "79222333", email: "rita@x.com", delivery_address: "12 Triq il-Kbira, Mosta", address_notes: "Blue door", id_doc_ref: "123456M", delivery_method: "Courier", priority: 1, assigned_driver: "Kevin Mifsud", tracking_number: "TRK9", status: "Scheduled", signature_required: 1, signature_obtained: 0, recipient_name: "", proof_of_delivery: "", delivery_attempts: 0, failure_reason: "", contains_controlled: 1, cold_chain_required: 1, ticket_ref: "TKT-00007", items: JSON.stringify([{ name: "Morphine 10mg", qty: 2, schedule: "CD", batch_ref: "B7", expiry: "2027-01-01" }]), delivery_log: JSON.stringify([{ ts: "2026-10-30T09:00:00Z", author: "Maria", text: "Packed" }]), internal_notes: "Call first" },
@@ -199,14 +203,14 @@ function mockApi(req, res, body) {
   if (p === "/paid-out/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: [{ id: 3, entry_date: todayYmd, entry_time: "09:00", payee_name: "Courier Ltd", fee: 12.5, payment_method: "cash", invoice_no: "", cheque_no: "", reason: "Gozo" }] }));
   if (p === "/paid-out/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, entry_id: 4 }));
   if (p === "/paid-out/names") return res.end(JSON.stringify({ ok: true, names: ["Courier Ltd"] }));
-  if (p === "/instructions/daily" && req.method === "GET" && hndGap) { const y = url.searchParams.get("ymd"), ago = (n) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10); return res.end(JSON.stringify({ ok: true, record: { ymd: y, notes: "", handover_out: y === ago(2) ? [{ id: "s1", sev: "y", text: "Saturday: fridge engineer Monday" }] : [] } })); } // nothing yesterday (a closed Sunday)
+  if (p === "/instructions/daily" && req.method === "GET" && hndGap) { const y = url.searchParams.get("ymd"), ago = (n) => maltaYmd(-n); return res.end(JSON.stringify({ ok: true, record: { ymd: y, notes: "", handover_out: y === ago(2) ? [{ id: "s1", sev: "y", text: "Saturday: fridge engineer Monday" }] : [] } })); } // nothing yesterday (a closed Sunday)
   if (p === "/instructions/daily" && req.method === "GET") { const y = url.searchParams.get("ymd"); return res.end(JSON.stringify({ ok: true, record: y === todayYmd ? { ymd: y, notes: "Inspector may visit", handover_out: [{ id: "t1", sev: "g", text: "Already for tomorrow" }] } : { ymd: y, notes: "", handover_out: [{ id: "y1", sev: "g", text: "Restock gloves" }, { id: "y2", sev: "r", text: "Methadone at 9" }] } })); }
   if (p === "/instructions/daily" && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
   if (p === "/instructions/global" && req.method === "GET") return res.end(JSON.stringify({ ok: true, global: { permanent_handover: { text: "Count the CD cupboard every evening" } } }));
   if (p === "/shifts/staff" && req.method === "GET") return res.end(JSON.stringify({ ok: true, staff: [{ id: 1, full_name: "Maria Borg", designation: "Pharmacist" }, { id: 2, full_name: "Karl Vella", designation: "Assistant" }] }));
   if (p === "/shifts/assignments-range") return res.end(JSON.stringify({ ok: true, shifts: [{ id: 1, staff_id: 1, shift_date: todayYmd, start_time: "08:00", end_time: "14:00" }] }));
   if (p === "/shifts/leaves" && req.method === "GET") return res.end(JSON.stringify({ ok: true, leaves: [{ id: 1, staff_id: 2, leave_type: "sick", start_date: todayYmd, end_date: todayYmd, status: "approved" }, { id: 2, staff_id: 1, leave_type: "annual", start_date: todayYmd, end_date: todayYmd, status: "rejected" }] }));
-  if (p === "/repeat-prescriptions/entries" && req.method === "GET") { const d = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+  if (p === "/repeat-prescriptions/entries" && req.method === "GET") { const d = (n) => maltaYmd(n);
     return res.end(JSON.stringify({ ok: true, entries: [{ id: 81, entry_date: d(-170), expires_date: d(12), client_name: "Zammit Carmel", client_id: "123456M", medicine_name_dose: "Atorvastatin 20mg", posology: "1 at night", prescriber_name: "Dr Abela", prescriber_reg_no: "R1201" }] })); }
   if (p === "/repeat-prescriptions/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, entry_id: 82 }));
   if (p === "/creditnotes/list") return res.end(JSON.stringify({ ok: true, entries: [{ id: 91, issue_date: "2026-10-01", client_name: "Rita", client_surname: "Camilleri", telephone: "79222333", amount: 30, expiry_date: "", no_expiry: false, purchase_entries: [{ id: 1, amount: 12.5 }], notes: [] }] }));
@@ -341,13 +345,13 @@ function mockApi(req, res, body) {
     if (p === "/people/links/undo" && req.method === "POST") { let n = 0; for (const r of L.rows) if (body.link_ids.includes(r.id) && !r.undone) { r.undone = true; n++; } return res.end(JSON.stringify({ ok: true, undone: n })); }
   }
   if (globalThis.__dupMock && req.method === "GET") {
-    const ym = new Date().toISOString().slice(0, 7);
+    const ym = maltaYmd(0).slice(0, 7);
     if (p === "/dda-sales/entries") return res.end(JSON.stringify({ ok: true, entries: url.searchParams.get("month") === ym ? [{ id: 502, entry_date: todayYmd, client_name: "Zammit Carmel", client_id_card: "12345 m", medicine_name_dose: "Morphine 10mg", prescription_serial_no: "S1" }] : [] }));
     if (p === "/appointments/entries") return res.end(JSON.stringify({ ok: true, appointments: [{ id: 503, patientName: "C Zammit", patientIdCard: "0012345M", patientPhone: "+356 79123456", date: todayYmd, time: "10:00", apptRef: "APT-1" }] }));
     if (p === "/loyalty/clients") return res.end(JSON.stringify({ ok: true, clients: [{ id: 504, name: "Carmel Zammit", id_card: "0099999M", created_at: todayYmd }] }));
   }
   if (p === "/alerts/entries" && req.method === "GET") {
-    const d = new Date().toISOString().slice(0, 10);
+    const d = maltaYmd(0);
     return res.end(JSON.stringify({ ok: true, entries: [
       { id: 41, entry_date: d, alert_type: "recall", status: "open", item_name: "Losartan 50mg", batch: "L9", expiry: "2027-03-01", quantity: "6", reason: "Manufacturer recall", storage_location: "room", supplier: "Actavis", notes: "Shelf C",
         team_informed: 1, supplier_informed: 0, authorities_informed: 0, return_arranged: 0, handed_over: 0, collection_note_received: 0, credit_note_received: 0 }] }));
@@ -363,7 +367,7 @@ function mockApi(req, res, body) {
   }
   if (p.startsWith("/stock-transfers/") && req.method === "POST") return res.end(JSON.stringify({ ok: true }));
   if (p === "/returns/entries" && req.method === "GET") {
-    const d = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+    const d = (n) => maltaYmd(n);
     return res.end(JSON.stringify({ ok: true, entries: [
       { id: 11, entry_date: d(-5), description: "Amoxil 500mg", expiry: d(20), batch: "LOT77", quantity: "3", supplier: "GSK", invoice_number: "INV-9", remarks: "Expiring soon", location_stored: "Back room",
         return_arranged: 1, handed_over: 0, collection_note_received: 0, credit_note_received: 0, supplier_refused: 0, damaged: 0 },
@@ -373,7 +377,7 @@ function mockApi(req, res, body) {
   if (p.startsWith("/returns/entries/") && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
   if (p === "/returns/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, id: 13 }));
   if (p === "/near-expiry/entries" && req.method === "GET") {
-    const d = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+    const d = (n) => maltaYmd(n);
     return res.end(JSON.stringify({ ok: true, entries: [
       { id: 1, product_name: "Amoxil 500mg", expiry_date: d(10), location: "Shelf A3", notes: "", return_id: null, return_status: "" },
       { id: 2, product_name: "Ventolin", expiry_date: d(-2), location: "Fridge", notes: "", return_id: null, return_status: "" },
@@ -382,7 +386,7 @@ function mockApi(req, res, body) {
   if (p === "/near-expiry/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, entry: { id: 9 } }));
   if (p === "/near-expiry/entries/create-return" && req.method === "POST") return res.end(JSON.stringify({ ok: true, return_id: 8 }));
   if (p === "/certificates/items" && req.method === "GET") {
-    const d = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+    const d = (n) => maltaYmd(n);
     return res.end(JSON.stringify({ ok: true, items: [
       { id: 1, title: "Thermometer Calibration", subtitle: "Yearly calibration", interval_months: 12, last_date: d(-380), next_due: d(-15), requires_person: 0, certified_person: "" },
       { id: 2, title: "AC Maintenance", subtitle: "Yearly service", interval_months: 12, last_date: d(-100), next_due: d(265), requires_person: 0, certified_person: "" },
@@ -390,13 +394,13 @@ function mockApi(req, res, body) {
   }
   if (p.startsWith("/certificates/items/") && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
   if (p === "/locumregister/entries" && req.method === "GET") {
-    const mo = new URL(req.url, "http://x").searchParams.get("month") || "", cur = new Date().toISOString().slice(0, 7);
+    const mo = new URL(req.url, "http://x").searchParams.get("month") || "", cur = maltaYmd(0).slice(0, 7);
     const old = { id: 5, entry_date: "2026-10-05", time_in: "08:00", time_out: "14:00", locum_full_name: "Pharm. Anna Grech", registration_number: "P1234" };
     return res.end(JSON.stringify({ ok: true, entries: mo !== cur ? [old] : [] }));
   }
   if (p === "/locumregister/entries" && req.method === "POST") return res.end(JSON.stringify({ ok: true, entry: { id: 6 } }));
   if (p === "/daily-register/entries" && req.method === "GET") {
-    const mo = new URL(req.url, "http://x").searchParams.get("month") || "", cur = new Date().toISOString().slice(0, 7);
+    const mo = new URL(req.url, "http://x").searchParams.get("month") || "", cur = maltaYmd(0).slice(0, 7);
     const old = { id: 3, entry_date: "2026-10-12", client_name: "John Borg", client_id: "123456M", medicine_name_dose: "Amoxil 500mg", posology: "1-1-1 x 7 days", prescriber_name: "Dr Abela", prescriber_reg_no: "4321" };
     return res.end(JSON.stringify({ ok: true, entries: mo !== cur ? [old] : [] }));
   }
@@ -449,6 +453,12 @@ function report(name, okv, detail) {
 
 await new Promise((r) => server.listen(PORT, r));
 const browser = await chromium.launch();
+{ // every page in Malta's zone (unless a check sets its own) and on the suite's clock
+  const nc = browser.newContext.bind(browser);
+  // eikonClock: false for a check that installs Playwright's own clock (page.clock), which must not be shifted twice
+  browser.newContext = async (o = {}) => { const { eikonClock, ...rest } = o, c = await nc({ ...contextTz(), ...rest }); return eikonClock === false ? c : prepareContext(c); };
+  browser.newPage = async (o = {}) => { const c = await browser.newContext(o), pg = await c.newPage(); pg.once("close", () => c.close().catch(() => {})); return pg; };
+  if (CLOCK_OFFSET || BROWSER_TZ !== "Europe/Malta") console.log(`  clock: ${new Date().toISOString()} (faked), pages in ${BROWSER_TZ}`); }
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 await page.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: "window.XLSX={};" }));
 await page.route(/cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "application/javascript", body: "" }));
@@ -987,7 +997,7 @@ const crt1 = await page.evaluate(() => ({ hash: location.hash, rail: [...documen
   labs: [...document.querySelectorAll(".crt-lab")].map((e) => e.textContent), first: document.querySelector(".crt-row b").textContent, pill: document.querySelector(".crt-pill").textContent }));
 await fetch(`http://localhost:${PORT}/__reset`);
 await page.click('.crt-row[data-id="3"] [data-act=edit]');
-await page.fill("#crt-form [name=last_date]", new Date().toISOString().slice(0, 10));
+await page.fill("#crt-form [name=last_date]", maltaYmd(0));
 await page.click("#crt-form button[type=submit]"); await page.waitForTimeout(300);
 const crtPuts0 = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT");
 const crtErr = await page.evaluate(() => (document.querySelector(".crt-err") || {}).textContent || "");
@@ -1021,7 +1031,7 @@ try {
   const cqPrint = await page.evaluate(() => { const l = window.EIKON.months.lastPrint || {}; return { reg: l.register, pages: /counter\(pages\)/.test(l.html || ""), title: /Thermometer calibration/.test(l.html || ""), pharm: /Demo|Pharmacy/.test(l.html || "") }; });
   await page.click(".crt-back"); await page.waitForTimeout(300);
   const cqBackTo = await page.evaluate(() => location.hash);
-  const today = new Date(); const tYmd = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+  const tYmd = maltaYmd(0);
   report("certificates quality: back says and goes to Registers (its tab); a renewal starts today, an in-date item keeps its date; Escape closes and refocuses; all errors at once, marked and announced, nothing sent; prints the shared printout",
     cq.back === "‹ Registers" && cqBackTo === "#registers" && cq.btns.some((b) => /^Record\|Record First aid certificate$/.test(b)) && cq.btns.some((b) => /^Update\|Update Thermometer calibration$/.test(b)) &&
     cqDate === tYmd && !cqEsc.form && cqEsc.focus === "1" && cqKeep !== tYmd && /^\d{4}-\d{2}-\d{2}$/.test(cqKeep) &&
@@ -1152,7 +1162,7 @@ report("questions: open in the new layout, high first; a note keeps the old ones
 // changed elsewhere since the screen opened is kept. Staff do not see Delete; the pharmacist's delete writes the reason
 // on the order, then deletes it. Done lists ready orders through the server's fulfilled=1 range.
 try {
-  const dT = new Date(), dd = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); };
+  const dT = new Date(), dd = (n) => maltaYmd(n);
   const R = { id: 71, order_date: dd(0), client_name: "Pace Rita", client_phone: "79001122", client_alt_phone: "21000000", client_email: "r@x.mt", client_address: "4 Triq il-Wied", items_text: "Nexium 20mg x28", priority: 2, needed_by: dd(2), pickup_date: dd(3), deposit_amount: 5, fulfilled: 0, fulfilled_at: null, notes: "Prefers mornings", follow_up_status: "called", order_code: "PQ7RT2" };
   let reads = 0; const doneQs = [];
   await page.route("**/client-orders/entries?*", (r) => {
@@ -1361,7 +1371,7 @@ try {
   await page.click("[data-act=add-cancel]");
   qStep = "orders search";
   // search: twelve orders, so the box shows; typing redraws only the list
-  const dS = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+  const dS = (n) => maltaYmd(n);
   await page.route("**/client-orders/entries?*", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: Array.from({ length: 12 }, (_, i) => ({ id: 300 + i, order_date: dS(0), client_name: (i % 3 ? "Borg " : "Ħili Ġorġ ") + i, client_phone: "7900" + i, items_text: "Item " + i, priority: 2, needed_by: dS(i - 2), fulfilled: 0 })) }) }));
   await page.goto(base + "&ui=2#customers"); await page.goto(base + "&ui=2#clientorders"); // a real visit, so the list is read again
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector("#ord-q") && document.querySelectorAll(".ord-row").length === 12, null, { timeout: 15000 }); // the list has arrived, so the marker tests a search, not the first paint
@@ -1588,7 +1598,7 @@ try {
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "hndreg" && document.querySelector(".hnd-lab"), null, { timeout: 15000 });
   const hg = await page.evaluate(() => ({ lab: document.querySelector(".hnd-lab").textContent, pt: (document.querySelector(".hnd-list .hnd-pt") || {}).textContent }));
   hndGap = false;
-  const wd = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][new Date(Date.now() - 2 * 864e5).getDay()];
+  const wd = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][new Date(maltaYmd(-2) + "T12:00:00Z").getUTCDay()];
   report("handover: nothing from yesterday (a closed Sunday) shows the last day that left something, named by its weekday; urgency reads Medium, not MEDIUM",
     hg.lab === "From " + wd + " 1" && /^MediumSaturday: fridge engineer/.test(hg.pt || ""), JSON.stringify({ hg, wd }));
   // Phone: every control on the team screens is at least 44 px tall (the back button too).
@@ -1836,7 +1846,7 @@ await page.waitForFunction(() => window.EIKON.state.activeModuleId === "lrcreg" 
 const lrcTag = await page.evaluate(() => !!document.querySelector(".lrc-row .lrc-hol"));
 await fetch(`http://localhost:${PORT}/__reset`);
 await page.click("[data-act=add]"); await page.fill("[name=locum_full_name]", "Paul Vella"); await page.press("[name=locum_full_name]", "Tab"); await page.waitForTimeout(200);
-const xmas = (new Date().getFullYear() - 1) + "-12-25";
+const xmas = (Number(maltaYmd(0).slice(0, 4)) - 1) + "-12-25";
 await page.fill("[name=receipt_date]", xmas); await page.waitForTimeout(200); await page.fill("[name=hours]", "4"); await page.click("#lrc-add button[type=submit]"); await settleSave();
 const lrcPost = ((await (await fetch(`http://localhost:${PORT}/__calls`)).json()).find((c) => c.method === "POST" && c.path === "/locumreceipts/receipts") || {}).body || {};
 report("locum receipts: a receipt saved at the normal rate is not tagged holiday; Christmas takes the remembered holiday rate; the known reg no fills in",
@@ -2247,7 +2257,7 @@ await page.setViewportSize({ width: 1440, height: 900 }).catch(() => {});
 // Enter goes on to the next amount, "Nothing counted yet" until a figure is typed; an untouched summary saves the same.
 try {
   const calls4 = async (path) => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === path).map((c) => c.body);
-  const wantDays = () => { const out = [], d = new Date(); for (let i = 0; out.length < 3 && i < 8; i++, d.setDate(d.getDate() + 1)) { if (i > 0 && d.getDay() === 0) continue; out.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")); } return out; };
+  const wantDays = () => { const out = []; for (let i = 0; out.length < 3 && i < 8; i++) { const y = maltaYmd(i); if (i > 0 && new Date(y + "T12:00:00Z").getUTCDay() === 0) continue; out.push(y); } return out; };
   const W = wantDays();
   const chips = (form) => page.evaluate((f) => [...document.querySelectorAll(f + " .q44-days button")].map((b) => ({ t: b.textContent, ymd: b.dataset.ymd, on: b.getAttribute("aria-pressed") })), form);
   // Orders
@@ -3066,7 +3076,7 @@ try {
 // Orders: Ready on an order with no phone (saved blank, or dropped by this screen before 3 Nov) asks for the phone and sends it
 // as client_phone: the server refuses any change to an order without one. Cancelling the question sends nothing.
 try {
-  const dNo = new Date().toISOString().slice(0, 10);
+  const dNo = maltaYmd(0);
   await page.route("**/client-orders/entries?*", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: [{ id: 53, order_date: dNo, client_name: "Borg Olga", client_phone: "", items_text: "Augmentin 625 x14", priority: 2, needed_by: dNo, deposit_amount: 0, fulfilled: 0, notes: "" }] }) }));
   await page.goto(base + "&ui=2#clientorders");
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector('[data-act=ready][data-id="53"]'), null, { timeout: 15000 });
@@ -3543,6 +3553,16 @@ try {
     demand.before && !demand.after && demand.classicIn && !classicHasRegistry && nErr.length === 0,
     JSON.stringify({ sameList, sameAfter, n: [newSnap.length, allSnap.length], diff: newSnap.filter((x, i) => x !== want[i]).slice(0, 3), sameSet: JSON.stringify([...newSnap].sort()) === JSON.stringify([...allSnap].sort()), fetchedClassic: fetchedClassic.slice(0, 4), stubs, handOver, demand, classicHasRegistry, nErr: nErr.slice(0, 3) }));
 } catch (e) { report("registry: ran to the end", false, String(e).slice(0, 300)); }
+// ---- Midnight: no screen takes "today" from UTC (a day behind Malta from 23:00, or 22:00 in summer, to midnight UTC).
+{
+  // A date stored or offered as today must be Malta's (E.maltaYmd) or the device's (a Malta device's day is Malta's).
+  // Allowed: a file name of an export (poct), a 60-day display cutoff (alertreg, retreg), a fallback after E.maltaYmd.
+  const allow = /poct_export_|poct_records_filtered_|E\.maltaYmd|60 \* 86400000/;
+  const utcToday = [];
+  for (const f of fs.readdirSync(root).filter((n) => /\.js$/.test(n)))
+    fs.readFileSync(path.join(root, f), "utf8").split("\n").forEach((ln, i) => { if (/new Date\(\)\.toISOString\(\)\.(slice|substring)\(0, ?10\)/.test(ln) && !allow.test(ln)) utcToday.push(f + ":" + (i + 1) + " " + ln.trim().slice(0, 120)); });
+  report("midnight: no screen takes today's date from UTC (dashboard Add to Stock, supplier delivery date use Malta's day)", utcToday.length === 0, utcToday.slice(0, 6).join("\n       "));
+}
 // ---- Third-party code: pinned in ui/vendor, loaded only when asked for, never from another host.
 {
   // Source: no script or stylesheet from another host in ui/*.js or ui/*.html (ui/vendor is the libraries themselves).
@@ -4101,7 +4121,7 @@ try {
   });
   const clicked = await page.evaluate(() => { const a = document.querySelector(".tdy-warn [data-yday]"); if (a) a.click(); return !!a; });
   if (clicked) await page.waitForFunction(() => location.hash === "#tempreg", null, { timeout: 8000 }).catch(() => {}); await page.waitForTimeout(500);
-  const yMonth = await page.evaluate(() => { const t = new Date(); t.setDate(t.getDate() - 1); return t.toISOString().slice(0, 7); });
+  const yMonth = maltaYmd(-1).slice(0, 7);
   const tempReqs = calls.filter((c) => c.method === "GET" && c.path === "/temperature/entries" && /month=/.test(c.query || "")).map((c) => c.query);
   report("today polish (b): yesterday's reading outside its limits is said in words and colour above the list, the row says it too and is not grey, and See yesterday opens the register on that month",
     /Fridge 1 was 9\.1 °C yesterday/.test(yb.text) && /outside its limits of 2 to 8 °C/.test(yb.text) && yb.afterLabel && !yb.warnGrey && /Outside limits yesterday: 9\.1 °C/.test(yb.rowText) && !yb.rowGrey &&
@@ -4240,7 +4260,7 @@ todayState.noFridge = false; teamState = teamFresh();
 
 // Forced change at first sign-in, and the idle lock with a fake clock (own browser contexts)
 async function teamPage(clock) {
-  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, eikonClock: !clock });
   const pg = await ctx.newPage();
   if (clock) await pg.clock.install({ time: new Date("2026-11-03T09:00:00") });
   await pg.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: "window.XLSX={};" }));
@@ -5021,7 +5041,7 @@ try {
   try { j = JSON.parse(fs.readFileSync(path.join(root, "whatsnew.json"), "utf8")); } catch (e) { problems.push("not valid JSON: " + e.message); }
   const list = j && Array.isArray(j.entries) ? j.entries : [];
   if (j && !list.length) problems.push("no entries");
-  const seen = new Set(), tomorrow = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
+  const seen = new Set(), tomorrow = maltaYmd(1);
   const jargon = /\b(worker|batch|agent|deploy(ed)?|UI|API|CSP|commit|merge|endpoint|localStorage|D1|wrangler|bug)\b/i;
   list.forEach((e, i) => {
     const at = "entry " + i + (e && e.id ? " (" + e.id + ")" : "");

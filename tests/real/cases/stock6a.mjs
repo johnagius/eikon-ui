@@ -26,7 +26,7 @@ export default {
     const co = await t.write(p, new RegExp("/order-diary/entries/" + a + "$"), () => p.click("#eikon-modal-actions .eikon-btn.primary"), "PUT");
     await t.open(p, "2", "odreg", "odreg", `[data-act=open][data-id="${b}"]`);
     await p.click(`[data-act=open][data-id="${b}"]`); await p.waitForSelector("#odr-edit");
-    t.ok(await p.evaluate(() => document.activeElement && document.activeElement.name === "item_name"), "order diary: the item opens on Item");
+    t.ok(await p.waitForFunction(() => document.activeElement && document.activeElement.name === "item_name", null, { timeout: 3000 }).then(() => true, () => false), "order diary: the item opens on Item");
     await t.fill(p, "#odr-edit", { item_name: ED.name, qty: ED.qty, supplier: ED.sup, notes: ED.notes });
     const w = await t.write(p, new RegExp("/order-diary/entries/" + b + "$"), () => p.click("#odr-edit button[type=submit]"), "PUT");
     t.ok(JSON.stringify(w.body) === JSON.stringify(co.body), "order diary: the classic Edit Item body: classic " + JSON.stringify(co.body) + " new " + JSON.stringify(w.body));

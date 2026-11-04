@@ -2,10 +2,9 @@
 // screen and the stored row is compared with the row the classic body makes through the API (the classic Shifts,
 // Instructions and Message board screens send these same bodies), every column. Also: a group message never
 // reaches another group, and the screens' keyboard paths (Escape closes a shift, focus goes back to the day).
-const pad = (n) => (n < 10 ? "0" : "") + n;
-const ymdOf = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
-const monday = () => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; };
-const weekDay = (i) => { const d = monday(); d.setDate(d.getDate() + i); return ymdOf(d); };
+import { maltaYmd, ymdAdd } from "../../clock.mjs";
+// Malta's calendar (the screens' "this week" and "today"), whatever zone the test machine is on
+const weekDay = (i) => { const t = maltaYmd(0); return ymdAdd(t, i - ((new Date(t + "T12:00:00Z").getUTCDay() + 6) % 7)); };
 
 export default {
   title: "Team: shifts, handover, board, sign-ins",
@@ -66,7 +65,7 @@ export default {
     t.same("leave (approve)", t.row("shift_leaves", lv2.leave_id), t.row("shift_leaves", lv.leave_id), { start_date: "another day", end_date: "another day", reason: "the request's own reason", reviewed_at: "clock" });
 
     // ---------- Handover ----------
-    const today = ymdOf(new Date());
+    const today = maltaYmd(0);
     await t.api("PUT", "/instructions/daily", { ymd: today, notes: "Inspector may visit", handover_out: [] });
     await t.open(p, "2", "instructions", "hndreg", "#hnd-new"); await t.idle(p); // the day is read (and redrawn) before typing
     await p.fill("#hnd-new", "Ċempel lil Mrs Borg dwar l-insulina"); await p.click('.hnd-seg [data-sev="r"]');

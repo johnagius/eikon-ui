@@ -4,6 +4,7 @@
 // Seeding follows the scratchpad tools/serve.mjs used by the earlier one-off real-stack scripts.
 import http from "node:http"; import fs from "node:fs"; import path from "node:path"; import { fileURLToPath } from "node:url";
 import { makeApp } from "../worker/harness.mjs";
+import { maltaYmd } from "../clock.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const USER = { email: "maria@demo.mt", password: "Demo-Pass-2026", name: "Maria Borg" };
@@ -18,7 +19,7 @@ export async function startStack(port) {
     return origFetch(u, init);
   };
   const s = await app.bootstrap({ email: USER.email, password: USER.password, name: USER.name, location: "Demo Pharmacy", org: "Demo Org" });
-  const T = s.token; const d = (n) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10);
+  const T = s.token; const d = (n) => maltaYmd(-n); // n days back, Malta's calendar (as the screens date them)
   const seed = async (m, p, body) => { const r = await app.api(m, p, { token: T, body }); if (r.status >= 400) throw new Error("seed failed " + p + " " + r.status + " " + r.text.slice(0, 160)); return r; };
   const devs = (await app.api("GET", "/temperature/devices", { token: T })).json?.devices || [];
   for (let i = 1; i <= 6; i++) for (const dv of devs.slice(0, 2)) await seed("POST", "/temperature/entries", { device_id: dv.id, entry_date: d(i), min_temp: 3 + (i % 2) * 0.4, max_temp: 6 + (i % 3) * 0.3, notes: "" });

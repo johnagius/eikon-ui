@@ -11,6 +11,13 @@ function normBind(v) {
   return v;
 }
 
+// Under a faked clock (tests/clock.mjs EIKON_FAKE_NOW), SQLite's 'now' follows it too, so session expiry, rate windows
+// and the rows' stamps agree with the worker's Date. Table definitions keep 'now' (their DEFAULTs are evaluated per row).
+function fakeNow(sql) {
+  if (!globalThis.Date.__eikonFake || sql.indexOf("'now'") < 0 || /^\s*CREATE\s/i.test(sql)) return sql;
+  return sql.replace(/'now'/g, "'" + new Date().toISOString().slice(0, 19).replace("T", " ") + "'");
+}
+
 class D1Stmt {
   constructor(db, sql, params = []) {
     this.db = db;
@@ -21,7 +28,7 @@ class D1Stmt {
     return new D1Stmt(this.db, this.sql, params.map(normBind));
   }
   _prep() {
-    return this.db.prepare(this.sql);
+    return this.db.prepare(fakeNow(this.sql));
   }
   async first(col) {
     const row = this._prep().get(...this.params);
@@ -53,6 +60,13 @@ export class D1Shim {
   constructor(path = ":memory:") {
     this.db = new DatabaseSync(path);
     this.db.exec("PRAGMA foreign_keys = OFF;");
+    // A whole run under EIKON_FAKE_NOW: SQLite's date functions read 'now' from the faked clock everywhere, the
+    // tables' DEFAULT (datetime('now')) included (a second, plain connection does the date arithmetic).
+    if (process.env.EIKON_FAKE_NOW) {
+      const aux = new DatabaseSync(":memory:");
+      for (const fn of ["datetime", "date", "time", "julianday", "strftime", "unixepoch"])
+        this.db.function(fn, { varargs: true, deterministic: false }, (...a) => aux.prepare("SELECT " + fn + "(" + a.map(() => "?").join(",") + ") AS v").get(...a.map((v) => v === "now" ? new Date().toISOString().slice(0, 19).replace("T", " ") : v)).v);
+    }
   }
   prepare(sql) {
     return new D1Stmt(this.db, sql);

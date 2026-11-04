@@ -1,7 +1,7 @@
 // Locum receipts (lrcreg) vs classic Locum Receipts. The classic sets the rate (normal / holiday) from the day;
 // the new form offers it with the same default, so the classic's choice is used on both.
 import { ymd } from "../lib.mjs";
-const weekday = (() => { for (let n = -2; ; n--) { const d = new Date(); d.setDate(d.getDate() + n); if ([2, 3, 4].includes(d.getDay())) return ymd(n); } })();
+const weekday = (() => { for (let n = -2; ; n--) if ([2, 3, 4].includes(new Date(ymd(n) + "T12:00:00Z").getUTCDay())) return ymd(n); })(); // Malta's calendar
 const IN = { name: "Pharm. Joseph Cassar", reg: "PH 2002", date: weekday, hours: "7.5", fee: "18.00" };
 export default {
   title: "Locum receipts",

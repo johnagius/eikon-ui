@@ -2046,7 +2046,7 @@
               if (!qty || qty < 1) qty = 1;
               var batch = String((document.getElementById("dash-ne-stock-batch") || {}).value || "").trim();
 
-              var today = new Date().toISOString().slice(0, 10);
+              var today = (E.maltaYmd && E.maltaYmd()) || new Date().toISOString().slice(0, 10); // Malta's day (UTC is a day behind before 01:00/02:00)
               var j = await api("/scarce-stock/offers", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },

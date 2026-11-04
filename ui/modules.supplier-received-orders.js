@@ -247,7 +247,7 @@
           "style='width:100%;height:36px;font-size:11px;resize:vertical;'>" + esc(order.supplier_notes || "") + "</textarea>" +
         "<div style='display:flex;gap:8px;align-items:center;'>" +
           "<label style='font-size:11px;color:var(--muted,rgba(233,238,247,.6));white-space:nowrap;'>Delivery date:</label>" +
-          "<input type='date' class='eikon-input sro-delivery-date' value='" + esc(order.scheduled_delivery_date || new Date().toISOString().slice(0, 10)) + "' " +
+          "<input type='date' class='eikon-input sro-delivery-date' value='" + esc(order.scheduled_delivery_date || (E.maltaYmd && E.maltaYmd()) || new Date().toISOString().slice(0, 10)) + "' " +
             "style='font-size:11px;flex:1;'>" +
         "</div>" +
         "<button class='eikon-btn sp-btn-primary sro-ship-btn' data-ship-id='" + order.id + "'>Order Shipped</button>" +

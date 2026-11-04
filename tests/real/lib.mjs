@@ -1,7 +1,9 @@
 // Helpers shared by the cases in tests/real/cases/. One `t` per case: its own browser context(s), checks, and the
 // column comparison (classic row vs new-layout row, every column; only the listed columns may differ).
-const pad = (n) => (n < 10 ? "0" : "") + n;
-export const ymd = (n = 0) => { const x = new Date(); x.setDate(x.getDate() + n); return x.getFullYear() + "-" + pad(x.getMonth() + 1) + "-" + pad(x.getDate()); };
+import { maltaYmd, contextTz, prepareContext } from "../clock.mjs";
+// Malta's calendar day n days from today: the day the worker's /today, the header and a browser in Malta call today
+// (the machine running the tests is on UTC, which is a day behind for an hour or two around midnight).
+export const ymd = (n = 0) => maltaYmd(n);
 const show = (v) => v === undefined ? "(missing)" : v === null ? "null" : JSON.stringify(v).slice(0, 240);
 // Always allowed to differ: the row's own id and clock stamps.
 const ALWAYS = ["id", "created_at", "updated_at"];
@@ -16,7 +18,8 @@ export function makeT({ browser, stack, token, name }) {
 
     // A signed-in page. Every request that is not to localhost is aborted.
     async page({ phone = false, dialogs = "accept" } = {}) {
-      const ctx = await browser.newContext(phone ? { viewport: { width: 390, height: 844 }, isMobile: true, deviceScaleFactor: 2 } : { viewport: { width: 1280, height: 900 } });
+      // in Malta's time zone, like the pharmacies' devices (tests/clock.mjs: EIKON_BROWSER_TZ, EIKON_FAKE_NOW)
+      const ctx = await prepareContext(await browser.newContext({ ...(phone ? { viewport: { width: 390, height: 844 }, isMobile: true, deviceScaleFactor: 2 } : { viewport: { width: 1280, height: 900 } }), ...contextTz() }));
       ctxs.push(ctx);
       await ctx.addInitScript((tok) => { try { if (!localStorage.getItem("eikon_token")) localStorage.setItem("eikon_token", tok); if (!localStorage.getItem("eikon_active_role")) localStorage.setItem("eikon_active_role", "pharmacy"); } catch (e) {} }, token);
       await ctx.route("**/*", (r) => { const u = r.request().url(); return /^(about|blob|data):/.test(u) || new URL(u).hostname === "localhost" ? r.continue() : r.abort(); });

@@ -6,6 +6,8 @@
 import { createRequire } from "node:module"; import fs from "node:fs"; import path from "node:path"; import { fileURLToPath, pathToFileURL } from "node:url";
 import { startStack, USER } from "./stack.mjs";
 import { makeT } from "./lib.mjs";
+import { installNodeClock, CLOCK_OFFSET, BROWSER_TZ } from "../clock.mjs";
+installNodeClock(); // EIKON_FAKE_NOW: the worker and the cases run at that moment
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const { chromium } = createRequire(import.meta.url)("playwright");
@@ -18,6 +20,7 @@ const out = (s) => process.stdout.write(s + "\n");
 // The worker and the pages log freely; keep the output to the suite's own lines (REAL_VERBOSE=1 shows them).
 if (!process.env.REAL_VERBOSE) for (const k of ["log", "info", "warn", "debug", "error"]) console[k] = () => {};
 const t0 = Date.now();
+if (CLOCK_OFFSET || BROWSER_TZ !== "Europe/Malta") out(`clock: ${new Date().toISOString()} (faked), pages in ${BROWSER_TZ}`);
 const stack = await startStack(PORT);
 const login = await stack.app.api("POST", "/auth/login", { body: { email: USER.email, password: USER.password } });
 if (!login.json?.ok) throw new Error("login failed " + login.text);
