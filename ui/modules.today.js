@@ -220,6 +220,8 @@
       ".tdy-foot{grid-column:1/-1;display:flex;gap:16px;align-items:center;font-size:12.5px;color:var(--muted);margin-top:18px;padding-top:10px;border-top:1px solid var(--border)}.tdy-foot a{color:var(--accent);cursor:pointer;font-weight:600}.tdy-foot .right{margin-left:auto}" +
       ".tdy-setup{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin:14px 0 0}.tdy-setup h2{font-size:15px;font-weight:700;margin:0 0 2px}.tdy-setup p{margin:0 0 6px;font-size:13px;color:var(--muted)}" +
       ".tdy-setup ul{list-style:none;margin:0;padding:0}.tdy-setup li{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;border-top:.5px solid var(--border);font-size:14.5px}.tdy-setup li:first-child{border-top:0}" +
+      ".tdy-setup-h{display:flex;align-items:center;justify-content:space-between;gap:12px}.tdy-more .tdy-t{margin-left:14px}" + // q5-5: "and N more" is one line, on a phone too
+      "@media (max-width:600px){.tdy-row.tdy-more,.tdy-row.tdy-bk{flex-wrap:nowrap}.tdy-row.tdy-more .tdy-t,.tdy-row.tdy-bk .tdy-t{flex:1 1 0}.tdy-row.tdy-more .tdy-t+*,.tdy-row.tdy-bk .tdy-t+*{margin-left:auto}}" + // a booking: one button, one line
       ".tdy-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:12px;padding:22px;color:var(--muted);font-size:14px}" +
       ".tdy-off{max-width:1180px;margin:0 auto 10px;box-sizing:border-box;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:rgba(201,138,18,.14);border:1px solid rgba(201,138,18,.35);color:var(--warn,#A06A0E);border-radius:10px;padding:8px 12px;font-size:13px}.tdy-off span{flex:1 1 220px}.tdy-off .tdy-btn{padding:6px 12px}" +
       ".tdy-sr{position:absolute;left:-9999px}" +
@@ -306,6 +308,42 @@
     state.repItems = items.slice(0, REP_MAX);
     return h + "</div>";
   }
+
+  // q5-5 (F7, D5): Customers waiting shows the few that press most (urgent, then overdue, then due today), one line per
+  // kind for the rest ("and 45 more orders", to that screen), and those waiting longer than 30 days in a group that stays
+  // closed until asked for. Display only: the same GET /today, nothing written.
+  var WAIT_MAX = 5, OLD_DAYS = 30, SERVER_CAP = 50; // the server sends at most 50 of each kind
+  var KIND = { order: { to: "ordreg", path: "#clientorders", many: "orders", all: "All orders" }, question: { to: "tktreg", path: "#tickets", many: "questions", all: "All questions" },
+    delivery: { to: "dlvreg", path: "#deliveries", many: "deliveries", all: "All deliveries" } };
+  function ageDays(c) { return c.kind === "delivery" ? Number(c.late_days) || 0 : Number(c.waiting_days) || 0; }
+  function urgency(c, t) {
+    if (Number(c.priority) === 1) return 0;
+    var due = c.kind === "order" ? c.needed_by : c.kind === "question" ? c.followup_date : c.due_date;
+    if ((c.kind === "delivery" && Number(c.late_days) > 0) || (due && t && due < t)) return 1;
+    if (due && t && due === t) return 2;
+    return 3;
+  }
+  function triage(list) {
+    var t = todayYmd(), all = list.map(function (c, i) { return { c: c, i: i, u: urgency(c, t) }; });
+    var by = function (a, b) { return a.u - b.u || a.i - b.i; }, un = function (x) { return x.c; };
+    var cur = all.filter(function (x) { return ageDays(x.c) <= OLD_DAYS; }).sort(by), old = all.filter(function (x) { return ageDays(x.c) > OLD_DAYS; }).sort(by);
+    return { top: cur.slice(0, WAIT_MAX).map(un), rest: cur.slice(WAIT_MAX).map(un), old: old.map(un) };
+  }
+  function moreRows(rest, list) {
+    return ["order", "question", "delivery"].map(function (k) {
+      var n = rest.filter(function (c) { return c.kind === k; }).length; if (!n) return "";
+      var capped = list.filter(function (c) { return c.kind === k; }).length >= SERVER_CAP; // there may be more than Today was sent
+      return '<div class="tdy-row tdy-more" data-more="' + k + '"><div class="tdy-t"><span>and ' + n + (capped ? "+" : "") + " more " + (n === 1 && !capped ? KIND[k].many.replace(/ies$/, "y").replace(/s$/, "") : KIND[k].many) + '</span></div><button class="tdy-btn" data-open="' + KIND[k].path + '">' + KIND[k].all + " ›</button></div>";
+    }).join("");
+  }
+  function olderRows(old) {
+    if (!old.length) return "";
+    var open = !!state.olderOpen;
+    return '<div class="tdy-row tdy-more" data-older-row><div class="tdy-t"><span id="tdy-old-l">Older than 30 days (' + old.length + ')</span></div><button class="tdy-btn" data-older aria-expanded="' + open + '" aria-describedby="tdy-old-l">' + (open ? "Hide" : "Show") + "</button></div>" +
+      (open ? old.map(rowCustomer).join("") : "");
+  }
+  // Open on a waiting customer lands on that very order, question or delivery (the one hand-over note, mode "open").
+  function handAttrs(c) { var k = KIND[c.kind]; return k && c.id ? ' data-hand="' + k.to + '" data-hand-id="' + esc(c.id) + '" data-hand-name="' + esc(c.name || "") + '" data-hand-phone="' + esc(c.phone || "") + '"' : ""; }
 
   // ---------- actions ----------
   // A mistake is said under the row it belongs to (and read out), the field is marked and focused, and what was typed stays.
@@ -399,20 +437,26 @@
     var temps = before.filter(function (r) { return r.kind === "temperature"; });
     if (!temps.length) out.push({ k: "fridge", t: "Add the fridge and room you log", go: "#tempreg", view: "add", b: "Add" });
     // Still called what they were given, and nobody has looked at them in Fridges and rooms (saving anything there counts).
-    else if (!flag("eikon_trg_named") && temps.some(function (r) { return FIRST_NAMES[String(r.title || "").replace(/ · reading$/, "")]; }))
+    // q5-5: a fridge or room with a reading yesterday is in daily use, so its name is the one the pharmacy uses (D2)
+    else if (!flag("eikon_trg_named") && !temps.every(function (r) { return !!r.yesterday; }) && temps.some(function (r) { return FIRST_NAMES[String(r.title || "").replace(/ · reading$/, "")]; }))
       out.push({ k: "names", t: "Name your fridges and rooms, and check their limits", go: "#tempreg", view: "devices", b: "Name them" });
     if (s.sign_ins === 1) out.push({ k: "people", t: "Add the people who work here, so each signs in as themselves", go: "#teamreg", b: "Add people" });
-    if (s.opening_hours_saved === false) out.push({ k: "hours", t: "Set your opening hours", go: "#shifts", b: "Set hours" });
+    // q5-5: hours set for Bookings count too: there are bookings today, so Bookings has opening hours (D2)
+    var bkHours = !!(state.data && state.data.bookings && state.data.bookings.total_today > 0);
+    if (s.opening_hours_saved === false && !bkHours) out.push({ k: "hours", t: "Set your opening hours", go: "#shifts", b: "Set hours" });
     // Only where Emergency POS is used: it was opened here and found no product list (eposreg keeps that note).
     if (flag("eikon_epos_empty")) out.push({ k: "products", t: "Add your products to Emergency POS", go: "#eposreg", b: "Import" });
     return out;
   }
+  // "Not now" (D2): hidden for 30 days for this pharmacy on this device.
+  var LATER_DAYS = 30;
+  function setupLater() { try { var at = Number(localStorage.getItem(locKey("eikon_tdy_setup_later")) || 0); return at > 0 && Date.now() - at < LATER_DAYS * 864e5; } catch (e) { return false; } }
   function setupCard(before) {
     var u = E.state.user || {};
-    if (u.role !== "admin" || !(state.data && state.data.setup)) return "";
+    if (u.role !== "admin" || !(state.data && state.data.setup) || setupLater()) return "";
     var items = setupItems(before);
     if (!items.length) return "";
-    return '<section class="tdy-setup" aria-labelledby="tdy-setup-t"><h2 id="tdy-setup-t">Getting this pharmacy ready</h2><p>' + plural(items.length, "thing") + ' left. Each goes from this list once it is done.</p><ul>' +
+    return '<section class="tdy-setup" aria-labelledby="tdy-setup-t"><div class="tdy-setup-h"><h2 id="tdy-setup-t">Getting this pharmacy ready</h2><button class="tdy-btn" data-setup-later aria-label="Not now: hide this list for ' + LATER_DAYS + ' days">Not now</button></div><p>' + plural(items.length, "thing") + ' left. Each goes from this list once it is done.</p><ul>' +
       items.map(function (i) { return '<li data-setup="' + i.k + '"><span>' + esc(i.t) + '</span><button class="tdy-btn" data-open="' + esc(i.go) + '"' + (i.view ? ' data-view="' + esc(i.view) + '"' : "") + '>' + esc(i.b) + '</button></li>'; }).join("") + '</ul></section>';
   }
 
@@ -496,20 +540,20 @@
       return '<div class="tdy-row ' + (c.due_today ? "amb" : "blu") + '">' +
         '<div class="tdy-av" style="background:hsl(' + hue(c.name) + ',45%,32%)">' + esc(initials(c.name)) + '</div>' +
         '<div class="tdy-t"><b>' + esc(c.name) + '</b><span>Order · ' + esc(c.detail || "") + (c.code ? " · " + esc(c.code) : "") + (c.waiting_days > 0 ? " · " + plural(c.waiting_days, "day") + " ago" : " · today") + '</span></div>' +
-        due + '<button class="tdy-btn" data-open="' + esc(c.action.path) + '">Open</button></div>';
+        due + '<button class="tdy-btn" data-open="' + esc(c.action.path) + '"' + handAttrs(c) + ' aria-label="' + esc("Open " + c.name + "'s order") + '">Open</button></div>';
     }
     if (c.kind === "delivery") { // sent by servers from 2026-11-02-bookings-12; older ones simply do not list deliveries
       var dp = c.late_days > 0 ? '<span class="tdy-pill red">Was due ' + esc(dayWord(c.due_date)) + '</span>' : c.status === "Out for Delivery" ? '<span class="tdy-pill grn">On its way</span>' : '<span class="tdy-pill amb">Goes out today</span>';
       return '<div class="tdy-row ' + (c.late_days > 0 ? "red" : "amb") + '">' +
         '<div class="tdy-av" style="background:hsl(' + hue(c.name) + ',45%,32%)">' + esc(initials(c.name)) + '</div>' +
         '<div class="tdy-t"><b>' + esc(c.name) + '</b><span>Delivery · ' + esc(c.detail || "") + (c.slot ? " · " + esc(c.slot) : "") + (c.cold ? " · Fridge" : "") + (c.controlled ? " · Controlled drug" : "") + '</span></div>' +
-        dp + '<button class="tdy-btn" data-open="' + esc(c.action.path) + '">Open</button></div>';
+        dp + '<button class="tdy-btn" data-open="' + esc(c.action.path) + '"' + handAttrs(c) + ' aria-label="' + esc("Open " + c.name + "'s delivery") + '">Open</button></div>';
     }
     return '<div class="tdy-row blu">' +
       '<div class="tdy-av" style="background:hsl(' + hue(c.name) + ',45%,32%)">' + esc(initials(c.name)) + '</div>' +
       '<div class="tdy-t"><b>' + esc(c.name) + '</b><span>Asked ' + (c.waiting_days > 0 ? plural(c.waiting_days, "day") + " ago" : "today") + ' · "' + esc(c.detail || "") + '"</span></div>' +
       '<span class="tdy-pill blu">' + (c.waiting_days > 0 ? "Waiting " + plural(c.waiting_days, "day") : "New") + '</span>' +
-      '<button class="tdy-btn" data-open="' + esc(c.action.path) + '">Reply</button></div>';
+      '<button class="tdy-btn" data-open="' + esc(c.action.path) + '"' + handAttrs(c) + ' aria-label="' + esc("Reply to " + c.name) + '">Reply</button></div>';
   }
 
   function render() {
@@ -584,7 +628,8 @@
     }).join("") + '</div>';
 
     html += '<div class="tdy-lab">Customers waiting <b>' + nWait + '</b><a data-open="#clientorders">All orders ›</a></div>';
-    html += waiting.length ? '<div class="tdy-list">' + waiting.map(rowCustomer).join("") + '</div>' : '<div class="tdy-quiet">No one is waiting. New orders and questions appear here the moment they are recorded.</div>';
+    var tri = triage(waiting);
+    html += waiting.length ? '<div class="tdy-list" data-waiting>' + tri.top.map(rowCustomer).join("") + moreRows(tri.rest, waiting) + olderRows(tri.old) + '</div>' : '<div class="tdy-quiet">No one is waiting. New orders and questions appear here the moment they are recorded.</div>';
     html += repeatsCard(d);
     // Bookings today (only when the pharmacy uses Bookings): the next few, one tap to the day.
     var bk = d.bookings;
@@ -593,7 +638,7 @@
       html += '<div class="tdy-lab">Bookings today <b>' + bk.total_today + '</b><a data-open="#bookings">All bookings ›</a></div>';
       html += bk.next.length ? '<div class="tdy-list">' + bk.next.map(function (b) {
         var here = b.status === "arrived";
-        return '<div class="tdy-row ' + (here ? "grn" : "blu") + '">' +
+        return '<div class="tdy-row tdy-bk ' + (here ? "grn" : "blu") + '">' +
           '<div class="tdy-av sq tm" style="width:50px;font-size:12px;font-variant-numeric:tabular-nums">' + esc(b.start) + '</div>' +
           '<div class="tdy-t"><b>' + esc(b.name) + '</b><span>' + esc(b.service) + (b.provider ? " · " + esc(b.provider) : "") + " · until " + esc(b.end) + '</span></div>' +
           (here ? '<span class="tdy-pill grn">Here</span>' : "") + '<button class="tdy-btn" data-open="#bookings">Open</button></div>';
@@ -658,7 +703,18 @@
       el.addEventListener("click", function () { var x = (state.repItems || [])[Number(el.getAttribute("data-rep-tell"))]; if (x && typeof E.tellCustomer === "function") E.tellCustomer({ kind: x.s.kind === "runout" ? "repeat_running_out" : "repeat_due", name: x.e.client_name, id_card: x.e.client_id, detail: x.e.medicine_name_dose, date: x.s.kind === "runout" ? x.e.expires_date : x.s.next }); });
     });
     m.querySelectorAll("[data-open]").forEach(function (el) {
-      el.addEventListener("click", function () { var v = el.getAttribute("data-view"); if (v) { try { sessionStorage.setItem("eikon_tempreg_view", v); } catch (e) {} } openPath(el.getAttribute("data-open")); });
+      el.addEventListener("click", function () { var v = el.getAttribute("data-view"); if (v) { try { sessionStorage.setItem("eikon_tempreg_view", v); } catch (e) {} }
+        var to = el.getAttribute("data-hand"); // a waiting customer's row: that screen opens on this very record
+        if (to && E.customerHandoff) E.customerHandoff(to, "open", { name: el.getAttribute("data-hand-name") || "", phone: el.getAttribute("data-hand-phone") || "" }, "", el.getAttribute("data-hand-id"));
+        openPath(el.getAttribute("data-open")); });
+    });
+    var ob = m.querySelector("[data-older]");
+    if (ob) ob.addEventListener("click", function () { state.olderOpen = !state.olderOpen; render(); var again = state.mount && state.mount.querySelector("[data-older]"); if (again) again.focus(); });
+    var later = m.querySelector("[data-setup-later]");
+    if (later) later.addEventListener("click", function () {
+      try { localStorage.setItem(locKey("eikon_tdy_setup_later"), String(Date.now())); } catch (e) {}
+      render(); E.toast("Hidden for " + LATER_DAYS + " days on this device", "success");
+      var h = state.mount && state.mount.querySelector(".tdy-head h1"); if (h) { h.setAttribute("tabindex", "-1"); h.focus(); }
     });
     m.querySelectorAll('[data-act="temp"]').forEach(function (btn) {
       btn.addEventListener("click", function () {

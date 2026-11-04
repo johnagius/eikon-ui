@@ -137,6 +137,8 @@
       "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .ord-ferr{color:#FF7A72}}" + // 5:1 on the tinted row being typed in
       // The order diary offer after a new order (b4-5).
       ".ord-dia{border-color:var(--accent)}.ord-dia .ord-meta{color:var(--text);font-size:14.5px;padding:8px 16px 4px}" +
+      ".ord-row.q55-hit{box-shadow:inset 0 0 0 2px var(--accent)}" + // q5-5: the order opened from Today
+      ".ord-old{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:20px 2px 7px;font-size:13px;font-weight:600;color:var(--muted)}" +
       ".ord-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       "@media (max-width:600px){.ord{padding:4px 16px 0}.ord h1{font-size:32px}.ord-row{flex-wrap:wrap;row-gap:8px}.ord-row .t{flex-basis:100%}.ord-row .ord-btn{margin-left:auto}" +
       ".ord-btn,.ord-tabs button{height:44px;border-radius:22px}.ord-tabs button{border-radius:9px}.ord-ferr{margin-left:0}.ord-form label>span{flex-basis:88px}.ord-form label>.ord-hint{flex-basis:100%;white-space:normal;margin:-8px 0 8px 100px}.ord-q{height:44px;font-size:16px}.ord-ph input{height:44px}}";
@@ -202,7 +204,7 @@
     var open = S.editing === e.id, ask = S.askPhone === e.id;
     var btn = ask ? "" : done ? '<button class="ord-btn" data-act="unready" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ' aria-label="' + esc("Not ready: " + e.client_name + "'s order is waiting again") + '">' + (S.busy[e.id] ? "Saving…" : "Not ready") + "</button>"
       : '<button class="ord-btn p" data-act="ready" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ' aria-label="' + esc("Ready: " + e.client_name + "'s order is in") + '">' + (S.busy[e.id] ? "Saving…" : "Ready") + "</button>";
-    var h = '<div class="ord-row ' + cls + (Number(e.priority) === 1 && !done ? " hi" : "") + '"' + (ask ? ' style="flex-wrap:wrap"' : "") + '><div class="t"><button type="button" class="ord-name" data-act="open" data-id="' + e.id + '" aria-expanded="' + (open ? "true" : "false") + '" aria-label="' + esc("Open the order for " + e.client_name) + '"><b>' + esc(e.client_name) + '</b><div class="it">' + esc(e.items_text || e.items || "") + "</div></button><span>" + sub.join(" · ") + "</span></div>" +
+    var h = '<div class="ord-row ' + cls + (Number(e.priority) === 1 && !done ? " hi" : "") + (S.hit === e.id ? " q55-hit" : "") + '"' + (ask ? ' style="flex-wrap:wrap"' : "") + '><div class="t"><button type="button" class="ord-name" data-act="open" data-id="' + e.id + '" aria-expanded="' + (open ? "true" : "false") + '" aria-label="' + esc("Open the order for " + e.client_name) + '"><b>' + esc(e.client_name) + '</b><div class="it">' + esc(e.items_text || e.items || "") + "</div></button><span>" + sub.join(" · ") + "</span></div>" +
       '<span class="ord-pill ' + (done ? "done" : cls) + '">' + esc(pill) + "</span>" + btn;
     // An order saved without a phone cannot be changed (the server needs one): the phone is asked for here, in the row.
     if (ask) h += '<form class="ord-ph" id="ord-ph" data-id="' + e.id + '" autocomplete="off"><label for="ord-ph-in">Phone, to mark it ' + (S.askOn ? "ready" : "waiting") + '</label>' +
@@ -319,9 +321,14 @@
     var done = S.entries.filter(function (e) { return Number(e.fulfilled) && String(e.fulfilled_at || "").slice(0, 10) >= week && match(e); }).sort(function (a, b) { return String(a.fulfilled_at) < String(b.fulfilled_at) ? 1 : -1; });
     if (S.loading && !S.entries.length) return skel("orders");
     if (S.error) return trouble(S.error);
+    // D5 (q5-5): orders taken more than 30 days ago wait in their own group, closed until asked for (a search shows them all)
+    var old = q ? [] : open.filter(isOld); if (old.length) open = open.filter(function (e) { return !isOld(e); });
     var late = open.filter(function (e) { return e.needed_by && daysUntil(e.needed_by) < 0; }).length;
     h += open.length ? '<div class="ord-lab">Waiting <b>' + open.length + "</b>" + (late ? '<span style="color:var(--danger)">· ' + late + " late</span>" : "") + '</div><div class="ord-list">' + open.map(function (e) { return rowHtml(e, false); }).join("") + "</div>"
+      : old.length ? '<div class="ord-quiet">No order taken in the last 30 days is waiting.</div>'
       : '<div class="ord-quiet">' + (q ? "Nothing waiting matches “" + esc(q) + "”." + (done.length ? "" : " Try a shorter part of the name, or the phone number.") : "No customer is waiting for an order. When someone asks for something you do not have, press New order.") + "</div>";
+    if (old.length) h += '<div class="ord-old"><span id="ord-old-l">Older than 30 days (' + old.length + ')</span><button type="button" class="ord-btn" data-act="older-toggle" aria-expanded="' + !!S.olderOpen + '" aria-describedby="ord-old-l">' + (S.olderOpen ? "Hide" : "Show") + "</button></div>" +
+      (S.olderOpen ? '<div class="ord-list">' + old.map(function (e) { return rowHtml(e, false); }).join("") + "</div>" : "");
     if (done.length) h += '<div class="ord-lab">Ready in the last week <b>' + done.length + '</b></div><div class="ord-list">' + done.map(function (e) { return rowHtml(e, true); }).join("") + "</div>";
     return h;
   }
@@ -381,6 +388,7 @@
         else if (a === "view-open") { S.view = "open"; S.editing = null; S.edit = null; S.del = null; S.askPhone = null; paint(); focusOn("[data-act=view-open]"); }
         else if (a === "view-done") { S.view = "done"; S.editing = null; S.edit = null; S.del = null; S.askPhone = null; if (!S.done.length) loadDone(false); else paint(); focusOn("[data-act=view-done]"); }
         else if (a === "older") loadDone(true);
+        else if (a === "older-toggle") { S.olderOpen = !S.olderOpen; paintResults(); focusOn("[data-act=older-toggle]"); }
         else if (a === "diary-no") { S.diary = null; paint(); focusOn(".ord-top [data-act=add]"); }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "ordreg"); } catch (e) {} E.openClassic("clientorders"); }
       });
@@ -515,6 +523,19 @@
   }
 
   function reloadAll() { var p = load(); return S.view === "done" ? Promise.all([p, loadDone(false)]) : p; }
+  var OLD_DAYS = 30;
+  function isOld(e) { var d = String(e.order_date || e.entry_date || "").slice(0, 10); return isYmd(d) && daysUntil(d) < -OLD_DAYS; }
+  // q5-5: Today's Open (the hand-over note, mode "open") lands on that very order: the list shows it (its group opened,
+  // no filter hiding it), its row is marked and brought into view, and focus goes to Ready, unless the person has gone
+  // to a field meanwhile (E.focusIfIdle). An order no longer in the list is looked for by the customer's name instead.
+  function land(since, from) {
+    var id = S.hit, m = S.mount; if (!id || !m || E.state.activeModuleId !== "ordreg" || S.error) return;
+    var e = findOrder(id), show = function () { return m.querySelector('[data-act=ready][data-id="' + id + '"],[data-act=unready][data-id="' + id + '"]'); };
+    if (e && isOld(e) && !Number(e.fulfilled) && !S.olderOpen) { S.olderOpen = true; paintResults(); } // only the lists: a search being typed stays
+    var go = function () { var btn = show(); if (!btn) return; try { btn.closest(".ord-row").scrollIntoView({ block: "center" }); } catch (x) {} E.focusIfIdle(btn, since, from); };
+    if (e) return show() ? go() : E.whenFormIdle(m, function () { paint(); go(); }); // a form being typed in is never redrawn under the person: the list (and the mark) come when they leave it
+    S.hit = null; if (S.hitName && !S.q) { S.q = S.hitName; S.qFromSearch = true; E.whenFormIdle(m, paint); }
+  }
 
   async function ready(id, on, ph) {
     var e = findOrder(id); if (!e || S.busy[id]) return;
@@ -594,8 +615,10 @@
       var hand = E.takeCustomerHandoff ? E.takeCustomerHandoff("ordreg") : null;
       S.carry = hand && hand.mode === "new" ? hand : null;
       if (hand && hand.mode === "find") { S.q = String(hand.person.name); S.qFromSearch = true; }
+      S.hit = hand && hand.mode === "open" ? Number(hand.id) : null; S.hitName = S.hit ? String(hand.person.name || "") : ""; S.olderOpen = false; // from Today: that very order
       if (S.carry) S.adding = {};
-      css(); paint(); if (S.carry) fillCarry(); if (E.onReconnect) E.onReconnect(load); return load();
+      var since = Date.now(), from = document.activeElement;
+      css(); paint(); if (S.carry) fillCarry(); if (E.onReconnect) E.onReconnect(load); return load().then(function () { land(since, from); });
     }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("ordreg") < 0) E.UI2_DESTINATIONS.push("ordreg");

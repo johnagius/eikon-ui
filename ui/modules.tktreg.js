@@ -152,6 +152,7 @@
       ".tkt-btn{font:inherit;font-size:14px;font-weight:600;height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
       ".tkt-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.tkt-btn:disabled{opacity:.55;cursor:default}" +
       ".tkt-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 2px 7px;display:flex;gap:8px}.tkt-lab b{color:var(--text)}" +
+      ".tkt-card.q55-hit{box-shadow:inset 0 0 0 2px var(--accent)}" + // q5-5: the question opened from Today
       ".tkt-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:10px;border-left:3px solid var(--border)}.tkt-card.hi{border-left-color:var(--danger)}.tkt-card.due{border-left-color:#C98A12}" +
       ".tkt-card .h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}.tkt-card b{font-size:15.5px;font-weight:600}.tkt-card .h span:not(.tkt-pill){font-size:12px;color:var(--muted)}" +
       ".tkt-card .i{font-size:14.5px;margin-top:4px}.tkt-card .s{font-size:12.5px;color:var(--muted);margin-top:3px}.tkt-card .s a{color:var(--accent);text-decoration:none}" +
@@ -226,7 +227,7 @@
     if (e.category) sub.push(esc(e.category)); if (e.assigned_to) sub.push("With " + esc(e.assigned_to));
     if (done || (e.status && e.status !== "Open")) sub.push(esc(say(e.status))); // "Open" on every open question says nothing
     if (done && e.resolved_at) sub.push("closed " + esc(when(String(e.resolved_at).slice(0, 10))));
-    var h = '<div class="tkt-card ' + cls + '"><div class="h"><button type="button" class="tkt-name" data-act="open" data-id="' + e.id + '" aria-expanded="' + (S.editing === e.id ? "true" : "false") + '" aria-label="' + esc("Open the question from " + e.client_name) + '"><b>' + esc(e.client_name) + "</b></button><span>" + esc(e.ticket_id || "") + " · opened " + esc(when(e.open_date)) + "</span>" +
+    var h = '<div class="tkt-card ' + cls + (S.hit === e.id ? " q55-hit" : "") + '"><div class="h"><button type="button" class="tkt-name" data-act="open" data-id="' + e.id + '" aria-expanded="' + (S.editing === e.id ? "true" : "false") + '" aria-label="' + esc("Open the question from " + e.client_name) + '"><b>' + esc(e.client_name) + "</b></button><span>" + esc(e.ticket_id || "") + " · opened " + esc(when(e.open_date)) + "</span>" +
       (n != null ? '<span class="tkt-pill ' + (n < 0 ? "late" : n === 0 ? "due" : "") + '">' + (n < 0 ? "Follow-up late · " : "Follow up ") + esc(when(e.followup_date)) + "</span>" : "") +
       (Number(e.priority) === 1 && !done ? '<span class="tkt-pill late">High</span>' : "") + "</div>" +
       '<div class="i">' + esc(e.issue) + '</div><div class="s">' + sub.join(" · ") + "</div>" +
@@ -348,6 +349,17 @@
     E.months.wireHistory(m, "tktreg");
     if (backTo) { var again = m.querySelector("#tkt-edit [name=" + backTo + "]"); if (again) again.focus(); }
     bind(m);
+  }
+  // q5-5: Today's Reply (the hand-over note, mode "open") lands on that very question: no filter hiding it, its card
+  // marked and in view, focus on Resolved unless the person has gone to a field meanwhile. One no longer waiting is
+  // looked for by the customer's name instead.
+  function land(since, from) {
+    var id = S.hit, m = S.mount; if (!id || !m || E.state.activeModuleId !== "tktreg" || S.error) return;
+    var e = S.entries.find(function (x) { return x.id === id; });
+    var show = function () { return m.querySelector('[data-act=resolve][data-id="' + id + '"]'); };
+    var go = function () { var btn = show(); if (!btn) return; try { btn.closest(".tkt-card").scrollIntoView({ block: "center" }); } catch (x) {} E.focusIfIdle(btn, since, from); };
+    if (e) return show() ? go() : E.whenFormIdle(m, function () { paint(); go(); }); // never redrawn under someone typing in a form
+    S.hit = null; if (S.hitName && !S.q) { S.q = S.hitName; E.whenFormIdle(m, paint); } // (a search the person typed meanwhile is theirs)
   }
   function paintResults() { var box = S.mount && S.mount.querySelector("#tkt-res"); if (!box) return paint(); keepEdit(); box.innerHTML = resultsHtml(); bind(box); }
   function focusOn(sel) { E.focusSoon(function () { return S.mount && S.mount.querySelector(sel); }); } // never away from a field the person went to meanwhile
@@ -521,8 +533,10 @@
       var hand = E.takeCustomerHandoff ? E.takeCustomerHandoff("tktreg") : null;
       S.carry = hand && hand.mode === "new" ? hand : null;
       if (hand && hand.mode === "find") S.q = String(hand.person.name);
+      S.hit = hand && hand.mode === "open" ? Number(hand.id) : null; S.hitName = S.hit ? String(hand.person.name || "") : ""; // from Today: that very question
       if (S.carry) S.adding = {};
-      css(); paint(); if (S.carry) fillCarry(); return load();
+      var since = Date.now(), from = document.activeElement;
+      css(); paint(); if (S.carry) fillCarry(); return load().then(function () { land(since, from); });
     }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("tktreg") < 0) E.UI2_DESTINATIONS.push("tktreg");

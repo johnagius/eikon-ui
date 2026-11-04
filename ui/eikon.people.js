@@ -563,6 +563,23 @@ function eikonNameCase(value) {
     var hits = (people || []).filter(function (p) { return sameAs(rec, p); });
     return hits.length === 1 ? hits[0] : null;
   }
+  // Maltese letters, typed or left out (q5-7): "zammit" finds Żammit, "cassar" Ċassar, "habela" Ħabela, "gorg" Ġorġ, and
+  // the other way round. foldMt: lower case with ċ ġ ħ ż as c g h z (and any other accent dropped), for comparing here.
+  // The server's LOWER()/LIKE know only A to Z, so a search also asks for mtStretch(q): the longest stretch of the name
+  // without c, g, h, z or their Maltese letters ("ammit" for "zammit"), which every spelling of the name contains; the
+  // rows that come back are then kept here by foldMt. "" when there is nothing to fold (a digit, or no such letter).
+  function foldMt(s) { return str(s).toLowerCase().replace(/ħ/g, "h").normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
+  function mtStretch(q) {
+    var s = str(q).trim();
+    if (!s || /\d/.test(s) || !/[cghz]/.test(foldMt(s))) return "";
+    var best = s.split(/[\s.,'’\-cghzCGHZċġħżĊĠĦŻ]+/).reduce(function (a, b) { return b.length > a.length ? b : a; }, "");
+    return best.length >= 2 ? best : "";
+  }
+  // Every word typed is somewhere in the text (any order), Maltese letters folded on both sides.
+  function hasWordsMt(hay, q) { var h = foldMt(hay); return foldMt(q).split(/\s+/).filter(Boolean).every(function (w) { return h.indexOf(w) >= 0; }); }
+  P.foldMt = foldMt;
+  P.mtStretch = mtStretch;
+  P.hasWordsMt = hasWordsMt;
   P.sameAs = sameAs;
   P.cardOf = cardOf;
   P.confirmCardEdit = confirmCardEdit;

@@ -124,6 +124,7 @@
       ".dlv-btn{font:inherit;font-size:14px;font-weight:600;height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
       ".dlv-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.dlv-btn.d{color:var(--danger)}.dlv-btn:disabled{opacity:.55;cursor:default}" +
       ".dlv-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 2px 7px;display:flex;gap:8px}.dlv-lab b{color:var(--text)}" +
+      ".dlv-card.q55-hit{box-shadow:inset 0 0 0 2px var(--accent)}" + // q5-5: the delivery opened from Today
       ".dlv-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:10px;border-left:3px solid var(--border)}.dlv-card.late{border-left-color:var(--danger)}.dlv-card.road{border-left-color:var(--accent)}" +
       ".dlv-card .h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}.dlv-card b{font-size:15.5px;font-weight:600}.dlv-card .h span{font-size:12px;color:var(--muted)}" +
       ".dlv-card .ad{font-size:14.5px;margin-top:4px}.dlv-card .ad small{display:block;color:var(--muted);font-size:12.5px}.dlv-card .s{font-size:12.5px;color:var(--muted);margin-top:4px}.dlv-card .s a{color:var(--accent);text-decoration:none}" +
@@ -179,7 +180,7 @@
     if (Number(e.contains_controlled) || items.some(function (i) { return i && i.schedule === "CD"; })) fl.push('<span class="dlv-pill cd">Controlled drug</span>');
     if (Number(e.signature_required)) fl.push('<span class="dlv-pill">Signature</span>');
     var maps = "https://maps.google.com/?q=" + encodeURIComponent(String(e.delivery_address || ""));
-    var h = '<div class="dlv-card ' + cls + '"><div class="h"><button type="button" class="dlv-name" data-act="open" data-id="' + e.id + '" aria-expanded="' + (S.editing === e.id ? "true" : "false") + '" aria-label="' + esc("Open the delivery for " + e.client_name) + '"><b>' + esc(e.client_name) + "</b></button><span>" + esc(e.delivery_id || "") + "</span></div>" +
+    var h = '<div class="dlv-card ' + cls + (S.hit === e.id ? " q55-hit" : "") + '"><div class="h"><button type="button" class="dlv-name" data-act="open" data-id="' + e.id + '" aria-expanded="' + (S.editing === e.id ? "true" : "false") + '" aria-label="' + esc("Open the delivery for " + e.client_name) + '"><b>' + esc(e.client_name) + "</b></button><span>" + esc(e.delivery_id || "") + "</span></div>" +
       '<div class="ad"><a href="' + esc(maps) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(e.delivery_address) + "</a>" + (e.address_notes ? "<small>" + esc(e.address_notes) + "</small>" : "") + "</div>" +
       (what ? '<div class="s">' + esc(what) + "</div>" : "") + '<div class="s">' + sub.join(" · ") + "</div>" + (fl.length ? '<div class="fl">' + fl.join("") + "</div>" : "");
     if (S.editing === e.id) {
@@ -497,6 +498,16 @@
     if (added) focusOn(".dlv-top [data-act=add]");
   }
 
+  // q5-5: Today's Open (the hand-over note, mode "open") lands on that very delivery: its card marked and in view, focus
+  // on Delivered unless the person has gone to a field meanwhile. One no longer on its way is looked for by the name.
+  function land(since, from) {
+    var id = S.hit, m = S.mount; if (!id || !m || E.state.activeModuleId !== "dlvreg" || S.error) return;
+    var show = function () { return m.querySelector('[data-act=done][data-id="' + id + '"]'); };
+    var go = function () { var btn = show(); if (!btn) return; try { btn.closest(".dlv-card").scrollIntoView({ block: "center" }); } catch (x) {} E.focusIfIdle(btn, since, from); };
+    if (S.entries.some(function (x) { return x.id === id; })) return show() ? go() : E.whenFormIdle(m, function () { paint(); go(); }); // never redrawn under someone typing in a form
+    S.hit = null; if (S.hitName) { S.who = { name: S.hitName, phone: S.hitPhone || "" }; E.whenFormIdle(m, paint); }
+  }
+
   E.registerModule({
     id: "dlvreg", title: "Deliveries", order: 3, icon: "→", ui2Only: true,
     render: function (ctx) {
@@ -505,8 +516,10 @@
       var hand = E.takeCustomerHandoff ? E.takeCustomerHandoff("dlvreg") : null;
       S.carry = hand && hand.mode === "new" ? hand : null;
       S.who = hand && hand.mode === "find" ? { name: String(hand.person.name), phone: String(hand.person.phone || "") } : null;
+      S.hit = hand && hand.mode === "open" ? Number(hand.id) : null; S.hitName = S.hit ? String(hand.person.name || "") : ""; S.hitPhone = S.hit ? String(hand.person.phone || "") : ""; // from Today: that very delivery
       if (S.carry) S.adding = {};
-      css(); paint(); if (S.carry) fillCarry(); return load();
+      var since = Date.now(), from = document.activeElement;
+      css(); paint(); if (S.carry) fillCarry(); return load().then(function () { land(since, from); });
     }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("dlvreg") < 0) E.UI2_DESTINATIONS.push("dlvreg");

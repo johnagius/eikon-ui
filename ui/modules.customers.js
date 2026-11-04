@@ -113,21 +113,49 @@
     var best = String(q).split(/[\sċġħżĊĠĦŻ]+/).reduce(function (a, b) { return b.length > a.length ? b : a; }, "");
     return best.length >= 2 ? best : q;
   }
+  // q5-7: ċ ġ ħ ż left out too. "zammit" is also asked as its longest stretch without c, g, h or z ("ammit",
+  // E.people.mtStretch), so Żammit comes back with Zammit; the rows are then compared with those letters folded.
+  function asks(q) {
+    var a = [serverQ(q)], st = E.people && E.people.mtStretch ? E.people.mtStretch(q) : "";
+    if (st && a.indexOf(st) < 0 && st.toLowerCase() !== a[0].toLowerCase()) a.push(st);
+    return a;
+  }
   function hasAll(row, q) {
-    var hay = [row.name, row.id_card, row.phone, row.alt_phone, row.email].join(" ").toLowerCase();
+    var hay = [row.name, row.id_card, row.phone, row.alt_phone, row.email].join(" ");
+    if (E.people && E.people.hasWordsMt) return E.people.hasWordsMt(hay, q);
+    hay = hay.toLowerCase();
     return String(q).toLowerCase().split(/\s+/).filter(Boolean).every(function (w) { return hay.indexOf(w) >= 0; });
   }
+  // two answers as one: each card once (by id), each history row once (by its key), cards in the order they came
+  function joinAnswers(list) {
+    var r = Object.assign({}, list[0]), seenP = {}, seenH = {};
+    r.people = []; r.history = [];
+    list.forEach(function (x) {
+      (x.people || []).forEach(function (p) { if (!seenP[p.id]) { seenP[p.id] = 1; r.people.push(p); } });
+      (x.history || []).forEach(function (h) { var k = h.key || (String(h.id_card || "") + "|" + String(h.name || "").toLowerCase()); if (!seenH[k]) { seenH[k] = 1; r.history.push(h); } });
+    });
+    r.people.sort(function (a, b) { return String(a.name || "").localeCompare(String(b.name || "")); });
+    // as the server does within one answer: a history row with a card's ID card or exact name is that card
+    var nk = function (n) { return String(n || "").trim().toLowerCase().replace(/\s+/g, " "); }, ik = E.idCardKey || function (x) { return String(x || "").toUpperCase(); };
+    var ids = {}, names = {}; r.people.forEach(function (p) { if (p.id_card) ids[ik(p.id_card)] = 1; names[nk(p.name)] = 1; });
+    r.history = r.history.filter(function (h) { return !(h.id_card && ids[ik(h.id_card)]) && !names[nk(h.name)]; })
+      .sort(function (a, b) { var x = String(a.last_date || ""), y = String(b.last_date || ""); return x !== y ? (x < y ? 1 : -1) : String(a.name || "").localeCompare(String(b.name || "")); });
+    return r;
+  }
   E.customersServerQ = serverQ; // for the tests
+  E.customersAsks = asks; // for the tests
   async function search(q) {
     var mySeq = ++state.seq;
     state.loading = true; state.error = "";
     renderList();
     try {
-      var wq = serverQ(q);
-      var r = await E.apiFetch("/people?q=" + encodeURIComponent(wq) + "&limit=30", { method: "GET", timeoutMs: 12000 });
+      var wq = asks(q);
+      var all = await Promise.all(wq.map(function (w) { return E.apiFetch("/people?q=" + encodeURIComponent(w) + "&limit=30", { method: "GET", timeoutMs: 12000 }); }));
       if (mySeq !== state.seq) return;
+      var r = all[0];
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not search");
-      if (wq !== q) r = Object.assign({}, r, { q: q, people: (r.people || []).filter(function (x) { return hasAll(x, q); }), history: (r.history || []).filter(function (x) { return hasAll(x, q); }) });
+      if (wq.length > 1) r = joinAnswers(all.filter(function (x) { return x && x.ok; }));
+      if (wq.length > 1 || wq[0] !== q) r = Object.assign({}, r, { q: q, people: (r.people || []).filter(function (x) { return hasAll(x, q); }), history: (r.history || []).filter(function (x) { return hasAll(x, q); }) });
       state.results = r;
     } catch (e) {
       if (mySeq !== state.seq) return;
@@ -239,9 +267,10 @@
   // which screen, whether to open its New form ("new") or to show this person's records ("find"), who the person is,
   // and which button on their page to come back to. The screen takes it once, on opening (E.takeCustomerHandoff).
   var HAND = "eikon_cus_hand";
-  E.customerHandoff = function (to, mode, p, back) {
+  // q5-5: mode "open" (Today's Open on a waiting customer) carries the record's id: the screen lands on that very row.
+  E.customerHandoff = function (to, mode, p, back, id) {
     p = p || {};
-    try { sessionStorage.setItem(HAND, JSON.stringify({ to: to, mode: mode, at: Date.now(), back: back || "",
+    try { sessionStorage.setItem(HAND, JSON.stringify({ to: to, mode: mode, at: Date.now(), back: back || "", id: Number(id) || 0,
       person: { id: p.id || 0, name: p.name || "", id_card: p.id_card || "", phone: p.phone || "", email: p.email || "", address: p.address || "" } })); } catch (e) {}
   };
   E.takeCustomerHandoff = function (to) {
@@ -250,7 +279,7 @@
     if (!h || h.to !== to) return null; // meant for another screen: left for it
     try { sessionStorage.removeItem(HAND); } catch (e) {}
     h.person = h.person || {};
-    if (!h.at || Date.now() - Number(h.at) > 60000 || (h.mode !== "new" && !String(h.person.name || "").trim())) return null; // an old hand-over is ignored; "new" may come with nobody (the search's "new order")
+    if (!h.at || Date.now() - Number(h.at) > 60000 || (h.mode !== "new" && !(h.mode === "open" && Number(h.id) > 0) && !String(h.person.name || "").trim())) return null; // an old hand-over is ignored; "new" may come with nobody (the search's "new order")
     return h;
   };
   // Back to the person's page, with focus on the button that was pressed (Escape or Cancel on a form opened from it).

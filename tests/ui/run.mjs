@@ -37,7 +37,7 @@ function todayPayload() {
   const t = todayYmd;
   return {
     ok: true, date: t, time: todayState.time || "09:12", timezone: "Europe/Malta", pharmacy: { name: "Demo Pharmacy", location_id: 12, org: "Test" },
-    before_opening: (todayState.room ? [{ kind: "temperature", device_id: 8, title: "Pharmacy · reading", sub: "Yesterday 21 to 23 · limits 15 to 25", status: "todo", out_of_range: false, limits: { min: 15, max: 25 }, yesterday: { min: 21, max: 23 }, today: null, action: { method: "POST", path: "/temperature/entries", body: { device_id: 8, entry_date: t }, fields: ["min_temp", "max_temp", "notes"], label: "Log" } }] : []).concat([
+    before_opening: (todayState.room ? [{ kind: "temperature", device_id: 8, title: "Pharmacy · reading", sub: "Yesterday 21 to 23 · limits 15 to 25", status: "todo", out_of_range: false, limits: { min: 15, max: 25 }, yesterday: todayState.roomNoY ? null : { min: 21, max: 23 }, today: null, action: { method: "POST", path: "/temperature/entries", body: { device_id: 8, entry_date: t }, fields: ["min_temp", "max_temp", "notes"], label: "Log" } }] : []).concat([
       { kind: "temperature", device_id: 7, title: "Fridge 1 · reading", sub: "Yesterday 3.8 to 6.4 · limits 2 to 8", status: todayState.tempDone || todayState.outToday ? "done" : "todo", out_of_range: !!todayState.outToday, limits: { min: 2, max: 8 }, yesterday: todayState.yOut ? { min: 3.8, max: 9.1 } : { min: 3.8, max: 6.4 }, today: todayState.outToday ? { min: 4, max: 9.5 } : todayState.tempDone ? { min: 3.9, max: 6.1 } : null, action: { method: "POST", path: "/temperature/entries", body: { device_id: 7, entry_date: t }, fields: ["min_temp", "max_temp", "notes"], label: "Log" } },
       { kind: "daily_register", title: "Daily register", sub: "No entry yet today", status: "todo", count_today: 0, action: { type: "open", path: "#dailyregister", label: "Open" } },
       { kind: "cleaning", title: "Cleaning", sub: "Last done 14 days ago by Karl", status: todayState.cleanDone ? "done" : "overdue", days_since: 14, last_date: "2026-10-17", action: { method: "POST", path: "/cleaning/entries", body: { entry_date: t }, fields: ["time_in", "cleaner_name", "staff_name"], label: "Done now" } }
@@ -45,7 +45,7 @@ function todayPayload() {
     customers_waiting: [
       { kind: "order", id: 1, name: "Grech Carmen", phone: "79123456", detail: "Augmentin 625 ×14", code: "A1B2C3", needed_by: t, pickup_date: t, priority: 1, waiting_days: 0, due_today: true, action: { type: "open", path: "#clientorders", label: "Open" } },
       { kind: "question", id: 2, ref: "TKT-00001", name: "Vella Joseph", phone: "79000000", detail: "do you stock the Omron M3 monitor?", status: "Open", priority: 2, waiting_days: 3, followup_date: null, action: { type: "open", path: "#tickets", label: "Reply" } }
-    ].concat(todayState.delivery ? [{ kind: "delivery", id: 7, ref: "DEL-00004", name: "Camilleri Rita", phone: "79222333", detail: "12 Triq il-Kbira, Mosta", slot: "Afternoon", status: "Scheduled", due_date: "2026-11-01", late_days: 1, cold: true, controlled: false, action: { type: "open", path: "#deliveries", label: "Open" } }] : []).concat([
+    ].concat(todayState.many ? q55Waiting() : []).concat(todayState.delivery ? [{ kind: "delivery", id: 7, ref: "DEL-00004", name: "Camilleri Rita", phone: "79222333", detail: "12 Triq il-Kbira, Mosta", slot: "Afternoon", status: "Scheduled", due_date: "2026-11-01", late_days: 1, cold: true, controlled: false, action: { type: "open", path: "#deliveries", label: "Open" } }] : []).concat([
     ]),
     attention: [
       { kind: "near_expiry", expired_count: 0, due30_count: 1, first: "Enalapril 20mg", first_expiry: t, title: "1 expiring within 30 days", action: { type: "open", path: "#nearexpiry", label: "Open" } },
@@ -55,8 +55,19 @@ function todayPayload() {
     stock: { supplier_orders_pending: 1, supplier_orders_shipped: 0 },
     team: { on_today: [{ name: "Maria", role: "pharmacist", from: "09:00", to: "19:00" }, { name: "Karl", role: "assistant", from: "13:00", to: "19:00" }], handover_incoming: [{ text: "Courier at 16:00, box for Dr Galea", sev: "g" }, { text: "Methadone for Mr Vella at 9", sev: "r" }], notes_today: "" },
     counts: { before_opening: (todayState.tempDone ? 0 : 1) + 1 + (todayState.cleanDone ? 0 : 1), customers_waiting: 2, attention: 2 },
+    ...(todayState.bk ? { bookings: { total_today: 2, next: [], action: { type: "open", path: "#bookings", label: "Bookings" } } } : {}),
     ...(teamState.setup && teamState.me.role === "admin" ? { setup: teamState.setup } : {}) // as the worker: admins only, absent on an older server
   };
+}
+// q5-5: a busy counter for Today: 14 waiting (two of them for more than 30 days), with the ids the Orders, Questions and
+// Deliveries mocks answer (51 Grech Carmen, 53 the old order, 61 Camilleri Rita's question, 72 her delivery).
+function q55Waiting() {
+  const d = (n) => maltaYmd(n), o = (id, name, pr, nb, wd) => ({ kind: "order", id, name, phone: "79000" + id, detail: "Item " + id, code: "", needed_by: nb, pickup_date: nb, priority: pr, waiting_days: wd, due_today: !!(nb && nb <= d(0)), action: { type: "open", path: "#clientorders", label: "Open" } });
+  return [o(51, "Grech Carmen", 2, d(-1), 3), o(901, "Borg Anna", 3, d(5), 1), o(902, "Vella Paul", 3, d(6), 2), o(903, "Zammit Rita", 2, d(0), 1), o(904, "Abela Toni", 3, d(9), 0), o(905, "Galea Lino", 3, d(8), 4),
+    o(906, "Pace Mary", 1, d(4), 2), o(53, "Old Olga", 2, d(-38), 40), o(907, "Older Oscar", 3, d(-50), 52),
+    { kind: "question", id: 61, ref: "TKT-00007", name: "Camilleri Rita", phone: "79222333", detail: "Is her repeat ready?", status: "Open", priority: 2, waiting_days: 4, followup_date: d(-1), action: { type: "open", path: "#tickets", label: "Reply" } },
+    { kind: "question", id: 963, ref: "TKT-00009", name: "Farrugia Tony", phone: "", detail: "Price?", status: "Open", priority: 3, waiting_days: 2, followup_date: null, action: { type: "open", path: "#tickets", label: "Reply" } },
+    { kind: "delivery", id: 72, ref: "DEL-00005", name: "Camilleri Rita", phone: "79222333", detail: "12 Triq il-Kbira, Mosta", slot: "Afternoon", status: "Scheduled", due_date: d(-1), late_days: 1, cold: false, controlled: false, action: { type: "open", path: "#deliveries", label: "Open" } }];
 }
 let boardState = { msgs: [
   { id: 11, user_id: 7, user_name: "Sara Vella", location_name: "Sliema Pharmacy", body: "Who has Ozempic 1mg? @Demo Pharmacy", scope: "all", is_pinned: 1, created_at: "2026-11-02 08:00:00" },
@@ -71,7 +82,10 @@ let lblState = { history: [{ patientName: "", drugName: "Amoxicillin 500mg", dos
 // DDA stock takes (new layout ddstreg): one closed stock take with two lines; writes behave as the worker's handlers.
 let ddstState = { next: 2, nextItem: 3, list: [{ id: 1, created_at: "2026-10-01 09:00:00", closed_at: "2026-10-01 10:00:00", updated_at: "2026-10-01 10:00:00" }],
   items: [{ id: 1, stocktake_id: 1, item_name: "Morphine sulphate", dosage: "10mg", qty_tablets: 30 }, { id: 2, stocktake_id: 1, item_name: "Alprazolam", dosage: "0.5mg", qty_tablets: 56 }] };
-let peopleState = { adopted: false, carmel: { id: 1, name: "Zammit Carmel", id_card: "0012345M", phone: "79123456", alt_phone: "", email: "", address: "1 Triq il-Knisja", doctor_name: "", date_of_birth: "", notes: "", source: "history", version: 1, updated_at: "2026-10-31 09:00:00" } };
+const MT_PEOPLE = [{ id: 31, name: "Żammit Rożi", id_card: "0313131M", phone: "79313131", version: 1 }, { id: 32, name: "Zammit Paul", id_card: "", phone: "79000001", version: 1 }, { id: 33, name: "Ċassar Ryan", id_card: "0333333M", phone: "79333333", version: 1 }, { id: 34, name: "Ħabela Tumas", id_card: "0343434M", phone: "79343434", version: 1 }, { id: 35, name: "Xkora Ġorġ", id_card: "0353535M", phone: "79353535", version: 1 }];
+const MT_HIST = [{ key: "n:rożi żammit", name: "Rożi Żammit", id_card: "", phone: "79313131", alt_phone: "", email: "", address: "", doctor_name: "", sources: { credit_note: 1 }, last_date: "2026-11-01" },
+  { key: "n:żammit ġużeppi", name: "Żammit Ġużeppi", id_card: "", phone: "79414141", alt_phone: "", email: "", address: "", doctor_name: "", sources: { dda_sale: 1 }, last_date: "2026-11-02" }];
+let peopleState = { mt: false, mtQs: [], adopted: false, carmel: { id: 1, name: "Zammit Carmel", id_card: "0012345M", phone: "79123456", alt_phone: "", email: "", address: "1 Triq il-Knisja", doctor_name: "", date_of_birth: "", notes: "", source: "history", version: 1, updated_at: "2026-10-31 09:00:00" } };
 // Team sign-ins (teamreg, forced change, idle lock, first-run list): behaves as the worker's /team routes.
 const teamFresh = () => ({ me: { role: "admin", must_change: false }, next: 5, setup: undefined, users: [
   { id: 1, email: "p@x.com", full_name: "Maria Borg", role: "admin", is_active: true, must_change_password: false, last_sign_in_at: "2026-11-03 08:00:00", signed_in_devices: 2, protected: false },
@@ -156,6 +170,12 @@ function mockApi(req, res, body) {
   }
   if (globalThis.__dupLinks === "404" && p.indexOf("/people/links") === 0) { res.writeHead(404, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "Not found" })); } // as the live worker without the routes
   res.writeHead(200, { "content-type": "application/json" });
+  // q5-7: as the worker's LIKE, which lowers only A to Z (so "zammit" does not find Żammit on the server)
+  if (p === "/people" && peopleState.mt) {
+    const q = (url.searchParams.get("q") || "").toLowerCase(), L = (x) => String(x || "").replace(/[A-Z]/g, (c) => c.toLowerCase()), hit = (x) => L(x.name).includes(q) || L(x.id_card).includes(q);
+    peopleState.mtQs.push(q);
+    return res.end(JSON.stringify({ ok: true, q, people: MT_PEOPLE.filter(hit), history: MT_HIST.filter(hit) }));
+  }
   if (p === "/people") return res.end(JSON.stringify({ ok: true, q: url.searchParams.get("q") || "", people: (peopleState.adopted ? [peopleState.carmel] : []).concat([{ id: 2, name: "Zammit Paul", phone: "79000001", id_card: "", version: 1 }]), history: peopleState.adopted ? [] : [{ key: "id:0012345M", name: "Zammit Carmel", id_card: "0012345M", phone: "", alt_phone: "", email: "", address: "1 Triq il-Knisja", doctor_name: "", sources: { dda_sale: 1, loyalty: 1 }, last_date: "2026-10-05" }] }));
   if (p === "/people/1") return res.end(JSON.stringify({ ok: true, person: peopleState.carmel, loyalty: { points: 1120, stamps: 3, visits: 2, last_date: "2026-10-20" }, next_appointment: { id: 9, ref: "A-2", date: "2026-11-04", time: "09:30", status: "Scheduled", doctor: "Dr Galea" }, activity: [{ kind: "dda_sale", label: "DDA sale", date: "2026-10-05", title: "Morphine 10mg", ref: "S-1", doctor: "Dr Abela" }, { kind: "loyalty", label: "Loyalty", date: "2026-09-01", title: "", ref: "" }], counts: { dda_sale: 1, loyalty: 1 } }));
   if (p === "/today") return res.end(JSON.stringify(todayPayload()));
@@ -176,7 +196,8 @@ function mockApi(req, res, body) {
     const thisMonth = maltaYmd(0).slice(0, 7);
     return res.end(JSON.stringify({ ok: true, entries: q.get("month") !== thisMonth ? [] : [
       { id: 51, order_date: d(-3), client_name: "Grech Carmen", client_phone: "79123456", items_text: "Augmentin 625 x14", priority: 2, needed_by: d(-1), deposit_amount: 0, fulfilled: 0, notes: "" },
-      { id: 52, order_date: d(-1), client_name: "Vella Joseph", client_phone: "79000111", items_text: "Nexium 20mg", priority: 1, needed_by: d(3), deposit_amount: 5, fulfilled: 0, notes: "", order_code: "KX7P2Q" }] }));
+      { id: 52, order_date: d(-1), client_name: "Vella Joseph", client_phone: "79000111", items_text: "Nexium 20mg", priority: 1, needed_by: d(3), deposit_amount: 5, fulfilled: 0, notes: "", order_code: "KX7P2Q" }]
+      .concat(todayState.many ? [{ id: 53, order_date: d(-40), client_name: "Old Olga", client_phone: "79000053", items_text: "Ensure x24", priority: 2, needed_by: d(-38), deposit_amount: 0, fulfilled: 0, notes: "" }] : []) }));
   }
   if (p.startsWith("/client-orders/entries/") && req.method === "PUT") return res.end(JSON.stringify({ ok: true }));
   if (p === "/client-tickets/entries" && req.method === "GET") {
@@ -717,13 +738,14 @@ const callsNow = async () => (await (await fetch(`http://localhost:${PORT}/__cal
 await fetch(`http://localhost:${PORT}/__reset`);
 await page.evaluate(() => { location.hash = "#today"; });
 await page.waitForTimeout(800);
-await page.fill("#tdy-q", "zammit");
+await page.fill("#tdy-q", "zammit carmel"); // q5-7: a card comes first, so her full name picks her (Zammit Paul has a card)
 await page.press("#tdy-q", "Enter");
 await page.waitForFunction(() => location.hash === "#customers" && document.querySelector("#cus-q") && document.querySelector("[data-hist]"), null, { timeout: 8000 });
 await page.waitForTimeout(300);
 const cus1 = await page.evaluate(() => ({ q: document.querySelector("#cus-q").value, people: document.querySelectorAll("[data-person]").length, hist: document.querySelectorAll("[data-hist]").length, rail: !!document.querySelector('.eikon-nav-btn[data-mod="customers"]'), histText: document.querySelector("[data-hist] .cus-t span").textContent }));
 const peopleGets = (await callsNow()).filter((c) => c.path === "/people" && c.method === "GET");
 // Enter opens the first result (eikon.search.js): Zammit Carmel, known only from the registers, so Customers opens on her ID card.
+// (q5-7: "zammit" alone now lists the card Zammit Paul first; that order is checked in the q5-7 block.)
 report("customers: Today's search hands the first person over; people, history and the rail entry render", cus1.q === "0012345M" && cus1.people === 1 && cus1.hist === 1 && cus1.rail && /1 DDA sale, 1 loyalty card/.test(cus1.histText) && peopleGets.length >= 1 && peopleGets.some((c) => /q=zammit/.test(c.query)), JSON.stringify({ cus1, peopleGets }));
 
 await fetch(`http://localhost:${PORT}/__reset`);
@@ -3980,15 +4002,15 @@ try {
   report("search does things: each verb (new, add, record, log, close, ask, deliver, supply, count, receive) shows the action first in words and Enter opens that screen with its form open and the cursor in it; nothing left behind",
     vbad.length === 0, JSON.stringify(vbad.length ? vbad : vres.map((x) => x.q + " → " + x.where.mod + ":" + x.where.focus)));
 
-  // 2. "log fridge": Today, the cursor in the first reading box (the screen where readings are logged)
+  // 2. "log fridge": Today, the cursor in the fridge's reading box (q5-7: the fridge's line, more in the block below)
   const lf = await ask("log fridge"); await page.keyboard.press("Enter");
   const lfOk = await landed(".tdy-inl");
   const lfW = await page.evaluate(() => ({ mod: window.EIKON.state.activeModuleId, aria: document.activeElement && document.activeElement.getAttribute("aria-label") }));
-  report("search does things: 'log fridge' says 'Log today's readings' and opens Today with the cursor in the first reading box", lfOk && /^Log today.s readings Today/.test(lf.first) && lfW.mod === "today", JSON.stringify({ lf, lfW }));
+  report("search does things: 'log fridge' says 'Log the fridge reading' and opens Today with the cursor in the fridge's reading box", lfOk && /^Log the fridge reading Today/.test(lf.first) && lfW.mod === "today", JSON.stringify({ lf, lfW }));
 
   // 3. No verb, no change: nouns and names are searched exactly as before (no Actions group, same first result)
   const plain = {};
-  for (const q of ["fridge", "DDA", "order", "orders", "end of day", "repeat", "morphine", "vella", "zammit", "credit note", "zammit te", "clean"]) {
+  for (const q of ["fridge", "DDA", "order", "orders", "end of day", "repeat", "morphine", "vella", "zammit", "credit notes", "zammit te", "clean"]) {
     const r = await ask(q); plain[q] = { acts: r.groups.includes("Actions"), first: r.first.slice(0, 40), doing: await page.evaluate((x) => window.EIKON.searchDoing(x), q) };
   }
   const pbad = Object.entries(plain).filter(([, v]) => v.acts || v.doing);
@@ -4058,6 +4080,124 @@ try {
   report("search does things: ArrowDown picks the second action ('record dda' → received); action rows are 44 px tall on a phone with no sideways scroll",
     twoOk && ph.h >= 44 && !ph.wide, JSON.stringify({ two, ph, foot }));
 } catch (e) { report("search does things: ran to the end", false, String(e && e.stack || e).slice(0, 500)); }
+
+// ---- q5-7: search and suggestions find what a pharmacist types (BACKLOG5 item 7) ----
+// Maltese letters folded both ways (E.people.foldMt / mtStretch), cards before names seen only in the registers, and
+// the new phrases ("log fridge" on the fridge's line, "hand over", "help", "what's new", "print dda", "paid out",
+// "credit note", "new leave", "standing instructions"). The mock's /people lowers only A to Z, as the worker's LIKE.
+try {
+  const ready = (id) => page.waitForFunction((m) => window.EIKON && window.EIKON.state && window.EIKON.state.user && window.EIKON.state.activeModuleId === m && window.EIKON._lateIn, id, { timeout: 15000 });
+  const ask = async (q, typed) => {
+    await page.evaluate(() => { if (window.EIKON.searchIsOpen()) window.EIKON.searchClose(false); document.activeElement && document.activeElement.blur && document.activeElement.blur(); });
+    await page.keyboard.press("Control+k"); await page.waitForSelector("#esr-q");
+    if (typed) await page.keyboard.type(q, { delay: typed }); else await page.fill("#esr-q", q);
+    await page.waitForFunction(() => !document.querySelector(".esr-wait"), null, { timeout: 6000 });
+    return page.evaluate(() => ({ opts: [...document.querySelectorAll(".esr-opt")].map((o) => o.innerText.replace(/\s+/g, " ").trim()), people: [...document.querySelectorAll('.esr-grp[aria-label="People"] .esr-opt')].map((o) => o.innerText.replace(/\s+/g, " ").trim()) }));
+  };
+  await page.goto(base + "&ui=2#registers"); await ready("registers");
+  // 1. the helpers
+  const u = await page.evaluate(() => { const P = window.EIKON.people; return {
+    fold: ["Żammit", "ĊASSAR", "Ħabela", "Ġorġ", "Zammit"].map(P.foldMt), st: ["zammit", "cassar ryan", "habela", "gorg", "vella", "Ħabela", "0012345M", "z"].map(P.mtStretch),
+    wires: ["zammit", "Ħabela", "vella", "0012345M", "carmel zammit"].map((q) => window.EIKON.personPickWires(q)), cus: ["cassar ryan", "vella", "żammit"].map(window.EIKON.customersAsks),
+    has: [P.hasWordsMt("Żammit Rożi", "zammit rozi"), P.hasWordsMt("Zammit Paul", "żammit"), P.hasWordsMt("Ċassar Ryan", "ryan cassar"), P.hasWordsMt("Vella Anna", "zammit")] }; });
+  report("q5-7 fold: ċ ġ ħ ż fold to c g h z (E.people.foldMt); a name with c/g/h/z is also asked as its longest stretch without them ('zammit' → 'ammit'), an ID card or a name without them as before; matching works both ways",
+    JSON.stringify(u.fold) === JSON.stringify(["zammit", "cassar", "habela", "gorg", "zammit"]) && JSON.stringify(u.st) === JSON.stringify(["ammit", "assar", "abela", "or", "", "abela", "", ""]) &&
+    JSON.stringify(u.wires) === JSON.stringify([["zammit", "ammit"], ["abela"], ["vella"], ["12345M"], ["carmel", "armel"]]) && JSON.stringify(u.cus) === JSON.stringify([["cassar ryan", "assar"], ["vella"], ["ammit"]]) && u.has.join() === "true,true,true,false", JSON.stringify(u));
+
+  // 2. the search dialog: Maltese letters left out find them; the card first; a history row of that card is not a second person
+  peopleState.mt = true; peopleState.mtQs = []; await page.evaluate(() => { window.EIKON.lastWriteAt = Date.now(); window.EIKON.searchCacheClear(); }); await page.waitForTimeout(5); // answers kept from before are stale
+  const r1 = {};
+  for (const q of ["zammit rozi", "cassar ryan", "habela", "gorg", "żammit", "zammit"]) r1[q] = (await ask(q)).people;
+  report("q5-7 search: 'zammit rozi' finds Żammit Rożi (and her credit-note row 'Rożi Żammit' is her card, not a second person); 'cassar ryan' Ċassar Ryan, 'habela' Ħabela Tumas, 'gorg' Xkora Ġorġ",
+    r1["zammit rozi"].length === 1 && /^Żammit Rożi .*Customers/.test(r1["zammit rozi"][0]) && /^Ċassar Ryan .*Customers/.test(r1["cassar ryan"][0] || "") && /^Ħabela Tumas/.test(r1.habela[0] || "") && /^Xkora Ġorġ/.test(r1.gorg[0] || ""), JSON.stringify(r1));
+  const zz = r1["żammit"], z0 = r1.zammit;
+  report("q5-7 search: both ways, cards first: 'żammit' and 'zammit' both list Żammit Rożi and Zammit Paul (as typed first) before 'Żammit Ġużeppi', seen only in the registers and labelled 'In the registers, no card yet'",
+    zz.length === 3 && /^Żammit Rożi/.test(zz[0]) && /^Zammit Paul/.test(zz[1]) && /^Żammit Ġużeppi .*In the registers, no card yet$/.test(zz[2]) && z0.length === 3 && /^Zammit Paul/.test(z0[0]) && /^Żammit Rożi/.test(z0[1]) && /no card yet$/.test(z0[2]) && !zz.concat(z0).some((x) => /Customers$/.test(x) && /Ġużeppi/.test(x)), JSON.stringify({ zz, z0 }));
+  // requests: typed at 40 ms a key, one pause: the name and its stretch, once each
+  await page.evaluate(() => { window.EIKON.lastWriteAt = Date.now(); window.EIKON.searchCacheClear(); }); await page.waitForTimeout(5); await fetch(`http://localhost:${PORT}/__reset`); peopleState.mtQs = [];
+  await ask("zammit", 40);
+  const pq = (await callsNow()).filter((c) => c.path === "/people" && c.method === "GET").map((c) => new URLSearchParams(c.query).get("q"));
+  report("q5-7 search: typing 'zammit' asks /people twice in all (q=zammit and q=ammit, in the one pause of typing), never a Maltese letter", pq.length === 2 && pq.includes("zammit") && pq.includes("ammit"), JSON.stringify(pq));
+  await page.evaluate(() => window.EIKON.searchClose(false));
+
+  // 3. Customers and the people suggestions under a register field
+  await page.goto(base + "&ui=2#customers"); await ready("customers");
+  const cus = {};
+  for (const q of ["zammit", "cassar ryan", "habela tumas"]) { await page.fill("#cus-q", ""); await page.locator("#cus-q").pressSequentially(q, { delay: 10 }); await page.waitForTimeout(700); cus[q] = await page.evaluate(() => document.querySelector("#cus-list").innerText.replace(/\s+/g, " ")); }
+  report("q5-7 customers: 'zammit' lists Żammit Rożi and Zammit Paul; 'cassar ryan' Ċassar Ryan; 'habela tumas' Ħabela Tumas",
+    /Żammit Rożi/.test(cus.zammit) && /Zammit Paul/.test(cus.zammit) && /Ċassar Ryan/.test(cus["cassar ryan"]) && /Ħabela Tumas/.test(cus["habela tumas"]), JSON.stringify(cus).slice(0, 600));
+  await page.goto(base + "&ui=2#clientorders"); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector(".ord-top [data-act=add]"), null, { timeout: 15000 });
+  await page.click(".ord-top [data-act=add]"); await page.waitForSelector("#ord-add");
+  const pp = {};
+  for (const q of ["cassar ryan", "żammit", "gorg"]) { const b = page.locator("#ord-add [name=client_name]"); await b.fill(""); await b.pressSequentially(q, { delay: 15 }); await page.waitForTimeout(700); pp[q] = await page.evaluate(() => [...document.querySelectorAll("#ord-add .epp-opt b")].map((b) => b.textContent)); }
+  report("q5-7 suggestions: an Orders name field offers Ċassar Ryan for 'cassar ryan', Żammit Rożi first then Zammit Paul then the registers-only name for 'żammit', Xkora Ġorġ for 'gorg'",
+    pp["cassar ryan"][0] === "Ċassar Ryan" && JSON.stringify(pp["żammit"]) === JSON.stringify(["Żammit Rożi", "Zammit Paul", "Żammit Ġużeppi"]) && pp.gorg[0] === "Xkora Ġorġ", JSON.stringify(pp));
+  await page.keyboard.press("Escape"); await page.keyboard.press("Escape");
+  peopleState.mt = false;
+
+  // 4. "log fridge" / "log room": the right line of Today, never another in its place
+  const was = { out: todayState.outToday, y: todayState.yOut };
+  todayState.room = true; todayState.tempDone = false; todayState.outToday = false; todayState.yOut = false;
+  const lineOf = () => page.evaluate(() => { const a = document.activeElement, r = a && a.closest && a.closest("[data-device]"); return { dev: r ? r.getAttribute("data-device") : "", min: !!(a && a.hasAttribute && a.hasAttribute("data-min")), toast: [...document.querySelectorAll(".eikon-toast")].map((t) => t.textContent).join(" | "), rows: [...document.querySelectorAll("[data-kind=temperature]")].map((x) => x.getAttribute("data-device") + ":" + ((x.querySelector(".tdy-t b") || {}).textContent || "") + ":" + !!x.querySelector("[data-min]")).join(",") }; });
+  const lines = {};
+  for (const q of ["log fridge", "log room", "new fridge reading"]) {
+    await page.goto(base + "&ui=2#registers"); await ready("registers");
+    const r = await ask(q); await page.keyboard.press("Enter");
+    await page.waitForFunction(() => window.EIKON.state.activeModuleId === "today" && document.activeElement && document.activeElement.hasAttribute("data-min"), null, { timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(400); lines[q] = Object.assign({ first: r.opts[0] }, await lineOf());
+  }
+  todayState.tempDone = true;
+  await page.goto(base + "&ui=2#registers"); await ready("registers");
+  await ask("log fridge"); await page.keyboard.press("Enter");
+  await page.waitForFunction(() => [...document.querySelectorAll(".eikon-toast")].some((t) => /fridge reading is in already/.test(t.textContent)), null, { timeout: 6000 }).catch(() => {});
+  lines.done = await lineOf();
+  todayState.room = false; todayState.tempDone = false; todayState.outToday = was.out; todayState.yOut = was.y;
+  report("q5-7 'log fridge': the cursor goes to the fridge's line (device 7), not the room's (the first line); 'log room' to the room's; with the fridge logged already it says so and puts the cursor in no other line",
+    lines["log fridge"].dev === "7" && lines["log fridge"].min && /^Log the fridge reading/.test(lines["log fridge"].first) && lines["log room"].dev === "8" && /^Log the room reading/.test(lines["log room"].first) && lines["new fridge reading"].dev === "7" &&
+    lines.done.dev !== "8" && /fridge reading is in already/.test(lines.done.toast), JSON.stringify(lines));
+
+  // 5. the new phrases
+  const go2 = async (q) => { await page.goto(base + "&ui=2#registers"); await ready("registers"); const r = await ask(q); await page.keyboard.press("Enter"); await page.waitForTimeout(1300);
+    return Object.assign({ first: r.opts[0] || "" }, await page.evaluate(() => { const a = document.activeElement; return { mod: window.EIKON.state.activeModuleId, focus: a ? (a.id || a.getAttribute("data-mb") || a.getAttribute("data-act") || a.name || a.tagName) : "", help: (document.querySelector("#nxh-title") || {}).textContent || "", q: (document.querySelector(".ord-q, #ord-q") || {}).value || "" }; })); };
+  const ph = {};
+  for (const q of ["hand over", "collect", "hand over grech", "help", "help end of day", "what's new", "print dda", "print daily register", "paid out", "credit note", "new leave", "standing instructions"]) {
+    ph[q] = await go2(q);
+    await page.evaluate(() => { const c = document.querySelector(".nxh-ov"); if (c && window.EIKON.helpNext) window.EIKON.helpNext.close(); });
+  }
+  const want = {
+    "hand over": (x) => /^Hand over an order Orders/.test(x.first) && x.mod === "ordreg",
+    collect: (x) => /^Hand over an order/.test(x.first) && x.mod === "ordreg",
+    "hand over grech": (x) => /^Hand over Grech Carmen.s order/.test(x.first) && x.mod === "ordreg" && /Grech Carmen/.test(x.q),
+    help: (x) => /^Help: Registers/.test(x.first) && /Registers/.test(x.help),
+    "help end of day": (x) => /^Help: End of day/.test(x.first) && /End of day/.test(x.help),
+    "what's new": (x) => /^What.s new/.test(x.first) && /What.s new/.test(x.help),
+    "print dda": (x) => /^Print Controlled drugs supplied/.test(x.first) && x.mod === "cdsreg" && x.focus === "print",
+    "print daily register": (x) => /^Print Daily register/.test(x.first) && x.mod === "drreg" && x.focus === "print",
+    "paid out": (x) => /^New payment/.test(x.first) && x.mod === "poreg",
+    "credit note": (x) => /^New credit note/.test(x.first) && x.mod === "cnreg",
+    "new leave": (x) => /^New leave request/.test(x.first) && x.mod === "shfreg",
+    "standing instructions": (x) => /^Change the standing instructions/.test(x.first) && x.mod === "hndreg" && x.focus === "hnd-std"
+  };
+  const phBad = Object.keys(want).filter((k) => !want[k](ph[k]));
+  report("q5-7 phrases: 'hand over'/'collect' → Orders waiting ('hand over grech' → her order), 'help'/'help end of day' → that guide, 'what's new', 'print dda'/'print daily register' → the register with Print focused, 'paid out'/'credit note' → their forms, 'new leave' → Plan shifts, 'standing instructions' → the change box",
+    phBad.length === 0, JSON.stringify(phBad.length ? phBad.map((k) => [k, ph[k]]) : ph).slice(0, 1500));
+  // the forms opened by the new phrases: open and focused
+  const forms = await page.evaluate(() => ({ std: !!document.querySelector("#hnd-std") }));
+  // typing meanwhile is never taken over: a field used on the opened screen keeps the cursor (the Print is not focused)
+  await page.goto(base + "&ui=2#registers"); await ready("registers");
+  await ask("print dda"); await page.keyboard.press("Enter");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "cdsreg", null, { timeout: 8000 });
+  await page.evaluate(() => { const i = document.createElement("input"); i.id = "q57-typing"; i.setAttribute("aria-label", "test"); i.style.cssText = "position:fixed;top:0;left:0;z-index:5000"; document.body.appendChild(i); }); // a field the screen's redraw does not replace
+  await page.focus("#q57-typing"); await page.keyboard.type("abc"); await page.waitForTimeout(1500);
+  const kept = await page.evaluate(() => { const r = { focus: document.activeElement && document.activeElement.id, v: (document.getElementById("q57-typing") || {}).value }; const i = document.getElementById("q57-typing"); if (i) i.remove(); return r; });
+  report("q5-7 phrases: a field the person types in while the screen opens keeps the cursor ('print dda' does not take it for Print)", kept.focus === "q57-typing" && kept.v === "abc" && forms.std, JSON.stringify({ kept, forms }));
+  // what was searched before is unchanged: a verb's form, a noun alone, a person alone
+  const before = {};
+  for (const q of ["new order", "fridge", "leave", "credit notes", "zammit order", "ready"]) before[q] = { first: (await ask(q)).opts[0] || "", doing: await page.evaluate((x) => { const d = window.EIKON.searchDoing(x); return d ? (d.lead || d.acts.map((a) => a.label).join("+")) : null; }, q) };
+  await page.evaluate(() => window.EIKON.searchClose(false));
+  report("q5-7 phrases: nothing else moved: 'new order' still opens the form, 'fridge', 'leave' and 'credit notes' alone are the screens, 'zammit order' the order for a Zammit; 'ready' alone is the hand-over",
+    /^New order/.test(before["new order"].first) && /^Temperature/.test(before.fridge.first) && before.fridge.doing === null && /^Plan shifts/.test(before.leave.first) && before.leave.doing === null && /^Credit notes/.test(before["credit notes"].first) && before["credit notes"].doing === null && /^New order for Zammit/.test(before["zammit order"].first) && /^Hand over an order/.test(before.ready.first), JSON.stringify(before));
+} catch (e) { report("q5-7 search and suggestions: ran to the end", false, String(e && e.stack || e).slice(0, 500)); }
 // The ID card on a record and its person (E.people.confirmPerson in ui/eikon.people.js), in DDA sales, Orders and
 // Repeat prescriptions: A (the person has no card: asked to add it, then their card-less records offered to tick),
 // B (the card is someone else's: stopped, never saved under the wrong name), C (the person has another card: asked to
@@ -5608,6 +5748,93 @@ try {
   report("services loading rows look as before after the switch to E.skeleton (Labels 44 px/14 px corners/640 wide, OTC 48/380 wide, POCT 52, Pharmacovigilance 56, Screening 64)",
     sk.lblreg === "44px 14px 16px 640px eikonSvcSkel" && sk.otcreg === "48px 12px 16px 380px eikonSvcSkel" && sk.pocreg === "52px 12px 20px none eikonSvcSkel" && sk.pvreg === "56px 12px 20px none eikonSvcSkel" && sk.scrreg === "64px 12px 20px none eikonSvcSkel", JSON.stringify(sk));
 } catch (e) { report("shared form problems and loading rows: ran to the end", false, String(e && e.stack || e).slice(0, 400)); }
+
+// q5-5 (BACKLOG5 item 5): Today stays short (5 most pressing, "and N more", older than 30 days closed) and Open lands on
+// the exact order, question or delivery (the one hand-over note, mode "open"): row marked, in view, focus on its main
+// button; typing during the landing is never taken; Ready from the landed row sends what Ready from the list sends.
+// Getting this pharmacy ready counts by evidence and has Not now (D2).
+try {
+  const openT = async () => { await page.goto(base + "&ui=2#today"); await page.reload(); await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && document.querySelector(".tdy-head h1") && !/Loading/.test(document.querySelector(".tdy-head h1").textContent), null, { timeout: 15000 }); await page.waitForTimeout(300); };
+  const calls = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json());
+  todayState = { tempDone: false, cleanDone: false, many: true };
+  await page.setViewportSize({ width: 390, height: 844 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await openT();
+  const w1 = await page.evaluate(() => { const L = document.querySelector("[data-waiting]"); return { names: [...L.querySelectorAll(".tdy-row:not(.tdy-more) .tdy-t b")].map((b) => b.textContent), more: [...L.querySelectorAll("[data-more]")].map((r) => r.getAttribute("data-more") + ":" + r.innerText.replace(/\s+/g, " ").trim()), older: (L.querySelector("[data-older-row]") || {}).innerText, exp: (L.querySelector("[data-older]") || { getAttribute: () => "" }).getAttribute("aria-expanded"), h1: document.querySelector(".tdy-head h1").textContent }; });
+  const tGets = (await calls()).filter((c) => c.method === "GET" && !/^\/(ui|vendor)\//.test(c.path) && c.path !== "/auth/me").map((c) => c.path);
+  await page.click("[data-older]"); await page.waitForTimeout(200);
+  const w2 = await page.evaluate(() => ({ rows: [...document.querySelectorAll("[data-waiting] .tdy-row:not(.tdy-more) .tdy-t b")].map((b) => b.textContent), exp: document.querySelector("[data-older]").getAttribute("aria-expanded"), foc: document.activeElement && document.activeElement.hasAttribute("data-older") }));
+  report("q5-5 today: Customers waiting shows the 5 most pressing (urgent, overdue, due today), one 'and N more' line per kind to its screen, those over 30 days closed under 'Older than 30 days (2)' until Show; the heading still counts all; still only GET /today",
+    w1.names.join() === "Grech Carmen,Pace Mary,Grech Carmen,Camilleri Rita,Camilleri Rita" && w1.more.join("|") === "order:and 5 more orders All orders ›|question:and 2 more questions All questions ›" && /Older than 30 days \(2\)/.test(w1.older) && w1.exp === "false" && /14 customers waiting/.test(w1.h1) &&
+    tGets.length > 0 && tGets.every((x) => x === "/today") && w2.exp === "true" && w2.foc && w2.rows.slice(-2).join() === "Old Olga,Older Oscar", JSON.stringify({ w1, tGets, w2 }));
+
+  // Open on Grech Carmen's order: Orders, that row marked and in view, focus on its Ready; Enter sends only fulfilled
+  await page.click('[data-hand-id="51"]');
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.activeElement && document.activeElement.matches("[data-act=ready]"), null, { timeout: 15000 });
+  const o1 = await page.evaluate(() => { const a = document.activeElement, row = a.closest(".ord-row"), r = row.getBoundingClientRect(); return { id: a.getAttribute("data-id"), hit: row.classList.contains("q55-hit"), n: document.querySelectorAll(".q55-hit").length, name: row.querySelector(".t b").textContent, inView: r.top >= 0 && r.bottom <= innerHeight, hand: sessionStorage.getItem("eikon_cus_hand") }; });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.keyboard.press("Enter"); await page.waitForTimeout(700);
+  const oPuts = (await calls()).filter((c) => c.method !== "GET");
+  report("q5-5 today → orders: Open lands on that very order (marked, in view, focus on Ready, note taken once); Enter on it sends exactly what Ready from the list sends ({fulfilled:true} to /51)",
+    o1.id === "51" && o1.hit && o1.n === 1 && o1.name === "Grech Carmen" && o1.inView && o1.hand === null && oPuts.length === 1 && oPuts[0].method === "PUT" && oPuts[0].path === "/client-orders/entries/51" && JSON.stringify(oPuts[0].body) === JSON.stringify({ fulfilled: true }), JSON.stringify({ o1, oPuts }));
+
+  // an order waiting more than 30 days: Today's Show, then Open; Orders opens its closed group to show it
+  await openT(); await page.click("[data-older]"); await page.waitForTimeout(150); await page.click('[data-hand-id="53"]');
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.activeElement && document.activeElement.matches("[data-act=ready]"), null, { timeout: 15000 });
+  const o2 = await page.evaluate(() => { const a = document.activeElement; return { id: a.getAttribute("data-id"), hit: a.closest(".ord-row").classList.contains("q55-hit"), tog: document.querySelector("[data-act=older-toggle]").getAttribute("aria-expanded"), old: document.querySelector(".ord-old").innerText.replace(/\s+/g, " ") }; });
+  // and Orders on its own keeps that group closed: Waiting shows the two recent orders
+  await page.evaluate(() => { location.hash = "#today"; }); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "today", null, { timeout: 15000 });
+  await page.evaluate(() => { location.hash = "#ordreg"; }); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector(".ord-row"), null, { timeout: 15000 }); await page.waitForTimeout(300);
+  const o3 = await page.evaluate(() => ({ rows: [...document.querySelectorAll(".ord-row .t b")].map((b) => b.textContent), tog: document.querySelector("[data-act=older-toggle]").getAttribute("aria-expanded"), wait: document.querySelector(".ord-lab").innerText.replace(/\s+/g, " "), hits: document.querySelectorAll(".q55-hit").length }));
+  await page.click("[data-act=older-toggle]"); await page.waitForTimeout(200);
+  const o4 = await page.evaluate(() => ({ rows: [...document.querySelectorAll(".ord-row .t b")].map((b) => b.textContent), foc: document.activeElement && document.activeElement.getAttribute("data-act") }));
+  report("q5-5 orders (D5): orders taken over 30 days ago wait in a closed 'Older than 30 days (1)' group; Show opens it in place (focus stays); Today's Open on one opens the group and lands on it",
+    o2.id === "53" && o2.hit && o2.tog === "true" && /Older than 30 days \(1\)/.test(o2.old) && o3.rows.join() === "Grech Carmen,Vella Joseph" && o3.tog === "false" && /Waiting 2/.test(o3.wait) && o3.hits === 0 && o4.rows.indexOf("Old Olga") >= 0 && o4.foc === "older-toggle", JSON.stringify({ o2, o3, o4 }));
+
+  // Reply on Camilleri Rita's question, Open on her delivery
+  await openT(); await page.click('[data-hand="tktreg"][data-hand-id="61"]');
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "tktreg" && document.activeElement && document.activeElement.matches("[data-act=resolve]"), null, { timeout: 15000 });
+  const q1 = await page.evaluate(() => { const a = document.activeElement; return { id: a.getAttribute("data-id"), hit: a.closest(".tkt-card").classList.contains("q55-hit") }; });
+  await openT(); await page.click('[data-hand="dlvreg"][data-hand-id="72"]');
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "dlvreg" && document.activeElement && document.activeElement.matches("[data-act=done]"), null, { timeout: 15000 });
+  const d1 = await page.evaluate(() => { const a = document.activeElement; return { id: a.getAttribute("data-id"), hit: a.closest(".dlv-card").classList.contains("q55-hit"), n: document.querySelectorAll(".q55-hit").length }; });
+  report("q5-5 today → questions and deliveries: Reply lands on that question (focus on Resolved), Open on that delivery (focus on Delivered), each marked", q1.id === "61" && q1.hit && d1.id === "72" && d1.hit && d1.n === 1, JSON.stringify({ q1, d1 }));
+
+  // typing while Orders is still loading is never taken: New order opened and typed in before the list arrives
+  await openT();
+  await page.route("**/client-orders/entries?*", async (r) => { await new Promise((ok) => setTimeout(ok, 1500)); r.continue(); });
+  await page.click('[data-hand-id="51"]');
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector(".ord-top [data-act=add]"), null, { timeout: 15000 });
+  await page.click(".ord-top [data-act=add]"); await page.waitForSelector("#ord-add [name=client_name]"); await page.focus("#ord-add [name=client_name]"); await page.keyboard.type("Bor");
+  await page.waitForTimeout(2600); await page.keyboard.type("g"); // the list has arrived meanwhile
+  await page.unroute("**/client-orders/entries?*");
+  const k1 = await page.evaluate(() => ({ foc: document.activeElement && document.activeElement.name, v: (document.querySelector("#ord-add [name=client_name]") || {}).value }));
+  await page.keyboard.press("Tab"); await page.waitForTimeout(2600); // leaving the field (still in the form) changes nothing; the mark comes with the list once the form is left
+  const k2 = await page.evaluate(() => ({ foc: document.activeElement && document.activeElement.name, v: (document.querySelector("#ord-add [name=client_name]") || {}).value }));
+  report("q5-5 orders: someone typing in New order while the list arrives keeps the cursor and every letter (the landing never takes focus from a form)", k1.foc === "client_name" && k1.v === "Borg" && k2.v === "Borg" && k2.foc && k2.foc !== "client_name", JSON.stringify({ k1, k2 }));
+
+  // Getting this pharmacy ready: names counted done when every fridge and room has a reading yesterday; hours when Bookings has them; Not now
+  todayState = { tempDone: false, cleanDone: false, room: true, roomNoY: true };
+  teamState = teamFresh(); teamState.setup = { sign_ins: 3, opening_hours_saved: false };
+  await page.evaluate(() => { try { Object.keys(localStorage).filter((k) => /^eikon_(tdy_setup_later|trg_named)/.test(k)).forEach((k) => localStorage.removeItem(k)); } catch (e) {} });
+  await openT();
+  const s1 = await page.evaluate(() => [...document.querySelectorAll("[data-setup]")].map((e) => e.getAttribute("data-setup")).join());
+  todayState = { tempDone: false, cleanDone: false, room: true, bk: true }; await openT();
+  const s2 = await page.evaluate(() => !!document.querySelector(".tdy-setup"));
+  todayState = { tempDone: false, cleanDone: false, room: true, roomNoY: true }; await openT();
+  await page.click("[data-setup-later]"); await page.waitForTimeout(300);
+  const s3 = await page.evaluate(() => ({ card: !!document.querySelector(".tdy-setup"), foc: document.activeElement && document.activeElement.tagName, key: Object.keys(localStorage).filter((k) => /eikon_tdy_setup_later/.test(k)).length }));
+  await openT();
+  const s4 = await page.evaluate(() => !!document.querySelector(".tdy-setup"));
+  await page.evaluate(() => { const k = Object.keys(localStorage).find((x) => /eikon_tdy_setup_later/.test(x)); localStorage.setItem(k, String(Date.now() - 31 * 864e5)); });
+  await openT();
+  const s5 = await page.evaluate(() => !!document.querySelector(".tdy-setup"));
+  report("q5-5 today setup (D2): 'Name your fridges' shows while one has no reading yesterday and goes once all do; 'Set your opening hours' goes when Bookings has hours; Not now hides it for 30 days on this device (focus on the heading), then it comes back",
+    s1 === "names,hours" && !s2 && !s3.card && s3.foc === "H1" && s3.key === 1 && !s4 && s5, JSON.stringify({ s1, s2, s3, s4, s5 }));
+  await page.evaluate(() => { try { Object.keys(localStorage).filter((k) => /eikon_tdy_setup_later/.test(k)).forEach((k) => localStorage.removeItem(k)); } catch (e) {} });
+} catch (e) { report("q5-5 today short and exact: ran to the end", false, String(e && e.stack || e).slice(0, 400)); }
+todayState = { tempDone: false, cleanDone: false }; teamState = teamFresh();
+await page.setViewportSize({ width: 1440, height: 900 });
 
 await browser.close();
 server.close();

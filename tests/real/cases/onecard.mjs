@@ -2,6 +2,7 @@
 // Mifsud" (credit notes store Name + Surname) with the same phone. Customers shows that credit note on her card, not as
 // someone to Add; an order opened from the search for her ("rosanne order") and a credit note saved for her are linked
 // to her card: no second card. The order row is the one the Orders button stores for the same values.
+// q5-7: the search offers her card ("New order for Mifsud Rosanne", E.people.cardOf), not the credit note's spelling.
 import { ymd } from "../lib.mjs";
 const PHONE = "79123987", CARD = "0765432M", ITEMS = "Ventolin inhaler ċġħż", NEED = ymd(1);
 export default {
@@ -30,26 +31,26 @@ export default {
     await t.open(p, "2", "ordreg", "ordreg", ".ord-top [data-act=add]");
     let m = t.maxId(TO);
     await p.click(".ord-top [data-act=add]"); await p.waitForSelector("#ord-add");
-    await t.fill(p, "#ord-add", { client_name: "Rosanne Mifsud", contact: PHONE, items: ITEMS, needed_by: NEED });
+    await t.fill(p, "#ord-add", { client_name: "Mifsud Rosanne", contact: PHONE, items: ITEMS, needed_by: NEED });
     await t.write(p, /\/client-orders\/entries$/, () => p.click("#ord-add button[type=submit]"));
     await p.evaluate(() => window.EIKON._lastPersonLink);
-    const byButton = t.since(TO, m, { client_name: "Rosanne Mifsud" })[0];
+    const byButton = t.since(TO, m, { client_name: "Mifsud Rosanne" })[0];
     m = t.maxId(TO);
     await p.evaluate(() => { location.hash = "#registers"; });
     await p.waitForFunction(() => window.EIKON.state.activeModuleId === "registers");
     await p.keyboard.press("Control+k"); await p.waitForSelector("#esr-q"); await p.keyboard.type("rosanne order", { delay: 20 });
     await p.waitForFunction(() => !document.querySelector(".esr-wait"), null, { timeout: 8000 });
     const opts = await p.evaluate(() => [...document.querySelectorAll(".esr-opt")].map((e) => e.innerText.replace(/\s+/g, " ")));
-    const i = opts.findIndex((o) => /^New order for Rosanne Mifsud/.test(o));
-    t.ok(i >= 0, "the search offers the order for Rosanne Mifsud: " + JSON.stringify(opts.slice(0, 4)));
+    const i = opts.findIndex((o) => /^New order for Mifsud Rosanne/.test(o));
+    t.ok(i >= 0, "the search offers the order for her card, Mifsud Rosanne: " + JSON.stringify(opts.slice(0, 4)));
     for (let k = 0; k < i; k++) await p.keyboard.press("ArrowDown");
     await p.keyboard.press("Enter"); await p.waitForSelector("#ord-add"); await p.waitForTimeout(400);
     const filled = await p.evaluate(() => ({ name: document.querySelector("#ord-add [name=client_name]").value, contact: document.querySelector("#ord-add [name=contact]").value }));
-    t.ok(filled.name === "Rosanne Mifsud" && filled.contact === PHONE, "the search filled her as the registers have her: " + JSON.stringify(filled));
+    t.ok(filled.name === "Mifsud Rosanne" && filled.contact === PHONE, "the search filled her as her card has her: " + JSON.stringify(filled));
     await t.fill(p, "#ord-add", { items: ITEMS, needed_by: NEED });
     await t.write(p, /\/client-orders\/entries$/, () => p.click("#ord-add button[type=submit]"));
     await p.evaluate(() => window.EIKON._lastPersonLink);
-    t.same("orders (search vs button)", byButton, t.since(TO, m, { client_name: "Rosanne Mifsud" })[0], { order_code: "a new code for each order" });
+    t.same("orders (search vs button)", byButton, t.since(TO, m, { client_name: "Mifsud Rosanne" })[0], { order_code: "a new code for each order" });
 
     // Credit notes: Name + Surname saved for her, linked to the same card
     const TC = "credit_notes";

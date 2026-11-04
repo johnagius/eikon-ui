@@ -71,6 +71,15 @@
     var w = s.split(/\s+/); return w.length > 1 ? longest(w) : s;
   }
   E.personPickWire = wire; // for the tests
+  // q5-7: the other spellings too. A plain name with c, g, h or z ("zammit") is also asked as its longest stretch without
+  // them ("ammit", E.people.mtStretch), so Żammit comes back as well as Zammit; matches() then compares with ċ ġ ħ ż
+  // folded on both sides. One more read for such a name, in the same pause in typing; ID cards and phones as before.
+  function fold(v) { return E.people && E.people.foldMt ? E.people.foldMt(v) : low(v); }
+  function wires(q) {
+    var w = wire(q), st = E.people && E.people.mtStretch && !idLike(q) ? E.people.mtStretch(q) : "";
+    return st && low(st) !== low(w) ? [w, st] : [w];
+  }
+  E.personPickWires = wires; // for the tests
 
   var SOURCES = {
     people: function (q) {
@@ -78,10 +87,10 @@
         var r = await E.apiFetch("/people?q=" + encodeURIComponent(q) + "&limit=30", { method: "GET", timeoutMs: 8000 });
         if (!r || !r.ok) return [];
         var out = [];
-        (r.people || []).forEach(function (p) { out.push({ pid: p.id, name: p.name, id_card: p.id_card, phone: p.phone, address: p.address, date: "", from: "Customers" }); });
+        (r.people || []).forEach(function (p) { out.push({ pid: p.id, name: p.name, id_card: p.id_card, phone: p.phone, alt_phone: p.alt_phone, email: p.email, address: p.address, date: "", from: "Customers" }); });
         (r.history || []).forEach(function (h) {
           var kinds = Object.keys(h.sources || {});
-          out.push({ name: h.name, id_card: h.id_card, phone: h.phone, address: h.address, date: str(h.last_date).slice(0, 10), from: kinds.length === 1 ? (LABEL[kinds[0]] || "record") : "records" });
+          out.push({ name: h.name, id_card: h.id_card, phone: h.phone, alt_phone: h.alt_phone, email: h.email, address: h.address, date: str(h.last_date).slice(0, 10), from: kinds.length === 1 ? (LABEL[kinds[0]] || "record") : "records" });
         });
         return out;
       });
@@ -98,8 +107,22 @@
   function matches(c, q) {
     var s = str(q).trim();
     if (/\d/.test(s)) return !!c.id_card && idKey(c.id_card).indexOf(s.replace(/\s+/g, "").toUpperCase().replace(/^0+(?=\d)/, "")) >= 0;
-    var n = low(c.name);
-    return low(s).split(/\s+/).every(function (t) { return n.indexOf(t) >= 0; });
+    var n = fold(c.name);
+    return fold(s).split(/\s+/).filter(Boolean).every(function (t) { return n.indexOf(t) >= 0; });
+  }
+  // the name as typed, letter for letter (no folding): "żammit" puts Żammit before Zammit
+  function exact(c, q) { var n = low(c.name); return low(q).trim().split(/\s+/).every(function (t) { return n.indexOf(t) >= 0; }); }
+  // q5-7: a history row that is a card already (E.people.cardOf: the same ID card, or the same phone and a compatible
+  // name, or the same words in another order) is that card, never a second person: it is given the card's name and id.
+  function onCards(list) {
+    var cards = list.filter(function (c) { return c.pid; });
+    if (!cards.length || !E.people || !E.people.cardOf) return list;
+    var asPeople = cards.map(function (c) { return { id: c.pid, name: c.name, id_card: c.id_card, phone: c.phone, alt_phone: c.alt_phone, email: c.email }; });
+    return list.map(function (c) {
+      if (c.pid) return c;
+      var k = E.people.cardOf(c, asPeople); if (!k) return c;
+      return Object.assign({}, c, { pid: k.id, name: k.name, id_card: k.id_card || c.id_card });
+    });
   }
   // one row per person: the same ID card (padded or not) is one person; a name-only row joins the one with that name
   function merge(list) {
@@ -115,11 +138,15 @@
     });
     return out;
   }
+  // The ID card typed first; then cards in Customers before names seen only in the registers (q5-7); then the name as
+  // typed before another spelling; then the latest.
   function sortFor(list, q) {
-    var ex = idLike(q) ? idKey(q) : "";
+    var ex = idLike(q) ? idKey(q) : "", nm = !/\d/.test(str(q));
     return list.sort(function (a, b) {
       var ea = ex && idKey(a.id_card) === ex ? 0 : 1, eb = ex && idKey(b.id_card) === ex ? 0 : 1;
       if (ea !== eb) return ea - eb;
+      if (!a.pid !== !b.pid) return a.pid ? -1 : 1;
+      if (nm) { var xa = exact(a, q) ? 0 : 1, xb = exact(b, q) ? 0 : 1; if (xa !== xb) return xa - xb; }
       if (a.date !== b.date) return a.date < b.date ? 1 : -1;
       return a.name.localeCompare(b.name);
     });
@@ -139,8 +166,9 @@
     // the registers, one row each, best first. Same cache, same scope, same rules as the suggestions under a field.
     find: async function (q, max) {
       q = str(q).trim(); if (!q) return [];
-      var list = ((await SOURCES.people(wire(q))) || []).filter(function (c) { return matches(c, q); });
-      return sortFor(merge(list), q).slice(0, max || MAX);
+      var got = await Promise.all(wires(q).map(function (w) { return SOURCES.people(w); }));
+      var list = [].concat.apply([], got.map(function (r) { return r || []; })).filter(function (c) { return matches(c, q); });
+      return sortFor(merge(onCards(list)), q).slice(0, max || MAX);
     },
     attach: function (o) {
       if (!o || !o.form || !o.fields) return;
@@ -187,12 +215,12 @@
       var q = str(el.value).trim(), my = ++seq; st.q = el.value;
       var ok = kind === "id" ? idLike(q) || (q.replace(/\s+/g, "").length >= 3 && /\d/.test(q)) : q.replace(/[^A-Za-zÀ-ɏ]/g, "").length >= 2 && !/\d/.test(q);
       if (!ok) { st.items = []; close(); return; }
-      var w = wire(q), lists = [];
+      var ws = wires(q), lists = [];
       try { lists.push(((o.local && o.local()) || []).filter(function (c) { return matches(c, q); })); } catch (e) {}
-      var rem = await Promise.all((o.sources || ["people"]).map(function (s) { return SOURCES[s] ? SOURCES[s](w) : Promise.resolve([]); }));
+      var rem = await Promise.all([].concat.apply([], (o.sources || ["people"]).map(function (s) { return ws.map(function (w) { return SOURCES[s] ? SOURCES[s](w) : Promise.resolve([]); }); })));
       if (my !== seq || !document.body.contains(el) || str(el.value).trim() !== q) return; // a newer search, or the form was redrawn or changed
       rem.forEach(function (r) { lists.push((r || []).filter(function (c) { return matches(c, q); })); });
-      var items = sortFor(merge([].concat.apply([], lists)), q).slice(0, MAX);
+      var items = sortFor(merge(onCards([].concat.apply([], lists))), q).slice(0, MAX);
       if (kind === "id" && o.exact !== false && fullId(q)) {
         var hit = items.filter(function (c) { return idKey(c.id_card) === idKey(q); });
         if (hit.length === 1 && st.exactFor !== idKey(q)) { st.exactFor = idKey(q); if (fill(hit[0], "exact")) { st.items = []; close(); return; } }

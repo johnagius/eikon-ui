@@ -21,7 +21,7 @@
   if (!E) return;
 
   // ---- Open a screen with its form open: Customers' hand-over (modules.customers.js), mode "new" ----
-  // One note for the whole app: sessionStorage "eikon_cus_hand" = { to, mode: "new" | "find", person, back, at }, written
+  // One note for the whole app: sessionStorage "eikon_cus_hand" = { to, mode: "new" | "find" | "open", person, back, at, id }, written
   // by E.customerHandoff (a customer's page, and the search below) and taken once by the screen (E.takeCustomerHandoff).
   // Orders, Questions and Deliveries read it themselves (they also take "find", and Cancel goes back to the person).
   // Every other rebuilt screen reads it with one line in its render:
@@ -54,8 +54,10 @@
       var p = h.person || {}, map = {};
       if (f && o.fill) Object.keys(o.fill).forEach(function (k) { if (p[k] != null && String(p[k]).trim()) map[o.fill[k]] = String(p[k]).trim(); });
       if (f && E.fillEmpty) E.fillEmpty(f, map);
-      var target = null;
-      if (o.focus) target = await waitFor(function () { var x = mount.querySelector(o.focus); return vis(x) ? x : null; }, 3000);
+      var target = null, pick = wantRow && wantRow.to === screen && Date.now() - wantRow.at < 15000 ? wantRow.pick : ""; if (wantRow && wantRow.to === screen) wantRow = null;
+      var find = function () { if (!pick) { var x = mount.querySelector(o.focus); return vis(x) ? x : null; } var y = rowPick(mount, o.focus, pick); return y === "done" || vis(y) ? y : null; };
+      if (o.focus) target = await waitFor(find, 3000);
+      if (target === "done") { if (E.toast) E.toast("Today’s " + pick + " reading is in already.", "info"); return; } // never another line in its place
       if (!target && f) {
         var all = Array.prototype.filter.call(f.querySelectorAll("input,select,textarea"), function (x) { return vis(x) && !x.readOnly && !/^(checkbox|radio|button|submit)$/.test(x.type); });
         target = all.filter(function (x) { return !String(x.value || "").trim(); })[0] || all[0] || null;
@@ -63,11 +65,12 @@
       if (!target || !mine()) return; // filled in all the same; only the cursor stays where the person put it
       put(target);
       // A late redraw (a second list arriving) can replace the form: put focus back on the same field, once, within 1.5 s.
-      var name = target.getAttribute("name"), sel = o.focus && target.matches(o.focus) ? o.focus : null, until = Date.now() + 1500;
+      var name = target.getAttribute("name"), sel = o.focus && target.matches(o.focus) ? o.focus : null, until = Date.now() + 1500, dev = target.closest && target.closest("[data-device]");
+      var devSel = dev && sel ? '[data-device="' + dev.getAttribute("data-device") + '"] ' + sel : null; // the same line after a redraw
       (function guard() {
         if (Date.now() > until || !here()) return;
         if (document.activeElement === document.body || !document.activeElement) {
-          var again = sel ? mount.querySelector(sel) : (name && f ? (mount.querySelector(o.form) || f).querySelector('[name="' + name + '"]') : null);
+          var again = sel ? (devSel && mount.querySelector(devSel)) || mount.querySelector(sel) : (name && f ? (mount.querySelector(o.form) || f).querySelector('[name="' + name + '"]') : null);
           if (vis(again)) { put(again); return; }
         }
         setTimeout(guard, 100);
@@ -229,8 +232,20 @@
     { id: "pvreg", key: "pharmacovigilance", label: "New report", words: ["reaction", "adverse reaction", "adr", "side effect", "yellow card"] },
     { id: "lrcreg", key: "locumreceipts", label: "New receipt", words: ["locum receipt", "locum receipts", "locum pay", "receipt"] },
     { id: "locreg", key: "locumregister", label: "New locum", words: ["locum", "locum register", "pharmacist in charge", "pic"] },
-    { id: "conreg", key: "contacts", label: "Add a contact", words: ["contact", "contacts", "phone number"] }
+    { id: "conreg", key: "contacts", label: "Add a contact", words: ["contact", "contacts", "phone number"] },
+    // q5-7: the words a pharmacist types for what is not a "new" form. `run` does it instead of opening a form;
+    // `orders`: with a name, each open order of that name is offered (the order itself opens in Orders).
+    { id: "ordreg", key: "clientorders", label: "Hand over an order", note: "what is waiting", orders: true, verbs: ["hand over", "handing over", "collect", "collecting", "collection", "pick up", "picking up", "ready"], words: [], run: function () { go("#ordreg"); } },
+    { id: "shfreg", key: "shifts", label: "New leave request", verbs: ["ask for leave", "leave request", "request leave", "book leave", "holiday request", "time off"], words: ["leave", "leaves", "holiday", "holidays", "vacation"], run: function () { E._shfLeaveNew = true; go("#shfreg"); } },
+    { id: "hndreg", key: "instructions", label: "Change the standing instructions", note: "opens them to change", verbs: ["standing instructions", "standing instruction", "permanent instructions"], words: [], run: function () { go("#hndreg"); thenOn("hndreg", function (m) { return m.querySelector("[data-act=std]"); }, function (b) { if (!busyTyping()) b.click(); }); } }
   ];
+  // "paid out" and "credit note" on their own open the form (they are things done at the counter, not looked up)
+  ACTS.forEach(function (a) { if (a.id === "poreg") a.verbs = ["paid out", "pay out"]; if (a.id === "cnreg") a.verbs = ["credit note"]; });
+  // The registers whose screen prints the month ("print dda", "print daily register"): the screen opens with Print ready.
+  var PRINTS = ["cdsreg", "poyreg", "cdpreg", "ddstreg", "drreg", "tempreg", "cleanreg", "locreg", "repreg", "eodreg", "poreg", "cnreg", "lrcreg", "ordreg", "tktreg", "dlvreg", "alertreg", "retreg", "pocreg", "pvreg", "vaxreg", "certreg", "audreg", "insreg"];
+  var PRINT_AT = ["[data-mb=print]", "[data-act=print-month]", "[data-act=print]"];
+  // Words that lead and take the rest of the query: "help end of day", "print dda", "what's new".
+  var LEAD = { help: ["help", "guide", "how do i", "how to"], print: ["print", "printout", "print out"], whatsnew: ["what's new", "whats new", "what is new", "new features"] };
   E.SEARCH_ACTIONS = ACTS;
   function actOk(a) {
     if (!E.modules[a.id]) return false;
@@ -251,15 +266,24 @@
   function personish(s) { s = str(s).trim(); if (!s) return false; var d = s.replace(/\D/g, ""); if (ID_RE.test(s.replace(/\s+/g, ""))) return true; if (/\d/.test(s)) return d.length >= 6 && /^[\d\s+]+$/.test(s); return s.replace(/[^A-Za-zÀ-ɏ]/g, "").length >= 2; }
   // { acts: the best forms, verb: a verb was typed, who: what is left (a person) } — or null.
   function doing(q) {
-    var raw = str(q).trim().split(/\s+/).filter(Boolean), tk = raw.map(function (x) { return low(x).replace(/[.,;:!?]+$/, ""); });
+    var raw = str(q).trim().split(/\s+/).filter(Boolean), tk = raw.map(function (x) { return low(x).replace(/[’‘]/g, "'").replace(/[.,;:!?]+$/, ""); });
     if (!tk.length) return null;
+    // "help …", "print …", "what's new": the first words say it; the rest names a screen
+    for (var lk in LEAD) {
+      var lw = LEAD[lk].slice().sort(function (x, y) { return y.split(" ").length - x.split(" ").length; });
+      for (var li = 0; li < lw.length; li++) if (phraseAt(tk, 0, lw[li], false)) return { lead: lk, acts: [], verb: true, who: "", rest: raw.slice(lw[li].split(" ").length).join(" ") };
+    }
     var used = {}, verb = false, scored = [];
     tk.forEach(function (t, i) { if (VERBS.indexOf(t) >= 0) { used[i] = 1; verb = true; } });
     var part = verb; // a word still being typed ("new ord") counts only after a verb: "abela te" is a name being typed
     ACTS.forEach(function (a, ai) {
       if (!actOk(a)) return;
       var mine = {}, sc = 0;
-      (a.verbs || []).forEach(function (v) { tk.forEach(function (t, i) { if (t === v) { mine[i] = 1; sc += 2; } }); });
+      // an act's own verbs, a phrase of one or more words ("ask", "hand over", "ask for leave"): the longest first
+      (a.verbs || []).slice().sort(function (x, y) { return y.split(" ").length - x.split(" ").length; }).forEach(function (v) {
+        var n = v.split(" ").length;
+        for (var i = 0; i < tk.length; i++) { var free = true; for (var j = 0; j < n; j++) if (mine[i + j]) free = false; if (free && phraseAt(tk, i, v, false)) { for (j = 0; j < n; j++) mine[i + j] = 1; sc += 2 * n; a._v = 1; } }
+      });
       var ph = a.words.slice().sort(function (x, y) { return y.split(" ").length - x.split(" ").length; });
       for (var i = 0; i < tk.length; i++) {
         if (mine[i]) continue;
@@ -267,35 +291,102 @@
           if (phraseAt(tk, i, ph[k], part)) { var n = ph[k].split(" ").length; for (var j = 0; j < n; j++) mine[i + j] = 1; sc += n; i += n - 1; break; }
         }
       }
-      if (sc) scored.push({ a: a, sc: sc, ai: ai, mine: mine });
+      if (sc) scored.push({ a: a, sc: sc, ai: ai, mine: mine, own: !!a._v }); delete a._v;
     });
     if (!scored.length) return null;
     scored.forEach(function (x) { Object.keys(x.mine).forEach(function (i) { used[i] = 1; }); });
     var best = Math.max.apply(null, scored.map(function (x) { return x.sc; }));
     var acts = scored.filter(function (x) { return x.sc === best; }).sort(function (x, y) { return x.ai - y.ai; }).slice(0, 3).map(function (x) { return x.a; });
     var who = raw.filter(function (x, i) { return !used[i] && FILLER.indexOf(tk[i]) < 0; }).join(" ");
-    if (!verb && !acts.some(function (a) { return (a.verbs || []).some(function (v) { return tk.indexOf(v) >= 0; }); })) {
+    var pick = tk.some(function (t) { return t === "fridge" || t === "fridges"; }) ? "fridge" : tk.indexOf("room") >= 0 ? "room" : ""; // "log fridge": the fridge's line
+    var own = scored.some(function (x) { return x.own && acts.indexOf(x.a) >= 0; });
+    if (!verb && !own) {
       // no verb: only a person with a noun ("grech order") does something; a noun alone is searched as before
       if (!personish(who)) return null;
       acts = acts.filter(function (a) { return a.fill; });
       if (!acts.length) return null;
       return { acts: acts, verb: false, who: who };
     }
-    return { acts: acts, verb: true, who: personish(who) ? who : "" };
+    return { acts: acts, verb: true, who: personish(who) ? who : "", pick: pick };
   }
   E.searchDoing = doing; // for the tests
-  function doRow(a, c) {
+  function doRow(a, c, pick) {
     var scr = actScreen(a), what = a.note || "opens the form";
+    if (!c && a.id === "today" && pick) return { a: a, pick: pick, title: "Log the " + pick + " reading", sub: "Today · the " + pick + "’s line" };
     if (!c) return { a: a, title: a.label, sub: scr + " · " + what };
     if (c.typed) return { a: a, c: c, title: a.label + " for " + (c.id_card || "“" + c.name + "”"), sub: scr + " · opens the form, " + (c.id_card ? "the ID card" : "the name") + " filled in" };
     return { a: a, c: c, title: a.label + " for " + c.name, sub: scr + " · opens the form, filled in" + (c.id_card ? " · " + c.id_card : "") };
   }
   function doIt(r) {
+    if (r.run) return r.run();
+    if (r.a.run) return r.a.run(r);
+    if (r.a.id === "today") wantRow = { to: "today", pick: r.pick || "", at: Date.now() }; // the fridge, or the room, not just the first line
     var c = r.c, p = c ? { name: c.typed && c.id_card ? "" : str(c.name), id_card: str(c.id_card), phone: str(c.phone), address: str(c.address) } : null;
     // person id 0: Cancel stays on the screen (a customer's page passes its id, and Cancel goes back there)
     if (E.customerHandoff) E.customerHandoff(r.a.id, "new", p, ""); else hand("eikon_cus_hand", { to: r.a.id, mode: "new", at: Date.now(), back: "", person: p || {} });
     go("#" + r.a.id);
   }
+
+  // ---- q5-7: "help …", "print …", "what's new", "hand over <name>" ----
+  function idOf(s) { var m = /^#([\w-]+)$/.exec(str(s && s.go)), id = m ? m[1] : str(s && s.key); return (E.UI2_NATIVE || {})[id] || id; } // the rebuilt screen a screen result opens
+  function leadRows(dg) {
+    var rest = str(dg.rest).trim(), here = (E.state && E.state.activeModuleId) || "", out = [];
+    var title = function (id) { return id === "today" ? "Today" : ((E.modules[id] && E.modules[id].title) || id); };
+    if (dg.lead === "whatsnew") return [{ title: "What’s new", sub: "The latest changes to Eikon", run: function () { if (E.openHelpNext) E.openHelpNext({ view: "whatsnew" }); } }];
+    if (dg.lead === "help") {
+      var help = function (id, t) { return { title: "Help: " + t, sub: "The guide for this screen, step by step", run: function () { if (E.openHelpNext) E.openHelpNext(id ? { id: id } : {}); } }; };
+      if (rest) screens(rest).forEach(function (s) { var id = idOf(s); if (id && out.length < 3) out.push(help(id, s.title)); });
+      else if (here) out.push(help(here, title(here)));
+      out.push({ title: "All the guides", sub: "Help for every screen", run: function () { if (E.openHelpNext) E.openHelpNext({}); } });
+      return out;
+    }
+    if (dg.lead === "print") {
+      // the best match first; among equals ("print dda"), the register printed most (the order of PRINTS)
+      var qn = low(rest).replace(/\s+/g, " "), seen = {}, list = !rest ? [{ id: here, hub: "This screen" }] : screenList().map(function (s) { return { id: idOf(s), hub: s.hub && s.hub !== "Tab" ? s.hub : "", sc: screenScore(s, qn) }; })
+        .filter(function (x) { return x.sc < 99; }).sort(function (x, y) { return x.sc - y.sc || PRINTS.indexOf(x.id) - PRINTS.indexOf(y.id); });
+      list.filter(function (x) { var ok = x.id && PRINTS.indexOf(x.id) >= 0 && E.modules[x.id] && !seen[x.id]; seen[x.id] = 1; return ok; }).slice(0, 3).forEach(function (x) {
+        var id = x.id;
+        out.push({ title: "Print " + title(id), sub: (id === here ? "This screen" : x.hub || title(id)) + " · opens with Print ready, Enter prints", run: function () {
+          go("#" + id);
+          thenOn(id, function (m) { for (var i = 0; i < PRINT_AT.length; i++) { var b = m.querySelector(PRINT_AT[i]); if (b && !b.disabled && (b.offsetParent !== null || b.getClientRects().length)) return b; } return null; },
+            function (b, since, from) { if (E.focusIfIdle) E.focusIfIdle(b, since, from); else b.focus(); });
+        } });
+      });
+      return out;
+    }
+    return out;
+  }
+  function orderRows(a, who, list) {
+    return (list || []).map(function (e) { return { e: e, m: orderMatch(e, who) }; }).filter(function (x) { return x.m >= 0 && x.m <= 2; })
+      .sort(function (x, y) { return x.m - y.m || (str(x.e.needed_by || "9") < str(y.e.needed_by || "9") ? -1 : 1); }).slice(0, 3)
+      .map(function (x) { var e = x.e; return { a: a, title: "Hand over " + e.client_name + "’s order", sub: ["Orders", e.items_text || e.items, e.order_code ? "Code " + e.order_code : ""].filter(Boolean).join(" · "), run: function () { openOrder(e); } }; });
+  }
+  // After a result opens a screen: once that screen has drawn `find(mount)`, do `act` with it (within 5 s, and only if
+  // the person has not started typing somewhere meanwhile: E.focusIfIdle decides for a focus).
+  function busyTyping() { var a = document.activeElement; return !!a && a !== document.body && editable(a) && !(dlg.root && dlg.root.contains(a)); }
+  function thenOn(id, find, act) {
+    var since = Date.now() + 1, from = document.activeElement, until = since + 5000;
+    (function tick() {
+      if (Date.now() > until) return;
+      var m = document.getElementById("eikon-content") || document.querySelector(".eikon-content");
+      var el = E.state && E.state.activeModuleId === id && m ? find(m) : null;
+      if (!el) { setTimeout(tick, 80); return; }
+      setTimeout(function () { if (el.isConnected) act(el, since, from); else tick(); }, 60); // after the screen's own first focus
+    })();
+  }
+  // "log fridge": Today's readings, at the fridge's line (or the room's), not the first line (E.takeOpenForm reads it)
+  var wantRow = null;
+  function rowPick(mount, sel, pick) {
+    var all = Array.prototype.filter.call(mount.querySelectorAll(sel), function (x) { return !x.disabled && (x.offsetParent !== null || x.getClientRects().length > 0); });
+    if (!pick) return all[0] || null;
+    var name = function (row) { var b = row && row.querySelector(".tdy-t b"); return low(b && b.textContent).trim(); };
+    var isRoom = function (n) { return n === "room" || /\b(room|pharmacy|shop|dispensary)\b/.test(n) && !/fridge/.test(n); };
+    var is = function (row) { if (!row) return false; var n = name(row); return pick === "fridge" ? /fridge|vaccine/.test(n) || !isRoom(n) : isRoom(n); }; // a reading's line only (not the cleaner's name)
+    var rows = mount.querySelectorAll("[data-kind=temperature]");
+    if (!Array.prototype.some.call(rows, is)) return all[0] || null; // no line of that kind: the first, as before
+    return all.filter(function (x) { return is(x.closest("[data-kind=temperature]")); })[0] || "done";
+  }
+  E.searchRowPick = rowPick; // for the tests
 
   // ---- Orders still open, and today's bookings: read once, filtered here ----
   function openOrders() {
@@ -322,31 +413,26 @@
       return ((r && r.bookings) || []).filter(function (b) { return b.status !== "cancelled"; });
     });
   }
-  function words(q) { return low(q).trim().split(/\s+/).filter(Boolean); }
+  function words(q) { return fold(q).trim().split(/\s+/).filter(Boolean); }
+  function fold(v) { return E.people && E.people.foldMt ? E.people.foldMt(v) : low(v); } // ċ ġ ħ ż as c g h z, both sides
   function orderMatch(e, q) {
     var s = str(q).trim(), code = s.replace(/\s+/g, "").toUpperCase();
     if (code.length >= 3 && e.order_code && str(e.order_code).toUpperCase().indexOf(code) === 0) return 0;
-    var n = low(e.client_name), ws = words(s);
+    var n = fold(e.client_name), ws = words(s);
     if (ws.length && ws.every(function (w) { return n.indexOf(w) >= 0; })) return 1;
     var dg = s.replace(/\D/g, ""); if (dg.length >= 4 && /^[\d\s+]+$/.test(s) && str(e.client_phone).replace(/\D/g, "").indexOf(dg) >= 0) return 2;
     if (s.length >= 3 && low(e.items_text || e.items).indexOf(low(s)) >= 0) return 3;
     return -1;
   }
-  function bookingMatch(b, q) { var n = low(b.personName), ws = words(q); return ws.length > 0 && ws.every(function (w) { return n.indexOf(w) >= 0; }); }
+  function bookingMatch(b, q) { var n = fold(b.personName), ws = words(q); return ws.length > 0 && ws.every(function (w) { return n.indexOf(w) >= 0; }); }
   function people(q) {
     var s = str(q).trim();
     var ok = /\d/.test(s) ? s.replace(/\s+/g, "").length >= 3 : s.replace(/[^A-Za-zÀ-ɏ]/g, "").length >= 2;
     if (!ok) return Promise.resolve([]);
     var pp = E.personPick ? Promise.resolve(E.personPick) : Promise.resolve(window.EIKON_LATE).then(function () { return E.personPick; }); // loads with the late files
-    // ċ ġ ħ ż: the server's LOWER() knows only A to Z, so "ħabela" found nobody. Ask for the longest stretch without them
-    // ("abela") and keep here the names that have every word typed (the browser's lower case knows Maltese).
-    var MT = /[ċġħżĊĠĦŻ]/, wq = s;
-    if (MT.test(s) && !/\d/.test(s)) { var best = s.split(/[\sċġħżĊĠĦŻ]+/).reduce(function (a, b) { return b.length > a.length ? b : a; }, ""); if (best.length >= 2) wq = best; }
-    return pp.then(function (p) {
-      if (!p || !p.find) return [];
-      if (wq === s) return p.find(s, PER);
-      return Promise.resolve(p.find(wq, 30)).then(function (list) { var ws = words(s); return (list || []).filter(function (c) { var n = low(c.name); return ws.every(function (w) { return n.indexOf(w) >= 0; }); }).slice(0, PER); });
-    }).catch(function () { return []; });
+    // ċ ġ ħ ż, typed or left out ("zammit" finds Żammit): E.personPick.find asks for the other spellings too and compares
+    // with them folded (E.people.foldMt); cards in Customers come before names seen only in the registers.
+    return pp.then(function (p) { return p && p.find ? p.find(s, PER) : []; }).catch(function () { return []; });
   }
 
   // ---- Where each result goes ----
@@ -389,21 +475,30 @@
     this.q = q; clearTimeout(this.timer); this.note = null;
     if (!q) { this.groups = {}; this.draw(); return; }
     var dg = doing(q), keepActs = this.groups.q === q && this.groups.acts;
-    this.groups = { acts: keepActs || (dg && dg.verb ? dg.acts.map(function (a) { return doRow(a); }) : []), doing: dg, screens: screens(q), people: this.groups.people && this.groups.q === q ? this.groups.people : null, orders: null, bookings: null, q: q, pending: true };
+    this.groups = { acts: keepActs || (dg && dg.lead ? leadRows(dg) : dg && dg.verb ? dg.acts.map(function (a) { return doRow(a, null, dg.pick); }) : []), doing: dg, screens: screens(q), people: this.groups.people && this.groups.q === q ? this.groups.people : null, orders: null, bookings: null, q: q, pending: true };
     this.draw();
     this.timer = setTimeout(function () { self.remote(q); }, now ? 0 : WAIT);
   };
   Engine.prototype.remote = async function (q) {
     var my = ++this.seq, self = this;
     var dg = doing(q), who = dg && dg.who && dg.acts.some(function (a) { return a.fill; }) ? dg.who : ""; // "grech order": the people are Grech
-    var res = await Promise.all([dg && dg.verb && !dg.who ? [] : people(who || q), q.length >= 2 ? openOrders() : null, q.length >= 2 ? todaysBookings() : null]);
+    var noPeople = dg && (dg.lead || (dg.verb && (!dg.who || !dg.acts.some(function (a) { return a.fill; })))); // "hand over grech": the orders, not the people
+    var res = await Promise.all([noPeople ? [] : people(who || q), q.length >= 2 ? openOrders() : null, q.length >= 2 ? todaysBookings() : null]);
     if (my !== this.seq || str(this.input.value).trim() !== q || !document.body.contains(this.input)) return;
     var acts = [];
-    if (dg) {
+    if (dg && dg.lead) acts = leadRows(dg);
+    else if (dg) {
+      dg.acts.forEach(function (a) {
+        if (!a.orders || !dg.who) return;
+        var mine = orderRows(a, dg.who, res[1]);
+        // no open order of that name here: Orders opens looking for it (it may be under another spelling, or done)
+        if (!mine.length) mine = [{ a: a, title: "Look for “" + dg.who + "” in Orders", sub: "Orders · no open order found by that name here", run: function () { hand("eikon_ordreg_q", { q: dg.who, at: Date.now() }); go("#ordreg"); } }];
+        acts = acts.concat(mine);
+      });
       var fillers = dg.acts.filter(function (a) { return a.fill; }), found = (res[0] || []).slice(0, 3);
       if (who) found.forEach(function (c) { fillers.forEach(function (a) { acts.push(doRow(a, c)); }); });
       if (who && !found.length && dg.verb) { var card = ID_RE.test(who.replace(/\s+/g, "")); fillers.forEach(function (a) { acts.push(doRow(a, card ? { typed: true, id_card: who.replace(/\s+/g, "").toUpperCase(), name: "" } : { typed: true, name: who })); }); }
-      if (dg.verb) dg.acts.forEach(function (a) { acts.push(doRow(a)); });
+      if (dg.verb) dg.acts.forEach(function (a) { acts.push(doRow(a, null, dg.pick)); });
       acts = acts.slice(0, PER);
     }
     var ords = (res[1] || []).map(function (e) { return { e: e, m: orderMatch(e, q) }; }).filter(function (x) { return x.m >= 0; })
@@ -426,7 +521,7 @@
     if (q) {
       group("Actions", g.acts, "do", function (r) { return [esc(r.title), esc(r.sub)]; });
       group("Screens", g.screens, "screen", function (s) { return [esc(s.title), esc([s.hub && s.hub !== "Tab" ? s.hub : "", s.desc].filter(Boolean).join(" · "))]; });
-      group("People", g.people, "person", function (c) { return [esc(c.name), esc([c.id_card, c.phone, c.pid ? "Customers" : "In the registers"].filter(Boolean).join(" · "))]; });
+      group("People", g.people, "person", function (c) { return [esc(c.name), esc([c.id_card, c.phone, c.pid ? "Customers" : "In the registers, no card yet"].filter(Boolean).join(" · "))]; });
       group("Open orders", g.orders, "order", function (e) { return [esc(e.client_name), esc([e.items_text || e.items, e.order_code ? "Code " + e.order_code : "", e.needed_by ? "Needed " + e.needed_by : ""].filter(Boolean).join(" · "))]; });
       group("Today's bookings", g.bookings, "booking", function (b) { return [esc(b.start + " " + b.personName), esc([b.end ? "until " + b.end : "", b.status === "arrived" ? "Here" : ""].filter(Boolean).join(" · "))]; });
       if (E.modules.customers && q.length >= 2) group("More", [{ q: q }], "more", function (m) { return ["Find “" + esc(m.q) + "” in Customers", "Every register, by name, ID card or phone"]; });

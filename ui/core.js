@@ -2141,6 +2141,8 @@
       // Ctrl/Cmd+Enter saves from anywhere in the form, a text box included (once: not if the browser already sent it)
       if (f && ev.key === "Enter" && mod && !ev.shiftKey) {
         var t0 = Date.now();
+        // the field being left first, as Tab would (its change: a known prescriber brings the reg no.), then the save
+        if (a !== f && textish(a) && a.tagName !== "SELECT") { try { a.blur(); a.focus({ preventScroll: true }); } catch (e0) {} }
         setTimeout(function () {
           if (ev.defaultPrevented || (f._eikonSentAt || 0) >= t0) return;
           var sb = f.querySelector("button[type=submit],input[type=submit],button:not([type])");
