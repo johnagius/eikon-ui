@@ -254,7 +254,7 @@
         {
           heading: "Search & Reports",
           body:
-            "<p>Use the <strong>search field</strong> to filter by DDA name, agent, or invoice number (live, 250ms debounce). " +
+            "<p>Use the <strong>search field</strong> to filter by DDA name, agent, or invoice number; the list narrows as you type. " +
             "The <strong>report section</strong> lets you pick a date range, generate a summary, and print it.</p>"
         },
         {
@@ -464,8 +464,8 @@
         {
           heading: "Overview",
           body:
-            "<p>A fully offline-capable point-of-sale system. Supports GS1/FMD DataMatrix barcode scanning, " +
-            "camera-based product lookup via OCR, XLSX catalog import, and automatic sync when connectivity returns.</p>"
+            "<p>A till that keeps working with no connection. It reads the square medicine-pack barcodes, " +
+            "finds a product from a photo of its box, imports the product list from a spreadsheet, and sends the sales when the connection is back.</p>"
         },
         {
           heading: "Tabs",

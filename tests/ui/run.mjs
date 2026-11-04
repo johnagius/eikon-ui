@@ -259,9 +259,9 @@ function mockApi(req, res, body) {
   if (p === "/vaccines/orders" && req.method === "GET") return res.end(JSON.stringify({ ok: true, orders: [{ id: 31, created_at: new Date().toISOString(), section: "other", country_code: "", country_name: "", client_first: "Rita", client_last: "Camilleri", phone: "79222333", email: "", items: [{ name: "Boostrix", qty: 1 }] }] }));
   if (p === "/vaccines/orders" && req.method === "POST") return res.end(JSON.stringify({ ok: true, order: Object.assign({ id: 32, created_at: new Date().toISOString() }, body) }));
   // End of day (new layout eodreg): one stored day that the test can change behind the screen's back
-  if (p === "/endofday/record" && req.method === "GET") return res.end(JSON.stringify({ ok: true, record: url.searchParams.get("date") === todayYmd ? eodState.rec : null }));
+  if (p === "/endofday/record" && req.method === "GET") { const d = url.searchParams.get("date"); return res.end(JSON.stringify({ ok: true, record: d === todayYmd ? eodState.rec : eodState.prev && d === eodState.prev.date ? eodState.prev : null })); } // q5-6: prev, an earlier saved day
   if (p === "/endofday/record" && req.method === "PUT") { const r = (body && body.record) || {}; eodState.rec = Object.assign({}, r, { id: 1, updated_at: "2026-11-03 18:0" + (++eodState.n) + ":00", locked_at: r.locked_at ? "2026-11-03 18:30:00" : "" }); return res.end(JSON.stringify({ ok: true, record: eodState.rec })); }
-  if (p === "/endofday/dates") return res.end(JSON.stringify({ ok: true, dates: eodState.rec ? [todayYmd] : [] }));
+  if (p === "/endofday/dates") { if (eodState.datesFail) { res.statusCode = 500; return res.end(JSON.stringify({ ok: false, error: "boom" })); } const m = url.searchParams.get("month"); return res.end(JSON.stringify({ ok: true, dates: [eodState.prev && eodState.prev.date, eodState.rec ? todayYmd : null].filter((d) => d && d.slice(0, 7) === m) })); }
   if (p === "/endofday/contacts" && req.method === "GET") return res.end(JSON.stringify({ ok: true, contacts: [{ id: 4, display_name: "BOV Paola" }] }));
   // Plan shifts (shfreg): the writes it sends (the GETs above answer the reads)
   if (p === "/shifts/opening-hours" && req.method === "GET") return res.end(JSON.stringify({ ok: true, hours: { default: { open: "08:00", close: "19:00", closed: false }, openSaturday: true, openSunday: false, overrides: {} } }));
@@ -2297,7 +2297,7 @@ try {
   await page.goto("about:blank"); await page.goto(base + "&ui=2#endofday"); // a fresh page: the test before ends on this same address
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "eodreg" && document.querySelector("#eod-form"), null, { timeout: 15000 });
   const inReach = () => page.evaluate(() => { const b = document.querySelector("[data-act=save]").getBoundingClientRect(), bar = document.querySelector(".eikon-sidebar").getBoundingClientRect(); return b.top >= 0 && b.bottom <= Math.min(innerHeight, bar.top + 1) && !!document.querySelector(".eod-acts [data-b=ouBar]"); });
-  const mStaff = (/^Today · (.+?) · AM · float/.exec(await page.textContent(".eod-who span")) || [])[1], mWho = await page.evaluate(() => (window.EIKON.state.user || {}).full_name), mReach0 = await inReach();
+  const mStaff = (/^Today · (.+?) · (?:AM|PM) · float/.exec(await page.textContent(".eod-who span")) || [])[1], mWho = await page.evaluate(() => (window.EIKON.state.user || {}).full_name), mReach0 = await inReach();
   await page.evaluate(() => window.scrollTo(0, 1500)); await page.waitForTimeout(100); const mReach1 = await inReach();
   await fetch(`http://localhost:${PORT}/__reset`);
   await page.click("[data-act=who]"); await page.fill("[name=float_amount]", ""); await page.click("[data-act=save]"); await page.waitForTimeout(300);
@@ -2421,6 +2421,7 @@ try {
   eodState = { rec: null, n: 0 };
   await page.goto("about:blank"); await page.goto(base + "&ui=2#endofday");
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "eodreg" && document.querySelector("#eod-form"), null, { timeout: 15000 });
+  const SH = await page.evaluate(() => window.EIKON.maltaHm(new Date()) >= "13:00" ? "PM" : "AM"); // q5-6: a new day's shift follows Malta time
   const e0 = await page.evaluate(() => ({ line: (document.querySelector(".eod-who span") || {}).textContent, day: !!document.querySelector("#eod-day"), staff: !!document.querySelector("[name=staff]"), ou: document.querySelector('[data-b="ouBig"]').textContent, cls: document.querySelector('[data-b="ouBig"]').className, bar: document.querySelector('[data-b="ouBar"]').textContent }));
   await page.focus("[data-act=who]"); await page.keyboard.press("Tab");
   const tab1 = await page.evaluate(() => document.activeElement.name);
@@ -2438,13 +2439,61 @@ try {
   // Change opens the four fields, the cursor in the day
   await page.click("[data-act=who]"); await page.waitForTimeout(100);
   const e2 = await page.evaluate(() => ({ day: !!document.querySelector("#eod-day"), staff: (document.querySelector("[name=staff]") || {}).value, focus: document.activeElement.id }));
-  report("end of day: day/staff/shift/float are one summary line with Change, so Tab from it lands on X reading 1; Enter goes to the next amount (remarks skipped) and after the last to Save, never saving; 'Nothing counted yet' (not a green Exact) until a figure; untouched, the save sends the signed-in name, AM and the float shown",
-    /^Today · Maria Borg · AM · float €1000\.00$/.test(e0.line || "") && !e0.day && !e0.staff && e0.ou === "Nothing counted yet" && e0.cls === "" && e0.bar === "Nothing counted yet" &&
+  report("end of day: day/staff/shift/float are one summary line with Change, so Tab from it lands on X reading 1; Enter goes to the next amount (remarks skipped) and after the last to Save, never saving; 'Nothing counted yet' (not a green Exact) until a figure; untouched, the save sends the signed-in name, the shift by Malta time and the float shown",
+    e0.line === "Today · Maria Borg · " + SH + " · float €1000.00" && !e0.day && !e0.staff && e0.ou === "Nothing counted yet" && e0.cls === "" && e0.bar === "Nothing counted yet" &&
     tab1 === "row:x:0:amount" && ent1 === "row:epos:0:amount" && ent2 === "row:cheques:0:amount" && entLast === "save" && /^Short by/.test(e1.ou) && putsBefore === 0 &&
-    ePut.staff === "Maria Borg" && ePut.staff_name === "Maria Borg" && ePut.time_of_day === "AM" && ePut.float_amount === "1000.00" && ePut.x[0].amount === "500.00" && ePut.date === todayYmd &&
+    ePut.staff === "Maria Borg" && ePut.staff_name === "Maria Borg" && ePut.time_of_day === SH && ePut.float_amount === "1000.00" && ePut.x[0].amount === "500.00" && ePut.date === todayYmd &&
     e2.day && e2.staff === "Maria Borg" && e2.focus === "eod-day",
     JSON.stringify({ e0, tab1, ent1, ent2, entLast, e1, putsBefore, ePut: { staff: ePut.staff, tod: ePut.time_of_day, f: ePut.float_amount, x: ePut.x }, e2 }));
 } catch (e) { report("end of day: summary line ran to the end", false, String(e).slice(0, 300)); }
+
+// q5-6: End of day starts right. A new day's float is the last saved day's (this month or the month before), said under the
+// summary line; a different float says "Float changed from …" in amber; no saved day, or one that cannot be read, says why
+// the float is €1000.00; an earlier day takes the shift of the day before it; Enter on Change opens it; Ctrl+Enter there
+// sends nothing; untouched, the save sends the float shown.
+try {
+  const ago = (n) => maltaYmd(-n);
+  const openEod = async () => { await page.goto("about:blank"); await page.goto(base + "&ui=2#endofday"); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "eodreg" && document.querySelector("#eod-form") && document.querySelector(".eod-st"), null, { timeout: 15000 }); await page.waitForTimeout(300); };
+  const look = () => page.evaluate(() => { const n = document.querySelector("[data-b=floatnote]"); return { line: (document.querySelector(".eod-who span") || {}).textContent || "", note: n && !n.hidden ? n.textContent : "", wn: !!(n && n.classList.contains("wn")), f: (document.querySelector("[name=float_amount]") || {}).value, tod: (document.querySelector("[name=time_of_day]") || {}).value }; });
+  const puts = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT" && c.path === "/endofday/record").map((c) => c.body.record);
+  const SH = await page.evaluate(() => window.EIKON.maltaHm(new Date()) >= "13:00" ? "PM" : "AM");
+  const prevRec = (date, fl, tod) => ({ id: 9, date, eod_date: date, staff: "Karl", staff_name: "Karl", time_of_day: tod, float_amount: fl, x: [{ amount: "800" }], epos: [], cheques: [], paid_outs: [], cash: { n50: "2" }, deposit: {}, updated_at: "2026-10-01 18:00:00", locked_at: "2026-10-01 18:30:00" });
+  // (a) a saved day this month or last: its float; untouched, the save sends it
+  const pd = ago(1); eodState = { rec: null, n: 0, prev: prevRec(pd, 150, "PM") };
+  await openEod(); const a0 = await look();
+  await page.fill('[name="row:x:0:amount"]', "500"); await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=save]"); await page.waitForFunction(() => /Saved/.test(document.querySelector(".eod-st").textContent) && !document.querySelector("[data-act=save][disabled]"), null, { timeout: 8000 });
+  const aPut = (await puts())[0] || {}; const a1 = await look();
+  // the day before it in the previous month (the 1st of a month finds the last day of the month before)
+  const pm = (() => { const y = +todayYmd.slice(0, 4), m = +todayYmd.slice(5, 7) - 1; return (m < 1 ? y - 1 : y) + "-" + String(m < 1 ? 12 : m).padStart(2, "0") + "-28"; })();
+  eodState = { rec: null, n: 0, prev: prevRec(pm, "75.5", "AM") }; await openEod(); const b0 = await look();
+  // (b) changed: amber "Float changed from €150.00"; Enter on Change opens; Ctrl+Enter on Change sends nothing
+  eodState = { rec: null, n: 0, prev: prevRec(pd, "150.00", "PM") }; await openEod();
+  await fetch(`http://localhost:${PORT}/__reset`); await page.focus("[data-act=who]"); await page.keyboard.press("Control+Enter"); await page.waitForTimeout(500);
+  const ctrlPuts = (await puts()).length, ctrlOpen = await page.evaluate(() => !!document.querySelector("[name=float_amount]"));
+  await page.focus("[data-act=who]"); await page.keyboard.press("Enter"); await page.waitForTimeout(150);
+  const entOpen = await page.evaluate(() => ({ open: !!document.querySelector("[name=float_amount]"), focus: document.activeElement.id }));
+  await page.fill("[name=float_amount]", "200"); await page.waitForTimeout(50); const c0 = await look();
+  await page.fill("[name=float_amount]", "150"); await page.waitForTimeout(50); const c1 = await look();
+  // an earlier day: the shift of the day saved before it
+  eodState = { rec: null, n: 0, prev: prevRec(ago(3), "150.00", "PM") }; await openEod(); await page.click("[data-act=who]");
+  await page.fill("#eod-day", ago(1)); await page.dispatchEvent("#eod-day", "change"); await page.waitForFunction((d) => document.querySelector("#eod-day") && document.querySelector("#eod-day").value === d && !/Opening/.test(document.body.textContent), ago(1), { timeout: 8000 }); await page.waitForTimeout(300);
+  const d0 = await look();
+  // (c) no saved day, and a month that cannot be read
+  eodState = { rec: null, n: 0 }; await openEod(); const e0 = await look();
+  eodState = { rec: null, n: 0, datesFail: true }; await openEod(); const f0 = await look();
+  eodState = { rec: null, n: 0 };
+  report("end of day starts right (q5-6): a new day's float is the last saved day's (this month or the month before), said under the summary; changed, an amber 'Float changed from €150.00'; none, or unreadable, says €1000.00 and why; an earlier day takes the shift of the day before; Enter on Change opens it, Ctrl+Enter there saves nothing; untouched, the save sends the float shown",
+    a0.line === "Today · Maria Borg · " + SH + " · float €150.00" && /^Float as on .+\. Change it if today's is different\.$/.test(a0.note) && !a0.wn &&
+    aPut.float_amount === "150.00" && aPut.time_of_day === SH && aPut.staff === "Maria Borg" && a1.note === "" &&
+    / · float €75\.50$/.test(b0.line) && /^Float as on /.test(b0.note) &&
+    ctrlPuts === 0 && !ctrlOpen && entOpen.open && entOpen.focus === "eod-day" &&
+    /^Float changed from €150\.00, the float on /.test(c0.note) && c0.wn && /^Float as on /.test(c1.note) && !c1.wn &&
+    d0.tod === "PM" && d0.f === "150.00" &&
+    / · float €1000\.00$/.test(e0.line) && e0.note === "No earlier day saved, so the float starts at €1000.00. Change it if yours is different." && !e0.wn &&
+    / · float €1000\.00$/.test(f0.line) && /could not be read/.test(f0.note) && f0.wn,
+    JSON.stringify({ a0, aPut: { f: aPut.float_amount, tod: aPut.time_of_day }, a1, b0, ctrlPuts, ctrlOpen, entOpen, c0, c1, d0, e0, f0 }));
+} catch (e) { eodState = { rec: null, n: 0 }; report("end of day starts right (q5-6): ran to the end", false, String(e).slice(0, 300)); }
 
 // Plan shifts in the new layout: the old #shifts link lands here; a change sends the whole record (role and note kept);
 // add sends one POST; Remove asks first, then DELETE; Approve sends the classic approve call.
@@ -5121,6 +5170,33 @@ try {
     bootHelp === 0 && bootWn === 1 && dotBefore && h1Text === "Controlled drugs supplied" && guide.title === "Controlled drugs supplied" && guide.inside && closed && !hErr.length,
     JSON.stringify({ bootHelp, bootWn, dotBefore, h1Text, title: guide.title, inside: guide.inside, closed, hErr: hErr.slice(0, 2) }));
 } catch (e) { report("help: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
+// BACKLOG5 item 9: help matches the screen. (a) every "Press X" in a guide is a button the screen draws, and no guide
+// uses a technical word; (b) on every new-layout screen, the footer's "… is in the classic screen" sentences are the
+// guide's "Still in the classic screen" paragraph word for word, and that paragraph names no button the screen has.
+try {
+  const HM = await import("../helpmatch.mjs");
+  const stat = HM.staticCheck(root);
+  report("help matches the screen: every “Press …” in a guide is a button that screen draws; no technical words", !stat.length, stat.slice(0, 6).join(" | "));
+  const G = HM.loadGuides(root), list = HM.newScreens(root);
+  const mp = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const mErr = []; mp.on("pageerror", (e) => mErr.push(e.message));
+  await mp.goto(base + "&ui=2#today");
+  await mp.evaluate(() => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); });
+  await mp.reload();
+  await mp.waitForFunction(() => window.EIKON && window.EIKON._lateIn, null, { timeout: 15000 });
+  let probs = [], footers = 0; const missing = [];
+  for (const { id } of list) {
+    await mp.evaluate((h) => { window.location.hash = "#" + h; }, id);
+    try { await mp.waitForFunction((m) => window.EIKON.state.activeModuleId === m && document.querySelector("#eikon-content button"), id, { timeout: 8000 }); } catch (e) { missing.push(id); continue; }
+    await mp.waitForTimeout(250);
+    const r = await mp.evaluate(HM.readScreenInPage);
+    if (r.footer.length) footers++;
+    probs = probs.concat(HM.compare(id, G[id], r.footer, r.labels));
+  }
+  await mp.close();
+  report("help matches the screen: on " + list.length + " screens (" + footers + " with a classic footer), the guide's “Still in the classic screen” is the footer's own sentence and names nothing the screen has",
+    footers >= 25 && !probs.length && !missing.length, JSON.stringify({ footers, missing, probs: probs.slice(0, 6), err: mErr.slice(0, 2) }));
+} catch (e) { report("help matches the screen: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
 {
   const problems = [];
   let j = null;
@@ -5254,7 +5330,7 @@ try {
     !/classic/i.test(hits0) && setup3.indexOf("products") >= 0 && w6.length === 1 && w6[0] === want && setup4.indexOf("products") < 0, JSON.stringify({ hits0, setup3, w6, setup4 }));
 
   // Returns, nothing going back: the next step, not the classic screen
-  await bp.evaluate(() => { location.hash = "#returns"; }); await on("retreg"); await bp.waitForSelector(".rtn-quiet");
+  await bp.evaluate(() => { location.hash = "#returns"; }); await on("retreg"); await bp.waitForFunction(() => { const q = document.querySelector(".rtn-quiet"); return q && !/^Opening/.test(q.textContent.trim()); }, null, { timeout: 8000 }).catch(() => {}); // the same box says "Opening returns…" while it loads
   const rq = await bp.evaluate(() => { const q = document.querySelector(".rtn-quiet"); return { t: q.textContent, a: (q.querySelector("a") || {}).getAttribute && q.querySelector("a").getAttribute("href") }; });
   report("returns, empty: says how to send stock back (Near expiry, Send back), not 'the classic screen'", !/classic/i.test(rq.t) && rq.a === "#nearexpiry" && /Send back/.test(rq.t), JSON.stringify(rq));
 

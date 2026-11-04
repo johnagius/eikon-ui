@@ -3,6 +3,9 @@
    difference worked out as you type with the classic screen's own sums (expected = X − EPOS − cheques − paid outs,
    cash = till − float, the bag rounded to 10s or 5s, over/under, coins kept); the BOV bank bag (number, contact,
    notes, filled from the count until changed by hand); the month so far. Save, and Save and lock.
+   A new day starts from the last saved day's float (€1000.00, as the classic, only when there is none) and the shift
+   by Malta time (PM from 13:00; an earlier day, the shift of the day before it); the summary line says where the float
+   came from, or "Float changed from …" when it differs from the last saved day (q5-6).
    The same record and endpoint as the classic screen; every save sends the whole record (the server replaces it).
    Before saving, the day is read again: if another till saved it since it was opened here, nothing is saved and
    the person chooses. A locked day is read-only here, except for a correction by the pharmacist (role admin): "Correct
@@ -30,7 +33,8 @@
 
   var S = {
     mount: null, date: "", w: null, base: null, contacts: [], loading: false, error: "", saving: false, err: "", warn: "",
-    dirty: false, autoDep: true, ask: null, conflict: null, lastSent: "", shadow: "", month: null, monthYm: "", monthErr: "", seq: 0
+    dirty: false, autoDep: true, ask: null, conflict: null, lastSent: "", shadow: "", month: null, monthYm: "", monthErr: "", seq: 0,
+    prev: null, memo: { dates: {}, recs: {} } // q5-6: the last saved day before this one (its float and shift are the defaults); reads shared with the month
   };
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
@@ -117,16 +121,53 @@
   async function loadMonth(ym) {
     var seq = ++S.seq; S.monthErr = "";
     try {
-      var r = await E.apiFetch("/endofday/dates?month=" + encodeURIComponent(ym), { method: "GET" });
-      var dates = ((r && (r.dates || r.items || r.records)) || []).map(function (x) { return typeof x === "string" ? x : (x && (x.date || x.eod_date)); }).filter(isYmd);
+      var memo = S.memo; S.memo = { dates: {}, recs: {} }; // what opening the day already read is not read again (once)
+      var dates = memo.dates[ym] || await monthDates(ym);
       var recs = {}, i = 0;
-      var next = async function () { while (i < dates.length) { var d = dates[i++]; var rec = await getDay(d); if (rec) recs[d] = rec; } };
+      var next = async function () { while (i < dates.length) { var d = dates[i++]; var rec = memo.recs[d] !== undefined ? memo.recs[d] : await getDay(d); if (rec) recs[d] = rec; } };
       await Promise.all([next(), next(), next(), next()]); // a few at a time, like a person scrolling the month
       if (seq !== S.seq) return;
       S.month = recs; S.monthYm = ym;
     } catch (e) { if (seq === S.seq) { S.month = null; S.monthErr = "The month so far could not be read."; } }
     if (seq === S.seq) E.whenFormIdle(S.mount, function () { paint(); });
   }
+  async function monthDates(ym) {
+    var r = await E.apiFetch("/endofday/dates?month=" + encodeURIComponent(ym), { method: "GET" });
+    if (!r || r.ok === false) throw new Error((r && r.error) || "Could not read the month");
+    return ((r.dates || r.items || r.records) || []).map(function (x) { return typeof x === "string" ? x : (x && (x.date || x.eod_date)); }).filter(isYmd);
+  }
+  // q5-6: the last day saved before `date` at this pharmacy (this month, else the two months before), read with the
+  // same calls the month below makes anyway (kept in S.memo for it). null: none; false: it could not be read.
+  async function prevDay(date) {
+    try {
+      var ym = date.slice(0, 7);
+      for (var k = 0; k < 3; k++) {
+        var list = S.memo.dates[ym] = await monthDates(ym);
+        var before = list.filter(function (d) { return d < date; }).sort();
+        if (before.length) { var d = before[before.length - 1], rec = await getDay(d); S.memo.recs[d] = rec; return rec || null; }
+        var y = +ym.slice(0, 4), mo = +ym.slice(5, 7) - 1; if (mo < 1) { mo = 12; y--; } ym = y + "-" + pad(mo);
+      }
+      return null;
+    } catch (e) { return false; }
+  }
+  function prevFloat() { var p = S.prev, s = p && p.float_amount != null ? String(p.float_amount).trim() : ""; return /^\d+([.,]\d{1,2})?$/.test(s) ? mnum(s) : null; }
+  // A new day's shift: today, PM from 13:00 Malta time; an earlier day, the shift of the day saved before it.
+  function shiftFor(date) {
+    if (date === today()) { var hm = E.maltaHm ? E.maltaHm(new Date()) : pad(new Date().getHours()) + ":00"; return hm >= "13:00" ? "PM" : "AM"; }
+    return S.prev && S.prev.time_of_day === "PM" ? "PM" : "AM";
+  }
+  // What the float is measured against, said under the summary line: where a new day's float came from, or that it
+  // differs from the last saved day (amber, never red: a float can change on purpose).
+  function floatNote() {
+    var w = S.w; if (!w) return null;
+    var pf = prevFloat(), now = mnum(w.float_amount), locked = !!(S.base && S.base.locked_at);
+    if (pf != null && Math.round(now * 100) !== Math.round(pf * 100) && String(w.float_amount || "").trim() !== "") return { wn: true, t: "Float changed from " + eur(pf) + ", the float on " + dayLabel(S.prev.date || S.prev.eod_date) + "." };
+    if (S.base || locked) return null;
+    if (pf != null) return { t: "Float as on " + dayLabel(S.prev.date || S.prev.eod_date) + ". Change it if today's is different." };
+    if (S.prev === false) return { wn: true, t: "The last saved day could not be read, so the float starts at €1000.00. Check it before saving." };
+    return { t: "No earlier day saved, so the float starts at €1000.00. Change it if yours is different." };
+  }
+  function floatNoteHtml() { var n = floatNote(); return '<div class="eod-hint' + (n && n.wn ? " wn" : "") + '" data-b="floatnote"' + (n ? "" : " hidden") + ">" + (n ? esc(n.t) : "") + "</div>"; }
   function shadowCheck(date, cloud) { // a day the classic screen kept in this browser but never got to the server
     try {
       var all = JSON.parse(localStorage.getItem(LS_SHADOW) || "[]"), loc = String(user().location_name || ""), best = null;
@@ -160,13 +201,17 @@
     var keepView = E.takeSaveFailed && E.takeSaveFailed();
     var keepDraft = !!(opts && opts.keepDraft);
     if (S.fix && S.fix.date !== S.date) S.fix = null; // another day opened: its correction form goes
-    S.loading = true; S.error = ""; paint();
+    S.loading = true; S.error = ""; S.memo = { dates: {}, recs: {} }; paint();
     try {
-      var both = await Promise.all([getDay(S.date), S.contacts.length ? null : loadContacts()]);
-      var rec = both[0];
+      var both = await Promise.all([getDay(S.date), S.contacts.length ? null : loadContacts(), prevDay(S.date)]);
+      var rec = both[0]; S.prev = both[2]; if (rec) S.memo.recs[S.date] = rec;
       if (!keepDraft || !S.w) { // a draft kept from a moment ago stays as typed, still measured against what it was based on
         S.base = rec; S.w = working(rec); S.dirty = false; S.conflict = null; S.ask = null;
-        if (!rec) S.w.staff = String(user().full_name || "").trim(); // a new day: the person signed in, changed by typing over it
+        if (!rec) { // a new day: the person signed in, the float of the last saved day, the shift by the time (q5-6); all shown in the summary line, and Change changes them
+          S.w.staff = String(user().full_name || "").trim();
+          var pf = prevFloat(); if (pf != null) S.w.float_amount = pf.toFixed(2);
+          S.w.time_of_day = shiftFor(S.date);
+        }
         if (!String(S.w.staff || "").trim()) S.whoOpen = true; // nobody to name in the summary line: the fields are shown
         S.autoDep = !rec || sameDeposit(rec.deposit || rec.bov_deposit, autoDeposit(S.w));
         if (S.autoDep) S.w.deposit = autoDeposit(S.w);
@@ -189,7 +234,7 @@
       ".eod h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.eod-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
       ".eod-day{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}.eod .eod-day input{font:inherit;font-size:16px;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:10px;height:44px;padding:0 10px}" +
       ".eod-day input:focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:2px}" +
-      ".eod-who{display:flex;align-items:center;gap:12px;min-height:46px;padding:4px 8px 4px 14px;font-size:15px}.eod-who span{flex:1;min-width:0}" + // b4-4: the summary line
+      ".eod-who{display:flex;align-items:center;gap:12px;min-height:46px;padding:4px 8px 4px 14px;font-size:15px}.eod-who span{flex:1;min-width:0;font-variant-numeric:tabular-nums}" + // b4-4: the summary line
       ".eod-st{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;font-size:13.5px;color:var(--muted)}" +
       ".eod-st .eod-a4{order:9;margin-left:auto;min-height:44px}" + // after the chips, also the "Not saved" one added while typing
       ".eod-chip{font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(118,118,128,.12);color:var(--text)}" +
@@ -320,11 +365,11 @@
     h += '<form id="eod-form" autocomplete="off" novalidate>';
     // who and when
     if (!whoOpen()) h += '<div class="eod-lab"><span>Who and when</span></div><div class="eod-card"><div class="eod-who"><span>' + esc([dayLabel(S.date), String(w.staff || "").trim(), w.time_of_day === "PM" ? "PM" : "AM", "float " + eur(mnum(w.float_amount))].join(" · ")) +
-      '</span><button type="button" class="eod-btn" data-act="who" aria-label="Change the day, staff, shift or float">Change</button></div></div>';
+      '</span><button type="button" class="eod-btn" data-act="who" aria-label="Change the day, staff, shift or float">Change</button></div>' + floatNoteHtml() + "</div>";
     else h += '<div class="eod-lab"><span>Who and when</span></div><div class="eod-card">' +
       '<label class="eod-f"><span>Staff</span><input name="staff" value="' + esc(w.staff) + '" placeholder="Who is closing"' + RO + "></label>" +
       '<label class="eod-f"><span>Shift</span><select name="time_of_day"' + (ro ? " disabled" : "") + '><option value="AM"' + (w.time_of_day !== "PM" ? " selected" : "") + '>AM</option><option value="PM"' + (w.time_of_day === "PM" ? " selected" : "") + ">PM</option></select></label>" +
-      '<label class="eod-f"><span>Float €</span><input name="float_amount" inputmode="decimal" value="' + esc(w.float_amount) + '" placeholder="0.00"' + RO + "></label></div>";
+      '<label class="eod-f"><span>Float €</span><input name="float_amount" inputmode="decimal" value="' + esc(w.float_amount) + '" placeholder="0.00"' + RO + "></label>" + floatNoteHtml() + "</div>";
     // the four lists
     LISTS.forEach(function (L) {
       var rows = w[L.k], key = { x: "A", epos: "B", cheques: "C", paid_outs: "D" }[L.k];
@@ -497,6 +542,7 @@
   function live() {
     var m = S.mount, w = S.w; if (!m || !w) return;
     var set = function (k, v) { var el = m.querySelector('[data-b="' + k + '"]'); if (el) el.textContent = v; };
+    var fn = m.querySelector('[data-b="floatnote"]'); if (fn) { var n = floatNote(); fn.hidden = !n; fn.textContent = n ? n.t : ""; fn.classList.toggle("wn", !!(n && n.wn)); } // q5-6
     if (S.autoDep && !(S.base && S.base.locked_at)) {
       w.deposit = autoDeposit(w);
       DEN.forEach(function (d) { var el = m.querySelector('[name="dep:n' + d + '"]'); if (el && el !== document.activeElement) el.value = shown(w.deposit["n" + d], true); });
