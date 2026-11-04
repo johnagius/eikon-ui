@@ -1048,3 +1048,9 @@ All of it waits only on the worker deploy.
 - q5-7: browser-side folding of ċ ġ ħ ż ("zammit" → Żammit), cards first, cardOf, new phrases (log fridge to the right line, hand over, help, print <register>, new leave, standing instructions); Ctrl+Enter blurs first so lookups run before saving.
 - Worker 209/0; UI 436/0; real 52/1 (typerace scanner under stall; known test-timing case).
 - Held: q5-2 drafts + q5-1 freeze fix together give 4 focus failures (BODY after save/Escape/open); q5-1 agent finding the interaction in agents/m-158. Running: q5-8 lists/targets, q5-11 words.
+
+## Round 145 — UI .159 on main (3daa3ad): nothing freezes, typing kept on leaving, same words
+
+- One combined batch on .158: q5-1 (calm closable error bar instead of the developer overlay; Escape fixes in Order diary/Locum receipts; the classic look no longer sticks, classic addresses always honoured), q5-2 (drafts of half-typed New forms come back with "· Clear", tab-only, end of Malta day, never sent by themselves), q5-11 (footers say where deleting is, one classic-link name, plain words, Download names match registers, Save item / Add point / Date and Time, temperature print "Room (…)", help guides updated). Render lines in ordreg/tktreg/dlvreg combine drafts with Today's landing.
+- The 4 focus failures earlier were load timing (q5-1 agent ran the pair twice: 430/0). Final: worker 209/0, UI 447/0, real 55/0 (2568 checks).
+- Running: q5-8 lists/targets, q5-10a credit-note print + EOD deposit e-mail, q5-10b alerts/near expiry/POCT.
