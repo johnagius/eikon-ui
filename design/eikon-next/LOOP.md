@@ -1025,3 +1025,8 @@ All of it waits only on the worker deploy.
 - .154: two UI date bugs (classic dashboard Add to Stock, supplier delivery default) now use Malta's day; the test suites follow Malta (tests/clock.mjs, fakeable clock reaching worker + SQLite). Worker 209/0, UI 413/0, real 48/0 at real time and at a faked 23:30 UTC. Worker UTC defaults held for John (proposal patch in agents/midnight-worker-proposal.patch).
 - Planner wrote agents/BACKLOG5.md from a busy-pharmacy walk of .152 (420 customers, 4 months): Escape can freeze the app behind a developer overlay; "(classic look)" sticks; Back loses half-typed forms; TKT/DEL numbers repeat across devices; one customer becomes two from credit-note history and "grech order"; End of day float defaults hidden; Today unbounded; search misses Żammit/Ċassar; small targets; help out of date.
 - Started q5-1 (nothing freezes; D4 calm closable bar), q5-2 (drafts kept on leaving; D3 restore silently with Clear), q5-3 (one person, one card), q5-4 (numbers never repeat; W3 written up). Decisions D1, D2, D5, D6, D7 and worker W1–W4 + midnight proposal wait for John.
+
+## Round 141 — UI .155 on main (9c754a2): reference numbers never repeat
+
+- q5-4: TKT-/DEL- numbers were per-browser counters (every new device restarted at 00001; a duplicate TKT-00001 was seen). Now one above the highest number in the loaded lists and the counter, list re-read before each save, both layouts sharing the rule. Real case solo-refno: no duplicates across two fresh devices + classic (old code: 10 failures). Worker 209/0, UI 414/0, real 49/0. Server-issued numbers (W3, exact SQL) written up for John.
+- Started q5-6 (End of day float/shift defaults visible; D6 = last saved day's float) and q5-9 (Help matches every screen as it is now).
