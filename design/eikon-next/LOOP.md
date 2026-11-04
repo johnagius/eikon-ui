@@ -1007,3 +1007,9 @@ All of it waits only on the worker deploy.
 - b4-6b Money: End of day prints the classic A4 sheet, unlock with the classic's audit note; Credit notes list uses and undo one (pharmacist). Proofs byte-identical on the real stack.
 - Combined in agents/m-152: worker 209/0; real 42/3 — tempreg/tempnote fail on main too between 23:00–24:00 UTC (Malta already the next day: some code uses UTC dates) and stockq once lost an alert's select values under parallel load (passes alone 3/3). Held until the steal agent checks selects on redraw; "midnight" agent auditing UTC vs Malta dates (worker changes would need John).
 - Disk filled once (scale-test DB 8.8 GB deleted; work unaffected).
+
+## Round 138 — UI .152 on main (541d2d8): typing and choices never lost, banner, Money
+
+- Shipped the m-152 combination: steal (wrong field, 4 live paths) + its follow-ups (E.keepChanged: lists/tick boxes kept through a redraw — the Stock-alerts "recall, room" reset was on base too; scanner bursts checked: a test-only split under page stalls, card the same once padded), b4-8b banner placement, b4-6b Money (A4 print, unlock audit, undo a credit-note use).
+- Checks: worker 209/0; real 44/1 (team, green alone); UI 395/1, 395/1, 392/1 over three runs, a different known timing check each time (each passed in the other runs). Test fixes: focus reads wait for the one-tick focus; diary counts only diary posts; scan compares the padded card.
+- Next: integrator merging consistency (cons4), Stock 6a, Team 6c onto 541d2d8 as .153 with a What's new entry. "midnight" agent auditing UTC vs Malta dates.
