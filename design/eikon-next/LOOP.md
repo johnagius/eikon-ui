@@ -1030,3 +1030,8 @@ All of it waits only on the worker deploy.
 
 - q5-4: TKT-/DEL- numbers were per-browser counters (every new device restarted at 00001; a duplicate TKT-00001 was seen). Now one above the highest number in the loaded lists and the counter, list re-read before each save, both layouts sharing the rule. Real case solo-refno: no duplicates across two fresh devices + classic (old code: 10 failures). Worker 209/0, UI 414/0, real 49/0. Server-issued numbers (W3, exact SQL) written up for John.
 - Started q5-6 (End of day float/shift defaults visible; D6 = last saved day's float) and q5-9 (Help matches every screen as it is now).
+
+## Round 142 — UI .156 on main (737f197): one person, one card
+
+- q5-3: "grech order" and credit notes created a second card when the name came in the other order; Customers printed "1 undefined" for 5 kinds. One shared rule (E.people.sameAs/cardOf, never merges or writes) links to the single matching card; history rows already on a card show as "Also in the registers as …". Proof: no POST /people on the grech path, order body identical; real case onecard. Worker 209/0, UI 417/0, real 48/2 parallel (stock6a classic modal + typerace scanner under load; both green alone).
+- Started q5-7 (search finds Żammit/Ċassar, missing words, uses cardOf) and q5-5 (Today short, Open lands on the exact record; D2, D5 defaults).
