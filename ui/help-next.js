@@ -34,16 +34,22 @@
       ["Act for a customer", "Open the person.", "Press New order, Question, Delivery or Booking. Their name and phone are filled in for you."]
     ], "", [["From history", "people found in the registers who have no customer card yet. Press Add to give them one."]]],
 
-    ["bookings", "customers", "Bookings", "Appointments for clinics and services, by day or by week, and the waiting list.", [
-      ["Set up bookings", "Press Start taking bookings. The pharmacist does this once.", "Add a practitioner, their hours and a service. Change them later in Bookings settings."],
-      ["Book someone in", "Press New booking.", "Choose the service, the day and a free time.", "Press Book. If no time suits, press No time suits? Add to the waiting list."],
-      ["On the day", "Open the booking.", "Press Arrived, Done or No-show. Cancel booking asks for a reason.", "Tap the phone number to call. Tap the name to open the customer."],
-      ["Change a time", "Open the booking and press Change time.", "Choose the day and a free time.", "Press Move. A customer with an e-mail is told; otherwise the number to call is shown."],
-      ["See another day", "Tap a day, or ‹ and › for a week earlier or later. Tap the date under Bookings to choose any day.", "Past days show what happened and cannot be changed. Press Today to come back."],
+    ["bookings", "customers", "Bookings", "The day's appointments as a calendar, one column for each person (or room): who is booked, what is free, who still has to be reminded.", [
+      ["Set up bookings", "Press Start taking bookings. The pharmacist does this once.", "Add a practitioner, their hours and a service. Change them later in Bookings settings.", "Used the old Appointments? Instead, press Bring them over: doctors, hours and appointments come across, and the old records stay exactly as they are."],
+      ["Book someone in", "Tap a free time on the calendar, or press New booking.", "Choose the service and a free time. To book the same time every week, choose Repeat.", "Press Book. If no time suits, press No time suits? Add to the waiting list."],
+      ["Someone walks in", "Press Walk-in.", "Choose the service and type the name.", "Press Start now. Whoever does it and is free takes them, and they are marked Here."],
+      ["Reminders", "The line above the calendar says who confirmed, who was reminded by e-mail and who to call.", "Press it for the list, with each phone number.", "Called someone and they are coming? Press Confirmed beside their name."],
+      ["On the day", "Open the booking.", "Press Arrived, Done or No-show. Cancel booking asks for a reason.", "Missed bookings show under the name, and on the customer's card. Tap the phone number to call. Tap the name to open the customer."],
+      ["Lunch, training, a meeting", "Tap the free time and press Block this time instead.", "Choose why and the times, then press Block.", "Tap a blocked time to see it, or to unblock it."],
+      ["Change a time", "Open the booking and press Change time.", "Choose the day and a free time.", "Press Move. A customer with an e-mail is told, unless you untick Tell the customer by e-mail; otherwise the number to call is shown. If someone is waiting for that service, Eikon offers them the time that freed up."],
+      ["See another day", "Tap a day, or ‹ and › for a week earlier or later. Tap the date under Bookings to choose any day.", "Day shows the calendar; Week shows seven days with how much is booked and free. People and Rooms change the columns.", "Past days show what happened and cannot be changed. Press Today to come back."],
       ["Change the settings", "Open Bookings settings (the gear beside New booking).", "Each card has its own Save. If you press Done with a change not saved, Eikon asks: Save or Throw away."]
-    ], "", []],
+    ], "", [["To call", "a booking whose customer has not had a reminder: no e-mail, e-mails not set up, or the e-mail did not go."], ["Walk-in", "someone served now without a booking. It is kept like any booking, marked Here."]]],
 
-    ["stock", "stock", "Stock", "What is coming in, what is going out, what is running out. Each card opens one screen.", [
+    ["stock", "stock", "Stock", "What to order, what is on its way, and what is short or at risk. Every stock screen is under it.", [
+      ["Order what is needed", "Open To order: everything still to order, by supplier, with the cheapest price from Price check.", "Customer orders, recalls to replace and what you are short of wait under Waiting to be put on an order: press Add to order.", "When you have phoned or e-mailed a supplier, press Mark ordered. Copy list copies the lines to paste."],
+      ["Tick what arrives", "Open On order and press Arrived on each item, or All arrived. Not in puts it back under To order.", "Customers whose item came in are listed under In for customers: call them and press Ready."],
+      ["See what is short or at risk", "Open Short or at risk: open recalls and quarantines, what expires within a month, returns waiting for a credit note and what you asked other pharmacies for. Each has its next step."],
       ["Watch", "Alerts, Near expiry, Shortages and Scarce stock."],
       ["Order", "Order diary and Supplier stock."],
       ["Send back or move", "Returns and Transfers."],

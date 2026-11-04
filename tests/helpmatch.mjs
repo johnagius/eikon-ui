@@ -50,7 +50,7 @@ export function staticCheck(root) {
   const jargon = /\b(worker|deploy(ed)?|UI|API|CSP|commit|endpoint|localStorage|D1|wrangler|bug|debounce|JSON|cache|server|sync(ed|s)?|upsert|IndexedDB|token|module|hash|null|undefined)\b/i;
   for (const { id, file } of screens) {
     const g = G[id]; if (!g) { problems.push(id + ": no guide"); continue; }
-    const src = read(file) + "\n" + shared;
+    const src = read(file) + "\n" + shared + (id === "stock" ? "\n" + read("modules.stkflow.js") : ""); // the Stock tab draws its ordering flow from its own file (d-stock)
     // as drawn: the start of a text or a string in the code (>Save entry<, "Save entry", 'Book ' + day), not any word in it
     pressPhrases(g).forEach((ph) => { const w = plain(ph); if (![">", '"', "'"].some((q) => src.indexOf(q + w) >= 0)) problems.push(id + ': "Press ' + ph + '" names no button on the screen'); });
     const all = [g.title, g.purpose, g.classic].concat(...g.tasks).concat(...g.words.map((w) => w.join(" "))).join(" ");

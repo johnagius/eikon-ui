@@ -231,7 +231,7 @@
 
   E.registerModule({
     id: "nexreg", title: "Near expiry", order: 3, icon: "⏳", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.added = 0; S.returning = null; S.offering = null; S.err = ""; css(); paint(); return E.takeOpenForm("nexreg", S.mount, load(), { btn: "[data-act=add]", form: "#nex-add" }); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.added = 0; S.returning = null; S.offering = null; S.err = ""; css(); paint(); return Promise.resolve(E.takeOpenForm("nexreg", S.mount, load(), { btn: "[data-act=add]", form: "#nex-add" })).then(function (v) { if (E.stockLand) E.stockLand.apply("nexreg", S.mount); return v; }); } // d-stock: Send back from Stock lands on that item
 
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("nexreg") < 0) E.UI2_DESTINATIONS.push("nexreg");

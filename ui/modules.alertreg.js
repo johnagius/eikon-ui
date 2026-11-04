@@ -224,7 +224,7 @@
 
   E.registerModule({
     id: "alertreg", title: "Alerts", order: 3, icon: "!", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.editing = null; S.editDraft = null; S.editErr = []; S.editMiss = []; E.months.historyReset("alertreg"); css(); paint(); return E.takeOpenForm("alertreg", S.mount, load(), { btn: "[data-act=add]", form: "#alr-add" }); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.editing = null; S.editDraft = null; S.editErr = []; S.editMiss = []; E.months.historyReset("alertreg"); css(); paint(); return Promise.resolve(E.takeOpenForm("alertreg", S.mount, load(), { btn: "[data-act=add]", form: "#alr-add" })).then(function (v) { if (E.stockLand) E.stockLand.apply("alertreg", S.mount); return v; }); } // d-stock: Open from Stock lands on that alert's next step
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("alertreg") < 0) E.UI2_DESTINATIONS.push("alertreg");
   if (E.UI2_PARENT) E.UI2_PARENT.alertreg = "stock";

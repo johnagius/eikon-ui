@@ -175,7 +175,7 @@
     ((E.ui2Screens && E.ui2Screens()) || []).forEach(function (s) { if (!seen[s.key]) { seen[s.key] = 1; out.push(s); } });
     // The Customers screen's own strip: rebuilt ones open here; what is only in the classic look (Loyalty, and Appointments
     // until Bookings is set up, when Bookings above answers "appointment") says so, and comes back to Customers.
-    var bkReady = !!(E.bookingsReady && E.bookingsReady());
+    var bkReady = !!(E.bookingsOn && E.bookingsOn()); // Bookings answers "appointment" (2026-11): the classic Appointments is not offered
     [["clientorders", "Orders", "Items ordered in for a customer."], ["tickets", "Questions", "Questions customers are waiting on."], ["deliveries", "Deliveries", "Home deliveries, routes and proof of delivery."],
      ["appointments", "Appointments (classic look)", "Clinic appointments and the waiting list, until Bookings is set up."], ["loyalty", "Loyalty (classic look)", "Loyalty cards, points and campaigns."]].forEach(function (x) {
       if (seen[x[0]] || (x[0] === "appointments" && bkReady)) return; var nat = (E.UI2_NATIVE || {})[x[0]];

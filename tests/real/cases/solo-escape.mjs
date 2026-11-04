@@ -52,8 +52,9 @@ export default {
     // as a pharmacy opens it: no ?ui= in the address (?ui=2 itself ends a classic visit, which hid the fault)
     await p.goto(t.base + "#customers"); await p.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "customers", null, { timeout: 20000 });
     await t.idle(p);
-    const link = p.locator("#eikon-content a, #eikon-content button", { hasText: "Appointments" }).first(); // "Appointments (classic look)" while Bookings is not set up
-    await link.click(); await p.waitForFunction(() => /ui=classic/.test(location.search) && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "appointments", null, { timeout: 20000 });
+    // Loyalty is the one Customers register still in the classic look (appointments open Bookings since 2026-11)
+    const link = p.locator("#eikon-content a, #eikon-content button", { hasText: "Loyalty (classic look)" }).first();
+    await link.click(); await p.waitForFunction(() => /ui=classic/.test(location.search) && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "loyalty", null, { timeout: 20000 });
     await t.idle(p);
     await p.goBack(); await p.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "customers", null, { timeout: 20000 });
     const seen = [];

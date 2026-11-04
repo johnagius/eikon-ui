@@ -16,7 +16,7 @@ installNodeClock();
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const root = path.join(here, "..", "..", "ui");
-const PORT = 8781;
+const PORT = Number(process.env.PORT) || 8781;
 const mime = { html: "text/html", js: "application/javascript", css: "text/css", png: "image/png", gif: "image/gif", json: "application/json", svg: "image/svg+xml" };
 
 const calls = []; // every non-asset request the UI makes
@@ -30,6 +30,8 @@ const genericList = {
 };
 
 let todayState = { tempDone: false, cleanDone: false };
+// The bookings calendar (2026-11): tomorrow with two bookings, a lunch block, reminders state; old Appointments to bring over.
+let bkCal = { on: false, legacy: false, imported: 0 };
 // Temperature entries the mock keeps (off by default: GET answers [] and POST only marks Today done, as before).
 // When on, it behaves as the worker: GET by month, POST upserts by device and day.
 let tempState = { on: false, entries: [], next: 100 };
@@ -201,6 +203,7 @@ function mockApi(req, res, body) {
     const sid = Number(p.split("/")[3]), its = ddstState.items.filter((i) => i.stocktake_id === sid);
     res.writeHead(200, { "content-type": "text/html" }); return res.end("<!doctype html><title>DDA Stock Take</title><h1>Demo - DDA Stock Take</h1><table>" + its.map((i) => "<tr><td>" + i.item_name + "</td><td>" + i.qty_tablets + "</td></tr>").join("") + "</table>");
   }
+  if (!globalThis.__stk && p.startsWith("/stock-flow/")) { res.writeHead(404, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "Not found" })); } // d-stock: as the live worker without the routes
   if (globalThis.__dupLinks === "404" && p.indexOf("/people/links") === 0) { res.writeHead(404, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "Not found" })); } // as the live worker without the routes
   // q6-2: Change time to a time taken meanwhile: 409 with the next free ones, as the worker answers
   if (p === "/bookings/501" && req.method === "PATCH" && body && body.date && body.start === "23:35") { res.writeHead(409, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "That time is not free", next: [{ date: todayYmd, time: "23:40", providerId: 1, providerName: "Maria Borg" }, { date: todayYmd, time: "23:45", providerId: 1, providerName: "Maria Borg" }] })); }
@@ -275,6 +278,14 @@ function mockApi(req, res, body) {
   if (/^\/creditnotes\/entries\/\d+\/purchases\/\d+$/.test(p) && req.method === "DELETE") return res.end(JSON.stringify({ ok: true }));
   if (p === "/locumreceipts/receipts" && req.method === "GET") return res.end(JSON.stringify({ ok: true, receipts: url.searchParams.get("month") === todayYmd.slice(0, 7) ? [{ id: 5, receipt_date: todayYmd.slice(0, 7) + "-01", hours: 6, locum_full_name: "Paul Vella", registration_number: "PH1234", day_type: "normal", fee_per_hour: 15, total_fee: 90 }] : [] }));
   if (p === "/locumreceipts/receipts" && req.method === "POST") return res.end(JSON.stringify({ ok: true, id: 6 }));
+  // Stock flow (d-stock): null answers 404, as the live worker without the routes; set globalThis.__stk to serve it.
+  if (p.startsWith("/stock-flow/")) {
+    const st = globalThis.__stk;
+    if (p === "/stock-flow/open") return res.end(JSON.stringify({ ok: true, from: url.searchParams.get("from"), open: st.open, received: st.received }));
+    if (p === "/stock-flow/ordered") { for (const id of body.diary_ids) { const l = st.open.find((x) => x.id === id); if (l) l.ordered_at = "2026-11-04 08:00:00"; } return res.end(JSON.stringify({ ok: true, marked: body.diary_ids.length })); }
+    if (p === "/stock-flow/ordered/undo") { for (const id of body.diary_ids) { const l = st.open.find((x) => x.id === id); if (l) l.ordered_at = null; } return res.end(JSON.stringify({ ok: true, cleared: body.diary_ids.length })); }
+    return res.end(JSON.stringify({ ok: true }));
+  }
   if (p === "/order-diary/entries" && req.method === "GET") return res.end(JSON.stringify({ ok: true, entries: url.searchParams.get("date") === todayYmd ? [{ id: 101, order_date: todayYmd, item_name: "Augmentin 625", qty: 2, supplier: "Actavis", status: "pending", notes: "For Mrs Borg" }] : [] }));
   if (p.startsWith("/order-diary/entries/") && (req.method === "PUT" || req.method === "DELETE")) return res.end(JSON.stringify({ ok: true }));
   if (p === "/order-diary/items") return res.end(JSON.stringify({ ok: true, items: [] }));
@@ -287,6 +298,36 @@ function mockApi(req, res, body) {
     { id: 7, org_name: "Demo Org", location_name: "Demo Pharmacy", entry_date: todayYmd, item_name: "Ozempic 1mg pen", quantity_needed: 3, remaining_quantity: 1, mine_owner: 1, offers: [{ id: 70, quantity_offered: 2, offerer_display: "Sliema Group — Sliema Pharmacy", note: "", mine: 0, accepted: 0, confirmed: 0 }] },
     { id: 8, org_name: "Gozo Group", location_name: "Victoria Pharmacy", entry_date: todayYmd, item_name: "Insulin pen needles", quantity_needed: 5, remaining_quantity: 5, mine_owner: 0, offers: [] }] }));
   if (/^\/scarce-stock\/need-offers\/\d+\/(accept|confirm)$/.test(p) && req.method === "POST") return res.end(JSON.stringify({ ok: true }));
+  if (bkCal.on && p.indexOf("/bookings") === 0) {
+    const J2 = (o) => res.end(JSON.stringify(o)); // the 200 head is already written above
+    const every = { "0": [["09:00", "13:00"]], "1": [["09:00", "13:00"]], "2": [["09:00", "13:00"]], "3": [["09:00", "13:00"]], "4": [["09:00", "13:00"]], "5": [["09:00", "13:00"]], "6": [["09:00", "13:00"]] };
+    if (p === "/bookings/setup") return J2({ ok: true, services: [{ id: 1, name: "Blood pressure", durationMin: 15, priceCents: 0, active: true, online: true, providerIds: [1] }, { id: 2, name: "B12 injection", durationMin: 15, priceCents: 1000, active: true, online: false, providerIds: [1] }],
+      providers: [{ id: 1, name: "Maria Borg", title: "Pharm.", speciality: "", active: true, hours: every }] });
+    if (p === "/bookings" && req.method === "GET") { const d0 = url.searchParams.get("from"); const tm = maltaYmd(1); return J2({ ok: true, mail: { on: true, evening: true, hours: 0 },
+      messages: { 601: [{ kind: "confirm", status: "sent" }, { kind: "remind_evening", status: "sent" }] }, noShows: { 602: 2 },
+      bookings: d0 === tm || url.searchParams.get("to") >= tm && d0 <= tm ? [
+        { id: 601, serviceId: 1, providerId: 1, date: tm, start: "09:30", end: "09:45", personName: "Rita Vella", personPhone: "79000601", personEmail: "rita@example.com", status: "booked", version: 2 },
+        { id: 602, serviceId: 2, providerId: 1, date: tm, start: "10:00", end: "10:15", personName: "Pawlu Ħaġġar", personPhone: "79000602", personEmail: "", status: "booked", version: 1 }] : [] }); }
+    if (p === "/bookings/exceptions" && req.method === "GET") return J2({ ok: true, exceptions: [{ id: 77, providerId: 1, date: maltaYmd(1), kind: "off", start: "12:00", end: "12:30", note: "Lunch" }] });
+    if (p === "/bookings/exceptions" && req.method === "POST") return J2({ ok: true, id: 78 }, 201);
+    if (/^\/bookings\/exceptions\/\d+$/.test(p) && req.method === "DELETE") return J2({ ok: true });
+    if (p === "/bookings/slots") { const out = []; for (let m = 540; m < 780; m += 15) { const t = String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); if (t !== "09:30" && t !== "10:00" && t !== "12:00" && t !== "12:15") out.push({ time: t, providerId: 1, providerName: "Maria Borg" }); } return J2({ ok: true, date: url.searchParams.get("date"), slots: out }); }
+    if (p === "/bookings/waitlist" && req.method === "GET") return J2({ ok: true, waiting: [{ id: 9, serviceId: 1, personName: "Doris Ellul", personPhone: "79000009", personEmail: "", note: "", status: "waiting", createdAt: "2026-11-01 09:00:00" }] });
+    if (p === "/bookings/settings") return J2({ ok: true, settings: { provider: "resend", canSend: true, fromEmail: "b@demo.mt" } });
+    if (p === "/bookings/senders") return J2({ ok: true, senders: [{ id: 1, enabled: true, hasKey: true, fromEmail: "b@demo.mt" }] });
+    if (p === "/bookings/import-legacy") { if (!bkCal.legacy) return J2({ ok: true, report: { bookings: 0, waiting: 0, dry: true } }); if (url.searchParams.get("dry") !== "1") bkCal.imported++;
+      return J2({ ok: true, report: { providers: bkCal.imported ? 0 : 2, services: 2, extras: 0, bookings: 12, upcoming: 3, clashes: 0, waiting: 1, skipped: 0, dry: url.searchParams.get("dry") === "1" } }); }
+    if (p === "/bookings" && req.method === "POST" && body && body.walkIn) return J2({ ok: true, booking: { id: 700, serviceId: body.serviceId, providerId: 1, date: todayYmd, start: "11:05", end: "11:20", personName: body.personName, status: "arrived", walkIn: true }, message: "" }, 201);
+    if (p === "/bookings" && req.method === "POST" && body && body.repeat) { const mk = (n, d) => ({ id: 710 + n, serviceId: body.serviceId, providerId: 1, date: d, start: body.start, end: "10:30", personName: body.personName, personPhone: body.personPhone, status: "booked", seriesId: "abc" });
+      const d1 = body.date, add = (k) => { const x = new Date(d1 + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + k); return x.toISOString().slice(0, 10); };
+      return J2({ ok: true, booking: mk(0, d1), series: [mk(0, d1), mk(1, add(7)), mk(3, add(21))], skipped: [{ date: add(14), start: body.start }], message: "no-email" }, 201); }
+    if (/^\/bookings\/60[12]$/.test(p) && req.method === "PATCH") { const id = Number(p.slice(10)), tm = maltaYmd(1);
+      const cur = id === 601 ? { id: 601, serviceId: 1, providerId: 1, date: tm, start: "09:30", end: "09:45", personName: "Rita Vella", personPhone: "79000601", personEmail: "rita@example.com", status: "booked", version: 3 } : { id: 602, serviceId: 2, providerId: 1, date: tm, start: "10:00", end: "10:15", personName: "Pawlu Ħaġġar", personPhone: "79000602", personEmail: "", status: "booked", version: 2 };
+      if (body.status) cur.status = body.status; if (body.status === "confirmed") cur.confirmedVia = "staff";
+      if (body.date) { cur.date = body.date; cur.start = body.start; }
+      return J2({ ok: true, booking: cur, message: body.notify === false ? "not-told" : body.date ? "sent" : "", offer: body.date ? { waitlistId: 9, personName: "Doris Ellul", personPhone: "79000009", personEmail: "", serviceId: 1, providerId: 1, date: tm, start: "09:30" } : null }); }
+    if (p === "/bookings/person") return J2({ ok: true, by: "phone", total: 5, noShows: 2, cancelled: 0, done: 3, lastNoShow: "2026-10-20", upcoming: 1, recent: [] });
+  }
   // Bookings: one service, one practitioner working weekdays 09:00–13:00, one booking late today.
   if (p === "/bookings/setup") return res.end(JSON.stringify({ ok: true, services: [{ id: 1, name: "Blood pressure", durationMin: 15, priceCents: 0, active: true, online: true, providerIds: [1] }],
     providers: [{ id: 1, name: "Maria Borg", title: "Pharm.", speciality: "", active: true, serviceIds: [1], hours: { "1": [["09:00", "13:00"]], "2": [["09:00", "13:00"]], "3": [["09:00", "13:00"]], "4": [["09:00", "13:00"]], "5": [["09:00", "13:00"]] } }] }));
@@ -878,52 +919,35 @@ report("step 1: Question and Delivery open their new forms filled the same way (
   tkC.hash === "#tktreg" && !tkC.classic && tkC.v.client_name === "Zammit Carmel" && tkC.v.phone === "79123456" && tkC.focus === "issue" && /0012345M/.test(tkC.top) &&
   dvC.hash === "#dlvreg" && !dvC.classic && dvC.v.client_name === "Zammit Carmel" && dvC.v.phone === "79123456" && dvC.v.delivery_address === "1 Triq il-Knisja" && dvC.focus === "items" &&
   cancelBack.hash === "#customers" && cancelBack.focus === "delivery" && carryPosts.length === 0, JSON.stringify({ tkC, dvC, cancelBack, carryPosts }));
-// Booking: not set up here yet -> a calm note on the page with the set-up and the classic Appointments, labelled
-await page.evaluate(() => { Object.keys(localStorage).filter((k) => k.indexOf("eikon_bk_ready_") === 0).forEach((k) => localStorage.removeItem(k)); });
-await toCarmel();
-await page.click('.cus-actions [data-go="booking"]'); await page.waitForTimeout(150);
-const bkNote = await page.evaluate(() => ({ hash: location.hash, note: (document.querySelector("#cus-bk") || {}).textContent || "", exp: document.querySelector('[data-go="booking"]').getAttribute("aria-expanded"), focus: document.activeElement && document.activeElement.getAttribute("data-act") }));
-await page.keyboard.press("Escape"); await page.waitForTimeout(150);
-const bkEsc = await page.evaluate(() => ({ note: !!document.querySelector("#cus-bk"), focus: document.activeElement && document.activeElement.getAttribute("data-go") }));
-await page.click('.cus-actions [data-go="booking"]'); await page.waitForTimeout(100);
-// what is handed to Bookings (read as it is written: Bookings takes it as soon as it opens)
-await page.evaluate(() => { const P = Storage.prototype, set = P.setItem; window.__bkSet = set; window.__bkCarry = null; P.setItem = function (k, v) { if (this === sessionStorage && k === "eikon_bk_carry" && !window.__bkCarry) window.__bkCarry = JSON.parse(v); return set.call(this, k, v); }; });
-await page.click('[data-act="bk-setup"]');
-await page.waitForFunction(() => location.hash === "#bookings", null, { timeout: 8000 }).catch(() => {});
-const bkSet = await page.evaluate(() => ({ hash: location.hash, classic: location.search.indexOf("ui=classic") >= 0, carry: window.__bkCarry }));
-await page.evaluate(() => { Storage.prototype.setItem = window.__bkSet; window.__bkCarry = null; });
-report("step 1: Booking where Bookings is not set up says 'Set up Bookings first' on the page (Escape closes it, focus back), Set up Bookings opens Bookings in the new layout with the person waiting",
-  bkNote.hash === "#customers" && /Set up Bookings first/.test(bkNote.note) && /classic look/.test(bkNote.note) && bkNote.exp === "true" && bkNote.focus === "bk-setup" && !bkEsc.note && bkEsc.focus === "booking" &&
-  bkSet.hash === "#bookings" && !bkSet.classic && bkSet.carry && bkSet.carry.name === "Zammit Carmel", JSON.stringify({ bkNote, bkEsc, bkSet }));
+// Booking (2026-11, classic Appointments retired): Booking always opens Bookings with the person, set up or not (Bookings
+// keeps the person waiting while it is set up or the old appointments are brought over); the strip says Bookings.
+const bkHand = async () => {
+  await page.evaluate(() => { const P = Storage.prototype, set = P.setItem; window.__bkSet = set; window.__bkCarry = null; P.setItem = function (k, v) { if (this === sessionStorage && k === "eikon_bk_carry" && !window.__bkCarry) window.__bkCarry = JSON.parse(v); return set.call(this, k, v); }; });
+  await page.click('.cus-actions [data-go="booking"]');
+  await page.waitForFunction(() => location.hash === "#bookings", null, { timeout: 8000 }).catch(() => {});
+  const r = await page.evaluate(() => ({ hash: location.hash, classic: location.search.indexOf("ui=classic") >= 0, carry: window.__bkCarry }));
+  await page.evaluate(() => { Storage.prototype.setItem = window.__bkSet; window.__bkCarry = null; });
+  return r;
+};
 // Bookings remembers it is set up once its first read is in: wait for that, then forget it again for the next step
 const forgetBookings = async () => {
-  // Bookings has opened and read its set-up (this stub has a service, so it writes the "set up" mark): only then is nothing on its way
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "bookings" && Object.keys(localStorage).some((k) => k.indexOf("eikon_bk_ready_") === 0) && document.querySelector("#eikon-content") && !/Loading…/.test(document.querySelector("#eikon-content").innerText), null, { timeout: 10000 }).catch(() => {});
   await page.evaluate(() => { sessionStorage.removeItem("eikon_bk_carry"); Object.keys(localStorage).filter((k) => k.indexOf("eikon_bk_ready_") === 0).forEach((k) => localStorage.removeItem(k)); });
   await page.goto(base + "&ui=2#customers"); await page.waitForTimeout(300); // drawn again without it
 };
-await forgetBookings();
-// ... and the classic Appointments stay one tap away, labelled, with the person filled in there as before
+await page.evaluate(() => { Object.keys(localStorage).filter((k) => k.indexOf("eikon_bk_ready_") === 0).forEach((k) => localStorage.removeItem(k)); });
 await toCarmel();
-await page.click('.cus-actions [data-go="booking"]'); await page.waitForTimeout(100);
-await fetch(`http://localhost:${PORT}/__reset`);
-await page.click('[data-act="bk-classic"]');
-await page.waitForFunction(() => location.hash && document.querySelector("#ap-mod-patient") && document.querySelector("#ap-mod-patient").value, null, { timeout: 20000 });
-const ap = await page.evaluate(() => ({ name: document.querySelector("#ap-mod-patient").value, card: document.querySelector("#ap-mod-idcard").value, phone: document.querySelector("#ap-mod-phone").value, classic: location.search.indexOf("ui=classic") >= 0, carry: sessionStorage.getItem("eikon_carry_person") }));
-await closeModal();
-carryPosts = (await callsNow()).filter((c) => c.method === "POST" && c.path !== "/auth/login");
-report("step 1: 'Book in Appointments (classic look)' opens the classic form filled, nothing posted, hand-over used up", ap.classic && ap.name === "Zammit Carmel" && ap.card === "0012345M" && ap.phone === "79123456" && ap.carry === null && carryPosts.length === 0, JSON.stringify({ ap, carryPosts }));
-// Bookings set up: the same button opens Bookings, the strip says Bookings
+const bkBtn0 = await page.evaluate(() => ({ exp: document.querySelector('[data-go="booking"]').getAttribute("aria-expanded"), strip: [...document.querySelectorAll("[data-reg]")].map((a) => a.textContent), classicBtn: !!document.querySelector('[data-act="bk-classic"]') }));
+const bkSet = await bkHand();
+await forgetBookings();
 await page.evaluate(() => { localStorage.setItem("eikon_bk_ready_1_12", "1"); });
 await toCarmel();
 const bkBtn = await page.evaluate(() => ({ exp: document.querySelector('[data-go="booking"]').getAttribute("aria-expanded"), strip: [...document.querySelectorAll("[data-reg]")].map((a) => a.textContent) }));
-await page.evaluate(() => { const P = Storage.prototype, set = P.setItem; window.__bkSet = set; window.__bkCarry = null; P.setItem = function (k, v) { if (this === sessionStorage && k === "eikon_bk_carry" && !window.__bkCarry) window.__bkCarry = JSON.parse(v); return set.call(this, k, v); }; });
-await page.click('.cus-actions [data-go="booking"]');
-await page.waitForFunction(() => location.hash === "#bookings", null, { timeout: 8000 }).catch(() => {});
-const bkGo = await page.evaluate(() => ({ hash: location.hash, carry: window.__bkCarry }));
-await page.evaluate(() => { Storage.prototype.setItem = window.__bkSet; window.__bkCarry = null; });
+const bkGo = await bkHand();
 await forgetBookings();
-report("customers: once Bookings is set up, Booking opens it with the person, and the Registers strip says Bookings", bkBtn.exp === null && bkBtn.strip.join() === "Orders,Questions,Deliveries,Bookings,Loyalty (classic look)" && bkGo.hash === "#bookings" && bkGo.carry && bkGo.carry.name === "Zammit Carmel", JSON.stringify({ bkBtn, bkGo }));
+report("customers: Booking opens Bookings with the person whether or not it is set up yet (no note, no classic Appointments button); the Registers strip says Bookings",
+  bkBtn0.exp === null && !bkBtn0.classicBtn && bkBtn0.strip.join() === "Orders,Questions,Deliveries,Bookings,Loyalty (classic look)" && bkSet.hash === "#bookings" && !bkSet.classic && bkSet.carry && bkSet.carry.name === "Zammit Carmel" &&
+  bkBtn.exp === null && bkBtn.strip.join() === "Orders,Questions,Deliveries,Bookings,Loyalty (classic look)" && bkGo.hash === "#bookings" && bkGo.carry && bkGo.carry.name === "Zammit Carmel", JSON.stringify({ bkBtn0, bkSet, bkBtn, bkGo }));
 // The counts and the Registers strip: rebuilt registers in the new layout (searched to the person where they can be); only Loyalty labelled classic
 await toCarmel();
 const chips = await page.evaluate(() => [...document.querySelectorAll(".cus-counts a")].map((a) => a.textContent.replace(/\s+/g, " ").trim()));
@@ -990,8 +1014,8 @@ report("customers: a delivery in the Story shows its item names, not the stored 
   report("people link: a record whose name is a card's in another order is linked to that card (no second card); a family phone with another name still gets its own",
     JSON.stringify(lk.a) === JSON.stringify([307, false, "name-order"]) && JSON.stringify(lk.b) === JSON.stringify([30, "name-order"]) && lk.c[0] === true && lk.posts.length === 1 && lk.posts[0].name === "Claire Grech" && lk.posts[0].phone === "79555000", JSON.stringify(lk));
 }
-report("step 1: the counts and the strip open rebuilt registers in the new layout (Orders, Questions and Deliveries showing the person; Show all clears it); only Loyalty and Appointments are labelled classic look",
-  chips.join("|") === "DDA sale 1|Loyalty 1(classic look)" && strip.join() === "Orders,Questions,Deliveries,Appointments (classic look),Loyalty (classic look)" && ddaGo.hash === "#cdsreg" && !ddaGo.classic &&
+report("step 1: the counts and the strip open rebuilt registers in the new layout (Orders, Questions and Deliveries showing the person; Show all clears it); only Loyalty is labelled classic look, appointments go to Bookings",
+  chips.join("|") === "DDA sale 1|Loyalty 1(classic look)" && strip.join() === "Orders,Questions,Deliveries,Bookings,Loyalty (classic look)" && ddaGo.hash === "#cdsreg" && !ddaGo.classic &&
   finds.ordreg === "Grech Carmen" && finds.tktreg === "Farrugia Tony" && /^Deliveries for Camilleri Rita/.test(finds.dlvreg.lab) && finds.dlvreg.names.length >= 1 && finds.dlvreg.names.every((n) => /Camilleri Rita/.test(n)) && finds.dlvAll > finds.dlvreg.names.length,
   JSON.stringify({ chips, strip, ddaGo, finds }));
 
@@ -2165,8 +2189,8 @@ report("shortages: opens in the new layout from its own card; your request shows
 // a second set of hours starts after a break; a new booking sends one POST for the chosen time.
 try {
 await page.goto(base + "&ui=2#bookings");
-await page.waitForFunction(() => window.EIKON.state.activeModuleId === "bookings" && document.querySelector(".bkx-r[data-act=open]"), null, { timeout: 15000 });
-const bk1 = await page.evaluate(() => document.querySelector(".bkx-r[data-act=open]").textContent);
+await page.waitForFunction(() => window.EIKON.state.activeModuleId === "bookings" && document.querySelector(".bkx-ev[data-act=open]"), null, { timeout: 15000 });
+const bk1 = await page.evaluate(() => document.querySelector(".bkx-ev[data-act=open]").textContent);
 const bkLayout = await page.evaluate(() => ({ ui2: document.documentElement.hasAttribute("data-ui2"), classic: location.search.indexOf("ui=classic") >= 0, flag: localStorage.getItem("eikon_bookings") }));
 report("bookings: a link to #bookings opens in the new layout even where the rail does not list Bookings", bkLayout.ui2 && !bkLayout.classic && bkLayout.flag !== "1", JSON.stringify(bkLayout));
 await page.focus("[data-act=settings]"); await page.keyboard.press("Enter");
@@ -2199,10 +2223,10 @@ report("bookings: today's list; settings is a dialog that holds focus; Escape wi
 try {
   const calls2 = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json());
   await page.goto(base + "&ui=2#bookings");
-  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "bookings" && document.querySelector(".bkx-r[data-act=open]"), null, { timeout: 15000 });
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "bookings" && document.querySelector(".bkx-ev[data-act=open]"), null, { timeout: 15000 });
   await fetch(`http://localhost:${PORT}/__reset`);
   // 1. the booking sheet: tel link, Change time beside Arrived and Done
-  await page.click(".bkx-r[data-act=open]"); await page.waitForSelector(".bkx-sheet [data-act=move]", { timeout: 5000 });
+  await page.click(".bkx-ev[data-act=open]"); await page.waitForSelector(".bkx-sheet [data-act=move]", { timeout: 5000 });
   const mv0 = await page.evaluate(() => ({ tel: (document.querySelector(".bkx-sheet a[href^='tel:']") || {}).getAttribute ? document.querySelector(".bkx-sheet a[href^='tel:']").getAttribute("href") : "", btns: [...document.querySelectorAll(".bkx-sheet .bkx-acts button")].map((b) => b.textContent.trim()) }));
   await page.click(".bkx-sheet [data-act=move]");
   await page.waitForFunction(() => document.querySelectorAll(".bkx-sheet [data-act=mv-slot]").length >= 2, null, { timeout: 5000 });
@@ -2228,8 +2252,10 @@ try {
   const strip = await page.evaluate(() => [...document.querySelectorAll(".bkx-days .bkx-day")].map((b) => b.getAttribute("data-d")));
   await page.click(".bkx-days .bkx-day >> nth=0");
   await page.waitForFunction(() => /Borg Ċensina/.test((document.querySelector(".bkx") || {}).textContent || ""), null, { timeout: 5000 });
-  const past1 = await page.evaluate(() => ({ rows: [...document.querySelectorAll(".bkx-r[data-act=open]")].map((r) => r.querySelector("b").textContent + "=" + ((r.querySelector(".bkx-st") || {}).textContent || "")), today: !!document.querySelector("[data-act=today]"), sub: document.querySelector(".bkx .sub").textContent }));
-  await page.click('.bkx-r[data-id="492"]'); await page.waitForSelector(".bkx-sheet", { timeout: 5000 });
+  const past1 = await page.evaluate(() => ({ rows: [...document.querySelectorAll(".bkx-ev[data-act=open]")].map((r) => r.querySelector("b").textContent.replace(/^\d\d:\d\d /, "") + "=" + ((r.querySelector("em") || {}).textContent || "")), today: !!document.querySelector("[data-act=today]"), sub: document.querySelector(".bkx .sub").textContent, free: document.querySelectorAll(".bkx-free").length }));
+  await page.click("[data-act=cancelled]"); await page.waitForSelector('.bkx-r[data-id="491"]', { timeout: 3000 });
+  past1.rows = past1.rows.concat(await page.evaluate(() => [...document.querySelectorAll(".bkx-r[data-act=open]")].map((r) => r.querySelector("b").textContent + "=" + ((r.querySelector(".bkx-st") || {}).textContent || ""))));
+  await page.click('[data-act=open][data-id="492"]'); await page.waitForSelector(".bkx-sheet", { timeout: 5000 });
   await page.waitForFunction(() => document.querySelector(".bkx-sheet [data-act=card]"), null, { timeout: 5000 }).catch(() => {});
   const past2 = await page.evaluate(() => ({ acts: document.querySelectorAll(".bkx-sheet .bkx-acts button, .bkx-sheet [data-act=move], .bkx-sheet [data-act=st]").length, st: (document.querySelector(".bkx-sheet .bkx-stline") || {}).textContent, card: (document.querySelector(".bkx-sheet [data-act=card]") || {}).getAttribute ? document.querySelector(".bkx-sheet [data-act=card]").getAttribute("aria-label") : "" }));
   await page.keyboard.press("Escape"); await page.waitForTimeout(150);
@@ -2246,7 +2272,7 @@ try {
   const gets = (await calls2()).filter((c) => c.method === "GET" && c.path === "/bookings").map((c) => c.query || "");
   await page.click("[data-act=today]"); await page.waitForTimeout(300);
   report("bookings q6-2: the strip starts yesterday (one tap); a past day shows done, cancelled and never marked, read only, with the reason; a known customer's name opens the card; Today, ‹ › a week and the date box reach any day",
-    strip[1] === todayYmd && past1.rows.join() === "Borg Ċensina=Done,Galea Ħelena=Cancelled,Zammit Paul=Not marked" && past1.today && /2 booked/.test(past1.sub) &&
+    strip[1] === todayYmd && past1.rows.join() === "Borg Ċensina=Done,Zammit Paul=Not marked,Galea Ħelena=Cancelled" && past1.free === 0 && past1.today && /2 booked/.test(past1.sub) &&
     past2.acts === 0 && past2.st === "Not marked" && /Open Zammit Paul’s customer card/.test(past2.card) && /Cancelled · Called to cancel/.test(past3) &&
     wk.strip.length === 7 && wk.on === wk.strip[1] && wk.strip[0] > todayYmd && gotoFocus === "bkx-goto" && /Thursday 24 December/.test(goto1.sub) && !goto1.box && goto1.foc === "pickdate" && gets.some((q) => /from=2026-12-24/.test(q)),
     JSON.stringify({ strip, past1, past2, past3, wk, gotoFocus, goto1, gets }));
@@ -2273,10 +2299,10 @@ try {
   await page.evaluate(() => { window.EIKON_BK_POLL_MS = 250; location.hash = "#today"; });
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "today", null, { timeout: 8000 });
   await page.evaluate(() => { location.hash = "#bookings"; });
-  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "bookings" && document.querySelector(".bkx-r[data-act=open]"), null, { timeout: 8000 });
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "bookings" && document.querySelector(".bkx-ev[data-act=open]"), null, { timeout: 8000 });
   await fetch(`http://localhost:${PORT}/__reset`); await page.waitForTimeout(900);
   const pollOpen = (await calls2()).filter((c) => c.method === "GET" && c.path === "/bookings").length;
-  await page.click(".bkx-r[data-act=open]"); await page.waitForSelector(".bkx-sheet", { timeout: 3000 });
+  await page.click(".bkx-ev[data-act=open]"); await page.waitForSelector(".bkx-sheet", { timeout: 3000 });
   await fetch(`http://localhost:${PORT}/__reset`); await page.waitForTimeout(900);
   const pollSheet = (await calls2()).filter((c) => c.method === "GET" && c.path === "/bookings").length;
   await page.keyboard.press("Escape");
@@ -2311,6 +2337,121 @@ try {
     puts.length === 1 && JSON.stringify(puts[0]) === JSON.stringify({ name: "Blood pressure", durationMin: 20, priceCents: 0, providerIds: [1], active: true, online: true }),
     JSON.stringify({ st0, st1, st2, st3, puts }));
 } catch (e) { report("bookings q6-2: change time, any day, drafts, refresh and settings ran to the end", false, String(e).slice(0, 200) + " @ " + String(e.stack || "").split("\n").filter((l) => /run\.mjs/.test(l)).slice(0, 2).join(" ")); }
+
+// The calendar (2026-11): tomorrow as columns of time; free time is a button (tap books there, with Repeat); a walk-in
+// starts now; blocked time shows and can be unblocked; reminders say who to call and Confirmed records the call; a move
+// can skip the e-mail (notify:false) and offers the freed time to the waiting list; old Appointments come over in one tap.
+try {
+  bkCal.on = true; bkCal.legacy = false; bkCal.imported = 0;
+  const callsC = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json());
+  const tm = maltaYmd(1);
+  await page.goto(base + "&ui=2#bookings"); await page.reload(); // a fresh page: Bookings reads this set-up, not the one before
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "bookings" && document.querySelector(".bkx-cal"), null, { timeout: 15000 });
+  await page.click(`.bkx-day[data-d="${tm}"]`);
+  await page.waitForFunction(() => document.querySelectorAll(".bkx-ev[data-act=open]").length === 2, null, { timeout: 5000 });
+  const c1 = await page.evaluate(() => ({ ev: [...document.querySelectorAll(".bkx-ev")].map((e) => e.innerText.replace(/\s+/g, " ").trim()), off: (document.querySelector(".bkx-offb") || {}).innerText || "",
+    free: [...document.querySelectorAll(".bkx-free")].map((f) => f.getAttribute("aria-label")), sum: (document.querySelector("[data-act=calls]") || {}).textContent || "", head: (document.querySelector(".bkx-ch") || {}).innerText || "",
+    region: (document.querySelector(".bkx-cal") || {}).getAttribute ? document.querySelector(".bkx-cal").getAttribute("aria-label") : "" }));
+  report("bookings calendar: a column per person with the day's hours; bookings say Reminded / To call and missed bookings; lunch is a grey block; each free stretch is a labelled button; the line above says who to call",
+    c1.ev.length === 2 && /09:30 Rita Vella.*Reminded/.test(c1.ev[0]) && /10:00 Pawlu Ħaġġar.*To call.*missed 2/.test(c1.ev[1]) && /Lunch.*12:00–12:30/.test(c1.off.replace(/\s+/g, " ")) &&
+    c1.free.some((f) => /^Free 10:15 to 12:00 with Pharm\. Maria Borg\. Book$/.test(f)) && c1.sum === "1 reminded · 1 to call" && /Pharm\. Maria Borg\s*2 booked · 3h free/.test(c1.head) && /^Calendar for /.test(c1.region),
+    JSON.stringify(c1));
+
+  // tap (keyboard: Enter on the free stretch) → New booking for that person, that day, at 10:15; Repeat every week 4 times → one POST
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.focus('.bkx-free[data-a="615"]'); await page.keyboard.press("Enter");
+  await page.waitForFunction(() => document.querySelector(".bkx-sheet .bkx-slot.on"), null, { timeout: 5000 });
+  const t1 = await page.evaluate(() => ({ on: document.querySelector(".bkx-sheet .bkx-slot.on").textContent, when: [...document.querySelectorAll(".bkx-sheet .bkx-lab")].map((l) => l.textContent).join("|"), focus: document.activeElement.id }));
+  await page.fill("#bkx-name", "Ġużeppi Cassar");
+  await page.selectOption("#bkx-rep", "7"); await page.waitForSelector("#bkx-repn"); await page.selectOption("#bkx-repn", "4");
+  const t2 = await page.evaluate(() => ({ btn: document.querySelector(".bkx-sheet [data-act=book]").textContent, name: document.getElementById("bkx-name").value }));
+  await page.click(".bkx-sheet [data-act=book]");
+  await page.waitForFunction(() => /Booked 3 times/.test((document.querySelector(".bkx-sheet") || {}).textContent || ""), null, { timeout: 5000 });
+  const t3 = await page.evaluate(() => ({ text: document.querySelector(".bkx-sheet").innerText.replace(/\s+/g, " "), find: document.querySelectorAll(".bkx-sheet [data-act=sr-find]").length }));
+  const posts1 = (await callsC()).filter((c) => c.method === "POST" && c.path === "/bookings").map((c) => c.body);
+  report("bookings calendar: Enter on free time opens New booking at that time with that person; Repeat every week, 4 times, sends one POST with repeat; the times not free are listed with Find a time",
+    t1.on === "10:15" && /When · .* with Pharm\. Maria Borg/.test(t1.when) && t2.name === "Ġużeppi Cassar" && /^Book 4 times, every week, from tomorrow at 10:15$/.test(t2.btn) &&
+    posts1.length === 1 && posts1[0].providerId === 1 && posts1[0].date === tm && posts1[0].start === "10:15" && JSON.stringify(posts1[0].repeat) === JSON.stringify({ everyDays: 7, count: 4 }) && t3.find === 1 && /Not free at 10:15 · 1/.test(t3.text),
+    JSON.stringify({ t1, t2, t3, posts1 }));
+  await page.click(".bkx-sheet [data-act=close]"); await page.waitForTimeout(150);
+
+  // walk-in: name, Enter → one POST { walkIn: true, ... }
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click(".bkx-tools [data-act=walkin]"); await page.waitForSelector(".bkx-sheet #bkx-name", { timeout: 3000 });
+  const w0 = await page.evaluate(() => ({ title: document.querySelector(".bkx-sheet").getAttribute("aria-label"), on: (document.querySelector(".bkx-sheet .bkx-svc.on b") || {}).textContent, focus: document.activeElement.id }));
+  await page.fill("#bkx-name", "Rita Abela"); await page.press("#bkx-name", "Enter");
+  await page.waitForFunction(() => !document.querySelector(".bkx-sheet"), null, { timeout: 5000 });
+  const wPosts = (await callsC()).filter((c) => c.method === "POST" && c.path === "/bookings").map((c) => c.body);
+  report("bookings calendar: Walk-in is one name and Enter: it sends { walkIn: true, the service, the name } once and closes",
+    w0.title === "Walk-in" && wPosts.length === 1 && wPosts[0].walkIn === true && wPosts[0].serviceId === 1 && wPosts[0].personName === "Rita Abela", JSON.stringify({ w0, wPosts }));
+
+  // reminders: the list, and Confirmed after a call sends status confirmed
+  await page.click(`.bkx-day[data-d="${tm}"]`); await page.waitForSelector("[data-act=calls]", { timeout: 5000 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click("[data-act=calls]"); await page.waitForSelector(".bkx-sheet [data-act=confirm]", { timeout: 3000 });
+  const r1 = await page.evaluate(() => ({ text: document.querySelector(".bkx-sheet").innerText.replace(/\s+/g, " "), tel: !!document.querySelector(".bkx-sheet a[href='tel:79000602']") }));
+  await page.click('.bkx-sheet [data-act=confirm][data-id="602"]'); await page.waitForTimeout(400);
+  const cPatch = (await callsC()).filter((c) => c.method === "PATCH").map((c) => [c.path, c.body]);
+  const r2 = await page.evaluate(() => document.querySelector(".bkx-sheet") ? document.querySelector(".bkx-sheet").innerText.replace(/\s+/g, " ") : "");
+  await page.keyboard.press("Escape"); await page.waitForTimeout(150);
+  report("bookings calendar: the reminders list puts the customer without e-mail under To call with the number; Confirmed sends { version, status: confirmed } and moves them to Confirmed",
+    /To call · 1 10:00 Pawlu Ħaġġar .*no e-mail · 79000602/.test(r1.text) && /Reminded, not confirmed yet · 1 09:30 Rita Vella/.test(r1.text) && r1.tel &&
+    cPatch.length === 1 && cPatch[0][0] === "/bookings/602" && JSON.stringify(cPatch[0][1]) === JSON.stringify({ version: 1, status: "confirmed" }) && /Confirmed · 1 10:00 Pawlu Ħaġġar/.test(r2), JSON.stringify({ r1, cPatch, r2 }));
+
+  // block time from a free stretch, then unblock the lunch
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.focus('.bkx-free[data-a="615"]'); await page.keyboard.press("Enter");
+  await page.waitForSelector(".bkx-sheet [data-act=block-here]", { timeout: 5000 });
+  await page.click(".bkx-sheet [data-act=block-here]"); await page.waitForSelector("#bkx-b-from", { timeout: 3000 });
+  await page.click('.bkx-sheet [data-act=b-why][data-w="Training"]');
+  const b0 = await page.evaluate(() => document.querySelector(".bkx-sheet [data-act=b-go]").textContent);
+  await page.click(".bkx-sheet [data-act=b-go]"); await page.waitForFunction(() => !document.querySelector(".bkx-sheet"), null, { timeout: 5000 });
+  await page.click(".bkx-offb[data-act=exc]"); await page.waitForSelector(".bkx-sheet [data-act=unblock]", { timeout: 3000 });
+  await page.click(".bkx-sheet [data-act=unblock]"); await page.waitForFunction(() => !document.querySelector(".bkx-sheet"), null, { timeout: 5000 });
+  const bCalls = (await callsC()).filter((c) => c.method !== "GET").map((c) => [c.method, c.path, c.body]);
+  report("bookings calendar: Block this time instead → Training → one POST of the time off for that person and day; a blocked time opens and Unblock deletes it",
+    b0 === "Block 10:15–11:15" && bCalls.length === 2 && bCalls[0][1] === "/bookings/exceptions" && JSON.stringify(bCalls[0][2]) === JSON.stringify({ providerId: 1, date: tm, kind: "off", start: "10:15", end: "11:15", note: "Training" }) &&
+    bCalls[1][0] === "DELETE" && bCalls[1][1] === "/bookings/exceptions/77", JSON.stringify({ b0, bCalls }));
+
+  // a move without the e-mail: untick, Move → PATCH has notify:false; the freed 09:30 is offered to Doris on the waiting list
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('.bkx-ev[data-id="601"]'); await page.waitForSelector(".bkx-sheet [data-act=move]", { timeout: 3000 });
+  await page.click(".bkx-sheet [data-act=move]"); await page.waitForSelector("#bkx-tell", { timeout: 5000 });
+  await page.waitForFunction(() => document.querySelectorAll(".bkx-sheet [data-act=mv-slot]").length > 2, null, { timeout: 5000 });
+  await page.uncheck("#bkx-tell"); await page.click('.bkx-sheet [data-act=mv-slot][data-i="2"]');
+  const m0 = await page.evaluate(() => ({ tell: document.getElementById("bkx-tell").checked, btn: document.querySelector("[data-act=mv-go]").textContent }));
+  await page.click("[data-act=mv-go]");
+  await page.waitForFunction(() => /A time just freed up/.test((document.querySelector(".bkx-sheet") || {}).textContent || ""), null, { timeout: 5000 });
+  const m1 = await page.evaluate(() => document.querySelector(".bkx-sheet").innerText.replace(/\s+/g, " "));
+  const mPatch = (await callsC()).filter((c) => c.method === "PATCH").map((c) => c.body);
+  await page.click(".bkx-sheet [data-act=close]"); await page.waitForTimeout(150);
+  report("bookings calendar: Tell the customer by e-mail can be unticked: the move sends notify:false; the time it frees is offered to the first person waiting",
+    !m0.tell && mPatch.length === 1 && mPatch[0].notify === false && mPatch[0].version === 2 && /Doris Ellul is first on the waiting list/.test(m1), JSON.stringify({ m0, m1, mPatch }));
+
+  // old Appointments: the pharmacist sees what is there and brings it over in one tap; the check is a dry run
+  bkCal.legacy = true; await fetch(`http://localhost:${PORT}/__reset`);
+  await page.evaluate(() => { Object.keys(sessionStorage).filter((k) => k.indexOf("eikon_bk_legacy_") === 0).forEach((k) => sessionStorage.removeItem(k)); });
+  await page.goto(base + "&ui=2#bookings"); await page.reload();
+  await page.waitForSelector(".bkx-leg [data-act=leg-run]", { timeout: 10000 });
+  const l0 = await page.evaluate(() => document.querySelector(".bkx-leg").innerText.replace(/\s+/g, " "));
+  await page.click(".bkx-leg [data-act=leg-run]");
+  await page.waitForFunction(() => /Your old appointments are in Bookings/.test((document.querySelector(".bkx-leg") || {}).textContent || ""), null, { timeout: 5000 });
+  const l1 = await page.evaluate(() => ({ text: document.querySelector(".bkx-leg").innerText.replace(/\s+/g, " "), focus: document.activeElement.getAttribute("data-act") }));
+  const lCalls = (await callsC()).filter((c) => c.path === "/bookings/import-legacy").map((c) => c.method + " " + c.query);
+  report("bookings: the old Appointments are offered once — 'Bring your old appointments into Bookings' with what is there and that nothing old changes; Bring them over runs the move once; done says to check hours",
+    /Bring your old appointments into Bookings/.test(l0) && /12 appointments \(3 still to come\), 2 doctors and 1 person on the waiting list/.test(l0) && /not changed or deleted/.test(l0) &&
+    /12 appointments, 3 still to come, 1 person waiting/.test(l1.text) && l1.focus === "leg-hours" && lCalls.join() === "POST ?dry=1,POST ", JSON.stringify({ l0, l1, lCalls }));
+  bkCal.legacy = false;
+  await page.click(".bkx-leg [data-act=leg-ok]");
+
+  // a phone: no sideways scroll; the calendar scrolls inside itself
+  await page.setViewportSize({ width: 360, height: 780 }); await page.reload();
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "bookings" && document.querySelector(".bkx-cal"), null, { timeout: 15000 });
+  const pw = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, walk: !!document.querySelector(".bkx-walk2") && getComputedStyle(document.querySelector(".bkx-walk2")).display !== "none" }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  report("bookings calendar on a 360px phone: no sideways scroll, Walk-in beside the arrows", pw.sw <= pw.cw && pw.walk, JSON.stringify(pw));
+} catch (e) { report("bookings calendar ran to the end", false, String(e).slice(0, 300) + " @ " + String(e.stack || "").split("\n").filter((l) => /run\.mjs/.test(l)).slice(0, 2).join(" ")); }
+bkCal.on = false; bkCal.legacy = false;
 
 // Quality pass (Today, Customers, Bookings, search, rail): mistakes said next to the field, the cleaner remembered,
 // typing never lost while free times load, Enter does what the big button says, Maltese capitals found.
@@ -5291,8 +5432,9 @@ try {
 
   // A failed load says so and offers Try again, which loads it.
   let failsLeft = 2; // the app retries a failed read once by itself
-  await sp.route(/\/near-expiry\/entries$/, (r) => { if (failsLeft > 0 && r.request().method() === "GET") { failsLeft--; return r.abort(); } return r.continue(); });
   await sp.evaluate(() => { location.hash = "#stock"; }); await sp.waitForTimeout(300);
+  await sp.waitForSelector(".stk-head", { timeout: 10000 }).catch(() => {}); // the Stock tab reads near expiry too (d-stock): fail only the screen's own read
+  await sp.route(/\/near-expiry\/entries$/, (r) => { if (failsLeft > 0 && r.request().method() === "GET") { failsLeft--; return r.abort(); } return r.continue(); });
   await sp.evaluate(() => { location.hash = "#nexreg"; }); await sp.waitForSelector("[data-act=retry]", { timeout: 15000 });
   const rtErr = await sp.evaluate(() => { const q = document.querySelector("[data-act=retry]").closest("[role=alert]"); return q ? q.textContent : ""; });
   await sp.click("[data-act=retry]"); await sp.waitForSelector(".nex-row", { timeout: 15000 });
@@ -6748,6 +6890,76 @@ try {
   peopleState.adopted = was;
   for (const pat of ["**/people/1/now*", "**/messages/setup*", "**/messages", "**/people/1/profile", "**/loyalty/campaigns*", "**/loyalty/transactions*"]) await page.unroute(pat);
 } catch (e) { report("d-cust record and Tell: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
+
+// Stock tab, one ordering flow (d-stock). On a server without the /stock-flow routes (404): the open lines still show,
+// arrivals are ticked under To order, customer orders wait to be put on an order. With them: ordered per supplier,
+// arrivals tell which customers are waiting, Ready sends only { fulfilled: true }, typing survives the data arriving.
+try {
+  const calls = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json());
+  globalThis.__stk = null;
+  await page.goto(base + "&ui=2#stock");
+  await page.waitForFunction(() => document.querySelector(".stk-seg [data-view=order]") && document.querySelector(".stk-head"), null, { timeout: 15000 });
+  await page.click("[data-view=order]").catch(() => {});
+  await page.waitForSelector('[data-act=arrived][data-ids="101"]', { timeout: 8000 });
+  const f0 = await page.evaluate(() => ({ text: document.querySelector("#stk-slot").innerText, cards: document.querySelectorAll(".hub-card[data-open]").length, all: !!document.querySelector(".stk-all") }));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('[data-act=arrived][data-ids="101"]'); await page.waitForTimeout(600);
+  const f0p = (await calls()).filter((c) => c.method !== "GET");
+  report("stock (d-stock): without the stock-flow routes, To order still lists the diary's open lines with Arrived (the classic Received body), customer orders wait to be put on an order, and every stock screen is still there",
+    /Augmentin 625/.test(f0.text) && /Waiting to be put on an order/.test(f0.text) && /Nexium 20mg/.test(f0.text) && /Vella Joseph/.test(f0.text) && f0.cards >= 8 && f0.all &&
+    f0p.length === 1 && f0p[0].method === "PUT" && f0p[0].path === "/order-diary/entries/101" && JSON.stringify(f0p[0].body) === JSON.stringify({ status: "received" }), JSON.stringify({ f0: f0.text.slice(0, 400), f0p }));
+
+  const d0 = maltaYmd(0), dm3 = maltaYmd(-3);
+  globalThis.__stk = { open: [
+    { id: 201, order_date: dm3, first_date: dm3, item_name: "Nexium 20mg", qty: 1, supplier: "GSK", status: "pending", notes: "", links: [], ordered_at: null },
+    { id: 204, order_date: d0, first_date: d0, item_name: "Nexium 20mg", qty: 2, supplier: "GSK", status: "not_received", notes: "", links: [], ordered_at: null },
+    { id: 202, order_date: d0, first_date: d0, item_name: "Ċetirizine 10mg", qty: 1, supplier: "Actavis", status: "pending", notes: "", links: [], ordered_at: "2026-11-04 08:00:00", ordered_by_name: "Maria Borg" }],
+    received: [{ id: 203, order_date: maltaYmd(-1), first_date: maltaYmd(-1), item_name: "Augmentin 625 x14", qty: 1, supplier: "Actavis", status: "received", notes: "", links: [{ source: "order", source_id: 51 }], updated_at: d0 + " 08:00:00" }] };
+  await page.evaluate(() => window.EIKON.stockFlow.reload()); await page.waitForTimeout(500);
+  const f1 = await page.evaluate(() => ({ seg: [...document.querySelectorAll(".stk-seg button")].map((b) => b.textContent), text: document.querySelector("#stk-slot").innerText, tell: !!document.querySelector('.stk-tell [data-act=ready][data-oid="51"]') }));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('[data-act=ordered][data-sup="gsk"]'); await page.waitForTimeout(700);
+  const f1p = (await calls()).filter((c) => c.method !== "GET");
+  const f1b = await page.evaluate(() => ({ done: (document.querySelector(".stk-done") || {}).innerText || "", focus: document.activeElement && document.activeElement.getAttribute("data-act") }));
+  report("stock (d-stock): the same item on two days is one row with the quantities added; Mark ordered puts a line that did not come back to waiting (the classic Undo) and marks both lines; it says so with Undo",
+    /Nexium 20mg × 3/.test(f1.text) && /did not come/.test(f1.text) && f1.seg[1].indexOf("1") > 0 &&
+    f1p.length === 2 && f1p[0].path === "/order-diary/entries/204" && JSON.stringify(f1p[0].body) === JSON.stringify({ status: "pending" }) && f1p[1].path === "/stock-flow/ordered" && JSON.stringify(f1p[1].body) === JSON.stringify({ diary_ids: [201, 204], supplier: "GSK" }) &&
+    /2 items marked ordered/.test(f1b.done) && f1b.focus === "undo", JSON.stringify({ f1: f1.seg, f1p, f1b }));
+  // the customer whose item came in: Ready sends only { fulfilled: true }; a messaging hook adds its button
+  await page.evaluate(() => { window.__told = []; window.EIKON.stockFlow.tell = (c) => window.__told.push(c); window.EIKON.stockFlow.reload(); }); await page.waitForTimeout(500);
+  await page.click('.stk-tell [data-act=message][data-oid="51"]');
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('.stk-tell [data-act=ready][data-oid="51"]'); await page.waitForTimeout(600);
+  const f2p = (await calls()).filter((c) => c.method !== "GET"), told = await page.evaluate(() => window.__told);
+  report("stock (d-stock): customers whose item arrived are listed to be told; Ready sends the Orders screen's { fulfilled: true }; E.stockFlow.tell gives messaging a Send a message button with the customer",
+    f1.tell && f2p.length === 1 && f2p[0].path === "/client-orders/entries/51" && JSON.stringify(f2p[0].body) === JSON.stringify({ fulfilled: true }) && told.length === 1 && told[0].client_name === "Grech Carmen" && told[0].client_phone === "79123456", JSON.stringify({ f2p, told }));
+  // Add an item: typing survives the lists arriving; Enter saves the classic body; the form stays for the next item
+  await page.evaluate(() => { window.EIKON.stockFlow.tell = null; });
+  await page.click("[data-view=order]"); await page.click(".stk-head [data-act=add]"); await page.waitForSelector("#stk-add [name=item_name]");
+  await page.keyboard.type("Ħ-test Panadol");
+  await page.evaluate(() => window.EIKON.stockFlow.reload()); await page.keyboard.type(" 500mg"); await page.waitForTimeout(400);
+  const typed = await page.inputValue("#stk-add [name=item_name]");
+  await page.fill("#stk-add [name=supplier]", "GSK");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.focus("#stk-add [name=item_name]"); await page.keyboard.press("Enter"); await page.waitForTimeout(700);
+  const f3p = (await calls()).filter((c) => c.method === "POST"), f3 = await page.evaluate(() => ({ open: !!document.querySelector("#stk-add"), item: (document.querySelector("#stk-add [name=item_name]") || {}).value, sup: (document.querySelector("#stk-add [name=supplier]") || {}).value }));
+  report("stock (d-stock): Add an item keeps what is typed while the lists arrive, Enter sends the classic quick add body for today, and the form stays open for the next item with the same supplier",
+    typed === "Ħ-test Panadol 500mg" && f3p.length === 1 && f3p[0].path === "/order-diary/entries" && JSON.stringify(f3p[0].body) === JSON.stringify({ order_date: d0, item_name: "Ħ-test Panadol 500mg", qty: 1, supplier: "GSK", notes: "" }) && f3.open && f3.item === "" && f3.sup === "GSK", JSON.stringify({ typed, f3p, f3 }));
+  // Short or at risk: the open recall with its next step and Order a replacement; Open lands on that alert's next tick
+  await page.click("[data-view=risk]"); await page.waitForTimeout(200);
+  const r1 = await page.evaluate(() => document.querySelector("#stk-slot").innerText);
+  await page.click('[data-act=land][data-to="alertreg"]');
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "alertreg" && document.activeElement && document.activeElement.getAttribute("data-k") === "supplier_informed", null, { timeout: 8000 }).catch(() => {});
+  const r1f = await page.evaluate(() => ({ mod: window.EIKON.state.activeModuleId, k: document.activeElement && document.activeElement.getAttribute("data-k") }));
+  report("stock (d-stock): Short or at risk lists the open recall with its next step and Order a replacement; Open lands on that alert's next step",
+    /Losartan 50mg/.test(r1) && /next: tell the supplier/.test(r1) && /Order a replacement/.test(r1) && r1f.mod === "alertreg" && r1f.k === "supplier_informed", JSON.stringify({ r1: r1.slice(0, 300), r1f }));
+  // phone: no sideways scroll, 44 px targets
+  await page.setViewportSize({ width: 360, height: 800 }); await page.goto(base + "&ui=2#stock"); await page.waitForSelector(".stk-head", { timeout: 10000 }); await page.click("[data-view=order]"); await page.waitForTimeout(300);
+  const ph = await page.evaluate(() => { const h = [...document.querySelectorAll("#stk-slot button")].filter((e) => e.getClientRects().length).map((e) => Math.round(e.getBoundingClientRect().height)); return { min: Math.min(...h), n: h.length, wide: document.documentElement.scrollWidth > window.innerWidth + 1 }; });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  report("stock (d-stock): on a 360 px phone the Stock tab has no sideways scroll and every button is at least 44 px tall", ph.n > 5 && ph.min >= 44 && !ph.wide, JSON.stringify(ph));
+  globalThis.__stk = null;
+} catch (e) { globalThis.__stk = null; await page.setViewportSize({ width: 1440, height: 900 }).catch(() => {}); report("stock (d-stock): ran to the end", false, String(e && e.stack || e).slice(0, 500)); }
 
 await browser.close();
 server.close();

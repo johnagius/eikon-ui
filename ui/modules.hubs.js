@@ -75,7 +75,7 @@
   // Second doors kept where staff already look: Team › Locums, Settings › Contacts, Registers › Proof, Stock › Price (credit notes).
   var HUBS = {
     stock: {
-      title: "Stock", lead: "What is coming in, what is going out, what is running out.",
+      title: "Stock", lead: "What to order, what is on its way, and what is short or at risk.",
       groups: [
         { label: "Watch", ids: ["alerts", "nearexpiry", "ssreg", "scarcestock"] },
         { label: "Order", ids: ["order-diary", "supplier-inventory"] },
@@ -179,7 +179,8 @@
       var m = ctx && ctx.mount; if (!m) return;
       injectCss();
       var html = '<div class="hub" data-hub="' + esc(id) + '"><h1>' + esc(cfg.title) + '</h1><p class="lead">' + esc(cfg.lead) + '</p>' +
-        (id === "settings" ? '<div id="hub-wn-slot"></div>' : "");
+        (id === "settings" ? '<div id="hub-wn-slot"></div>' : "") +
+        (id === "stock" ? '<div id="stk-slot" class="stk"></div><h2 class="hub-lab stk-all">Every stock screen</h2>' : ""); // d-stock: the day's ordering first (modules.stkflow.js), every screen under it
       cfg.groups.forEach(function (g, gi) {
         var cards = "";
         (g.ids || []).forEach(function (mid) {
@@ -200,6 +201,7 @@
       m.querySelectorAll("[data-open]").forEach(function (b) {
         b.addEventListener("click", function () { openCard(b.getAttribute("data-open"), id); });
       });
+      if (id === "stock") { var slot = m.querySelector("#stk-slot"); if (slot && E.stockFlow) E.stockFlow.render(slot); } // drawn by modules.stkflow.js when it arrives otherwise
       if (id === "settings" && E.helpSettings) E.helpSettings(m); // What's new (eikon.help.js, loaded just after the first screen)
       m.querySelectorAll("[data-action]").forEach(function (b) {
         b.addEventListener("click", function () {
@@ -215,7 +217,7 @@
   Object.keys(HUBS).forEach(function (id) { makeHub(id, HUBS[id]); });
   // Hub cards list modules that may still be loading in the background: redraw once they are in.
   window.addEventListener("eikon:modules", function () {
-    try { if (HUBS[E.state.activeModuleId] && document.querySelector(".hub")) E.renderActiveModule(); } catch (e) {}
+    try { var a = document.activeElement, typing = a && a.closest && a.closest(".hub form"); if (HUBS[E.state.activeModuleId] && document.querySelector(".hub") && !typing) E.renderActiveModule(); } catch (e) {} // never under someone typing in Stock's forms
   });
 
   // Every card behind every hub, once each (its first hub), for the search (eikon.search.js): the name the screen shows,

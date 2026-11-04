@@ -266,3 +266,16 @@
 
   E.tell = { open: open, words: words, firstName: firstName, intl: intl, isMobile: isMobile, waLink: waLink, smsLink: smsLink, dayWords: dayWords, _reset: function () { setup = null; drafts = {}; lastChannel = ""; } };
 })();
+
+/* Stock & ordering hook (modules.stkflow.js): when stock arrives, "Send a message" beside Ready opens Tell with the order-ready words. */
+(function () {
+  var E = window.EIKON; if (!E) return;
+  function wire() {
+    if (!E.stockFlow || !E.tell || E.stockFlow.tell) return;
+    E.stockFlow.tell = function (c) {
+      E.tell.open({ person: { name: c.client_name || "", phone: c.client_phone || "" }, purpose: "ready",
+        ref: { kind: "order", id: c.client_order_id }, vars: { items: c.items || "" }, subtitle: c.items || "", back: document.activeElement });
+    };
+  }
+  E.tellStockHook = wire; wire();
+})();

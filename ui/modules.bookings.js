@@ -34,7 +34,7 @@
   // bookings, an old bookmark) must open it here, not drop the person into the classic layout for the session.
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("bookings") < 0) E.UI2_DESTINATIONS.push("bookings");
 
-  var S = { mount: null, view: "day", date: null, setup: null, bookings: [], loading: false, error: "", sheet: null, onVis: null, seq: 0, poll: 0, picking: false, newDraft: null };
+  var S = { by: (function () { try { return localStorage.getItem("eikon_bk_by") === "room" ? "room" : "person"; } catch (e) { return "person"; } })(), mount: null, view: "day", date: null, setup: null, bookings: [], loading: false, error: "", sheet: null, onVis: null, seq: 0, poll: 0, picking: false, newDraft: null };
 
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
   function ymd(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
@@ -136,7 +136,39 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
 .bkx-back{display:flex;align-items:center;gap:0 8px;flex-wrap:wrap;margin:-4px 4px 10px;font-size:14px;color:var(--l2)}.bkx-back button{min-height:44px;padding:0 6px;color:var(--t);font-weight:600;text-decoration:underline;text-underline-offset:3px}\
 @media(max-width:600px){.bkx-navrow .bkx-view{flex-basis:150px}}.bkx-ask{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;background:rgba(201,119,46,.16);border-radius:14px;padding:12px 14px;margin:0 0 14px;font-size:15px;font-weight:600}.bkx-ask-b{display:flex;gap:8px;margin-left:auto}.bkx-ask .bkx-btn{min-height:44px;height:44px;border-radius:22px}.bkx-ask .bkx-btn.red{background:var(--sf)}.bkx-closed{font-style:normal;font-size:13px;color:var(--l2);margin-left:auto}\
 ";
-  function injectCss() { if (document.getElementById("bkx-css")) return; var st = document.createElement("style"); st.id = "bkx-css"; st.textContent = CSS; document.head.appendChild(st); }
+  // The day calendar, walk-ins, blocked time, reminders (2026-11).
+  var CSS2 = "\
+.bkx{--amb:#8A5300;--ambs:rgba(201,119,46,.16)}\
+@media(prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .bkx{--amb:#FFB340;--ambs:rgba(255,179,64,.16)}}\
+.bkx-tools{display:flex;gap:8px;align-items:center}.bkx-walk{height:40px;padding:0 16px;border-radius:20px;background:var(--ts);color:var(--t);font-size:15px;font-weight:600;white-space:nowrap}\
+.bkx-sum{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin:0 4px 12px;font-size:15px;color:var(--l2);max-width:1180px}.bkx-sum>span{font-variant-numeric:tabular-nums}\
+.bkx-remb{min-height:36px;padding:0 14px;border-radius:18px;background:var(--fill);font-size:14px;font-weight:600;color:inherit}.bkx-remb.warn{background:var(--ambs);color:var(--amb)}\
+.bkx-cal{background:var(--sf);border-radius:22px;max-width:1180px;overflow:auto;max-height:max(440px,calc(100vh - 290px));position:relative;overscroll-behavior:contain}\
+.bkx-calh,.bkx-calb{display:grid;grid-template-columns:52px repeat(var(--cols),minmax(150px,1fr));min-width:calc(52px + var(--cols) * 150px)}\
+.bkx-calh{position:sticky;top:0;z-index:3;background:var(--sf);box-shadow:0 .5px 0 var(--sep)}.bkx-axh{position:sticky;left:0;background:var(--sf)}\
+.bkx-ch{padding:10px 10px 8px;min-width:0}.bkx-ch b{display:block;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bkx-ch span{display:block;font-size:12px;color:var(--l2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\
+.bkx-calb{position:relative}.bkx-ax{position:sticky;left:0;z-index:2;background:var(--sf);height:100%}.bkx-ax span{position:absolute;right:8px;transform:translateY(-1px);font-size:12px;color:var(--l2);font-variant-numeric:tabular-nums}\
+.bkx-col{position:relative;border-left:.5px solid var(--sep);background:repeating-linear-gradient(135deg,var(--fill) 0 2px,transparent 2px 9px)}\
+.bkx-col::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(to bottom,var(--sep) 0 .5px,transparent .5px 120px);pointer-events:none;z-index:1}\
+.bkx-open{position:absolute;left:0;right:0;background:var(--sf)}\
+.bkx-free{position:absolute;left:3px;right:3px;border-radius:8px;display:flex;align-items:flex-start;justify-content:space-between;padding:4px 8px;font-size:12px;color:var(--l2);text-align:left;z-index:1;overflow:hidden}\
+.bkx-free i{font-style:normal;font-weight:600;color:var(--t);opacity:0}.bkx-free:hover,.bkx-free:focus-visible{background:var(--ts);color:var(--t)}.bkx-free:hover i,.bkx-free:focus-visible i{opacity:1}\
+.bkx-ev{position:absolute;left:3px;right:3px;z-index:2;display:flex;flex-direction:column;justify-content:flex-start;border-radius:8px;background:var(--bg);border-left:4px solid var(--c);padding:3px 8px;text-align:left;overflow:hidden;font-size:13px;line-height:17px;box-shadow:0 0 0 .5px var(--sep)}\
+.bkx-ev b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}.bkx-ev span{display:block;font-size:12px;color:var(--l2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\
+.bkx-ev.sm{flex-direction:row;gap:6px;align-items:center;padding-top:1px;padding-bottom:1px}.bkx-ev.sm b{flex:0 1 auto}.bkx-ev.sm span{flex:1 1 0;min-width:0}.bkx-ev.dim{opacity:.62}\
+.bkx-ev em,.bkx-r em,.bkx-wb em{font-style:normal;font-weight:600}.bkx .ok{color:var(--t)}.bkx .bad{color:var(--red)}.bkx .warn{color:var(--amb)}.bkx .mut{color:var(--l2)}\
+.bkx-offb{position:absolute;left:3px;right:3px;z-index:2;border-radius:8px;background:repeating-linear-gradient(135deg,var(--fill) 0 6px,rgba(118,118,128,.2) 6px 12px);padding:3px 8px;text-align:left;font-size:12px;color:var(--l2);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}\
+.bkx-offb b{color:var(--l1,inherit);font-weight:600}.bkx-awayb{display:flex;align-items:flex-start;padding-top:10px;font-size:14px}\
+.bkx-now{position:absolute;left:0;right:0;height:2px;background:var(--red);z-index:3;pointer-events:none}.bkx-now::before{content:'';position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--red)}\
+.bkx-free:focus-visible,.bkx-ev:focus-visible,.bkx-offb:focus-visible{outline:2px solid var(--t);outline-offset:1px;z-index:4}\
+.bkx-leg{background:var(--sf);border-radius:22px;padding:16px 18px;max-width:880px;margin:0 0 18px;box-shadow:inset 0 0 0 2px var(--ts)}.bkx-leg b{display:block;font-size:17px;font-weight:700;margin-bottom:4px}.bkx-legb{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.bkx-legb .bkx-btn{min-height:44px;border-radius:22px}\
+.bkx-hist{font-size:14px;font-weight:600;color:var(--l2);margin:-6px 4px 14px}.bkx-hist.warn{color:var(--amb)}\
+.bkx-rep{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:-8px 0 18px}.bkx-rep select{font:inherit;font-size:16px;height:40px;border-radius:12px;border:0;background:var(--sf);color:inherit;padding:0 10px}\
+.bkx-wl{display:flex;gap:6px;flex-wrap:wrap;margin:-8px 0 16px}.bkx-link{font:inherit;font-size:15px;color:var(--t);font-weight:600;min-height:44px;padding:0 4px;text-decoration:underline;text-underline-offset:3px}\
+.bkx-wd{font-size:12px;color:var(--l2);display:block}.bkx-wb.off{border-left-color:var(--l3)!important;background:transparent;box-shadow:inset 0 0 0 .5px var(--sep)}\
+.bkx-walk2{display:none}.bkx-navrow .bkx-chips{min-width:0}@media(max-width:600px){.bkx-tools .bkx-walk{display:none}.bkx-walk2{display:block;height:44px;border-radius:22px}.bkx-navrow .bkx-chips{flex-wrap:nowrap;overflow-x:auto;flex:1 1 100%;margin:0 -16px;padding:0 16px 2px;scrollbar-width:none}.bkx-navrow .bkx-chips::-webkit-scrollbar{display:none}.bkx-chip{flex:none}.bkx-calh,.bkx-calb{grid-template-columns:44px repeat(var(--cols),minmax(132px,1fr));min-width:calc(44px + var(--cols) * 132px)}.bkx-cal{border-radius:16px;max-height:none}}\
+";
+  function injectCss() { if (document.getElementById("bkx-css")) return; var st = document.createElement("style"); st.id = "bkx-css"; st.textContent = CSS + CSS2; document.head.appendChild(st); }
 
   // ---------- data ----------
   async function load(opts) {
@@ -148,9 +180,13 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       // setup, the day (or week) and the waiting list at once: one round trip instead of three
       var to = S.view === "week" ? addDays(S.date, 6) : S.date; // the week is one call too
       var needSetup = !S.setup || opts.setup;
-      var got = await Promise.all([needSetup ? api("/bookings/setup") : null, api("/bookings?from=" + S.date + "&to=" + to), api("/bookings/waitlist").catch(function () { return null; })]);
+      // ...and the blocked time of those days, and the rooms with the set-up (the calendar's columns)
+      var got = await Promise.all([needSetup ? api("/bookings/setup") : null, api("/bookings?from=" + S.date + "&to=" + to), api("/bookings/waitlist").catch(function () { return null; }),
+        api("/bookings/exceptions?from=" + S.date + "&to=" + to).catch(function () { return null; }), needSetup ? api("/bookings/rooms").catch(function () { return null; }) : null]);
       if (my !== S.seq) return;
-      if (needSetup) { var su = got[0]; S.setup = { services: su.services || [], providers: su.providers || [] }; }
+      if (needSetup) { var su = got[0]; S.setup = { services: su.services || [], providers: su.providers || [] }; S.rooms = ((got[4] && got[4].rooms) || []).filter(function (r) { return r.active !== false; }); }
+      S.exc = (got[3] && got[3].exceptions) || [];
+      S.mail = got[1].mail || null; S.messages = got[1].messages || {}; S.noShows = got[1].noShows || {};
       try { if (S.setup.services.length) localStorage.setItem(readyKey(), "1"); else localStorage.removeItem(readyKey()); } catch (eR) {}
       S.bookings = got[1].bookings || [];
       S.waiting = (got[2] && got[2].waiting) || [];
@@ -160,6 +196,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       if (!opts.quiet) S.error = e && e.status === 404 ? "Bookings is not switched on for this pharmacy yet." : errMsg(e);
     }
     S.loading = false;
+    if (!S.error) checkLegacy();
     if (opts.quiet && S.sheet) return; // a sheet opened while the refresh was out: it is not redrawn under the person
     paint();
     // Arrived from the search (eikon.search.js): open that booking.
@@ -201,7 +238,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
   function navHtml() {
     var t = todayStr(), away = S.view === "week" ? !(t >= S.date && t <= addDays(S.date, 6)) : S.date !== t;
     return '<div class="bkx-navrow"><div class="bkx-seg bkx-view"><button class="' + (S.view === "day" ? "on" : "") + '" data-act="view" data-v="day" aria-pressed="' + (S.view === "day") + '">Day</button><button class="' + (S.view === "week" ? "on" : "") + '" data-act="view" data-v="week" aria-pressed="' + (S.view === "week") + '">Week</button></div>' +
-      '<div class="bkx-navr">' + (away ? '<button class="bkx-today" data-act="today">Today</button>' : "") +
+      '<div class="bkx-navr">' + (away ? '<button class="bkx-today" data-act="today">Today</button>' : "") + (S.setup && S.setup.services.length ? '<button class="bkx-walk bkx-walk2" data-act="walkin">Walk-in</button>' : "") +
       '<button class="bkx-btn bkx-arr" data-act="wk" data-n="-7" aria-label="A week earlier" title="A week earlier">‹</button><button class="bkx-btn bkx-arr" data-act="wk" data-n="7" aria-label="A week later" title="A week later">›</button></div></div>';
   }
   // The date under the title: a tap opens a date box to go to any day.
@@ -210,25 +247,307 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     if (S.picking) return '<input class="bkx-goto" id="bkx-goto" type="date" value="' + esc(S.date) + '" aria-label="Go to a day">';
     return '<button class="bkx-dateb" data-act="pickdate" aria-label="' + esc(label + ". Choose another day") + '">' + esc(label) + "</button>";
   }
-  // Seven days from the chosen date, one column each (stacked on a phone); tap a day to open it.
+  // Seven days from the chosen date, one column each (stacked on a phone); tap a day to open it. Each day says how
+  // much is booked and how much is still free, and shows blocked time between the bookings.
   function weekHtml(list) {
-    var h = '<div class="bkx-week">';
+    var h = '<div class="bkx-week">', t = todayStr();
     for (var i = 0; i < 7; i++) {
       var d = addDays(S.date, i), dt = new Date(d + "T12:00:00");
-      var dayList = list.filter(function (b) { return b.date === d; });
-      h += '<div class="bkx-wcol"><button class="bkx-wh' + (d === todayStr() ? " now" : "") + '" data-act="openday" data-d="' + d + '"><small>' +
-        dt.toLocaleDateString("en-GB", { weekday: "short" }) + "</small><b>" + dt.getDate() + "</b><span>" + (dayList.length ? dayList.length + " booked" : "Free") + "</span></button>" +
-        dayList.map(function (b) {
-          var sv = svc(b.serviceId) || {};
-          return '<button class="bkx-wb" data-act="open" data-id="' + b.id + '" style="border-left-color:' + svcColor(sv) + '"><b>' + esc(b.start) + "</b> " + esc(b.personName) + "<span>" + esc(sv.name || "") + "</span></button>";
+      var dayList = list.filter(function (b) { return b.date === d && b.status !== "cancelled"; });
+      var cols = columnsFor(d, S.bookings), f = d < t ? 0 : freeMin(cols, d), closed = !cols.some(function (c) { return c.wins.length; });
+      var offs = []; cols.forEach(function (c) { c.offs.forEach(function (o) { if (!offs.some(function (x) { return x.id === o.id; })) offs.push(o); }); if (c.away && !offs.some(function (x) { return x.id === c.away.id; })) offs.push({ id: c.away.id, a: 0, b: 0, note: "Away" + (c.away.note ? ": " + c.away.note : ""), pid: c.pid, away: true }); });
+      var items = dayList.map(function (b) { return { at: minOf(b.start), b: b }; }).concat(offs.map(function (o) { return { at: o.a, o: o }; })).sort(function (x, y) { return x.at - y.at; });
+      var sub = (dayList.length ? dayList.length + " booked" : closed ? "Closed" : "Free") + (f && dayList.length ? " · " + dur(f) + " free" : "");
+      h += '<div class="bkx-wcol"><button class="bkx-wh' + (d === t ? " now" : "") + '" data-act="openday" data-d="' + d + '" aria-label="' + esc(longDate(d) + ": " + sub + ". Open the day") + '"><small>' +
+        dt.toLocaleDateString("en-GB", { weekday: "short" }) + "</small><b>" + dt.getDate() + "</b><span>" + esc(sub) + "</span></button>" +
+        items.map(function (it) {
+          if (it.o) { var op = prov(it.o.pid) || {}; return '<button class="bkx-wb off" data-act="exc" data-id="' + it.o.id + '"><b>' + (it.o.away ? "" : hm(it.o.a) + " ") + "</b>" + esc(it.o.note || "Blocked") + "<span>" + esc(plabel(op)) + "</span></button>"; }
+          var b = it.b, sv = svc(b.serviceId) || {}, mk = markOf(b);
+          return '<button class="bkx-wb" data-act="open" data-id="' + b.id + '" style="border-left-color:' + svcColor(sv) + '"><b>' + esc(b.start) + "</b> " + esc(b.personName) + "<span>" + esc(sv.name || "") + (mk ? ' · <em class="' + mk[1] + '">' + mk[0] + "</em>" : "") + "</span></button>";
         }).join("") + "</div>";
     }
     return h + "</div>";
   }
 
+  // ---------- the day calendar (2026-11) ----------
+  // One column per practitioner (or per room), the day's hours down the side. White is working time, the stripes are
+  // not; a booking is a coloured block; blocked time (lunch, training) a grey one. Every free stretch is a button: a
+  // tap books there (the time under the finger, to the 5 minutes), Enter books its first minute.
+  var PXM = 2; // pixels per minute: an hour is 120px, a 15-minute booking 30px
+  function minOf(t) { var m = /^(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? Number(m[1]) * 60 + Number(m[2]) : NaN; }
+  function hm(x) { x = Math.max(0, Math.min(24 * 60 - 1, Math.round(x))); return String(Math.floor(x / 60)).padStart(2, "0") + ":" + String(x % 60).padStart(2, "0"); }
+  function dur(min) { min = Math.max(0, Math.round(min)); var h = Math.floor(min / 60), m = min % 60; return h ? h + "h" + (m ? " " + m + "m" : "") : m + " min"; }
+  function excOf(d, pid, kind) { return (S.exc || []).filter(function (e) { return e.date === d && e.providerId === pid && (!kind || e.kind === kind); }); }
+  function provsFor(d, list) {
+    var ids = {}; (list || []).forEach(function (b) { if (b.date === d) ids[b.providerId] = 1; });
+    return ((S.setup && S.setup.providers) || []).filter(function (p) { return p.active !== false || ids[p.id]; });
+  }
+  // The working windows of one practitioner on a day: weekly hours plus extra sessions; a whole day off empties them.
+  function winsOf(p, d) {
+    var wd = new Date(d + "T12:00:00").getDay(), h = p.hours || {};
+    var wins = (h[wd] || h[String(wd)] || []).map(function (w) { return { a: minOf(w[0]), b: minOf(w[1]), pid: p.id, room: Number(w[2]) || 0 }; });
+    excOf(d, p.id, "extra").forEach(function (e) { wins.push({ a: minOf(e.start), b: minOf(e.end), pid: p.id, room: 0 }); });
+    return wins.filter(function (w) { return w.b > w.a; });
+  }
+  function offsOf(p, d) { return excOf(d, p.id, "off").filter(function (e) { return e.start; }).map(function (e) { return { a: minOf(e.start), b: minOf(e.end), id: e.id, note: e.note || "", pid: p.id }; }); }
+  function awayOf(p, d) { return excOf(d, p.id, "off").filter(function (e) { return !e.start; })[0] || null; }
+  // Columns for a day: { key, label, pid (person columns), wins, offs, away, books }
+  function columnsFor(d, list) {
+    var fl = S.filter || "", live = (list || []).filter(function (b) { return b.date === d && b.status !== "cancelled"; });
+    var provs = provsFor(d, live);
+    var byRoom = S.by === "room" && (S.rooms || []).length;
+    if (fl.charAt(0) === "p") provs = provs.filter(function (p) { return String(p.id) === fl.slice(2); });
+    if (!byRoom && fl.charAt(0) !== "r") return provs.map(function (p) {
+      var away = awayOf(p, d);
+      return { key: "p" + p.id, label: plabel(p), pid: p.id, wins: away ? [] : winsOf(p, d), offs: offsOf(p, d), away: away, books: live.filter(function (b) { return b.providerId === p.id; }) };
+    });
+    var rooms = (S.rooms || []).slice();
+    if (fl.charAt(0) === "r") rooms = rooms.filter(function (r) { return r.name === fl.slice(2); });
+    var cols = rooms.map(function (r) {
+      var wins = [], offs = [];
+      provs.forEach(function (p) { if (awayOf(p, d)) return; var mine = winsOf(p, d).filter(function (w) { return w.room === r.id; }); if (mine.length) { wins = wins.concat(mine); offs = offs.concat(offsOf(p, d)); } });
+      return { key: "r" + r.id, label: r.name, wins: wins, offs: offs, books: live.filter(function (b) { return b.roomId === r.id || (!b.roomId && b.roomName === r.name); }) };
+    });
+    var loose = live.filter(function (b) { return !b.roomId && !rooms.some(function (r) { return r.name === b.roomName; }); });
+    if (loose.length && fl.charAt(0) !== "r") cols.push({ key: "r0", label: "No room", wins: [], offs: [], books: loose });
+    return cols;
+  }
+  // Free stretches of a column: working windows minus bookings and blocked time; today, never before now.
+  function gapsOf(col, d) {
+    if (col.away) return [];
+    var t = todayStr(), floor = d === t ? Math.ceil((minOf(nowHM()) + 1) / 5) * 5 : d < t ? Infinity : 0;
+    var busy = col.books.map(function (b) { return [minOf(b.start), minOf(b.end)]; }).concat(col.offs.map(function (o) { return [o.a, o.b]; }));
+    var out = [];
+    col.wins.forEach(function (w) {
+      var segs = [[Math.max(w.a, floor), w.b]];
+      busy.forEach(function (x) { var nx = []; segs.forEach(function (s) { if (x[1] <= s[0] || x[0] >= s[1]) nx.push(s); else { if (x[0] > s[0]) nx.push([s[0], x[0]]); if (x[1] < s[1]) nx.push([x[1], s[1]]); } }); segs = nx; });
+      segs.forEach(function (s) { if (s[1] - s[0] >= 5) out.push({ a: s[0], b: s[1], pid: w.pid }); });
+    });
+    out.sort(function (x, y) { return x.a - y.a; });
+    // the same stretch twice (two sessions in one room): once
+    return out.filter(function (g, i) { return !out.slice(0, i).some(function (h) { return h.a === g.a && h.b === g.b && h.pid === g.pid; }); });
+  }
+  function freeMin(cols, d) { return cols.reduce(function (n, c) { return n + gapsOf(c, d).reduce(function (m, g) { return m + g.b - g.a; }, 0); }, 0); }
+
+  // What the customer has been told and said, in words (never colour alone).
+  function remState(b) {
+    if (b.status === "confirmed") return "confirmed";
+    if (b.status !== "booked" || b.date < todayStr()) return "";
+    if (b.date > addDays(todayStr(), 1) && (!S.mail || !S.mail.on || !b.personEmail)) return ""; // a call is for today and tomorrow, not every day ahead
+    var ms = (S.messages || {})[b.id] || [], rem = ms.filter(function (m) { return /^remind/.test(m.kind); }).pop();
+    if (rem && rem.status === "sent") return "reminded";
+    var mail = S.mail;
+    if (!b.personEmail) return "call:no e-mail";
+    if (mail && !mail.on) return "call:e-mails are off";
+    if (rem && rem.status === "failed") return "call:the reminder did not go";
+    // still to come: the evening before (from 18:00), or the hours before on the day itself
+    var t = todayStr(), comes = mail && ((b.date > t && mail.evening && !(b.date === addDays(t, 1) && minOf(nowHM()) >= 19 * 60)) || (mail.hours > 0 && (b.date > t || minOf(b.start) - mail.hours * 60 > minOf(nowHM()) - 15)));
+    return comes ? "due" : "call:not reminded";
+  }
+  function markOf(b) {
+    if (b.status === "arrived") return ["Here", "ok"];
+    if (b.status === "done") return ["Done", "mut"];
+    if (b.status === "no_show") return ["No-show", "bad"];
+    if (b.status === "confirmed") return ["Confirmed", "ok"];
+    if (b.status === "booked" && b.date < todayStr()) return ["Not marked", "mut"];
+    var r = remState(b);
+    if (r === "reminded") return ["Reminded", "mut"];
+    if (r.indexOf("call:") === 0) return ["To call", "warn"];
+    return null;
+  }
+  function calHtml(list) {
+    var d = S.date, cols = columnsFor(d, list), t = todayStr(), past = d < t;
+    if (!cols.length) return '<div class="bkx-sec"><div class="bkx-g"><div class="bkx-empty">Nobody to show. ' + (isAdmin() ? "Add a practitioner in Bookings settings › People." : "") + "</div></div></div>";
+    var lo = Infinity, hi = -Infinity;
+    cols.forEach(function (c) {
+      c.wins.forEach(function (w) { lo = Math.min(lo, w.a); hi = Math.max(hi, w.b); });
+      c.books.forEach(function (b) { lo = Math.min(lo, minOf(b.start)); hi = Math.max(hi, minOf(b.end)); });
+      c.offs.forEach(function (o) { lo = Math.min(lo, o.a); hi = Math.max(hi, o.b); });
+    });
+    var closed = !isFinite(lo);
+    if (closed) { lo = 9 * 60; hi = 13 * 60; }
+    lo = Math.floor(lo / 60) * 60; hi = Math.max(lo + 60, Math.ceil(hi / 60) * 60);
+    var H = (hi - lo) * PXM, y = function (m) { return (m - lo) * PXM; };
+    var head = '<div class="bkx-calh"><div class="bkx-axh"></div>' + cols.map(function (c) {
+      var n = c.books.length, f = past ? 0 : freeMin([c], d);
+      var sub = c.away ? "Away" + (c.away.note ? " · " + c.away.note : "") : (n ? n + " booked" : "Nothing booked") + (past || !c.wins.length ? "" : " · " + (f ? dur(f) + " free" : "full"));
+      return '<div class="bkx-ch"><b>' + esc(c.label) + "</b><span>" + esc(sub) + "</span></div>";
+    }).join("") + "</div>";
+    var axis = '<div class="bkx-ax" aria-hidden="true">';
+    for (var m = lo; m < hi; m += 60) axis += '<span style="top:' + y(m) + 'px">' + hm(m) + "</span>";
+    axis += "</div>";
+    var nowM = minOf(nowHM());
+    var body = cols.map(function (c) {
+      var h = '<div class="bkx-col" style="height:' + H + 'px">';
+      c.wins.forEach(function (w) { h += '<div class="bkx-open" style="top:' + y(w.a) + "px;height:" + (w.b - w.a) * PXM + 'px"></div>'; });
+      if (!past) gapsOf(c, d).forEach(function (g) {
+        var p = prov(g.pid) || {}, lab = "Free " + hm(g.a) + " to " + hm(g.b) + (p.name ? " with " + plabel(p) : "") + ". Book";
+        h += '<button class="bkx-free" data-act="tap" data-pid="' + g.pid + '" data-a="' + g.a + '" data-b="' + g.b + '" style="top:' + y(g.a) + "px;height:" + (g.b - g.a) * PXM + 'px" aria-label="' + esc(lab) + '"><span>' + ((g.b - g.a) >= 15 ? "Free · " + hm(g.a) : "") + "</span><i>+ Book</i></button>";
+      });
+      c.offs.forEach(function (o) {
+        h += '<button class="bkx-offb" data-act="exc" data-id="' + o.id + '" style="top:' + y(o.a) + "px;height:" + Math.max(18, (o.b - o.a) * PXM) + 'px"><b>' + esc(o.note || "Blocked") + "</b> " + hm(o.a) + "–" + hm(o.b) + "</button>";
+      });
+      if (c.away) h += '<button class="bkx-offb bkx-awayb" data-act="exc" data-id="' + c.away.id + '" style="top:0;height:' + H + 'px"><b>Away</b> ' + esc(c.away.note || "") + "</button>";
+      c.books.forEach(function (b) {
+        var s = svc(b.serviceId) || {}, a = minOf(b.start), z = Math.max(a + 10, minOf(b.end)), mk = markOf(b), ns = (S.noShows || {})[b.id], small = (z - a) * PXM < 44;
+        h += '<button class="bkx-ev' + (small ? " sm" : "") + (b.status === "done" || b.status === "no_show" ? " dim" : "") + '" data-act="open" data-id="' + b.id + '" style="top:' + y(a) + "px;height:" + ((z - a) * PXM - 2) + "px;--c:" + svcColor(s) + '">' +
+          "<b>" + esc(b.start) + " " + esc(b.personName) + "</b><span>" + esc(s.name || "Booking") + (b.walkIn ? " · walk-in" : "") + (b.seriesId ? " · repeats" : "") +
+          (mk ? ' · <em class="' + mk[1] + '">' + mk[0] + "</em>" : "") + (ns ? ' · <em class="warn">missed ' + ns + "</em>" : "") + "</span></button>";
+      });
+      if (d === t && nowM >= lo && nowM <= hi) h += '<div class="bkx-now" style="top:' + y(nowM) + 'px" aria-hidden="true"></div>';
+      return h + "</div>";
+    }).join("");
+    var lbl = "Calendar for " + longDate(d) + (closed ? ". Nobody works this day" : "");
+    return '<div class="bkx-cal" role="region" aria-label="' + esc(lbl) + '" tabindex="-1" style="--cols:' + cols.length + '">' + head + '<div class="bkx-calb" style="height:' + H + 'px">' + axis + body + "</div></div>" +
+      (closed && !past ? '<div class="bkx-note" style="text-align:left;margin:8px 4px 0">Nobody has hours on this day.' + (isAdmin() ? " Add hours in Bookings settings › People, or open another day." : "") + "</div>" : "");
+  }
+  // The line over the calendar: what the day holds, and the reminders: who was reminded, who confirmed, who to call.
+  function daySumHtml(list) {
+    var d = S.date, t = todayStr(), live = list.filter(function (b) { return b.date === d && b.status !== "cancelled"; });
+    var cols = columnsFor(d, list), f = d < t ? 0 : freeMin(cols, d), parts = [];
+    var coming = live.filter(function (b) { return b.status === "booked" || b.status === "confirmed"; });
+    var h = '<div class="bkx-sum"><span>' + live.length + " booked" + (f ? " · " + dur(f) + " free" : "") + ((S.waiting || []).length ? " · " + S.waiting.length + " waiting" : "") + "</span>";
+    if (d >= t && coming.length) {
+      var c = { confirmed: 0, reminded: 0, call: 0, due: 0 };
+      coming.forEach(function (b) { var r = remState(b); c[r.indexOf("call:") === 0 ? "call" : r] = (c[r.indexOf("call:") === 0 ? "call" : r] || 0) + 1; });
+      if (c.confirmed) parts.push(c.confirmed + " confirmed");
+      if (c.reminded) parts.push(c.reminded + " reminded");
+      if (c.due) parts.push(c.due + " to be reminded");
+      if (c.call) parts.push(c.call + " to call");
+      h += '<button class="bkx-remb' + (c.call ? " warn" : "") + '" data-act="calls">' + esc(parts.join(" · ")) + "</button>";
+    }
+    var cancelled = list.filter(function (b) { return b.date === d && b.status === "cancelled"; }).length;
+    if (cancelled) h += '<button class="bkx-dateb" data-act="cancelled" aria-expanded="' + !!S.showCancelled + '">' + cancelled + " cancelled</button>";
+    return h + "</div>";
+  }
+  function callsHtml(sh) {
+    var d = S.date, list = S.bookings.filter(function (b) { return b.date === d && (b.status === "booked" || b.status === "confirmed"); });
+    var groups = [["call", "To call", "No reminder reaches them"], ["reminded", "Reminded, not confirmed yet", ""], ["due", "To be reminded by e-mail", ""], ["confirmed", "Confirmed", ""]];
+    var h = '<div class="bkx-sh"><button class="bkx-btn" data-act="close">Close</button><b>Reminders · ' + esc(dayShort(d)) + '</b><span style="width:60px"></span></div>';
+    if (S.mail && !S.mail.on) h += '<div class="bkx-was">E-mails are not set up here, so nobody is reminded by e-mail.' + (isAdmin() ? " Set them up in Bookings settings › Messages." : "") + "</div>";
+    if (sh.err) h += '<div class="bkx-err" role="alert">' + esc(sh.err) + "</div>";
+    groups.forEach(function (g) {
+      var rows = list.filter(function (b) { var r = remState(b); return g[0] === "call" ? r.indexOf("call:") === 0 : r === g[0]; });
+      if (!rows.length) return;
+      h += '<div class="bkx-lab"><span>' + esc(g[1]) + " · " + rows.length + "</span></div><div class=\"bkx-g\" style=\"margin-bottom:16px\">" + rows.map(function (b) {
+        var why = remState(b).replace(/^call:/, ""), s = svc(b.serviceId) || {};
+        return '<div class="bkx-r"><div class="bkx-time">' + esc(b.start) + '</div><div class="bkx-txt"><b>' + esc(b.personName) + "</b><span>" + esc(s.name || "") + (g[0] === "call" ? " · " + esc(why) : "") + (b.confirmedVia ? " · " + (b.confirmedVia === "customer" ? "on their link" : "by phone") : "") + (b.personPhone ? " · " + telLink(b.personPhone) : "") + "</span></div>" +
+          (b.status === "booked" ? '<button class="bkx-btn tint" data-act="confirm" data-id="' + b.id + '" aria-label="' + esc(b.personName + " said yes: mark confirmed") + '">Confirmed</button>' : "") + "</div>";
+      }).join("") + "</div>";
+    });
+    if (!list.length) h += '<div class="bkx-g"><div class="bkx-empty">Nothing booked on this day.</div></div>';
+    return h + '<div class="bkx-note">Called someone and they are coming? Press Confirmed beside their name.</div>';
+  }
+  function cancelledHtml(list) {
+    var rows = list.filter(function (b) { return b.date === S.date && b.status === "cancelled"; });
+    if (!S.showCancelled || !rows.length) return "";
+    return '<div class="bkx-sec" style="margin-top:16px"><h2>Cancelled</h2><div class="bkx-g">' + rows.map(function (b) { return rowHtml(b, true, true); }).join("") + "</div></div>";
+  }
+
+  // ---------- old Appointments: the one-time move ----------
+  // Checked once per session for the pharmacist (a dry run reads the old tables and writes nothing to them). While the
+  // old screen still holds appointments that are not in Bookings, a card says how many and brings them over in one tap.
+  function legKey() { var u = (E.state && E.state.user) || {}; return "eikon_bk_legacy_" + (u.org_id || "") + "_" + (u.location_id || ""); }
+  async function checkLegacy() {
+    if (!isAdmin() || S.legacyAsked) return; S.legacyAsked = true;
+    try { if (sessionStorage.getItem(legKey()) === "0") return; } catch (e) {}
+    try {
+      var r = await api("/bookings/import-legacy?dry=1", { method: "POST", body: "{}" }), rp = (r && r.report) || {};
+      if (rp.bookings || rp.waiting) { S.legacy = { report: rp }; paint(); }
+      else { try { sessionStorage.setItem(legKey(), "0"); } catch (e) {} }
+    } catch (e) {}
+  }
+  function legacyHtml() {
+    var L = S.legacy; if (!L) return "";
+    var pl = function (n, one, many) { return n + " " + (n === 1 ? one : many); };
+    if (L.done) {
+      var d = L.done;
+      return '<div class="bkx-leg" role="status"><b>Your old appointments are in Bookings</b><div class="sub">' + esc(pl(d.bookings, "appointment", "appointments") + (d.upcoming ? ", " + d.upcoming + " still to come" : "") + (d.waiting ? ", " + pl(d.waiting, "person", "people") + " waiting" : "") +
+        ". The old Appointments are unchanged. Check each person’s hours once.") + '</div><div class="bkx-legb"><button class="bkx-btn fill" data-act="leg-hours">Check hours</button><button class="bkx-btn" data-act="leg-ok">OK</button></div></div>';
+    }
+    var r = L.report, what = [pl(r.bookings, "appointment", "appointments") + (r.upcoming ? " (" + r.upcoming + " still to come)" : "")];
+    if (r.providers) what.push(pl(r.providers, "doctor", "doctors"));
+    if (r.waiting) what.push(pl(r.waiting, "person", "people") + " on the waiting list");
+    var fresh = !(S.setup && S.setup.services.length);
+    return '<div class="bkx-leg"><b>Bring your old appointments into Bookings</b><div class="sub">The old Appointments screen has ' + esc(joinAnd(what)) + " not in Bookings yet. " +
+      (fresh ? "Doctors, hours and services come with them, so there is nothing else to set up. " : "") +
+      "Eikon copies them; the old Appointments are not changed or deleted, and doing it again never copies twice.</div>" +
+      (L.err ? '<div class="bkx-err" role="alert" style="margin:10px 0 0">' + esc(L.err) + "</div>" : "") +
+      '<div class="bkx-legb"><button class="bkx-btn fill" data-act="leg-run"' + (L.running ? " disabled" : "") + ">" + (L.running ? "Bringing them over…" : "Bring them over") + '</button><button class="bkx-btn" data-act="leg-later">Not now</button></div></div>';
+  }
+
+  // ---------- walk-in, blocking time ----------
+  function walkinHtml(sh) {
+    var services = S.setup.services.filter(function (x) { return x.active; });
+    var h = '<div class="bkx-sh"><button class="bkx-btn" data-act="close">Cancel</button><b>Walk-in</b><span style="width:70px"></span></div>' +
+      '<div class="bkx-was">Someone at the counter now: it starts now with whoever does it and is free, and is marked Here.</div>' +
+      '<div class="bkx-lab">What</div><div class="bkx-svcs">' + services.map(function (x) {
+        return '<button class="bkx-svc' + (x.id === sh.serviceId ? " on" : "") + '" data-act="w-svc" data-id="' + x.id + '" aria-pressed="' + (x.id === sh.serviceId) + '"><b>' + esc(x.name) + "</b><span>" + x.durationMin + " min · " + money(x.priceCents) + "</span></button>"; }).join("") + "</div>" +
+      '<div class="bkx-lab">Who</div><div class="bkx-f">' +
+      '<label><span>Name</span><input id="bkx-name" name="personName" autocomplete="off" autocapitalize="words" enterkeyhint="go" value="' + esc(sh.name || "") + '" placeholder="Full name"></label>' +
+      '<label><span>Mobile</span><input id="bkx-phone" name="personPhone" type="tel" inputmode="tel" autocomplete="off" enterkeyhint="go" value="' + esc(sh.phone || "") + '" placeholder="Optional"></label></div>' +
+      histHtml(sh) +
+      (sh.err ? '<div class="bkx-err" role="alert">' + esc(sh.err) + "</div>" : "") +
+      (sh.next && sh.next.length ? '<div class="bkx-slots">' + sh.next.map(function (x, i) { return '<button class="bkx-slot" data-act="w-next" data-i="' + i + '">Book ' + esc(x.time) + "<small>" + esc((prov(x.providerId) || {}).name || x.providerName || "") + "</small></button>"; }).join("") + "</div>" : "") +
+      '<button class="bkx-btn fill lg" data-act="w-go"' + (sh.saving ? " disabled" : "") + ">" + (sh.saving ? "Starting…" : "Start now") + "</button>";
+    return h;
+  }
+  var WHY = ["Lunch", "Break", "Training", "Meeting"];
+  function blockHtml(sh) {
+    var provs = (S.setup.providers || []).filter(function (p) { return p.active !== false; });
+    return '<div class="bkx-sh"><button class="bkx-btn" data-act="close">Cancel</button><b>Block time</b><span style="width:70px"></span></div>' +
+      '<div class="bkx-was">' + esc(longDate(sh.date)) + ". Nobody can book this time; bookings already in it stay.</div>" +
+      '<div class="bkx-f"><label><span>Who</span><select id="bkx-b-pid">' + provs.map(function (p) { return '<option value="' + p.id + '"' + (p.id === sh.pid ? " selected" : "") + ">" + esc(plabel(p)) + "</option>"; }).join("") + "</select></label>" +
+      '<label><span>From</span><input id="bkx-b-from" type="time" step="300" value="' + esc(sh.from) + '"></label>' +
+      '<label><span>To</span><input id="bkx-b-to" type="time" step="300" value="' + esc(sh.to) + '"></label>' +
+      '<label style="align-items:flex-start;padding-top:10px;padding-bottom:10px"><span>Why</span><div class="bkx-chips">' + WHY.map(function (w) { return '<button type="button" class="bkx-chip' + (sh.note === w ? " on" : "") + '" data-act="b-why" data-w="' + w + '" aria-pressed="' + (sh.note === w) + '">' + w + "</button>"; }).join("") + "</div></label>" +
+      '<label><span>Or</span><input id="bkx-b-note" value="' + esc(WHY.indexOf(sh.note) >= 0 ? "" : sh.note || "") + '" placeholder="Another reason" enterkeyhint="done"></label></div>' +
+      (sh.err ? '<div class="bkx-err" role="alert">' + esc(sh.err) + "</div>" : "") +
+      '<button class="bkx-btn fill lg" data-act="b-go"' + (sh.saving ? " disabled" : "") + ">" + (sh.saving ? "Blocking…" : "Block " + esc(sh.from) + "–" + esc(sh.to)) + "</button>";
+  }
+  function excHtml(sh) {
+    var e = (S.exc || []).find(function (x) { return x.id === sh.id; }); if (!e) return "";
+    var p = prov(e.providerId) || {};
+    return '<div class="bkx-sh"><button class="bkx-btn" data-act="close">Close</button><b>' + esc(e.start ? (e.note || "Blocked") : "Away") + '</b><span style="width:60px"></span></div>' +
+      '<div class="bkx-g" style="padding:16px 18px;margin-bottom:16px"><div style="font-size:20px;font-weight:700">' + esc(plabel(p)) + '</div><div class="sub">' + esc(longDate(e.date)) + " · " + esc(e.start ? e.start + "–" + e.end : "all day") + (e.note && e.start ? "" : e.note ? " · " + esc(e.note) : "") + "</div></div>" +
+      (sh.err ? '<div class="bkx-err" role="alert">' + esc(sh.err) + "</div>" : "") +
+      (isAdmin() && e.date >= todayStr() ? '<div class="bkx-acts"><button class="bkx-btn red lg" data-act="unblock">Unblock</button></div><div class="bkx-note">Unblocking opens the time for bookings again. Bookings cancelled when it was blocked stay cancelled.</div>' : '<div class="bkx-note">' + (isAdmin() ? "A past day is shown as it was." : "Your pharmacist can change blocked time.") + "</div>");
+  }
+  // A customer's record here (no-shows) under the name, when it is known: from the booking or typed in New booking.
+  function histHtml(sh) {
+    var h = sh.hist; if (!h || !h.total) return "";
+    // on a booking's own sheet, the record is the other bookings: this one is not "before"
+    var me = sh.kind === "booking" ? S.bookings.find(function (x) { return x.id === sh.id; }) : null;
+    var tot = h.total - (me && me.status !== "cancelled" ? 1 : 0), ns = h.noShows - (me && me.status === "no_show" ? 1 : 0);
+    if (tot <= 0) return "";
+    var bad = ns > 0;
+    return '<div class="bkx-hist' + (bad ? " warn" : "") + '" role="status">' + (bad ? "Missed " + ns + " of " + tot + (tot === 1 ? " other booking" : " other bookings") + (h.lastNoShow ? ", last on " + esc(shortDate(h.lastNoShow)) : "") : tot + (tot === 1 ? " other booking" : " other bookings") + ", none missed") + (h.by === "name" ? " (same name)" : "") + "</div>";
+  }
+  async function loadHist(sh, who) {
+    var q = [];
+    if (who.idCard) q.push("card=" + encodeURIComponent(who.idCard));
+    if (who.email) q.push("email=" + encodeURIComponent(who.email));
+    if (String(who.phone || "").replace(/\D/g, "").length >= 6) q.push("phone=" + encodeURIComponent(who.phone));
+    if (!q.length && String(who.name || "").trim().length >= 3) q.push("name=" + encodeURIComponent(who.name));
+    var key = q.join("&"); if (!key || sh.histKey === key) return; sh.histKey = key;
+    try { var r = await api("/bookings/person?" + key); if (S.sheet === sh && sh.histKey === key) { sh.hist = r; paint(); } } catch (e) {}
+  }
+  // The booking sheet's lines on reminders, confirmation, repeats and no-shows.
+  function bookingFacts(b) {
+    var out = [], ms = (S.messages || {})[b.id] || [], last = function (k) { return ms.filter(function (m) { return m.kind === k || (k === "remind" && /^remind/.test(m.kind)); }).pop(); };
+    var cf = last("confirm"), rm = last("remind");
+    if (b.walkIn) out.push("Walk-in");
+    if (b.seriesId) { var all = S.bookings.filter(function (x) { return x.seriesId === b.seriesId && x.status !== "cancelled"; }); out.push("Repeats" + (all.length > 1 ? " · " + all.length + " in view" : "")); }
+    if (b.status === "confirmed") out.push(b.confirmedVia === "customer" ? "Confirmed by the customer on their link" : b.confirmedVia === "staff" ? "Confirmed by phone" : "Confirmed");
+    if (rm) out.push(rm.status === "sent" ? "Reminder e-mailed" : rm.status === "failed" ? "The reminder e-mail did not go" : "Reminder being sent");
+    else if (cf) out.push(cf.status === "sent" ? "Booking e-mail sent" : cf.status === "failed" ? "The booking e-mail did not go" : "");
+    var r = remState(b); if (r.indexOf("call:") === 0) out.push("To call: " + r.slice(5));
+    return out.filter(Boolean);
+  }
+
   function setupHtml() {
     // Only the pharmacist can create services (the server refuses others): staff get a plain note, not a form that fails.
-    if (!isAdmin()) return '<div class="bkx-sec"><div class="bkx-g" style="padding:20px 18px;max-width:560px"><div style="font-size:20px;font-weight:700;margin-bottom:4px">Bookings is not set up yet</div><div class="sub">Your pharmacist can set it up here in a minute: one service and who does it. Until then, appointments stay in the Appointments register.</div></div></div>';
+    if (!isAdmin()) return '<div class="bkx-sec"><div class="bkx-g" style="padding:20px 18px;max-width:560px"><div style="font-size:20px;font-weight:700;margin-bottom:4px">Bookings is not set up yet</div><div class="sub">Your pharmacist can set it up here in a minute: one service and who does it. Until then, the old Appointments screen still works.</div>' + (E.openClassic ? '<div style="margin-top:12px"><button class="bkx-btn" data-act="old-appts">Open the old Appointments</button></div>' : "") + "</div></div>";
     return '<div class="bkx-sec"><div class="bkx-g" style="padding:20px 18px;max-width:560px">' +
       '<div style="font-size:20px;font-weight:700;margin-bottom:4px">Set up bookings</div>' +
       '<div class="sub" style="margin-bottom:16px">One service and who does it. You can add more later.</div>' +
@@ -241,6 +560,13 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       (S.sheetErr ? '<div class="bkx-err">' + esc(S.sheetErr) + "</div>" : "") +
       '<button class="bkx-btn fill lg" data-act="setup">Start taking bookings</button></div></div>';
   }
+  // The calendar opens at the work: today at the hour now, another day at its first booking or session.
+  function scrollCal() {
+    var cal = S.mount && S.mount.querySelector(".bkx-cal"); if (!cal) return;
+    var key = S.date + "|" + S.view + "|" + (S.filter || "") + "|" + S.by; if (S.calKey === key) return; S.calKey = key;
+    var tgt = cal.querySelector(".bkx-now") || cal.querySelector(".bkx-ev") || cal.querySelector(".bkx-free");
+    if (tgt && cal.scrollHeight > cal.clientHeight + 4) cal.scrollTop = Math.max(0, tgt.offsetTop - 60);
+  }
   function paint() {
     if (!S.mount) return;
     if (E.state.activeModuleId !== "bookings") return; // left before a reply came back: do not draw over the next screen
@@ -249,43 +575,54 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     var isToday = S.date === todayStr(), now = nowHM(), pastDay = S.view === "day" && S.date < todayStr();
     // With several practitioners (or rooms), the day can be narrowed to one; the choice is kept while you move between days.
     var provsAll = (S.setup && S.setup.providers || []).filter(function (p) { return p.active !== false; });
-    var roomsSeen = {}; S.bookings.forEach(function (b) { if (b.roomName) roomsSeen[b.roomName] = 1; });
+    var roomsSeen = {}; S.bookings.forEach(function (b) { if (b.roomName) roomsSeen[b.roomName] = 1; }); (S.rooms || []).forEach(function (r) { roomsSeen[r.name] = 1; });
     var fl = S.filter || "";
+    var match = function (b) { return !fl || (fl.charAt(0) === "p" ? String(b.providerId) === fl.slice(2) : b.roomName === fl.slice(2)); };
     // a past day shows everything that was booked, cancelled ones too, each with what happened (read only)
-    var list = S.bookings.filter(function (b) { return (pastDay || b.status !== "cancelled") && (!fl || (fl.charAt(0) === "p" ? String(b.providerId) === fl.slice(2) : b.roomName === fl.slice(2))); });
+    var list = S.bookings.filter(function (b) { return (pastDay || b.status !== "cancelled") && match(b); });
     var nBooked = list.filter(function (b) { return b.status !== "cancelled"; }).length;
-    var up = list.filter(function (b) { return !isToday || b.end > now; });
-    var past = list.filter(function (b) { return isToday && b.end <= now; });
     var hasSetup = S.setup && S.setup.services.length;
     var body = "";
     if (S.error) body = '<div class="bkx-sec"><div class="bkx-g"><div class="bkx-empty">' + esc(S.error) + "</div></div></div>";
-    else if (S.setup && !hasSetup) body = setupHtml();
+    else if (S.setup && !hasSetup) body = legacyHtml() + setupHtml();
     else if (!S.setup) body = '<div class="bkx-sec"><div class="bkx-g"><div class="bkx-empty">Loading…</div></div></div>';
-    else if (S.view === "week") body = weekHtml(list);
     else {
-      var opts = provsAll.length > 1 || Object.keys(roomsSeen).length > 1 ? [["", "Everyone"]].concat(provsAll.length > 1 ? provsAll.map(function (p) { return ["p:" + p.id, plabel(p)]; }) : []).concat(Object.keys(roomsSeen).length > 1 ? Object.keys(roomsSeen).sort().map(function (r) { return ["r:" + r, r]; }) : []) : [];
-      body = (opts.length ? '<div class="bkx-chips" style="margin:0 0 14px">' + opts.map(function (o) { return '<button class="bkx-chip' + (fl === o[0] ? " on" : "") + '" data-act="filter" data-f="' + esc(o[0]) + '" aria-pressed="' + (fl === o[0]) + '">' + esc(o[1]) + "</button>"; }).join("") + "</div>" : "") +
-        '<div class="bkx-sec"><h2>' + (isToday ? "Next" : "Booked") + "</h2><div class=\"bkx-g\">" +
-        (up.length ? up.map(function (b) { return rowHtml(b, false, pastDay); }).join("") : '<div class="bkx-empty">' + (isToday ? "Nothing else booked today." : pastDay ? "Nothing was booked on this day." : "Nothing booked on this day.") + "</div>") + "</div></div>";
-      if ((S.waiting || []).length) body += '<div class="bkx-sec"><h2>Waiting</h2><div class="bkx-g">' + S.waiting.map(function (w) {
-        var sv = svc(w.serviceId) || {}, days = Math.max(0, Math.round((Date.now() - Date.parse(String(w.createdAt).replace(" ", "T") + "Z")) / 86400000));
-        return '<div class="bkx-r"><div class="bkx-time" style="color:var(--l2)">' + (days ? days + "d" : "new") + '</div><div class="bkx-bar" style="background:' + svcColor(sv) + '"></div>' +
-          '<div class="bkx-txt"><b>' + esc(w.personName) + "</b><span>" + esc(sv.name || "") + (w.note ? " · " + esc(w.note) : "") + "</span></div>" +
-          '<button class="bkx-btn tint" data-act="wl-book" data-id="' + w.id + '">Book</button><button class="bkx-btn" data-act="wl-remove" data-id="' + w.id + '" aria-label="Remove">✕</button></div>';
-      }).join("") + "</div></div>";
-      if (past.length) body += '<div class="bkx-sec"><h2>Earlier</h2><div class="bkx-g">' + past.map(function (b) { return rowHtml(b, true); }).join("") + "</div></div>";
+      // With several practitioners (or rooms), the calendar can be narrowed to one; the choice is kept from day to day.
+      var seg = S.view === "day" && (S.rooms || []).length, rm = seg && S.by === "room";
+      // the day view's People | Rooms decides what the chips narrow to; the week shows both
+      var pOpts = provsAll.length > 1 && !rm ? provsAll.map(function (p) { return ["p:" + p.id, plabel(p)]; }) : [];
+      var rOpts = Object.keys(roomsSeen).length > 1 && (!seg || rm) ? Object.keys(roomsSeen).sort().map(function (r) { return ["r:" + r, r]; }) : [];
+      var opts = pOpts.length || rOpts.length ? [["", "Everyone"]].concat(pOpts, rOpts) : [];
+      var byRoom = seg;
+      body = legacyHtml() + (opts.length || byRoom ? '<div class="bkx-navrow" style="margin-bottom:12px">' + (opts.length ? '<div class="bkx-chips">' + opts.map(function (o) { return '<button class="bkx-chip' + (fl === o[0] ? " on" : "") + '" data-act="filter" data-f="' + esc(o[0]) + '" aria-pressed="' + (fl === o[0]) + '">' + esc(o[1]) + "</button>"; }).join("") + "</div>" : "") +
+        (byRoom ? '<div class="bkx-seg bkx-view" style="margin-left:auto;flex:0 0 180px" role="group" aria-label="Columns"><button class="' + (S.by !== "room" ? "on" : "") + '" data-act="by" data-v="person" aria-pressed="' + (S.by !== "room") + '">People</button><button class="' + (S.by === "room" ? "on" : "") + '" data-act="by" data-v="room" aria-pressed="' + (S.by === "room") + '">Rooms</button></div>' : "") + "</div>" : "");
+      if (S.view === "week") body += weekHtml(list);
+      else {
+        var fil = S.bookings.filter(match);
+        body += daySumHtml(fil) + calHtml(S.bookings) + cancelledHtml(fil);
+        if ((S.waiting || []).length) {
+          var wpage = E.listPage ? E.listPage.take("bk:wait", S.waiting, {}) : { rows: S.waiting };
+          body += '<div class="bkx-sec" style="margin-top:22px"><h2>Waiting</h2><div class="bkx-g">' + wpage.rows.map(function (w) {
+            var sv = svc(w.serviceId) || {}, days = Math.max(0, Math.round((Date.now() - Date.parse(String(w.createdAt).replace(" ", "T") + "Z")) / 86400000));
+            return '<div class="bkx-r"><div class="bkx-time" style="color:var(--l2)">' + (days ? days + "d" : "new") + '</div><div class="bkx-bar" style="background:' + svcColor(sv) + '"></div>' +
+              '<div class="bkx-txt"><b>' + esc(w.personName) + "</b><span>" + esc(sv.name || "") + (w.note ? " · " + esc(w.note) : "") + (w.personPhone ? " · " + telLink(w.personPhone) : "") + "</span></div>" +
+              '<button class="bkx-btn tint" data-act="wl-book" data-id="' + w.id + '">Book</button><button class="bkx-btn" data-act="wl-remove" data-id="' + w.id + '" aria-label="' + esc("Remove " + w.personName + " from the waiting list") + '">✕</button></div>';
+          }).join("") + "</div>" + (E.listPage && wpage.rows.length < S.waiting.length ? E.listPage.moreHtml("bk:wait", wpage) : "") + "</div>";
+        }
+      }
     }
     var hadSheet = !!S.mount.querySelector(".bkx-sheet"), fk = null, sel = null;
     try { fk = focusKey(document.activeElement); sel = selOf(document.activeElement); } catch (e) {} // keyboard niceties must never stop the screen drawing
     S.mount.innerHTML = '<div class="bkx">' +
       '<div class="bkx-top"><div><h1>Bookings</h1><div class="sub">' + (hasSetup ? dateLineHtml() + " · " + nBooked + " booked" : esc(longDate(S.date))) + "</div></div>" +
-      (hasSetup ? '<div style="display:flex;gap:8px">' + (isAdmin() ? '<button class="bkx-btn bkx-gear" data-act="settings" aria-label="Bookings settings" title="Settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg></button>' : "") + '<button class="bkx-add" data-act="new" aria-label="New booking"><span class="bkx-plus" aria-hidden="true">+</span><span class="bkx-add-l">New booking</span></button></div>' : "") + "</div>" +
+      (hasSetup ? '<div class="bkx-tools">' + (isAdmin() ? '<button class="bkx-btn bkx-gear" data-act="settings" aria-label="Bookings settings" title="Settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg></button>' : "") + '<button class="bkx-walk" data-act="walkin" title="Someone at the counter now">Walk-in</button><button class="bkx-add" data-act="new" aria-label="New booking"><span class="bkx-plus" aria-hidden="true">+</span><span class="bkx-add-l">New booking</span></button></div>' : "") + "</div>" +
       (hasSetup ? navHtml() : "") +
       (hasSetup && S.view === "day" ? daysHtml() : "") + body + "</div>" + sheetHtml();
     restoreSettings();
     try { afterPaint(hadSheet, fk, sel); } catch (e) {}
-    var shEl = S.sheet && S.sheet.kind === "new" && S.mount.querySelector(".bkx-sheet");
-    if (shEl && E.personPick) try { E.personPick.attach({ key: "bookings", form: shEl, fields: { name: "personName", phone: "personPhone" }, onFill: function () { keepFields(); } }); } catch (e) {}
+    var shEl = S.sheet && (S.sheet.kind === "new" || S.sheet.kind === "walkin") && S.mount.querySelector(".bkx-sheet");
+    if (shEl && E.personPick) try { E.personPick.attach({ key: "bookings", form: shEl, fields: { name: "personName", phone: "personPhone" }, onFill: function () { histFromSheet(); } }); } catch (e) {}
+    scrollCal();
   }
 
   // The address in "Test to" (kept across redraws of the sheet); empty means the sign-in email.
@@ -349,8 +686,8 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     }
     if (ev.key === "Enter" && !ev.isComposing && ev.target && ev.target.tagName === "INPUT" && sheet.contains(ev.target)) {
       // Enter in a field does what the big button says: book, add to the waiting list, or cancel (a choice in the people list is taken first, by the list)
-      var go = sheet.querySelector('[data-act="docancel"]') || sheet.querySelector('[data-act="book"]');
-      if (go && !go.disabled && (ev.target.id === "bkx-reason" || /^bkx-(name|phone|email)$/.test(ev.target.id))) { ev.preventDefault(); go.click(); }
+      var go = sheet.querySelector('[data-act="docancel"]') || sheet.querySelector('[data-act="book"]') || sheet.querySelector('[data-act="w-go"]') || sheet.querySelector('[data-act="b-go"]');
+      if (go && !go.disabled && (ev.target.id === "bkx-reason" || /^bkx-(name|phone|email|b-note|b-from|b-to)$/.test(ev.target.id))) { ev.preventDefault(); go.click(); }
       return;
     }
     if (ev.key !== "Tab") return;
@@ -366,23 +703,33 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     var sh = S.sheet; if (!sh) return "";
     var inner = "";
     if (sh.kind === "new") {
-      var services = S.setup.services.filter(function (x) { return x.active; });
-      var chosen = svc(sh.serviceId);
+      // From a tap on the calendar (sh.day, sh.pid): that person's services and that day's free times, the one under
+      // the finger chosen. Otherwise the next free times from today, whoever is free.
+      var services = S.setup.services.filter(function (x) { return x.active && (!sh.pid || (x.providerIds || []).indexOf(sh.pid) >= 0); });
+      var chosen = svc(sh.serviceId), sp = sh.pid && prov(sh.pid);
+      var waitFor = sh.waitlistId ? [] : (S.waiting || []).filter(function (w) { return w.serviceId === sh.serviceId; });
+      var rp = Number(sh.repeat) || 0, rn = Number(sh.repeatN) || 6, every = ["", "every week", "every 2 weeks", "every 3 weeks", "every 4 weeks"][rp / 7] || "";
       inner = '<div class="bkx-sh"><button class="bkx-btn" data-act="close">Cancel</button><b>New booking</b><span style="width:70px"></span></div>' +
         (sh.back ? '<p class="bkx-back" role="status"><span>Your unsaved booking is back</span><span aria-hidden="true">·</span><button type="button" data-act="draft-clear">Clear</button></p>' : "") +
         '<div class="bkx-lab">What</div><div class="bkx-svcs">' + services.map(function (x) {
           return '<button class="bkx-svc' + (x.id === sh.serviceId ? " on" : "") + '" data-act="svc" data-id="' + x.id + '"><b>' + esc(x.name) + "</b><span>" + x.durationMin + " min · " + money(x.priceCents) + "</span></button>"; }).join("") + "</div>" +
-        '<div class="bkx-lab">When' + (sh.slot ? "<b style=\"color:var(--t);text-transform:none;letter-spacing:0\">" + esc((prov(sh.slot.providerId) || {}).name || "") + "</b>" : "") + "</div>" +
+        '<div class="bkx-lab" style="align-items:center"><span>When' + (sh.day ? " · " + esc(shortDate(sh.day)) + (sp ? " with " + esc(plabel(sp)) : "") : "") + "</span>" + (sh.day ? '<button class="bkx-link" data-act="anyday" style="text-transform:none;letter-spacing:0;min-height:32px">Any day</button>' : (sh.slot ? "<b style=\"color:var(--t);text-transform:none;letter-spacing:0\">" + esc((prov(sh.slot.providerId) || {}).name || "") + "</b>" : "")) + "</div>" +
         '<div class="bkx-slots">' + (sh.slotsLoading ? '<span class="sub">Finding free times…</span>' : (sh.slots || []).length ? sh.slots.map(function (x, i) {
           var on = sh.slot && sh.slot.date === x.date && sh.slot.time === x.time && sh.slot.providerId === x.providerId;
-          return '<button class="bkx-slot' + (on ? " on" : "") + '" data-act="slot" data-i="' + i + '">' + esc(x.time) + "<small>" + esc(dayShort(x.date)) + "</small></button>"; }).join("") : '<span class="sub">No free times in the next three weeks.</span>') + "</div>" +
+          return '<button class="bkx-slot' + (on ? " on" : "") + '" data-act="slot" data-i="' + i + '" aria-pressed="' + !!on + '">' + esc(x.time) + (sh.day ? "" : "<small>" + esc(dayShort(x.date)) + "</small>") + "</button>"; }).join("") : '<span class="sub">' + (sh.day ? "No free time for this on " + esc(shortDate(sh.day)) + (sp ? " with " + esc(plabel(sp)) : "") + ". Press Any day." : "No free times in the next three weeks.") + "</span>") + "</div>" +
+        // Repeat: the same time every week (or 2, 3, 4 weeks), a few times. Weekly injections, B12, dressings.
+        '<div class="bkx-rep"><label for="bkx-rep" class="sub" style="font-weight:600">Repeat</label><select id="bkx-rep">' + [[0, "Just once"], [7, "Every week"], [14, "Every 2 weeks"], [21, "Every 3 weeks"], [28, "Every 4 weeks"]].map(function (o) { return '<option value="' + o[0] + '"' + (rp === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>" +
+        (rp ? '<select id="bkx-repn" aria-label="How many times in all">' + [2, 3, 4, 5, 6, 8, 10, 12].map(function (n) { return '<option value="' + n + '"' + (rn === n ? " selected" : "") + ">" + n + " times</option>"; }).join("") + "</select>" : "") + "</div>" +
+        (waitFor.length ? '<div class="bkx-lab">Waiting for this</div><div class="bkx-wl">' + waitFor.slice(0, 6).map(function (w) { return '<button class="bkx-chip" data-act="wl-pick" data-id="' + w.id + '">' + esc(w.personName) + "</button>"; }).join("") + "</div>" : "") +
         '<div class="bkx-lab">Who</div><div class="bkx-f">' +
         '<label><span>Name</span><input id="bkx-name" name="personName" autocomplete="off" autocapitalize="words" enterkeyhint="done" value="' + esc(sh.name || "") + '" placeholder="Full name"></label>' +
         '<label><span>Mobile</span><input id="bkx-phone" name="personPhone" type="tel" inputmode="tel" autocomplete="off" enterkeyhint="done" value="' + esc(sh.phone || "") + '" placeholder="Optional"></label>' +
         '<label><span>Email</span><input id="bkx-email" name="personEmail" type="email" inputmode="email" autocapitalize="off" spellcheck="false" autocomplete="off" enterkeyhint="done" value="' + esc(sh.email || "") + '" placeholder="Optional"></label></div>' +
+        histHtml(sh) +
         (sh.err ? '<div class="bkx-err" role="alert">' + esc(sh.err) + "</div>" : "") +
-        '<button class="bkx-btn fill lg" data-act="book"' + (sh.saving ? " disabled" : "") + ">" + (sh.saving ? "Booking…" : sh.slot ? "Book " + esc(dayShort(sh.slot.date)) + " at " + esc(sh.slot.time) : "Book " + esc(chosen ? chosen.name.toLowerCase() : "")) /* the service is chosen just above: the button says when, on one line */ + "</button>" +
-        (sh.waitlistId ? "" : '<button class="bkx-btn lg" data-act="wl-add" style="margin-top:8px">No time suits? Add to the waiting list</button>');
+        '<button class="bkx-btn fill lg" data-act="book"' + (sh.saving ? " disabled" : "") + ">" + (sh.saving ? "Booking…" : sh.slot ? (rp ? "Book " + rn + " times, " + every + ", from " + esc(dayShort(sh.slot.date)) + " at " + esc(sh.slot.time) : "Book " + esc(dayShort(sh.slot.date)) + " at " + esc(sh.slot.time)) : "Book " + esc(chosen ? chosen.name.toLowerCase() : "")) /* the service is chosen just above: the button says when, on one line */ + "</button>" +
+        (sh.waitlistId ? "" : '<button class="bkx-btn lg" data-act="wl-add" style="margin-top:8px">No time suits? Add to the waiting list</button>') +
+        (sh.day && sh.pid && isAdmin() && sh.day >= todayStr() ? '<div style="text-align:center;margin-top:6px"><button class="bkx-link" data-act="block-here">Block this time instead (lunch, training)</button></div>' : "");
     }
     if (sh.kind === "booking") {
       var b = S.bookings.find(function (x) { return x.id === sh.id; }) || sh.b; if (!b) return ""; // sh.b: just moved to a day not on screen
@@ -392,14 +739,16 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       inner = '<div class="bkx-sh"><button class="bkx-btn" data-act="close">Close</button><b>' + (b.date !== todayStr() ? esc(shortDate(b.date)) + " " : "") + esc(b.start) + " · " + esc(s.name || "") + '</b><span style="width:60px"></span></div>' +
         '<div class="bkx-g" style="padding:16px 18px;margin-bottom:16px"><div style="font-size:20px;font-weight:700">' +
         (sh.card ? '<button class="bkx-namebtn" data-act="card" aria-label="' + esc("Open " + b.personName + "’s customer card") + '">' + esc(b.personName) + "</button>" : esc(b.personName)) + '</div><div class="sub">' +
-        [telLink(b.personPhone), esc(b.personEmail || "")].filter(Boolean).join(" · ") + (b.notes ? "<br>" + esc(b.notes) : "") + '</div><div class="sub" style="margin-top:6px">Ref ' + esc(b.ref) + " · " + money(b.priceCents) + "</div></div>" +
+        [telLink(b.personPhone), esc(b.personEmail || "")].filter(Boolean).join(" · ") + (b.notes ? "<br>" + esc(b.notes) : "") + '</div><div class="sub" style="margin-top:6px">Ref ' + esc(b.ref) + " · " + money(b.priceCents) + "</div>" +
+        (bookingFacts(b).length ? '<div class="sub" style="margin-top:6px">' + esc(bookingFacts(b).join(" · ")) + "</div>" : "") + "</div>" +
+        (sh.hist ? histHtml(sh) : (S.noShows || {})[b.id] ? '<div class="bkx-hist warn" role="status">Missed ' + S.noShows[b.id] + " bookings before</div>" : "") +
         (sh.note ? '<div class="bkx-ok" role="status">' + sh.note + "</div>" : "") +
         (pastB || b.status === "cancelled"
           // D3: a past day is read only; a cancelled booking says why
           ? '<div class="bkx-stline" style="color:' + (stl ? stl[1] : "var(--l2)") + '">' + esc(stl ? stl[0] : "Not marked") + (b.status === "cancelled" && b.cancelReason ? '<span style="color:var(--l2);font-weight:400"> · ' + esc(b.cancelReason) + "</span>" : "") + "</div>" +
             (pastB ? '<div class="bkx-note" style="text-align:left;margin:0 4px">A past day is shown as it was.</div>' : "")
           : sh.cancelling
-          ? '<div class="bkx-f"><label><span>Reason</span><input id="bkx-reason" placeholder="e.g. Called to cancel" value="" enterkeyhint="done"></label></div>' + (sh.err ? '<div class="bkx-err" role="alert">' + esc(sh.err) + "</div>" : "") +
+          ? '<div class="bkx-f"><label><span>Reason</span><input id="bkx-reason" placeholder="e.g. Called to cancel" value="" enterkeyhint="done"></label></div>' + (b.personEmail ? tellHtml(b, "cancel") : "") + (sh.err ? '<div class="bkx-err" role="alert">' + esc(sh.err) + "</div>" : "") +
             '<div class="bkx-acts"><button class="bkx-btn red lg" data-act="docancel">Cancel this booking</button><button class="bkx-btn lg" data-act="nocancel">Keep it</button></div>'
           : (sh.err ? '<div class="bkx-err" role="alert">' + esc(sh.err) + "</div>" : "") + '<div class="bkx-acts">' +
             (b.status !== "arrived" && b.status !== "done" ? '<button class="bkx-btn fill lg" data-act="st" data-s="arrived">Arrived</button>' : "") +
@@ -410,10 +759,22 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
             '<button class="bkx-btn red lg" data-act="cancel">Cancel booking</button></div>');
     }
     if (sh.kind === "move") inner = moveHtml(sh);
+    if (sh.kind === "walkin") inner = walkinHtml(sh);
+    if (sh.kind === "block") inner = blockHtml(sh);
+    if (sh.kind === "exc") inner = excHtml(sh);
+    if (sh.kind === "calls") inner = callsHtml(sh);
+    if (sh.kind === "series") {
+      var sr = sh.result, first = sr.series[0] || {}, ssv = svc(first.serviceId) || {};
+      inner = '<div class="bkx-sh"><span style="width:60px"></span><b>Booked ' + sr.series.length + (sr.series.length === 1 ? " time" : " times") + '</b><button class="bkx-btn" data-act="close">Done</button></div>' +
+        '<div class="bkx-was">' + esc(first.personName || "") + " · " + esc(ssv.name || "") + " · " + esc(first.start || "") + "</div>" +
+        '<div class="bkx-g" style="margin-bottom:16px">' + sr.series.map(function (x) { return '<div class="bkx-r"><div class="bkx-time">' + esc(x.start) + '</div><div class="bkx-txt"><b>' + esc(shortDate(x.date)) + "</b></div><em class=\"ok\">Booked</em></div>"; }).join("") + "</div>" +
+        (sr.skipped.length ? '<div class="bkx-lab"><span>Not free at ' + esc(first.start || "") + " · " + sr.skipped.length + '</span></div><div class="bkx-g">' + sr.skipped.map(function (x) { return '<div class="bkx-r"><div class="bkx-txt"><b>' + esc(shortDate(x.date)) + '</b><span>Someone else is booked then</span></div><button class="bkx-btn tint" data-act="sr-find" data-d="' + esc(x.date) + '">Find a time</button></div>'; }).join("") + "</div>" : "") +
+        (sh.note ? '<div class="bkx-note">' + sh.note + "</div>" : "");
+    }
     if (sh.kind === "settings") inner = settingsHtml(sh);
     if (sh.kind === "offer") {
       var o = sh.offer, osv = svc(o.serviceId) || {};
-      inner = '<div class="bkx-sh"><span style="width:60px"></span><b>A time just freed up</b><span style="width:60px"></span></div>' +
+      inner = '<div class="bkx-sh"><span style="width:60px"></span><b>A time just freed up</b><span style="width:60px"></span></div>' + (sh.note ? '<div class="bkx-ok" role="status">' + sh.note + "</div>" : "") +
         '<div class="bkx-g" style="padding:18px"><div style="font-size:20px;font-weight:700">' + esc(dayShort(o.date).replace(/^./, function (c) { return c.toUpperCase(); })) + " at " + esc(o.start) + '</div><div class="sub">' +
         esc(o.personName) + " is first on the waiting list for " + esc((osv.name || "this").toLowerCase()) + (o.personPhone ? " · " + esc(o.personPhone) : "") + "</div></div>" +
         (sh.err ? '<div class="bkx-err" style="margin-top:12px">' + esc(sh.err) + "</div>" : "") +
@@ -456,7 +817,13 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     if (!b.personEmail) return '<div class="bkx-mail"><span>' + esc(b.personName) + " has no e-mail" + call + "</span></div>";
     var ms = S.mailState;
     if (ms && ms.canSend === false) return '<div class="bkx-mail"><span>E-mails are not set up at this pharmacy, so ' + esc(b.personName) + " is not told" + (b.personPhone ? ". Call them: " + telLink(b.personPhone) : "") + '.<small>Set up e-mails in Bookings settings › Messages.</small></span></div>';
-    return '<label class="bkx-mail"><input type="checkbox" checked disabled id="bkx-tell"><span>Tell the customer by e-mail<small>' + esc(b.personEmail) + " · Eikon always tells the customer when a time changes</small></span></label>";
+    return tellHtml(b, "move");
+  }
+  // "Tell the customer by e-mail", on unless the pharmacist is telling them now (on the phone, at the counter): then the
+  // move or cancel is sent with notify: false and no e-mail goes.
+  function tellHtml(b, what) {
+    var on = !(S.sheet && S.sheet.noTell);
+    return '<label class="bkx-mail"><input type="checkbox"' + (on ? " checked" : "") + ' id="bkx-tell"><span>Tell the customer by e-mail<small>' + esc(b.personEmail) + " · untick if you are telling them yourself</small></span></label>";
   }
   // Can this pharmacy send e-mails? Only the pharmacist can read that (Settings › Messages); for others it is learnt
   // from the server's answer to the move.
@@ -487,7 +854,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
   function moveToast(b, u) {
     var when = "Moved to " + shortDate(u.date) + " at " + u.start, who = b.personName, ph = b.personPhone;
     var call = ph ? ": call " + ph : "";
-    return when + ({ sent: " · " + who + " is told by e-mail", "no-email": " · " + who + " has no e-mail" + call, off: " · e-mails are not set up" + call,
+    return when + ({ sent: " · " + who + " is told by e-mail", "not-told": " · no e-mail sent", "no-email": " · " + who + " has no e-mail" + call, off: " · e-mails are not set up" + call,
       "opted-out": " · " + who + " asked for no e-mails" + call, failed: " · the e-mail did not go" + call, error: " · the e-mail did not go" + call })[u.message || ""] || when;
   }
 
@@ -743,16 +1110,28 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
   }
 
   function keepFields() {
-    if (!S.sheet || S.sheet.kind !== "new") return;
+    if (!S.sheet) return;
+    if (S.sheet.kind === "block") return readBlock(S.sheet);
+    if (S.sheet.kind !== "new" && S.sheet.kind !== "walkin") return;
     var g = function (id) { var el = document.getElementById(id); return el ? el.value : undefined; };
-    if (g("bkx-name") !== undefined) { S.sheet.name = g("bkx-name"); S.sheet.phone = g("bkx-phone"); S.sheet.email = g("bkx-email"); }
+    if (g("bkx-name") !== undefined) { S.sheet.name = g("bkx-name"); S.sheet.phone = g("bkx-phone"); if (g("bkx-email") !== undefined) S.sheet.email = g("bkx-email"); }
   }
+  function histFromSheet() { var sh = S.sheet; if (sh && (sh.kind === "new" || sh.kind === "walkin")) { keepFields(); loadHist(sh, { email: sh.email, phone: sh.phone, name: sh.name }); } }
   async function loadSlots() {
     var sh = S.sheet; if (!sh || !sh.serviceId) return;
     sh.slotsLoading = true; paint();
-    try { var r = await api("/bookings/next?service_id=" + sh.serviceId + "&count=6"); sh.slots = r.slots || []; }
-    catch (e) { sh.slots = []; sh.err = errMsg(e); }
-    sh.slotsLoading = false; sh.slot = sh.slots[0] || null; paint();
+    var sid = sh.serviceId, day = sh.day;
+    try {
+      if (day) { // a tap on the calendar: that day's free times with that person, the one nearest the tap chosen
+        var r1 = await api("/bookings/slots?service_id=" + sid + "&date=" + day + (sh.pid ? "&provider_id=" + sh.pid : ""));
+        sh.slots = (r1.slots || []).map(function (x) { return { date: day, time: x.time, providerId: x.providerId, providerName: x.providerName }; });
+      } else { var r = await api("/bookings/next?service_id=" + sid + "&count=6"); sh.slots = r.slots || []; }
+    } catch (e) { sh.slots = []; sh.err = errMsg(e); }
+    if (S.sheet !== sh || sh.serviceId !== sid || sh.day !== day) return;
+    sh.slotsLoading = false;
+    var at = minOf(sh.at), best = null;
+    if (day && isFinite(at)) sh.slots.forEach(function (x) { var dx = minOf(x.time) - at, sc = dx >= 0 ? dx : 1000 - dx; if (!best || sc < best.sc) best = { sc: sc, x: x }; });
+    sh.slot = best ? best.x : sh.slots[0] || null; paint();
   }
 
   // A half-typed New booking closed by Escape or a tap beside it is kept for this person, today, in this tab's memory
@@ -774,11 +1153,159 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     } catch (e) {}
   }
 
+  // ---------- the calendar's actions (2026-11) ----------
+  // Returns false when the action is not one of these, so onClick carries on.
+  async function calClick(act, t, ev) {
+    var sh = S.sheet;
+    if (act === "q58-more") { if (E.listPage) E.listPage.more(t.getAttribute("data-key")); return paint(); }
+    if (act === "old-appts") { if (E.openClassic) E.openClassic("appointments"); return; }
+    if (act === "by") { S.by = t.getAttribute("data-v") === "room" ? "room" : "person"; S.filter = ""; try { localStorage.setItem("eikon_bk_by", S.by); } catch (e) {} return paint(); }
+    if (act === "cancelled") { S.showCancelled = !S.showCancelled; return paint(); }
+    if (act === "calls") { S.sheet = { kind: "calls" }; return paint(); }
+    if (act === "confirm") { // they said yes on the phone
+      var cb = S.bookings.find(function (x) { return x.id === Number(t.getAttribute("data-id")); }); if (!cb) return;
+      t.disabled = true;
+      try {
+        var cu = await api("/bookings/" + cb.id, { method: "PATCH", body: JSON.stringify({ version: cb.version, status: "confirmed" }) });
+        S.bookings = S.bookings.map(function (x) { return x.id === cb.id ? cu.booking : x; }); toast(cb.personName + " is confirmed");
+      } catch (e) { if (S.sheet) S.sheet.err = e && e.status === 409 ? "Someone else changed " + cb.personName + "’s booking. Here it is as it is now." : errMsg(e); await load({ silent: true }); }
+      return paint();
+    }
+    // A tap on free time: New booking for that person, that day, the time under the finger (to the 5 minutes).
+    if (act === "tap") {
+      var pid = Number(t.getAttribute("data-pid")), a = Number(t.getAttribute("data-a")), z = Number(t.getAttribute("data-b")), at = a;
+      if (ev && ev.detail && typeof ev.clientY === "number") { var rc = t.getBoundingClientRect(); at = a + Math.floor(Math.max(0, ev.clientY - rc.top) / PXM / 5) * 5; }
+      at = Math.max(a, Math.min(at, z - 5));
+      var mine = S.setup.services.filter(function (x) { return x.active && (x.providerIds || []).indexOf(pid) >= 0; });
+      var p = prov(pid) || {};
+      if (!mine.length) { toast(plabel(p) + " has no service to book yet. Add one in Bookings settings.", "error"); return; }
+      var last = mine.find(function (x) { return x.id === S.lastSvc; }) || mine[0];
+      S.sheet = { kind: "new", serviceId: last.id, day: S.date, pid: pid, at: hm(at), slots: [], slot: null };
+      paint(); if (E.focusSoon) E.focusSoon(function () { return document.getElementById("bkx-name"); }, 30);
+      return loadSlots();
+    }
+    if (act === "anyday") { sh.day = null; sh.pid = null; sh.at = null; sh.err = ""; return loadSlots(); }
+    if (act === "wl-pick") {
+      var wp = (S.waiting || []).find(function (x) { return x.id === Number(t.getAttribute("data-id")); }); if (!wp) return;
+      sh.name = wp.personName; sh.phone = wp.personPhone; sh.email = wp.personEmail; sh.waitlistId = wp.id; sh.err = "";
+      paint(); loadHist(sh, { email: wp.personEmail, phone: wp.personPhone, name: wp.personName }); return;
+    }
+    if (act === "block-here") {
+      var from = sh.slot ? sh.slot.time : sh.at || "13:00";
+      S.sheet = { kind: "block", pid: sh.pid, date: sh.day, from: from, to: hm(minOf(from) + 60), note: "Lunch" };
+      paint(); if (E.focusSoon) E.focusSoon(function () { return document.getElementById("bkx-b-from"); }, 30); return;
+    }
+    if (act === "b-why") { readBlock(sh); sh.note = t.getAttribute("data-w"); sh.err = ""; return paint(); }
+    if (act === "b-go") return saveBlock(sh);
+    if (act === "exc") { S.sheet = { kind: "exc", id: Number(t.getAttribute("data-id")) }; return paint(); }
+    if (act === "unblock") {
+      var ex = (S.exc || []).find(function (x) { return x.id === sh.id; }); if (!ex) return;
+      t.disabled = true;
+      try { await api("/bookings/exceptions/" + ex.id, { method: "DELETE" }); S.sheet = null; toast("Unblocked: " + (ex.start ? ex.start + "–" + ex.end : "the whole day") + " can be booked again"); return load({ silent: true }); }
+      catch (e) { sh.err = errMsg(e); t.disabled = false; return paint(); }
+    }
+    if (act === "walkin") {
+      var ws = S.setup.services.filter(function (x) { return x.active; });
+      S.sheet = { kind: "walkin", serviceId: (ws.find(function (x) { return x.id === S.lastSvc; }) || ws[0] || {}).id };
+      paint(); if (E.focusSoon) E.focusSoon(function () { return document.getElementById("bkx-name"); }, 30); return;
+    }
+    if (act === "w-svc") { sh.serviceId = Number(t.getAttribute("data-id")); sh.err = ""; sh.next = null; return paint(); }
+    if (act === "w-go") return saveWalkin(sh);
+    if (act === "w-next") { // nobody free now: book the next free time instead, with the person filled in
+      var nx = sh.next[Number(t.getAttribute("data-i"))]; if (!nx) return;
+      S.sheet = { kind: "new", serviceId: sh.serviceId, slots: sh.next, slot: nx, name: sh.name, phone: sh.phone, hist: sh.hist, histKey: sh.histKey }; return paint();
+    }
+    if (act === "sr-find") {
+      var f0 = sh.result.series[0] || {};
+      S.sheet = { kind: "new", serviceId: f0.serviceId, day: t.getAttribute("data-d"), pid: f0.providerId, at: f0.start, slots: [], slot: null, name: f0.personName, phone: f0.personPhone, email: f0.personEmail };
+      paint(); return loadSlots();
+    }
+    if (act === "leg-later") { S.legacy = null; try { sessionStorage.setItem(legKey(), "0"); } catch (e) {} return paint(); }
+    if (act === "leg-ok") { S.legacy = null; return paint(); }
+    if (act === "leg-hours") { S.legacy = null; return openSettings("hours"); }
+    if (act === "leg-run") {
+      var L = S.legacy; if (!L || L.running) return;
+      L.running = true; L.err = ""; paint();
+      try {
+        var ir = await api("/bookings/import-legacy", { method: "POST", body: "{}" });
+        S.legacy = { done: ir.report || {} }; try { sessionStorage.setItem(legKey(), "0"); } catch (e) {}
+        toast("Old appointments brought over");
+        await load({ setup: true, silent: true });
+        if (E.focusSoon) E.focusSoon(function () { return S.mount && S.mount.querySelector('[data-act="leg-hours"]'); }, 0);
+      } catch (e) { L.running = false; L.err = errMsg(e) + ". The old appointments are as they were: try again."; paint(); }
+      return;
+    }
+    return false;
+  }
+  function readBlock(sh) {
+    var g = function (id) { var el = document.getElementById(id); return el ? el.value : undefined; };
+    if (g("bkx-b-pid") !== undefined) { sh.pid = Number(g("bkx-b-pid")); sh.from = g("bkx-b-from"); sh.to = g("bkx-b-to"); var n = String(g("bkx-b-note") || "").trim(); if (n) sh.note = n; }
+  }
+  async function saveBlock(sh) {
+    readBlock(sh); if (sh.saving) return;
+    var a = minOf(sh.from), z = minOf(sh.to);
+    if (!isFinite(a) || !isFinite(z)) { sh.err = "Write the time it starts and ends."; return paint(); }
+    if (z <= a) { sh.err = "The end must be after the start."; return paint(); }
+    // bookings already in that time stay: say so before blocking, rather than leave a customer in blocked time unseen
+    var clash = S.bookings.filter(function (b) { return b.date === sh.date && b.providerId === sh.pid && (b.status === "booked" || b.status === "confirmed") && minOf(b.start) < z && minOf(b.end) > a; });
+    if (clash.length && !sh.clashOk) { sh.clashOk = true; sh.err = clash.map(function (b) { return b.personName + " at " + b.start; }).join(", ") + (clash.length === 1 ? " is" : " are") + " booked then and will stay booked. Press Block again to block the rest, or move them first."; return paint(); }
+    sh.saving = true; sh.err = ""; paint();
+    try {
+      await api("/bookings/exceptions", { method: "POST", body: JSON.stringify({ providerId: sh.pid, date: sh.date, kind: "off", start: hm(a), end: hm(z), note: sh.note || "Blocked" }) });
+      S.sheet = null; toast("Blocked " + hm(a) + "–" + hm(z) + " for " + plabel(prov(sh.pid) || {}) + (sh.note ? " · " + sh.note : ""));
+      return load({ silent: true });
+    } catch (e) { sh.saving = false; sh.err = errMsg(e); return paint(); }
+  }
+  async function saveWalkin(sh) {
+    keepFields(); if (sh.saving) return;
+    var name = String(sh.name || "").trim();
+    if (!name) { sh.err = "Type the person's name."; paint(); var nm = document.getElementById("bkx-name"); if (nm) nm.focus(); return; }
+    sh.saving = true; sh.err = ""; sh.next = null; paint();
+    var day = todayStr(), body = { walkIn: true, serviceId: sh.serviceId, personName: name, personPhone: sh.phone || "" };
+    try {
+      // E.postOnce: a reply lost on a bad line is checked against today's list before anything is sent again
+      var r = E.postOnce ? await E.postOnce("/bookings", body, { list: async function () { return (await api("/bookings?from=" + day + "&to=" + day)).bookings || []; }, same: function (b) { return b.walkIn && b.personName === name && b.serviceId === sh.serviceId; } })
+        : await api("/bookings", { method: "POST", body: JSON.stringify(body) });
+      S.lastSvc = sh.serviceId; S.sheet = null; S.date = day; S.view = "day";
+      if (E.linkPerson) E.linkPerson({ name: name, phone: sh.phone }, "bookings");
+      var wb = r && r.booking;
+      toast(wb ? "Walk-in: " + name + " with " + ((prov(wb.providerId) || {}).name || "") + ", " + wb.start + "–" + wb.end : "Walk-in saved");
+      return load({ silent: true });
+    } catch (e) {
+      sh.saving = false;
+      var nx = e && e.bodyJson && e.bodyJson.next;
+      if (e && e.status === 409) { sh.err = (e.bodyJson && e.bodyJson.error || "Nobody is free right now") + "." + (nx && nx.length ? " The next free times today:" : " Nothing else is free today."); sh.next = nx || []; }
+      else sh.err = E.saveFailText ? E.saveFailText(e) : errMsg(e);
+      return paint();
+    }
+  }
+  // Repeat: one POST books them all; the ones not free come back to be found one by one.
+  async function bookSeries(sh) {
+    var body = { serviceId: sh.serviceId, providerId: sh.slot.providerId, date: sh.slot.date, start: sh.slot.time, personName: sh.name, personPhone: sh.phone, personEmail: sh.email, waitlistId: sh.waitlistId || undefined,
+      repeat: { everyDays: Number(sh.repeat), count: Number(sh.repeatN) || 6 } };
+    try {
+      var r = E.postOnce ? await E.postOnce("/bookings", body, { list: async function () { return (await api("/bookings?from=" + body.date + "&to=" + body.date)).bookings || []; }, same: function (b) { return b.personName === body.personName && b.start === body.start && b.date === body.date && b.status !== "cancelled"; } })
+        : await api("/bookings", { method: "POST", body: JSON.stringify(body) });
+      S.lastSvc = sh.serviceId; S.newDraft = null; S.date = body.date; S.view = "day";
+      if (E.linkPerson) E.linkPerson({ name: sh.name, phone: sh.phone, email: sh.email }, "bookings");
+      if (r && r.series) S.sheet = { kind: "series", result: { series: r.series, skipped: r.skipped || [] }, note: r.message === "sent" ? esc(sh.name) + " is sent one e-mail with every date." : "" };
+      else { S.sheet = null; toast("Booked " + sh.name); }
+      return load({ silent: true });
+    } catch (e) {
+      sh.saving = false;
+      var nx = e && e.bodyJson && e.bodyJson.next;
+      if (e && e.status === 409) { sh.err = "Someone just took the first time. Here are the next free ones."; if (nx && nx.length) { sh.slots = nx; sh.slot = nx[0]; sh.day = null; sh.pid = null; } else return loadSlots(); }
+      else sh.err = E.saveFailText ? E.saveFailText(e) : errMsg(e);
+      return paint();
+    }
+  }
+
   // ---------- actions ----------
   async function onClick(ev) {
     var t = ev.target.closest("[data-act]"); if (!t || !S.mount.contains(t)) return;
     var act = t.getAttribute("data-act");
     keepFields();
+    if (await calClick(act, t, ev) !== false) return;
     if (act === "day") { S.date = t.getAttribute("data-d"); return load({ silent: true }); }
     if (act === "wk") { S.date = addDays(S.date, Number(t.getAttribute("data-n"))); return load({ silent: true }); }
     if (act === "today") { S.date = todayStr(); return load({ silent: true }); }
@@ -843,13 +1370,16 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       // exactly what the server takes for a move: the version it was read at, the new day and time
       var mbody = { version: gb.version, date: gsh.slot.date, start: gsh.slot.time };
       if (gsh.slot.providerId && gsh.slot.providerId !== gb.providerId) mbody.providerId = gsh.slot.providerId; // only when the time is another person's
+      var tellM = document.getElementById("bkx-tell"); if (tellM && !tellM.checked) mbody.notify = false; // the pharmacist tells them
       gsh.saving = true; gsh.err = ""; paint();
       try {
         var mu = await api("/bookings/" + gb.id, { method: "PATCH", body: JSON.stringify(mbody) });
         S.bookings = S.bookings.map(function (x) { return x.id === gb.id ? (mu.booking || x) : x; });
         var said = moveToast(gb, { date: mu.booking.date, start: mu.booking.start, message: mu.message });
-        if (mu.message === "sent" || !gb.personPhone) { S.sheet = null; toast(said); }
-        else S.sheet = { kind: "booking", id: gb.id, b: mu.booking, card: gsh.card, note: esc(said.replace(/: call .*$/, "")) + ": call " + telLink(gb.personPhone) }; // the number to call stays on screen
+        var callNote = mu.message === "sent" || mu.message === "not-told" || !gb.personPhone ? "" : esc(said.replace(/: call .*$/, "")) + ": call " + telLink(gb.personPhone);
+        if (mu.offer) { S.sheet = { kind: "offer", offer: mu.offer, note: callNote }; if (!callNote) toast(said); } // the time it left: to the first person waiting
+        else if (!callNote) { S.sheet = null; toast(said); }
+        else S.sheet = { kind: "booking", id: gb.id, b: mu.booking, card: gsh.card, note: callNote }; // the number to call stays on screen
         return load({ silent: true });
       } catch (e) {
         gsh.saving = false;
@@ -886,9 +1416,10 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       if (!sh.slot) { sh.err = noName ? "Pick a time and type the person's name." : "Pick a time."; return paint(); }
       if (noName) { sh.err = "Type the person's name."; paint(); var nm = document.getElementById("bkx-name"); if (nm) nm.focus(); return; }
       sh.saving = true; sh.err = ""; paint();
+      if (Number(sh.repeat)) return bookSeries(sh);
       try {
         var r = await api("/bookings", { method: "POST", body: JSON.stringify({ serviceId: sh.serviceId, providerId: sh.slot.providerId, date: sh.slot.date, start: sh.slot.time, personName: sh.name, personPhone: sh.phone, personEmail: sh.email, waitlistId: sh.waitlistId || undefined }) });
-        S.sheet = null; S.newDraft = null; S.date = r.booking.date; if (E.linkPerson) E.linkPerson({ name: sh.name, phone: sh.phone, email: sh.email }, "bookings"); toast("Booked " + r.booking.personName + " · " + dayShort(r.booking.date) + " " + r.booking.start);
+        S.lastSvc = sh.serviceId; S.sheet = null; S.newDraft = null; S.date = r.booking.date; if (E.linkPerson) E.linkPerson({ name: sh.name, phone: sh.phone, email: sh.email }, "bookings"); toast("Booked " + r.booking.personName + " · " + dayShort(r.booking.date) + " " + r.booking.start);
         return load({ silent: true });
       } catch (e) {
         sh.saving = false;
@@ -898,7 +1429,12 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
         return paint();
       }
     }
-    if (act === "open") { var osh = S.sheet = { kind: "booking", id: Number(t.getAttribute("data-id")) }; paint(); return findCard(osh); }
+    if (act === "open") {
+      var osh = S.sheet = { kind: "booking", id: Number(t.getAttribute("data-id")) }; paint();
+      var ob = S.bookings.find(function (x) { return x.id === osh.id; });
+      if (ob) loadHist(osh, { idCard: ob.personIdCard, email: ob.personEmail, phone: ob.personPhone, name: ob.personName });
+      return findCard(osh);
+    }
     if (act === "cancel") { S.sheet.cancelling = true; S.sheet.err = ""; paint(); setTimeout(function () { var r = document.getElementById("bkx-reason"); if (r) r.focus(); }, 30); return; }
     if (act === "remind") { var rb0 = S.bookings.find(function (x) { return x.id === S.sheet.id; }); if (rb0 && E.tell) E.tell.open({ person: { name: rb0.personName, phone: rb0.personPhone || "", email: rb0.personEmail || "" }, purpose: "booking", ref: { kind: "booking", id: rb0.id }, vars: { service: (svc(rb0.serviceId) || {}).name || "", date: rb0.date, time: rb0.start }, subtitle: (svc(rb0.serviceId) || {}).name || "", back: t }); return; }
     if (act === "nocancel") { S.sheet.cancelling = false; S.sheet.err = ""; return paint(); }
@@ -906,10 +1442,11 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       var b = (S.bookings.find(function (x) { return x.id === S.sheet.id; }) || S.sheet.b); if (!b) return;
       var body = { version: b.version, status: act === "st" ? t.getAttribute("data-s") : "cancelled" };
       if (act === "docancel") { body.cancelReason = (document.getElementById("bkx-reason") || {}).value || ""; if (!body.cancelReason.trim()) { S.sheet.err = "Say why it was cancelled."; return paint(); } }
+      var tellEl = document.getElementById("bkx-tell"); if (act === "docancel" && tellEl && !tellEl.checked) body.notify = false; // the pharmacist tells them
       try {
         var u = await api("/bookings/" + b.id, { method: "PATCH", body: JSON.stringify(body) });
         S.bookings = S.bookings.map(function (x) { return x.id === b.id ? u.booking : x; });
-        S.sheet = null; toast(act === "docancel" ? "Cancelled" : ({ arrived: "Marked as here", done: "Done", no_show: "Marked as no-show" })[body.status]);
+        S.sheet = null; toast(act === "docancel" ? "Cancelled" + (u.message === "sent" ? " · " + b.personName + " is told by e-mail" : u.message === "not-told" ? " · no e-mail sent" : "") : ({ arrived: "Marked as here", done: "Done", no_show: "Marked as no-show" })[body.status]);
         if (act === "docancel" && u.offer) S.sheet = { kind: "offer", offer: u.offer };
         paint();
       } catch (e) {
@@ -1106,6 +1643,10 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
   }
 
   function onChange(ev) {
+    var tid = ev.target && ev.target.id;
+    if (S.sheet && (tid === "bkx-rep" || tid === "bkx-repn")) { keepFields(); S.sheet[tid === "bkx-rep" ? "repeat" : "repeatN"] = Number(ev.target.value) || 0; return paint(); }
+    if (S.sheet && tid === "bkx-tell") { S.sheet.noTell = !ev.target.checked; return; }
+    if (S.sheet && S.sheet.kind === "block" && /^bkx-b-/.test(tid || "")) { readBlock(S.sheet); S.sheet.clashOk = false; S.sheet.err = ""; return paint(); }
     if (ev.target && ev.target.id === "bkx-goto") {
       var v = ev.target.value; if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || v === S.date) return;
       S.date = v; load({ silent: true }); return; // the box stays open while a date is being typed; leaving it closes it
@@ -1119,6 +1660,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
 
   // The date box closes when focus leaves it (Escape too: see onKey).
   function onFocusOut(ev) {
+    if (ev.target && /^bkx-(name|phone|email)$/.test(ev.target.id || "")) { setTimeout(histFromSheet, 0); return; } // who is this: their bookings here, and any missed
     if (!ev.target || ev.target.id !== "bkx-goto") return;
     setTimeout(function () { var a = document.activeElement; if (!S.picking || (a && a.id === "bkx-goto")) return; S.picking = false; paint(); }, 0);
   }

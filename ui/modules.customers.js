@@ -206,10 +206,22 @@
     state.detailLoading = false;
     renderDetail();
     loadLoyalty();
+    bookingsRecord(state.detail && state.detail.person);
   }
   async function reloadNow() {
     var p = state.detail && state.detail.person; if (!p) return;
     try { var n = await E.apiFetch("/people/" + p.id + "/now", { method: "GET", timeoutMs: 12000 }); if (n && n.ok && n.waiting && state.detail && state.detail.person && state.detail.person.id === p.id) { state.now = n; E.whenFormIdle(state.mount, renderDetail); } } catch (e) {}
+  }
+  // How many bookings this person has had at this pharmacy, and how many they missed (Bookings, read only).
+  async function bookingsRecord(p) {
+    if (!p || !bkOn() || !E.modules.bookings) return;
+    var q = []; if (p.id_card) q.push("card=" + encodeURIComponent(p.id_card)); if (p.email) q.push("email=" + encodeURIComponent(p.email)); if (String(p.phone || "").replace(/\D/g, "").length >= 6) q.push("phone=" + encodeURIComponent(p.phone));
+    if (!q.length) return;
+    try {
+      var r = await E.apiFetch("/bookings/person?" + q.join("&"), { method: "GET", timeoutMs: 8000 });
+      if (!r || !r.ok || !state.detail || !state.detail.person || state.detail.person.id !== p.id) return;
+      state.bkHist = { id: p.id, r: r }; if (r.total && !state.editing) renderDetail();
+    } catch (e) {}
   }
 
   async function adopt(h, btn) {
@@ -324,7 +336,10 @@
   // The counts under "In the registers": the register, showing this person. The screens that can search take the
   // person; the others open as they are. Only Loyalty, and Appointments until Bookings is set up, stay in the classic look.
   var FIND = { ordreg: 1, tktreg: 1, dlvreg: 1, repreg: 1 };
-  function classicLook(kind) { return kind === "loyalty" || ((kind === "appointment" || kind === "waitlist") && !(E.bookingsReady && E.bookingsReady())); }
+  // Bookings is the one appointment screen (2026-11): old appointments and its waiting list open there too, never the
+  // classic Appointments (Bookings itself brings the old ones over, once, and leaves the old records as they are).
+  function bkOn() { return !!(E.bookingsOn && E.bookingsOn()); }
+  function classicLook(kind) { return kind === "loyalty" || ((kind === "appointment" || kind === "waitlist") && !bkOn()); }
   function goAction(what) {
     var p = state.detail && state.detail.person; if (!p || !GO[what]) return;
     E.customerHandoff(GO[what], "new", p, what);
@@ -333,7 +348,7 @@
   function goCount(kind) {
     var p = state.detail && state.detail.person; if (!p) return;
     var old = kindMeta(kind)[1].replace(/^#/, "");
-    if (((kind === "appointment" || kind === "waitlist") && E.bookingsReady && E.bookingsReady()) || kind === "booking" || kind === "booking_waitlist") { window.location.hash = "#bookings"; return; }
+    if (((kind === "appointment" || kind === "waitlist") && bkOn()) || kind === "booking" || kind === "booking_waitlist") { window.location.hash = "#bookings"; return; }
     var nat = E.UI2_NATIVE && E.UI2_NATIVE[old];
     if (nat) { if (FIND[nat]) E.customerHandoff(nat, "find", p, ""); window.location.hash = "#" + nat; return; }
     // the classic look (Loyalty; Appointments while Bookings is not set up): the person is carried, and its back link returns here
@@ -358,7 +373,7 @@
     m.querySelectorAll("[data-reg]").forEach(function (el) { el.addEventListener("click", function (ev) {
       var reg = el.getAttribute("data-reg"), nat = E.UI2_NATIVE && E.UI2_NATIVE[reg];
       ev.preventDefault();
-      if (reg === "appointments" && E.bookingsReady && E.bookingsReady()) { window.location.hash = "#bookings"; return; }
+      if (reg === "appointments" && bkOn()) { window.location.hash = "#bookings"; return; }
       if (nat) { window.location.hash = "#" + nat; return; } // the router waits for screens still loading: never the classic look for a rebuilt one
       try { sessionStorage.setItem("eikon_ui2_return", "customers"); } catch (e) {} E.openClassic(reg); }); });
     var q = m.querySelector("#cus-q");
@@ -384,7 +399,7 @@
 
   // The Customers registers: rebuilt ones open in the new layout; what is still only in the classic look says so.
   function regsStrip() {
-    var bk = E.bookingsReady && E.bookingsReady();
+    var bk = bkOn();
     return [["clientorders", "Orders"], ["tickets", "Questions"], ["deliveries", "Deliveries"], ["appointments", bk ? "Bookings" : "Appointments (classic look)"], ["loyalty", "Loyalty (classic look)"]]
       .filter(function (x) { var nat = E.UI2_NATIVE && E.UI2_NATIVE[x[0]]; return nat || (x[0] === "appointments" && bk) || E.modules[x[0]] || (window.EIKON_LATE && !E._lateIn); })
       .map(function (x) { var nat = E.UI2_NATIVE && E.UI2_NATIVE[x[0]]; return [x[0], x[1], x[0] === "appointments" && bk ? "bookings" : nat || x[0]]; });
@@ -514,10 +529,11 @@
       var fact = function (l, v) { return '<div><small>' + l + '</small><span' + (v ? "" : ' class="none"') + '>' + (v ? esc(v) : "–") + '</span></div>'; };
       var last = act[0];
       var na = d.next_appointment;
-      html += '<div class="cus-facts">' + fact("Last visit", last ? when(last.date) + " · " + kindMeta(last.kind)[0] : "") + (na ? fact("Next appointment", nextWhen(na.date) + (na.time ? " " + na.time : "") + (na.doctor ? " · " + na.doctor : "")) : "") + fact("Address", p.address) + fact("Doctor", p.doctor_name) + fact("E-mail", p.email) + (p.alt_phone ? fact("Other phone", p.alt_phone) : "") + '</div>';
-      html += '<div class="cus-actions"><button class="cus-btn p" data-go="order">New order</button><button class="cus-btn" data-go="question">Question</button><button class="cus-btn" data-go="delivery">Delivery</button><button class="cus-btn" data-act="book" data-go="booking"' + (E.bookingsReady && E.bookingsReady() ? "" : ' aria-expanded="' + !!state.bkAsk + '" aria-controls="cus-bk"') + '>Booking</button>' + (E.tell ? '<button class="cus-btn" data-act="tell-any">Message ' + esc(f1 || "") + '</button>' : "") + '</div>';
+      var bh = state.bkHist && state.bkHist.id === p.id ? state.bkHist.r : null;
+      html += '<div class="cus-facts">' + fact("Last visit", last ? when(last.date) + " · " + kindMeta(last.kind)[0] : "") + (bh && bh.total ? fact("Bookings", bh.total + (bh.noShows ? " · missed " + bh.noShows + (bh.lastNoShow ? ", last " + when(bh.lastNoShow) : "") : " · none missed")) : "") + (na ? fact("Next appointment", nextWhen(na.date) + (na.time ? " " + na.time : "") + (na.doctor ? " · " + na.doctor : "")) : "") + fact("Address", p.address) + fact("Doctor", p.doctor_name) + fact("E-mail", p.email) + (p.alt_phone ? fact("Other phone", p.alt_phone) : "") + '</div>';
+      html += '<div class="cus-actions"><button class="cus-btn p" data-go="order">New order</button><button class="cus-btn" data-go="question">Question</button><button class="cus-btn" data-go="delivery">Delivery</button><button class="cus-btn" data-act="book" data-go="booking"' + (bkOn() ? "" : ' aria-expanded="' + !!state.bkAsk + '" aria-controls="cus-bk"') + '>Booking</button>' + (E.tell ? '<button class="cus-btn" data-act="tell-any">Message ' + esc(f1 || "") + '</button>' : "") + '</div>';
       // Bookings not set up here yet: say so calmly, offer the set-up (new layout), and keep the classic Appointments one tap away.
-      if (state.bkAsk && !(E.bookingsReady && E.bookingsReady())) {
+      if (state.bkAsk && !bkOn()) {
         var admin = !!(E.state && E.state.user && E.state.user.role === "admin");
         html += '<div class="cus-quiet" id="cus-bk" data-cus-bk role="status" style="margin-top:12px;padding:14px 16px"><b style="color:var(--text)">Set up Bookings first.</b> ' +
           (admin ? "One service and who does it, in about a minute. " + esc(p.name) + " is filled in after." : "Your pharmacist sets it up once, on the Bookings screen.") +
@@ -560,7 +576,7 @@
     box.querySelectorAll("[data-count]").forEach(function (el) { el.addEventListener("click", function (ev) { ev.preventDefault(); goCount(el.getAttribute("data-count")); }); });
     box.querySelectorAll('[data-act="book"]').forEach(function (el) { el.addEventListener("click", function () {
       var p = (state.detail && state.detail.person) || {};
-      if (!(E.bookingsReady && E.bookingsReady())) { // not set up here: the note above opens or closes, nothing leaves the page
+      if (!bkOn()) { // Bookings switched off on this device: the note above opens or closes, nothing leaves the page
         state.bkAsk = !state.bkAsk; renderDetail();
         setTimeout(function () { var b = box.querySelector(state.bkAsk ? "#cus-bk .cus-btn" : '[data-act="book"]'); if (b) b.focus(); }, 0);
         return;

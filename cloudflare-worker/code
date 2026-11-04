@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-04-batch-7";
+const WORKER_VERSION = "2026-11-04-batch-8";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -2634,6 +2634,131 @@ async function handleOrderDiaryCarryOver(request, env, corsOkHeaders, authUser) 
 }
 
 /* END ORDER DIARY MODULE */
+
+/* =========================
+   STOCK FLOW (d-stock, additive)
+   One ordering flow over the order diary: what is still to order across days (not one day at a time), which lines
+   were ordered from the supplier and when, and which diary line is for which customer order / recall / shortage.
+   Two new tables only; existing tables are read, never altered. Every read and write is fenced to the signed-in
+   pharmacy (org_id AND location_id), so a chain's pharmacies never see each other's ordering.
+   ========================= */
+async function ensureStockFlowSchema__impl(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS stock_flow_ordered (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id      INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    diary_id    INTEGER NOT NULL,
+    supplier    TEXT    NOT NULL DEFAULT '',
+    ordered_by  INTEGER,
+    ordered_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(org_id, location_id, diary_id)
+  )`, []);
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS stock_flow_links (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id      INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    diary_id    INTEGER NOT NULL,
+    source      TEXT    NOT NULL,
+    source_id   INTEGER NOT NULL,
+    created_by  INTEGER,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(org_id, location_id, diary_id, source, source_id)
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_sfo_org_loc ON stock_flow_ordered (org_id, location_id, diary_id)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_sfl_org_loc ON stock_flow_links (org_id, location_id, source, source_id)`, []);
+}
+const STOCK_FLOW_SOURCES = ["order", "alert", "need"];
+function stockFlowIds(v) {
+  const out = [];
+  (Array.isArray(v) ? v : []).forEach((x) => { const n = parseInt(x, 10); if (n > 0 && out.indexOf(n) < 0) out.push(n); });
+  return out.slice(0, 500);
+}
+// The ids among `ids` that are order diary lines of this pharmacy.
+async function stockFlowOwnDiary(env, authUser, ids) {
+  if (!ids.length) return [];
+  const rows = await dbAll(env, `SELECT id FROM order_diary_entries WHERE org_id = ? AND location_id = ? AND id IN (${ids.map(() => "?").join(",")})`, [authUser.org_id, authUser.location_id, ...ids]);
+  return (rows || []).map((r) => r.id);
+}
+
+// GET /stock-flow/open?from=YYYY-MM-DD — every diary line from that day on that is still open (waiting, not received,
+// wrong pick) and has not been carried forward to a later day, plus the lines received recently (for "who to tell"),
+// with each line's ordered mark and links. Read only.
+async function handleStockFlowOpen(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureOrderDiarySchema(env);
+  await ensureStockFlowSchema(env);
+  let from = String(url.searchParams.get("from") || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) from = new Date(Date.now() - 60 * 864e5).toISOString().slice(0, 10);
+  const loc = [authUser.org_id, authUser.location_id];
+  const rows = await dbAll(env, `SELECT * FROM order_diary_entries WHERE org_id = ? AND location_id = ? AND order_date >= ? ORDER BY order_date, id`, [...loc, from]) || [];
+  const carriedOn = new Set(rows.filter((r) => r.carried_from_id).map((r) => Number(r.carried_from_id)));
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const marks = await dbAll(env, `SELECT m.diary_id, m.supplier, m.ordered_at, m.ordered_by, u.full_name AS ordered_by_name FROM stock_flow_ordered m LEFT JOIN users u ON u.id = m.ordered_by
+    WHERE m.org_id = ? AND m.location_id = ? AND m.diary_id IN (SELECT id FROM order_diary_entries WHERE org_id = ? AND location_id = ? AND order_date >= ?)`, [...loc, ...loc, from]) || [];
+  const markOf = new Map(marks.map((m) => [Number(m.diary_id), m]));
+  const links = await dbAll(env, `SELECT diary_id, source, source_id FROM stock_flow_links WHERE org_id = ? AND location_id = ? AND diary_id IN (SELECT id FROM order_diary_entries WHERE org_id = ? AND location_id = ? AND order_date >= ?)`, [...loc, ...loc, from]) || [];
+  const linksOf = new Map();
+  links.forEach((l) => { const k = Number(l.diary_id); if (!linksOf.has(k)) linksOf.set(k, []); linksOf.get(k).push({ source: l.source, source_id: l.source_id }); });
+  // A line carried forward keeps what its earlier day knew: the ordered mark (while it is still waiting) and the links.
+  const inherit = (r, pick) => { let cur = r, n = 0; while (cur && n++ < 30) { const v = pick(Number(cur.id)); if (v) return v; cur = cur.carried_from_id ? byId.get(Number(cur.carried_from_id)) : null; } return null; };
+  const recentFrom = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 19).replace("T", " ");
+  const open = [], received = [];
+  for (const r of rows) {
+    const isOpen = ["pending", "not_received", "wrong_pick"].includes(r.status) && !carriedOn.has(Number(r.id));
+    const isRecent = r.status === "received" && String(r.updated_at || "") >= recentFrom;
+    if (!isOpen && !isRecent) continue;
+    const mark = inherit(r, (id) => markOf.get(id));
+    const lk = []; let cur = r, n = 0; while (cur && n++ < 30) { (linksOf.get(Number(cur.id)) || []).forEach((l) => { if (!lk.some((x) => x.source === l.source && x.source_id === l.source_id)) lk.push(l); }); cur = cur.carried_from_id ? byId.get(Number(cur.carried_from_id)) : null; }
+    let first = r, fn = 0; while (first.carried_from_id && byId.get(Number(first.carried_from_id)) && fn++ < 30) first = byId.get(Number(first.carried_from_id));
+    const line = { ...r, first_date: first.order_date, ordered_at: mark ? mark.ordered_at : null, ordered_by_name: mark ? (mark.ordered_by_name || "") : "", ordered_supplier: mark ? mark.supplier : "", links: lk };
+    (isOpen ? open : received).push(line);
+  }
+  return jsonResponse({ ok: true, from, open, received }, 200, corsOkHeaders);
+}
+
+// POST /stock-flow/ordered { diary_ids: [..], supplier } — these lines were ordered from the supplier now.
+// POST /stock-flow/ordered/undo { diary_ids: [..] } — take the mark off again. Lines of another pharmacy are ignored.
+async function handleStockFlowOrdered(request, env, corsOkHeaders, authUser, undo) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureOrderDiarySchema(env);
+  await ensureStockFlowSchema(env);
+  const body = await readJson(request);
+  const ids = await stockFlowOwnDiary(env, authUser, stockFlowIds(body && body.diary_ids));
+  if (!ids.length) return jsonResponse({ ok: false, error: "No order diary lines of this pharmacy were given" }, 400, corsOkHeaders);
+  const supplier = String((body && body.supplier) || "").trim().slice(0, 200);
+  let n = 0;
+  for (const id of ids) {
+    if (undo) { const r = await dbRun(env, `DELETE FROM stock_flow_ordered WHERE org_id = ? AND location_id = ? AND diary_id = ?`, [authUser.org_id, authUser.location_id, id]); n += Number((r && r.meta && r.meta.changes) || 0); }
+    else {
+      const r = await dbRun(env, `INSERT INTO stock_flow_ordered (org_id, location_id, diary_id, supplier, ordered_by, ordered_at) VALUES (?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(org_id, location_id, diary_id) DO UPDATE SET supplier = excluded.supplier, ordered_by = excluded.ordered_by, ordered_at = excluded.ordered_at`, [authUser.org_id, authUser.location_id, id, supplier, authUser.user_id]);
+      n += Number((r && r.meta && r.meta.changes) || 0);
+    }
+  }
+  await writeAudit(env, authUser.org_id, authUser.user_id, undo ? "STOCK_FLOW_ORDERED_UNDO" : "STOCK_FLOW_ORDERED", "stock_flow_ordered", ids.join(","), { diary_ids: ids, supplier }, authUser.location_id);
+  return jsonResponse({ ok: true, marked: undo ? 0 : ids.length, cleared: undo ? n : 0, diary_ids: ids }, 200, corsOkHeaders);
+}
+
+// POST /stock-flow/links { diary_id, source: "order"|"alert"|"need", source_id } — this diary line is for that customer
+// order, recall or shortage. Both ends must belong to this pharmacy.
+async function handleStockFlowLink(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureOrderDiarySchema(env);
+  await ensureStockFlowSchema(env);
+  const body = await readJson(request) || {};
+  const diaryId = parseInt(body.diary_id, 10), sourceId = parseInt(body.source_id, 10), source = String(body.source || "");
+  if (!(diaryId > 0) || !(sourceId > 0) || STOCK_FLOW_SOURCES.indexOf(source) < 0) return jsonResponse({ ok: false, error: "diary_id, source (order, alert or need) and source_id are required" }, 400, corsOkHeaders);
+  if (!(await stockFlowOwnDiary(env, authUser, [diaryId])).length) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  let own = null;
+  if (source === "order") { await ensureClientOrdersSchema(env); own = await dbFirst(env, `SELECT id FROM client_orders_entries WHERE org_id = ? AND location_id = ? AND id = ?`, [authUser.org_id, authUser.location_id, sourceId]); }
+  else if (source === "alert") { await ensureAlertsSchema(env); own = await dbFirst(env, `SELECT id FROM alerts_entries WHERE org_id = ? AND location_id = ? AND id = ?`, [authUser.org_id, authUser.location_id, sourceId]); }
+  else { await ensureScarceStockSchema(env); own = await dbFirst(env, `SELECT id FROM scarce_stock_needs WHERE org_id = ? AND location_id = ? AND id = ?`, [authUser.org_id, authUser.location_id, sourceId]); }
+  if (!own) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  await dbRun(env, `INSERT OR IGNORE INTO stock_flow_links (org_id, location_id, diary_id, source, source_id, created_by) VALUES (?, ?, ?, ?, ?, ?)`, [authUser.org_id, authUser.location_id, diaryId, source, sourceId, authUser.user_id]);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "STOCK_FLOW_LINK", "stock_flow_links", String(diaryId), { diary_id: diaryId, source, source_id: sourceId }, authUser.location_id);
+  return jsonResponse({ ok: true }, 200, corsOkHeaders);
+}
+/* END STOCK FLOW */
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SUPPLIER PRODUCTS MODULE
@@ -17441,6 +17566,7 @@ const ensureEndOfDaySchema = schemaOnce("ensureEndOfDaySchema", ensureEndOfDaySc
 const ensureClientOrdersSchema = schemaOnce("ensureClientOrdersSchema", ensureClientOrdersSchema__impl);
 const ensureQuotationsSchema = schemaOnce("ensureQuotationsSchema", ensureQuotationsSchema__impl);
 const ensureOrderDiarySchema = schemaOnce("ensureOrderDiarySchema", ensureOrderDiarySchema__impl);
+const ensureStockFlowSchema = schemaOnce("ensureStockFlowSchema", ensureStockFlowSchema__impl);
 const ensureSupplierProductsSchema = schemaOnce("ensureSupplierProductsSchema", ensureSupplierProductsSchema__impl);
 const ensureNearExpirySchema = schemaOnce("ensureNearExpirySchema", ensureNearExpirySchema__impl);
 const ensureClientTicketsSchema = schemaOnce("ensureClientTicketsSchema", ensureClientTicketsSchema__impl);
@@ -18168,6 +18294,11 @@ if (url.pathname === "/order-diary/items" && request.method === "GET") {
 if (url.pathname === "/order-diary/carry-over" && request.method === "POST") {
   return await handleOrderDiaryCarryOver(request, env, corsOkHeaders, authUser);
 }
+// Stock flow (d-stock): the ordering flow over the order diary
+if (url.pathname === "/stock-flow/open" && request.method === "GET") return await handleStockFlowOpen(request, env, corsOkHeaders, authUser, url);
+if (url.pathname === "/stock-flow/ordered" && request.method === "POST") return await handleStockFlowOrdered(request, env, corsOkHeaders, authUser, false);
+if (url.pathname === "/stock-flow/ordered/undo" && request.method === "POST") return await handleStockFlowOrdered(request, env, corsOkHeaders, authUser, true);
+if (url.pathname === "/stock-flow/links" && request.method === "POST") return await handleStockFlowLink(request, env, corsOkHeaders, authUser);
 
 // Supplier Products
 if (url.pathname === "/supplier-products/entries" && request.method === "GET") {
@@ -21609,6 +21740,11 @@ async function ensureBookingsSchema__impl(env) {
   // Clinic rooms, set up by the pharmacy; a practitioner's weekly session may name one ([from, to, roomId]).
   await dbRun(env, `CREATE TABLE IF NOT EXISTS bk_rooms (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
     name TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')))`, []);
+  // The day calendar (2026-11): repeat bookings share a series id; who confirmed and when; walk-ins. Added if missing,
+  // with defaults, so every existing booking reads exactly as before ('' / 0).
+  for (const col of ["series_id TEXT NOT NULL DEFAULT ''", "confirmed_at TEXT NOT NULL DEFAULT ''", "confirmed_via TEXT NOT NULL DEFAULT ''", "walk_in INTEGER NOT NULL DEFAULT 0"]) {
+    try { await dbRun(env, `ALTER TABLE bk_bookings ADD COLUMN ${col}`, []); } catch (e) {}
+  }
 }
 const ensureBookingsSchema = schemaOnce("ensureBookingsSchema", ensureBookingsSchema__impl);
 
@@ -21669,7 +21805,27 @@ function bkBookingRow(r) {
   return { id: r.id, ref: r.ref, serviceId: r.service_id, providerId: r.provider_id, personName: r.person_name,
     personPhone: r.person_phone, personEmail: r.person_email, personIdCard: r.person_id_card, date: r.date,
     start: r.start_time, end: r.end_time, status: r.status, priceCents: r.price_cents, notes: r.notes,
-    cancelReason: r.cancel_reason, version: r.version, createdAt: r.created_at, updatedAt: r.updated_at };
+    cancelReason: r.cancel_reason, version: r.version, createdAt: r.created_at, updatedAt: r.updated_at,
+    seriesId: r.series_id || "", confirmedAt: r.confirmed_at || "", confirmedVia: r.confirmed_via || "", walkIn: !!r.walk_in };
+}
+// Busy for [a, b) minutes: a block of time off ('' start = the whole day) or another booking with its buffer.
+function bkBusyAt(exc, booked, a, b) {
+  for (const e of exc) if (e.kind === "off" && (!e.start_time || (bkMin(e.start_time) < b && bkMin(e.end_time) > a))) return true;
+  for (const x of booked) { const s = bkMin(x.start_time), t = bkMin(x.end_time) + (Number(x.buffer_min) || 0); if (a < t && b > s) return true; }
+  return false;
+}
+// One customer's bookings here, found by ID card, e-mail or the last 8 digits of the phone (the name only when nothing
+// else is known). Used for the no-show count on the calendar, the booking and the customer's card.
+function bkPhoneKey(p) { const d = String(p || "").replace(/\D/g, ""); return d.length >= 6 ? d.slice(-8) : ""; }
+function bkSamePerson(q, r) {
+  if (q.card && String(r.person_id_card || "").trim().toUpperCase() === q.card) return true;
+  if (q.email && String(r.person_email || "").trim().toLowerCase() === q.email) return true;
+  if (q.phone && bkPhoneKey(r.person_phone) === q.phone) return true;
+  if (!q.card && !q.email && !q.phone && q.name && String(r.person_name || "").trim().toLowerCase() === q.name) return true;
+  return false;
+}
+function bkPersonQuery(o) {
+  return { card: String(o.card || "").trim().toUpperCase(), email: String(o.email || "").trim().toLowerCase(), phone: bkPhoneKey(o.phone), name: String(o.name || "").trim().toLowerCase() };
 }
 function bkRandomHex(bytes) { const a = crypto.getRandomValues(new Uint8Array(bytes)); return Array.from(a, (b) => b.toString(16).padStart(2, "0")).join(""); }
 function bkRef() { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; const a = crypto.getRandomValues(new Uint8Array(6)); return "B-" + Array.from(a, (b) => c[b % c.length]).join(""); }
@@ -22034,6 +22190,33 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
     }
   }
 
+  // GET /bookings/exceptions?from&to → time off, blocked time and extra hours in a range (everyone may read them:
+  // the calendar shows lunch, training and days away). Changing them stays admin only (below).
+  if (parts[0] === "exceptions" && parts.length === 1 && m === "GET") {
+    const from = String(url.searchParams.get("from") || ""), to = String(url.searchParams.get("to") || from);
+    if (!isValidYmd(from) || !isValidYmd(to) || to < from) return bad("from and to are required (YYYY-MM-DD)");
+    if (bkDaysBetween(from, to) > BK_MAX_RANGE_DAYS) return bad(`At most ${BK_MAX_RANGE_DAYS} days at a time`);
+    const rows = await dbAll(env, `SELECT * FROM bk_exceptions WHERE org_id=? AND location_id=? AND date>=? AND date<=? ORDER BY date, start_time, id`, [org, loc, from, to]);
+    return ok({ from, to, exceptions: rows.map((e) => ({ id: e.id, providerId: e.provider_id, date: e.date, kind: e.kind, start: e.start_time, end: e.end_time, note: e.note })) });
+  }
+  // GET /bookings/person?card&email&phone&name → one customer's record here: how many bookings, how many missed.
+  if (parts[0] === "person" && m === "GET") {
+    const q = bkPersonQuery({ card: url.searchParams.get("card"), email: url.searchParams.get("email"), phone: url.searchParams.get("phone"), name: url.searchParams.get("name") });
+    if (!q.card && !q.email && !q.phone && !q.name) return bad("Give an ID card, e-mail, phone or name");
+    const like = q.phone ? "%" + q.phone.slice(-3) : "";
+    const cand = await dbAll(env, `SELECT id, date, start_time, status, service_id, person_name, person_phone, person_email, person_id_card FROM bk_bookings
+      WHERE org_id=? AND location_id=? AND ((?<>'' AND UPPER(TRIM(person_id_card))=?) OR (?<>'' AND LOWER(TRIM(person_email))=?) OR (?<>'' AND person_phone LIKE ?) OR (?<>'' AND LOWER(TRIM(person_name))=?))
+      ORDER BY date DESC, start_time DESC LIMIT 2000`, [org, loc, q.card, q.card, q.email, q.email, like, like, q.name, q.name]);
+    const rows = cand.filter((r) => bkSamePerson(q, r));
+    const today = bkNowLocal(env).date;
+    const missed = rows.filter((r) => r.status === "no_show");
+    return ok({ by: q.card ? "card" : q.email ? "email" : q.phone ? "phone" : "name",
+      total: rows.filter((r) => r.status !== "cancelled").length, noShows: missed.length, cancelled: rows.filter((r) => r.status === "cancelled").length,
+      done: rows.filter((r) => r.status === "done").length, lastNoShow: missed.length ? missed[0].date : "",
+      upcoming: rows.filter((r) => r.date >= today && (r.status === "booked" || r.status === "confirmed")).length,
+      recent: rows.slice(0, 6).map((r) => ({ id: r.id, date: r.date, start: r.start_time, status: r.status, serviceId: r.service_id })) });
+  }
+
   // Exceptions: a day or a few hours off, or an extra window
   if (parts[0] === "exceptions") {
     if (!isAdmin) return bad("Only an admin can change hours", 403);
@@ -22079,7 +22262,23 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
     const provs = await dbAll(env, `SELECT id, hours_json FROM bk_providers WHERE org_id=? AND location_id=?`, [org, loc]);
     const ph = Object.fromEntries(provs.map((p) => [p.id, bkJson(p.hours_json, {})]));
     const rn = Object.fromEntries((await dbAll(env, `SELECT id, name FROM bk_rooms WHERE org_id=? AND location_id=?`, [org, loc])).map((r) => [r.id, r.name]));
-    return ok({ from, to, bookings: rows.map((r) => { const rid = bkRoomIdFor(ph[r.provider_id], r.date, r.start_time); return { ...bkBookingRow(r), roomId: rid || null, roomName: rn[rid] || "" }; }) });
+    // Reminders and confirmations at a glance: every message sent (or tried) for these bookings, and whether this
+    // pharmacy can send at all. And each customer's earlier no-shows here.
+    await ensureBookingsMsgSchema(env);
+    const messages = {};
+    for (const x of await dbAll(env, `SELECT m.booking_id, m.kind, m.status, m.created_at FROM bk_messages m JOIN bk_bookings b ON b.id=m.booking_id
+        WHERE b.org_id=? AND b.location_id=? AND b.date>=? AND b.date<=? ORDER BY m.id`, [org, loc, from, to]))
+      (messages[x.booking_id] = messages[x.booking_id] || []).push({ kind: x.kind, status: x.status, at: x.created_at });
+    const st = await bkGetSettings(env, org, loc);
+    const mail = { on: await bkCanSend(env, st), evening: !!st.remind_evening, hours: Number(st.remind_hours) || 0 };
+    const missed = rows.length ? await dbAll(env, `SELECT id, date, person_name, person_phone, person_email, person_id_card FROM bk_bookings WHERE org_id=? AND location_id=? AND status='no_show' ORDER BY date DESC LIMIT 5000`, [org, loc]) : [];
+    const noShows = {};
+    if (missed.length) for (const r of rows) {
+      const q = bkPersonQuery({ card: r.person_id_card, email: r.person_email, phone: r.person_phone, name: r.person_name });
+      const n = missed.filter((x) => x.id !== r.id && bkSamePerson(q, x)).length;
+      if (n) noShows[r.id] = n;
+    }
+    return ok({ from, to, mail, messages, noShows, bookings: rows.map((r) => { const rid = bkRoomIdFor(ph[r.provider_id], r.date, r.start_time); return { ...bkBookingRow(r), roomId: rid || null, roomName: rn[rid] || "" }; }) });
   }
 
   // POST /bookings → book a slot
@@ -22090,7 +22289,38 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
     const date = String(b.date || ""), start = String(b.start || ""), pid = Number(b.providerId);
     const name = String(b.personName || "").trim();
     if (!name) return bad("Name is required");
+    // A walk-in: someone at the counter now. It starts now (to the 5 minutes) with the first person who does the
+    // service and has nothing booked or blocked for its length; it is marked Here and no e-mail is sent.
+    if (b.walkIn === true) {
+      const now = bkNowLocal(env), a = Math.floor(now.min / 5) * 5, z = a + svc.durationMin;
+      if (z > 24 * 60) return bad("Too late in the day for a walk-in of this length");
+      const pids = (svc.providerIds || []).map(Number).filter((n) => !pid || n === pid);
+      if (pid && !pids.length) return bad("That person does not do this service");
+      const provs = pids.length ? await dbAll(env, `SELECT id, name FROM bk_providers WHERE org_id=? AND location_id=? AND active=1 AND id IN (${pids.map(() => "?").join(",")})`, [org, loc, ...pids]) : [];
+      const { exc, booked } = await bkLoadDay(env, org, loc, now.date, provs.map((p) => p.id));
+      const order = pid ? provs : pids.map((n) => provs.find((p) => p.id === n)).filter(Boolean);
+      const who = order.find((p) => !bkBusyAt(exc.filter((e) => e.provider_id === p.id), booked.filter((x) => x.provider_id === p.id), a, z + (svc.bufferMin || 0)));
+      if (!who) return bad(pid ? "Busy right now" : "Nobody who does this is free right now", 409, { next: await bkNextSlots(env, org, loc, svc, now.date, 3, 1) });
+      try {
+        const r = await dbFirst(env, `INSERT INTO bk_bookings (org_id, location_id, ref, service_id, provider_id, person_name, person_phone, person_email, person_id_card,
+            date, start_time, end_time, status, price_cents, notes, link_id, created_by, updated_by, walk_in)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'arrived',?,?,?,?,?,1) RETURNING *`,
+          [org, loc, bkRef(), svc.id, who.id, name, String(b.personPhone || "").trim(), String(b.personEmail || "").trim().toLowerCase(),
+            String(b.personIdCard || "").trim().toUpperCase(), now.date, bkTime(a), bkTime(z), svc.priceCents, String(b.notes || ""), bkRandomHex(16), me, me]);
+        await writeAudit(env, org, me, "BK_WALKIN", "bk_bookings", String(r.id), { date: now.date, start: bkTime(a), service_id: svc.id, provider_id: who.id }, loc);
+        return ok({ booking: bkBookingRow(r), message: "" }, 201);
+      } catch (e) {
+        if (/UNIQUE/i.test(String(e && e.message))) return bad("Someone was just booked at this minute. Try again.", 409);
+        throw e;
+      }
+    }
     if (!isValidYmd(date) || !Number.isFinite(bkMin(start))) return bad("Invalid date or time");
+    // Repeat: the same time every 1, 2, 3 or 4 weeks, 2 to 12 times in all. Each one must be free on its day.
+    let rep = null;
+    if (b.repeat && typeof b.repeat === "object") {
+      rep = { every: Math.round(Number(b.repeat.everyDays)), count: Math.round(Number(b.repeat.count)) };
+      if (![7, 14, 21, 28].includes(rep.every) || !(rep.count >= 2 && rep.count <= 12)) return bad("Repeat every 1 to 4 weeks, 2 to 12 times");
+    }
     // The slot must be one the rules allow right now (hours, exceptions, other bookings, buffers, not in the past).
     const free = await bkSlotsFor(env, org, loc, svc, date, pid || null);
     const slot = free.find((s) => s.time === start && (!pid || s.providerId === pid));
@@ -22104,6 +22334,29 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
         [org, loc, bkRef(), svc.id, slot.providerId, name, String(b.personPhone || "").trim(), String(b.personEmail || "").trim().toLowerCase(),
           String(b.personIdCard || "").trim().toUpperCase(), date, start, end, svc.priceCents, String(b.notes || ""), bkRandomHex(16), me, me]);
       await writeAudit(env, org, me, "BK_CREATE", "bk_bookings", String(r.id), { date, start, service_id: svc.id, provider_id: slot.providerId }, loc);
+      if (rep) {
+        // The first is booked; the rest follow it, each only when that time is still free with the same person.
+        const sid = bkRandomHex(8), series = [], skipped = [];
+        const first = await dbFirst(env, `UPDATE bk_bookings SET series_id=? WHERE id=? RETURNING *`, [sid, r.id]);
+        series.push(bkBookingRow(first));
+        for (let i = 1; i < rep.count; i++) {
+          const d = bkAddDays(date, rep.every * i);
+          const freeD = (await bkSlotsFor(env, org, loc, svc, d, slot.providerId)).some((x) => x.time === start);
+          if (!freeD) { skipped.push({ date: d, start }); continue; }
+          try {
+            const n = await dbFirst(env, `INSERT INTO bk_bookings (org_id, location_id, ref, service_id, provider_id, person_name, person_phone, person_email, person_id_card,
+                date, start_time, end_time, status, price_cents, notes, link_id, created_by, updated_by, series_id)
+              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'booked',?,?,?,?,?,?) RETURNING *`,
+              [org, loc, bkRef(), svc.id, slot.providerId, name, String(b.personPhone || "").trim(), String(b.personEmail || "").trim().toLowerCase(),
+                String(b.personIdCard || "").trim().toUpperCase(), d, start, end, svc.priceCents, String(b.notes || ""), bkRandomHex(16), me, me, sid]);
+            series.push(bkBookingRow(n));
+          } catch (e) { if (/UNIQUE/i.test(String(e && e.message))) { skipped.push({ date: d, start }); continue; } throw e; }
+        }
+        await writeAudit(env, org, me, "BK_CREATE_SERIES", "bk_bookings", String(r.id), { series_id: sid, every_days: rep.every, booked: series.length, skipped: skipped.map((x) => x.date) }, loc);
+        const message = await bkNotify(env, request, first, "confirm", { also: series.slice(1).map((x) => bkWhen({ date: x.date, start_time: x.start })) });
+        if (b.waitlistId) await dbRun(env, `UPDATE bk_waitlist SET status='booked', booking_id=?, updated_at=datetime('now') WHERE id=? AND org_id=? AND location_id=? AND status='waiting'`, [r.id, Number(b.waitlistId), org, loc]);
+        return ok({ booking: bkBookingRow(first), series, skipped, message }, 201);
+      }
       const message = await bkNotify(env, request, r, "confirm");
       // Booked from the waiting list: mark that entry as done (only if it is for this pharmacy and still waiting).
       if (b.waitlistId) await dbRun(env, `UPDATE bk_waitlist SET status='booked', booking_id=?, updated_at=datetime('now') WHERE id=? AND org_id=? AND location_id=? AND status='waiting'`, [r.id, Number(b.waitlistId), org, loc]);
@@ -22143,15 +22396,31 @@ async function handleBookings(request, env, corsOkHeaders, authUser, url) {
       await writeAudit(env, org, me, "BK_UPDATE", "bk_bookings", String(id), { status, date, start, provider_id: pid }, loc);
       let message = "";
       let offer = null;
+      // notify: false — the pharmacist tells the customer another way (they are on the phone, or at the counter).
+      const tell = b.notify !== false;
+      // Confirmed by the pharmacy (they called): remembered with when, as the customer's own confirmation is.
+      let out = r;
+      if (status === "confirmed" && cur.status !== "confirmed") out = await dbFirst(env, `UPDATE bk_bookings SET confirmed_at=datetime('now'), confirmed_via='staff' WHERE id=? RETURNING *`, [id]) || r;
       if (status === "cancelled" && cur.status !== "cancelled") {
-        message = await bkNotify(env, request, r, "cancel");
+        message = tell ? await bkNotify(env, request, r, "cancel") : "not-told";
         // A freed time: offer it to the first person waiting for this service.
         const w = await dbFirst(env, `SELECT * FROM bk_waitlist WHERE org_id=? AND location_id=? AND service_id=? AND status='waiting' ORDER BY id LIMIT 1`, [org, loc, r.service_id]);
         if (w) offer = { waitlistId: w.id, personName: w.person_name, personPhone: w.person_phone, personEmail: w.person_email,
           serviceId: r.service_id, providerId: r.provider_id, date: r.date, start: r.start_time };
       }
-      else if (r.date !== cur.date || r.start_time !== cur.start_time) message = await bkNotify(env, request, r, "change");
-      return ok({ booking: bkBookingRow(r), message, offer });
+      else if (r.date !== cur.date || r.start_time !== cur.start_time) {
+        message = tell ? await bkNotify(env, request, r, "change") : "not-told";
+        // The time it left is free again: offer it to the first person waiting for this service, when it really is free.
+        const now = bkNowLocal(env);
+        if (cur.date > now.date || (cur.date === now.date && bkMin(cur.start_time) > now.min)) {
+          const w = await dbFirst(env, `SELECT * FROM bk_waitlist WHERE org_id=? AND location_id=? AND service_id=? AND status='waiting' ORDER BY id LIMIT 1`, [org, loc, r.service_id]);
+          const svcW = w ? await bkGetService(env, org, loc, r.service_id) : null;
+          if (w && svcW && (await bkSlotsFor(env, org, loc, svcW, cur.date, cur.provider_id)).some((x) => x.time === cur.start_time))
+            offer = { waitlistId: w.id, personName: w.person_name, personPhone: w.person_phone, personEmail: w.person_email,
+              serviceId: r.service_id, providerId: cur.provider_id, date: cur.date, start: cur.start_time };
+        }
+      }
+      return ok({ booking: bkBookingRow(out), message, offer });
     } catch (e) {
       if (/UNIQUE/i.test(String(e && e.message))) return bad("That time was just taken", 409);
       throw e;
@@ -22416,7 +22685,7 @@ async function bkCanSend(env, s) {
 }
 
 // Sends one message about a booking. Never throws: a failed email must not fail a booking.
-async function bkNotify(env, request, booking, kind) {
+async function bkNotify(env, request, booking, kind, extra) {
   try {
     await ensureBookingsMsgSchema(env);
     if (!booking || !booking.person_email) return "no-email";
@@ -22450,6 +22719,10 @@ async function bkNotify(env, request, booking, kind) {
     // A cancellation says why (unless the customer cancelled it) and, when online booking is on, how to book again.
     let lines = T[1], btn = kind === "cancel" ? "" : link, btnText = "";
     if (kind !== "cancel") { const room = await bkRoomNameFor(env, booking); if (room) lines = lines.concat([`In ${room}.`]); }
+    // A repeat booking: one e-mail for all of them; each still gets its own reminder.
+    if (extra && Array.isArray(extra.also) && extra.also.length) lines = lines.concat([`Also booked at the same time: ${extra.also.join("; ")}.`]);
+    // A reminder asks the customer to say they are coming (one tap on their page) or to change the time.
+    if (kind === "remind_evening" || kind === "remind_hours") btnText = "Confirm or change";
     if (kind === "cancel") {
       const why = String(booking.cancel_reason || "");
       if (why && !/by the customer/i.test(why)) lines = lines.concat([why + "."]);
@@ -22613,7 +22886,7 @@ async function handleBookingLink(request, env, url) {
   if (n && Number(n.c) >= 60) return bkPage("Please wait", `<div class="c"><h1>Please wait a moment</h1><div class="s">Too many requests. Try again in 15 minutes.</div></div>`, 429);
   try { await dbRun(env, "INSERT INTO login_attempts (email, ip) VALUES (?, ?)", ["bk-link", ip]); } catch (e) {}
 
-  const m = /^\/b\/([^/]+?)(\.ics)?(\/cancel|\/stop|\/move|\/times|\/days)?$/.exec(url.pathname);
+  const m = /^\/b\/([^/]+?)(\.ics)?(\/cancel|\/stop|\/move|\/times|\/days|\/confirm)?$/.exec(url.pathname);
   const gone = () => bkPage("Link not valid", `<div class="c"><h1>This link has expired</h1><div class="s">Please call the pharmacy to check your booking.</div></div>`, 404);
   if (!m) return gone();
   const v = await bkVerifyToken(env, m[1]);
@@ -22682,6 +22955,15 @@ async function handleBookingLink(request, env, url) {
   }
   if (m[3] === "/move") return bkMovePage(pharmacy, svcName, bkWhen(b), base, canChange ? "" : (b.status === "cancelled" ? "This booking is cancelled." : lateMsg));
 
+  // "I'll be there": the customer confirms from the reminder (a button on this page, never the e-mail link itself,
+  // so a mail scanner opening links confirms nothing).
+  if (m[3] === "/confirm" && request.method === "POST") {
+    if (!(b.status === "booked" || b.status === "confirmed") || startsIn < 0) return bkPage("Can't confirm", `<div class="c"><h1>This booking can't be confirmed</h1><div class="s">Please call ${e(pharmacy)}${s.phone ? " on " + e(s.phone) : ""}.</div></div>`, 409);
+    const r = await dbFirst(env, `UPDATE bk_bookings SET status='confirmed', confirmed_at=datetime('now'), confirmed_via='customer', version=version+1, updated_at=datetime('now')
+      WHERE id=? AND status='booked' RETURNING *`, [b.id]);
+    if (r) await writeAudit(env, b.org_id, null, "BK_CONFIRM_ONLINE", "bk_bookings", String(b.id), {}, b.location_id);
+    return bkPage("Confirmed", `<div class="c"><h1>Thank you</h1><div class="s">See you on ${e(bkWhen(b))}. ${e(pharmacy)} can see you confirmed.</div><a class="b" style="background:rgba(118,118,128,.12);color:inherit" href="${base}">Back to my booking</a></div>`);
+  }
   if (m[3] === "/cancel" && request.method === "POST") {
     if (!canCancel) return bkPage("Can't cancel", `<div class="c"><h1>Too late to cancel online</h1><div class="s">Please call ${e(pharmacy)}${s.phone ? " on " + e(s.phone) : ""}.</div></div>`, 409);
     const r = await dbFirst(env, `UPDATE bk_bookings SET status='cancelled', cancel_reason='Cancelled by the customer online', version=version+1, updated_at=datetime('now')
@@ -22690,13 +22972,15 @@ async function handleBookingLink(request, env, url) {
     return bkPage("Cancelled", `<div class="c"><h1>Cancelled</h1><div class="s">Your ${e(svcName.toLowerCase())} on ${e(bkWhen(b))} is cancelled. ${e(pharmacy)} has been told.</div></div>`);
   }
 
-  const state = b.status === "cancelled" ? "Cancelled" : b.status === "done" ? "Done" : "Booked";
+  const state = b.status === "cancelled" ? "Cancelled" : b.status === "done" ? "Done" : b.status === "confirmed" ? "Confirmed" : "Booked";
+  const canConfirm = b.status === "booked" && startsIn >= 0;
   const roomName = b.status === "cancelled" ? "" : await bkRoomNameFor(env, b);
   return bkPage(`${svcName} · ${pharmacy}`, `<div class="c">
     <div class="s">${e(pharmacy)}</div><h1>${e(bkFirstName(b.person_name))}, you're ${b.status === "cancelled" ? "not booked" : "booked"}</h1>
     <div class="big">${e(svcName)}</div><div class="row">${e(bkWhen(b))}</div>
     <div class="row s">${e(state)}${roomName ? " · " + e(roomName) : ""}${s.address ? " · " + e(s.address) : ""}</div>
-    ${b.status !== "cancelled" ? `<a class="b g" href="${base}.ics">Add to calendar</a>` : ""}
+    ${canConfirm ? `<form method="post" action="${base}/confirm"><button class="b g">Yes, I'll be there</button></form>` : ""}
+    ${b.status !== "cancelled" ? `<a class="b ${canConfirm ? "" : "g"}" ${canConfirm ? 'style="background:rgba(10,143,106,.11);color:#0A7A5B"' : ""} href="${base}.ics">Add to calendar</a>` : ""}
     ${canChange ? `<a class="b" style="background:rgba(10,143,106,.11);color:#0A7A5B" href="${base}/move">Change time</a>` : ""}
     ${canCancel ? `<form method="post" action="${base}/cancel" onsubmit="return confirm('Cancel this booking?')"><button class="b r">Cancel booking</button></form>` : ""}
     ${s.phone ? `<a class="b" style="background:rgba(118,118,128,.12);color:inherit" href="tel:${e(s.phone)}">Call ${e(pharmacy)}</a>` : ""}
@@ -22754,7 +23038,7 @@ async function bkImportLegacy(env, authUser, dry) {
   const org = authUser.org_id, loc = authUser.location_id;
   const mapGet = async (kind, id) => { const r = await dbFirst(env, `SELECT new_id FROM bk_legacy_map WHERE org_id=? AND location_id=? AND kind=? AND legacy_id=?`, [org, loc, kind, String(id)]); return r ? r.new_id : null; };
   const mapSet = async (kind, id, nid) => dbRun(env, `INSERT OR IGNORE INTO bk_legacy_map (org_id, location_id, kind, legacy_id, new_id) VALUES (?,?,?,?,?)`, [org, loc, kind, String(id), nid]);
-  const rep = { providers: 0, services: 0, extras: 0, bookings: 0, clashes: 0, waiting: 0, skipped: 0, dry: !!dry };
+  const rep = { providers: 0, services: 0, extras: 0, bookings: 0, upcoming: 0, clashes: 0, waiting: 0, skipped: 0, dry: !!dry };
 
   const doctors = await dbAll(env, `SELECT * FROM appt_doctors WHERE org_id=? AND location_id=?`, [org, loc]);
   const clinics = await dbAll(env, `SELECT * FROM appt_clinics WHERE org_id=? AND location_id=?`, [org, loc]);
@@ -22821,6 +23105,7 @@ async function bkImportLegacy(env, authUser, dry) {
     const end = bkTime(bkMin(start) + (Math.round(Number(a.duration_mins)) || 15));
     const k = pairKey(a.doctor_id, a.clinic_id);
     rep.bookings++;
+    if (a.date >= today && st !== "cancelled" && st !== "done" && st !== "no_show") rep.upcoming++; // still to come: what the move must not lose
     if (dry) continue;
     const vals = (status, reason) => [org, loc, a.appt_ref || bkRef(), svcFor[k], provFor[a.doctor_id || "none"], String(a.patient_name || "Unknown"), String(a.patient_phone || ""), String(a.patient_email || "").toLowerCase(),
       String(a.patient_id_card || "").toUpperCase(), a.date, start, end, status, Math.round(((Number(a.doctor_fee) || 0) + (Number(a.clinic_fee) || 0)) * 100), String(a.notes || ""), reason, bkRandomHex(16), authUser.user_id, authUser.user_id];
