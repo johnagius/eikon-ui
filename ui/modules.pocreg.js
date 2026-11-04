@@ -6,7 +6,9 @@
    can be pressed again without making a second record. The patient's master card is merged by the classic rules
    (a different name or phone for a known ID card is noted as a conflict, not written over).
    High/low marks are a reading guide for adults and are only shown, never saved.
-   Editing, deleting, printing, the patients list with its flags, CSV export and import stay in the classic screen. */
+   A test is changed the classic way: its own id, the whole record sent again, the patient's card merged by the same rules
+   (the classic Edit asks nothing about the person, so neither does this). One test prints for the patient on the classic
+   page, word for word. Deleting, the patients list with its flags, CSV export and import stay in the classic screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -143,6 +145,7 @@
       ".poc-row .t{flex:1;min-width:0}.poc-row b{display:block;font-size:15px;font-weight:600;overflow-wrap:anywhere}" +
       ".poc-row span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.poc-row span.w{white-space:normal}" +
       ".poc-row .f{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;flex:0 1 auto;max-width:45%}" +
+      ".poc-row .a{display:flex;gap:6px;flex:0 0 auto}.poc-row .a .poc-btn{height:32px;padding:0 12px;font-size:13px}" +
       ".poc-flag{font-style:normal;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}" +
       ".poc-flag.bad{background:rgba(215,38,28,.12);color:var(--danger)}.poc-flag.warn{background:rgba(201,138,18,.14);color:var(--warn,#8A5A08)}" +
       ".poc-who{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}" +
@@ -166,7 +169,7 @@
       ".poc-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       ".poc-note{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5}" +
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .poc-seg button.on{color:#00160E}html[data-ui2]:not([data-ui2-visit]) :is(.poc-err,.poc-form label.miss>span){color:#FF7A72}}" +
-      "@media (max-width:600px){.poc-btn{height:44px;border-radius:22px;padding:0 18px;font-size:15px}.poc-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.poc-seg button{min-height:44px}.poc{padding:4px 16px 0}.poc h1{font-size:32px}.poc-form label>span{flex-basis:92px}.poc-row{padding:10px 14px}}";
+      "@media (max-width:600px){.poc-btn{height:44px;border-radius:22px;padding:0 18px;font-size:15px}.poc-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.poc-seg button{min-height:44px}.poc{padding:4px 16px 0}.poc h1{font-size:32px}.poc-form label>span{flex-basis:92px}.poc-row{padding:10px 14px}.poc-row:has(.a){flex-wrap:wrap}.poc-row .a{flex-basis:100%;justify-content:flex-end}.poc-row .a .poc-btn{height:44px;padding:0 16px}}";
     document.head.appendChild(st);
   }
 
@@ -189,6 +192,17 @@
     a.arm = "Left"; a.position = "Sitting"; a.timing = "Random"; a.fasting = ""; a.appearance = "";
     URINE.forEach(function (u) { a[u[0]] = u[3]; });
     if (p) { a.patientId = p.id; a.name = p.name; a.phone = p.phone; a.age = has(p.age) ? String(p.age) : ""; a.address = p.address; a.found = true; }
+    return a;
+  }
+
+  // A test loaded to be changed, as the classic screen loads it into its form (its time as typed, the results as stored).
+  function fromRecord(r) {
+    var p = r.patient || {}, x = r.results || {}, a = blank(null), str = function (v) { return v === null || v === undefined ? "" : String(v); };
+    a.type = r.testType; a.recId = r.id; a.editing = true; a.found = true; a.looked = pid(p.patientId);
+    a.dt = r.performedAtLocal && String(r.performedAtLocal).indexOf("T") >= 0 ? r.performedAtLocal : nowLocal();
+    a.patientId = p.patientId || ""; a.name = p.name || ""; a.phone = p.phone || ""; a.age = str(p.age); a.address = p.address || "";
+    a.intervention = r.intervention || ""; a.notes = r.notes || "";
+    (RES[r.testType] || []).forEach(function (k) { if (has(x[k])) a[k] = String(x[k]); });
     return a;
   }
 
@@ -235,8 +249,9 @@
 
   function formHtml() {
     var a = S.adding;
-    return '<form class="poc-form" id="poc-add" autocomplete="off" aria-label="New test">' +
-      '<div class="hd" id="poc-type-lab">Test</div><div class="poc-seg" role="group" aria-labelledby="poc-type-lab">' + TYPES.map(function (t) { return '<button type="button" data-type="' + t[0] + '" aria-pressed="' + (a.type === t[0]) + '" class="' + (a.type === t[0] ? "on" : "") + '">' + esc(t[1]) + "</button>"; }).join("") + "</div>" +
+    return '<form class="poc-form" id="poc-add" autocomplete="off" aria-label="' + (a.editing ? "Change test" : "New test") + '">' +
+      (a.editing ? '<div class="hd">Change ' + esc(lower(NICE[a.type])) + " of " + esc(when(S.records.filter(function (r) { return r.id === a.recId; }).map(function (r) { return r.performedAtIso; })[0])) + "</div>" :
+      '<div class="hd" id="poc-type-lab">Test</div><div class="poc-seg" role="group" aria-labelledby="poc-type-lab">' + TYPES.map(function (t) { return '<button type="button" data-type="' + t[0] + '" aria-pressed="' + (a.type === t[0]) + '" class="' + (a.type === t[0] ? "on" : "") + '">' + esc(t[1]) + "</button>"; }).join("") + "</div>") +
       '<div class="hd">Patient</div>' +
       field("patientId", "ID card", ' placeholder="ID card or passport" autocapitalize="characters"', a.found ? "<small>Known</small>" : "") +
       field("name", "Name", ' placeholder="Name and surname"') +
@@ -250,7 +265,7 @@
       field("intervention", "Intervention", ' placeholder="Optional, e.g. lifestyle advice, referred"') +
       field("notes", "Notes", ' placeholder="Optional"') +
       (S.err ? '<div class="poc-err" id="poc-errmsg" role="alert">' + esc(S.err) + "</div>" : "") +
-      '<div class="acts"><button type="button" class="poc-btn" data-act="add-cancel">Cancel</button><button type="submit" class="poc-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save test") + "</button></div></form>";
+      '<div class="acts"><button type="button" class="poc-btn" data-act="add-cancel">Cancel</button><button type="submit" class="poc-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : a.editing ? "Save changes" : "Save test") + "</button></div></form>";
   }
 
   function row(r, showWho) {
@@ -260,6 +275,8 @@
     if (!showWho && r.notes) sub.push(r.notes);
     var inner = '<div class="t"><b>' + esc(label(r)) + " · " + esc(summary(r)) + '</b><span' + (showWho ? "" : ' class="w"') + ">" + esc(sub.join(" · ")) + "</span></div>" + (f.length ? '<div class="f">' + pills(f) + "</div>" : "");
     var id = pid(p.patientId);
+    if (!showWho) inner += '<div class="a"><button type="button" class="poc-btn" data-act="print-test" data-rid="' + esc(r.id) + '" aria-label="Print this ' + esc(lower(label(r))) + ' for the patient">Print</button>' +
+      (S.adding ? "" : '<button type="button" class="poc-btn" data-act="edit-test" data-rid="' + esc(r.id) + '" aria-label="Change this ' + esc(lower(label(r))) + '">Change</button>') + "</div>";
     return showWho && id ? '<button type="button" class="poc-row" data-act="open" data-pid="' + esc(id) + '">' + inner + "</button>" : '<div class="poc-row">' + inner + "</div>";
   }
 
@@ -325,7 +342,7 @@
     else if (S.error) h += '<div class="poc-quiet" role="alert">' + esc(S.error) + ' <button type="button" class="poc-btn" data-act="retry" style="margin-left:6px">Try again</button></div>';
     else h += S.view ? patientHtml(S.view) : homeHtml();
     h += '<p class="poc-note">High and low marks are a guide for adults (blood pressure 140/90, fasting glucose 7.0 and random 11.1 mmol/L, HbA1c 48 mmol/mol, total cholesterol 5.0, LDL 3.0, HDL 1.0, BMI 25) and are not saved with the test. ' +
-      'Editing or deleting a test, printing one test, the patients list with its flags, and exporting or importing a spreadsheet are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
+      'Deleting a test, the patients list with its flags, and exporting or importing a spreadsheet are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
     var ae = document.activeElement, back = ae && m.contains(ae) && ae.closest && ae.closest("#poc-add") && ae.name ? "[name=" + ae.name + "]" : (ae && ae.id === "poc-q" ? "#poc-q" : "");
     var caret = null; if (back) try { caret = typeof ae.selectionStart === "number" ? ae.selectionStart : null; } catch (e) { caret = null; }
     m.innerHTML = h;
@@ -344,7 +361,9 @@
         else if (act === "add") { S.adding = blank(null); S.err = ""; S.miss = []; paint(true); focus("[name=patientId]"); }
         else if (act === "add-q") { var q = S.q; S.adding = blank(null); S.miss = []; if (/\d/.test(q) && !/\s/.test(q.trim()) && !/^[+\d\s]{8,}$/.test(q.trim())) S.adding.patientId = pid(q); else if (/^[+\d\s]{8,}$/.test(q.trim())) S.adding.phone = q.trim(); else S.adding.name = q.trim(); S.err = ""; paint(true); focus("[name=patientId]"); }
         else if (act === "add-for") { var p = people()[b.getAttribute("data-pid")]; S.adding = blank(p); S.err = ""; S.miss = []; paint(true); focus("[name=sys],[name=glucose],[name=pct],[name=tc],[name=weight],[name=leu]"); }
-        else if (act === "add-cancel") { S.adding = null; S.err = ""; S.miss = []; paint(true); }
+        else if (act === "add-cancel") { var was = S.adding && S.adding.editing ? S.adding.recId : ""; S.adding = null; S.err = ""; S.miss = []; paint(true); if (was) focus('[data-act="edit-test"][data-rid="' + was + '"]'); }
+        else if (act === "edit-test") { var r0 = S.records.filter(function (x) { return x.id === b.getAttribute("data-rid"); })[0]; if (!r0) return; S.adding = fromRecord(r0); S.err = ""; S.miss = []; paint(true); window.scrollTo(0, 0); focus("[name=" + RES[r0.testType][0] + "]"); }
+        else if (act === "print-test") { var r1 = S.records.filter(function (x) { return x.id === b.getAttribute("data-rid"); })[0]; if (r1) printOne(r1); }
         else if (act === "open") { S.view = b.getAttribute("data-pid"); paint(); window.scrollTo(0, 0); }
         else if (act === "home") { S.view = null; paint(); }
         else if (act === "retry") load();
@@ -445,9 +464,10 @@
     if (bad.length) { if (errs.length > resBefore) { errs.pop(); } say(bad, "One of the values is not a number. Check it and press Save test again."); }
     S.miss = miss;
     if (errs.length) { S.err = errs.join(" ") + " Nothing was saved."; paint(true); var first = S.mount && S.mount.querySelector("#poc-add [aria-invalid=true]"); if (first) first.focus(); return; }
-    // the ID card and the person (E.people.confirmPerson): asked before anything is saved; Go back keeps the form
+    // the ID card and the person (E.people.confirmPerson): asked before anything is saved; Go back keeps the form.
+    // Not when a test is changed: the classic Edit saves straight away, and so does this.
     var asked = null;
-    if (E.people && E.people.confirmPerson) {
+    if (E.people && E.people.confirmPerson && !a.editing) {
       S.saving = true; paint(true);
       asked = await E.people.confirmPerson({ name: a.name, id_card: pid(a.patientId), phone: a.phone, address: a.address }, { key: "pocreg", record: "test" });
       S.saving = false;
@@ -475,11 +495,72 @@
         var got = ((st && st.state && st.state.records) || (st && st.records) || []).some(function (x) { return x && x.id === rec.id; });
         if (!got) throw x0;
       }
-      S.adding = null; S.miss = []; S.view = pt.patientId; S.q = ""; S.lastType = t; try { localStorage.setItem("eikon_pocreg_type", t); } catch (e2) {}
-      if (E.linkPerson) E.linkPerson({ name: pt.name, id_card: pt.patientId, phone: pt.phone, address: pt.address }, "register:poct", asked); // one person in Customers, found or added
-      E.toast(mc.conflict ? "Saved. This ID card was on file with a different name or phone; the patient's details were kept." : "Saved · " + NICE[t] + " for " + pt.name, mc.conflict ? "warning" : "success");
+      var edited = !!a.editing;
+      S.adding = null; S.miss = []; S.view = pt.patientId; S.q = ""; if (!edited) { S.lastType = t; try { localStorage.setItem("eikon_pocreg_type", t); } catch (e2) {} }
+      if (!edited && E.linkPerson) E.linkPerson({ name: pt.name, id_card: pt.patientId, phone: pt.phone, address: pt.address }, "register:poct", asked); // one person in Customers, found or added
+      E.toast(mc.conflict ? "Saved. This ID card was on file with a different name or phone; the patient's details were kept." : (edited ? "Changes saved · " : "Saved · ") + NICE[t] + " for " + pt.name, mc.conflict ? "warning" : "success");
     } catch (x) { S.err = E.saveFailText(x); }
     S.saving = false; return load();
+  }
+
+  // One test, printed for the patient: the classic screen's printRecord page, word for word and tag for tag
+  // (its own escaping, its date format, its Print button), through E.printTab.
+  function pesc(s) { return String(s === null || s === undefined ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+  function pdt(iso) { var d = new Date(iso); if (isNaN(d.getTime())) d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+  function printRows(r) {
+    var x = r.results || {}, rows = [], add = function (k, v) { rows.push({ k: k, v: v === null || v === undefined ? "" : String(v) }); };
+    if (r.testType === "bp") { add("Systolic (mmHg)", x.sys); add("Diastolic (mmHg)", x.dia); add("Pulse (bpm)", x.pulse); add("Arm", x.arm); add("Position", x.position); }
+    else if (r.testType === "urine") { add("Leukocytes", x.leu); add("Nitrite", x.nit); add("Urobilinogen", x.uro); add("Protein", x.pro); add("pH", x.ph); add("Blood", x.bld); add("Ketone", x.ket); add("Glucose", x.glu); add("Appearance", x.appearance); }
+    else if (r.testType === "hba1c") { add("HbA1c (%)", x.pct); add("HbA1c (mmol/mol)", x.mmol); }
+    else if (r.testType === "bg") { add("Blood Glucose (mmol/L)", x.glucose); add("Timing", x.timing); }
+    else if (r.testType === "chol") { add("Total Cholesterol (mmol/L)", x.tc); add("HDL (mmol/L)", x.hdl); add("LDL (mmol/L)", x.ldl); add("Triglycerides (mmol/L)", x.tg); add("TC/HDL Ratio", x.ratio); add("Fasting", x.fasting); }
+    else if (r.testType === "bmi") { add("Weight (kg)", x.weight); add("Height (cm)", x.height); add("BMI", x.bmi); add("BMI Category", x.category); add("Waist (cm)", x.waist); }
+    else for (var k in x) if (Object.prototype.hasOwnProperty.call(x, k)) add(k, x[k]);
+    return rows.filter(function (w) { return String(w.v || "").trim() !== "" || w.k === "pH"; });
+  }
+  function printOne(r) {
+    var w = window.open("", "_blank");
+    if (!w) { E.toast("The print window was blocked. Allow pop-ups for Eikon and press Print again.", "error"); return; }
+    var p = r.patient || {}, rows = printRows(r), h = "";
+    h += "<!doctype html><html><head><meta charset='utf-8'/>";
+    h += "<meta name='viewport' content='width=device-width,initial-scale=1'/>";
+    h += "<title>POCT - " + pesc(r.testLabel || "Result") + "</title>";
+    h += "<style>";
+    h += "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:18px;color:#111;}";
+    h += "button{position:fixed;right:14px;top:14px;padding:8px 10px;font-weight:800;}";
+    h += "h1{margin:0 0 4px 0;font-size:18px;}";
+    h += ".meta{font-size:12px;color:#333;margin-top:6px;white-space:pre-wrap;}";
+    h += ".box{border:1px solid #ddd;border-radius:10px;padding:10px;margin-top:12px;}";
+    h += ".grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}";
+    h += ".k{font-size:11px;color:#555;margin-bottom:3px;}";
+    h += ".v{font-size:13px;}";
+    h += "table{width:100%;border-collapse:collapse;margin-top:10px;}";
+    h += "th,td{border:1px solid #ddd;padding:6px 8px;font-size:12px;vertical-align:top;text-align:left;}";
+    h += "th{background:#f5f5f5;}";
+    h += "@media print{button{display:none!important;} body{margin:0;}}";
+    h += "</style></head><body>";
+    h += "<button data-eikon-print='print'>Print</button>";
+    h += "<h1>" + pesc(r.testLabel || "POCT") + " Result</h1>";
+    h += "<div class='meta'>Date/Time: " + pesc(pdt(r.performedAtIso)) + "\nPrinted: " + pesc(new Date().toLocaleString()) + "</div>";
+    h += "<div class='box'><div class='grid'>";
+    h += "<div><div class='k'>Patient Name</div><div class='v'><strong>" + pesc(p.name || "") + "</strong></div></div>";
+    h += "<div><div class='k'>Patient ID</div><div class='v'><strong>" + pesc(p.patientId || "") + "</strong></div></div>";
+    h += "<div><div class='k'>Contact Number</div><div class='v'>" + pesc(p.phone || "") + "</div></div>";
+    h += "<div><div class='k'>Age</div><div class='v'>" + pesc(p.age === null || p.age === undefined ? "" : String(p.age)) + "</div></div>";
+    h += "<div style='grid-column:1 / span 2;'><div class='k'>Address</div><div class='v'>" + pesc(p.address || "") + "</div></div>";
+    h += "</div></div>";
+    h += "<div class='box'>";
+    h += "<div class='k'>Results</div>";
+    h += "<table><thead><tr><th style='width:40%'>Parameter</th><th>Value</th></tr></thead><tbody>";
+    for (var i = 0; i < rows.length; i++) h += "<tr><td>" + pesc(rows[i].k) + "</td><td>" + pesc(rows[i].v) + "</td></tr>";
+    if (rows.length === 0) h += "<tr><td colspan='2'>No results recorded</td></tr>";
+    h += "</tbody></table>";
+    h += "</div>";
+    if (must(r.intervention || "")) h += "<div class='box'><div class='k'>Intervention / Medication started</div><div class='v'>" + pesc(r.intervention || "") + "</div></div>";
+    h += "<div class='box'><div class='k'>Notes</div><div class='v'>" + pesc(r.notes || "") + "</div></div>";
+    h += "</body></html>";
+    w.document.open(); w.document.write(h); w.document.close(); E.printTab(w, { delay: 250 });
+    try { w.focus(); } catch (e) {}
   }
 
   E.registerModule({

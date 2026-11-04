@@ -1,18 +1,27 @@
 /* Alerts (recalls and quarantines), new layout: open alerts with their checklist, one tap per step, close when done;
-   record a new alert. Same endpoints as the classic screen. The server's update replaces every field, so each tap
-   sends the whole record back as read with only that step changed (see design/eikon-next/UPDATE-AUDIT.md). */
+   record a new alert; change an alert (its details, status and notes). Same endpoints as the classic screen. The
+   server's update replaces every field, so each save sends the whole record back as read with only what was changed
+   (see design/eikon-next/UPDATE-AUDIT.md), in the classic screen's own body (its payloadFromEntry: every text trimmed,
+   every step 0 or 1). Deleting stays in the classic screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, entries: [], loading: false, error: "", busy: {}, adding: null, saving: false, err: "" };
+  var S = { mount: null, entries: [], loading: false, error: "", busy: {}, adding: null, saving: false, err: "", editing: null, editErr: [], editMiss: [] };
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   var CHECK = [["team_informed", "Team told"], ["supplier_informed", "Supplier told"], ["authorities_informed", "Authorities told"],
     ["return_arranged", "Return arranged"], ["handed_over", "Handed over"], ["collection_note_received", "Collection note"], ["credit_note_received", "Credit note"]];
-  // Every field the server's update writes; sent back as read so nothing is blanked.
-  var FIELDS = ["entry_date", "alert_type", "status", "item_name", "batch", "expiry", "quantity", "reason", "storage_location", "supplier", "notes",
-    "team_informed", "supplier_informed", "authorities_informed", "return_arranged", "handed_over", "collection_note_received", "credit_note_received"];
+  // Every field the server's update writes, in the classic screen's order; sent back as read so nothing is blanked.
+  var TEXTS = ["entry_date", "alert_type", "status", "item_name", "batch", "expiry", "quantity", "reason", "storage_location", "supplier", "notes"];
+  var STATUS = [["open", "Open"], ["in_progress", "In progress"], ["closed", "Closed"]];
+  // The classic screen's payloadFromEntry, unchanged: the body of every update it sends (edit, checklist, close).
+  function payload(x) {
+    var o = {};
+    TEXTS.forEach(function (k) { o[k] = String(x[k] || "").trim(); });
+    CHECK.forEach(function (c) { var v = x[c[0]]; o[c[0]] = v === 1 || v === "1" || v === true ? 1 : 0; });
+    return o;
+  }
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
   function nice(s) { var p = String(s || "").split("-"); return p.length === 3 ? Number(p[2]) + " " + MON[Number(p[1]) - 1] + " " + p[0] : ""; }
@@ -37,12 +46,14 @@
       ".alr-chk{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}" +
       ".alr-chk button{font:inherit;font-size:13px;font-weight:600;height:32px;padding:0 12px;border-radius:16px;border:0;background:rgba(118,118,128,.12);color:var(--muted);cursor:pointer}" +
       ".alr-chk button.on{background:rgba(10,143,106,.12);color:var(--accent)}.alr-chk button:disabled{opacity:.5}" +
-      ".alr-foot{display:flex;justify-content:flex-end;margin-top:10px}" +
+      ".alr-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}" +
       ".alr-form{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:6px 0;margin-top:16px}" +
       ".alr-form label{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 16px;border-top:.5px solid var(--border)}.alr-form label:first-child{border-top:0}" +
       ".alr-form label>span{flex:0 0 90px;font-size:15px}.alr-form input,.alr-form select{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
       ".alr-form .acts{display:flex;gap:8px;padding:10px 16px;justify-content:flex-end}" +
       ".alr-err{color:var(--danger);font-size:13px;padding:2px 16px 4px}" +
+      ".alr-edit{margin:0 0 10px;border-left:3px solid var(--accent)}.alr-form label.miss>span{color:var(--danger);font-weight:600}.alr-form label.miss{box-shadow:inset 3px 0 0 var(--danger)}" +
+      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .alr-form label.miss>span{color:#FF7A72}}" + // as pocreg: the red label readable on dark
       ".alr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       "@media (max-width:600px){.alr{padding:4px 16px 0}.alr h1{font-size:32px}}" +
       // Stock group: a 44 px way back, a pressed state on every button, 44 px buttons on a phone, a retry under a failed load.
@@ -69,10 +80,27 @@
     if (e.batch) sub.push("Batch " + e.batch); if (e.expiry) sub.push("Expires " + nice(e.expiry)); if (e.quantity) sub.push("Qty " + e.quantity);
     sub.push(e.storage_location === "fridge" ? "Fridge" : "Room"); if (e.supplier) sub.push(e.supplier); sub.push("Recorded " + nice(e.entry_date));
     return '<div class="alr-card' + (e.alert_type === "quarantine" ? " q" : "") + (closed ? " closed" : "") + '"><div class="k">' + (e.alert_type === "quarantine" ? "Quarantine" : "Recall") + (closed ? " · closed" : e.status === "in_progress" ? " · in progress" : "") + "</div>" +
-      "<b>" + esc(e.item_name) + '</b><div class="s">' + esc(sub.join(" · ")) + "</div>" + (e.reason ? '<div class="s">' + esc(e.reason) + "</div>" : "") +
+      "<b>" + esc(e.item_name) + '</b><div class="s">' + esc(sub.join(" · ")) + "</div>" + (e.reason ? '<div class="s">' + esc(e.reason) + "</div>" : "") + (e.notes ? '<div class="s">Notes: ' + esc(e.notes) + "</div>" : "") +
       '<div class="alr-chk">' + CHECK.map(function (c) { return '<button class="' + (on(e, c[0]) ? "on" : "") + '" data-act="tick" data-id="' + e.id + '" data-k="' + c[0] + '" aria-pressed="' + on(e, c[0]) + '"' + (S.busy[e.id] || closed ? " disabled" : "") + ">" + (on(e, c[0]) ? "✓ " : "") + c[1] + "</button>"; }).join("") + "</div>" +
-      (closed ? "" : '<div class="alr-foot"><button class="alr-btn' + (CHECK.every(function (c) { return on(e, c[0]); }) ? " p" : "") + '" data-act="close" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ">Close alert</button></div>") + "</div>";
+      '<div class="alr-foot"><button class="alr-btn" data-act="edit" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ' aria-label="Change ' + esc(e.item_name) + '">Change</button>' +
+      (closed ? "" : '<button class="alr-btn' + (CHECK.every(function (c) { return on(e, c[0]); }) ? " p" : "") + '" data-act="close" data-id="' + e.id + '"' + (S.busy[e.id] ? " disabled" : "") + ">Close alert</button>") + "</div></div>";
   }
+
+  // Change an alert: the card becomes its form, every field as stored (the checklist stays one tap on the card).
+  function editHtml(e) {
+    var d = S.editDraft || e, miss = S.editMiss;
+    var lab = function (k, t, inner) { var bad = miss.indexOf(k) >= 0; return "<label" + (bad ? ' class="miss"' : "") + "><span>" + t + "</span>" + inner.replace("<input", "<input" + (bad ? ' aria-invalid="true" aria-describedby="alr-edit-err"' : "")) + "</label>"; };
+    var inp = function (k, t, extra) { return lab(k, t, '<input name="' + k + '" value="' + esc(d[k] == null ? "" : d[k]) + '"' + (extra || "") + ">"); };
+    var sel = function (k, t, opts) { return "<label><span>" + t + '</span><select name="' + k + '">' + opts.map(function (o) { return '<option value="' + o[0] + '"' + (String(d[k] || opts[0][0]) === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>"; };
+    return '<form class="alr-form alr-edit" id="alr-edit" data-id="' + e.id + '" autocomplete="off" aria-label="Change ' + esc(e.item_name) + '">' +
+      inp("entry_date", "Recorded", ' type="date"') + sel("alert_type", "Type", [["recall", "Recall"], ["quarantine", "Quarantine"]]) + sel("status", "Status", STATUS) +
+      inp("item_name", "Item", ' placeholder="Product and strength"') + inp("batch", "Batch", ' placeholder="Optional"') + inp("expiry", "Expires", ' type="date"') +
+      inp("quantity", "Quantity", ' placeholder="Optional"') + inp("reason", "Why", ' placeholder="Optional"') + sel("storage_location", "Kept in", [["room", "Room"], ["fridge", "Fridge"]]) +
+      inp("supplier", "Supplier", ' placeholder="Optional"') + inp("notes", "Notes", ' placeholder="Optional"') +
+      (S.editErr.length ? '<div class="alr-err" id="alr-edit-err" role="alert">' + esc(S.editErr.join(" ")) + "</div>" : "") +
+      '<div class="acts"><button type="button" class="alr-btn" data-act="edit-cancel">Cancel</button><button type="submit" class="alr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save changes") + "</button></div></form>";
+  }
+  function oneHtml(e) { return S.editing === e.id ? editHtml(e) : cardHtml(e); }
 
   // Every alert recorded in a month (any month), and the classic printout of it.
   var HIST = { dep: function () { return S.loading ? undefined : S.entries; }, title: "By month", label: "Alerts recorded", active: function () { return E.state.activeModuleId === "alertreg"; }, paint: function () { paint(); },
@@ -111,11 +139,11 @@
     else if (S.error) h += '<div class="alr-quiet" role="alert">' + esc(S.error) + '<button class="alr-btn" data-act="retry">Try again</button></div>';
     else {
       var open = S.entries.filter(function (e) { return e.status !== "closed"; }), closed = S.entries.filter(function (e) { return e.status === "closed"; });
-      h += open.length ? '<div class="alr-lab">Open <b>' + open.length + "</b></div>" + open.map(cardHtml).join("") : '<div class="alr-quiet">No open alerts. When a recall comes in, record it here and tick off each step.</div>';
-      if (closed.length) h += '<div class="alr-lab">Closed in the last 60 days <b>' + closed.length + "</b></div>" + closed.map(cardHtml).join("");
+      h += open.length ? '<div class="alr-lab">Open <b>' + open.length + "</b></div>" + open.map(oneHtml).join("") : '<div class="alr-quiet">No open alerts. When a recall comes in, record it here and tick off each step.</div>';
+      if (closed.length) h += '<div class="alr-lab">Closed in the last 60 days <b>' + closed.length + "</b></div>" + closed.map(oneHtml).join("");
     }
     h += E.months.history("alertreg", HIST);
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Changing an alert’s details, notes and deleting are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Deleting an alert is in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
     m.innerHTML = h;
     E.months.wireHistory(m, "alertreg");
     applyRefocus();
@@ -124,7 +152,9 @@
         var a = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
         if (a === "back") window.location.hash = E.ui2BackHash("alertreg");
         else if (a === "retry") load();
-        else if (a === "add") { S.adding = {}; S.err = ""; paint(); focusSoon("#alr-add [name=item_name]"); }
+        else if (a === "add") { S.adding = {}; S.err = ""; S.editing = null; paint(); focusSoon("#alr-add [name=item_name]"); }
+        else if (a === "edit") { S.editing = id; S.editDraft = null; S.editErr = []; S.editMiss = []; S.adding = null; paint(); focusSoon("#alr-edit [name=item_name]"); }
+        else if (a === "edit-cancel") { var was = S.editing; S.editing = null; S.editDraft = null; S.editErr = []; S.editMiss = []; paint(); focusSoon('[data-act="edit"][data-id="' + was + '"]'); }
         else if (a === "add-cancel") { S.adding = null; S.err = ""; paint(); focusSoon('[data-act="add"]'); }
         else if (a === "tick") save(id, function (body) { body[b.getAttribute("data-k")] = on(body, b.getAttribute("data-k")) ? 0 : 1; }, "", b.getAttribute("data-k"));
         else if (a === "close") { if (window.confirm("Close this alert? It moves to Closed.")) save(id, function (body) { body.status = "closed"; }, "Alert closed"); }
@@ -132,6 +162,7 @@
       });
     });
     var f = m.querySelector("#alr-add"); if (f) f.addEventListener("submit", function (ev) { ev.preventDefault(); add(f); });
+    var fe = m.querySelector("#alr-edit"); if (fe) fe.addEventListener("submit", function (ev) { ev.preventDefault(); saveEdit(fe); });
     // Escape closes the open form (what is typed in it is dropped, as with Cancel) and puts you back where you were.
     m.querySelectorAll("form").forEach(function (f) { f.addEventListener("keydown", function (ev) { if (ev.key !== "Escape") return; var c = f.querySelector('[data-act$="-cancel"]'); if (c) { ev.preventDefault(); c.click(); } }); });
   }
@@ -144,7 +175,7 @@
   // Sends the whole record back as read, with only the change made by `change`.
   async function save(id, change, okText, key) {
     var e = S.entries.find(function (x) { return x.id === id; }); if (!e || S.busy[id]) return;
-    var body = {}; FIELDS.forEach(function (k) { body[k] = e[k] == null ? "" : e[k]; });
+    var body = payload(e);
     change(body);
     S.busy[id] = true; paint();
     try {
@@ -153,6 +184,27 @@
       if (okText) E.toast(okText, "success");
     } catch (x) { E.toast(E.saveFailText(x), "error"); }
     S.busy[id] = false; await load(); refocus([key ? '[data-act="tick"][data-id="' + id + '"][data-k="' + key + '"]' : "", '[data-act="close"][data-id="' + id + '"]']);
+  }
+
+  // Change: the record as read with the form's fields over it, sent as the classic Edit sends it (same checks first).
+  async function saveEdit(f) {
+    if (S.saving) return;
+    var id = Number(f.getAttribute("data-id")), e = S.entries.find(function (x) { return x.id === id; }); if (!e) return;
+    var d = Object.assign({}, e);
+    TEXTS.forEach(function (k) { var el = f.querySelector("[name=" + k + "]"); if (el) d[k] = String(el.value || "").trim(); });
+    S.editDraft = d; S.editErr = []; S.editMiss = [];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d.entry_date)) { S.editErr.push("Choose the day it was recorded."); S.editMiss.push("entry_date"); }
+    if (!d.item_name) { S.editErr.push("Write the item."); S.editMiss.push("item_name"); }
+    if (S.editErr.length) { S.editErr.push("Nothing was saved."); paint(); var bad = S.mount && S.mount.querySelector("#alr-edit [aria-invalid=true]"); if (bad) bad.focus(); return; }
+    var body = payload(d);
+    S.saving = true; paint();
+    try {
+      var r = await E.apiFetch("/alerts/entries/" + encodeURIComponent(String(id)), { method: "PUT", body: JSON.stringify(body) });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      S.editing = null; S.editDraft = null; E.toast("Saved · " + body.item_name, "success");
+    } catch (x) { S.editErr = [E.saveFailText(x)]; }
+    S.saving = false; await load();
+    if (S.editing == null) refocus(['[data-act="edit"][data-id="' + id + '"]']);
   }
 
   async function add(f) {
@@ -172,7 +224,7 @@
 
   E.registerModule({
     id: "alertreg", title: "Alerts", order: 3, icon: "!", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; E.months.historyReset("alertreg"); css(); paint(); return E.takeOpenForm("alertreg", S.mount, load(), { btn: "[data-act=add]", form: "#alr-add" }); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.editing = null; S.editDraft = null; S.editErr = []; S.editMiss = []; E.months.historyReset("alertreg"); css(); paint(); return E.takeOpenForm("alertreg", S.mount, load(), { btn: "[data-act=add]", form: "#alr-add" }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("alertreg") < 0) E.UI2_DESTINATIONS.push("alertreg");
   if (E.UI2_PARENT) E.UI2_PARENT.alertreg = "stock";

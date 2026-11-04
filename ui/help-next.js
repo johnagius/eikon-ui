@@ -121,8 +121,9 @@
     ["nexreg", "stock", "Near expiry", "What expires soon, nearest first.", [
       ["Add an item", "Press Add an item.", "Fill in the product, when it expires and where it is.", "Press Save item."],
       ["Send an item back", "Press Send back on the item, then Add to returns. It goes to Returns, ready for the supplier."],
+      ["Offer it to other pharmacies", "Press Offer on the item and say how many.", "Press Offer in Scarce stock. Other pharmacies see it there and can ask for it."],
       ["Check the list", "The nearest dates are at the top."]
-    ], "Supplier refused, damaged stock and offers to other pharmacies are in the classic screen.", []],
+    ], "Supplier refused and damaged stock are in the classic screen.", []],
 
     ["retreg", "stock", "Returns", "Stock going back to suppliers, step by step until the credit note.", [
       ["Send something back", "Press New return.", "Fill in the item, how many, the supplier and why.", "Press Save return. From Near expiry, Send back does the same."],
@@ -139,8 +140,9 @@
     ["alertreg", "stock", "Alerts", "Recalls and quarantines, with each step ticked off.", [
       ["Record an alert", "Press New alert.", "Choose Recall or Quarantine, then fill in the item, batch, expiry, quantity and why.", "Press Save alert."],
       ["Tick off the steps", "Tap each step as it is done: Team told, Supplier told, Handed over, Credit note and the rest.", "Press Close alert when every step is done."],
+      ["Change an alert", "Press Change on the alert.", "Change the details, the status or the notes.", "Press Save changes."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Changing an alert's details, notes and deleting are in the classic screen.", [["Quarantine", "stock set aside and not sold until it is cleared."]]],
+    ], "Deleting an alert is in the classic screen.", [["Quarantine", "stock set aside and not sold until it is cleared."]]],
 
     ["ordreg", "customers", "Orders", "What customers are waiting for, by when they need it.", [
       ["Take an order", "Press New order.", "Fill in the customer, phone, items and needed by.", "Press Save order. Eikon then offers to put the items in the order diary."],
@@ -296,9 +298,11 @@
 
     ["pocreg", "services", "Point-of-care tests", "Blood pressure, glucose, cholesterol and other tests, per patient.", [
       ["Record a test", "Press New test, then choose the test, such as Blood pressure.", "Find the patient or fill in their details, then the results.", "Press Save test."],
+      ["Print a test for the patient", "Open the patient, then press Print beside the test."],
+      ["Change a test", "Open the patient, then press Change beside the test.", "Correct the results or the details, then press Save changes."],
       ["Read the marks", "High and low marks are a guide for adults and are not saved with the test."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Editing or deleting a test, printing one test, the patients list with its flags, and exporting or importing a spreadsheet are in the classic screen.", []],
+    ], "Deleting a test, the patients list with its flags, and exporting or importing a spreadsheet are in the classic screen.", []],
 
     ["scsreg", "stock", "Scarce stock", "Hard-to-get lines pharmacies have spare, and who asked for them.", [
       ["Share spare stock", "Press Share stock.", "Fill in the item, how many, expiry and batch.", "Press Share it. Change it later, or press None left."],

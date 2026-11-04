@@ -1164,6 +1164,22 @@ await page.click('[data-act=ret][data-id="1"]'); await page.click("#nex-ret butt
 const nexErr = await page.evaluate(() => (document.querySelector(".nex-err") || {}).textContent || "");
 await page.fill("#nex-ret [name=supplier]", "GSK"); await page.fill("#nex-ret [name=quantity]", "3"); await page.click("#nex-ret button[type=submit]"); await page.waitForTimeout(700);
 const nexPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST");
+// Offer to other pharmacies (10b): the classic "Add to Scarce Stock" body; an expired item has no Offer; the footer shrinks.
+{
+  await page.waitForFunction(() => document.querySelector('[data-act=offer][data-id="1"]'), null, { timeout: 8000 }).catch(() => {});
+  const nexOfferExpired = await page.evaluate(() => !!document.querySelector('[data-act=offer][data-id="2"]'));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('[data-act=offer][data-id="1"]'); await page.waitForSelector("#nex-offer"); await page.waitForFunction(() => document.activeElement && document.activeElement.name === "qty", null, { timeout: 2000 }).catch(() => {});
+  const nexOf0 = await page.evaluate(() => ({ focus: document.activeElement && document.activeElement.name, qty: document.querySelector("#nex-offer [name=qty]").value, say: document.querySelector("#nex-offer .nex-say").textContent }));
+  await page.fill("#nex-offer [name=qty]", "0"); await page.fill("#nex-offer [name=batch]", " B12 "); await page.click("#nex-offer button[type=submit]"); await page.waitForTimeout(500);
+  const nexOfPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST");
+  const ob = (nexOfPosts[0] || {}).body || {};
+  const nexFoot = await page.evaluate(() => [...document.querySelectorAll(".nex p")].map((x) => x.textContent).join(" "));
+  report("near expiry: Offer sends the classic Add to Scarce Stock body (today, item, expiry, batch, a whole number at least 1, open, the item's id); not for an expired item; the footer no longer sends offers to the classic screen",
+    !nexOfferExpired && nexOf0.focus === "qty" && nexOf0.qty === "1" && /Other pharmacies see it in Scarce stock/.test(nexOf0.say) && nexOfPosts.length === 1 && nexOfPosts[0].path === "/scarce-stock/offers" &&
+    JSON.stringify(Object.keys(ob)) === JSON.stringify(["entry_date", "item_name", "expiry_date", "batch", "quantity_available", "is_closed", "near_expiry_id"]) && ob.entry_date === todayYmd && ob.item_name === "Amoxil 500mg" && ob.expiry_date === maltaYmd(10) && ob.batch === "B12" && ob.quantity_available === 1 && ob.is_closed === 0 && ob.near_expiry_id === 1 &&
+    /Supplier refused and damaged stock are in the/.test(nexFoot) && !/offers/.test(nexFoot), JSON.stringify({ nexOfferExpired, nexOf0, nexOfPosts, nexFoot }));
+}
 report("near expiry: opens from Stock in the new layout, expired first, send back needs a supplier, one return created", nex1.hash === "#nexreg" && nex1.rail.join() === "stock" && /^Expired/.test(nex1.labs[0]) && nex1.rows[0] === "Ventolin" && /^Being sent back/.test(nex1.labs[nex1.labs.length - 1]) && /supplier/.test(nexErr) && nexPosts.length === 1 && nexPosts[0].path === "/near-expiry/entries/create-return" && nexPosts[0].body.near_expiry_id === 1 && nexPosts[0].body.supplier === "GSK", JSON.stringify({ nex1, nexErr, nexPosts }));
 
 // Returns in the new layout: grouped by what each waits for; ticking a step sends the whole record back unchanged but the step.
@@ -1196,6 +1212,23 @@ await fetch(`http://localhost:${PORT}/__reset`);
 await page.click('[data-act=tick][data-k="supplier_informed"]'); await page.waitForTimeout(700);
 const alrPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT");
 const ab = (alrPuts[0] || {}).body || {};
+// Change an alert (10b): the card becomes its form; the body is the classic Edit's (every field, its order, trimmed, steps 0/1).
+{
+  await page.waitForSelector('[data-act=edit][data-id="41"]');
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('[data-act=edit][data-id="41"]'); await page.waitForSelector("#alr-edit"); await page.waitForFunction(() => document.activeElement && document.activeElement.name === "item_name", null, { timeout: 2000 }).catch(() => {});
+  const alE0 = await page.evaluate(() => { const f = document.querySelector("#alr-edit"), v = (n) => f.querySelector("[name=" + n + "]").value; return { focus: document.activeElement && document.activeElement.name, item: v("item_name"), notes: v("notes"), status: v("status"), store: v("storage_location"), date: v("entry_date") }; });
+  await page.selectOption("#alr-edit [name=status]", "in_progress"); await page.fill("#alr-edit [name=notes]", "  Moved to fridge  ");
+  await page.click("#alr-edit button[type=submit]"); await settleSave();
+  const alEPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT");
+  const eb = (alEPuts[0] || {}).body || {};
+  const alFoot = await page.evaluate(() => [...document.querySelectorAll(".alr p")].map((x) => x.textContent).join(" "));
+  report("alerts: Change opens the alert's own form on the item; Save changes sends the classic Edit body (every field in its order, trimmed, steps 0 or 1); the footer keeps only deleting",
+    alE0.focus === "item_name" && alE0.item === "Losartan 50mg" && alE0.notes === "Shelf C" && alE0.status === "open" && alE0.store === "room" && alE0.date === maltaYmd(0) && alEPuts.length === 1 && alEPuts[0].path === "/alerts/entries/41" &&
+    JSON.stringify(Object.keys(eb)) === JSON.stringify(["entry_date", "alert_type", "status", "item_name", "batch", "expiry", "quantity", "reason", "storage_location", "supplier", "notes", "team_informed", "supplier_informed", "authorities_informed", "return_arranged", "handed_over", "collection_note_received", "credit_note_received"]) &&
+    eb.status === "in_progress" && eb.notes === "Moved to fridge" && eb.item_name === "Losartan 50mg" && eb.batch === "L9" && eb.team_informed === 1 && eb.supplier_informed === 0 &&
+    /Deleting an alert is in the/.test(alFoot) && !/details|notes/.test(alFoot), JSON.stringify({ alE0, alEPuts, alFoot }));
+}
 report("alerts: open in the new layout; ticking 'supplier told' keeps every other field (notes, batch, status…)", alrPuts.length === 1 && alrPuts[0].path === "/alerts/entries/41" && ab.supplier_informed === 1 && ab.team_informed === 1 && ab.status === "open" && ab.notes === "Shelf C" && ab.batch === "L9" && ab.reason === "Manufacturer recall" && ab.supplier === "Actavis" && ab.quantity === "6" && ab.item_name === "Losartan 50mg", JSON.stringify(alrPuts));
 
 // Orders in the new layout: late first, works against a server without date ranges (month fallback); Ready sends only that.
@@ -2644,6 +2677,32 @@ try {
     !!(await page.$(".poc-who")),
     JSON.stringify({ poc1, pocLive, pocPuts }).slice(0, 900));
 } catch (e) { report("poct: new layout flow ran to the end", false, String(e).slice(0, 300)); }
+
+// POCT, one test (10b): Print beside a test opens the classic one-test page; Change loads the test into the form (no test
+// choice, its own time) and Save changes sends that record again under its own id, with no person check and no delete.
+try {
+  // after the save above the screen is on that patient already; otherwise open them from the list
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "pocreg" && document.querySelector(".poc-list"), null, { timeout: 15000 });
+  if (!(await page.$('[data-act=print-test][data-rid="r_1"]'))) await page.click('[data-act=open][data-pid="0012345M"]');
+  await page.waitForSelector('[data-act=print-test][data-rid="r_1"]');
+  await page.evaluate(() => { window.print = () => {}; });
+  const [pw] = await Promise.all([page.waitForEvent("popup"), page.click('[data-act=print-test][data-rid="r_1"]')]);
+  await pw.waitForLoadState(); const pocPrint = await pw.evaluate(() => ({ title: document.title, h1: document.querySelector("h1").textContent, rows: [...document.querySelectorAll("tbody tr")].map((r) => r.textContent), meta: document.querySelector(".meta").textContent })); await pw.close();
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('[data-act=edit-test][data-rid="r_1"]'); await page.waitForSelector("#poc-add"); await page.waitForFunction(() => document.activeElement && document.activeElement.name === "sys", null, { timeout: 2000 }).catch(() => {});
+  const pe0 = await page.evaluate(() => { const f = document.querySelector("#poc-add"), v = (n) => f.querySelector("[name=" + n + "]").value; return { seg: !!f.querySelector(".poc-seg"), sys: v("sys"), dia: v("dia"), dt: v("dt"), name: v("name"), focus: document.activeElement && document.activeElement.name, btn: f.querySelector("button[type=submit]").textContent }; });
+  await page.fill("#poc-add [name=sys]", "142"); await page.fill("#poc-add [name=notes]", "Rechecked");
+  await page.click("#poc-add button[type=submit]"); await settleSave();
+  const peCalls = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method !== "GET");
+  const pb = (peCalls[0] || {}).body || {}, prc = (pb.records || [])[0] || {};
+  const pocFoot = await page.textContent(".poc-note");
+  report("poct: Print beside a test opens the classic one-test page; Change fills the form from the test and Save changes sends it again under its own id, one PUT, no delete",
+    pocPrint.title === "POCT - Blood Pressure" && pocPrint.h1 === "Blood Pressure Result" && pocPrint.rows[0] === "Systolic (mmHg)150" && /^Date\/Time: 2026-10-01 10:00/.test(pocPrint.meta) &&
+    !pe0.seg && pe0.sys === "150" && pe0.dia === "95" && pe0.dt === "2026-10-01T10:00" && pe0.name === "Zammit Carmel" && pe0.focus === "sys" && pe0.btn === "Save changes" &&
+    peCalls.length === 1 && peCalls[0].path === "/poct/state" && prc.id === "r_1" && prc.results.sys === 142 && prc.results.dia === 95 && prc.notes === "Rechecked" && prc.performedAtLocal === "2026-10-01T10:00" && pb.records.length === 1 && pb.patients.length === 1 && !("deleted_record_ids" in pb) &&
+    /^Deleting a test, the patients list/.test(pocFoot.slice(pocFoot.indexOf("Deleting"))) && !/printing one test|Editing/.test(pocFoot),
+    JSON.stringify({ pocPrint, pe0, peCalls, pocFoot }).slice(0, 900));
+} catch (e) { report("poct: print one and change a test ran to the end", false, String(e).slice(0, 300)); }
 
 // Scarce stock: the old link opens the new screen; other pharmacies' lines show who has them, our line shows who asked;
 // more than is left is refused on the screen; asking for 2 sends one POST with the quantity and the private note.
