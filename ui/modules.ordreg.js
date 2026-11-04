@@ -141,7 +141,12 @@
       ".ord-old{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:20px 2px 7px;font-size:13px;font-weight:600;color:var(--muted)}" +
       ".ord-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       "@media (max-width:600px){.ord{padding:4px 16px 0}.ord h1{font-size:32px}.ord-row{flex-wrap:wrap;row-gap:8px}.ord-row .t{flex-basis:100%}.ord-row .ord-btn{margin-left:auto}" +
-      ".ord-btn,.ord-tabs button{height:44px;border-radius:22px}.ord-tabs button{border-radius:9px}.ord-ferr{margin-left:0}.ord-form label>span{flex-basis:88px}.ord-form label>.ord-hint{flex-basis:100%;white-space:normal;margin:-8px 0 8px 100px}.ord-q{height:44px;font-size:16px}.ord-ph input{height:44px}}";
+      ".ord-btn,.ord-tabs button{height:44px;border-radius:22px}.ord-tabs button{border-radius:9px}.ord-ferr{margin-left:0}.ord-form label>span{flex-basis:88px}.ord-form label>.ord-hint{flex-basis:100%;white-space:normal;margin:-8px 0 8px 100px}.ord-q{height:44px;font-size:16px}.ord-ph input{height:44px}}" +
+      // q5-8: every target at least 44 px tall on a phone. The row is two lines: the name (and items) as one 44 px button,
+      // then the phone (a 44 px tap area), the date pill and Ready.
+      ".ord-back{min-height:44px;padding:0 12px 0 0;margin:-8px 0 2px}" +
+      "@media (max-width:600px){.ord-row{padding:8px 16px;row-gap:6px}.ord-row .t{display:contents}.ord-name{flex:1 1 100%;min-height:44px;display:flex;flex-direction:column;justify-content:center}" +
+      ".ord-row .t>span{flex:1 1 0;min-width:0;align-self:center;overflow-wrap:anywhere}.ord-row a[href^='tel:']{display:inline-flex;align-items:center;min-height:44px;vertical-align:middle}}";
     document.head.appendChild(st);
   }
 
@@ -309,7 +314,8 @@
       else if (S.doneError && !S.done.length) h += trouble(S.doneError);
       else {
         var since = shiftMonth(-(S.doneBack + PAGE_MONTHS - 1));
-        h += dn.length ? '<div class="ord-lab">Ready · ordered since ' + esc(MON[Number(since.slice(5)) - 1] + " " + since.slice(0, 4)) + " <b>" + dn.length + '</b></div><div class="ord-list">' + dn.map(function (e) { return rowHtml(e, true); }).join("") + "</div>"
+        var pd = E.listPage.take("ord:done", dn, { q: q, keep: keepIds() }); // q5-8: 30 at a time, the count is every row
+        h += dn.length ? '<div class="ord-lab">Ready · ordered since ' + esc(MON[Number(since.slice(5)) - 1] + " " + since.slice(0, 4)) + " <b>" + dn.length + '</b></div><div class="ord-list">' + pd.rows.map(function (e) { return rowHtml(e, true); }).join("") + "</div>" + E.listPage.moreHtml("ord:done", pd, "ord-btn")
           : '<div class="ord-quiet">' + (q ? "No order done matches “" + esc(q) + "” in these months." : "No order was made ready in these months.") + "</div>";
         if (S.doneError) h += '<div class="ord-err" role="alert">' + esc(S.doneError) + "</div>";
         if (S.doneBack + PAGE_MONTHS < 48) h += '<div class="ord-more"><button class="ord-btn" data-act="older"' + (S.doneLoading ? " disabled" : "") + ">" + (S.doneLoading ? "Opening…" : "Older orders") + "</button></div>";
@@ -324,15 +330,20 @@
     // D5 (q5-5): orders taken more than 30 days ago wait in their own group, closed until asked for (a search shows them all)
     var old = q ? [] : open.filter(isOld); if (old.length) open = open.filter(function (e) { return !isOld(e); });
     var late = open.filter(function (e) { return e.needed_by && daysUntil(e.needed_by) < 0; }).length;
-    h += open.length ? '<div class="ord-lab">Waiting <b>' + open.length + "</b>" + (late ? '<span style="color:var(--danger)">· ' + late + " late</span>" : "") + '</div><div class="ord-list">' + open.map(function (e) { return rowHtml(e, false); }).join("") + "</div>"
+    // q5-8: the first 30 rows of the screen, then "Show 30 more"; the week's Ready list gets what Waiting left of the 30.
+    // The older group (q5-5), once opened, is drawn 30 at a time too. The counts are every order.
+    var po = E.listPage.take("ord:open", open, { q: q, keep: keepIds() }), pw = E.listPage.take("ord:week", done, { q: q, keep: keepIds(), first: E.listPage.STEP - po.shown });
+    var pold = E.listPage.take("ord:old", old, { q: q, keep: keepIds() });
+    h += open.length ? '<div class="ord-lab">Waiting <b>' + open.length + "</b>" + (late ? '<span style="color:var(--danger)">· ' + late + " late</span>" : "") + '</div><div class="ord-list">' + po.rows.map(function (e) { return rowHtml(e, false); }).join("") + "</div>" + E.listPage.moreHtml("ord:open", po, "ord-btn")
       : old.length ? '<div class="ord-quiet">No order taken in the last 30 days is waiting.</div>'
       : '<div class="ord-quiet">' + (q ? "Nothing waiting matches “" + esc(q) + "”." + (done.length ? "" : " Try a shorter part of the name, or the phone number.") : "No customer is waiting for an order. When someone asks for something you do not have, press New order.") + "</div>";
     if (old.length) h += '<div class="ord-old"><span id="ord-old-l">Older than 30 days (' + old.length + ')</span><button type="button" class="ord-btn" data-act="older-toggle" aria-expanded="' + !!S.olderOpen + '" aria-describedby="ord-old-l">' + (S.olderOpen ? "Hide" : "Show") + "</button></div>" +
-      (S.olderOpen ? '<div class="ord-list">' + old.map(function (e) { return rowHtml(e, false); }).join("") + "</div>" : "");
-    if (done.length) h += '<div class="ord-lab">Ready in the last week <b>' + done.length + '</b></div><div class="ord-list">' + done.map(function (e) { return rowHtml(e, true); }).join("") + "</div>";
+      (S.olderOpen ? '<div class="ord-list">' + pold.rows.map(function (e) { return rowHtml(e, false); }).join("") + "</div>" + E.listPage.moreHtml("ord:old", pold, "ord-btn") : "");
+    if (done.length) h += '<div class="ord-lab">Ready in the last week <b>' + done.length + "</b></div>" + (pw.shown ? '<div class="ord-list">' + pw.rows.map(function (e) { return rowHtml(e, true); }).join("") + "</div>" : "") + E.listPage.moreHtml("ord:week", pw, "ord-btn");
     return h;
   }
 
+  function keepIds() { return [S.editing, S.askPhone, S.hit]; } // q5-8: rows that stay drawn whatever the page (S.hit: opened from Today, q5-5)
   function html() {
     var h = '<div class="ord"><button class="ord-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("ordreg") : "‹ Customers") + "</button>" +
       '<div class="ord-top"><div><h1>Orders</h1><p class="ord-sub">What customers are waiting for, by when they need it.</p></div>' + (S.adding ? "" : '<button class="ord-btn p" data-act="add">New order</button>') + "</div>";
@@ -376,6 +387,7 @@
         if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("ordreg") : "#customers";
         else if (a === "add") { S.carry = null; S.adding = {}; S.err = ""; S.fe = {}; paint(); E.focusSoon(function () { return m.querySelector("#ord-add [name=client_name]"); }, 30); }
         else if (a === "add-cancel") closeAdd();
+        else if (a === "q58-more") { var nx = E.listPage.more(b.getAttribute("data-key")); paintResults(); if (nx != null) focusOn('[data-act=open][data-id="' + nx + '"]'); } // q5-8: the first new row
         else if (a === "ready") ready(id, true);
         else if (a === "unready") ready(id, false);
         else if (a === "ph-cancel") { var pid = S.askPhone; S.askPhone = null; S.phErr = ""; S.phDraft = ""; paint(); focusOn('[data-act=' + (S.askOn ? "ready" : "unready") + '][data-id="' + pid + '"]'); }
@@ -470,7 +482,7 @@
       else { S.editErr = E.saveFailText(x); S.editSaving = false; return paint(); }
     }
     function ok() { E.toast(a.client_name + "'s order is saved", "success"); S.editing = null; S.edit = null; S.editSaving = false; S.editErr = ""; S.efe = {}; }
-    S.editSaving = false; await reloadAll(); focusOn('[data-act=open][data-id="' + id + '"]');
+    S.editSaving = false; E.listPage.reveal("ord", id); await reloadAll(); focusOn('[data-act=open][data-id="' + id + '"]');
   }
 
   // Delete (pharmacist only): the reason is written on the order (the classic body), then the order is deleted.
@@ -557,7 +569,7 @@
       if (now && !!Number(now.fulfilled) === on) { E.toast(on ? e.client_name + "'s order is ready" : e.client_name + "'s order is waiting again", "success"); S.askPhone = null; S.phDraft = ""; }
       else { var why = E.saveFailText(x); if (S.askPhone === id) S.phErr = why; E.toast(why, "error"); }
     }
-    S.busy[id] = false; await reloadAll();
+    S.busy[id] = false; E.listPage.reveal("ord", id); await reloadAll();
     focusOn('[data-act=open][data-id="' + id + '"]'); // the order keeps the focus, wherever its row went (Waiting or Ready)
   }
 
@@ -606,7 +618,7 @@
     id: "ordreg", title: "Orders", order: 3, icon: "◎", ui2Only: true,
     render: function (ctx) {
       S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.editing = null; S.edit = null; S.del = null; S.editErr = ""; S.editSaving = false; S.view = "open"; S.done = [];
-      S.fe = {}; S.efe = {}; S.err = ""; S.askPhone = null; S.phErr = ""; S.phDraft = ""; S.diary = null;
+      S.fe = {}; S.efe = {}; S.err = ""; S.askPhone = null; S.phErr = ""; S.phDraft = ""; S.diary = null; E.listPage.reset("ord");
       // From the search (eikon.search.js): show the order that was chosen or scanned (its code, or the customer's name).
       // That filter is for this visit only: the next visit opens on every order again.
       if (S.qFromSearch) { S.q = ""; S.qFromSearch = false; }

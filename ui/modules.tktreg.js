@@ -180,7 +180,10 @@
       "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .tkt-ferr{color:#FF7A72}}" + // 5:1 on the tinted row being typed in
       ".tkt-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       "@media (max-width:600px){.tkt{padding:4px 16px 0}.tkt h1{font-size:32px}.tkt-btn,.tkt-tabs button{height:44px;border-radius:22px}.tkt-tabs button{border-radius:9px}" +
-      ".tkt-ferr,.tkt-ed .tkt-ferr{margin-left:0}.tkt-form label>span,.tkt-ed label>span{flex-basis:88px}.tkt-q{height:44px;font-size:16px}.tkt-card .a .tkt-btn{flex:1}}";
+      ".tkt-ferr,.tkt-ed .tkt-ferr{margin-left:0}.tkt-form label>span,.tkt-ed label>span{flex-basis:88px}.tkt-q{height:44px;font-size:16px}.tkt-card .a .tkt-btn{flex:1}}" +
+      // q5-8: every target at least 44 px tall on a phone (the way back, the name that opens the question, phone and e-mail).
+      ".tkt-back{min-height:44px;padding:0 12px 0 0;margin:-8px 0 2px}" +
+      "@media (max-width:600px){.tkt-name{min-height:44px;display:inline-flex;align-items:center}.tkt-card .s a{display:inline-flex;align-items:center;min-height:44px;vertical-align:middle}.tkt-card .h{align-items:center}.tkt-card .i{margin-top:0}}";
     document.head.appendChild(st);
   }
 
@@ -315,15 +318,16 @@
       if (S.doneLoading && !S.done.length) return skel("resolved questions");
       if (S.doneError) return trouble(S.doneError);
       if (!dn.length) return '<div class="tkt-quiet">' + (q ? "No resolved question matches “" + esc(q) + "”." : "No question has been resolved yet.") + "</div>";
-      h += '<div class="tkt-lab">Resolved and closed <b>' + dn.length + "</b></div>" + dn.slice(0, S.shown).map(cardHtml).join("");
-      if (dn.length > S.shown) h += '<div class="tkt-more"><button class="tkt-btn" data-act="more">Show ' + Math.min(PAGE, dn.length - S.shown) + " more</button></div>";
+      var pd = E.listPage.take("tkt:done", dn, { q: q, keep: [S.editing] }); // q5-8: 30 at a time, as every busy list
+      h += '<div class="tkt-lab">Resolved and closed <b>' + dn.length + "</b></div>" + pd.rows.map(cardHtml).join("") + E.listPage.moreHtml("tkt:done", pd, "tkt-btn");
       return h;
     }
     var op = S.entries.filter(matchQ);
     if (S.loading && !S.entries.length) return skel("questions");
     if (S.error) return trouble(S.error);
     var late = op.filter(function (e) { return e.followup_date && daysUntil(e.followup_date) < 0; }).length;
-    return op.length ? '<div class="tkt-lab">Waiting <b>' + op.length + "</b>" + (late ? '<span style="color:var(--danger)">· ' + late + " follow-up" + (late === 1 ? "" : "s") + " late</span>" : "") + "</div>" + op.map(cardHtml).join("")
+    var po = E.listPage.take("tkt:open", op, { q: q, keep: [S.editing, S.noting, S.hit] }); // q5-8: the first 30, then "Show 30 more"; the count is every question
+    return op.length ? '<div class="tkt-lab">Waiting <b>' + op.length + "</b>" + (late ? '<span style="color:var(--danger)">· ' + late + " follow-up" + (late === 1 ? "" : "s") + " late</span>" : "") + "</div>" + po.rows.map(cardHtml).join("") + E.listPage.moreHtml("tkt:open", po, "tkt-btn")
       : '<div class="tkt-quiet">' + (q ? "No waiting question matches “" + esc(q) + "”." : "No customer is waiting for an answer. When someone asks something you cannot answer now, press New question.") + "</div>";
   }
 
@@ -390,6 +394,7 @@
         else if (a === "view-open") { S.view = "open"; S.editing = null; S.edit = null; S.del = null; S.noting = null; paint(); focusOn("[data-act=view-open]"); }
         else if (a === "view-done") { S.view = "done"; S.editing = null; S.edit = null; S.del = null; S.noting = null; S.shown = PAGE; loadDone(); focusOn("[data-act=view-done]"); }
         else if (a === "more") { S.shown += PAGE; paintResults(); }
+        else if (a === "q58-more") { var nx = E.listPage.more(b.getAttribute("data-key")); paintResults(); if (nx != null) focusOn('[data-act=open][data-id="' + nx + '"]'); } // q5-8: the first new question
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "tktreg"); } catch (x) {} E.openClassic("tickets"); }
       });
     });
@@ -456,7 +461,7 @@
     var text = String((f.querySelector("input") || {}).value || "").trim(); S.noteDraft = text;
     if (!text) { S.err = "Write the note. Nothing was saved."; paint(); focusOn("#tkt-note input"); return; }
     var note = { ts: new Date().toISOString(), author: (E.state.user || {}).full_name || "", text: text }; // the history is kept, one note added
-    var id = e.id; change(id, function (r) { r.notes_log = JSON.stringify(notes(r).concat([note])); }, "Note added").then(function (ok) { focusOn(ok ? '[data-act=note][data-id="' + id + '"]' : "#tkt-note input"); });
+    var id = e.id; E.listPage.reveal("tkt", id); change(id, function (r) { r.notes_log = JSON.stringify(notes(r).concat([note])); }, "Note added").then(function (ok) { focusOn(ok ? '[data-act=note][data-id="' + id + '"]' : "#tkt-note input"); });
   }
 
   async function saveEdit() {
@@ -481,7 +486,7 @@
       });
       E.toast(a.client_name + "'s question is saved", "success"); S.editing = null; S.edit = null; S.editErr = ""; S.efe = {};
     } catch (x) { S.editErr = E.saveFailText(x); S.editSaving = false; return paint(); }
-    S.editSaving = false; await reloadAll(); focusOn('[data-act=open][data-id="' + id + '"]');
+    S.editSaving = false; E.listPage.reveal("tkt", id); await reloadAll(); focusOn('[data-act=open][data-id="' + id + '"]');
   }
 
   // Delete (pharmacist only): the reason goes in as a note (the classic body), then the question is deleted.
@@ -528,7 +533,7 @@
   E.registerModule({
     id: "tktreg", title: "Questions", order: 3, icon: "?", ui2Only: true,
     render: function (ctx) {
-      S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.noting = null; S.err = ""; S.editing = null; S.edit = null; S.del = null; S.editErr = ""; S.editSaving = false; S.view = "open"; S.done = []; S.q = ""; S.fe = {}; S.efe = {};
+      S.mount = ctx && ctx.mount; E.listPage.reset("tkt"); S.busy = {}; S.adding = null; S.noting = null; S.err = ""; S.editing = null; S.edit = null; S.del = null; S.editErr = ""; S.editSaving = false; S.view = "open"; S.done = []; S.q = ""; S.fe = {}; S.efe = {};
       // From a customer's page: a new question for them, or (from the count of their questions) their questions.
       var hand = E.takeCustomerHandoff ? E.takeCustomerHandoff("tktreg") : null;
       S.carry = hand && hand.mode === "new" ? hand : null;

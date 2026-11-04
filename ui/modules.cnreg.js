@@ -55,7 +55,9 @@
       ".cnr-ask{margin:6px 0 4px;padding:12px 14px;border-radius:12px;background:var(--warn-soft,rgba(201,138,18,.16));font-size:14px;line-height:1.45}.cnr-ask .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:10px}" +
       ".cnr-ask .cnr-err{padding:6px 0 0}.cnr button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}" +
       ".cnr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
-      "@media (max-width:600px){.cnr{padding:4px 16px 0}.cnr h1{font-size:32px}.cnr-btn{height:44px;border-radius:22px;padding:0 18px}.cnr-q{height:44px}.cnr-in .acts .all{min-height:44px}}";
+      "@media (max-width:600px){.cnr{padding:4px 16px 0}.cnr h1{font-size:32px}.cnr-btn{height:44px;border-radius:22px;padding:0 18px}.cnr-q{height:44px}.cnr-in .acts .all{min-height:44px}}" +
+      // q5-8: every target at least 44 px tall on a phone (the phone number, Undo, Correct).
+      "@media (max-width:600px){.cnr-card .s a{display:inline-flex;align-items:center;min-height:44px;vertical-align:middle}.cnr-undo,.cnr .ecr-btn{min-height:44px;border-radius:22px;padding:0 16px}}";
     document.head.appendChild(st);
   }
 
@@ -138,11 +140,14 @@
     var withMoney = S.entries.filter(function (cn) { return left(cn) > 0; });
     var open = withMoney.filter(function (cn) { return !expired(cn) && match(cn); }), old = withMoney.filter(function (cn) { return expired(cn) && match(cn); });
     if (!q) h += '<p class="cnr-sum"><b>' + withMoney.filter(function (cn) { return !expired(cn); }).length + "</b> open, <b>" + eur(withMoney.filter(function (cn) { return !expired(cn); }).reduce(function (t, cn) { return t + left(cn); }, 0)) + "</b> owed to customers.</p>";
-    h += '<div class="cnr-lab">Open <b>' + open.length + "</b></div>" + (open.length ? open.map(card).join("") : '<div class="cnr-quiet">' + (q ? "No open credit note for “" + esc(S.q) + "”." : "No open credit notes.") + "</div>");
-    if (old.length) h += '<div class="cnr-lab">Expired with money left <b>' + old.length + "</b></div>" + old.map(card).join("");
+    // q5-8: the first 30 notes of the screen, then "Show 30 more"; each next list gets what the one above left of the 30. Counts and the sum are every note.
+    var kp = [S.using, S.undo && S.undo.cn], po = E.listPage.take("cnr:open", open, { q: q, keep: kp }), pe = E.listPage.take("cnr:old", old, { q: q, keep: kp, first: E.listPage.STEP - po.shown });
+    h += '<div class="cnr-lab">Open <b>' + open.length + "</b></div>" + (open.length ? po.rows.map(card).join("") + E.listPage.moreHtml("cnr:open", po, "cnr-btn") : '<div class="cnr-quiet">' + (q ? "No open credit note for “" + esc(S.q) + "”." : "No open credit notes.") + "</div>");
+    if (old.length) h += '<div class="cnr-lab">Expired with money left <b>' + old.length + "</b></div>" + pe.rows.map(card).join("") + E.listPage.moreHtml("cnr:old", pe, "cnr-btn");
     if (q) { // a search also finds notes used up: a use that took the whole note can be looked at, and undone
       var gone = S.entries.filter(function (cn) { return left(cn) <= 0 && match(cn); });
-      if (gone.length) h += '<div class="cnr-lab">Used up <b>' + gone.length + "</b></div>" + gone.slice(0, 20).map(card).join("");
+      var pg = E.listPage.take("cnr:gone", gone, { q: q, keep: kp, first: E.listPage.STEP - po.shown - pe.shown }); // was the first 20 only: now all of them, a page at a time
+      if (gone.length) h += '<div class="cnr-lab">Used up <b>' + gone.length + "</b></div>" + pg.rows.map(card).join("") + E.listPage.moreHtml("cnr:gone", pg, "cnr-btn");
     }
     return h;
   }
@@ -198,6 +203,7 @@
         else if (act === "undo") { if (!E.correct.can()) return; keep(); S.undo = { cn: b.getAttribute("data-id"), pid: b.getAttribute("data-pid"), busy: false, err: "" }; S.using = null; S.err = ""; paint(true); var y = m.querySelector("[data-act=undo-yes]"); if (y) y.focus(); }
         else if (act === "undo-no") { var q0 = S.undo; S.undo = null; paint(true); if (q0) focusUndo(q0); }
         else if (act === "undo-yes") undoUse();
+        else if (act === "q58-more") { var nx = E.listPage.more(b.getAttribute("data-key")); paint(true); if (nx != null) E.focusSoon(function () { var c = S.mount && S.mount.querySelector('.cnr-card[data-cn="' + nx + '"]'); if (!c) return null; var t = c.querySelector("button"); if (t) return t; c.setAttribute("tabindex", "-1"); return c; }); } // q5-8: the first new note
       });
     });
   }
@@ -292,7 +298,7 @@
 
   E.registerModule({
     id: "cnreg", title: "Credit notes", order: 3, icon: "€", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.using = null; S.undo = null; S.adding = null; S.err = ""; S.q = ""; E.months.historyReset("cnreg"); E.correct.reset("cnreg"); css(); paint(); return E.takeOpenForm("cnreg", S.mount, load(), { btn: "[data-act=add]", form: "#cnr-add" }); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; E.listPage.reset("cnr"); S.using = null; S.undo = null; S.adding = null; S.err = ""; S.q = ""; E.months.historyReset("cnreg"); E.correct.reset("cnreg"); css(); paint(); return E.takeOpenForm("cnreg", S.mount, load(), { btn: "[data-act=add]", form: "#cnr-add" }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("cnreg") < 0) E.UI2_DESTINATIONS.push("cnreg");
   if (E.UI2_PARENT) E.UI2_PARENT.cnreg = "money";

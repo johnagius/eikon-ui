@@ -87,7 +87,10 @@
       ".rep-every{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 8px 130px}.rep-every button{font:inherit;font-size:13px;font-weight:600;height:30px;min-width:40px;padding:0 10px;border-radius:15px;border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer}.rep-every button[aria-pressed=true]{background:rgba(10,143,106,.16);border-color:var(--accent);color:var(--text);box-shadow:inset 0 0 0 1px var(--accent)}" +
       ".rep-due{color:var(--text);font-weight:600}.rep-due.late{color:var(--danger)}.rep-view{display:inline-flex;gap:4px;margin-left:auto;text-transform:none;letter-spacing:0}.rep-view button{font:inherit;font-size:12.5px;font-weight:600;height:28px;padding:0 12px;border-radius:14px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer}.rep-view button[aria-pressed=true]{background:rgba(10,143,106,.16);border-color:var(--accent);color:var(--text);box-shadow:inset 0 0 0 1px var(--accent)}" +
       "@media (max-width:600px){.rep-every{padding-left:14px}}" +
-      "@media (max-width:600px){.rep{padding:4px 16px 0}.rep h1{font-size:32px}.rep-form label>span{flex-basis:92px}}";
+      "@media (max-width:600px){.rep{padding:4px 16px 0}.rep h1{font-size:32px}.rep-form label>span{flex-basis:92px}}" +
+      // q5-8: every target at least 44 px tall on a phone (the way back, the buttons on a line, All / Due, Correct, the search).
+      ".rep-back{min-height:44px;padding:0 12px 0 0;margin:-8px 0 2px}" +
+      "@media (max-width:600px){.rep-btn,.rep .ecr-btn{height:auto;min-height:44px;border-radius:22px;padding:0 16px}.rep-view button{height:44px;border-radius:22px;padding:0 16px}.rep-q{height:44px}}";
     document.head.appendChild(st);
   }
 
@@ -132,18 +135,18 @@
   }
   function dueHtml(list) { // the "Due" view: due (overdue first) and running out, by the rules in eikon.repeatdue.js
     var RD = E.repeatDue; if (!RD) return '<div class="rep-quiet">Due dates are not available yet.</div>';
-    var b = RD.buckets(list, RD.today()), one = function (x) { return x.s.kind === "runout" ? rowHtml(x.e) : rowHtml(x.e).replace('<div class="a">', '<div class="a"><span class="rep-pill ' + (x.s.kind === "overdue" ? "gone" : "soon") + '">' + esc(RD.words(x.s)) + "</span>"); };
-    return '<div class="rep-lab">Due for collection <b>' + b.due.length + "</b></div>" + (b.due.length ? '<div class="rep-list">' + b.due.map(one).join("") + "</div>" : '<div class="rep-quiet">Nothing due in the next ' + RD.RULES.DUE_WITHIN_DAYS + ' days. Only prescriptions with "Collected every … days" have a due date.</div>') +
-      (RD.RULES.SHOW_RUNNING_OUT ? '<div class="rep-lab">Running out in ' + RD.RULES.RUN_OUT_WITHIN_DAYS + " days <b>" + b.runout.length + "</b></div>" + (b.runout.length ? '<div class="rep-list">' + b.runout.map(one).join("") + "</div>" : '<div class="rep-quiet">None runs out soon.</div>') : "");
+    var b = RD.buckets(list, RD.today()), xid = function (x) { return x.e.id; }, pd = E.listPage.take("rep:due", b.due, { q: S.q, idOf: xid }), pr = E.listPage.take("rep:runout", b.runout, { q: S.q, idOf: xid, first: E.listPage.STEP - pd.shown }), one = function (x) { return x.s.kind === "runout" ? rowHtml(x.e) : rowHtml(x.e).replace('<div class="a">', '<div class="a"><span class="rep-pill ' + (x.s.kind === "overdue" ? "gone" : "soon") + '">' + esc(RD.words(x.s)) + "</span>"); };
+    return '<div class="rep-lab">Due for collection <b>' + b.due.length + "</b></div>" + (b.due.length ? '<div class="rep-list">' + pd.rows.map(one).join("") + "</div>" + E.listPage.moreHtml("rep:due", pd, "rep-btn") : '<div class="rep-quiet">Nothing due in the next ' + RD.RULES.DUE_WITHIN_DAYS + ' days. Only prescriptions with "Collected every … days" have a due date.</div>') +
+      (RD.RULES.SHOW_RUNNING_OUT ? '<div class="rep-lab">Running out in ' + RD.RULES.RUN_OUT_WITHIN_DAYS + " days <b>" + b.runout.length + "</b></div>" + (b.runout.length ? (pr.shown ? '<div class="rep-list">' + pr.rows.map(one).join("") + "</div>" : "") + E.listPage.moreHtml("rep:runout", pr, "rep-btn") : '<div class="rep-quiet">None runs out soon.</div>') : "");
   }
   // fix: the line of "Written by month" (the register), which can be corrected
   function rowHtml(e, fix) {
     var n = daysUntil(e.expires_date), nx = renewedBy(e);
     var mark = fix ? E.correct.mark("repreg", e) : "", cor = fix ? E.correct.button("repreg", e, e.medicine_name_dose + " for " + e.client_name + ", written " + dm(e.entry_date)) : "", pan = fix ? E.correct.panel("repreg", e, FIX) : "";
     var t = '<div class="t"><b>' + esc(e.client_name) + '</b><div class="m">' + esc(e.medicine_name_dose) + " · " + esc(e.posology) + "</div><span>" + esc(e.client_id) + " · " + esc(e.prescriber_name) + " · written " + esc(dm(e.entry_date)) + "</span>" + mark + "</div>";
-    if (nx) return '<div class="rep-row">' + t + '<div class="a"><span class="rep-pill">Renewed ' + esc(dm(nx.entry_date)) + "</span>" + cor + "</div></div>" + pan;
+    if (nx) return '<div class="rep-row" data-rid="' + e.id + '">' + t + '<div class="a"><span class="rep-pill">Renewed ' + esc(dm(nx.entry_date)) + "</span>" + cor + "</div></div>" + pan;
     var pill = n < 0 ? '<span class="rep-pill gone">Expired ' + esc(dm(e.expires_date)) + "</span>" : n <= 21 ? '<span class="rep-pill soon">Expires in ' + n + (n === 1 ? " day" : " days") + "</span>" : '<span class="rep-pill">Until ' + esc(dm(e.expires_date)) + "</span>";
-    return '<div class="rep-row">' + t.replace("</span>" + mark, dueText(e) + "</span>" + mark) + '<div class="a">' + pill +
+    return '<div class="rep-row" data-rid="' + e.id + '">' + t.replace("</span>" + mark, dueText(e) + "</span>" + mark) + '<div class="a">' + pill +
       (fix ? cor : '<button class="rep-btn" data-act="renew" data-id="' + e.id + '">Renew</button>') + collectBtn(e) + "</div></div>" + pan;
   }
 
@@ -155,7 +158,7 @@
   function tableHtml(rows) {
     return '<table class="rep-tbl"><thead><tr><th scope="col">Patient</th><th scope="col">ID card</th><th scope="col">Medicine</th><th scope="col">Dose</th><th scope="col">Prescriber</th><th scope="col">Written</th><th scope="col"><span class="rep-sr">Status</span></th></tr></thead><tbody>' +
       rows.map(function (e) {
-        return '<tr><td class="b">' + esc(e.client_name) + '</td><td class="n">' + esc(e.client_id) + "</td><td>" + esc(e.medicine_name_dose) + "</td><td>" + esc(e.posology) + "</td><td>" + esc(e.prescriber_name) + '</td><td class="n">' + esc(dm(e.entry_date)) + '</td><td class="r">' + pillHtml(e) +
+        return '<tr data-rid="' + e.id + '"><td class="b">' + esc(e.client_name) + '</td><td class="n">' + esc(e.client_id) + "</td><td>" + esc(e.medicine_name_dose) + "</td><td>" + esc(e.posology) + "</td><td>" + esc(e.prescriber_name) + '</td><td class="n">' + esc(dm(e.entry_date)) + '</td><td class="r">' + pillHtml(e) +
           (renewedBy(e) ? "" : '<button class="rep-btn" data-act="renew" data-id="' + e.id + '">Renew</button>' + collectBtn(e)) + (renewedBy(e) ? "" : dueText(e, true)) + "</td></tr>";
       }).join("") + "</tbody></table>";
   }
@@ -190,15 +193,17 @@
       var tog = E.repeatDue ? '<span class="rep-view" role="group" aria-label="Show"><button type="button" data-view="all" aria-pressed="' + (S.view !== "due") + '">All</button><button type="button" data-view="due" aria-pressed="' + (S.view === "due") + '">Due</button></span>' : "";
       if (S.view === "due" && E.repeatDue) h += '<div class="rep-lab">Coming due' + tog + "</div>" + dueHtml(list);
       else {
-      h += '<div class="rep-lab">Still valid <b>' + valid.length + "</b>" + tog + "</div>" + (valid.length ? block(valid) : '<div class="rep-quiet">' + (q ? "No valid prescription matches." : "No repeat prescription on file.") + "</div>");
-      if (gone.length) h += '<div class="rep-lab">Ran out this month <b>' + gone.length + "</b></div>" + block(gone);
+      // q5-8: the first 30 lines, then "Show 30 more"; Ran out gets what Still valid left of the 30. The counts are every line.
+      var pv = E.listPage.take("rep:valid", valid, { q: q }), pg = E.listPage.take("rep:gone", gone, { q: q, first: E.listPage.STEP - pv.shown });
+      h += '<div class="rep-lab">Still valid <b>' + valid.length + "</b>" + tog + "</div>" + (valid.length ? block(pv.rows) + E.listPage.moreHtml("rep:valid", pv, "rep-btn") : '<div class="rep-quiet">' + (q ? "No valid prescription matches." : "No repeat prescription on file.") + "</div>");
+      if (gone.length) h += '<div class="rep-lab">Ran out this month <b>' + gone.length + "</b></div>" + (pg.shown ? block(pg.rows) : "") + E.listPage.moreHtml("rep:gone", pg, "rep-btn");
       }
     }
     // Every prescription written in a month, any month: the register as the classic screen lists and prints it.
     var mo = S.moEntries.filter(function (e) { var q2 = low(S.q).trim(); return !q2 || [e.client_name, e.client_id, e.medicine_name_dose, e.prescriber_name].some(function (v) { return low(v).indexOf(q2) >= 0; }); });
     h += '<h2 class="rep-h2" id="rep-bymonth">Written by month</h2>' + E.months.bar(S.mo, { label: "Repeat prescriptions written" }) +
       (S.moLoading && !S.moEntries.length ? '<div class="rep-quiet">Opening ' + esc(E.months.label(S.mo)) + "…</div>" : S.moError ? '<div class="rep-quiet">' + esc(S.moError) + "</div>" :
-        '<div class="rep-lab">Written in ' + esc(E.months.label(S.mo)) + " <b>" + mo.length + "</b></div>" + (mo.length ? '<div class="rep-list">' + mo.map(function (e) { return rowHtml(e, true); }).join("") + "</div>" : '<div class="rep-quiet" data-empty>' + (S.moEntries.length ? "No prescription that month matches." : esc(E.months.empty(S.mo))) + "</div>"));
+        '<div class="rep-lab">Written in ' + esc(E.months.label(S.mo)) + " <b>" + mo.length + "</b></div>" + (mo.length ? (function () { var pm = E.listPage.take("rep:mo:" + S.mo, mo, { q: S.q }); return '<div class="rep-list">' + pm.rows.map(function (e) { return rowHtml(e, true); }).join("") + "</div>" + E.listPage.moreHtml("rep:mo:" + S.mo, pm, "rep-btn"); })() : '<div class="rep-quiet" data-empty>' + (S.moEntries.length ? "No prescription that month matches." : esc(E.months.empty(S.mo))) + "</div>"));
     h += E.correct.foot(E.correct.can() ? "Correct is on each line of Written by month." : "", "Deleting a prescription is") + "</div>";
     var ae = document.activeElement, keepSel = ae && m.contains(ae) && ae.name ? "[name=" + ae.name + "]" : ae && ae.id === "rep-q" ? "#rep-q" : "";
     m.innerHTML = h;
@@ -211,6 +216,7 @@
         else if (act === "renew") { var e = S.entries.find(function (x) { return x.id === Number(b.getAttribute("data-id")); }); if (!e) return; S.adding = { entry_date: today(), client_id: e.client_id, client_name: e.client_name, medicine_name_dose: e.medicine_name_dose, posology: e.posology, prescriber_name: e.prescriber_name, prescriber_reg_no: e.prescriber_reg_no, collect_every_days: e.collect_every_days ? String(e.collect_every_days) : "", known: true }; S.err = ""; paint(true); window.scrollTo({ top: 0, behavior: "smooth" }); focus("entry_date"); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; S.bad = {}; paint(true); var ab = m.querySelector("[data-act=add]"); if (ab) ab.focus(); }
         else if (act === "collected" || act === "uncollect") collected(Number(b.getAttribute("data-id")), act === "uncollect");
+        else if (act === "q58-more") { var mk = b.getAttribute("data-key"), nx = E.listPage.more(mk); paint(true); if (nx != null) E.focusSoon(function () { var all = S.mount ? S.mount.querySelectorAll('[data-rid="' + nx + '"]') : [], r = all[/^rep:mo:/.test(mk) ? all.length - 1 : 0]; if (!r) return null; var t = r.querySelector("button"); if (t) return t; r.setAttribute("tabindex", "-1"); return r; }); } // q5-8: the first new line
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "repreg"); } catch (x) {} E.openClassic("repeatprescriptions"); }
       });
     });
@@ -333,7 +339,7 @@
   E.registerModule({
     id: "repreg", title: "Repeat prescriptions", order: 3, icon: "℞", ui2Only: true,
     render: function (ctx) {
-      S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.bad = {}; S.q = ""; S.view = "all"; S.mo = E.months.now(); S.moEntries = []; E.months.reset(); E.correct.reset("repreg");
+      S.mount = ctx && ctx.mount; E.listPage.reset("rep"); S.adding = null; S.err = ""; S.bad = {}; S.q = ""; S.view = "all"; S.mo = E.months.now(); S.moEntries = []; E.months.reset(); E.correct.reset("repreg");
       var ho = E.state.repregOpen; E.state.repregOpen = null; if (ho) { S.q = String(ho.q || ""); S.view = ho.view === "due" ? "due" : "all"; } // Today's Repeats card: this patient, the Due view
       // From the count on a customer's page (modules.customers.js): their repeat prescriptions, by ID card when known.
       var hand = E.takeCustomerHandoff ? E.takeCustomerHandoff("repreg") : null;

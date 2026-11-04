@@ -1805,6 +1805,48 @@
     for (var i = 0; i < all.length; i++) if (all[i].id === p) return "‹ " + all[i].title;
     return "‹ " + ((E.modules && E.modules[p] && E.modules[p].title) || "Today");
   };
+  // ---- q5-8 (BACKLOG5 item 8): busy lists drawn 30 rows at a time --------------------------------------------------
+  // A screen filters and sorts its whole list as before, then draws only E.listPage.take(...).rows and, under them,
+  // E.listPage.moreHtml(...): "Show 30 more (90 left)". A search counts every row; changing the search starts again at 30.
+  // Keys are "<screen>:<list>" ("ord:open"). A row the screen must show (the one being changed, the one just saved, the
+  // one opened by id from Today or Customers) is passed as opts.keep, or named once with E.listPage.reveal("ord", id):
+  // the page then grows to include it. opts.first: rows for this list on the first page (a second list gets what the
+  // first left of the 30). Display only: nothing here asks the server for anything.
+  E.listPage = (function () {
+    var STEP = 30, lim = {}, qs = {}, want = {}, last = {};
+    function grp(k) { return String(k).split(":")[0]; }
+    return {
+      STEP: STEP,
+      take: function (key, rows, opts) {
+        opts = opts || {}; rows = rows || [];
+        var q = String(opts.q == null ? "" : opts.q).trim().toLowerCase(), g = grp(key), idOf = opts.idOf || function (r) { return r && r.id; };
+        if (!(key in lim) || qs[key] !== q) { lim[key] = opts.first == null ? STEP : Math.max(0, opts.first); qs[key] = q; }
+        var n = lim[key], keep = [].concat(opts.keep == null ? [] : opts.keep, want[g] == null ? [] : [want[g]]).filter(function (x) { return x != null && x !== ""; }).map(String);
+        if (keep.length) for (var i = n; i < rows.length; i++) if (keep.indexOf(String(idOf(rows[i]))) >= 0) n = Math.ceil((i + 1) / STEP) * STEP;
+        lim[key] = n; last[key] = { rows: rows, idOf: idOf };
+        return { rows: rows.slice(0, n), shown: Math.min(n, rows.length), left: Math.max(0, rows.length - n), total: rows.length };
+      },
+      moreHtml: function (key, page, cls) {
+        if (!page || !page.left) return "";
+        var k = Math.min(STEP, page.left), t = page.shown ? (page.left > STEP ? "Show " + k + " more (" + page.left + " left)" : "Show the last " + k) : (page.left > STEP ? "Show " + k + " of " + page.left : "Show all " + k);
+        return '<div class="q5-8-morebox"><button type="button" class="' + (cls ? cls + " " : "") + 'q5-8-more" data-act="q58-more" data-key="' + E.escapeHtml(key) + '">' + t + "</button></div>";
+      },
+      // One page more. Returns the id of the first row it adds, for the screen to put the focus on after it redraws.
+      more: function (key) { var n = lim[key] || 0, l = last[key]; lim[key] = n + STEP; return l && l.rows[n] ? l.idOf(l.rows[n]) : null; },
+      reveal: function (g, id) { want[grp(g)] = id; },
+      reset: function (g) { Object.keys(lim).forEach(function (k) { if (grp(k) === g) { delete lim[k]; delete qs[k]; delete last[k]; } }); delete want[g]; }
+    };
+  })();
+  // How the person last moved: a tap or click marks <html data-q58-ptr>, a key that moves around (Tab, arrows, Enter,
+  // Escape, Space) clears it. app.css (q5-8) then draws no ring round a screen title the app focused after a tap, and
+  // keeps the ring for keyboard users. Until the first key the page counts as tapped. Focus itself is unchanged.
+  (function () {
+    var de = document.documentElement; if (!de || E._q58Mode) return; E._q58Mode = true;
+    de.setAttribute("data-q58-ptr", "");
+    document.addEventListener("pointerdown", function () { de.setAttribute("data-q58-ptr", ""); }, true);
+    document.addEventListener("keydown", function (ev) { if (/^(Tab|Enter|Escape| |Arrow|Page|Home|End|F6)/.test(ev.key) && !ev.metaKey) de.removeAttribute("data-q58-ptr"); }, true);
+  })();
+  // ---- end q5-8 ------------------------------------------------------------------------------------------------------
   E.UI2_MORE = ["team", "services", "money"]; // phones: reached from the last tab ("More")
   E._railBadges = E._railBadges || {};
 

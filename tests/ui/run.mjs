@@ -6069,6 +6069,57 @@ try {
     c1.visit === "1" && c1.address === "deliveries/classic true" && c1.back.pause === null && c1.back.ui2 && c1.temp && c1.route.ui2 && c1.route.pause === null && c1.own.mod === "order-diary" && !c1.own.ui2 && c1.own.back && !c1.pref.ui2 && c1.pref.btn, JSON.stringify(c1));
   await qx.close();
 } catch (e) { report("q5-1 nothing freezes the app: ran to the end", false, String(e && e.stack || e).slice(0, 500)); }
+// q5-8 (BACKLOG5 item 8): busy lists drawn 30 at a time, 44 px targets on a phone, no ring round a title focused after a tap,
+// and the red rail badge readable on the lit Customers tab.
+try {
+  const dQ = (n) => maltaYmd(n);
+  const many = Array.from({ length: 75 }, (_, i) => ({ id: 400 + i, order_date: dQ(0), client_name: (i === 70 ? "Żammit Ċensina" : "Borg Paul ") + i, client_phone: "7911" + String(i).padStart(4, "0"), items_text: "Item " + i, priority: 2, needed_by: dQ(i - 80), fulfilled: 0 }));
+  await page.route("**/client-orders/entries?*", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: (() => { const sp = new URL(r.request().url()).searchParams; return sp.get("from") || sp.get("month") === dQ(0).slice(0, 7) ? many : []; })() }) }));
+  await page.goto(base + "&ui=2#customers"); await page.goto(base + "&ui=2#clientorders");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelectorAll(".ord-row").length >= 30, null, { timeout: 15000 });
+  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {}); await page.waitForTimeout(300);
+  const lst = () => page.evaluate(() => ({ rows: document.querySelectorAll(".ord-row").length, lab: (document.querySelector(".ord-lab") || {}).textContent, more: (document.querySelector("[data-act=q58-more]") || {}).textContent || "" }));
+  const p0 = await lst();
+  const reqs = []; const onReq = (r) => { if (!/\.(js|css|png|json|svg)(\?|$)/.test(r.url())) reqs.push(r.method() + " " + r.url()); }; page.on("request", onReq);
+  await page.focus("[data-act=q58-more]"); await page.keyboard.press("Enter"); await page.waitForTimeout(250);
+  const p1 = await lst(); const f1 = await page.evaluate(() => { const a = document.activeElement, all = [...document.querySelectorAll(".ord-row [data-act=open]")]; return all.indexOf(a); });
+  await page.click("[data-act=q58-more]"); await page.waitForTimeout(250); const p2 = await lst();
+  page.off("request", onReq);
+  await page.fill("#ord-q", "Żammit"); await page.waitForTimeout(200); const pq = await lst();
+  await page.fill("#ord-q", ""); await page.waitForTimeout(200); const pc = await lst();
+  // a row asked for by id (item 5's "open by id", or a row just saved) is drawn even when it is past the first 30
+  const rev = await page.evaluate(() => { window.EIKON.listPage.reveal("ord", 470); const q = document.querySelector("#ord-q"); q.dispatchEvent(new Event("input", { bubbles: true })); return { has: !!document.querySelector('.ord-row [data-act=open][data-id="470"]'), rows: document.querySelectorAll(".ord-row").length }; });
+  // Ready on a row past the first page sends exactly what it always sent
+  const putB = []; const onPut = (r) => { if (r.method() === "PUT") putB.push(new URL(r.url()).pathname + " " + r.postData()); }; page.on("request", onPut);
+  await page.click('.ord-row [data-act=ready][data-id="465"]'); await page.waitForTimeout(600); page.off("request", onPut);
+  const keepRow = await page.evaluate(() => !!document.querySelector('.ord-row [data-act=open][data-id="465"]'));
+  report("busy lists (q5-8): Orders draws 30 of 75 with the full count, \"Show 30 more (45 left)\" adds 30 with no request and puts the focus on the first new row, the last page says so; a search covers every order (Maltese letters too) and clearing it starts again at 30; a row asked for by id past 30 is drawn; Ready there sends only fulfilled",
+    p0.rows === 30 && /Waiting\s*75/.test(p0.lab) && p0.more === "Show 30 more (45 left)" && p1.rows === 60 && f1 === 30 && p1.more === "Show the last 15" && p2.rows === 75 && p2.more === "" && reqs.length === 0 &&
+    pq.rows === 1 && /Waiting\s*1/.test(pq.lab) && pc.rows === 30 && rev.has && rev.rows === 75 && putB.length === 1 && putB[0] === '/client-orders/entries/465 {"fulfilled":true}' && keepRow,
+    JSON.stringify({ p0, p1, f1, p2, reqs, pq, pc, rev, putB, keepRow }));
+  // the pager itself: a second list gets what the first left of the 30; the words for each case
+  const lp = await page.evaluate(() => { const L = window.EIKON.listPage, a = Array.from({ length: 50 }, (_, i) => ({ id: i })); L.reset("zz");
+    const x = L.take("zz:a", a.slice(0, 12)), y = L.take("zz:b", a, { first: L.STEP - x.shown }), z = L.take("zz:c", a.slice(0, 40), { first: 0 }), k = L.take("zz:d", a, { keep: [44] });
+    const w = [L.moreHtml("zz:b", y), L.moreHtml("zz:c", z), L.moreHtml("zz:x", { shown: 0, left: 7 })].map((h) => { const d = document.createElement("div"); d.innerHTML = h; return d.textContent; });
+    const nx = L.more("zz:b"), y2 = L.take("zz:b", a, { first: 18 }); L.reset("zz"); return { x: x.shown, y: y.shown, yl: y.left, z: z.shown, k: k.shown, w, nx, y2: y2.shown }; });
+  report("busy lists (q5-8): the pager gives a second list what the first left, grows to a kept row, and says \"Show 30 more (N left)\", \"Show 30 of N\", \"Show all N\"",
+    lp.x === 12 && lp.y === 18 && lp.yl === 32 && lp.z === 0 && lp.k === 50 && lp.w[0] === "Show 30 more (32 left)" && lp.w[1] === "Show 30 of 40" && lp.w[2] === "Show all 7" && lp.nx === 18 && lp.y2 === 48, JSON.stringify(lp));
+  // phone: 44 px targets on the list, the title focused after a tap has no ring, after a key it has one
+  await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(150);
+  const tg = await page.evaluate(() => { const m = document.querySelector(".ord"), sel = ".ord-back, .ord-row button, .ord-row a, [data-act=q58-more], .ord-tabs button, #ord-q";
+    const h = [...m.querySelectorAll(sel)].filter((e) => e.getClientRects().length).map((e) => Math.round(e.getBoundingClientRect().height)); return { n: h.length, min: Math.min(...h) }; });
+  await page.mouse.click(5, 5); await page.goto(base + "&ui=2#customers"); await page.waitForTimeout(400);
+  await page.evaluate(() => document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))); await page.evaluate(() => { location.hash = "#clientorders"; });
+  await page.waitForFunction(() => document.activeElement && document.activeElement.tagName === "H1" && window.EIKON.state.activeModuleId === "ordreg", null, { timeout: 8000 });
+  const tap = await page.evaluate(() => getComputedStyle(document.activeElement).outlineStyle);
+  await page.keyboard.press("Shift"); await page.keyboard.press("Tab"); await page.keyboard.press("Shift+Tab");
+  const key = await page.evaluate(() => ({ tag: document.activeElement.tagName, o: getComputedStyle(document.activeElement).outlineStyle, ptr: document.documentElement.hasAttribute("data-q58-ptr") }));
+  const badge = await page.evaluate(() => { const b = document.querySelector('.eikon-rail-badge[data-badge="customers"]'); if (!b) return null; const c = getComputedStyle(b); return c.backgroundColor + " " + c.color; });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  report("busy lists (q5-8): on a phone every Orders target is at least 44 px tall; the title the app focuses after a tap has no ring, the keyboard keeps its ring; the red badge sits on an opaque tint (5.6:1)",
+    tg.n > 60 && tg.min >= 44 && tap === "none" && key.o === "solid" && !key.ptr && (badge === null || badge === "rgb(251, 227, 225) rgb(176, 30, 23)"), JSON.stringify({ tg, tap, key, badge }));
+  await page.unroute("**/client-orders/entries?*");
+} catch (e) { await page.setViewportSize({ width: 1440, height: 900 }).catch(() => {}); await page.unroute("**/client-orders/entries?*").catch(() => {}); report("busy lists (q5-8): ran to the end", false, String(e && e.stack || e).slice(0, 400) + " " + (await page.evaluate(() => location.href + " " + (window.EIKON && window.EIKON.state.activeModuleId) + " rows=" + document.querySelectorAll(".ord-row").length + " " + (document.querySelector("main,#eikon-content") || document.body).innerText.slice(0, 300)).catch((x) => String(x)))); }
 
 await browser.close();
 server.close();

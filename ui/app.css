@@ -1112,3 +1112,28 @@ html[data-ui2] .q44-days button:focus-visible{outline:2px solid var(--accent);ou
 @keyframes eikonSvcSkel{from{background-position:100% 0}to{background-position:-100% 0}}
 @media (prefers-reduced-motion:reduce){.eikon-skel i{animation:none}}
 .eikon-ferr{display:block;font-size:13px;font-weight:600;color:var(--danger);margin:6px 2px}
+
+/* ---- q5-8 (BACKLOG5 item 8): badge and tab-bar contrast, screen-title focus, "Show 30 more" ---- */
+/* Red rail badges sit on an opaque tint, so the active tab's own tint under them cannot drop the contrast
+   (was 4.16:1 light, 3.47:1 dark on Customers). 5.6:1 light, 5.6:1 dark. Stock keeps its amber badge. */
+html[data-ui2] .eikon-rail-btn:not([data-mod="stock"]) .eikon-rail-badge{background:#FBE3E1;color:#B01E17}
+@media (prefers-color-scheme: dark){ html[data-ui2]:not([data-ui2-visit]) .eikon-rail-btn:not([data-mod="stock"]) .eikon-rail-badge{background:#4A1C1A;color:#FF7A72} }
+/* Phone tab bar: the lit tab is an opaque pill, so its green word never sits on whatever scrolls under the
+   see-through bar (#066B4F on #EDEDF0 5.6:1; dark #2BC48A on #3A3A3C 5.1:1). */
+@media (max-width: 760px){
+  html[data-ui2] :is(.eikon-rail-btn.active,.eikon-rail-btn.more-on){background:#EDEDF0}
+}
+@media (max-width: 760px) and (prefers-color-scheme: dark){
+  html[data-ui2]:not([data-ui2-visit]) :is(.eikon-rail-btn.active,.eikon-rail-btn.more-on){background:#3A3A3C}
+}
+/* A screen title the app focuses after a tap or click (h1 tabindex=-1, for screen readers) shows no ring; after a key
+   (data-q58-ptr cleared by core.js) it keeps the keyboard ring. */
+html[data-ui2][data-q58-ptr] h1[tabindex="-1"]:is(:focus,:focus-visible){outline:none}
+html[data-ui2]:not([data-q58-ptr]) h1[tabindex="-1"]:focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:4px;border-radius:6px}
+/* "Show 30 more (90 left)" under a long list (E.listPage in core.js). */
+html[data-ui2] .q5-8-morebox{display:flex;justify-content:center;margin:12px 0 4px}
+@media (max-width: 760px){ html[data-ui2] .q5-8-more{min-height:44px;width:100%;max-width:360px} }
+/* ---- end q5-8 ---- */
+/* q5-8: the link inside a screen's last sentence ("… in the classic screen") gets a 44 px tall tap area on a phone,
+   without moving the text (the padding is taken back by the margin). */
+@media (max-width: 760px){ html[data-ui2] .eikon-content p a[data-act="classic"]{display:inline-block;padding:15px 0;margin:-15px 0} }

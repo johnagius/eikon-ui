@@ -149,7 +149,10 @@
       ".dlv-in .acts.l{justify-content:space-between}.dlv-btn.dd{background:#B42318;border-color:#B42318;color:#fff}.dlv-meta{font-size:12.5px;color:var(--muted);padding:6px 14px 2px}" +
       ".dlv-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       "@media (max-width:600px){.dlv{padding:4px 16px 0}.dlv h1{font-size:32px}.dlv-card .a{display:grid;grid-auto-flow:column;grid-auto-columns:1fr}.dlv-card .a .dlv-btn{padding:0 6px}" +
-      ".dlv-btn{height:44px;border-radius:22px}.dlv-ferr{margin-left:0}.dlv-form label>span,.dlv-in label>span{flex-basis:96px}.dlv-form input[type=checkbox],.dlv-in input[type=checkbox]{width:24px;height:24px}}";
+      ".dlv-btn{height:44px;border-radius:22px}.dlv-ferr{margin-left:0}.dlv-form label>span,.dlv-in label>span{flex-basis:96px}.dlv-form input[type=checkbox],.dlv-in input[type=checkbox]{width:24px;height:24px}}" +
+      // q5-8: every target at least 44 px tall on a phone (the way back, the name, the address that opens the map, the phone).
+      ".dlv-back{min-height:44px;padding:0 12px 0 0;margin:-8px 0 2px}" +
+      "@media (max-width:600px){.dlv-name{min-height:44px;display:inline-flex;align-items:center}.dlv-card .h{align-items:center}.dlv-card .ad a,.dlv-card .s a{display:inline-flex;align-items:center;min-height:44px;vertical-align:middle}.dlv-card .ad{margin-top:0}}";
     document.head.appendChild(st);
   }
 
@@ -271,8 +274,10 @@
       var shown = S.who ? S.entries.filter(forWho) : S.entries; if (S.who) h += whoLine();
       var now = shown.filter(function (e) { return daysUntil(day(e)) <= 0; }), later = shown.filter(function (e) { return daysUntil(day(e)) > 0; });
       var over = now.filter(function (e) { return daysUntil(day(e)) < 0; }).length;
-      if (now.length) h += '<div class="dlv-lab">Today <b>' + now.length + "</b>" + (over ? '<span style="color:var(--danger)">· ' + over + " overdue</span>" : "") + "</div>" + now.map(cardHtml).join("");
-      if (later.length) h += '<div class="dlv-lab">Later <b>' + later.length + "</b></div>" + later.map(cardHtml).join("");
+      // q5-8: the first 30 deliveries of the screen, then "Show 30 more"; Later gets what Today left of the 30. The counts are every delivery.
+      var kp = [S.editing, S.open, S.hit], pn = E.listPage.take("dlv:now", now, { keep: kp, q: S.who ? S.who.name : "" }), pl = E.listPage.take("dlv:later", later, { keep: kp, q: S.who ? S.who.name : "", first: E.listPage.STEP - pn.shown });
+      if (now.length) h += '<div class="dlv-lab">Today <b>' + now.length + "</b>" + (over ? '<span style="color:var(--danger)">· ' + over + " overdue</span>" : "") + "</div>" + pn.rows.map(cardHtml).join("") + E.listPage.moreHtml("dlv:now", pn, "dlv-btn");
+      if (later.length) h += '<div class="dlv-lab">Later <b>' + later.length + "</b></div>" + pl.rows.map(cardHtml).join("") + E.listPage.moreHtml("dlv:later", pl, "dlv-btn");
     }
     h += E.months.history("dlvreg", HIST);
     h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Drivers and item batches are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
@@ -286,6 +291,7 @@
         else if (a === "who-all") { S.who = null; paint(); focusOn(".dlv-top [data-act=add]"); }
         else if (a === "add") { S.carry = null; S.adding = {}; S.err = ""; S.fe = {}; paint(); E.focusSoon(function () { return m.querySelector("#dlv-add [name=client_name]"); }, 30); }
         else if (a === "add-cancel") closeAdd();
+        else if (a === "q58-more") { var nx = E.listPage.more(b.getAttribute("data-key")); paint(); if (nx != null) focusOn('[data-act=open][data-id="' + nx + '"]'); } // q5-8: the first new delivery
         else if (a === "open") openEdit(id);
         else if (a === "edit-cancel") closeEdit();
         else if (a === "del") { keep(); S.del = S.editing; S.delReason = ""; S.editErr = ""; paint(); focusOn("#dlv-edit [name=del_reason]"); }
@@ -426,7 +432,7 @@
       if (!(x && x.network && body && await landed(id, body))) { S.editErr = E.saveFailText(x); S.editSaving = false; paint(); return focusOn("#dlv-edit [type=submit]"); }
     }
     E.toast(t("client_name") + "'s delivery is saved", "success"); S.editing = null; S.edit = null; S.orig = null; S.editErr = ""; S.efe = {};
-    S.editSaving = false; await load(); focusOn('[data-act=open][data-id="' + id + '"]');
+    S.editSaving = false; E.listPage.reveal("dlv", id); await load(); focusOn('[data-act=open][data-id="' + id + '"]');
   }
 
   // Delete (pharmacist only): the reason is written in the delivery's log (the classic body), then the delivery is deleted.
@@ -511,7 +517,7 @@
   E.registerModule({
     id: "dlvreg", title: "Deliveries", order: 3, icon: "→", ui2Only: true,
     render: function (ctx) {
-      S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.open = null; S.mode = ""; S.err = ""; S.fe = {}; S.draft = null; S.editing = null; S.edit = null; S.orig = null; S.del = null; S.editErr = ""; S.editSaving = false; S.efe = {}; E.months.historyReset("dlvreg");
+      S.mount = ctx && ctx.mount; E.listPage.reset("dlv"); S.busy = {}; S.adding = null; S.open = null; S.mode = ""; S.err = ""; S.fe = {}; S.draft = null; S.editing = null; S.edit = null; S.orig = null; S.del = null; S.editErr = ""; S.editSaving = false; S.efe = {}; E.months.historyReset("dlvreg");
       // From a customer's page: a new delivery for them, or (from the count of their deliveries) their deliveries.
       var hand = E.takeCustomerHandoff ? E.takeCustomerHandoff("dlvreg") : null;
       S.carry = hand && hand.mode === "new" ? hand : null;

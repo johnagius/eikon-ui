@@ -44,7 +44,6 @@
   // The classic screen's specialty list (the short names it stores).
   var SPECIALTIES = ["Allergy & Immunology", "Anaesthesiology", "Andrology", "Cardiology", "Cardiac Surgery", "Clinical Genetics", "Clinical Pharmacology", "Colorectal Surgery", "Dentistry", "Dermatology", "Diabetology", "Emergency Medicine", "Endocrinology", "ENT", "Forensic Medicine", "Gastroenterology", "General Practice", "General Surgery", "Geriatrics", "Gynaecology", "Haematology", "Hand Surgery", "Hepatology", "Infectious Disease", "Internal Medicine", "Intensive Care", "Maxillofacial Surgery", "Microbiology", "Neonatology", "Nephrology", "Neurology", "Neurosurgery", "Nuclear Medicine", "Obstetrics", "Obs & Gynae", "Occupational Medicine", "Oncology", "Ophthalmology", "Oral Surgery", "Orthodontics", "Orthopaedics", "Paediatrics", "Paediatric Surgery", "Pain Medicine", "Palliative Care", "Pathology", "Plastic Surgery", "Podiatry", "Psychiatry", "Public Health", "Pulmonology", "Radiology", "Radiotherapy", "Rehabilitation Medicine", "Renal Medicine", "Rheumatology", "Sexual Health", "Sleep Medicine", "Spinal Surgery", "Sports Medicine", "Thoracic Surgery", "Transplant Surgery", "Trauma Surgery", "Urology", "Vascular Surgery"];
 
-  var MAX_ROWS = 200; // a long unfiltered list is cut here; a search finds the rest
 
   var S = { mount: null, rows: {}, agg: [], failed: [], loading: false, error: "", q: "", filter: "all", sel: null, form: null, saving: false, err: "" };
 
@@ -117,7 +116,8 @@
       "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .con-ferr{color:#FF7A72}}" + // 5:1 on the tinted row being typed in
       ".con-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       "@media (max-width:600px){.con-btn{height:44px;border-radius:22px}.con-call{height:44px;border-radius:22px;padding:0 16px}.con-q{height:44px}.con-ferr{margin-left:0}" +
-      ".con-chips{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding:0 16px 2px}.con-chips::-webkit-scrollbar{display:none}.con-chips button{height:44px;border-radius:22px;padding:0 14px;flex:none}}";
+      ".con-chips{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding:0 16px 2px}.con-chips::-webkit-scrollbar{display:none}.con-chips button{height:44px;border-radius:22px;padding:0 14px;flex:none}}" +
+      ".con-back{min-height:44px;padding:0 12px 0 0;margin:-8px 0 2px}.con-open{min-height:44px}"; // q5-8: the way back and every row at least 44 px tall
     document.head.appendChild(st);
   }
 
@@ -191,13 +191,17 @@
       return h + '<div class="con-quiet" style="margin-top:14px">' + (q ? "No contact matches “" + esc(S.q.trim()) + "”." + (f !== "all" ? " Try All." : "") : f === "all" ? "No contacts yet." : "No " + esc((TYPE[f] || {}).many || "contacts").toLowerCase() + " yet.") +
         (f !== "emergency" ? '<br><button type="button" class="con-btn" data-act="add" style="margin-top:10px">Add a contact</button>' : "") + "</div>";
     }
-    var shown = 0, groups = TYPES.map(function (t) { return { key: t.key, label: t.many }; }).concat([{ key: "emergency", label: "Emergency and health centres" }]);
-    groups.forEach(function (g) {
-      var mine = items.filter(function (c) { return c.t === g.key; }); if (!mine.length || shown >= MAX_ROWS) return;
-      var take = mine.slice(0, MAX_ROWS - shown); shown += take.length;
+    var groups = TYPES.map(function (t) { return { key: t.key, label: t.many }; }).concat([{ key: "emergency", label: "Emergency and health centres" }]);
+    // q5-8: the first 30 contacts (in group order), then "Show 30 more (N left)", instead of 200 at once and "Search to find the rest".
+    // The search and the group counts still cover every contact; the one open on the right stays in the list.
+    var byG = groups.map(function (g) { return items.filter(function (c) { return c.t === g.key; }); }), pk = "con:" + f;
+    var pg = E.listPage.take(pk, [].concat.apply([], byG), { q: q, keep: [S.sel], idOf: function (c) { return c.k; } }), on = {};
+    pg.rows.forEach(function (c) { on[c.k] = 1; });
+    groups.forEach(function (g, i) {
+      var mine = byG[i], take = mine.filter(function (c) { return on[c.k]; }); if (!take.length) return;
       h += '<div class="con-lab">' + esc(g.label) + " <b>" + mine.length + '</b></div><div class="con-list">' + take.map(rowHtml).join("") + "</div>";
     });
-    if (shown < items.length) h += '<p class="con-foot">Showing ' + shown + " of " + items.length + ". Search to find the rest.</p>";
+    h += E.listPage.moreHtml(pk, pg, "con-btn");
     return h;
   }
 
@@ -275,6 +279,7 @@
         var act = b.getAttribute("data-act");
         if (act === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("conreg") : "#team";
         else if (act === "retry") load();
+        else if (act === "q58-more") { var nx = E.listPage.more(b.getAttribute("data-key")); paintList(); if (nx != null) E.focusSoon(function () { return S.mount && S.mount.querySelector('[data-open="' + nx + '"]'); }); } // q5-8: the first new contact
         else if (act === "add") { var ty = TYPE[S.filter] ? S.filter : "suppliers"; S.form = { type: ty, id: null, vals: prefill(ty) }; S.err = ""; S.fe = {}; S.sel = null; paint(true); top(); focus(); }
         else if (act === "edit") { var c = find(S.sel); if (!c || c.fixed || c.agg) return; var vals = {}; TYPE[c.t].cols.forEach(function (k) { vals[k] = String(c.r[k] == null ? "" : c.r[k]); }); S.form = { type: c.t, id: c.r.id, vals: vals, snap: Object.assign({}, vals), key: c.k }; S.err = ""; S.fe = {}; paint(true); top(); focus(); }
         else if (act === "form-cancel") cancelForm();
@@ -377,7 +382,7 @@
 
   E.registerModule({
     id: "conreg", title: "Contacts", order: 3, icon: "☎", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.sel = null; S.err = ""; S.fe = {}; S.q = ""; S.filter = "all"; S.saving = false; css(); paint(); return E.takeOpenForm("conreg", S.mount, load(), { btn: ".con-top [data-act=add]", form: "#con-form", isNew: function () { return !!(S.form && !S.form.id); } }); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; E.listPage.reset("con"); S.form = null; S.sel = null; S.err = ""; S.fe = {}; S.q = ""; S.filter = "all"; S.saving = false; css(); paint(); return E.takeOpenForm("conreg", S.mount, load(), { btn: ".con-top [data-act=add]", form: "#con-form", isNew: function () { return !!(S.form && !S.form.id); } }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("conreg") < 0) E.UI2_DESTINATIONS.push("conreg");
   if (E.UI2_PARENT) E.UI2_PARENT.conreg = "team";
