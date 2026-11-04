@@ -169,6 +169,8 @@ function mockApi(req, res, body) {
     res.writeHead(200, { "content-type": "text/html" }); return res.end("<!doctype html><title>DDA Stock Take</title><h1>Demo - DDA Stock Take</h1><table>" + its.map((i) => "<tr><td>" + i.item_name + "</td><td>" + i.qty_tablets + "</td></tr>").join("") + "</table>");
   }
   if (globalThis.__dupLinks === "404" && p.indexOf("/people/links") === 0) { res.writeHead(404, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "Not found" })); } // as the live worker without the routes
+  // q6-2: Change time to a time taken meanwhile: 409 with the next free ones, as the worker answers
+  if (p === "/bookings/501" && req.method === "PATCH" && body && body.date && body.start === "23:35") { res.writeHead(409, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "That time is not free", next: [{ date: todayYmd, time: "23:40", providerId: 1, providerName: "Maria Borg" }, { date: todayYmd, time: "23:45", providerId: 1, providerName: "Maria Borg" }] })); }
   res.writeHead(200, { "content-type": "application/json" });
   // q5-7: as the worker's LIKE, which lowers only A to Z (so "zammit" does not find Żammit on the server)
   if (p === "/people" && peopleState.mt) {
@@ -255,7 +257,17 @@ function mockApi(req, res, body) {
   // Bookings: one service, one practitioner working weekdays 09:00–13:00, one booking late today.
   if (p === "/bookings/setup") return res.end(JSON.stringify({ ok: true, services: [{ id: 1, name: "Blood pressure", durationMin: 15, priceCents: 0, active: true, online: true, providerIds: [1] }],
     providers: [{ id: 1, name: "Maria Borg", title: "Pharm.", speciality: "", active: true, serviceIds: [1], hours: { "1": [["09:00", "13:00"]], "2": [["09:00", "13:00"]], "3": [["09:00", "13:00"]], "4": [["09:00", "13:00"]], "5": [["09:00", "13:00"]] } }] }));
-  if (p === "/bookings" && req.method === "GET") return res.end(JSON.stringify({ ok: true, bookings: [{ id: 501, serviceId: 1, providerId: 1, date: todayYmd, start: "23:50", end: "23:59", personName: "Anna Vella", personPhone: "79000000", status: "booked" }] }));
+  // q6-2: a day before today answers with what happened that day (done, cancelled, never marked); today has Anna Vella.
+  if (p === "/bookings" && req.method === "GET" && (url.searchParams.get("to") || "") < todayYmd) { const d0 = url.searchParams.get("from"); return res.end(JSON.stringify({ ok: true, bookings: [
+    { id: 490, serviceId: 1, providerId: 1, date: d0, start: "09:00", end: "09:15", personName: "Borg Ċensina", personPhone: "79111111", status: "done", version: 2 },
+    { id: 491, serviceId: 1, providerId: 1, date: d0, start: "09:30", end: "09:45", personName: "Galea Ħelena", personPhone: "", status: "cancelled", cancelReason: "Called to cancel", version: 2 },
+    { id: 492, serviceId: 1, providerId: 1, date: d0, start: "10:00", end: "10:15", personName: "Zammit Paul", personPhone: "79000001", status: "booked", version: 1 }] })); }
+  if (p === "/bookings" && req.method === "GET") return res.end(JSON.stringify({ ok: true, bookings: [{ id: 501, serviceId: 1, providerId: 1, date: todayYmd, start: "23:50", end: "23:59", personName: "Anna Vella", personPhone: "79000000", status: "booked", version: 3 }] }));
+  // Change time (q6-2): the day's free times; 23:35 is taken at another counter (409 with the next ones), any other time moves.
+  if (p === "/bookings/slots") return res.end(JSON.stringify({ ok: true, date: url.searchParams.get("date"), slots: [{ time: "23:35", providerId: 1, providerName: "Maria Borg" }, { time: "23:40", providerId: 1, providerName: "Maria Borg" }, { time: "23:50", providerId: 1, providerName: "Maria Borg" }] }));
+  if (p === "/bookings/501" && req.method === "PATCH" && body && body.date) {
+    return res.end(JSON.stringify({ ok: true, booking: { id: 501, serviceId: 1, providerId: 1, date: body.date, start: body.start, end: "23:59", personName: "Anna Vella", personPhone: "79000000", status: "booked", version: 4 }, message: "no-email" }));
+  }
   if (p === "/bookings/waitlist" && req.method === "GET") return res.end(JSON.stringify({ ok: true, waiting: [] }));
   if (p === "/bookings/rooms" && req.method === "GET") return res.end(JSON.stringify({ ok: true, rooms: [] }));
   if (p === "/bookings/next") return res.end(JSON.stringify({ ok: true, slots: [{ date: todayYmd, time: "23:30", providerId: 1 }, { date: todayYmd, time: "23:45", providerId: 1 }] }));
@@ -2132,17 +2144,140 @@ await page.click('.bkx-sheet [data-act="win-add"][data-d="1"]'); await page.wait
 const bkWin = await page.evaluate(() => [document.querySelector('[data-d="1"][data-i="1"][data-k=from]').value, document.querySelector('[data-d="1"][data-i="1"][data-k=to]').value].join("-"));
 let bkEsc = 0; for (let i = 0; i < 30; i++) { await page.keyboard.press("Tab"); if (!(await page.evaluate(() => !!document.activeElement.closest(".bkx-sheet")))) bkEsc++; }
 await page.keyboard.press("Escape"); await page.waitForTimeout(200);
+// q6-2: the added hours are not saved, so Escape asks first; Throw away closes and focus goes back to the gear
+const bkAsk = await page.evaluate(() => ({ ask: (document.querySelector(".bkx-ask") || {}).textContent || "", on: document.activeElement.getAttribute("data-act") }));
+await page.click('[data-act="ask-drop"]'); await page.waitForTimeout(200);
 const bkBack = await page.evaluate(() => ({ closed: !document.querySelector(".bkx-sheet"), on: document.activeElement.getAttribute("data-act") }));
 await fetch(`http://localhost:${PORT}/__reset`);
 await page.click("[data-act=new]"); await page.waitForFunction(() => document.querySelector(".bkx-slot.on") && document.getElementById("bkx-name"), null, { timeout: 5000 });
 await page.fill("#bkx-name", "Paul Grech"); await page.click("[data-act=book]");
 await page.waitForFunction(() => !document.querySelector(".bkx-sheet"), null, { timeout: 5000 });
 const bkPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/bookings").map((c) => c.body);
-report("bookings: today's list; settings is a dialog that holds focus, Escape returns to the gear; 2nd hours 16:00–19:00; one POST per booking",
-  /23:50.*Anna Vella.*Blood pressure/.test(bk1) && bkSheet.dialog && bkSheet.inside && /settings/i.test(bkSheet.label || "") && bkWin === "16:00-19:00" && bkEsc === 0 && bkBack.closed && bkBack.on === "settings" &&
+report("bookings: today's list; settings is a dialog that holds focus; Escape with unsaved hours asks, Throw away returns to the gear; 2nd hours 16:00–19:00; one POST per booking",
+  /23:50.*Anna Vella.*Blood pressure/.test(bk1) && bkSheet.dialog && bkSheet.inside && /settings/i.test(bkSheet.label || "") && bkWin === "16:00-19:00" && bkEsc === 0 && /You changed Pharm\. Maria Borg’s hours\./.test(bkAsk.ask) && bkAsk.on === "ask-save" && bkBack.closed && bkBack.on === "settings" &&
   bkPosts.length === 1 && bkPosts[0].serviceId === 1 && bkPosts[0].providerId === 1 && bkPosts[0].start === "23:30" && bkPosts[0].personName === "Paul Grech",
-  JSON.stringify({ bk1, bkSheet, bkWin, bkEsc, bkBack, bkPosts }));
+  JSON.stringify({ bk1, bkSheet, bkWin, bkEsc, bkAsk, bkBack, bkPosts }));
 } catch (e) { report("bookings: keyboard, hours and booking flow ran to the end", false, String(e).slice(0, 300)); }
+
+// q6-2 (BACKLOG6 item 2): Bookings does the whole job. Change time sends {version,date,start} and a 409 offers the next
+// times; any day with ‹ › Today and a date box; past days read only with what happened; the phone calls; a known
+// customer's name opens the card; N opens New booking; a half-typed booking comes back; Settings asks before throwing
+// a change away; the list refreshes every minute but never under an open sheet.
+try {
+  const calls2 = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json());
+  await page.goto(base + "&ui=2#bookings");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "bookings" && document.querySelector(".bkx-r[data-act=open]"), null, { timeout: 15000 });
+  await fetch(`http://localhost:${PORT}/__reset`);
+  // 1. the booking sheet: tel link, Change time beside Arrived and Done
+  await page.click(".bkx-r[data-act=open]"); await page.waitForSelector(".bkx-sheet [data-act=move]", { timeout: 5000 });
+  const mv0 = await page.evaluate(() => ({ tel: (document.querySelector(".bkx-sheet a[href^='tel:']") || {}).getAttribute ? document.querySelector(".bkx-sheet a[href^='tel:']").getAttribute("href") : "", btns: [...document.querySelectorAll(".bkx-sheet .bkx-acts button")].map((b) => b.textContent.trim()) }));
+  await page.click(".bkx-sheet [data-act=move]");
+  await page.waitForFunction(() => document.querySelectorAll(".bkx-sheet [data-act=mv-slot]").length >= 2, null, { timeout: 5000 });
+  const mv1 = await page.evaluate(() => ({ title: document.querySelector(".bkx-sheet").getAttribute("aria-label"), slots: [...document.querySelectorAll(".bkx-sheet [data-act=mv-slot]")].map((b) => b.textContent), mail: (document.querySelector(".bkx-sheet .bkx-mail") || {}).textContent || "", btn: document.querySelector("[data-act=mv-go]").textContent, dis: document.querySelector("[data-act=mv-go]").disabled }));
+  await page.click('.bkx-sheet [data-act=mv-slot][data-i="0"]'); // 23:35, taken meanwhile
+  await page.click("[data-act=mv-go]");
+  await page.waitForFunction(() => /Someone just took that time/.test((document.querySelector(".bkx-sheet .bkx-err") || {}).textContent || ""), null, { timeout: 5000 });
+  const mv2 = await page.evaluate(() => ({ err: document.querySelector(".bkx-sheet .bkx-err").textContent, role: document.querySelector(".bkx-sheet .bkx-err").getAttribute("role"), slots: [...document.querySelectorAll(".bkx-sheet [data-act=mv-slot]")].map((b) => b.textContent), on: (document.querySelector(".bkx-sheet .bkx-slot.on") || {}).textContent, btn: document.querySelector("[data-act=mv-go]").textContent }));
+  await page.click("[data-act=mv-go]");
+  await page.waitForFunction(() => /Moved to .* at 23:40/.test((document.querySelector(".bkx-sheet .bkx-ok") || {}).textContent || ""), null, { timeout: 5000 });
+  const mv3 = await page.evaluate(() => ({ note: document.querySelector(".bkx-sheet .bkx-ok").textContent, tel: !!document.querySelector(".bkx-sheet .bkx-ok a[href='tel:79000000']") }));
+  const patches = (await calls2()).filter((c) => c.method === "PATCH" && c.path === "/bookings/501").map((c) => c.body);
+  report("bookings q6-2: Change time beside Arrived and Done; the day's free times without the booking's own; a taken time (409) says so and offers the next; Move sends exactly {version,date,start}; no e-mail: the number to call stays on screen",
+    mv0.tel === "tel:79000000" && mv0.btns.join() === "Arrived,Done,Change time,No-show,Cancel booking" && mv1.title === "Change time" && mv1.slots.join() === "23:35,23:40" && /Anna Vella has no e-mail, so call them: 79000000/.test(mv1.mail) && mv1.dis && mv1.btn === "Choose a new time" &&
+    /Someone just took that time\. Here are the next free ones\./.test(mv2.err) && mv2.role === "alert" && /^23:40/.test(mv2.on || "") && mv2.slots.length === 2 && /^Move to .* at 23:40$/.test(mv2.btn) &&
+    patches.length === 2 && patches.every((b) => JSON.stringify(Object.keys(b)) === JSON.stringify(["version", "date", "start"]) && b.version === 3 && b.date === todayYmd) && patches[0].start === "23:35" && patches[1].start === "23:40" &&
+    /Moved to .* at 23:40 · Anna Vella has no e-mail: call 79000000/.test(mv3.note) && mv3.tel,
+    JSON.stringify({ mv0, mv1, mv2, mv3, patches }));
+  await page.keyboard.press("Escape"); await page.waitForTimeout(200);
+
+  // 2. yesterday in one tap: read only, with what happened; Today goes back; ‹ › a week; the date box
+  await fetch(`http://localhost:${PORT}/__reset`);
+  const strip = await page.evaluate(() => [...document.querySelectorAll(".bkx-days .bkx-day")].map((b) => b.getAttribute("data-d")));
+  await page.click(".bkx-days .bkx-day >> nth=0");
+  await page.waitForFunction(() => /Borg Ċensina/.test((document.querySelector(".bkx") || {}).textContent || ""), null, { timeout: 5000 });
+  const past1 = await page.evaluate(() => ({ rows: [...document.querySelectorAll(".bkx-r[data-act=open]")].map((r) => r.querySelector("b").textContent + "=" + ((r.querySelector(".bkx-st") || {}).textContent || "")), today: !!document.querySelector("[data-act=today]"), sub: document.querySelector(".bkx .sub").textContent }));
+  await page.click('.bkx-r[data-id="492"]'); await page.waitForSelector(".bkx-sheet", { timeout: 5000 });
+  await page.waitForFunction(() => document.querySelector(".bkx-sheet [data-act=card]"), null, { timeout: 5000 }).catch(() => {});
+  const past2 = await page.evaluate(() => ({ acts: document.querySelectorAll(".bkx-sheet .bkx-acts button, .bkx-sheet [data-act=move], .bkx-sheet [data-act=st]").length, st: (document.querySelector(".bkx-sheet .bkx-stline") || {}).textContent, card: (document.querySelector(".bkx-sheet [data-act=card]") || {}).getAttribute ? document.querySelector(".bkx-sheet [data-act=card]").getAttribute("aria-label") : "" }));
+  await page.keyboard.press("Escape"); await page.waitForTimeout(150);
+  await page.click('.bkx-r[data-id="491"]'); await page.waitForSelector(".bkx-sheet .bkx-stline", { timeout: 5000 });
+  const past3 = await page.evaluate(() => document.querySelector(".bkx-sheet .bkx-stline").textContent);
+  await page.keyboard.press("Escape"); await page.waitForTimeout(150);
+  await page.click("[data-act=today]"); await page.waitForFunction(() => !document.querySelector("[data-act=today]") && /Anna Vella/.test(document.querySelector(".bkx").textContent), null, { timeout: 5000 });
+  await page.click('[data-act=wk][data-n="7"]'); await page.waitForTimeout(300);
+  const wk = await page.evaluate(() => ({ strip: [...document.querySelectorAll(".bkx-days .bkx-day")].map((b) => b.getAttribute("data-d")), on: (document.querySelector(".bkx-day.on") || {}).getAttribute("data-d") }));
+  await page.click("[data-act=pickdate]"); await page.waitForSelector("#bkx-goto", { timeout: 3000 });
+  const gotoFocus = await page.evaluate(() => document.activeElement.id);
+  await page.fill("#bkx-goto", "2026-12-24"); await page.waitForTimeout(300); await page.keyboard.press("Enter"); await page.waitForTimeout(200);
+  const goto1 = await page.evaluate(() => ({ sub: document.querySelector(".bkx .sub").textContent, box: !!document.getElementById("bkx-goto"), foc: document.activeElement.getAttribute("data-act") }));
+  const gets = (await calls2()).filter((c) => c.method === "GET" && c.path === "/bookings").map((c) => c.query || "");
+  await page.click("[data-act=today]"); await page.waitForTimeout(300);
+  report("bookings q6-2: the strip starts yesterday (one tap); a past day shows done, cancelled and never marked, read only, with the reason; a known customer's name opens the card; Today, ‹ › a week and the date box reach any day",
+    strip[1] === todayYmd && past1.rows.join() === "Borg Ċensina=Done,Galea Ħelena=Cancelled,Zammit Paul=Not marked" && past1.today && /2 booked/.test(past1.sub) &&
+    past2.acts === 0 && past2.st === "Not marked" && /Open Zammit Paul’s customer card/.test(past2.card) && /Cancelled · Called to cancel/.test(past3) &&
+    wk.strip.length === 7 && wk.on === wk.strip[1] && wk.strip[0] > todayYmd && gotoFocus === "bkx-goto" && /Thursday 24 December/.test(goto1.sub) && !goto1.box && goto1.foc === "pickdate" && gets.some((q) => /from=2026-12-24/.test(q)),
+    JSON.stringify({ strip, past1, past2, past3, wk, gotoFocus, goto1, gets }));
+
+  // 3. N opens New booking; Escape keeps the typing; N again brings it back with the line; Clear empties; Cancel keeps nothing
+  await page.evaluate(() => { document.activeElement && document.activeElement.blur(); document.querySelector(".bkx h1").focus(); });
+  await page.keyboard.press("n"); await page.waitForSelector("#bkx-name", { timeout: 3000 });
+  await page.fill("#bkx-name", "Borg Ċensina"); await page.fill("#bkx-phone", "79123456");
+  await page.keyboard.press("Escape"); await page.waitForTimeout(150);
+  const nd1 = await page.evaluate(() => !document.querySelector(".bkx-sheet"));
+  await page.evaluate(() => { document.activeElement && document.activeElement.blur(); });
+  await page.keyboard.press("n"); await page.waitForSelector("#bkx-name", { timeout: 3000 });
+  const nd2 = await page.evaluate(() => ({ n: document.getElementById("bkx-name").value, ph: document.getElementById("bkx-phone").value, line: (document.querySelector(".bkx-back") || {}).textContent || "" }));
+  await page.click("[data-act=draft-clear]"); await page.waitForTimeout(100);
+  const nd3 = await page.evaluate(() => ({ n: document.getElementById("bkx-name").value, line: !!document.querySelector(".bkx-back") }));
+  await page.fill("#bkx-name", "Vella Rita"); await page.click('.bkx-sheet [data-act=close]'); await page.waitForTimeout(100);
+  await page.click("[data-act=new]"); await page.waitForSelector("#bkx-name", { timeout: 3000 });
+  const nd4 = await page.evaluate(() => ({ n: document.getElementById("bkx-name").value, line: !!document.querySelector(".bkx-back") }));
+  await page.click('.bkx-sheet [data-act=close]'); await page.waitForTimeout(100);
+  report("bookings q6-2: N opens New booking; Escape keeps a half-typed one and N brings it back ('Your unsaved booking is back · Clear'); Clear empties it; Cancel keeps nothing",
+    nd1 && nd2.n === "Borg Ċensina" && nd2.ph === "79123456" && /Your unsaved booking is back.*Clear/.test(nd2.line) && nd3.n === "" && !nd3.line && nd4.n === "" && !nd4.line, JSON.stringify({ nd1, nd2, nd3, nd4 }));
+
+  // 4. refresh every minute (fast here), never under an open sheet
+  await page.evaluate(() => { window.EIKON_BK_POLL_MS = 250; location.hash = "#today"; });
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "today", null, { timeout: 8000 });
+  await page.evaluate(() => { location.hash = "#bookings"; });
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "bookings" && document.querySelector(".bkx-r[data-act=open]"), null, { timeout: 8000 });
+  await fetch(`http://localhost:${PORT}/__reset`); await page.waitForTimeout(900);
+  const pollOpen = (await calls2()).filter((c) => c.method === "GET" && c.path === "/bookings").length;
+  await page.click(".bkx-r[data-act=open]"); await page.waitForSelector(".bkx-sheet", { timeout: 3000 });
+  await fetch(`http://localhost:${PORT}/__reset`); await page.waitForTimeout(900);
+  const pollSheet = (await calls2()).filter((c) => c.method === "GET" && c.path === "/bookings").length;
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => { delete window.EIKON_BK_POLL_MS; location.hash = "#today"; });
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "today", null, { timeout: 8000 });
+  report("bookings q6-2: the day refreshes by itself while on screen, and not while a sheet is open", pollOpen >= 2 && pollSheet === 0, JSON.stringify({ pollOpen, pollSheet }));
+
+  // 5. Settings: a changed service and a typed room are asked about at Done; Save sends the card's own Save body; Throw away sends nothing
+  await page.evaluate(() => { location.hash = "#bookings"; });
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "bookings" && document.querySelector("[data-act=settings]"), null, { timeout: 8000 });
+  await page.click("[data-act=settings]"); await page.waitForSelector('.bkx-sheet [data-svc="1"] [data-k=dur]', { timeout: 5000 });
+  await page.fill('.bkx-sheet [data-svc="1"] [data-k=dur]', "20");
+  await page.click("[data-act=tab][data-t=rooms]"); await page.waitForSelector("#room-new", { timeout: 3000 });
+  await page.fill("#room-new", "Room 1");
+  await page.click("[data-act=tab][data-t=services]"); await page.waitForTimeout(200);
+  const st0 = await page.evaluate(() => document.querySelector('.bkx-sheet [data-svc="1"] [data-k=dur]').value);
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click(".bkx-sheet [data-act=close]"); await page.waitForTimeout(200);
+  const st1 = await page.evaluate(() => ({ ask: (document.querySelector(".bkx-ask") || {}).textContent || "", open: !!document.querySelector(".bkx-sheet"), writes: 0 }));
+  st1.writes = (await calls2()).filter((c) => c.method !== "GET").length;
+  await page.click("[data-act=ask-drop]"); await page.waitForTimeout(200);
+  const st2 = { open: await page.evaluate(() => !!document.querySelector(".bkx-sheet")), writes: (await calls2()).filter((c) => c.method !== "GET").length };
+  await page.click("[data-act=settings]"); await page.waitForSelector('.bkx-sheet [data-svc="1"] [data-k=dur]', { timeout: 5000 });
+  const st3 = await page.evaluate(() => document.querySelector('.bkx-sheet [data-svc="1"] [data-k=dur]').value);
+  await page.fill('.bkx-sheet [data-svc="1"] [data-k=dur]', "20");
+  await page.keyboard.press("Escape"); await page.waitForSelector("[data-act=ask-save]", { timeout: 3000 });
+  await page.click("[data-act=ask-save]");
+  await page.waitForFunction(() => !document.querySelector(".bkx-sheet"), null, { timeout: 5000 }).catch(() => {});
+  const puts = (await calls2()).filter((c) => c.method === "PUT" && c.path === "/bookings/services/1").map((c) => c.body);
+  report("bookings q6-2: Settings keeps a change across tabs; Done asks 'You changed the Blood pressure service and the new room · Save · Throw away'; Throw away sends nothing; Save sends the Save button's own body",
+    st0 === "20" && /You changed the Blood pressure service and the new room\./.test(st1.ask) && st1.open && st1.writes === 0 && !st2.open && st2.writes === 0 && st3 === "15" &&
+    puts.length === 1 && JSON.stringify(puts[0]) === JSON.stringify({ name: "Blood pressure", durationMin: 20, priceCents: 0, providerIds: [1], active: true, online: true }),
+    JSON.stringify({ st0, st1, st2, st3, puts }));
+} catch (e) { report("bookings q6-2: change time, any day, drafts, refresh and settings ran to the end", false, String(e).slice(0, 200) + " @ " + String(e.stack || "").split("\n").filter((l) => /run\.mjs/.test(l)).slice(0, 2).join(" ")); }
 
 // Quality pass (Today, Customers, Bookings, search, rail): mistakes said next to the field, the cleaner remembered,
 // typing never lost while free times load, Enter does what the big button says, Maltese capitals found.
@@ -2236,7 +2371,7 @@ try {
   await page.goto(base + "&ui=2#tempreg"); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "tempreg", null, { timeout: 15000 }); await page.waitForTimeout(200);
   const q1r2 = await page.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn[aria-current=page]")].map((b) => b.dataset.mod).join());
   report("quality rail: the lit tab carries aria-current=page (Customers; Registers for the temperature register), and only that one", q1r === "customers" && q1r2 === "registers", JSON.stringify({ q1r, q1r2 }));
-} catch (e) { report("quality pass (today, customers, bookings, rail) ran to the end", false, String(e).slice(0, 400)); }
+} catch (e) { report("quality pass (today, customers, bookings, rail) ran to the end", false, String(e).slice(0, 200) + " @ " + String(e.stack || "").split("\n").filter((l) => /run\.mjs/.test(l)).slice(0, 2).join(" ")); }
 
 // Offline save: the connection drops on Record. The message says so, what was typed stays, and the list is not
 // swapped for "Can't reach the server" by the re-read that follows (it fails too).

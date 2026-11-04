@@ -34,11 +34,16 @@
   // bookings, an old bookmark) must open it here, not drop the person into the classic layout for the session.
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("bookings") < 0) E.UI2_DESTINATIONS.push("bookings");
 
-  var S = { mount: null, view: "day", date: null, setup: null, bookings: [], loading: false, error: "", sheet: null, onVis: null };
+  var S = { mount: null, view: "day", date: null, setup: null, bookings: [], loading: false, error: "", sheet: null, onVis: null, seq: 0, poll: 0, picking: false, newDraft: null };
 
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
   function ymd(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
   function addDays(s, n) { var d = new Date(s + "T12:00:00"); d.setDate(d.getDate() + n); return ymd(d); }
+  function daysBetween(a, b) { return Math.round((Date.parse(b + "T12:00:00Z") - Date.parse(a + "T12:00:00Z")) / 86400000); }
+  // "Thu 5 Nov" (with the year when it is not this year): the words the toast and the Move button use.
+  function shortDate(s) { var d = new Date(s + "T12:00:00"), o = { weekday: "short", day: "numeric", month: "short" }; if (s.slice(0, 4) !== todayStr().slice(0, 4)) o.year = "numeric"; return d.toLocaleDateString("en-GB", o).replace(/,/g, ""); }
+  function telLink(ph) { var n = String(ph || "").replace(/[^\d+]/g, ""); return n ? '<a class="bkx-tel" href="tel:' + esc(n) + '">' + esc(ph) + "</a>" : ""; }
+  function userKey() { var u = (E.state && E.state.user) || {}; return String(u.location_id || "") + "|" + String(u.id != null ? u.id : (u.email || "")); }
   function todayStr() { return ymd(new Date()); }
   function nowHM() { var d = new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
   function longDate(s) { return new Date(s + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }); }
@@ -119,28 +124,44 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
 .bkx-wb{display:block;width:100%;text-align:left;border-left:3px solid;border-radius:8px;background:var(--bg);padding:6px 8px;font-size:13px;line-height:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\
 .bkx-wb b{font-variant-numeric:tabular-nums}.bkx-wb span{display:block;font-size:12px;color:var(--l2);overflow:hidden;text-overflow:ellipsis}\
 @media(max-width:760px){.bkx-week{grid-template-columns:1fr}.bkx-wcol{min-height:0;flex-direction:column}.bkx-wh{flex-direction:row;gap:8px;justify-content:flex-start;padding:4px 6px}.bkx-wh span{margin-left:auto}}\
-.bkx-ok{color:var(--t);font-size:15px;font-weight:600;margin:0 4px 12px}.bkx-closed{font-style:normal;font-size:13px;color:var(--l3);margin-left:auto}\
+.bkx-ok{color:var(--t);font-size:15px;font-weight:600;margin:0 4px 12px}\
+.bkx h1{display:flex;align-items:center;flex-wrap:wrap;gap:0 6px}.bkx h1 .nxh-q{margin-left:0;top:0;flex:none}\
+.bkx-navrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px;max-width:880px}.bkx-navrow .bkx-view{margin:0;flex:0 1 220px;min-width:140px}.bkx-navr{display:flex;align-items:center;gap:8px;margin-left:auto}\
+.bkx-arr{width:44px;height:44px;padding:0;border-radius:22px;font-size:24px;line-height:1;display:grid;place-items:center}.bkx-today{height:44px;padding:0 16px;border-radius:22px;background:var(--ts);color:var(--t);font-size:15px;font-weight:600}\
+.bkx-dateb{font:inherit;font-size:15px;color:var(--l2);padding:0;min-height:32px;text-decoration:underline;text-decoration-color:var(--l3);text-underline-offset:3px}.bkx-goto{font:inherit;font-size:16px;height:36px;border-radius:10px;border:1px solid var(--sep);background:var(--sf);color:inherit;padding:0 8px}\
+.bkx-day.now:not(.on) b{color:var(--t)}.bkx-day.past:not(.on){background:transparent;box-shadow:inset 0 0 0 1px var(--sep)}\
+.bkx-tel{color:var(--t);font-weight:600;text-decoration:none}.bkx-tel:hover{text-decoration:underline}.bkx-namebtn{font:inherit;font-size:20px;font-weight:700;text-align:left;padding:0;color:inherit;text-decoration:underline;text-decoration-color:var(--l3);text-underline-offset:4px}\
+.bkx-stline{font-size:15px;font-weight:600;margin:0 4px 12px}.bkx-was{font-size:15px;color:var(--l2);margin:0 4px 14px}\
+.bkx-mail{display:flex;align-items:flex-start;gap:12px;background:var(--sf);border-radius:16px;padding:12px 16px;margin-bottom:16px;font-size:15px}.bkx-mail input{width:22px;height:22px;margin:1px 0 0;flex:none;accent-color:var(--t)}.bkx-mail small{display:block;font-size:13px;color:var(--l2);margin-top:2px}\
+.bkx-back{display:flex;align-items:center;gap:0 8px;flex-wrap:wrap;margin:-4px 4px 10px;font-size:14px;color:var(--l2)}.bkx-back button{min-height:44px;padding:0 6px;color:var(--t);font-weight:600;text-decoration:underline;text-underline-offset:3px}\
+@media(max-width:600px){.bkx-navrow .bkx-view{flex-basis:150px}}.bkx-ask{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;background:rgba(201,119,46,.16);border-radius:14px;padding:12px 14px;margin:0 0 14px;font-size:15px;font-weight:600}.bkx-ask-b{display:flex;gap:8px;margin-left:auto}.bkx-ask .bkx-btn{min-height:44px;height:44px;border-radius:22px}.bkx-ask .bkx-btn.red{background:var(--sf)}.bkx-closed{font-style:normal;font-size:13px;color:var(--l2);margin-left:auto}\
 ";
   function injectCss() { if (document.getElementById("bkx-css")) return; var st = document.createElement("style"); st.id = "bkx-css"; st.textContent = CSS; document.head.appendChild(st); }
 
   // ---------- data ----------
   async function load(opts) {
     opts = opts || {};
-    S.loading = true; S.error = "";
+    var my = ++S.seq; // a later day asked for meanwhile (‹ › pressed twice): this reply is dropped
+    S.loading = true; if (!opts.quiet) S.error = "";
     if (!opts.silent) paint();
     try {
       // setup, the day (or week) and the waiting list at once: one round trip instead of three
       var to = S.view === "week" ? addDays(S.date, 6) : S.date; // the week is one call too
       var needSetup = !S.setup || opts.setup;
       var got = await Promise.all([needSetup ? api("/bookings/setup") : null, api("/bookings?from=" + S.date + "&to=" + to), api("/bookings/waitlist").catch(function () { return null; })]);
+      if (my !== S.seq) return;
       if (needSetup) { var su = got[0]; S.setup = { services: su.services || [], providers: su.providers || [] }; }
       try { if (S.setup.services.length) localStorage.setItem(readyKey(), "1"); else localStorage.removeItem(readyKey()); } catch (eR) {}
       S.bookings = got[1].bookings || [];
       S.waiting = (got[2] && got[2].waiting) || [];
     } catch (e) {
-      S.error = e && e.status === 404 ? "Bookings is not switched on for this pharmacy yet." : errMsg(e);
+      if (my !== S.seq) return;
+      // the minute's quiet refresh never swaps the day for an error: the list stays, the next minute tries again
+      if (!opts.quiet) S.error = e && e.status === 404 ? "Bookings is not switched on for this pharmacy yet." : errMsg(e);
     }
-    S.loading = false; paint();
+    S.loading = false;
+    if (opts.quiet && S.sheet) return; // a sheet opened while the refresh was out: it is not redrawn under the person
+    paint();
     // Arrived from the search (eikon.search.js): open that booking.
     var want = null; try { want = JSON.parse(sessionStorage.getItem("eikon_bk_open") || "null"); sessionStorage.removeItem("eikon_bk_open"); } catch (e) {}
     if (want && Date.now() - (want.at || 0) < 60000 && !S.error && (S.bookings || []).some(function (b) { return b.id === want.id; })) { S.sheet = { kind: "booking", id: want.id }; paint(); return; }
@@ -157,21 +178,37 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
 
   // ---------- paint ----------
   var STATE_LABEL = { arrived: ["Here", "var(--t)"], done: ["Done", "var(--l3)"], no_show: ["No-show", "var(--red)"], confirmed: ["Confirmed", "var(--l2)"], cancelled: ["Cancelled", "var(--l3)"] };
-  function rowHtml(b, past) {
-    var s = svc(b.serviceId) || {}, p = prov(b.providerId) || {}, st = STATE_LABEL[b.status];
+  function rowHtml(b, past, pastDay) {
+    var s = svc(b.serviceId) || {}, p = prov(b.providerId) || {}, st = STATE_LABEL[b.status] || (pastDay && b.status === "booked" ? ["Not marked", "var(--l2)"] : null);
     return '<button class="bkx-r' + (past ? " bkx-past" : "") + '" data-act="open" data-id="' + b.id + '">' +
       '<div class="bkx-time">' + esc(b.start) + "<small>" + esc(b.end) + "</small></div>" +
       '<div class="bkx-bar" style="background:' + svcColor(s) + '"></div>' +
       '<div class="bkx-txt"><b>' + esc(b.personName) + "</b><span>" + esc(s.name || "Booking") + (p.name ? " · " + esc(plabel(p)) : "") + (b.roomName ? " · " + esc(b.roomName) : "") + "</span></div>" +
       (st ? '<span class="bkx-st" style="color:' + st[1] + '">' + st[0] + "</span>" : "") + "</button>";
   }
+  // Seven days from yesterday ("did she come yesterday?" is one tap); ‹ › move it a week at a time (q6-2: any day,
+  // past ones too). The strip always holds the chosen day.
+  function stripFrom() { var y = addDays(todayStr(), -1); return addDays(y, Math.floor(daysBetween(y, S.date) / 7) * 7); }
   function daysHtml() {
-    var t = todayStr(), h = "";
+    var t = todayStr(), from = stripFrom(), h = "";
     for (var i = 0; i < 7; i++) {
-      var d = addDays(t, i), dt = new Date(d + "T12:00:00");
-      h += '<button class="bkx-day' + (d === S.date ? " on" : "") + '" data-act="day" data-d="' + d + '"><small>' + dt.toLocaleDateString("en-GB", { weekday: "short" }) + "</small><b>" + dt.getDate() + "</b></button>";
+      var d = addDays(from, i), dt = new Date(d + "T12:00:00");
+      h += '<button class="bkx-day' + (d === S.date ? " on" : "") + (d === t ? " now" : "") + (d < t ? " past" : "") + '" data-act="day" data-d="' + d + '" aria-pressed="' + (d === S.date) + '" aria-label="' + esc(longDate(d) + (d === t ? ", today" : "")) + '"><small>' + dt.toLocaleDateString("en-GB", { weekday: "short" }) + "</small><b>" + dt.getDate() + "</b></button>";
     }
     return '<div class="bkx-days">' + h + "</div>";
+  }
+  // Day | Week, then Today (when away from it), ‹ and ›: the same row in both views.
+  function navHtml() {
+    var t = todayStr(), away = S.view === "week" ? !(t >= S.date && t <= addDays(S.date, 6)) : S.date !== t;
+    return '<div class="bkx-navrow"><div class="bkx-seg bkx-view"><button class="' + (S.view === "day" ? "on" : "") + '" data-act="view" data-v="day" aria-pressed="' + (S.view === "day") + '">Day</button><button class="' + (S.view === "week" ? "on" : "") + '" data-act="view" data-v="week" aria-pressed="' + (S.view === "week") + '">Week</button></div>' +
+      '<div class="bkx-navr">' + (away ? '<button class="bkx-today" data-act="today">Today</button>' : "") +
+      '<button class="bkx-btn bkx-arr" data-act="wk" data-n="-7" aria-label="A week earlier" title="A week earlier">‹</button><button class="bkx-btn bkx-arr" data-act="wk" data-n="7" aria-label="A week later" title="A week later">›</button></div></div>';
+  }
+  // The date under the title: a tap opens a date box to go to any day.
+  function dateLineHtml() {
+    var label = S.view === "week" ? weekLabel() : longDate(S.date);
+    if (S.picking) return '<input class="bkx-goto" id="bkx-goto" type="date" value="' + esc(S.date) + '" aria-label="Go to a day">';
+    return '<button class="bkx-dateb" data-act="pickdate" aria-label="' + esc(label + ". Choose another day") + '">' + esc(label) + "</button>";
   }
   // Seven days from the chosen date, one column each (stacked on a phone); tap a day to open it.
   function weekHtml(list) {
@@ -208,12 +245,15 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     if (!S.mount) return;
     if (E.state.activeModuleId !== "bookings") return; // left before a reply came back: do not draw over the next screen
     keepFields(); // a name typed while the free times were still loading used to be wiped by the redraw they caused
-    var isToday = S.date === todayStr(), now = nowHM();
+    keepSettings(); // q6-2: what was changed in Settings survives every redraw (a save elsewhere, a tab, a reply)
+    var isToday = S.date === todayStr(), now = nowHM(), pastDay = S.view === "day" && S.date < todayStr();
     // With several practitioners (or rooms), the day can be narrowed to one; the choice is kept while you move between days.
     var provsAll = (S.setup && S.setup.providers || []).filter(function (p) { return p.active !== false; });
     var roomsSeen = {}; S.bookings.forEach(function (b) { if (b.roomName) roomsSeen[b.roomName] = 1; });
     var fl = S.filter || "";
-    var list = S.bookings.filter(function (b) { return b.status !== "cancelled" && (!fl || (fl.charAt(0) === "p" ? String(b.providerId) === fl.slice(2) : b.roomName === fl.slice(2))); });
+    // a past day shows everything that was booked, cancelled ones too, each with what happened (read only)
+    var list = S.bookings.filter(function (b) { return (pastDay || b.status !== "cancelled") && (!fl || (fl.charAt(0) === "p" ? String(b.providerId) === fl.slice(2) : b.roomName === fl.slice(2))); });
+    var nBooked = list.filter(function (b) { return b.status !== "cancelled"; }).length;
     var up = list.filter(function (b) { return !isToday || b.end > now; });
     var past = list.filter(function (b) { return isToday && b.end <= now; });
     var hasSetup = S.setup && S.setup.services.length;
@@ -226,7 +266,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       var opts = provsAll.length > 1 || Object.keys(roomsSeen).length > 1 ? [["", "Everyone"]].concat(provsAll.length > 1 ? provsAll.map(function (p) { return ["p:" + p.id, plabel(p)]; }) : []).concat(Object.keys(roomsSeen).length > 1 ? Object.keys(roomsSeen).sort().map(function (r) { return ["r:" + r, r]; }) : []) : [];
       body = (opts.length ? '<div class="bkx-chips" style="margin:0 0 14px">' + opts.map(function (o) { return '<button class="bkx-chip' + (fl === o[0] ? " on" : "") + '" data-act="filter" data-f="' + esc(o[0]) + '" aria-pressed="' + (fl === o[0]) + '">' + esc(o[1]) + "</button>"; }).join("") + "</div>" : "") +
         '<div class="bkx-sec"><h2>' + (isToday ? "Next" : "Booked") + "</h2><div class=\"bkx-g\">" +
-        (up.length ? up.map(function (b) { return rowHtml(b, false); }).join("") : '<div class="bkx-empty">' + (isToday ? "Nothing else booked today." : "Nothing booked on this day.") + "</div>") + "</div></div>";
+        (up.length ? up.map(function (b) { return rowHtml(b, false, pastDay); }).join("") : '<div class="bkx-empty">' + (isToday ? "Nothing else booked today." : pastDay ? "Nothing was booked on this day." : "Nothing booked on this day.") + "</div>") + "</div></div>";
       if ((S.waiting || []).length) body += '<div class="bkx-sec"><h2>Waiting</h2><div class="bkx-g">' + S.waiting.map(function (w) {
         var sv = svc(w.serviceId) || {}, days = Math.max(0, Math.round((Date.now() - Date.parse(String(w.createdAt).replace(" ", "T") + "Z")) / 86400000));
         return '<div class="bkx-r"><div class="bkx-time" style="color:var(--l2)">' + (days ? days + "d" : "new") + '</div><div class="bkx-bar" style="background:' + svcColor(sv) + '"></div>' +
@@ -238,10 +278,11 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     var hadSheet = !!S.mount.querySelector(".bkx-sheet"), fk = null, sel = null;
     try { fk = focusKey(document.activeElement); sel = selOf(document.activeElement); } catch (e) {} // keyboard niceties must never stop the screen drawing
     S.mount.innerHTML = '<div class="bkx">' +
-      '<div class="bkx-top"><div><h1>Bookings</h1><div class="sub">' + esc(S.view === "week" ? weekLabel() : longDate(S.date)) + (hasSetup ? " · " + list.length + " booked" : "") + "</div></div>" +
+      '<div class="bkx-top"><div><h1>Bookings</h1><div class="sub">' + (hasSetup ? dateLineHtml() + " · " + nBooked + " booked" : esc(longDate(S.date))) + "</div></div>" +
       (hasSetup ? '<div style="display:flex;gap:8px">' + (isAdmin() ? '<button class="bkx-btn bkx-gear" data-act="settings" aria-label="Bookings settings" title="Settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg></button>' : "") + '<button class="bkx-add" data-act="new" aria-label="New booking"><span class="bkx-plus" aria-hidden="true">+</span><span class="bkx-add-l">New booking</span></button></div>' : "") + "</div>" +
-      (hasSetup ? '<div class="bkx-seg bkx-view"><button class="' + (S.view === "day" ? "on" : "") + '" data-act="view" data-v="day">Day</button><button class="' + (S.view === "week" ? "on" : "") + '" data-act="view" data-v="week">Week</button></div>' : "") +
+      (hasSetup ? navHtml() : "") +
       (hasSetup && S.view === "day" ? daysHtml() : "") + body + "</div>" + sheetHtml();
+    restoreSettings();
     try { afterPaint(hadSheet, fk, sel); } catch (e) {}
     var shEl = S.sheet && S.sheet.kind === "new" && S.mount.querySelector(".bkx-sheet");
     if (shEl && E.personPick) try { E.personPick.attach({ key: "bookings", form: shEl, fields: { name: "personName", phone: "personPhone" }, onFill: function () { keepFields(); } }); } catch (e) {}
@@ -277,10 +318,35 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     target.focus({ preventScroll: true });
     if (sel && target.value === sel[0] && typeof target.setSelectionRange === "function") { try { target.setSelectionRange(sel[1], sel[2]); } catch (e) {} }
   }
+  var nTimer = 0;
   function onKey(ev) {
-    if (!S.mount || !S.sheet || E.state.activeModuleId !== "bookings") return;
+    if (!S.mount || E.state.activeModuleId !== "bookings") return;
+    if (nTimer) { clearTimeout(nTimer); nTimer = 0; } // another key straight after N: a scanner or typing, not the shortcut
+    if (S.picking && ev.target && ev.target.id === "bkx-goto" && (ev.key === "Escape" || ev.key === "Enter")) {
+      ev.preventDefault(); S.picking = false; paint();
+      if (E.focusSoon) E.focusSoon(function () { return S.mount && S.mount.querySelector('[data-act="pickdate"]'); }, 0);
+      return;
+    }
+    // N opens New booking, as on every other screen: not while typing, with a sheet or the search open, or with a modifier
+    if (!S.sheet && (ev.key === "n" || ev.key === "N") && !ev.ctrlKey && !ev.metaKey && !ev.altKey && !ev.isComposing && !ev.defaultPrevented) {
+      var fa = document.activeElement;
+      if (fa && (/^(INPUT|SELECT|TEXTAREA)$/.test(fa.tagName) || fa.isContentEditable)) return;
+      if (document.querySelector(".esr-ov, [aria-modal=true]:not([hidden])")) return;
+      nTimer = setTimeout(function () {
+        nTimer = 0; if (S.sheet || !S.mount || E.state.activeModuleId !== "bookings") return;
+        var nb = (E.mainButton && E.mainButton(S.mount)) || S.mount.querySelector('[data-act="new"]'); if (nb) nb.click();
+      }, 90);
+      return;
+    }
+    if (!S.sheet) return;
     var sheet = S.mount.querySelector(".bkx-sheet"); if (!sheet) return;
-    if (ev.key === "Escape") { ev.preventDefault(); S.sheet = null; paint(); return; }
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      if (S.sheet.kind === "settings") { if (S.sheet.ask) { S.sheet.ask = null; return paint(); } return closeSettings(); } // Escape on the question: back to editing
+      if (S.sheet.kind === "new") keepNewDraft();
+      if (S.sheet.kind === "move") { S.sheet = { kind: "booking", id: S.sheet.id, b: S.sheet.b, card: S.sheet.card }; paint(); return; } // Escape steps back to the booking
+      S.sheet = null; paint(); return;
+    }
     if (ev.key === "Enter" && !ev.isComposing && ev.target && ev.target.tagName === "INPUT" && sheet.contains(ev.target)) {
       // Enter in a field does what the big button says: book, add to the waiting list, or cancel (a choice in the people list is taken first, by the list)
       var go = sheet.querySelector('[data-act="docancel"]') || sheet.querySelector('[data-act="book"]');
@@ -303,6 +369,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       var services = S.setup.services.filter(function (x) { return x.active; });
       var chosen = svc(sh.serviceId);
       inner = '<div class="bkx-sh"><button class="bkx-btn" data-act="close">Cancel</button><b>New booking</b><span style="width:70px"></span></div>' +
+        (sh.back ? '<p class="bkx-back" role="status"><span>Your unsaved booking is back</span><span aria-hidden="true">·</span><button type="button" data-act="draft-clear">Clear</button></p>' : "") +
         '<div class="bkx-lab">What</div><div class="bkx-svcs">' + services.map(function (x) {
           return '<button class="bkx-svc' + (x.id === sh.serviceId ? " on" : "") + '" data-act="svc" data-id="' + x.id + '"><b>' + esc(x.name) + "</b><span>" + x.durationMin + " min · " + money(x.priceCents) + "</span></button>"; }).join("") + "</div>" +
         '<div class="bkx-lab">When' + (sh.slot ? "<b style=\"color:var(--t);text-transform:none;letter-spacing:0\">" + esc((prov(sh.slot.providerId) || {}).name || "") + "</b>" : "") + "</div>" +
@@ -318,20 +385,30 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
         (sh.waitlistId ? "" : '<button class="bkx-btn lg" data-act="wl-add" style="margin-top:8px">No time suits? Add to the waiting list</button>');
     }
     if (sh.kind === "booking") {
-      var b = S.bookings.find(function (x) { return x.id === sh.id; }); if (!b) return "";
-      var s = svc(b.serviceId) || {};
-      inner = '<div class="bkx-sh"><button class="bkx-btn" data-act="close">Close</button><b>' + esc(b.start) + " · " + esc(s.name || "") + '</b><span style="width:60px"></span></div>' +
-        '<div class="bkx-g" style="padding:16px 18px;margin-bottom:16px"><div style="font-size:20px;font-weight:700">' + esc(b.personName) + '</div><div class="sub">' +
-        [b.personPhone, b.personEmail].filter(Boolean).map(esc).join(" · ") + (b.notes ? "<br>" + esc(b.notes) : "") + '</div><div class="sub" style="margin-top:6px">Ref ' + esc(b.ref) + " · " + money(b.priceCents) + "</div></div>" +
-        (sh.cancelling
+      var b = S.bookings.find(function (x) { return x.id === sh.id; }) || sh.b; if (!b) return ""; // sh.b: just moved to a day not on screen
+      var s = svc(b.serviceId) || {}, pastB = b.date < todayStr(), canMove = !pastB && (b.status === "booked" || b.status === "confirmed");
+      var stl = STATE_LABEL[b.status];
+      // The name opens the customer's card when exactly one card is this person (E.people.cardOf); the phone calls.
+      inner = '<div class="bkx-sh"><button class="bkx-btn" data-act="close">Close</button><b>' + (b.date !== todayStr() ? esc(shortDate(b.date)) + " " : "") + esc(b.start) + " · " + esc(s.name || "") + '</b><span style="width:60px"></span></div>' +
+        '<div class="bkx-g" style="padding:16px 18px;margin-bottom:16px"><div style="font-size:20px;font-weight:700">' +
+        (sh.card ? '<button class="bkx-namebtn" data-act="card" aria-label="' + esc("Open " + b.personName + "’s customer card") + '">' + esc(b.personName) + "</button>" : esc(b.personName)) + '</div><div class="sub">' +
+        [telLink(b.personPhone), esc(b.personEmail || "")].filter(Boolean).join(" · ") + (b.notes ? "<br>" + esc(b.notes) : "") + '</div><div class="sub" style="margin-top:6px">Ref ' + esc(b.ref) + " · " + money(b.priceCents) + "</div></div>" +
+        (sh.note ? '<div class="bkx-ok" role="status">' + sh.note + "</div>" : "") +
+        (pastB || b.status === "cancelled"
+          // D3: a past day is read only; a cancelled booking says why
+          ? '<div class="bkx-stline" style="color:' + (stl ? stl[1] : "var(--l2)") + '">' + esc(stl ? stl[0] : "Not marked") + (b.status === "cancelled" && b.cancelReason ? '<span style="color:var(--l2);font-weight:400"> · ' + esc(b.cancelReason) + "</span>" : "") + "</div>" +
+            (pastB ? '<div class="bkx-note" style="text-align:left;margin:0 4px">A past day is shown as it was.</div>' : "")
+          : sh.cancelling
           ? '<div class="bkx-f"><label><span>Reason</span><input id="bkx-reason" placeholder="e.g. Called to cancel" value="" enterkeyhint="done"></label></div>' + (sh.err ? '<div class="bkx-err" role="alert">' + esc(sh.err) + "</div>" : "") +
             '<div class="bkx-acts"><button class="bkx-btn red lg" data-act="docancel">Cancel this booking</button><button class="bkx-btn lg" data-act="nocancel">Keep it</button></div>'
           : (sh.err ? '<div class="bkx-err" role="alert">' + esc(sh.err) + "</div>" : "") + '<div class="bkx-acts">' +
             (b.status !== "arrived" && b.status !== "done" ? '<button class="bkx-btn fill lg" data-act="st" data-s="arrived">Arrived</button>' : "") +
             (b.status !== "done" ? '<button class="bkx-btn tint lg" data-act="st" data-s="done">Done</button>' : "") +
+            (canMove ? '<button class="bkx-btn lg" data-act="move">Change time</button>' : "") +
             (b.status === "booked" || b.status === "confirmed" ? '<button class="bkx-btn lg" data-act="st" data-s="no_show">No-show</button>' : "") +
             '<button class="bkx-btn red lg" data-act="cancel">Cancel booking</button></div>');
     }
+    if (sh.kind === "move") inner = moveHtml(sh);
     if (sh.kind === "settings") inner = settingsHtml(sh);
     if (sh.kind === "offer") {
       var o = sh.offer, osv = svc(o.serviceId) || {};
@@ -344,12 +421,83 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     return '<div class="bkx-scrim" data-act="close"></div><div class="bkx-sheet bkx" role="dialog" aria-modal="true" tabindex="-1" style="padding-top:10px;min-height:0;outline:0"><div class="bkx-grab"></div>' + inner + "</div>";
   }
 
+  // ---------- Change time (q6-2, BACKLOG6 F4) ----------
+  // The free times of the booking's own service, a day at a time from the booking's day (‹ › a week, any day ahead).
+  // Moving sends PATCH /bookings/:id { version, date, start } (providerId only when the time is someone else's), which
+  // the server checks for a free time and, like the customer's own link, answers with the "changed" e-mail.
+  function moveHtml(sh) {
+    var b = S.bookings.find(function (x) { return x.id === sh.id; }) || sh.b; if (!b) return "";
+    var s = svc(b.serviceId) || {}, t = todayStr(), from = sh.from, h = "";
+    h += '<div class="bkx-sh"><button class="bkx-btn" data-act="move-back">Back</button><b>Change time</b><span style="width:60px"></span></div>' +
+      '<div class="bkx-was">' + esc(b.personName) + " · " + esc(s.name || "") + " · now " + esc(shortDate(b.date)) + " at " + esc(b.start) + "</div>";
+    h += '<div class="bkx-lab" style="align-items:center"><span>' + esc(new Date(from + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long" })) + " – " + esc(new Date(addDays(from, 6) + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long" })) + '</span><span style="display:flex;gap:8px">' +
+      '<button class="bkx-btn bkx-arr" data-act="mv-wk" data-n="-7" aria-label="A week earlier"' + (from <= t ? " disabled" : "") + '>‹</button><button class="bkx-btn bkx-arr" data-act="mv-wk" data-n="7" aria-label="A week later">›</button></span></div>';
+    h += '<div class="bkx-days" style="margin-bottom:14px">';
+    for (var i = 0; i < 7; i++) {
+      var d = addDays(from, i), dt = new Date(d + "T12:00:00");
+      h += '<button class="bkx-day' + (d === sh.day && !sh.next ? " on" : "") + (d === t ? " now" : "") + '" data-act="mv-day" data-d="' + d + '" aria-pressed="' + (d === sh.day && !sh.next) + '" aria-label="' + esc(longDate(d)) + '"' + (d < t ? " disabled" : "") + "><small>" + dt.toLocaleDateString("en-GB", { weekday: "short" }) + "</small><b>" + dt.getDate() + "</b></button>";
+    }
+    h += "</div>";
+    if (sh.err) h += '<div class="bkx-err" role="alert">' + esc(sh.err) + "</div>";
+    h += '<div class="bkx-slots" aria-live="polite">' + (sh.loading ? '<span class="sub">Finding free times…</span>' : (sh.slots || []).length ? sh.slots.map(function (x, i) {
+      var on = sh.slot && sh.slot.date === x.date && sh.slot.time === x.time && sh.slot.providerId === x.providerId, other = x.providerId !== b.providerId ? (prov(x.providerId) || {}).name || x.providerName || "" : "";
+      var lab = esc(x.time) + (x.date !== sh.day || sh.next ? "<small>" + esc(dayShort(x.date)) + "</small>" : "") + (other ? "<small>" + esc(other) + "</small>" : "");
+      return '<button class="bkx-slot' + (on ? " on" : "") + '" data-act="mv-slot" data-i="' + i + '" aria-pressed="' + !!on + '">' + lab + "</button>";
+    }).join("") : '<span class="sub">No free times on ' + esc(longDate(sh.day)) + ". Try another day.</span>") + "</div>";
+    h += mailHtml(b);
+    h += '<button class="bkx-btn fill lg" data-act="mv-go"' + (sh.saving || !sh.slot ? " disabled" : "") + ">" + (sh.saving ? "Moving…" : sh.slot ? "Move to " + esc(shortDate(sh.slot.date)) + " at " + esc(sh.slot.time) : "Choose a new time") + "</button>";
+    return h;
+  }
+  // Who is told, said before the move: the server e-mails every moved booking that has an e-mail (D2), when this
+  // pharmacy can send. The tick shows it and cannot be taken off: the server has no way yet to move without telling.
+  function mailHtml(b) {
+    var call = b.personPhone ? ", so call them: " + telLink(b.personPhone) : ", and no phone on this booking";
+    if (!b.personEmail) return '<div class="bkx-mail"><span>' + esc(b.personName) + " has no e-mail" + call + "</span></div>";
+    var ms = S.mailState;
+    if (ms && ms.canSend === false) return '<div class="bkx-mail"><span>E-mails are not set up at this pharmacy, so ' + esc(b.personName) + " is not told" + (b.personPhone ? ". Call them: " + telLink(b.personPhone) : "") + '.<small>Set up e-mails in Bookings settings › Messages.</small></span></div>';
+    return '<label class="bkx-mail"><input type="checkbox" checked disabled id="bkx-tell"><span>Tell the customer by e-mail<small>' + esc(b.personEmail) + " · Eikon always tells the customer when a time changes</small></span></label>";
+  }
+  // Can this pharmacy send e-mails? Only the pharmacist can read that (Settings › Messages); for others it is learnt
+  // from the server's answer to the move.
+  async function loadMailState() {
+    if (!isAdmin()) return;
+    if (S.mailState && Date.now() - S.mailState.at < 5 * 60000) return;
+    try {
+      var st = (await api("/bookings/settings")).settings || {}, sn = (await api("/bookings/senders")).senders || [];
+      S.mailState = { at: Date.now(), canSend: st.provider !== "off" && !!st.canSend && sn.some(function (x) { return x.enabled && x.hasKey && (x.fromEmail || st.fromEmail); }) };
+    } catch (e) { S.mailState = null; }
+  }
+  async function loadMoveSlots(sh) {
+    var b = S.bookings.find(function (x) { return x.id === sh.id; }) || sh.b; if (!b) return;
+    sh.loading = true; sh.next = false; sh.slot = null; paint();
+    var day = sh.day, got = [];
+    try { got = (await api("/bookings/slots?service_id=" + b.serviceId + "&date=" + day)).slots || []; }
+    catch (e) { sh.err = errMsg(e); }
+    if (S.sheet !== sh || sh.day !== day) return;
+    // one button a time, the booking's own practitioner first when they are free then; never the time it has now
+    var byTime = {};
+    got.forEach(function (x) {
+      if (day === b.date && x.time === b.start && x.providerId === b.providerId) return;
+      var cur = byTime[x.time]; if (!cur || (x.providerId === b.providerId && cur.providerId !== b.providerId)) byTime[x.time] = x;
+    });
+    sh.slots = Object.keys(byTime).sort().map(function (k) { var x = byTime[k]; return { date: day, time: x.time, providerId: x.providerId, providerName: x.providerName }; });
+    sh.loading = false; paint();
+  }
+  function moveToast(b, u) {
+    var when = "Moved to " + shortDate(u.date) + " at " + u.start, who = b.personName, ph = b.personPhone;
+    var call = ph ? ": call " + ph : "";
+    return when + ({ sent: " · " + who + " is told by e-mail", "no-email": " · " + who + " has no e-mail" + call, off: " · e-mails are not set up" + call,
+      "opted-out": " · " + who + " asked for no e-mails" + call, failed: " · the e-mail did not go" + call, error: " · the e-mail did not go" + call })[u.message || ""] || when;
+  }
+
   function settingsHtml(sh) {
     var tabs = [["services", "Services"], ["hours", "People"], ["rooms", "Rooms"], ["messages", "Messages"]];
     var h = '<div class="bkx-sh"><button class="bkx-btn" data-act="close">Done</button><b>Bookings settings</b><span style="width:60px"></span></div>' +
       '<div class="bkx-seg">' + tabs.map(function (t) { return '<button class="' + (sh.tab === t[0] ? "on" : "") + '" data-act="tab" data-t="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
+    if (sh.ask) h += '<div class="bkx-ask" role="alert"><span>You changed ' + esc(joinAnd(sh.ask.items.map(function (x) { return x.label; }))) + '.</span>' +
+      '<span class="bkx-ask-b"><button class="bkx-btn fill" data-act="ask-save">Save</button><button class="bkx-btn red" data-act="ask-drop">Throw away</button></span></div>';
     if (sh.err) h += '<div class="bkx-err" role="alert">' + esc(sh.err) + "</div>";
-    if (sh.okMsg) h += '<div class="bkx-ok">' + esc(sh.okMsg) + "</div>";
+    if (sh.okMsg) h += '<div class="bkx-ok" role="status">' + esc(sh.okMsg) + "</div>";
     var provs = S.setup.providers;
     if (sh.tab === "services") {
       var list = S.setup.services.concat(sh.newService ? [{ id: 0, name: "", durationMin: 15, priceCents: 0, active: true, providerIds: provs.length ? [provs[0].id] : [] }] : []);
@@ -358,7 +506,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
           '<label><span>Name</span><input data-k="name" value="' + esc(x.name) + '" placeholder="e.g. Blood pressure"></label>' +
           '<label><span>Minutes</span><input data-k="dur" type="number" min="5" max="480" value="' + x.durationMin + '"></label>' +
           '<label><span>Price €</span><input data-k="price" type="number" min="0" step="0.5" value="' + (x.priceCents / 100) + '"></label>' +
-          '<label style="align-items:flex-start;padding-top:12px;padding-bottom:12px"><span>Who</span><div class="bkx-chips">' + provs.map(function (p) { var on = (x.providerIds || []).indexOf(p.id) >= 0; return '<button type="button" class="bkx-chip' + (on ? " on" : "") + '" data-act="chip" data-pid="' + p.id + '" aria-pressed="' + on + '">' + esc(plabel(p)) + "</button>"; }).join("") + "</div></label>" +
+          '<label style="align-items:flex-start;padding-top:12px;padding-bottom:12px"><span>Who</span><div class="bkx-chips">' + provs.map(function (p) { var on = ((sh.chipDraft && sh.chipDraft[x.id]) || x.providerIds || []).indexOf(p.id) >= 0; return '<button type="button" class="bkx-chip' + (on ? " on" : "") + '" data-act="chip" data-pid="' + p.id + '" aria-pressed="' + on + '">' + esc(plabel(p)) + "</button>"; }).join("") + "</div></label>" +
           '<label><span>Bookable</span><input data-k="active" type="checkbox"' + (x.active ? " checked" : "") + ' style="flex:0 0 auto;width:22px;height:22px"></label>' +
           '<label><span>Online</span><input data-k="online" type="checkbox"' + (x.online ? " checked" : "") + ' style="flex:0 0 auto;width:22px;height:22px"><em class="bkx-closed" style="margin-left:8px">Customers can book it on your page</em></label>' +
           '<div style="padding:8px 16px 14px"><button class="bkx-btn tint" data-act="svc-save" data-id="' + x.id + '">' + (x.id ? "Save" : "Add service") + "</button></div></div>";
@@ -481,13 +629,116 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     return (r.dry && !r.bookings && !r.providers && !r.waiting ? "Nothing new to bring over" + tail : head + parts.join(", ") + tail) + ".";
   }
 
+  // A tab of the same settings sheet: what was changed on another tab is kept (q6-2), not thrown away.
   async function openSettings(tab) {
-    S.sheet = { kind: "settings", tab: tab || "services" }; paint();
-    if (S.sheet.tab === "hours" || S.sheet.tab === "rooms") { try { S.sheet.rooms = (await api("/bookings/rooms")).rooms; } catch (e) { S.sheet.rooms = []; } paint(); }
-    if (S.sheet.tab === "messages") {
-      try { S.sheet.msg = (await api("/bookings/settings")).settings; S.sheet.senders = (await api("/bookings/senders")).senders; } catch (e) { S.sheet.err = errMsg(e); }
-      paint();
+    var sh = S.sheet && S.sheet.kind === "settings" ? S.sheet : null;
+    if (sh) { keepSettings(); sh.tab = tab || "services"; sh.err = sh.okMsg = ""; sh.ask = null; }
+    else sh = S.sheet = { kind: "settings", tab: tab || "services" };
+    paint();
+    await loadTab(sh);
+  }
+  async function loadTab(sh) {
+    if (sh.tab === "hours" || sh.tab === "rooms") { try { sh.rooms = (await api("/bookings/rooms")).rooms; } catch (e) { sh.rooms = sh.rooms || []; } if (S.sheet === sh) paint(); }
+    if (sh.tab === "messages") {
+      try { sh.msg = (await api("/bookings/settings")).settings; sh.senders = (await api("/bookings/senders")).senders; } catch (e) { sh.err = errMsg(e); }
+      if (S.sheet === sh) paint();
     }
+  }
+
+  // ---------- settings: nothing changed is thrown away (q6-2, BACKLOG6 F3) ----------
+  // Every field of the settings sheet has a key (its card and its place in it). Before each redraw the fields that
+  // differ from what they were drawn with are noted in sh.kept, and put back after it while the field is drawn with
+  // the same starting value (so a value the server changed wins, and a card just saved shows what it saved).
+  // Done, the scrim and Escape ask first when anything is changed and not saved: "You changed Maria Borg's hours.
+  // Save · Throw away". Save runs each card's own Save button, so the bodies sent are the ones Save always sent.
+  function setKey(el) {
+    if (el.id) return el.id === "bkm-testto" ? "" : "#" + el.id; // the test address is not a setting (kept in sh.testTo)
+    var k = el.getAttribute("data-k"), box = el.closest && el.closest("[data-prov],[data-svc],[data-room]"); if (!k || !box) return "";
+    var pre = box.hasAttribute("data-prov") ? "prov:" + box.getAttribute("data-prov") : box.hasAttribute("data-svc") ? "svc:" + box.getAttribute("data-svc") : "room:" + box.getAttribute("data-room");
+    return pre + ":" + k + ":" + (el.getAttribute("data-d") || "") + ":" + (el.getAttribute("data-i") || "");
+  }
+  function fieldNow(el) { return /^(checkbox|radio)$/i.test(el.type || "") ? el.checked : el.value; }
+  function fieldWas(el) {
+    if (/^(checkbox|radio)$/i.test(el.type || "")) return el.defaultChecked;
+    if (el.tagName === "SELECT") { for (var i = 0; i < el.options.length; i++) if (el.options[i].defaultSelected) return el.options[i].value; return el.options.length ? el.options[0].value : ""; }
+    return el.defaultValue;
+  }
+  function sheetFields() { var box = S.mount && S.mount.querySelector(".bkx-sheet"); return box ? Array.prototype.slice.call(box.querySelectorAll("input,select,textarea")) : []; }
+  function keepSettings() {
+    var sh = S.sheet; if (!sh || sh.kind !== "settings") return;
+    sh.kept = sh.kept || {};
+    sheetFields().forEach(function (el) { var k = setKey(el); if (!k) return; var v = fieldNow(el), d = fieldWas(el); if (v !== d) sh.kept[k] = { was: d, now: v }; else delete sh.kept[k]; });
+    (sh.dropKept || []).forEach(function (pre) { Object.keys(sh.kept).forEach(function (k) { if (k.indexOf(pre) === 0) delete sh.kept[k]; }); });
+    sh.dropKept = [];
+  }
+  function restoreSettings() {
+    var sh = S.sheet; if (!sh || sh.kind !== "settings" || !sh.kept) return;
+    sheetFields().forEach(function (el) {
+      var k = setKey(el), x = k && sh.kept[k]; if (!x) return;
+      if (fieldWas(el) !== x.was) { delete sh.kept[k]; return; } // drawn with another value now (saved, or changed elsewhere): that stands
+      if (typeof x.now === "boolean") el.checked = x.now; else el.value = x.now;
+    });
+  }
+  // Forget what was kept for a card, after it was saved, cancelled or redrawn from its draft.
+  function dropKept(pre) { var sh = S.sheet; if (!sh || sh.kind !== "settings") return; (sh.dropKept = sh.dropKept || []).push(pre); }
+  function hoursOf(h) { var o = {}; for (var d = 0; d < 7; d++) { var ws = (h && (h[d] || h[String(d)])) || []; if (ws.length) o[d] = ws.map(function (w) { return w[2] ? [w[0], w[1], Number(w[2])] : [w[0], w[1]]; }); } return JSON.stringify(o); }
+  function joinAnd(a) { return a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1]; }
+  // What is changed and not saved, one line each: { label, tab, sel } (sel: the button that saves it).
+  function unsaved() {
+    var sh = S.sheet; if (!sh || sh.kind !== "settings") return [];
+    keepSettings();
+    var out = [], seen = {}, add = function (key, label, tab, sel) { if (seen[key]) return; seen[key] = 1; out.push({ label: label, tab: tab, sel: sel }); };
+    var provHours = {};
+    Object.keys(sh.kept || {}).forEach(function (k) { var m = /^prov:(\d+):(from|to|room):/.exec(k); if (m) provHours[m[1]] = 1; });
+    Object.keys(sh.pdraft || {}).forEach(function (pid) { var p = prov(Number(pid)), d = sh.pdraft[pid]; if (p && hoursOf(d.hours) !== hoursOf(p.hours)) provHours[pid] = 1; });
+    var provDetails = {};
+    Object.keys(sh.kept || {}).forEach(function (k) { var m = /^prov:(\d+):(title|name|speciality):/.exec(k); if (m) provDetails[m[1]] = 1; });
+    Object.keys(sh.pdraft || {}).forEach(function (pid) { var p = prov(Number(pid)), d = sh.pdraft[pid]; if (p && (d.title !== (p.title || "") || d.name !== p.name || d.speciality !== (p.speciality || ""))) provDetails[pid] = 1; });
+    (S.setup.providers || []).forEach(function (p) {
+      if (!provHours[p.id] && !provDetails[p.id]) return;
+      add("prov" + p.id, plabel(p) + "’s " + (provHours[p.id] ? "hours" : "details"), "hours", '[data-act="hours-save"][data-id="' + p.id + '"]');
+    });
+    var svcs = {};
+    Object.keys(sh.kept || {}).forEach(function (k) { var m = /^svc:(\d+):/.exec(k); if (m) svcs[m[1]] = 1; });
+    Object.keys(sh.chipDraft || {}).forEach(function (sid) { var x = svc(Number(sid)), a = (sh.chipDraft[sid] || []).slice().sort().join(), b = ((x && x.providerIds) || []).slice().sort().join(); if (!x || a !== b) svcs[sid] = 1; });
+    Object.keys(svcs).forEach(function (sid) { var x = svc(Number(sid)); if (Number(sid) && !x) return; if (!Number(sid) && !sh.newService) return; add("svc" + sid, x ? "the " + x.name + " service" : "the new service", "services", '[data-act="svc-save"][data-id="' + sid + '"]'); });
+    Object.keys(sh.kept || {}).forEach(function (k) {
+      var m = /^room:(\d+):/.exec(k);
+      if (m) { var r = (sh.rooms || []).find(function (x) { return String(x.id) === m[1]; }); add("room" + m[1], "the room " + ((r && r.name) || ""), "rooms", '[data-act="room-save"][data-id="' + m[1] + '"]'); }
+      if (k === "#room-new") add("room-new", "the new room", "rooms", '[data-act="room-add"]');
+      if (/^#np-/.test(k) && sh.addingPerson) add("np", "the new practitioner", "hours", '[data-act="np-save"]');
+      if (/^#bks-/.test(k) && sh.adding) add("snd", "the new sender", "messages", '[data-act="snd-save"]');
+      if (/^#bkm-/.test(k) && sh.msg) add("msg", "the message settings", "messages", '[data-act="msg-save"]');
+    });
+    return out;
+  }
+  // Done, the scrim or Escape on the settings sheet.
+  function closeSettings() {
+    var sh = S.sheet, list = unsaved();
+    if (!list.length) { S.sheet = null; return paint(); }
+    sh.ask = { items: list }; sh.err = sh.okMsg = ""; paint();
+    if (E.focusSoon) E.focusSoon(function () { return S.mount && S.mount.querySelector('[data-act="ask-save"]'); }, 0);
+  }
+  // Save on the question: each changed card through its own Save, one after the other; the first refusal stops it,
+  // says why next to the card, and keeps everything.
+  async function saveAsked() {
+    var sh = S.sheet; if (!sh || !sh.ask) return;
+    var items = sh.ask.items, saved = []; sh.ask = null;
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i]; if (S.sheet !== sh) return;
+      if (sh.tab !== it.tab) { keepSettings(); sh.tab = it.tab; sh.err = sh.okMsg = ""; paint(); await loadTab(sh); }
+      var btn = S.mount && S.mount.querySelector(".bkx-sheet " + it.sel); if (!btn) continue;
+      sh.err = ""; await onClick({ target: btn });
+      if (S.sheet !== sh) return;
+      if (sh.err) { paint(); return; }
+      saved.push(it.label);
+    }
+    var left = unsaved(); if (left.length) { sh.ask = { items: left }; return paint(); }
+    S.sheet = null; paint(); if (saved.length) toast("Saved " + joinAnd(saved));
+  }
+  function dropAsked() {
+    var sh = S.sheet; if (!sh) return;
+    S.sheet = null; paint();
   }
 
   function keepFields() {
@@ -503,12 +754,39 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     sh.slotsLoading = false; sh.slot = sh.slots[0] || null; paint();
   }
 
+  // A half-typed New booking closed by Escape or a tap beside it is kept for this person, today, in this tab's memory
+  // only; New booking brings it back with "Your unsaved booking is back · Clear".
+  function keepNewDraft() {
+    var sh = S.sheet; if (!sh || sh.kind !== "new") return;
+    keepFields();
+    if (![sh.name, sh.phone, sh.email].some(function (v) { return String(v || "").trim(); })) { S.newDraft = null; return; }
+    S.newDraft = { who: userKey(), day: todayStr(), serviceId: sh.serviceId, name: sh.name || "", phone: sh.phone || "", email: sh.email || "" };
+  }
+  // The customer's card for the booking's name, when exactly one card is this person (never guessed).
+  async function findCard(sh) {
+    var b = S.bookings.find(function (x) { return x.id === sh.id; }); if (!b || !E.people || !E.people.cardOf) return;
+    var q = String(b.personPhone || b.personName || "").trim(); if (q.length < 2) return;
+    try {
+      var r = await api("/people?q=" + encodeURIComponent(q) + "&limit=50");
+      var card = E.people.cardOf({ name: b.personName, phone: b.personPhone, email: b.personEmail, id_card: b.personIdCard }, ((r && r.people) || []).filter(function (p) { return !p.merged_into; }));
+      if (card && S.sheet === sh) { sh.card = { id: card.id }; paint(); }
+    } catch (e) {}
+  }
+
   // ---------- actions ----------
   async function onClick(ev) {
     var t = ev.target.closest("[data-act]"); if (!t || !S.mount.contains(t)) return;
     var act = t.getAttribute("data-act");
     keepFields();
     if (act === "day") { S.date = t.getAttribute("data-d"); return load({ silent: true }); }
+    if (act === "wk") { S.date = addDays(S.date, Number(t.getAttribute("data-n"))); return load({ silent: true }); }
+    if (act === "today") { S.date = todayStr(); return load({ silent: true }); }
+    if (act === "pickdate") {
+      S.picking = true; paint();
+      var gi = document.getElementById("bkx-goto");
+      if (gi) { try { gi.focus(); } catch (e0) {} try { if (gi.showPicker) gi.showPicker(); } catch (e1) {} }
+      return;
+    }
     if (act === "filter") { S.filter = t.getAttribute("data-f") || ""; return paint(); }
     if (act === "wl-book") {
       var w = (S.waiting || []).find(function (x) { return x.id === Number(t.getAttribute("data-id")); }); if (!w) return;
@@ -534,11 +812,69 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     }
     if (act === "view") { S.view = t.getAttribute("data-v"); return load({ silent: true }); }
     if (act === "openday") { S.view = "day"; S.date = t.getAttribute("data-d"); return load({ silent: true }); }
-    if (act === "close") { S.sheet = null; return paint(); }
+    if (act === "close") {
+      if (S.sheet && S.sheet.kind === "settings") return closeSettings();
+      if (S.sheet && S.sheet.kind === "new") { if (t.classList.contains("bkx-scrim")) keepNewDraft(); else S.newDraft = null; } // a tap beside the sheet keeps what was typed; Cancel does not
+      S.sheet = null; return paint();
+    }
+    if (act === "draft-clear") { ["bkx-name", "bkx-phone", "bkx-email"].forEach(function (id) { var el = document.getElementById(id); if (el) el.value = ""; }); S.newDraft = null; S.sheet.back = false; S.sheet.name = S.sheet.phone = S.sheet.email = ""; paint(); if (E.focusSoon) E.focusSoon(function () { return document.getElementById("bkx-name"); }, 0); return; }
+    if (act === "card") {
+      var cb = S.sheet && S.sheet.card; if (!cb) return;
+      try { sessionStorage.setItem("eikon_customers_open", JSON.stringify({ id: cb.id, at: Date.now() })); } catch (e) {}
+      S.sheet = null; location.hash = "#customers"; return;
+    }
+    if (act === "move") {
+      var mb = (S.bookings.find(function (x) { return x.id === S.sheet.id; }) || S.sheet.b); if (!mb) return;
+      var mday = mb.date < todayStr() ? todayStr() : mb.date;
+      var msh = S.sheet = { kind: "move", id: mb.id, b: mb, day: mday, from: mday, slots: [], slot: null, card: S.sheet.card };
+      paint(); await loadMailState(); if (S.sheet === msh) paint();
+      return loadMoveSlots(msh);
+    }
+    if (act === "move-back") { S.sheet = { kind: "booking", id: S.sheet.id, b: S.sheet.b, card: S.sheet.card }; return paint(); }
+    if (act === "mv-wk") {
+      var wsh = S.sheet, nf = addDays(wsh.from, Number(t.getAttribute("data-n"))); if (nf < todayStr()) nf = todayStr();
+      wsh.from = nf; wsh.day = nf; wsh.err = ""; return loadMoveSlots(wsh);
+    }
+    if (act === "mv-day") { S.sheet.day = t.getAttribute("data-d"); S.sheet.err = ""; return loadMoveSlots(S.sheet); }
+    if (act === "mv-slot") { S.sheet.slot = S.sheet.slots[Number(t.getAttribute("data-i"))]; S.sheet.err = ""; return paint(); }
+    if (act === "mv-go") {
+      var gsh = S.sheet, gb = S.bookings.find(function (x) { return x.id === gsh.id; }) || gsh.b; if (!gb || !gsh.slot || gsh.saving) return;
+      // exactly what the server takes for a move: the version it was read at, the new day and time
+      var mbody = { version: gb.version, date: gsh.slot.date, start: gsh.slot.time };
+      if (gsh.slot.providerId && gsh.slot.providerId !== gb.providerId) mbody.providerId = gsh.slot.providerId; // only when the time is another person's
+      gsh.saving = true; gsh.err = ""; paint();
+      try {
+        var mu = await api("/bookings/" + gb.id, { method: "PATCH", body: JSON.stringify(mbody) });
+        S.bookings = S.bookings.map(function (x) { return x.id === gb.id ? (mu.booking || x) : x; });
+        var said = moveToast(gb, { date: mu.booking.date, start: mu.booking.start, message: mu.message });
+        if (mu.message === "sent" || !gb.personPhone) { S.sheet = null; toast(said); }
+        else S.sheet = { kind: "booking", id: gb.id, b: mu.booking, card: gsh.card, note: esc(said.replace(/: call .*$/, "")) + ": call " + telLink(gb.personPhone) }; // the number to call stays on screen
+        return load({ silent: true });
+      } catch (e) {
+        gsh.saving = false;
+        var nx2 = e && e.bodyJson && e.bodyJson.next;
+        if (e && e.status === 409 && Array.isArray(nx2)) { // the time was taken meanwhile: the next free ones, as New booking does
+          gsh.err = "Someone just took that time. Here are the next free ones.";
+          if (nx2.length) { gsh.slots = nx2.map(function (x) { return { date: x.date, time: x.time, providerId: x.providerId, providerName: x.providerName }; }); gsh.slot = gsh.slots[0]; gsh.next = true; }
+          else { gsh.slots = []; gsh.slot = null; }
+          return paint();
+        }
+        if (e && e.status === 409 && e.bodyJson && e.bodyJson.current) { // changed by someone else: show it as it is now
+          await load({ silent: true }); S.sheet = { kind: "booking", id: gb.id, card: gsh.card, err: "Someone else changed this booking. Here it is as it is now." }; return paint();
+        }
+        if (e && e.status === 409) { gsh.err = "Someone just took that time. Choose another."; return loadMoveSlots(gsh); }
+        gsh.err = errMsg(e); return paint();
+      }
+    }
+    if (act === "ask-save") return saveAsked();
+    if (act === "ask-drop") return dropAsked();
     if (act === "new") {
       var first = S.setup.services.filter(function (x) { return x.active; })[0];
-      S.sheet = { kind: "new", serviceId: first ? first.id : null, slots: [], slot: null };
-      paint(); setTimeout(function () { var n = document.getElementById("bkx-name"); if (n) n.focus(); }, 30);
+      var dft = S.newDraft && S.newDraft.who === userKey() && S.newDraft.day === todayStr() ? S.newDraft : null;
+      if (dft && !svc(dft.serviceId)) dft.serviceId = first ? first.id : null;
+      S.sheet = dft ? { kind: "new", serviceId: dft.serviceId, slots: [], slot: null, name: dft.name, phone: dft.phone, email: dft.email, back: true } : { kind: "new", serviceId: first ? first.id : null, slots: [], slot: null };
+      S.newDraft = null; // taken back: a save or Cancel leaves nothing behind; a tap beside it keeps it again
+      paint(); if (E.focusSoon) E.focusSoon(function () { return document.getElementById("bkx-name"); }, 30);
       return loadSlots();
     }
     if (act === "svc") { S.sheet.serviceId = Number(t.getAttribute("data-id")); S.sheet.err = ""; return loadSlots(); }
@@ -551,7 +887,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       sh.saving = true; sh.err = ""; paint();
       try {
         var r = await api("/bookings", { method: "POST", body: JSON.stringify({ serviceId: sh.serviceId, providerId: sh.slot.providerId, date: sh.slot.date, start: sh.slot.time, personName: sh.name, personPhone: sh.phone, personEmail: sh.email, waitlistId: sh.waitlistId || undefined }) });
-        S.sheet = null; S.date = r.booking.date; if (E.linkPerson) E.linkPerson({ name: sh.name, phone: sh.phone, email: sh.email }, "bookings"); toast("Booked " + r.booking.personName + " · " + dayShort(r.booking.date) + " " + r.booking.start);
+        S.sheet = null; S.newDraft = null; S.date = r.booking.date; if (E.linkPerson) E.linkPerson({ name: sh.name, phone: sh.phone, email: sh.email }, "bookings"); toast("Booked " + r.booking.personName + " · " + dayShort(r.booking.date) + " " + r.booking.start);
         return load({ silent: true });
       } catch (e) {
         sh.saving = false;
@@ -561,11 +897,11 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
         return paint();
       }
     }
-    if (act === "open") { S.sheet = { kind: "booking", id: Number(t.getAttribute("data-id")) }; return paint(); }
+    if (act === "open") { var osh = S.sheet = { kind: "booking", id: Number(t.getAttribute("data-id")) }; paint(); return findCard(osh); }
     if (act === "cancel") { S.sheet.cancelling = true; S.sheet.err = ""; paint(); setTimeout(function () { var r = document.getElementById("bkx-reason"); if (r) r.focus(); }, 30); return; }
     if (act === "nocancel") { S.sheet.cancelling = false; S.sheet.err = ""; return paint(); }
     if (act === "st" || act === "docancel") {
-      var b = S.bookings.find(function (x) { return x.id === S.sheet.id; }); if (!b) return;
+      var b = (S.bookings.find(function (x) { return x.id === S.sheet.id; }) || S.sheet.b); if (!b) return;
       var body = { version: b.version, status: act === "st" ? t.getAttribute("data-s") : "cancelled" };
       if (act === "docancel") { body.cancelReason = (document.getElementById("bkx-reason") || {}).value || ""; if (!body.cancelReason.trim()) { S.sheet.err = "Say why it was cancelled."; return paint(); } }
       try {
@@ -598,11 +934,15 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       S.sheet.err = S.sheet.okMsg = "";
       try {
         await api("/bookings/services" + (id ? "/" + id : ""), { method: id ? "PUT" : "POST", body: JSON.stringify(body) });
-        S.sheet.newService = false; S.sheet.okMsg = "Saved " + body.name; await load({ setup: true, silent: true });
+        S.sheet.newService = false; S.sheet.okMsg = "Saved " + body.name; dropKept("svc:" + id + ":"); if (S.sheet.chipDraft) delete S.sheet.chipDraft[id]; await load({ setup: true, silent: true });
       } catch (e) { S.sheet.err = errMsg(e); }
       return paint();
     }
-    if (act === "chip") { var on = !t.classList.contains("on"); t.classList.toggle("on", on); t.setAttribute("aria-pressed", String(on)); return; }
+    if (act === "chip") {
+      var on = !t.classList.contains("on"); t.classList.toggle("on", on); t.setAttribute("aria-pressed", String(on));
+      var cbox = t.closest("[data-svc]"); if (cbox && S.sheet) { S.sheet.chipDraft = S.sheet.chipDraft || {}; S.sheet.chipDraft[cbox.getAttribute("data-svc")] = Array.prototype.map.call(cbox.querySelectorAll(".bkx-chip.on"), function (c) { return Number(c.getAttribute("data-pid")); }); }
+      return;
+    }
     // People tab: read a practitioner card back from the screen (so typing survives adding or removing a window).
     var readProv = function (pid) {
       var box = S.mount.querySelector('[data-prov="' + pid + '"]'), hrs = {}, g = function (k) { var el = box.querySelector('[data-k="' + k + '"]:not([data-d])'); return el ? el.value : ""; };
@@ -623,7 +963,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       var wp = Number(t.getAttribute("data-id")), wd = t.getAttribute("data-d"), dr = readProv(wp);
       var list = dr.hours[wd] || [];
       if (act === "win-add") list.push(list.length ? nextWin(list[list.length - 1]) : ["09:00", "13:00"]); else list.splice(Number(t.getAttribute("data-i")), 1);
-      dr.hours[wd] = list; S.sheet.pdraft = S.sheet.pdraft || {}; S.sheet.pdraft[wp] = dr; S.sheet.err = S.sheet.okMsg = "";
+      dr.hours[wd] = list; S.sheet.pdraft = S.sheet.pdraft || {}; S.sheet.pdraft[wp] = dr; S.sheet.err = S.sheet.okMsg = ""; dropKept("prov:" + wp + ":"); // the card is drawn from its draft now
       return paint();
     }
     if (act === "hours-save") {
@@ -644,12 +984,12 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       var pr = prov(pid);
       try {
         await api("/bookings/providers/" + pid, { method: "PUT", body: JSON.stringify({ name: d2.name, title: d2.title, speciality: d2.speciality, kind: pr.kind, hours: hours, active: pr.active }) });
-        delete S.sheet.pdraft[pid]; S.sheet.okMsg = "Saved " + plabel({ title: d2.title, name: d2.name }); await load({ setup: true, silent: true });
+        delete S.sheet.pdraft[pid]; dropKept("prov:" + pid + ":"); S.sheet.okMsg = "Saved " + plabel({ title: d2.title, name: d2.name }); await load({ setup: true, silent: true });
       } catch (e) { S.sheet.err = errMsg(e); }
       return paint();
     }
     if (act === "away-open") { S.sheet.away = { pid: Number(t.getAttribute("data-id")), from: todayStr() }; S.sheet.err = S.sheet.okMsg = ""; return paint(); }
-    if (act === "away-close") { S.sheet.away = null; return paint(); }
+    if (act === "away-close") { S.sheet.away = null; dropKept("#aw-"); return paint(); }
     if (act === "away-go") {
       var aw = S.sheet.away, gv = function (id) { var el = document.getElementById(id); return el ? el.value.trim() : ""; };
       Object.assign(aw, { from: gv("aw-from"), to: gv("aw-to"), start: gv("aw-st"), end: gv("aw-en"), reason: gv("aw-why") });
@@ -662,13 +1002,13 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       return paint();
     }
     if (act === "np-new") { S.sheet.addingPerson = true; return paint(); }
-    if (act === "np-cancel") { S.sheet.addingPerson = false; return paint(); }
+    if (act === "np-cancel") { S.sheet.addingPerson = false; dropKept("#np-"); return paint(); }
     if (act === "np-save") {
       var nv = function (id) { var el = document.getElementById(id); return el ? el.value.trim() : ""; };
       S.sheet.err = "";
       try {
         await api("/bookings/providers", { method: "POST", body: JSON.stringify({ name: nv("np-name"), title: nv("np-title"), speciality: nv("np-spec"), kind: nv("np-title") ? "doctor" : "pharmacist", hours: {} }) });
-        S.sheet.addingPerson = false; S.sheet.okMsg = "Added. Give them hours below, then choose them under Services."; await load({ setup: true, silent: true });
+        S.sheet.addingPerson = false; dropKept("#np-"); S.sheet.okMsg = "Added. Give them hours below, then choose them under Services."; await load({ setup: true, silent: true });
       } catch (e) { S.sheet.err = errMsg(e); }
       return paint();
     }
@@ -677,7 +1017,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       try {
         if (act === "room-add") await api("/bookings/rooms", { method: "POST", body: JSON.stringify({ name: (document.getElementById("room-new") || {}).value || "" }) });
         else { var rid = Number(t.getAttribute("data-id")); await api("/bookings/rooms/" + rid, { method: "PUT", body: JSON.stringify({ name: t.closest("[data-room]").querySelector('[data-k="rname"]').value }) }); }
-        S.sheet.rooms = (await api("/bookings/rooms")).rooms; S.sheet.okMsg = "Rooms saved";
+        dropKept(act === "room-add" ? "#room-new" : "room:" + t.getAttribute("data-id") + ":"); S.sheet.rooms = (await api("/bookings/rooms")).rooms; S.sheet.okMsg = "Rooms saved";
       } catch (e) { S.sheet.err = errMsg(e); }
       return paint();
     }
@@ -711,13 +1051,13 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
       try {
         if (act === "snd-add") sh3.adding = { kind: "brevo" };
         else if (act === "snd-kind") sh3.adding = { kind: t.getAttribute("data-k") };
-        else if (act === "snd-cancel") sh3.adding = null;
+        else if (act === "snd-cancel") { sh3.adding = null; dropKept("#bks-"); }
         else if (act === "snd-save") {
           var kd = sh3.adding.kind, nb = { kind: kd, fromEmail: gv("bks-from"), dailyCap: Number(gv("bks-cap") || 0) };
           if (kd === "smtp") { nb.smtpHost = gv("bks-host"); nb.smtpSecure = gv("bks-sec"); nb.smtpPort = nb.smtpSecure === "starttls" ? 587 : 465; nb.smtpUser = gv("bks-user"); nb.password = gv("bks-key"); }
           else nb.apiKey = gv("bks-key");
           var added = (await api("/bookings/senders", { method: "POST", body: JSON.stringify(nb) })).sender;
-          sh3.adding = null; await reload(); sh3.okMsg = added.label + " added. Press Test to check it.";
+          sh3.adding = null; dropKept("#bks-"); await reload(); sh3.okMsg = added.label + " added. Press Test to check it.";
         } else if (act === "snd-move") {
           var ids = sh3.senders.map(function (x) { return x.id; }), i = ids.indexOf(gid), j = i + Number(t.getAttribute("data-d"));
           if (i >= 0 && j >= 0 && j < ids.length) { ids.splice(j, 0, ids.splice(i, 1)[0]); sh3.senders = (await api("/bookings/senders/order", { method: "POST", body: JSON.stringify({ ids: ids }) })).senders; }
@@ -742,7 +1082,7 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
           remindHours: Number(g2("bkm-hrs").value), cancelCutoffMin: Number(g2("bkm-cut").value), address: g2("bkm-addr").value, phone: g2("bkm-phone").value,
           publicEnabled: g2("bkm-public").checked };
         if (g2("bkm-slug") && g2("bkm-slug").value.trim() !== (S.sheet.msg.publicSlug || "")) body2.publicSlug = g2("bkm-slug").value.trim().toLowerCase();
-        try { S.sheet.msg = (await api("/bookings/settings", { method: "PUT", body: JSON.stringify(body2) })).settings; S.sheet.okMsg = body2.provider === "off" ? "Emails are off" : "Saved. Customers with an email now get messages."; }
+        try { S.sheet.msg = (await api("/bookings/settings", { method: "PUT", body: JSON.stringify(body2) })).settings; dropKept("#bkm-"); S.sheet.okMsg = body2.provider === "off" ? "Emails are off" : "Saved. Customers with an email now get messages."; }
         catch (e) { S.sheet.err = errMsg(e); }
       } else {
         try { var r2 = await api("/bookings/settings/test", { method: "POST", body: JSON.stringify({ to: testTo() }) }); S.sheet.okMsg = "Test sent to " + r2.sentTo; }
@@ -764,11 +1104,21 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
   }
 
   function onChange(ev) {
+    if (ev.target && ev.target.id === "bkx-goto") {
+      var v = ev.target.value; if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || v === S.date) return;
+      S.date = v; load({ silent: true }); return; // the box stays open while a date is being typed; leaving it closes it
+    }
     if (!ev.target || ev.target.id !== "bkm-provider" || !S.sheet || !S.sheet.msg) return;
     var m = S.sheet.msg, g = function (id) { var el = document.getElementById(id); return el ? el.value : undefined; };
     ["fromEmail:bkm-from", "fromName:bkm-name", "address:bkm-addr", "phone:bkm-phone", "smtpHost:bkm-host", "smtpUser:bkm-user"].forEach(function (pair) {
       var kv = pair.split(":"), v = g(kv[1]); if (v !== undefined) m[kv[0]] = v; });
     m.provider = ev.target.value; paint();
+  }
+
+  // The date box closes when focus leaves it (Escape too: see onKey).
+  function onFocusOut(ev) {
+    if (!ev.target || ev.target.id !== "bkx-goto") return;
+    setTimeout(function () { var a = document.activeElement; if (!S.picking || (a && a.id === "bkx-goto")) return; S.picking = false; paint(); }, 0);
   }
 
   async function render(ctx) {
@@ -778,13 +1128,23 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     S.mount.addEventListener("click", onClick);
     S.mount.addEventListener("change", onChange);
     document.addEventListener("keydown", onKey);
-    // No polling: refresh when the tab comes back into view.
-    S.onVis = function () { if (!document.hidden && S.mount && E.state.activeModuleId === "bookings") load({ silent: true }); };
+    // Refresh when the tab comes back into view, and every minute while Bookings is on screen (q6-2, as Today does):
+    // a booking made online or at another counter appears. Never while a sheet is open or a field has focus.
+    S.onVis = function () { if (!document.hidden && S.mount && E.state.activeModuleId === "bookings" && !S.sheet && !S.picking) load({ silent: true, quiet: true }); };
     document.addEventListener("visibilitychange", S.onVis);
+    if (S.poll) clearInterval(S.poll);
+    S.poll = setInterval(function () {
+      if (document.hidden || !S.mount || E.state.activeModuleId !== "bookings" || S.sheet || S.loading || S.picking) return;
+      var a = document.activeElement; if (a && S.mount.contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return;
+      load({ silent: true, quiet: true });
+    }, Number(window.EIKON_BK_POLL_MS) || 60000);
+    S.mount.addEventListener("focusout", onFocusOut);
     await load();
   }
   function destroy() {
-    if (S.mount) { S.mount.removeEventListener("click", onClick); S.mount.removeEventListener("change", onChange); }
+    if (S.mount) { S.mount.removeEventListener("click", onClick); S.mount.removeEventListener("change", onChange); S.mount.removeEventListener("focusout", onFocusOut); }
+    if (S.poll) { clearInterval(S.poll); S.poll = 0; }
+    S.picking = false;
     if (S.onVis) document.removeEventListener("visibilitychange", S.onVis);
     document.removeEventListener("keydown", onKey);
     S.mount = null; S.sheet = null; S.opener = null;

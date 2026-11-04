@@ -37,7 +37,10 @@
     ["bookings", "customers", "Bookings", "Appointments for clinics and services, by day or by week, and the waiting list.", [
       ["Set up bookings", "Press Start taking bookings. The pharmacist does this once.", "Add a practitioner, their hours and a service. Change them later in Bookings settings."],
       ["Book someone in", "Press New booking.", "Choose the service, the day and a free time.", "Press Book. If no time suits, press No time suits? Add to the waiting list."],
-      ["On the day", "Open the booking.", "Press Arrived, Done or No-show. Cancel booking asks for a reason."]
+      ["On the day", "Open the booking.", "Press Arrived, Done or No-show. Cancel booking asks for a reason.", "Tap the phone number to call. Tap the name to open the customer."],
+      ["Change a time", "Open the booking and press Change time.", "Choose the day and a free time.", "Press Move. A customer with an e-mail is told; otherwise the number to call is shown."],
+      ["See another day", "Tap a day, or ‹ and › for a week earlier or later. Tap the date under Bookings to choose any day.", "Past days show what happened and cannot be changed. Press Today to come back."],
+      ["Change the settings", "Open Bookings settings (the gear beside New booking).", "Each card has its own Save. If you press Done with a change not saved, Eikon asks: Save or Throw away."]
     ], "", []],
 
     ["stock", "stock", "Stock", "What is coming in, what is going out, what is running out. Each card opens one screen.", [
