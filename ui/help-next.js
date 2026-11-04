@@ -91,20 +91,20 @@
       ["Quick record", "On Today, press Done now on the Cleaning line."],
       ["Correct a line (the pharmacist)", "Press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Deleting a line is in the classic register.", []],
+    ], "Deleting a line is in the classic screen.", []],
 
     ["drreg", "registers", "Daily register", "Prescription medicines supplied, one line each.", [
       ["Add a line", "Press New entry.", "Type the ID card: a known patient is filled in for you.", "Fill in the medicine, posology, prescriber and reg no., then press Save entry."],
       ["Correct a line (the pharmacist)", "Press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Deleting a line is in the classic register.", [["Posology", "how the medicine is to be taken."], ["Reg no.", "the prescriber's registration number."]]],
+    ], "Deleting a line is in the classic screen.", [["Posology", "how the medicine is to be taken."], ["Reg no.", "the prescriber's registration number."]]],
 
     ["locreg", "registers", "Locum register", "Which pharmacist was in charge, and when.", [
       ["Add a line", "Press New locum.", "Fill in the date, time in, time out, pharmacist and reg no.", "Press Save locum."],
       ["Correct a line (the pharmacist)", "Press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."],
       ["Pay a locum", "Use Locum receipts, under Money."]
-    ], "Deleting a line is in the classic register.", []],
+    ], "Deleting a line is in the classic screen.", []],
 
     ["insreg", "registers", "Inspection check", "Is every register in order for the days you choose? Days not logged, notes missing, certificates due.", [
       ["Check the registers", "Choose the days: This month, Last month, Last 3 months or Choose days.", "Each register says In order, Look at this or Missing, with what was found."],
@@ -119,7 +119,7 @@
     ], "To upload or download a certificate file, use the classic screen.", []],
 
     ["nexreg", "stock", "Near expiry", "What expires soon, nearest first.", [
-      ["Add an item", "Press Add an item.", "Fill in the product, when it expires and where it is.", "Press Add."],
+      ["Add an item", "Press Add an item.", "Fill in the product, when it expires and where it is.", "Press Save item."],
       ["Send an item back", "Press Send back on the item, then Add to returns. It goes to Returns, ready for the supplier."],
       ["Check the list", "The nearest dates are at the top."]
     ], "Supplier refused, damaged stock and offers to other pharmacies are in the classic screen.", []],
@@ -168,21 +168,21 @@
       ["Find a medicine", "Type part of the name or the brand: suggestions appear as you type."],
       ["Correct a line (the pharmacist)", "Press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Deleting a line is in the classic register.", [["DDA", "the controlled drugs register."]]],
+    ], "Deleting a line is in the classic screen.", [["DDA", "the controlled drugs register."]]],
 
     ["cdsreg", "registers", "Controlled drugs supplied", "Every controlled drug handed over against a prescription.", [
       ["Record a prescription", "Press New prescription.", "Type the ID card: a known patient and address are filled in.", "Fill in the medicine and quantity, prescriber, reg no. and serial no., then press Save prescription."],
       ["More than one medicine", "Press Add a medicine for each extra line on the same prescription."],
       ["Correct a line (the pharmacist)", "Press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Deleting a line is in the classic register.", [["Serial no.", "the number printed on the prescription."], ["Reg no.", "the prescriber's registration number."]]],
+    ], "Deleting a line is in the classic screen.", [["Serial no.", "the number printed on the prescription."], ["Reg no.", "the prescriber's registration number."]]],
 
     ["poyreg", "registers", "POYC controlled drugs", "Controlled drugs given under the Pharmacy of Your Choice scheme.", [
       ["Record a prescription", "Press New prescription.", "Type the ID card: a known patient is filled in.", "Fill in the medicine and quantity, prescriber, reg no. and serial no., then press Save prescription."],
       ["More than one medicine", "Press Add a medicine for each extra line."],
       ["Correct a line (the pharmacist)", "Press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Deleting a line is in the classic register.", [["POYC", "Pharmacy of Your Choice, the government scheme."]]],
+    ], "Deleting a line is in the classic screen.", [["POYC", "Pharmacy of Your Choice, the government scheme."]]],
 
     ["ddstreg", "registers", "Controlled drug stock takes", "Count each controlled drug and keep the count on file, ready to print.", [
       ["Start a stock take", "Press Start a stock take.", "For each medicine, fill in the name, dosage and tablets counted. Press Add item for the next one."],
@@ -195,10 +195,10 @@
       ["Correct a payment (the pharmacist)", "Press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."],
       ["At closing", "Paid out is counted in End of day."]
-    ], "Deleting a payment is in the classic register.", []],
+    ], "Deleting a payment is in the classic screen.", []],
 
     ["hndreg", "team", "Handover", "What the last shift left you, and what you leave the next one.", [
-      ["Leave a point for the next shift", "Under For tomorrow, type it and mark it Low, Medium or Critical.", "Press Add."],
+      ["Leave a point for the next shift", "Under For tomorrow, type it and mark it Low, Medium or Critical.", "Press Add point."],
       ["Write today's notes", "Type in the notes box.", "Press Save notes."],
       ["Change the standing instructions", "Press Change beside Always, or + Standing instructions for every shift when there are none.", "Type what every shift should see, every day, and press Save standing instructions."],
       ["Read what was left", "From yesterday is at the top, most critical first."]
@@ -209,14 +209,14 @@
       ["Change the rota", "Press Plan shifts."],
       ["Ask for leave", "Press ask for leave. The request is made in Plan shifts."],
       ["See who is away", "Leave shows on each person's day."]
-    ], "Patterns and the calendar link are in the classic Shifts screen.", []],
+    ], "Patterns and the calendar link are in the classic screen.", []],
 
     ["shfreg", "team", "Plan shifts", "Who works when: add, change or remove a shift, and answer leave requests.", [
       ["Add a shift", "Press + Add shift on the day.", "Choose the person and set the times.", "Press Add shift."],
       ["Change or remove a shift", "Tap the shift and change the times, then press Save, or press Remove shift."],
       ["Ask for leave", "Press + New leave request.", "Fill in who, the type, from and until, and the reason.", "Press Save leave request."],
       ["Answer a leave request", "Press Approve or Refuse on the request. You are warned if no one would cover."]
-    ], "Patterns, opening hours, changing a person's details, leave balances and history, and the calendar link are in the classic Shifts screen.", []],
+    ], "Patterns, opening hours, changing a person's details, leave balances and history, and the calendar link are in the classic screen.", []],
 
     ["teamreg", "team", "People who sign in", "Everyone at the pharmacy signs in as themselves, so the registers show who did what. For the pharmacist only.", [
       ["Add a person", "Press Add a person.", "Fill in the name and e-mail, and choose the role.", "Press Add. Give them the password shown."],
@@ -230,7 +230,7 @@
       ["See who is due", "Fill in Collected every, for example 28 days, when you record it.", "Each line shows when it is next due; Due lists the ones coming up.", "Press Collected today when the patient collects. Undo puts it back."],
       ["Correct a prescription (the pharmacist)", "Under Written by month, press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Deleting a prescription is in the classic register.", []],
+    ], "Deleting a prescription is in the classic screen.", []],
 
     ["cnreg", "money", "Credit notes", "Money customers have with you, and what is left of it.", [
       ["Give a credit note", "Press New credit note.", "Fill in the name, surname, phone, amount and receipt no.", "Press Save credit note."],
@@ -238,7 +238,7 @@
       ["Put back a use made by mistake (the pharmacist)", "Find the note: a search also finds notes used up.", "Press Undo on the use, then Undo the use."],
       ["Correct a note (the pharmacist)", "Press Correct on the note.", "Change what was wrong and say why, then press Save correction."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Notes and printing a note are in the classic screen.", []],
+    ], "Deleting a credit note, notes and printing a note are in the classic screen.", []],
 
     ["lrcreg", "money", "Locum receipts", "What each locum was paid, ready to print and sign.", [
       ["Write a receipt", "Press New receipt.", "Fill in the locum, reg no., day, hours and € per hour.", "Press Save receipt."],
@@ -290,7 +290,7 @@
       ["Close the day", "Check the day, staff, shift and float at the top; press Change to change them.", "Add an X reading for each till, then count the cash.", "Add any cheques, EPOS lines and paid outs.", "Press Save and lock when it balances, or Save to finish later."],
       ["Print the day", "Press Print on A4."],
       ["Print the month", "Press Print with the month's name. Choose a day in another month to print that one."],
-      ["Correct a locked day (the pharmacist)", "Open the locked day. Press Correct this day… to write what was wrong.", "Press Unlock to correct.", "Change what was wrong, then press Save and lock."],
+      ["Correct a locked day (the pharmacist)", "Open the locked day. Press Correct this day to write what was wrong.", "Press Unlock to correct.", "Change what was wrong, then press Save and lock."],
       ["From Today", "Press Close the day on Today at closing time."]
     ], "A date-range report across months, the audit log, copying the deposit to an email and managing bank contacts are in the classic screen.", [["X reading", "the till's total for the day so far, printed by the till."]]],
 
@@ -298,7 +298,7 @@
       ["Record a test", "Press New test, then choose the test, such as Blood pressure.", "Find the patient or fill in their details, then the results.", "Press Save test."],
       ["Read the marks", "High and low marks are a guide for adults and are not saved with the test."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Editing or deleting a test, printing one test, the patients list with its flags, CSV export and import are in the classic POCT screen.", []],
+    ], "Editing or deleting a test, printing one test, the patients list with its flags, and exporting or importing a spreadsheet are in the classic screen.", []],
 
     ["scsreg", "stock", "Scarce stock", "Hard-to-get lines pharmacies have spare, and who asked for them.", [
       ["Share spare stock", "Press Share stock.", "Fill in the item, how many, expiry and batch.", "Press Share it. Change it later, or press None left."],
@@ -310,7 +310,7 @@
       ["See recent changes", "Choose Today, 7 days, 30 days or 90 days."],
       ["Look at one change", "Open a line to see what it was before and after."],
       ["Print", "Press Print."]
-    ], "The same list is in the classic audit trail, with a filter for any action code.", []],
+    ], "The same list, with a filter for any action code, is in the classic screen.", []],
 
     ["expreg", "settings", "Download our records", "Your registers for the days you choose, as a spreadsheet to keep, or printed for an inspector. For the pharmacist only.", [
       ["Download a month", "Choose This month, Last month, A year or Choose days.", "Tick the registers, or press Legal registers only.", "Press Download spreadsheet."],
@@ -334,7 +334,7 @@
       ["Find a pill", "Choose the hormones and type the doses.", "Matching pills appear as you type."],
       ["Find the same pill", "Tap a pill to see others with the same hormones and doses. Clear starts again."],
       ["Change units", "Use mg or mcg."]
-    ], "To print the results, use the classic finder.", []],
+    ], "To print the results, use the classic screen.", []],
 
     ["lblreg", "services", "Dispensing labels", "Fill in the label, check it, print it.", [
       ["Print a label", "Fill in the patient, medicine and how to take it.", "Tap the warnings that apply.", "Check the preview and press Print label."],
@@ -360,13 +360,13 @@
       ["Cancel a sale", "Open the sale in the day's list, press Void, then Void sale."],
       ["No connection", "Keep selling. The sales are sent when the connection is back."],
       ["No products yet", "Press Import the product list."]
-    ], "Scanning with the camera, photo search, setting a barcode per line, importing a new product list or clearing it, and printing the day’s receipts are in the classic Emergency POS.", []],
+    ], "Scanning with the camera, photo search, setting a barcode per line, importing a new product list or clearing it, and printing the day’s receipts are in the classic screen.", []],
 
     ["calreg", "services", "Pharmacy calculators", "Dosing plans and the tablets or insulin to dispense, for one patient. The calculations, the saved plan and the printout are the same as on the classic screen.", [
       ["Make a plan", "Choose Levothyroxine, Steroid taper, Warfarin, Insulin supply or Methotrexate.", "Fill in the doses and dates."],
       ["Save and print", "Press Save and print. The full plan is on the printout."],
       ["Start over", "Press Start again. Print again prints a saved plan once more."]
-    ], "Deleting a saved plan is in the classic calculators screen.", []],
+    ], "Deleting a saved plan is in the classic screen.", []],
 
     ["dupreg", "customers", "Possible duplicates", "People who look like the same person but were written down differently in different sections. Nothing here changes a record.", [
       ["Look for duplicates", "Open the screen. People are grouped by the same ID card, phone number, or name and date of birth."],

@@ -450,6 +450,14 @@
     closeDevices();
   }
 
+  // The name the print gives a fridge or room: as Today shows it (modules.today.js devName, b4-9). The room sensor is
+  // seeded with the pharmacy's own name, so "Pharmacy" or the pharmacy's name prints as "Room", with the stored name
+  // after it. Display only: the stored name is unchanged.
+  function printName(dv) {
+    var n = String((dv && dv.name) || "").trim(), k = n.toLowerCase(), here = String((E.state.user || {}).location_name || "").trim().toLowerCase();
+    return k === "pharmacy" || (here && k === here) ? "Room (" + n + ")" : n;
+  }
+
   // The classic temperature report for one month: a line per day, a column per fridge or room, "min / max" in each,
   // "Not logged" for a day that has passed without a reading (bold when outside the limits).
   function printMonth() {
@@ -468,8 +476,8 @@
       })));
     }
     MB.print({ register: "Temperature", month: m,
-      intro: '<p class="sub">Each day: minimum / maximum °C. Limits: ' + esc(devs.map(function (dv) { return dv.name + " " + limitsText(dv); }).join(" · ")) + ".</p>",
-      sections: [{ cols: [m.slice(0, 4) + "-" + m.slice(5)].concat(devs.map(function (dv) { return dv.name; })), rows: rows, empty: devs.length ? MB.empty(m) : "No fridges or rooms are set up." }] });
+      intro: '<p class="sub">Each day: minimum / maximum °C. Limits: ' + esc(devs.map(function (dv) { return printName(dv) + " " + limitsText(dv); }).join(" · ")) + ".</p>",
+      sections: [{ cols: [m.slice(0, 4) + "-" + m.slice(5)].concat(devs.map(printName)), rows: rows, empty: devs.length ? MB.empty(m) : "No fridges or rooms are set up." }] });
   }
 
   E.registerModule({

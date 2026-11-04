@@ -107,7 +107,7 @@
       }
       h += "</div>";
     }
-    h += '<p class="rot-foot">Plan the week in <a href="#" data-act="plan">Plan shifts</a>, or <a href="#" data-act="leave">ask for leave</a>. Patterns and the calendar link are in the <a href="#" data-act="classic">classic Shifts screen</a>.</p></div>';
+    h += '<p class="rot-foot">Plan the week in <a href="#" data-act="plan">Plan shifts</a>, or <a href="#" data-act="leave">ask for leave</a>. Patterns and the calendar link are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
     m.innerHTML = h;
     if (keepAct) { var back = m.querySelector('[data-act="' + keepAct + '"]') || (keepAct === "now" ? m.querySelector('[data-act="next"]') : null); if (back) back.focus(); }
     m.querySelectorAll("[data-act]").forEach(function (b) {

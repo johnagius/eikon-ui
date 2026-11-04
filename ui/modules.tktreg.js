@@ -536,7 +536,9 @@
       S.hit = hand && hand.mode === "open" ? Number(hand.id) : null; S.hitName = S.hit ? String(hand.person.name || "") : ""; // from Today: that very question
       if (S.carry) S.adding = {};
       var since = Date.now(), from = document.activeElement;
-      css(); paint(); if (S.carry) fillCarry(); return load().then(function () { land(since, from); });
+      css(); paint(); var dr = E.draft && E.draft.spec("tktreg", { btn: "[data-act=add]", form: "#tkt-add" }, S.mount), who = S.carry && S.carry.person && (S.carry.person.name || S.carry.person.id_card); if (dr && who) E.draft.offer("tktreg", S.mount); if (S.carry) fillCarry();
+      var ready = dr && (!hand || !who) && !(hand && (hand.mode === "find" || hand.mode === "open")) ? E.draft.take("tktreg", S.mount, load()) : load(); // q5-2: a half-typed form comes back
+      return Promise.resolve(ready).then(function () { land(since, from); }); // q5-5: Open from Today lands on its row
     }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("tktreg") < 0) E.UI2_DESTINATIONS.push("tktreg");

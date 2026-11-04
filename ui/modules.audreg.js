@@ -338,7 +338,7 @@
       if (S.error) h += '<div class="aud-quiet" role="alert">' + esc(S.error) + ' <button class="aud-btn" data-act="' + (more ? "older" : "retry") + '">Try again</button></div>';
       if (more) h += '<div class="aud-more"><button class="aud-btn" data-act="older"' + (S.more ? " disabled" : "") + ">" + (S.more ? "Loading…" : "Show older") + "</button></div>";
     }
-    h += '<p class="aud-foot">The same list is in the <a href="#" data-act="classic">classic audit trail</a>, with a filter for any action code.</p></div>';
+    h += '<p class="aud-foot">The same list, with a filter for any action code, is in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
     var ae = document.activeElement, keepSel = ae && m.contains(ae) && ae.id ? "#" + ae.id : ae && m.contains(ae) && ae.getAttribute && ae.getAttribute("data-id") ? '.aud-row[data-id="' + ae.getAttribute("data-id") + '"]' : ae && m.contains(ae) && ae.getAttribute && ae.getAttribute("data-act") ? '[data-act="' + ae.getAttribute("data-act") + '"]' : "";
     var caret = null; if (ae && ae.id === "aud-q") { try { caret = ae.selectionStart; } catch (x) {} }
     m.innerHTML = h;

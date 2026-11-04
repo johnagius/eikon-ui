@@ -312,7 +312,7 @@
   function fixHtml(locked) {
     if (!E.correct || !E.correct.can()) return "";
     if (!locked) return fixing() ? '<div class="eod-note" id="eod-fixnote" tabindex="-1" role="status"><b>Unlocked for a correction:</b> ' + esc(S.fixReason) + ". Change what was wrong, then Save and lock. The audit keeps the day as it was.</div>" : "";
-    if (!S.fix) return '<div class="eod-fix"><button class="eod-btn" data-act="fix">Correct this day…</button></div>';
+    if (!S.fix) return '<div class="eod-fix"><button class="eod-btn" data-act="fix">Correct this day</button></div>';
     return '<div class="eod-note" role="group" aria-label="Unlock this day to correct it"><b>Unlock ' + esc(dayLabel(S.date)) + " to correct it?</b> Once unlocked, its figures can be changed again; lock it again when done. The audit keeps the day as it was, who unlocked it and why." +
       '<label class="eod-f" style="margin-top:8px"><span>What was wrong?</span><input name="fix_reason" maxlength="500" value="' + esc(S.fix.reason || "") + '" placeholder="e.g. Cheque total typed twice" aria-required="true"></label>' +
       (S.fix.err ? '<div class="eod-err" role="alert">' + esc(S.fix.err) + "</div>" : "") +

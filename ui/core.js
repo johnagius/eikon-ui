@@ -128,6 +128,14 @@
       if (v === "2") { window.localStorage.setItem("eikon_ui2", "1"); window.sessionStorage.removeItem("eikon_ui2_pause"); }
       else if (v === "1") window.localStorage.setItem("eikon_ui2", "0"); // the classic layout, remembered
       else if (v === "classic") window.sessionStorage.setItem("eikon_ui2_pause", "1"); // one visit to an old screen
+      if (v !== "classic") window.sessionStorage.removeItem("eikon_ui2_pause"); // the visit is over: Back from it, a reload or a link without ?ui=classic is the new layout again
+    } catch (e) {}
+    // Back/Forward can bring a page back from the browser's memory without loading it: the visit belongs to its address.
+    try {
+      window.addEventListener("pageshow", function (ev) {
+        if (!ev || !ev.persisted) return;
+        try { if (new URL(window.location.href).searchParams.get("ui") === "classic") window.sessionStorage.setItem("eikon_ui2_pause", "1"); else window.sessionStorage.removeItem("eikon_ui2_pause"); } catch (e) {}
+      });
     } catch (e) {}
   })();
   // The new shell shows only rebuilt screens. An old module opens in the classic layout
@@ -868,9 +876,14 @@
     return root;
   };
 
-  // Fatal overlay (never silent black screen)
+  // Fatal overlay (never silent black screen). It blocks only while Eikon is starting (E._booted is set when
+  // E.start has finished): "Eikon could not start" with Try again. Once the app is up, an unexpected error never
+  // blocks it: E.showErrorBar says so in a closable bar and leaves the screen, and what is typed in it, as it is.
+  // dbg=2 (developers) keeps the full-screen notice with the error and its stack at any time. Reported once either way.
   E.showFatalOverlay = function (title, details) {
     try { if (!E._errReportBusy && E.reportError) E.reportError("fatal", String(details || title || "").split("\n")[0] || String(title || ""), { stack: String(details || "") }); } catch (eR) {} // backlog 7
+    var dev = Number(E.DEBUG) >= 2;
+    if (E._booted && !dev) { try { E.showErrorBar(String(details || title || "").split("\n")[0]); } catch (eB) {} return; }
     try {
       var overlay = document.getElementById("eikon-fatal-overlay");
       if (!overlay) {
@@ -886,16 +899,82 @@
         overlay.style.padding = "18px";
         document.body.appendChild(overlay);
       }
+      if (dev) {
+        overlay.removeAttribute("role"); overlay.removeAttribute("aria-modal"); overlay.removeAttribute("aria-labelledby");
+        overlay.innerHTML =
+          '<div style="max-width:980px;width:100%;background:rgba(15,22,34,.96);color:#fff;border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:14px;">' +
+          '<div style="font-weight:900;font-size:16px;margin-bottom:8px;">' + E.escapeHtml(title || "Eikon crashed") + "</div>" +
+          '<div style="color:rgba(255,255,255,.75);font-size:12px;margin-bottom:10px;">Open DevTools Console for details. dbg=2 is recommended.</div>' +
+          '<pre style="white-space:pre-wrap;word-break:break-word;margin:0;background:rgba(0,0,0,.3);padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.10);font-size:12px;line-height:1.4;max-height:60vh;overflow:auto;">' +
+          E.escapeHtml(String(details || "")) +
+          "</pre>" +
+          "</div>";
+        return;
+      }
+      var first = !overlay.querySelector("#eikon-fatal-retry");
+      overlay.setAttribute("role", "alertdialog"); overlay.setAttribute("aria-modal", "true"); overlay.setAttribute("aria-labelledby", "eikon-fatal-title");
       overlay.innerHTML =
-        '<div style="max-width:980px;width:100%;background:rgba(15,22,34,.96);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:14px;">' +
-        '<div style="font-weight:900;font-size:16px;margin-bottom:8px;">' + E.escapeHtml(title || "Eikon crashed") + "</div>" +
-        '<div style="color:rgba(255,255,255,.75);font-size:12px;margin-bottom:10px;">Open DevTools Console for details. dbg=2 is recommended.</div>' +
-        '<pre style="white-space:pre-wrap;word-break:break-word;margin:0;background:rgba(0,0,0,.3);padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.10);font-size:12px;line-height:1.4;max-height:60vh;overflow:auto;">' +
-        E.escapeHtml(String(details || "")) +
-        "</pre>" +
-        "</div>";
+        '<div style="max-width:420px;width:100%;box-sizing:border-box;background:#fff;color:#1c1c1e;border-radius:16px;padding:24px;font:16px/1.45 -apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Arial,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.4)">' +
+        '<h1 id="eikon-fatal-title" style="font-size:20px;font-weight:700;margin:0 0 8px">Eikon could not start</h1>' +
+        '<p style="margin:0 0 18px;color:#3a3a3c">Check the internet connection, then try again.</p>' +
+        '<button type="button" id="eikon-fatal-retry" style="min-height:44px;padding:0 20px;border:0;border-radius:10px;background:#0a7a5a;color:#fff;font-family:inherit;font-size:16px;font-weight:600;line-height:1;cursor:pointer">Try again</button>' +
+        '<details style="margin-top:18px;color:#3a3a3c;font-size:13px"><summary style="cursor:pointer">Details for support</summary>' +
+        '<pre style="white-space:pre-wrap;word-break:break-word;margin:8px 0 0;background:#f2f2f7;color:#1c1c1e;padding:10px;border-radius:10px;font-size:12px;line-height:1.4;max-height:30vh;overflow:auto">' +
+        E.escapeHtml(String(details || title || "")) + "</pre></details></div>";
+      var rb = overlay.querySelector("#eikon-fatal-retry");
+      rb.addEventListener("click", function () { rb.disabled = true; rb.textContent = "Trying…"; try { window.location.reload(); } catch (e) {} });
+      if (first) { try { rb.focus(); } catch (eF) {} } // it covers everything: the one thing to do has the focus
     } catch (e) {}
   };
+
+  // After boot: an unexpected error is said in a calm bar at the foot of the screen (role=alert, so it is read out;
+  // it never takes the focus). The screen stays as it is, with what was typed in it. "Reload this screen" loads the
+  // page again; Close (or Escape inside the bar) puts it away, and the same error does not bring it back this visit.
+  (function () {
+    var closed = {};
+    function css() {
+      if (document.getElementById("eikon-errbar-style")) return;
+      var st = document.createElement("style"); st.id = "eikon-errbar-style";
+      st.textContent =
+        ".eikon-errbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:2147483000;" +
+        "display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;box-sizing:border-box;width:max-content;max-width:min(640px,calc(100vw - 32px));" +
+        "padding:10px 10px 10px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.22);background:#1c1c1e;color:#fff;font:15px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;" +
+        "box-shadow:0 10px 30px rgba(0,0,0,.35)}" +
+        ".eikon-errbar-t{flex:1 1 220px;min-width:0}" +
+        ".eikon-errbar-b{display:flex;gap:8px;flex:none}" +
+        ".eikon-errbar button{min-height:44px;padding:0 14px;border-radius:10px;font-family:inherit;font-size:15px;font-weight:600;line-height:1;cursor:pointer;border:1px solid rgba(255,255,255,.55);background:transparent;color:#fff}" +
+        ".eikon-errbar button.p{background:#fff;color:#1c1c1e;border-color:#fff}" +
+        ".eikon-errbar button:focus-visible{outline:3px solid #7cc4ff;outline-offset:2px}" +
+        "@media (max-width:760px){.eikon-errbar{left:16px;right:16px;transform:none;width:auto;max-width:none}" +
+        "html[data-ui2] .eikon-errbar{bottom:calc(92px + env(safe-area-inset-bottom,0px))}}";
+      document.head.appendChild(st);
+    }
+    E.showErrorBar = function (key) {
+      key = String(key || "");
+      if (closed[key] || document.getElementById("eikon-error-bar") || !document.body) return;
+      css();
+      var bar = document.createElement("div");
+      bar.id = "eikon-error-bar"; bar.className = "eikon-errbar"; bar.setAttribute("role", "alert");
+      bar.innerHTML = '<span class="eikon-errbar-t">Something went wrong on this screen. What you typed is kept.</span>' +
+        '<span class="eikon-errbar-b"><button type="button" class="p" data-act="reload">Reload this screen</button><button type="button" data-act="close">Close</button></span>';
+      var back = null; // where the keyboard was before it came into the bar: Close puts it back there
+      document.addEventListener("focusin", function track(ev) { if (!bar.isConnected) { document.removeEventListener("focusin", track); return; } if (!bar.contains(ev.target)) back = ev.target; });
+      var close = function () {
+        closed[key] = 1;
+        var had = bar.contains(document.activeElement);
+        try { bar.remove(); } catch (e) {}
+        if (had) { var to = back && back.isConnected ? back : document.querySelector("#eikon-content h1, main h1"); if (to) { try { if (to.tagName === "H1" && !to.hasAttribute("tabindex")) to.setAttribute("tabindex", "-1"); to.focus({ preventScroll: true }); } catch (e) {} } }
+      };
+      bar.addEventListener("click", function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest("button[data-act]") : null; if (!b) return;
+        if (b.getAttribute("data-act") === "close") close();
+        else { b.disabled = true; b.textContent = "Reloading…"; try { window.location.reload(); } catch (e) {} }
+      });
+      bar.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); close(); } });
+      back = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+      document.body.appendChild(bar);
+    };
+  })();
 
   // Modal helper
   E.modal = (function () {
@@ -1497,7 +1576,14 @@
     btn.appendChild(ico);
     btn.appendChild(label);
     btn.appendChild(badge);
-    btn.addEventListener("click", function () { window.location.hash = "#" + m.id; });
+    btn.addEventListener("click", function () {
+      // On a classic visit (one old screen opened from the new layout), the classic menu's way to a rebuilt screen
+      // ends the visit and opens that screen in the new layout. Only the menu: an address that says ?ui=classic
+      // (a link, a bookmark, a rebuilt screen's "classic screen" link) always gets the classic screen it names.
+      var to = E.isUi2Paused() ? ((E.UI2_NATIVE && E.UI2_NATIVE[m.id]) || ((E.UI2_PARENT && E.UI2_PARENT[m.id]) || (E.UI2_DESTINATIONS || []).indexOf(m.id) >= 0 ? m.id : "")) : "";
+      if (to) { try { window.sessionStorage.removeItem("eikon_ui2_pause"); } catch (e) {} E.returnToNew(to); return; }
+      window.location.hash = "#" + m.id;
+    });
     return btn;
   };
 
@@ -1937,6 +2023,177 @@
     var back = fk && now[fk], a = document.activeElement;
     if (back && !back.disabled && (!a || a === document.body || !a.isConnected)) { try { back.focus({ preventScroll: true }); } catch (e) { back.focus(); } if (s0 != null) { try { back.setSelectionRange(s0, s1); } catch (e) {} } }
   };
+  // ==== q5-2: nothing typed is lost when you leave a form (BACKLOG5 item 2, decision D3) ========================
+  // A half-typed NEW entry left by Back, a tab, a hub card, the search or the address bar is kept in this browser tab
+  // (sessionStorage) for this pharmacy and this signed-in person, until the end of the Malta day. Coming back to that
+  // screen opens its form again exactly as it was, with a quiet line "Your unsaved order is back · Clear". Nothing is
+  // ever sent: only the screen's own Save reaches the server, and the restored form saves what typing it would save
+  // (each value is put in its field with the input, change and blur events typing and leaving the field give). Taking a draft
+  // back removes it from storage, so a save or Cancel leaves nothing behind; leaving again with the form still
+  // changed keeps it again. A person carried from Customers wins: the draft is only offered ("Bring back what you were
+  // typing"), never merged. Passwords and files are never kept. New layout only.
+  //   E.draft.spec(screen, o, mount)   as the screen is drawn: o.btn opens its new-entry form, o.form is it; o.isNew()
+  //                             (optional) is false while the same form edits a saved record. True when drafts apply.
+  //   E.draft.keep(screen, mount)   the router calls it as a screen is left; also on pagehide.
+  //   E.draft.take(screen, mount, ready)   after `ready`, reopen the form with the draft; returns `ready`.
+  //   E.draft.offer(screen, mount)   a carried person's form is open: offer the draft beside it.
+  //   E.draft.clear(screen)   drop it.
+  E.draft = (function () {
+    var PRE = "eikon_draft_v1|", specs = {}, NOUN = { ordreg: "order", tktreg: "question", dlvreg: "delivery", cdsreg: "controlled drug sale", cdpreg: "controlled drug purchase", poyreg: "POYC line", drreg: "register line", locreg: "locum line", cleanreg: "cleaning line", repreg: "repeat prescription", poreg: "payment", cnreg: "credit note", lrcreg: "locum receipt", odreg: "order diary item", qtreg: "quotation", nexreg: "near-expiry item", alertreg: "alert", pocreg: "test", pvreg: "report", conreg: "contact", vaxreg: "vaccine order", retreg: "return", ssreg: "request", scsreg: "stock to share", trfreg: "offer" };
+    function on() { return !!(E.isUi2 && E.isUi2() && E._sectionDashboardId === "today"); }
+    function who() { var u = E.state && E.state.user; return u ? String(u.location_id) + "|" + String(u.id != null ? u.id : (u.email || "")) : ""; }
+    function key(screen) { var w = who(); return w && screen ? PRE + w + "|" + screen : ""; }
+    function ss() { try { return window.sessionStorage; } catch (e) { return null; } }
+    function read(screen) {
+      var s = ss(), k = key(screen), d = null; if (!s || !k) return null;
+      try { d = JSON.parse(s.getItem(k) || "null"); } catch (e) { d = null; }
+      if (d && (d.v !== 1 || d.day !== E.maltaYmd() || !Array.isArray(d.fields))) { try { s.removeItem(k); } catch (e) {} d = null; } // another day's: gone
+      return d;
+    }
+    function clear(screen) { var s = ss(), k = key(screen); if (s && k) try { s.removeItem(k); } catch (e) {} }
+    function skip(el) { var t = String(el.type || "").toLowerCase(); return el.disabled || /^(password|file|hidden|button|submit|reset|image)$/.test(t) || /password/i.test(el.getAttribute("autocomplete") || "") || !!(el.closest && el.closest(".eikon-draft")); }
+    function val(el) { return /^(checkbox|radio)$/i.test(el.type || "") ? !!el.checked : String(el.value == null ? "" : el.value); }
+    function fieldsOf(f) { // [{ k, n, v, el }] in the form's own order
+      var out = [], seen = {};
+      Array.prototype.forEach.call(f.querySelectorAll("input,select,textarea"), function (el) {
+        if (skip(el)) return; var k = E.focusKey(el); if (!k) return;
+        var n = seen[k] = (seen[k] == null ? 0 : seen[k] + 1); out.push({ k: k, n: n, v: val(el), el: el });
+      });
+      return out;
+    }
+    function at(f, x) { var l; try { l = f.querySelectorAll(x.k); } catch (e) { return null; } var i = -1, el = null; Array.prototype.some.call(l, function (c) { if (skip(c)) return false; i++; if (i === x.n) { el = c; return true; } return false; }); return el; }
+    function formOf(screen, mount) { var sp = specs[screen]; if (!sp || !mount) return null; var f = null; try { f = mount.querySelector(sp.form); } catch (e) {} return f; }
+    function isNew(sp) { try { return !sp.isNew || !!sp.isNew(); } catch (e) { return false; } }
+    // The form as it first appeared after its button was pressed: what the screen itself put there (today's date, the
+    // signed-in person, a default of 1). A draft is only what differs from it.
+    function snap(screen, mount) {
+      var sp = specs[screen], f = formOf(screen, mount); if (!sp || !f || sp.fresh) return;
+      sp.fresh = {}; fieldsOf(f).forEach(function (x) { sp.fresh[x.k + "#" + x.n] = x.v; });
+    }
+    function watch(screen, mount) {
+      var sp = specs[screen]; if (!sp) return; sp.fresh = null; sp.shown = null; // a screen drawn afresh
+      if (sp.mount === mount) return; sp.mount = mount;
+      var mine = function () { return E.state && E.state.activeModuleId === screen; };
+      mount.addEventListener("click", function (ev) { // the screen's own New (a tap, Enter, the N key, E.takeOpenForm)
+        if (!mine()) return;
+        var b = ev.target && ev.target.closest && ev.target.closest(sp.btn); if (!b || !mount.contains(b) || formOf(screen, mount)) return;
+        sp.fresh = null; setTimeout(function () { snap(screen, mount); }, 0);
+      }, true);
+      if (window.MutationObserver) new MutationObserver(function () {
+        if (!mine()) return;
+        if (formOf(screen, mount)) { if (sp.shown) line(screen, mount); return; }
+        sp.fresh = null; sp.shown = null; // closed (saved or cancelled): the next one opens clean
+        var ln = mount.querySelector(".eikon-draft"); if (ln) ln.parentNode.removeChild(ln);
+      }).observe(mount, { childList: true, subtree: true });
+    }
+    function changed(screen, mount) {
+      var sp = specs[screen], f = formOf(screen, mount); if (!sp || !f || !sp.fresh || !isNew(sp)) return null;
+      var list = fieldsOf(f).filter(function (x) { var w = sp.fresh[x.k + "#" + x.n]; return w === undefined ? (x.v !== "" && x.v !== false) : w !== x.v; });
+      return list.length ? { f: f, list: list } : null;
+    }
+    function keep(screen, mount) {
+      if (!on() || window.EIKON_NO_DRAFTS) return; // EIKON_NO_DRAFTS: set only by the UI suite's shared page, whose older checks leave forms open on purpose
+      var c = changed(screen, mount), s = ss(), k = key(screen); if (!c || !s || !k) return;
+      var a = document.activeElement, fx = a && c.f.contains(a) ? fieldsOf(c.f).filter(function (x) { return x.el === a; })[0] : null;
+      var d = { v: 1, day: E.maltaYmd(), at: Date.now(), fields: c.list.map(function (x) { return { k: x.k, n: x.n, v: x.v }; }), focus: fx ? { k: fx.k, n: fx.n } : null };
+      try { s.setItem(k, JSON.stringify(d)); } catch (e) {}
+    }
+    // Put values in, as typing would: each field in the form's order, the form looked up again after each (a choice
+    // can redraw it). A field the person has typed in since `since` is theirs and is left alone.
+    function apply(screen, mount, fields, since) {
+      fields.forEach(function (x) {
+        var f = formOf(screen, mount), el = f && at(f, x); if (!el || el.disabled || el.readOnly) return;
+        if (touchedAt && (touchedAt.get(el) || 0) > since) return;
+        if (val(el) === x.v) return;
+        if (typeof x.v === "boolean") el.checked = x.v; else el.value = x.v;
+        try { el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); } catch (e) {}
+        if (el !== document.activeElement && el.isConnected) try { el.dispatchEvent(new FocusEvent("blur")); el.dispatchEvent(new FocusEvent("focusout", { bubbles: true })); } catch (e) {} // and left, as after typing: suggestion lists close, lookups run
+        var again = (formOf(screen, mount) && at(formOf(screen, mount), x)) || el; if (touchedAt) touchedAt.set(again, Date.now()); // kept across a redraw (E.keepChanged)
+      });
+    }
+    function css() {
+      if (document.getElementById("eikon-draft-css")) return;
+      var st = document.createElement("style"); st.id = "eikon-draft-css";
+      st.textContent = ".eikon-draft{display:flex;flex-wrap:wrap;align-items:center;gap:0 8px;margin:4px 0 4px;font-size:14px;line-height:1.4;color:var(--muted,#555)}" +
+        ".eikon-draft button{min-height:44px;padding:0 6px;border:0;background:transparent;color:var(--accent,#0b6b4e);font:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer;border-radius:8px}" +
+        ".eikon-draft button:focus-visible{outline:2px solid var(--accent,#0b6b4e);outline-offset:2px}";
+      document.head.appendChild(st);
+    }
+    // The quiet line just above the form. Put back after a redraw while the form stays open.
+    function line(screen, mount) {
+      var sp = specs[screen], f = formOf(screen, mount); if (!sp || !sp.shown || !f) return;
+      var old = mount.querySelector(".eikon-draft"); if (old && old.nextElementSibling === f && old.getAttribute("data-mode") === sp.shown.mode) return;
+      if (old) old.parentNode.removeChild(old);
+      css();
+      var noun = NOUN[screen] || "entry", p = document.createElement("p");
+      p.className = "eikon-draft"; p.setAttribute("role", "status"); p.setAttribute("data-mode", sp.shown.mode);
+      p.innerHTML = sp.shown.mode === "back" ? "<span>Your unsaved " + E.escapeHtml(noun) + " is back</span><span aria-hidden=\"true\">·</span><button type=\"button\" data-draft=\"clear\">Clear</button>"
+        : "<span>You were typing another " + E.escapeHtml(noun) + "</span><span aria-hidden=\"true\">·</span><button type=\"button\" data-draft=\"bring\">Bring back what you were typing</button>";
+      p.querySelector("button").addEventListener("click", function () {
+        var since = Date.now();
+        if (sp.shown.mode === "back") { // Clear: the form as it opened, ready for a new one
+          var fresh = sp.shown.fresh || {}, back = Object.keys(fresh).map(function (k) { var i = k.lastIndexOf("#"); return { k: k.slice(0, i), n: Number(k.slice(i + 1)), v: fresh[k] }; });
+          apply(screen, mount, back, Infinity); sp.shown = null; clear(screen);
+        } else { // the draft instead of the carried person, whole: every other field as the form opened
+          var d = sp.shown.draft, fr = sp.shown.fresh || {}, have = {};
+          d.fields.forEach(function (x) { have[x.k + "#" + x.n] = 1; });
+          var all = Object.keys(fr).filter(function (k) { return !have[k]; }).map(function (k) { var i = k.lastIndexOf("#"); return { k: k.slice(0, i), n: Number(k.slice(i + 1)), v: fr[k] }; });
+          apply(screen, mount, all.concat(d.fields), Infinity); clear(screen); sp.shown = { mode: "back", fresh: fr };
+        }
+        var f2 = formOf(screen, mount), ln = mount.querySelector(".eikon-draft"); if (ln) ln.parentNode.removeChild(ln);
+        line(screen, mount);
+        var first = f2 && fieldsOf(f2).filter(function (x) { return !x.el.readOnly && !/^(checkbox|radio)$/i.test(x.el.type || ""); })[0];
+        if (first) E.focusIfIdle(first.el, since, null);
+      });
+      f.parentNode.insertBefore(p, f);
+    }
+    function spec(screen, o, mount) { // called as the screen is drawn, before its form can open
+      if (!screen || !o || !o.btn || !o.form) return false;
+      var sp = specs[screen] = specs[screen] || {}; sp.btn = o.btn; sp.form = o.form; sp.isNew = o.isNew || null;
+      if (mount) watch(screen, mount);
+      return true;
+    }
+    function later(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+    async function waitFor(mount, fn, ms) { var t = Date.now(); while (Date.now() - t < ms) { if (!document.body.contains(mount)) return null; var x = fn(); if (x) return x; await later(40); } return null; }
+    async function reopen(screen, mount, since) { // since: when the screen began to open (typing from then on is the person's)
+      var sp = specs[screen], d = read(screen); if (!sp || !d) return; since = since || Date.now();
+      var here = function () { return document.body.contains(mount) && E.state.activeModuleId === screen; };
+      var from = document.activeElement;
+      var b = await waitFor(mount, function () { var x = formOf(screen, mount) || mount.querySelector(sp.btn); return x && !x.disabled ? x : null; }, 4000);
+      if (!b || !here()) return;
+      var a = document.activeElement, busy = a && mount.contains(a) && a.matches && a.matches("input,select,textarea") && E.personSince(since);
+      if (busy && !(a.closest && a.closest(sp.form))) return; // typing in the screen (its search): kept for later
+      if (busy) { snap(screen, mount); sp.shown = { mode: "offer", draft: d, fresh: sp.fresh ? Object.assign({}, sp.fresh) : {} }; line(screen, mount); return; } // they began a new one meanwhile: offered, never merged
+      if (!b.matches(sp.form)) b.click();
+      var f = await waitFor(mount, function () { return formOf(screen, mount); }, 3000); if (!f || !here()) return;
+      await later(40); // after the screen's own "focus the first field" (30 ms)
+      if (!here() || !formOf(screen, mount)) return;
+      snap(screen, mount); var fresh = sp.fresh ? Object.assign({}, sp.fresh) : {};
+      apply(screen, mount, d.fields, since);
+      clear(screen); sp.shown = { mode: "back", fresh: fresh }; line(screen, mount);
+      var f2 = formOf(screen, mount), el = f2 && d.focus ? at(f2, d.focus) : null;
+      if (!el && f2) { var last = d.fields[d.fields.length - 1]; el = last ? at(f2, last) : null; }
+      if (el) E.focusIfIdle(el, since, from);
+    }
+    function take(screen, mount, ready) {
+      if (!on() || !specs[screen] || !mount) return ready;
+      if (!read(screen)) return ready;
+      var since = Date.now(), go = function () { reopen(screen, mount, since).catch(function () {}); };
+      return Promise.resolve(ready).then(function (v) { go(); return v; }, function (e) { go(); throw e; });
+    }
+    function offer(screen, mount) {
+      if (!on() || !specs[screen] || !mount) return;
+      var d = read(screen), sp = specs[screen]; if (!d) return;
+      snap(screen, mount); // the form as it opened, before the person is filled in (when it is already drawn)
+      waitFor(mount, function () { return formOf(screen, mount); }, 3000).then(function (f) {
+        if (!f) return; snap(screen, mount); sp.shown = { mode: "offer", draft: d, fresh: sp.fresh ? Object.assign({}, sp.fresh) : {} }; line(screen, mount);
+      });
+    }
+    window.addEventListener("pagehide", function () { try { var c = document.getElementById("eikon-content"); if (E.state && E.state.activeModuleId) keep(E.state.activeModuleId, c); } catch (e) {} });
+    function dropMine() { var s = ss(), w = who(); if (!s || !w) return; try { for (var i = s.length - 1; i >= 0; i--) { var k = s.key(i); if (k && k.indexOf(PRE + w + "|") === 0) s.removeItem(k); } } catch (e) {} }
+    return { spec: spec, keep: keep, take: take, offer: offer, clear: clear, dropMine: dropMine };
+  })();
+  // ==== end q5-2 ====================================================================================================
   // Form problems, said one way on every screen. E.formErrors(form, problems, opts): problems is a list of
   // { field: a [name] or the element, msg }. Every field named is marked aria-invalid and tied (aria-describedby) to ONE
   // role=alert message saying all the problems at once; the first field gets the cursor; typing in a marked field
@@ -2735,6 +2992,7 @@
     if (E._supplierPollInterval) { clearInterval(E._supplierPollInterval); E._supplierPollInterval = null; }
     // Revoke the session on the server before forgetting the token locally.
     try { if (E.getToken()) { E.apiFetch("/auth/logout", { method: "POST" }).catch(function () {}); } } catch (e) {}
+    try { if (E.draft) E.draft.dropMine(); } catch (e) {} // q5-2: what this person left half-typed goes with them
     E.clearToken();
     try { window.localStorage.removeItem("eikon_locked"); } catch (e) {}
     E.state.user = null;
@@ -2778,6 +3036,7 @@
 
     // Let the module we are leaving stop its timers and listeners.
     var leaving = E.state.activeModuleId;
+    if (leaving && E.draft) { try { E.draft.keep(leaving, content); } catch (eK) {} } // q5-2: a half-typed form is kept for when they come back
     if (leaving && leaving !== id && E.modules[leaving] && typeof E.modules[leaving].destroy === "function") {
       try { E.modules[leaving].destroy(); } catch (eD) { E.warn("[router] destroy failed for", leaving, eD); }
     }
@@ -2949,6 +3208,17 @@
     if (r) r.addEventListener("click", function () { r.disabled = true; r.textContent = "Trying…"; try { location.reload(); } catch (e) {} });
     if (si) si.addEventListener("click", function () { E.clearToken(); E.state.user = null; E.renderLogin(); });
   };
+
+  // Eikon has started once E.start has finished (the first screen, the sign-in or the portal picker is up): from then
+  // on an unexpected error is the closable bar, not the full-screen notice (E.showFatalOverlay). A start that fails
+  // still rejects as before (main.js does not wait for it), so it reaches the unhandledrejection handler and blocks.
+  (function () {
+    var start = E.start;
+    E.start = function () {
+      var r = start.apply(E, arguments);
+      return Promise.resolve(r).then(function (v) { E._booted = true; return v; });
+    };
+  })();
 
   // Show sign-in as soon as the core is here (about 0.3 s) instead of after all 59 scripts;
   // modules keep loading while the person types. Only when there is no saved session.

@@ -232,7 +232,7 @@
       h += "</div>";
       if (!S.who && active().length) h += '<div class="shf-card" style="margin-top:10px"><button class="shf-add" style="border-top:0" data-act="who" data-k="who">+ Add a person to the rota</button></div>';
     }
-    h += '<p class="shf-note">Patterns, opening hours, changing a person’s details, leave balances and history, and the calendar link are in the <a href="#" data-act="classic">classic Shifts screen</a>.</p></div>';
+    h += '<p class="shf-note">Patterns, opening hours, changing a person’s details, leave balances and history, and the calendar link are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
     m.innerHTML = h;
     if (keepAct && /^(prev|next|now)$/.test(keepAct)) { var kb = m.querySelector('[data-act="' + keepAct + '"]') || m.querySelector('[data-act="next"]'); if (kb) kb.focus(); }
     m.querySelectorAll("[data-act]").forEach(function (b) {

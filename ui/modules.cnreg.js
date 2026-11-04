@@ -167,7 +167,7 @@
       h += '<div id="cnr-list">' + listHtml() + "</div>";
     }
     h += E.months.history("cnreg", HIST);
-    h += E.correct.foot('Notes and printing a note are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.') + "</div>";
+    h += (E.correct.can() ? E.correct.foot("", "Deleting a credit note, notes and printing a note are") : E.correct.foot('Notes and printing a note are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.')) + "</div>";
     var ae = document.activeElement, sel = ae && m.contains(ae) ? (ae.id === "cnr-q" ? "#cnr-q" : ae.name ? "[name=" + ae.name + "]" : "") : "";
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) { again.focus(); try { var L = again.value.length; again.setSelectionRange(L, L); } catch (x) {} } }

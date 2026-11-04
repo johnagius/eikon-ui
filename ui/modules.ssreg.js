@@ -168,7 +168,7 @@
 
   E.registerModule({
     id: "ssreg", title: "Shortages", order: 3, icon: "⇄", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.offering = null; S.err = ""; S.busy = {}; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.offering = null; S.err = ""; S.busy = {}; css(); paint(); return E.takeOpenForm("ssreg", S.mount, load(), { btn: "[data-act=add]", form: "#ssr-add" } /* q5-2: a half-typed form comes back */, null); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("ssreg") < 0) E.UI2_DESTINATIONS.push("ssreg");
   if (E.UI2_PARENT) E.UI2_PARENT.ssreg = "stock";

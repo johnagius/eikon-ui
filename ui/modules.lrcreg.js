@@ -115,7 +115,7 @@
           E.correct.button("lrcreg", r, "the receipt for " + r.locum_full_name + ", " + dayLabel(r.receipt_date)) + "</div>" + E.correct.panel("lrcreg", r, FIX);
       }).join("") + "</div>" : '<div class="lrc-quiet" data-empty>' + esc(E.months.empty(S.month, "No locum receipts this month yet.")) + "</div>";
     }
-    h += E.correct.foot(E.correct.can() ? "Correcting a receipt asks for the edit password, as the classic screen does." : "") + "</div>";
+    h += E.correct.foot(E.correct.can() ? "Correcting a receipt asks for the edit password, as the classic screen does." : "", "Deleting a receipt is") + "</div>";
     var ae = document.activeElement, sel = ae && m.contains(ae) && ae.name ? "[name=" + ae.name + "]" : "";
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) again.focus(); }
@@ -135,12 +135,13 @@
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
       f.addEventListener("input", function (ev) { // the total follows what is typed; the day decides the rate
-        var n = ev.target && ev.target.name; keep();
+        var n = ev.target && ev.target.name; if (!S.adding) return; keep();
         if (n === "receipt_date") { var ty = dayType(S.adding.receipt_date), r = mem()[ty]; if (ty !== S.adding.day_type) { S.adding.day_type = ty; if (r != null) S.adding.fee_per_hour = String(r); } inPlace(); return; }
         if (n === "day_type") { var r2 = mem()[S.adding.day_type]; if (r2 != null) S.adding.fee_per_hour = String(r2); inPlace(); return; }
         var tot = m.querySelector("#lrc-tot"); if (tot) tot.textContent = totalText();
       });
-      var nm = f.querySelector("[name=locum_full_name]"); if (nm) nm.addEventListener("blur", function () { keep(); var k = S.known.find(function (x) { return String(x.name).toLowerCase() === String(S.adding.locum_full_name).toLowerCase(); }); if (k && !S.adding.registration_number && E.fillEmpty(f, { registration_number: k.reg }).length) S.adding.registration_number = k.reg; });
+      // Escape or Cancel removes the form while the name has focus: the blur that follows finds it closed and does nothing.
+      var nm = f.querySelector("[name=locum_full_name]"); if (nm) nm.addEventListener("blur", function () { if (!S.adding || !f.isConnected) return; keep(); var k = S.known.find(function (x) { return String(x.name).toLowerCase() === String(S.adding.locum_full_name).toLowerCase(); }); if (k && !S.adding.registration_number && E.fillEmpty(f, { registration_number: k.reg }).length) S.adding.registration_number = k.reg; });
     }
     // The rate and the reg no. are written into the open form in place: a redraw here, while the day was being typed
     // or as the name was left with Tab, replaced the field in use and lost what was typed next.

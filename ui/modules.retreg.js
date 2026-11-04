@@ -202,7 +202,7 @@
 
   E.registerModule({
     id: "retreg", title: "Returns", order: 3, icon: "↩", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.err = ""; S.errAt = ""; E.months.historyReset("retreg"); css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.err = ""; S.errAt = ""; E.months.historyReset("retreg"); css(); paint(); return E.takeOpenForm("retreg", S.mount, load(), { btn: "[data-act=add]", form: "#rtn-add" } /* q5-2: a half-typed form comes back */, null); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("retreg") < 0) E.UI2_DESTINATIONS.push("retreg");
   if (E.UI2_PARENT) E.UI2_PARENT.retreg = "stock";

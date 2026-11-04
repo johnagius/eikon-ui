@@ -157,7 +157,7 @@
     var f = m.querySelector("#odr-add");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
-      var it = f.querySelector("[name=item_name]"); if (it) it.addEventListener("blur", function () { keep(); var hit = S.items.find(function (i) { return String(i.item_name).toLowerCase() === String(S.adding.item_name || "").toLowerCase(); }); if (hit && hit.preferred_supplier && !S.adding.supplier && E.fillEmpty(f, { supplier: hit.preferred_supplier }).length) S.adding.supplier = hit.preferred_supplier; }); // in place: a redraw as the field is left with Tab lost the next field
+      var it = f.querySelector("[name=item_name]"); if (it) it.addEventListener("blur", function () { if (!S.adding || !f.isConnected) return; keep(); var hit = S.items.find(function (i) { return String(i.item_name).toLowerCase() === String(S.adding.item_name || "").toLowerCase(); }); if (hit && hit.preferred_supplier && !S.adding.supplier && E.fillEmpty(f, { supplier: hit.preferred_supplier }).length) S.adding.supplier = hit.preferred_supplier; }); // in place: a redraw as the field is left with Tab lost the next field. Escape or Cancel removes the form while the field has focus: the blur that follows finds it closed (S.adding null) and does nothing
     }
   }
   // Suppliers already used (today's list, then the usual supplier of items ordered before), for the Supplier field.

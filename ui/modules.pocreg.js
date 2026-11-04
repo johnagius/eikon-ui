@@ -325,7 +325,7 @@
     else if (S.error) h += '<div class="poc-quiet" role="alert">' + esc(S.error) + ' <button type="button" class="poc-btn" data-act="retry" style="margin-left:6px">Try again</button></div>';
     else h += S.view ? patientHtml(S.view) : homeHtml();
     h += '<p class="poc-note">High and low marks are a guide for adults (blood pressure 140/90, fasting glucose 7.0 and random 11.1 mmol/L, HbA1c 48 mmol/mol, total cholesterol 5.0, LDL 3.0, HDL 1.0, BMI 25) and are not saved with the test. ' +
-      'Editing or deleting a test, printing one test, the patients list with its flags, CSV export and import are in the <a href="#" data-act="classic">classic POCT screen</a>.</p></div>';
+      'Editing or deleting a test, printing one test, the patients list with its flags, and exporting or importing a spreadsheet are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
     var ae = document.activeElement, back = ae && m.contains(ae) && ae.closest && ae.closest("#poc-add") && ae.name ? "[name=" + ae.name + "]" : (ae && ae.id === "poc-q" ? "#poc-q" : "");
     var caret = null; if (back) try { caret = typeof ae.selectionStart === "number" ? ae.selectionStart : null; } catch (e) { caret = null; }
     m.innerHTML = h;

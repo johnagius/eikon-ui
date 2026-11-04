@@ -199,7 +199,7 @@
     h += '<h2 class="rep-h2" id="rep-bymonth">Written by month</h2>' + E.months.bar(S.mo, { label: "Repeat prescriptions written" }) +
       (S.moLoading && !S.moEntries.length ? '<div class="rep-quiet">Opening ' + esc(E.months.label(S.mo)) + "…</div>" : S.moError ? '<div class="rep-quiet">' + esc(S.moError) + "</div>" :
         '<div class="rep-lab">Written in ' + esc(E.months.label(S.mo)) + " <b>" + mo.length + "</b></div>" + (mo.length ? '<div class="rep-list">' + mo.map(function (e) { return rowHtml(e, true); }).join("") + "</div>" : '<div class="rep-quiet" data-empty>' + (S.moEntries.length ? "No prescription that month matches." : esc(E.months.empty(S.mo))) + "</div>"));
-    h += E.correct.foot(E.correct.can() ? "Correct is on each line of Written by month." : "") + "</div>";
+    h += E.correct.foot(E.correct.can() ? "Correct is on each line of Written by month." : "", "Deleting a prescription is") + "</div>";
     var ae = document.activeElement, keepSel = ae && m.contains(ae) && ae.name ? "[name=" + ae.name + "]" : ae && ae.id === "rep-q" ? "#rep-q" : "";
     m.innerHTML = h;
     if (keepSel) { var again = m.querySelector(keepSel); if (again) { again.focus(); try { var L = again.value.length; again.setSelectionRange(L, L); } catch (x) {} } } // typing keeps its place

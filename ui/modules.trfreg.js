@@ -177,7 +177,7 @@
 
   E.registerModule({
     id: "trfreg", title: "Transfers", order: 3, icon: "⇄", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.offering = null; S.asking = null; S.err = ""; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.offering = null; S.asking = null; S.err = ""; css(); paint(); return E.takeOpenForm("trfreg", S.mount, load(), { btn: "[data-act=offer]", form: "#trf-offer" } /* q5-2: a half-typed form comes back */, null); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("trfreg") < 0) E.UI2_DESTINATIONS.push("trfreg");
   if (E.UI2_PARENT) E.UI2_PARENT.trfreg = "stock";

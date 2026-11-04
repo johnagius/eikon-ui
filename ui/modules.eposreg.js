@@ -440,7 +440,7 @@
       '<input type="search" id="epr-q" class="epr-q" data-k="q" placeholder="Name or barcode, then Enter" autocomplete="off" value="' + esc(S.q) + '" aria-controls="epr-hits">' +
       '<div class="epr-hits" id="epr-hits">' + hitsHtml() + "</div></section>" + basketHtml() + "</div>";
     h += salesHtml();
-    h += '<p class="epr-note">Scanning with the camera, photo search, setting a barcode per line, importing a new product list or clearing it, and printing the day’s receipts are in the <a href="#" data-act="classic">classic Emergency POS</a>.</p>' +
+    h += '<p class="epr-note">Scanning with the camera, photo search, setting a barcode per line, importing a new product list or clearing it, and printing the day’s receipts are in the <a href="#" data-act="classic">classic screen</a>.</p>' +
       '<div class="epr-sr" role="status" aria-live="polite" id="epr-said">' + esc(S.said) + "</div></div>";
     var ae = document.activeElement, back = ae && m.contains(ae) && ae.getAttribute ? ae.getAttribute("data-k") : null, caret = null;
     if (back) try { caret = typeof ae.selectionStart === "number" ? ae.selectionStart : null; } catch (e) { caret = null; }

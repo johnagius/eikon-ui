@@ -481,6 +481,7 @@ const browser = await chromium.launch();
   browser.newPage = async (o = {}) => { const c = await browser.newContext(o), pg = await c.newPage(); pg.once("close", () => c.close().catch(() => {})); return pg; };
   if (CLOCK_OFFSET || BROWSER_TZ !== "Europe/Malta") console.log(`  clock: ${new Date().toISOString()} (faked), pages in ${BROWSER_TZ}`); }
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+await page.addInitScript(() => { window.EIKON_NO_DRAFTS = true; }); // q5-2: the checks on this page leave forms half-typed between steps; drafts have their own page below
 await page.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: "window.XLSX={};" }));
 await page.route(/cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "application/javascript", body: "" }));
 const errors = [];
@@ -543,6 +544,12 @@ const redacted = await page.evaluate(async () => {
 report("core: debug logs redact the bearer token", !redacted.hasBearerX && redacted.hasRedacted, JSON.stringify(redacted));
 
 // 3. Every pharmacy module renders without errors
+// In the classic layout (Settings > Classic layout), as these checks always ran: they used to reach it through the
+// first old screen's classic visit, which then stuck; a classic visit now ends at the next rebuilt screen (q5-1).
+await page.evaluate(() => { localStorage.setItem("eikon_ui2", "0"); });
+await page.reload();
+await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && document.getElementById("eikon-content"), null, { timeout: 15000 });
+await page.waitForTimeout(800);
 const moduleIds = await page.evaluate(() => Object.keys(window.EIKON.modules));
 const skipHeavy = new Set(["vaccines"]); // loads a 3.5 MB map; covered separately
 const perModule = {};
@@ -3378,7 +3385,7 @@ try {
   const RX1 = /localhost:\d+\/(temperature\/devices|creditnotes\/list|client-tickets\/entries|client-deliveries\/entries)$/;
   await page.route(RX, handler); await page.route(RX1, handler);
   if (XLSX_REAL) await page.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: XLSX_REAL }));
-  const expected = {}; const TITLES = { "/temperature/entries": "Temperature", "/cleaning/entries": "Cleaning", "/daily-register/entries": "Daily register", "/locumregister/entries": "Locum register", "/dda-purchases/entries": "DDA purchases", "/dda-sales/entries": "DDA sales", "/dda-poyc/entries": "DDA POYC", "/repeat-prescriptions/entries": "Repeat prescriptions", "/paid-out/entries": "Paid out", "/locumreceipts/receipts": "Locum receipts", "/client-orders/entries": "Orders" };
+  const expected = {}; const TITLES = { "/temperature/entries": "Temperature", "/cleaning/entries": "Cleaning", "/daily-register/entries": "Daily register", "/locumregister/entries": "Locum register", "/dda-purchases/entries": "Controlled drugs received", "/dda-sales/entries": "Controlled drugs supplied", "/dda-poyc/entries": "POYC controlled drugs", "/repeat-prescriptions/entries": "Repeat prescriptions", "/paid-out/entries": "Paid out", "/locumreceipts/receipts": "Locum receipts", "/client-orders/entries": "Orders" };
   for (const k of keys) { let c = 0; for (let m = 1; m <= 12; m++) c += nFor(k, m); expected[TITLES[k]] = c; }
   const inY = onceDays.filter((d) => d.startsWith("2025")).length; expected["Credit notes"] = inY; expected.Questions = inY; expected.Deliveries = inY; expected["End of day"] = 24;
   const openExp = async () => {
@@ -3594,7 +3601,7 @@ try {
   const L1 = await logs();
   const b = (L1[0] && L1[0].body) || {};
   const txt = JSON.stringify(L1);
-  const overlay = await page.evaluate(() => { const o = document.getElementById("eikon-fatal-overlay"); const had = !!o; if (o) o.remove(); return had; });
+  const overlay = await page.evaluate(() => { const o = document.getElementById("eikon-fatal-overlay"), b = document.getElementById("eikon-error-bar"); const had = !o && !!b; if (o) o.remove(); if (b) b.remove(); return had; }); // after boot: the bar, never the overlay (q5-1)
   // a screen that throws while drawing
   await page.evaluate(async () => { const E = window.EIKON; E._t_render = E.modules.tktreg.render; E.modules.tktreg.render = function () { throw new Error("render broke"); }; await E.renderActiveModule(); });
   await page.waitForTimeout(600);
@@ -3604,8 +3611,8 @@ try {
   await page.evaluate(() => { for (let i = 0; i < 10; i++) setTimeout(() => { throw new Error("Burst " + i); }, 0); });
   await page.waitForTimeout(700);
   const L3 = await logs();
-  await page.evaluate(() => { const o = document.getElementById("eikon-fatal-overlay"); if (o) o.remove(); });
-  report("error reports: a thrown error is one POST /client-log (screen tktreg, kind error, build, scrubbed message and stack, nothing typed in the form), the overlay adds none; a drawing crash is one render report; at most 5 per page load",
+  await page.evaluate(() => { for (const id of ["eikon-fatal-overlay", "eikon-error-bar"]) { const o = document.getElementById(id); if (o) o.remove(); } });
+  report("error reports: a thrown error is one POST /client-log (screen tktreg, kind error, build, scrubbed message and stack, nothing typed in the form), the bar shown after boot adds none; a drawing crash is one render report; at most 5 per page load",
     L1.length === 1 && JSON.stringify(Object.keys(b)) === JSON.stringify(["build", "kind", "screen", "message", "stack"]) && b.screen === "tktreg" && b.kind === "error" && /^2026-\d\d-\d\d\.\d+$/.test(b.build) &&
     /Boom on the screen/.test(b.message) && !/Zammit|Carmel|Ozempic|0012345M|99001122|79123456|\?q=/.test(txt) && /\[id\]/.test(b.message) && /\[phone\]/.test(b.message) && overlay &&
     L2.length === 1 && L2[0].body.screen === "tktreg" && /render broke/.test(L2[0].body.message) && L3.length === 5,
@@ -3630,7 +3637,7 @@ try {
   await page.evaluate(() => { setTimeout(() => { throw new Error("Real fault after csp reports"); }, 0); });
   await page.waitForTimeout(500);
   const L3 = (await logs()).filter((c) => c.body && c.body.kind === "error");
-  await page.evaluate(() => { const o = document.getElementById("eikon-fatal-overlay"); if (o) o.remove(); });
+  await page.evaluate(() => { for (const id of ["eikon-fatal-overlay", "eikon-error-bar"]) { const o = document.getElementById(id); if (o) o.remove(); } });
   report("csp reports: a report-only violation is one POST /client-log kind csp (directive, origin, file:line; no path or query), 5 a load of their own; a real error is still sent after them",
     L1.length === 1 && b.kind === "csp" && b.message === "CSP img-src would block https://tiles0.example (modules.dlvreg.js:12)" && !/secret|0012345M|\/a\/b/.test(JSON.stringify(L1)) &&
     L2.length === 5 && L3.length === 1,
@@ -4879,8 +4886,8 @@ try {
   const nxPost = (await posts("/near-expiry/entries"))[0];
   await sp.keyboard.press("Escape"); await sp.waitForTimeout(150);
   const nxEsc = { open: !!(await sp.$("#nex-add")), focus: await focusIs() };
-  report("near expiry: the way back is ‹ Stock; pills say “Expired 2 days ago”; after Add the form stays for the next item with Where kept and focus on Product (Add another / Done); the body is as before; Escape closes it and Add has focus",
-    nxBack === "‹ Stock" && nxPill.includes("Expired 2 days ago") && nxAfter && nxAfter.product === "" && nxAfter.where === "Shelf Ż4" && nxAfter.focus === "product_name" && nxAfter.submit === "Add another" && nxAfter.cancel === "Done" &&
+  report("near expiry: the way back is ‹ Stock; pills say “Expired 2 days ago”; after Add the form stays for the next item with Where kept and focus on Product (Save item / Done); the body is as before; Escape closes it and Add has focus",
+    nxBack === "‹ Stock" && nxPill.includes("Expired 2 days ago") && nxAfter && nxAfter.product === "" && nxAfter.where === "Shelf Ż4" && nxAfter.focus === "product_name" && nxAfter.submit === "Save item" && nxAfter.cancel === "Done" &&
     nxPost && JSON.stringify(nxPost.body) === JSON.stringify({ product_name: "Ċetirizine 10mg", expiry_date: "2027-01-31", location: "Shelf Ż4", notes: "" }) && !nxEsc.open && nxEsc.focus === "add",
     JSON.stringify({ nxBack, nxPill, nxAfter, nxPost, nxEsc }));
 
@@ -5835,6 +5842,233 @@ try {
 } catch (e) { report("q5-5 today short and exact: ran to the end", false, String(e && e.stack || e).slice(0, 400)); }
 todayState = { tempDone: false, cleanDone: false }; teamState = teamFresh();
 await page.setViewportSize({ width: 1440, height: 900 });
+
+// BACKLOG5 item 11: the same word on screen and in print. The registers with Correct say where deleting is (a link to
+// the classic screen, which opens it), the classic link is called "classic screen" everywhere, the buttons say what they
+// do, Download our records names the controlled-drug registers as the registers do, and the temperature month print
+// names the pharmacy's own room sensor "Room", as Today does (the stored name after it).
+try {
+  const w = {};
+  const open = async (h, mod, sel) => { await page.goto(base + "&ui=2#" + h); await page.waitForFunction(([m, s]) => window.EIKON.state.activeModuleId === m && document.querySelector(s), [mod, sel], { timeout: 15000 }); await page.waitForTimeout(300); };
+  const foot = () => page.evaluate(() => [...document.querySelectorAll('#eikon-content [data-act="classic"]')].map((a) => ({ p: (a.closest("p") || a.parentElement).innerText.replace(/\s+/g, " ").trim(), a: a.textContent })));
+  for (const [h, mod, want] of [["cleanreg", "cleanreg", "Deleting a line is in the classic screen."], ["drreg", "drreg", "Deleting a line is in the classic screen."], ["poreg", "poreg", "Deleting a payment is in the classic screen."], ["cnreg", "cnreg", "Deleting a credit note, notes and printing a note are in the classic screen."]]) {
+    await open(h, mod, ".ecr-foot"); const f = await foot(); w[h] = f.length === 1 && f[0].a === "classic screen" && f[0].p.endsWith(want) && !/not deleted/.test(f[0].p) ? "ok" : f;
+  }
+  await open("cleanreg", "cleanreg", ".ecr-foot [data-act=classic]");
+  await Promise.all([page.waitForURL(/ui=classic/, { timeout: 15000 }), page.click(".ecr-foot [data-act=classic]")]);
+  w.cleanLink = /ui=classic/.test(page.url()) && /#cleaning$/.test(page.url());
+  const src = (f) => fs.readFileSync(path.join(root, f), "utf8");
+  w.oneName = ["audreg", "calreg", "eposreg", "ocpreg", "pocreg", "rotreg", "shfreg", "alertreg"].filter((m) => { const t = src("modules." + m + ".js"); return [...t.matchAll(/data-act="classic"[^>]*>([^<]*)</g)].some((x) => x[1] !== "classic screen"); });
+  await page.goto(base + "&ui=2#nexreg"); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "nexreg" && document.querySelector("[data-act=add]"), null, { timeout: 15000 });
+  await page.click("[data-act=add]"); w.nex = await page.textContent("#nex-add button[type=submit]");
+  await open("instructions", "hndreg", "#hnd-add"); w.hnd = await page.textContent("#hnd-add button[type=submit]");
+  await open("paidout", "poreg", "[data-act=add]"); await page.click("[data-act=add]");
+  w.po = await page.evaluate(() => [...document.querySelectorAll("#por-add label")].map((l) => [l.querySelector("span").textContent, [...l.querySelectorAll("input")].map((i) => i.name).join("+")].join(":")).filter((x) => /entry_/.test(x)).join());
+  await open("money", "money", ".hub-card"); w.hub = await page.evaluate(() => document.querySelector("#eikon-content").innerText);
+  await open("settings", "settings", '[data-open="expreg"]'); await page.click('[data-open="expreg"]'); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "expreg" && document.querySelector("[data-reg]"), null, { timeout: 15000 });
+  w.exp = await page.evaluate(() => [...document.querySelectorAll("[data-reg]")].map((i) => i.closest("label").textContent).filter((t) => /controlled|DDA/i.test(t)).join("|"));
+  await page.route(/\/temperature\/devices/, (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, devices: [{ id: 7, name: "Demo Pharmacy", device_type: "room", min_limit: 15, max_limit: 25, active: 1 }, { id: 8, name: "Fridge 1", device_type: "fridge", min_limit: 2, max_limit: 8, active: 1 }] }) }));
+  await open("tempreg", "tempreg", "[data-mb=print]");
+  await page.evaluate(() => { window.__tp = null; window.EIKON.months.print = (d) => { window.__tp = d; }; });
+  await page.click("[data-mb=print]"); await page.waitForFunction(() => window.__tp, null, { timeout: 5000 });
+  w.temp = await page.evaluate(() => ({ cols: window.__tp.sections[0].cols.slice(1), intro: window.__tp.intro }));
+  await page.unroute(/\/temperature\/devices/);
+  report("same word, screen and print (item 11): Correct registers say deleting is in the classic screen and the link opens it; one name for the classic link; Save item, Add point, Date and Time; sales are sent when the connection is back; export names match the registers; the room prints as Room (Demo Pharmacy)",
+    ["cleanreg", "drreg", "poreg", "cnreg"].every((k) => w[k] === "ok") && w.cleanLink && !w.oneName.length && w.nex === "Save item" && w.hnd === "Add point" && w.po === "Date:entry_date,Time:entry_time" &&
+    /sales are sent when the connection is back/.test(w.hub) && !/sync/.test(w.hub) && w.exp === "Controlled drugs received|Controlled drugs supplied|POYC controlled drugs" &&
+    JSON.stringify(w.temp.cols) === JSON.stringify(["Room (Demo Pharmacy)", "Fridge 1"]) && /Room \(Demo Pharmacy\) 15/.test(w.temp.intro), JSON.stringify(w).slice(0, 900));
+} catch (e) { report("same word, screen and print (item 11): ran to the end", false, String(e && e.stack || e).slice(0, 500)); }
+
+// ---- q5-2: nothing typed is lost when you leave a form (BACKLOG5 item 2, core.js E.draft) ----
+// Six New forms, each left half-typed by Back, the tab bar, the search and its hub link, come back exactly as typed with
+// "Your unsaved … is back · Clear"; nothing is written meanwhile. A person carried from Customers wins (the draft is
+// offered, not merged). Drafts are per pharmacy and person, end with the Malta day, never hold a password, and go at sign-out.
+try {
+  const dc = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, timezoneId: "Europe/Malta" });
+  await dc.route(/cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "application/javascript", body: "" }));
+  await dc.addInitScript(() => { try { if (!localStorage.getItem("eikon_token")) localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); } catch (e) {} });
+  const dp = await dc.newPage(); const derr = []; dp.on("pageerror", (e) => derr.push(e.message));
+  const at = (m) => dp.waitForFunction((m) => window.EIKON && window.EIKON.state && window.EIKON.state.user && window.EIKON.state.activeModuleId === m && window.EIKON._lateIn, m, { timeout: 15000 }).then(() => dp.waitForTimeout(500));
+  const hash = async (h) => { await dp.evaluate((h) => { location.hash = "#" + h; }, h); await at(h); };
+  const values = (f) => dp.evaluate((f) => { const x = document.querySelector(f); return x ? [...x.querySelectorAll("input,select,textarea")].filter((e) => e.type !== "hidden").map((e) => /^(checkbox|radio)$/.test(e.type) ? e.checked : e.value) : null; }, f);
+  const keys = () => dp.evaluate(() => Object.keys(sessionStorage).filter((k) => k.indexOf("eikon_draft_v1|") === 0));
+  const FORMS = [["ordreg", ".ord-top [data-act=add]", "#ord-add", "order"], ["tktreg", "[data-act=add]", "#tkt-add", "question"], ["dlvreg", "[data-act=add]", "#dlv-add", "delivery"],
+    ["cdsreg", ".cds-top [data-act=add]", "#cds-add", "controlled drug sale"], ["odreg", "[data-act=add]", "#odr-add", "order diary item"], ["poreg", "[data-act=add]", "#por-add", "payment"]];
+  const LEAVE = {
+    back: async () => { await dp.goBack(); await dp.waitForTimeout(700); },
+    tab: async () => { await dp.locator(".eikon-rail-btn[data-mod=today]:visible").first().click(); await at("today"); },
+    search: async () => { await dp.evaluate(() => document.activeElement && document.activeElement.blur && document.activeElement.blur()); await dp.keyboard.press("Control+k"); await dp.waitForSelector("#esr-q"); await dp.fill("#esr-q", "settings"); await dp.waitForFunction(() => !document.querySelector(".esr-wait"), null, { timeout: 6000 }); await dp.keyboard.press("Enter"); await dp.waitForTimeout(800); },
+    hub: async () => { await dp.locator("#eikon-content [data-act=back]").first().click(); await dp.waitForTimeout(800); },
+  };
+  await dp.goto(base + "&ui=2#today"); await at("today");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  const res = [];
+  for (const [id, btn, form, noun] of FORMS) for (const how of Object.keys(LEAVE)) {
+    await hash("today"); await hash(id);
+    await dp.waitForSelector(btn); await dp.click(btn); await dp.waitForSelector(form);
+    const boxes = dp.locator(form + " input[type=text]:visible, " + form + " input:not([type]):visible, " + form + " textarea:visible");
+    const n = Math.min(2, await boxes.count());
+    for (let i = 0; i < n; i++) { await boxes.nth(i).click(); await dp.keyboard.type(i ? "Typed Ċġħż " + how[0].toUpperCase() + how.slice(1) : "Żammit Ġorġ " + id[0].toUpperCase() + id.slice(1), { delay: 0 }); } // words capitalised: a name field capitalises as it is left
+    const typed = await values(form);
+    await LEAVE[how]();
+    const left = await dp.evaluate(() => window.EIKON.state.activeModuleId);
+    if (how === "back") { await dp.goForward(); await at(id); } else await hash(id);
+    await dp.waitForSelector(".eikon-draft", { timeout: 5000 }).catch(() => {});
+    const got = await values(form), line = await dp.evaluate(() => ((document.querySelector(".eikon-draft") || {}).innerText || "").replace(/\s+/g, " ").trim());
+    const noClock = (a) => a.map((v) => (/^\d\d:\d\d$/.test(v) ? "hh:mm" : v)); // an untouched time default is the time now when the form reopens (a minute can pass)
+    res.push({ id, how, left, same: JSON.stringify(noClock(got)) === JSON.stringify(noClock(typed)), line: line === "Your unsaved " + noun + " is back · Clear", n, ...(JSON.stringify(noClock(got)) === JSON.stringify(noClock(typed)) ? {} : { typed, got }) });
+    const c = dp.locator(form + " [data-act$=cancel]").first(); if (await c.count()) await c.click();
+  }
+  const bad = res.filter((r) => !r.same || !r.line || r.left === r.id || !r.n);
+  const w = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method !== "GET");
+  report("drafts: a half-typed New order, question, delivery, controlled drug sale, order diary item and payment, left by Back, the tab bar, the search or its hub link, come back exactly as typed with \"Your unsaved … is back · Clear\" (24 of 24); nothing was written",
+    res.length === 24 && !bad.length && !w.length, JSON.stringify({ bad, w: w.length, res: res.slice(0, 3) }));
+  report("drafts: no draft is left after Cancel", !(await keys()).length, JSON.stringify(await keys()));
+
+  // Clear: the form as it opened, the draft gone; Save/Cancel leave nothing
+  await hash("odreg"); await dp.click("[data-act=add]"); await dp.waitForSelector("#odr-add");
+  const fresh = await values("#odr-add");
+  await dp.fill("#odr-add [name=item_name]", "Panadol"); await dp.fill("#odr-add [name=qty]", "4");
+  await hash("today"); await hash("odreg"); await dp.waitForSelector(".eikon-draft button");
+  const focusBack = await dp.evaluate(() => document.activeElement && document.activeElement.name);
+  await dp.click(".eikon-draft button"); await dp.waitForTimeout(200);
+  const cl = { vals: await values("#odr-add"), line: !!(await dp.$(".eikon-draft")), keys: await keys(), focus: await dp.evaluate(() => document.activeElement && document.activeElement.name) };
+  report("drafts: Clear puts the form back as it opened (a default of 1 stays 1), removes the line and the draft, and leaves the cursor in the first field",
+    JSON.stringify(cl.vals) === JSON.stringify(fresh) && !cl.line && !cl.keys.length && cl.focus === "item_name" && focusBack, JSON.stringify({ cl, fresh, focusBack }));
+  await dp.click("#odr-add [data-act$=cancel]");
+
+  // A person carried from Customers wins: the draft is offered, and Bring back puts it in place whole
+  await hash("cdsreg"); await dp.click(".cds-top [data-act=add]"); await dp.waitForSelector("#cds-add");
+  await dp.fill("#cds-add [name=client_name]", "Draft Person"); await dp.fill("#cds-add [name=doctor_name]", "Dr Draft");
+  await hash("registers");
+  await dp.evaluate(() => { window.EIKON.customerHandoff("cdsreg", "new", { name: "Zammit Carmel", id_card: "0012345M", phone: "79123456", address: "1 Triq il-Knisja" }, ""); location.hash = "#cdsreg"; });
+  await at("cdsreg"); await dp.waitForSelector(".eikon-draft", { timeout: 5000 }).catch(() => {});
+  const v = (n) => dp.evaluate((n) => document.querySelector("#cds-add [name=" + n + "]").value, n);
+  const carried = { name: await v("client_name"), id: await v("client_id_card"), doc: await v("doctor_name"), line: await dp.evaluate(() => ((document.querySelector(".eikon-draft") || {}).innerText || "").replace(/\s+/g, " ").trim()), kept: (await keys()).length };
+  await dp.click(".eikon-draft button"); await dp.waitForTimeout(200);
+  const brought = { name: await v("client_name"), id: await v("client_id_card"), doc: await v("doctor_name"), line: await dp.evaluate(() => ((document.querySelector(".eikon-draft") || {}).innerText || "").replace(/\s+/g, " ").trim()), kept: (await keys()).length };
+  report("drafts: a person carried from Customers wins (name and ID card filled, the draft not merged) and the draft is offered; Bring back puts the whole draft in place of the person",
+    carried.name === "Zammit Carmel" && carried.id === "0012345M" && carried.doc === "" && carried.line === "You were typing another controlled drug sale · Bring back what you were typing" && carried.kept === 1 &&
+    brought.name === "Draft Person" && brought.id === "" && brought.doc === "Dr Draft" && /is back · Clear$/.test(brought.line) && brought.kept === 0, JSON.stringify({ carried, brought }));
+  await dp.click("#cds-add [data-act$=cancel]").catch(() => {});
+
+  // Kept per pharmacy and person, for the Malta day; never a password; gone at sign-out
+  const rules = await dp.evaluate(async () => {
+    const E = window.EIKON, u = E.state.user, c = document.getElementById("eikon-content"), out = {};
+    const d = document.createElement("div"); d.innerHTML = '<button data-act="zz-new">New</button>'; c.appendChild(d);
+    d.querySelector("button").addEventListener("click", () => { if (!d.querySelector("form")) d.insertAdjacentHTML("beforeend", '<form id="zz-f"><input name="who"><input type="password" name="pw"><input name="pin" autocomplete="new-password"></form>'); });
+    const was = E.state.activeModuleId; E.state.activeModuleId = "zzreg";
+    E.draft.spec("zzreg", { btn: "[data-act=zz-new]", form: "#zz-f" }, c);
+    d.querySelector("button").click(); await new Promise((r) => setTimeout(r, 20));
+    const f = d.querySelector("form"); f.who.value = "Borg"; f.pw.value = "Secret-1"; f.pin.value = "1234";
+    E.draft.keep("zzreg", c);
+    const k = Object.keys(sessionStorage).find((x) => /\|zzreg$/.test(x)); const raw = k ? sessionStorage.getItem(k) : "";
+    out.key = k ? k.split("|").slice(1, 3).join("|") === u.location_id + "|" + (u.id != null ? u.id : u.email) : false;
+    out.noPw = !!raw && raw.indexOf("Secret-1") < 0 && raw.indexOf("1234") < 0 && raw.indexOf("Borg") > 0;
+    // another pharmacy or person signed in on this tab: not theirs
+    const loc = u.location_id; u.location_id = 999; out.otherPharmacy = Object.keys(sessionStorage).filter((x) => x.indexOf("eikon_draft_v1|999|") === 0).length === 0 && !E.draft.take("zzreg", c, 5).then; u.location_id = loc;
+    // yesterday's draft is dropped when read
+    const j = JSON.parse(raw); j.day = "2000-01-01"; sessionStorage.setItem(k, JSON.stringify(j));
+    out.v = await E.draft.take("zzreg", c, 7); out.stale = !sessionStorage.getItem(k);
+    // sign-out drops what this person left
+    E.draft.keep("zzreg", c); const before = !!sessionStorage.getItem(k);
+    E.draft.dropMine(); out.signout = before && !sessionStorage.getItem(k);
+    E.state.activeModuleId = was; d.remove();
+    return out;
+  });
+  report("drafts: kept per pharmacy and signed-in person, never a password, another day's is dropped (the load's answer passes through), and sign-out drops this person's",
+    rules.key && rules.noPw && rules.otherPharmacy && rules.v === 7 && rules.stale && rules.signout, JSON.stringify(rules));
+  report("drafts: no page errors", !derr.length, derr.join(" | ").slice(0, 300));
+  await dc.close();
+} catch (e) { report("drafts: ran to the end", false, String(e && e.stack || e).slice(0, 400)); }
+
+// q5-1 (BACKLOG5 item 1): nothing ever freezes the app.
+// (a) After boot an unexpected error is a calm bar (role=alert, focus kept, what is typed kept, Reload / Close; Close
+//     or Escape in it puts it away and focus back; the same error does not bring it back), reported once; the
+//     full-screen notice stays for a failure while starting ("Eikon could not start", Try again, no DevTools words)
+//     and for dbg=2. (b) Escape from Order diary's and Locum receipts' first field with suggestions loaded throws
+//     nothing. (c) The classic look never sticks: a load without ?ui=classic ends the visit, a route from the visit to
+//     a rebuilt screen opens it in the new layout, the visit's own screen and Settings > Classic layout are untouched.
+try {
+  const qx = await browser.newContext({ viewport: { width: 390, height: 844 } }); const qp = await qx.newPage(); const qerr = []; qp.on("pageerror", (e) => qerr.push(e.message));
+  await qp.goto(base); await qp.evaluate(() => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); localStorage.setItem("eikon_ui2", "1"); localStorage.removeItem("eikon_dbg"); });
+  await qp.goto(base + "&ui=2#tickets");
+  await qp.waitForFunction(() => window.EIKON && window.EIKON._booted && window.EIKON.state.activeModuleId === "tktreg" && document.querySelector("[data-act=add]"), null, { timeout: 15000 });
+  await qp.click("[data-act=add]"); await qp.fill("#tkt-add [name=client_name]", "Ċassar Ryan"); await qp.focus("#tkt-add [name=issue]"); await qp.keyboard.type("Wants");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await qp.evaluate(() => { setTimeout(() => { throw new Error("Bar test boom"); }, 0); }); await qp.waitForTimeout(500);
+  const a1 = await qp.evaluate(() => { const b = document.getElementById("eikon-error-bar"); return { overlay: !!document.getElementById("eikon-fatal-overlay"), role: b && b.getAttribute("role"), text: b && b.innerText.replace(/\s+/g, " ").trim(), focus: document.activeElement && document.activeElement.name,
+    kept: document.querySelector("#tkt-add [name=client_name]").value + "|" + document.querySelector("#tkt-add [name=issue]").value, z: b && getComputedStyle(b).position }; });
+  await qp.keyboard.type(" Ozempic"); a1.typed = await qp.inputValue("#tkt-add [name=issue]");
+  await qp.focus("#eikon-error-bar [data-act=close]"); await qp.keyboard.press("Escape"); await qp.waitForTimeout(150);
+  a1.afterClose = await qp.evaluate(() => ({ bar: !!document.getElementById("eikon-error-bar"), focus: document.activeElement && document.activeElement.name }));
+  await qp.evaluate(() => { setTimeout(() => { throw new Error("Bar test boom"); }, 0); }); await qp.waitForTimeout(300);
+  a1.sameAgain = await qp.evaluate(() => !!document.getElementById("eikon-error-bar"));
+  await qp.evaluate(() => { setTimeout(() => { throw new Error("Another fault"); }, 0); }); await qp.waitForTimeout(300);
+  a1.other = await qp.evaluate(() => !!document.getElementById("eikon-error-bar"));
+  await qp.click("#eikon-error-bar [data-act=close]"); a1.clicked = await qp.evaluate(() => !document.getElementById("eikon-error-bar"));
+  a1.logs = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.path === "/client-log").map((c) => c.body.kind + ":" + c.body.message);
+  // a rejected promise after boot: the bar too
+  await qp.evaluate(() => { Promise.reject(new Error("Rejected after boot")); }); await qp.waitForTimeout(300);
+  a1.rejection = await qp.evaluate(() => { const b = document.getElementById("eikon-error-bar"); const r = !!b && !document.getElementById("eikon-fatal-overlay"); if (b) b.remove(); return r; });
+  report("q5-1 after boot: an error is a closable bar (role=alert, plain words, Reload this screen / Close), the screen, the form, the typing and the focus are kept; Escape/Close put it away with focus back; the same error does not reopen it, another does; reported once each",
+    !a1.overlay && a1.role === "alert" && a1.text === "Something went wrong on this screen. What you typed is kept. Reload this screen Close" && a1.focus === "issue" && a1.kept === "Ċassar Ryan|Wants" && a1.z === "fixed" &&
+    a1.typed === "Wants Ozempic" && !a1.afterClose.bar && a1.afterClose.focus === "issue" && !a1.sameAgain && a1.other && a1.clicked && a1.rejection &&
+    a1.logs.length === 2 && /^error:.*Bar test boom/.test(a1.logs[0]) && /^error:.*Another fault/.test(a1.logs[1]), JSON.stringify(a1).slice(0, 900));
+  // while starting: the blocking notice, plain words; dbg=2 keeps the developer one at any time
+  const a2 = await qp.evaluate(() => { const E = window.EIKON; E._booted = false; E._errReportBusy = true; E.showFatalOverlay("main.js crash", "TypeError: x is undefined\n at start"); E._errReportBusy = false;
+    const o = document.getElementById("eikon-fatal-overlay"); const r = { text: o.innerText.replace(/\s+/g, " ").trim(), role: o.getAttribute("role"), focus: document.activeElement && document.activeElement.id, dev: /DevTools|dbg=2/.test(o.innerText) };
+    E.DEBUG = 2; E._booted = true; E._errReportBusy = true; E.showFatalOverlay("Uncaught error", "Boom in debug"); E._errReportBusy = false;
+    r.dbg = /DevTools Console/.test(o.innerText) && /Boom in debug/.test(o.innerText) && !document.getElementById("eikon-error-bar"); E.DEBUG = 0; o.remove(); return r; });
+  report("q5-1 while starting: 'Eikon could not start' with Try again (focused), the error only under Details for support, no DevTools words; dbg=2 keeps the developer overlay after boot",
+    /^Eikon could not start Check the internet connection, then try again\. Try again Details for support/.test(a2.text) && a2.role === "alertdialog" && a2.focus === "eikon-fatal-retry" && !a2.dev && a2.dbg, JSON.stringify(a2));
+  // (b) Escape from the first field, with suggestions loaded (the handler that threw only ran with items to compare)
+  await qp.route("**/order-diary/items*", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, items: [{ item_name: "Amoxil 500mg", preferred_supplier: "Medicare" }] }) }));
+  await qp.route("**/locumreceipts/receipts*", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, receipts: [{ id: 1, receipt_date: "2026-11-02", locum_full_name: "Borg Anna", registration_number: "PH123", day_type: "normal", hours: 4, fee_per_hour: 20, total_fee: 80 }] }) }));
+  const esc = {};
+  for (const [h, mod, form, field] of [["odreg", "odreg", "#odr-add", "item_name"], ["lrcreg", "lrcreg", "#lrc-add", "locum_full_name"]]) {
+    await qp.evaluate((x) => { location.hash = "#" + x; }, h); await qp.waitForFunction((m) => window.EIKON.state.activeModuleId === m && document.querySelector("#eikon-content h1"), mod, { timeout: 15000 }); await qp.waitForTimeout(700);
+    const names = [];
+    await qp.click('#eikon-content [data-act="add"]'); await qp.waitForSelector(form + " [name=" + field + "]"); await qp.waitForTimeout(500);
+    for (const n of await qp.evaluate((f) => [...document.querySelectorAll(f + " input:not([type=hidden]), " + f + " select, " + f + " textarea")].map((e) => e.name).filter(Boolean), form)) names.push(n);
+    const before = qerr.length; let n = 0;
+    for (const nm of names) {
+      if (!(await qp.$(form))) { await qp.click('#eikon-content [data-act="add"]'); await qp.waitForSelector(form + " [name=" + field + "]"); await qp.waitForTimeout(300); }
+      await qp.focus(form + " [name=" + nm + "]"); await qp.keyboard.press("Escape"); await qp.waitForTimeout(250); n++;
+    }
+    // something typed: Escape goes to Cancel first (never thrown away by one key), Enter there closes it
+    await qp.click('#eikon-content [data-act="add"]'); await qp.waitForSelector(form + " [name=" + field + "]"); await qp.waitForTimeout(300);
+    await qp.focus(form + " [name=" + field + "]"); await qp.keyboard.type("Amo"); await qp.keyboard.press("Escape"); await qp.waitForTimeout(200);
+    if (await qp.$(form)) { await qp.keyboard.press("Enter"); await qp.waitForTimeout(250); }
+    esc[h] = { fields: n, errs: qerr.slice(before), closed: !(await qp.$(form)), bar: await qp.evaluate(() => { const b = document.getElementById("eikon-error-bar"); if (b) b.remove(); return !!b; }) };
+  }
+  await qp.unroute("**/order-diary/items*"); await qp.unroute("**/locumreceipts/receipts*");
+  report("q5-1 Escape from every field of Order diary's and Locum receipts' new form closes it and throws nothing (suggestions loaded)",
+    esc.odreg.fields >= 3 && esc.lrcreg.fields >= 5 && !esc.odreg.errs.length && !esc.lrcreg.errs.length && esc.odreg.closed && esc.lrcreg.closed && !esc.odreg.bar && !esc.lrcreg.bar, JSON.stringify(esc));
+  // (c) the classic look: a visit, then a load without ?ui=classic; a route from the visit to a rebuilt screen
+  await qp.goto(base + "&ui=classic#loyalty"); await qp.waitForFunction(() => window.EIKON && window.EIKON.state.activeModuleId === "loyalty" && !document.documentElement.hasAttribute("data-ui2"), null, { timeout: 15000 });
+  const c1 = { visit: await qp.evaluate(() => sessionStorage.getItem("eikon_ui2_pause")) };
+  await qp.goBack(); await qp.waitForFunction(() => window.EIKON && window.EIKON.state.activeModuleId === "lrcreg", null, { timeout: 15000 }); await qp.waitForTimeout(300);
+  c1.back = await qp.evaluate(() => ({ pause: sessionStorage.getItem("eikon_ui2_pause"), ui2: document.documentElement.hasAttribute("data-ui2") }));
+  await qp.evaluate(() => { location.hash = "#temperature"; }); await qp.waitForFunction(() => window.EIKON.state.activeModuleId === "tempreg", null, { timeout: 15000 }); c1.temp = await qp.evaluate(() => document.documentElement.hasAttribute("data-ui2"));
+  await qp.goto(base + "&ui=classic#loyalty"); await qp.waitForFunction(() => window.EIKON && window.EIKON.state.activeModuleId === "loyalty", null, { timeout: 15000 }); await qp.waitForTimeout(300);
+  // an address that says ?ui=classic gets the classic screen it names, also from inside a visit (only the hash changes)
+  await qp.goto(base + "&ui=classic#deliveries"); await qp.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "deliveries", null, { timeout: 15000 }); await qp.waitForTimeout(300);
+  c1.address = await qp.evaluate(() => window.EIKON.state.activeModuleId + (document.documentElement.hasAttribute("data-ui2") ? "/new" : "/classic") + " " + /ui=classic/.test(location.search));
+  // the classic menu's way to a rebuilt screen ends the visit and opens it in the new layout
+  await qp.evaluate(() => { const b = document.querySelector('.eikon-nav-btn[data-mod="endofday"]'); b.click(); });
+  await qp.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "eodreg", null, { timeout: 20000 });
+  c1.route = await qp.evaluate(() => ({ ui2: document.documentElement.hasAttribute("data-ui2"), pause: sessionStorage.getItem("eikon_ui2_pause") }));
+  // the visit's own screen stays classic (a rebuilt screen's "classic screen" link opens the old one on purpose)
+  await qp.goto(base + "&ui=classic#order-diary"); await qp.waitForFunction(() => window.EIKON && window.EIKON.state.activeModuleId === "order-diary", null, { timeout: 15000 }); await qp.waitForTimeout(600);
+  c1.own = await qp.evaluate(() => ({ mod: window.EIKON.state.activeModuleId, ui2: document.documentElement.hasAttribute("data-ui2"), back: document.getElementById("eikon-back-btn").style.display !== "none" }));
+  // Settings > Classic layout is remembered as before: a plain load stays classic
+  await qp.evaluate(() => { localStorage.setItem("eikon_ui2", "0"); }); await qp.goto(base + "#temperature"); await qp.waitForFunction(() => window.EIKON && window.EIKON.state.activeModuleId === "temperature", null, { timeout: 15000 });
+  c1.pref = await qp.evaluate(() => ({ ui2: document.documentElement.hasAttribute("data-ui2"), btn: document.getElementById("eikon-newlayout-btn") && document.getElementById("eikon-newlayout-btn").style.display !== "none" }));
+  report("q5-1 the classic look never sticks: Back from a classic visit and the next screens are the new layout, the classic menu's way to a rebuilt screen opens it there; an address with ?ui=classic, the visit's own screen and Settings > Classic layout are unchanged",
+    c1.visit === "1" && c1.address === "deliveries/classic true" && c1.back.pause === null && c1.back.ui2 && c1.temp && c1.route.ui2 && c1.route.pause === null && c1.own.mod === "order-diary" && !c1.own.ui2 && c1.own.back && !c1.pref.ui2 && c1.pref.btn, JSON.stringify(c1));
+  await qx.close();
+} catch (e) { report("q5-1 nothing freezes the app: ran to the end", false, String(e && e.stack || e).slice(0, 500)); }
 
 await browser.close();
 server.close();

@@ -618,7 +618,9 @@
       S.hit = hand && hand.mode === "open" ? Number(hand.id) : null; S.hitName = S.hit ? String(hand.person.name || "") : ""; S.olderOpen = false; // from Today: that very order
       if (S.carry) S.adding = {};
       var since = Date.now(), from = document.activeElement;
-      css(); paint(); if (S.carry) fillCarry(); if (E.onReconnect) E.onReconnect(load); return load().then(function () { land(since, from); });
+      css(); paint(); var dr = E.draft && E.draft.spec("ordreg", { btn: "[data-act=add]", form: "#ord-add" }, S.mount), who = S.carry && S.carry.person && (S.carry.person.name || S.carry.person.id_card); if (dr && who) E.draft.offer("ordreg", S.mount); if (S.carry) fillCarry(); if (E.onReconnect) E.onReconnect(load);
+      var ready = dr && (!hand || !who) && !(hand && (hand.mode === "find" || hand.mode === "open")) ? E.draft.take("ordreg", S.mount, load()) : load(); // q5-2: a half-typed form comes back
+      return Promise.resolve(ready).then(function () { land(since, from); }); // q5-5: Open from Today lands on its row
     }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("ordreg") < 0) E.UI2_DESTINATIONS.push("ordreg");

@@ -389,7 +389,7 @@
 
   E.registerModule({
     id: "vaxreg", title: "Vaccines", order: 3, icon: "✚", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.fe = {}; S.q = ""; S.printFor = 0; S.justSaved = 0; S.vm = E.months.now(); S.vmOrders = []; E.months.reset(); css(); paint(); loadMonth(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.fe = {}; S.q = ""; S.printFor = 0; S.justSaved = 0; S.vm = E.months.now(); S.vmOrders = []; E.months.reset(); css(); paint(); loadMonth(); return E.takeOpenForm("vaxreg", S.mount, load(), { btn: "[data-act=add]", form: "#vxr-add" } /* q5-2: a half-typed form comes back */, null); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("vaxreg") < 0) E.UI2_DESTINATIONS.push("vaxreg");
   if (E.UI2_PARENT) E.UI2_PARENT.vaxreg = "services";

@@ -160,7 +160,7 @@
       '<label><span>Dose</span><input id="ocp-pd" inputmode="decimal" aria-label="Progestogen dose" placeholder="Any dose" autocomplete="off" value="' + esc(S.pd) + '">' + unitHtml("p", S.pu, "Progestogen dose unit") + "</label></div>" +
       "</div>" +
       '<div id="ocp-res" aria-live="polite"></div>' +
-      '<p class="ocp-note">A dose matches within 1.5%; a multiphasic pill matches any dose of its hormones. To print the results, use the <a href="#" data-act="classic">classic finder</a>.</p></div>';
+      '<p class="ocp-note">A dose matches within 1.5%; a multiphasic pill matches any dose of its hormones. To print the results, use the <a href="#" data-act="classic">classic screen</a>.</p></div>';
     m.innerHTML = h;
     m.querySelector("[data-act=back]").addEventListener("click", function () { window.location.hash = E.ui2BackHash("ocpreg"); });
     m.querySelector("[data-act=classic]").addEventListener("click", function (ev) { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "ocpreg"); } catch (x) {} E.openClassic("ocps"); });

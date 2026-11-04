@@ -32,7 +32,8 @@
   // o.focus, for a screen whose form is always there). Returns `ready`, so the render still returns its load.
   E.takeOpenForm = function (screen, mount, ready, o, hand) {
     var h = hand !== undefined ? hand : (E.takeCustomerHandoff ? E.takeCustomerHandoff(screen) : null);
-    if (!h || h.mode !== "new" || !mount) return ready;
+    var dr = !!(E.draft && E.draft.spec(screen, o, mount)); // q5-2: a form left half-typed comes back (core.js E.draft)
+    if (!h || h.mode !== "new" || !mount) return dr && !h ? E.draft.take(screen, mount, ready) : ready;
     o = o || {};
     var here = function () { return document.body.contains(mount) && (!E.state || E.state.activeModuleId === screen); };
     var vis = function (el) { return !!el && !el.disabled && el.type !== "hidden" && (el.offsetParent !== null || el.getClientRects().length > 0); };
@@ -54,6 +55,7 @@
       var p = h.person || {}, map = {};
       if (f && o.fill) Object.keys(o.fill).forEach(function (k) { if (p[k] != null && String(p[k]).trim()) map[o.fill[k]] = String(p[k]).trim(); });
       if (f && E.fillEmpty) E.fillEmpty(f, map);
+      if (dr) { if (Object.keys(map).length) E.draft.offer(screen, mount); else E.draft.take(screen, mount, null); } // a person brought here wins; the draft is offered
       var target = null, pick = wantRow && wantRow.to === screen && Date.now() - wantRow.at < 15000 ? wantRow.pick : ""; if (wantRow && wantRow.to === screen) wantRow = null;
       var find = function () { if (!pick) { var x = mount.querySelector(o.focus); return vis(x) ? x : null; } var y = rowPick(mount, o.focus, pick); return y === "done" || vis(y) ? y : null; };
       if (o.focus) target = await waitFor(find, 3000);

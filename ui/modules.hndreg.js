@@ -119,7 +119,7 @@
       h += '<h2 class="hnd-lab"><label for="hnd-new">For tomorrow</label> <b>' + out.length + "</b></h2>" + (out.length ? '<div class="hnd-list">' + out.map(function (b) { return pt(b, true); }).join("") + "</div>" : "") +
         '<form class="hnd-row" id="hnd-add" autocomplete="off"><input class="hnd-in" id="hnd-new" enterkeyhint="done" placeholder="e.g. Call Mrs Borg about her insulin" value="' + esc(S.draft) + '">' +
         '<div class="hnd-seg" role="group" aria-label="How urgent">' + ["g", "y", "r"].map(function (k) { return '<button type="button" data-sev="' + k + '" aria-pressed="' + (S.sev === k) + '" class="' + (S.sev === k ? "on" : "") + '">' + SEV[k][0] + "</button>"; }).join("") + "</div>" +
-        '<button type="submit" class="hnd-btn p"' + (S.saving ? " disabled" : "") + ">Add</button></form>" +
+        '<button type="submit" class="hnd-btn p"' + (S.saving ? " disabled" : "") + ">Add point</button></form>" +
         (S.err ? '<div class="hnd-err" role="alert">' + esc(S.err) + "</div>" : "");
     }
     h += '<p class="hnd-foot">Another day\'s handover, and the opening, closing and how-to instructions, are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';

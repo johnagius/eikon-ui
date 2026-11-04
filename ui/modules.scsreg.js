@@ -294,7 +294,7 @@
 
   E.registerModule({
     id: "scsreg", title: "Scarce stock", order: 3, icon: "🔎", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; reset(); S.busy = {}; S.saving = false; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; reset(); S.busy = {}; S.saving = false; css(); paint(); return E.takeOpenForm("scsreg", S.mount, load(), { btn: "[data-act=add]", form: "#scs-add" } /* q5-2: a half-typed form comes back */, null); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("scsreg") < 0) E.UI2_DESTINATIONS.push("scsreg");
   if (E.UI2_PARENT) E.UI2_PARENT.scsreg = "stock";

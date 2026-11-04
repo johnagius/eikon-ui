@@ -192,9 +192,10 @@
 
   function bind(m) {
     m.querySelectorAll("[data-act]").forEach(function (b) {
-      b.addEventListener("click", function () {
+      b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act");
         if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("cleanreg") : "#registers";
+        else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "cleanreg"); } catch (x) {} E.openClassic("cleaning"); }
         else if (a === "retry") load();
         else if (a === "new") { S.form = { entry_date: ymd(new Date()), time_in: hmNow(), time_out: "", cleaner_name: "", notes: "", err: "" }; paint(); E.focusSoon(function () { return m.querySelector("[name=cleaner_name]"); }, 30); }
         else if (a === "cancel") { S.form = null; paint(); var nb = m.querySelector("[data-act=new]"); if (nb) nb.focus(); }

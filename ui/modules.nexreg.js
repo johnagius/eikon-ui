@@ -101,7 +101,7 @@
         '<label><span>Notes</span><input name="notes" value="' + esc(a.notes || "") + '" placeholder="Optional, e.g. 10 boxes"></label>' +
         '<datalist id="nex-locs">' + Object.keys(locs).map(function (l) { return '<option value="' + esc(l) + '">'; }).join("") + "</datalist>" +
         (S.err ? '<div class="nex-err" role="alert">' + esc(S.err) + "</div>" : "") +
-        '<div class="acts"><button type="button" class="nex-btn" data-act="add-cancel">' + (S.added ? "Done" : "Cancel") + '</button><button type="submit" class="nex-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : S.added ? "Add another" : "Add") + "</button></div></form>";
+        '<div class="acts"><button type="button" class="nex-btn" data-act="add-cancel">' + (S.added ? "Done" : "Cancel") + '</button><button type="submit" class="nex-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save item") + "</button></div></form>";
     }
     if (S.entries.length > 6) h += '<input class="nex-q" id="nex-q" type="search" aria-label="Search near expiry" placeholder="Search product, place or notes" value="' + esc(S.q) + '">';
     h += '<div id="nex-res">' + listHtml() + "</div>";

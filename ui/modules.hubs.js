@@ -39,7 +39,7 @@
     insreg: "Is every register in order? Days not logged, notes missing, certificates due; printed with sign-off lines.",
     endofday: "Close the till: X readings, cash, cheques and the bank bag.",
     paidout: "Money paid from the till, such as couriers and cleaners.",
-    "emergency-pos": "Sell when the main till is down; the sales sync later.",
+    "emergency-pos": "Sell when the main till is down; sales are sent when the connection is back.",
     creditnotes: "Money customers have with you, and what is left of it.",
     locumreceipts: "What each locum was paid, ready to print and sign.",
     poct: "Blood pressure, glucose, cholesterol and other tests, per patient.",

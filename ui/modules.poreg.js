@@ -107,7 +107,8 @@
         (a.payment_method === "cheque" ? '<label><span>Cheque no.</span><input name="cheque_no" value="' + esc(a.cheque_no) + '"></label>' : "") +
         '<label><span>Invoice no.</span><input name="invoice_no" value="' + esc(a.invoice_no) + '" placeholder="Optional"></label>' +
         '<label><span>What for</span><input name="reason" value="' + esc(a.reason) + '" placeholder="Optional, e.g. Delivery to Gozo"></label>' +
-        '<label><span>When</span><input name="entry_date" type="date" max="' + esc(today()) + '" value="' + esc(a.entry_date) + '"><input name="entry_time" type="time" value="' + esc(a.entry_time) + '" style="flex:0 0 96px"></label>' +
+        '<label><span>Date</span><input name="entry_date" type="date" max="' + esc(today()) + '" value="' + esc(a.entry_date) + '"></label>' +
+        '<label><span>Time</span><input name="entry_time" type="time" value="' + esc(a.entry_time) + '"></label>' +
         (S.err ? '<div class="por-err" id="por-err" role="alert">' + esc(S.err) + "</div>" : "") +
         '<div class="acts"><button type="button" class="por-btn" data-act="add-cancel">Cancel</button><button type="submit" class="por-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save payment") + "</button></div>" +
         '<datalist id="por-names">' + S.names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
@@ -129,7 +130,7 @@
         }).join("") + "</div>";
       });
     }
-    h += E.correct.foot() + "</div>";
+    h += E.correct.foot("", "Deleting a payment is") + "</div>";
     m.innerHTML = h;
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {

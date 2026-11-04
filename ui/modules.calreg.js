@@ -1076,7 +1076,7 @@
       (S.msg ? '<div class="cal-ok" role="status"><span>' + esc(S.msg) + '</span><button type="button" class="cal-btn sm" data-act="print-again">Print again</button></div>' : "") +
       '<div class="cal-acts end"><button type="button" class="cal-btn" data-act="reset">Start again</button><button type="submit" form="cal-form" class="cal-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save and print") + "</button></div></section></div>" +
       '<div id="cal-recs">' + recordsHtml() + "</div>" +
-      '<p class="cal-foot">The calculations, the saved plan and the printout are the same as on the classic screen. Deleting a saved plan is in the <a href="#" data-act="classic">classic calculators screen</a>.</p></div>';
+      '<p class="cal-foot">The calculations, the saved plan and the printout are the same as on the classic screen. Deleting a saved plan is in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
     var ae = document.activeElement, sel = "";
     if (ae && m.contains(ae)) sel = ae.name ? '[name="' + ae.name + '"]' : ae.id ? "#" + ae.id : ae.getAttribute("data-calc") ? '[data-calc="' + ae.getAttribute("data-calc") + '"]' : "";
     var caret = null; if (sel) try { caret = typeof ae.selectionStart === "number" ? ae.selectionStart : null; } catch (e) { caret = null; }
