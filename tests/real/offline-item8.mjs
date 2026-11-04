@@ -22,7 +22,7 @@ const y0 = await p.evaluate(() => document.querySelector("#eikon-content h1").ge
 // 1. offline: banner within 1 s, nothing moves
 await ctx.setOffline(true); const t0 = Date.now(); await p.waitForFunction(() => /No connection/.test((document.getElementById("eikon-net") || {}).innerText || ""), null, { timeout: 1000 }).catch(() => {});
 const b1 = await bar(); ok("banner within 1 s, polite status", /No connection — what you type is kept/.test(b1.t) && b1.role === "status" && b1.live === "polite" && Date.now() - t0 < 1000, JSON.stringify(b1) + " " + (Date.now() - t0) + "ms");
-ok("no layout shift when the banner shows", (await p.evaluate(() => document.querySelector("#eikon-content h1").getBoundingClientRect().top)) === y0);
+{ const r = await p.evaluate(() => ({ bar: document.getElementById("eikon-net").getBoundingClientRect().bottom, h1: document.querySelector("#eikon-content h1").getBoundingClientRect().top })); ok("phone: the strip sits above the screen, which makes room for it", r.bar <= r.h1 && r.h1 - y0 <= 32, JSON.stringify({ ...r, y0 })); }
 if (SH) await p.screenshot({ path: SH + "off-1-orders.png" });
 // 2. save while offline: certain "not saved", typed kept, no request left
 const fill = async (n) => { if (!(await p.locator("#ord-add").count())) await p.getByRole("button", { name: "New order" }).tap(); await p.getByLabel("Customer").fill(n); await p.getByLabel("Phone").fill("79000000"); await p.getByLabel("Items").fill("Panadol"); await p.locator("#ord-add [name=needed_by]").fill(new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 10)); };
@@ -31,6 +31,21 @@ await fill("Test Offline"); await save();
 const m2 = await p.locator("#ord-add").innerText();
 ok("offline save says not saved, no connection", /Not saved: there is no connection/.test(m2), m2.split("\n").filter((l) => /saved/i.test(l)).join(" "));
 ok("offline save keeps typed values", (await p.getByLabel("Items").inputValue()) === "Panadol" && (await p.getByLabel("Customer").inputValue()) === "Test Offline");
+// The banner never covers the form's buttons (Cancel, Save order), wherever they are scrolled to
+const clearOf = (pg, sel) => pg.evaluate((sel) => { const bar = document.getElementById("eikon-net").getBoundingClientRect(), hit = [];
+  for (const el of document.querySelectorAll(sel)) for (const block of ["start", "center", "end"]) { el.scrollIntoView({ block }); const r = el.getBoundingClientRect(); if (r.bottom > bar.top && r.top < bar.bottom && r.right > bar.left && r.left < bar.right) hit.push(el.textContent.trim() + "@" + block); }
+  return { n: document.querySelectorAll(sel).length, bar: [bar.top, bar.bottom, bar.left, bar.right].map(Math.round), hit }; }, sel);
+{ const c = await clearOf(p, "#ord-add .acts button"); ok("phone: the banner covers neither Cancel nor Save order, at the top, middle or bottom of the window", c.n === 2 && !c.hit.length, JSON.stringify(c)); }
+{ const dctx = await b.newContext({ viewport: { width: 1440, height: 900 } }); const dp = await dctx.newPage();
+  await dp.route("**/*", (r) => new URL(r.request().url()).hostname === "localhost" ? r.continue() : r.abort());
+  await dp.goto(B + "/"); await dp.waitForSelector("input[type=email]"); await dp.fill("input[type=email]", "maria@demo.mt"); await dp.fill("input[type=password]", "Demo-Pass-2026"); await dp.keyboard.press("Enter"); await dp.waitForTimeout(3000);
+  await dp.evaluate(() => location.hash = "#ordreg"); await dp.waitForTimeout(1500); await dp.getByRole("button", { name: "New order" }).click(); await dp.waitForTimeout(300);
+  const h0 = await dp.evaluate(() => document.querySelector("#eikon-content h1").getBoundingClientRect().top);
+  await dctx.setOffline(true); await dp.waitForTimeout(300);
+  const h1 = await dp.evaluate(() => document.querySelector("#eikon-content h1").getBoundingClientRect().top), c = await clearOf(dp, "#ord-add .acts button");
+  if (SH) await dp.screenshot({ path: SH + "desktop-offline-form.png" });
+  ok("desktop: the banner is in the rail, the heading does not move, Cancel and Save order are never under it", h1 === h0 && c.n === 2 && !c.hit.length && c.bar[3] <= 236, JSON.stringify({ h0, h1, c }));
+  await dctx.close(); }
 if (SH) await p.screenshot({ path: SH + "off-2-save.png", fullPage: true });
 // 3. back online: "Back online", one refresh of the list
 let gets = 0; p.on("request", (r) => { if (r.method() === "GET" && /\/client-orders\/entries\?from=/.test(r.url())) gets++; });

@@ -8,8 +8,10 @@
    the person chooses. A locked day is read-only here, except for a correction by the pharmacist (role admin): "Correct
    this day" asks what was wrong, unlocks the day (the classic unlock: the server only clears locked_at) with the
    reason, and the day opens as an unlocked day; the reason goes with every save of that day here until it is locked
-   again (correction_reason, written into the audit entries by the worker). Printing, the date-range report, the
-   audit log, copying the deposit to an email and managing contacts stay in the classic screen. */
+   again (correction_reason, written into the audit entries by the worker). Print on A4 prints the day on the classic
+   screen's A4 sheet (its rows and wording; page numbers and the time printed, Malta time, in the page margin); the
+   unlock and the print leave the classic screen's own audit note in this browser, as it does. The date-range report,
+   the audit log, copying the deposit to an email and managing contacts stay in the classic screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -189,6 +191,7 @@
       ".eod-day input:focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:2px}" +
       ".eod-who{display:flex;align-items:center;gap:12px;min-height:46px;padding:4px 8px 4px 14px;font-size:15px}.eod-who span{flex:1;min-width:0}" + // b4-4: the summary line
       ".eod-st{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;font-size:13.5px;color:var(--muted)}" +
+      ".eod-st .eod-a4{order:9;margin-left:auto;min-height:44px}" + // after the chips, also the "Not saved" one added while typing
       ".eod-chip{font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(118,118,128,.12);color:var(--text)}" +
       ".eod-chip.ok{background:var(--ok-soft,rgba(28,138,91,.14));color:var(--ok,#1C8A5B)}.eod-chip.wn{background:var(--warn-soft,rgba(201,138,18,.16));color:var(--warn,#8A5A08)}" +
       ".eod-btn{font:inherit;font-size:14px;font-weight:600;height:36px;padding:0 16px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
@@ -251,8 +254,8 @@
     if (S.loading && !S.w) h += '<div class="eod-quiet">Opening ' + esc(dayLabel(S.date).toLowerCase() === "today" ? "today" : dayLabel(S.date)) + "…</div>";
     else if (S.error && !S.w) h += '<div class="eod-quiet">' + esc(S.error) + ' <button class="eod-btn" data-act="retry" style="margin-left:8px">Try again</button></div>';
     else if (S.w) h += dayHtml(locked, ro);
-    h += '<p class="eod-foot">' + (E.correct && E.correct.can() ? "A locked day is corrected here with Correct this day, saying what was wrong. " : "A locked day is corrected by the pharmacist. ") + 'Printing a day on A4, a date-range report across months, the audit log, copying the deposit to an email and managing bank contacts are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
-    var ae = document.activeElement, sel = ae && m.contains(ae) && ae.name ? '[name="' + ae.name + '"]' : (ae && ae.id === "eod-day" ? "#eod-day" : "");
+    h += '<p class="eod-foot">' + (E.correct && E.correct.can() ? "A locked day is corrected here with Correct this day, saying what was wrong. " : "A locked day is corrected by the pharmacist. ") + 'A date-range report across months, the audit log, copying the deposit to an email and managing bank contacts are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    var ae = document.activeElement, sel = ae && m.contains(ae) && ae.name ? '[name="' + ae.name + '"]' : (ae && (ae.id === "eod-day" || ae.id === "eod-fixnote") ? "#" + ae.id : "");
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) again.focus(); }
     wire(m);
@@ -263,9 +266,9 @@
   function fixing() { return !!(S.fixReason && S.fixDate === S.date); }
   function fixHtml(locked) {
     if (!E.correct || !E.correct.can()) return "";
-    if (!locked) return fixing() ? '<div class="eod-note" role="status"><b>Unlocked for a correction:</b> ' + esc(S.fixReason) + ". Change what was wrong, then Save and lock. The audit keeps the day as it was.</div>" : "";
+    if (!locked) return fixing() ? '<div class="eod-note" id="eod-fixnote" tabindex="-1" role="status"><b>Unlocked for a correction:</b> ' + esc(S.fixReason) + ". Change what was wrong, then Save and lock. The audit keeps the day as it was.</div>" : "";
     if (!S.fix) return '<div class="eod-fix"><button class="eod-btn" data-act="fix">Correct this day…</button></div>';
-    return '<div class="eod-note" role="group" aria-label="Correct this day"><b>Correct ' + esc(dayLabel(S.date)) + ".</b> The day is unlocked so its figures can be put right; lock it again when done. The audit keeps the day as it was, who corrected it and why." +
+    return '<div class="eod-note" role="group" aria-label="Unlock this day to correct it"><b>Unlock ' + esc(dayLabel(S.date)) + " to correct it?</b> Once unlocked, its figures can be changed again; lock it again when done. The audit keeps the day as it was, who unlocked it and why." +
       '<label class="eod-f" style="margin-top:8px"><span>What was wrong?</span><input name="fix_reason" maxlength="500" value="' + esc(S.fix.reason || "") + '" placeholder="e.g. Cheque total typed twice" aria-required="true"></label>' +
       (S.fix.err ? '<div class="eod-err" role="alert">' + esc(S.fix.err) + "</div>" : "") +
       '<div class="acts"><button class="eod-btn" data-act="fix-no">Cancel</button><button class="eod-btn p" data-act="fix-go"' + (S.fix.busy ? " disabled" : "") + ">" + (S.fix.busy ? "Unlocking…" : "Unlock to correct") + "</button></div></div>";
@@ -284,10 +287,13 @@
         body.locked_at = ""; body.unlock = true; body.action = "UNLOCK"; body.correction_reason = reason; // the classic unlock, with the reason
         var r = await E.apiFetch("/endofday/record", { method: "PUT", body: JSON.stringify({ record: body }) });
         if (!r || r.ok === false) throw new Error((r && r.error) || "Could not unlock");
+        if (r.record) shadowReplace(r.record);
+        classicAudit("UNLOCK"); // the classic unlock's own note, as it writes it
       }
       S.fixReason = reason; S.fixDate = S.date; S.fix = null;
       E.toast(dayLabel(S.date) + " is unlocked for the correction", "success");
-      return load();
+      await load();
+      var fn = S.mount && S.mount.querySelector("#eod-fixnote"); if (fn) fn.focus(); // the button pressed is gone: focus goes to what it did
     } catch (x) {
       if (S.fix) { S.fix.busy = false; S.fix.err = x && x.network ? "The connection dropped. Check the day before trying again." : "Not unlocked: " + String((x && (x.message || x)) || "error"); }
       if (x && x.network) return load();
@@ -297,11 +303,12 @@
 
   function dayHtml(locked, ro) {
     var w = S.w, c = calc(w), b = S.base, RO = ro ? " readonly" : "";
+    var a4 = '<button type="button" class="eod-btn eod-a4" data-act="print-a4">Print on A4</button>';
     var st = locked ? '<span class="eod-chip ok">Locked</span><span>' + esc(dayLabel(S.date)) + " was closed" + (hm(b.locked_at) ? " at " + esc(hm(b.locked_at)) : "") + ". Read-only here.</span>"
       : b ? '<span class="eod-chip">Saved</span><span>' + (hm(b.updated_at || b.saved_at) ? "Last saved at " + esc(hm(b.updated_at || b.saved_at)) : "Saved") + (b.staff || b.staff_name ? " by " + esc(b.staff || b.staff_name) : "") + ". Not locked yet.</span>"
       : '<span class="eod-chip wn">Not started</span><span>Nothing saved for ' + esc(dayLabel(S.date) === "Today" ? "today" : dayLabel(S.date)) + " yet.</span>";
     if (S.dirty && !locked) st += '<span class="eod-chip wn">Not saved</span>';
-    var h = '<div class="eod-st">' + st + "</div>" + fixHtml(locked);
+    var h = '<div class="eod-st">' + st + a4 + "</div>" + fixHtml(locked);
     if (S.error) h += '<div class="eod-err" role="alert">' + esc(S.error) + "</div>";
     if (S.shadow) h += '<div class="eod-note">' + esc(S.shadow) + "</div>";
     if (S.conflict) {
@@ -365,7 +372,7 @@
     h += "</form>";
     // the bar at the bottom
     if (S.ask === "lock") {
-      h += '<div class="eod-note" role="alertdialog" aria-label="Lock this day"><b>Lock ' + esc(dayLabel(S.date) === "Today" ? "today" : dayLabel(S.date)) + "?</b> The figures are saved and the day can no longer be changed here. Only the classic screen can unlock it." +
+      h += '<div class="eod-note" role="alertdialog" aria-label="Lock this day"><b>Lock ' + esc(dayLabel(S.date) === "Today" ? "today" : dayLabel(S.date)) + "?</b> The figures are saved and the day can no longer be changed. Only the pharmacist can unlock it again." +
         '<div class="acts"><button class="eod-btn" data-act="ask-no">Cancel</button><button class="eod-btn p" data-act="lock-yes">Save and lock</button></div></div>';
     } else if (S.ask === "leave") {
       h += '<div class="eod-note" role="alertdialog" aria-label="Figures not saved"><b>Your figures for ' + esc(dayLabel(S.date)) + " are not saved.</b> Open " + esc(dayLabel(S.pendingDate || today())) + " anyway?" +
@@ -408,6 +415,74 @@
       intro: '<p class="sub"><b>Range:</b> ' + esc(MB.dmy(MB.first(ym))) + " to " + esc(MB.dmy(MB.last(ym))) + "</p>",
       sections: [{ cols: cols, rows: rows, empty: "No records in range.", foot: rows.length ? ["Totals (" + rows.length + " days)", "", e2(sum[0]), e2(sum[1]), ""].concat(sum.slice(2).map(e2)) : null }] });
   }
+  // ---- the classic "Print End of Day on A4": the same sheet, rows, wording and sums (rows past the sheet's count add
+  // into the totals, as in the classic). Added in the page margin only: the pharmacy, the time printed (Malta time) and
+  // page numbers. It prints the day as it is on screen; the classic's checks before printing come first.
+  function printProblem(w, loc) {
+    S.bad = "";
+    if (!String(w.staff || "").trim()) { S.bad = "staff"; return "Write who is closing (Staff), then print."; }
+    if (!loc) return "This sign-in has no pharmacy name to print on the sheet. Sign out and in again, then print.";
+    if (!(mnum(w.float_amount) >= 0)) { S.bad = "float_amount"; return "Write the float, e.g. 1000.00, then print."; }
+    if (calc(w).bov > 0 && !String(w.bag_number || "").trim()) { S.bad = "bag_number"; return "Write the bag number (there are notes in the bank bag), then print."; }
+    return "";
+  }
+  function a4Html(w, loc) {
+    var c = calc(w), d = S.date, dmy = d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4);
+    var fmt = function (n) { return Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+    var fill = function (list, n) { var a = (list || []).slice(0, n); while (a.length < n) a.push({ amount: "0", remark: "" }); return a; };
+    var row = function (lbl, val, note) { return "<tr><td class='l'>" + esc(lbl) + "</td><td class='c'>€</td><td class='r'>" + esc(fmt(val)) + "</td><td class='note'>" + (note ? esc(note) : "") + "</td></tr>"; };
+    var lines = function (list, n, lbl, rem) { return fill(list, n).map(function (r, i) { return row(lbl(i), mnum(r.amount), rem ? String(r.remark || "") : ""); }).join(""); };
+    var ou = c.OU, ouText = (ou < 0 ? "-€ " + fmt(Math.abs(ou)) : "€ " + fmt(Math.abs(ou))), ouNote = ou < 0 ? "(- UNDER)" : ou > 0 ? "(OVER)" : "";
+    var now = new Date(), pd = E.maltaYmd ? E.maltaYmd(now) : today(), printed = pd.slice(8, 10) + "/" + pd.slice(5, 7) + "/" + pd.slice(0, 4) + " " + (E.maltaHm ? E.maltaHm(now) : "");
+    var foot = (loc + " · End of day " + dmy + " · printed " + printed + " (Malta)").replace(/["\\]/g, "'");
+    return "<!DOCTYPE html><html><head><meta charset='utf-8'><title>EOD (A4)</title><style>" +
+      "@page{size:A4;margin:6mm 0 10mm;@bottom-left{content:\"" + foot + "\";font:9pt Arial,sans-serif;color:#000;padding-left:20mm}@bottom-right{content:\"Page \" counter(page) \" of \" counter(pages);font:9pt Arial,sans-serif;color:#000;padding-right:20mm}}" +
+      "@media print{.printbar,.pf{display:none !important;} html,body{height:auto;overflow:visible !important;margin:0;padding:0;} .page{height:auto !important;min-height:0;width:210mm;box-sizing:border-box;} .sheet{margin:4mm auto !important;} .gap{height:6mm !important;} *{page-break-after:avoid !important;page-break-before:avoid !important;page-break-inside:avoid !important;} }" +
+      "html,body{margin:0;padding:0;background:#fff;color:#000} body{font-family:Arial, sans-serif} .page{width:210mm;height:297mm;position:relative}" +
+      ".sheet{width:170mm;margin:25mm auto} table{width:100%;border-collapse:collapse}" +
+      "td{border:1px solid #000;padding:6px;font-size:12pt} .hdr td{font-weight:bold}" +
+      ".l{width:46%}.c{width:4%;text-align:center}.r{width:20%;text-align:right}.note{width:30%}" +
+      ".gap{height:10mm}.pf{font-size:9pt;margin-top:6mm}" +
+      ".printbar{position:sticky;top:0;background:#fff;padding:8px;border-bottom:1px solid #ccc;display:flex;gap:8px;justify-content:flex-end}" +
+      "</style></head><body>" +
+      "<div class='printbar'><button data-eikon-print='print'>Print</button></div>" +
+      "<div class='page'><div class='sheet'>" +
+      "<table class='hdr'><tr><td>DATE:</td><td>" + esc(dmy) + "</td></tr><tr><td>STAFF:</td><td>" + esc(String(w.staff || "")) + "</td></tr><tr><td>LOCATION:</td><td>" + esc(loc) + "</td></tr></table>" +
+      "<div class='gap'></div><table>" +
+      lines(w.x, 4, function (i) { return "A" + (i + 1) + "  X READING " + (i + 1); }, true) + row("TOTAL X READINGS", c.A, "") +
+      lines(w.epos, 4, function (i) { return "B" + (i + 1) + "  EPOS"; }, false) + row("TOTAL EPOS", c.B, "") +
+      lines(w.cheques, 4, function (i) { return "C" + (i + 1) + "  CHEQUES"; }, true) + row("TOTAL CHEQUES", c.C, "") +
+      lines(w.paid_outs, 8, function (i) { return "D" + (i + 1) + "  PAID OUTS"; }, true) + row("TOTAL PAID OUTS", c.D, "") +
+      row("EXPECTED DEPOSIT (A − B − C − D)", c.exp, "") +
+      row("E  TOTAL CASH (Till − Float €" + mnum(w.float_amount).toFixed(2) + ")", c.E, "") +
+      row("F  ROUNDED CASH DEPOSITED", c.F, "") +
+      "</table><div class='gap'></div><table>" +
+      "<tr><td class='l'>OVER/UNDER</td><td class='c'>€</td><td class='r'>" + esc(ouText) + "</td><td class='note'>" + esc(ouNote) + "</td></tr>" +
+      row("COINS (E − F)", c.COINS, "") +
+      "</table><p class='pf'>" + esc(foot) + "</p></div></div></body></html>";
+  }
+  function printA4() {
+    if (!S.w) return;
+    if (!(S.base && S.base.locked_at) && !S.saving) keep();
+    var loc = String((S.base && S.base.location_name) || user().location_name || "").trim(), had = !!S.err;
+    S.err = printProblem(S.w, loc);
+    if (S.err) { if (S.bad === "staff" || S.bad === "float_amount") S.whoOpen = true; paint(true); return toBad(); }
+    var html = a4Html(S.w, loc); E.eodLastA4 = html;
+    var url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    if (E.openPrintUrlOrLink) E.openPrintUrlOrLink(url, { delay: 150, focus: true }); else E.openPrintUrl(url, { delay: 150, focus: true });
+    setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 60000);
+    classicAudit("PRINT_A4");
+    if (had) paint(true); // an earlier message about printing goes once it has printed
+  }
+  // The classic screen's own audit note: kept in this browser (its Audit log shows it) and offered to the server as it
+  // offers it (best effort; this server keeps its own audit of every save, lock and unlock).
+  function classicAudit(action) {
+    var u = user(), entry = { ts: new Date().toISOString(), date: S.date, location_name: String((S.base && S.base.location_name) || u.location_name || ""), by: String(u.full_name || u.email || ""), action: action, details: {} };
+    try { var all = JSON.parse(localStorage.getItem("eikon_eod_audit_v1") || "[]"); if (!Array.isArray(all)) all = []; all.push(entry); localStorage.setItem("eikon_eod_audit_v1", JSON.stringify(all)); } catch (e) {}
+    var body = JSON.stringify({ audit: entry }), paths = ["/endofday/audit", "/eod/audit"], i = 0;
+    (function next() { if (i >= paths.length) return; E.apiFetch(paths[i++], { method: "POST", headers: { "Content-Type": "application/json" }, body: body }).then(function (r) { if (r && r.ok === false) next(); }, next); })();
+  }
+
   function monthHtml() {
     var mn = MON[+S.date.slice(5, 7) - 1], t = monthDays();
     var h = '<div class="eod-lab"><span>' + esc(mn) + ' so far</span><span data-b="mdays">' + (t ? t.days + (t.days === 1 ? " day saved" : " days saved") : "") + '</span></div><div class="eod-card eod-sum">';
@@ -454,6 +529,7 @@
         if (act === "back") window.location.hash = E.ui2BackHash("eodreg");
         else if (act === "retry") load();
         else if (act === "print-month") printMonth();
+        else if (act === "print-a4") printA4();
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "eodreg"); } catch (x) {} E.openClassic("endofday"); }
         else if (act === "addrow") { keep(); var L = b.getAttribute("data-l"); S.w[L].push({ amount: "0", remark: "" }); S.dirty = true; paint(true); var n = S.w[L].length - 1;
           setTimeout(function () { var f = m.querySelector('[name="row:' + L + ":" + n + ':amount"]'); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form") && document.activeElement !== b)) f.focus(); }, 30); }

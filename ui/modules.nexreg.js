@@ -124,7 +124,7 @@
     });
     return h;
   }
-  function focusSoon(sel) { setTimeout(function () { var f = S.mount && S.mount.querySelector(sel); if (f) { f.focus(); if (f.tagName === "INPUT" && f.value) try { f.select(); } catch (e) {} } }, 30); }
+  function focusSoon(sel) { var since = Date.now(), from = document.activeElement; setTimeout(function () { var f = S.mount && S.mount.querySelector(sel); if (f && E.focusIfIdle(f, since, from) && f.tagName === "INPUT" && f.value) try { f.select(); } catch (e) {} }, 30); } // never away from a field the person went to meanwhile
 
   function bind(m) {
     m.querySelectorAll("[data-act]").forEach(function (b) {
@@ -132,7 +132,7 @@
         var a = b.getAttribute("data-act");
         if (a === "back") window.location.hash = E.ui2BackHash("nexreg");
         else if (a === "retry") load();
-        else if (a === "add") { S.adding = {}; S.added = 0; S.err = ""; paint(); setTimeout(function () { var f = m.querySelector("[name=product_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (a === "add") { S.adding = {}; S.added = 0; S.err = ""; paint(); E.focusSoon(function () { return m.querySelector("[name=product_name]"); }, 30); }
         else if (a === "add-cancel") { S.adding = null; S.added = 0; S.err = ""; paint(); focusSoon('[data-act="add"]'); }
         else if (a === "ret") { S.returning = Number(b.getAttribute("data-id")); S.retDraft = null; S.err = ""; paint(); focusSoon("#nex-ret [name=supplier]"); }
         else if (a === "ret-cancel") { var id = S.returning; S.returning = null; S.err = ""; paint(); focusSoon('[data-act="ret"][data-id="' + id + '"]'); }

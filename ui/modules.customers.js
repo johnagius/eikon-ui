@@ -318,7 +318,7 @@
     });
     renderList(); renderDetail();
     search(state.q.trim());
-    setTimeout(function () { try { q.focus(); } catch (e) {} }, 0);
+    E.focusSoon(q);
   }
 
   // The Customers registers: rebuilt ones open in the new layout; what is still only in the classic look says so.
@@ -403,7 +403,7 @@
       var f = box.querySelector("#cus-new");
       f.addEventListener("submit", function (e) { e.preventDefault(); createNew(f); });
       f.querySelector('[data-act="cancel"]').addEventListener("click", function () { state.creating = false; renderDetail(); });
-      setTimeout(function () { try { f.querySelector("[name=name]").focus(); } catch (e) {} }, 0);
+      E.focusSoon(function () { return f.querySelector("[name=name]"); }); // never away from a field the person went to meanwhile
       return;
     }
     if (!state.selected) {
@@ -455,7 +455,7 @@
     html += '</div></div>';
     box.innerHTML = html;
 
-    var eb = box.querySelector('[data-act="edit"]'); if (eb) eb.addEventListener("click", function () { state.editing = true; state.conflict = ""; state.conflictExisting = null; renderDetail(); setTimeout(function () { try { box.querySelector("[name=name]").focus(); } catch (e) {} }, 0); });
+    var eb = box.querySelector('[data-act="edit"]'); if (eb) eb.addEventListener("click", function () { state.editing = true; state.conflict = ""; state.conflictExisting = null; renderDetail(); E.focusSoon(function () { return box.querySelector("[name=name]"); }); }); // never away from a field the person went to meanwhile
     var f = box.querySelector("#cus-edit");
     if (f) {
       f.addEventListener("submit", function (e) { e.preventDefault(); save(f); });

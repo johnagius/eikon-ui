@@ -25,7 +25,10 @@ const browser = await chromium.launch({ headless: !process.env.REAL_HEADED });
 const results = [];
 // The correct-* cases write extra lines into the same tables as the screens' own cases, which find their row as "the
 // newest one": they run after all the others (in parallel among themselves: each uses its own table).
-const queue = files.filter((f) => !f.startsWith("correct-")), later = files.filter((f) => f.startsWith("correct-"));
+// typerace writes orders, questions and deliveries too: it runs with them, after the cases that read "the newest row" there.
+// "solo-" cases add rows to several of those tables: they run last, one at a time.
+const lateCase = (f) => f.startsWith("correct-") || f === "typerace.mjs";
+const queue = files.filter((f) => !lateCase(f) && !f.startsWith("solo-")), later = files.filter(lateCase), solo = files.filter((f) => f.startsWith("solo-"));
 async function worker() {
   while (queue.length) {
     const f = queue.shift();
@@ -42,6 +45,8 @@ async function worker() {
 await Promise.all(Array.from({ length: Math.min(JOBS, queue.length) }, worker));
 queue.push(...later);
 await Promise.all(Array.from({ length: Math.min(JOBS, queue.length) }, worker));
+queue.push(...solo);
+await worker();
 await browser.close(); await stack.close();
 
 results.sort((a, b) => a.name < b.name ? -1 : 1);

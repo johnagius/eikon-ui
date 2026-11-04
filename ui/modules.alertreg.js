@@ -135,7 +135,7 @@
     // Escape closes the open form (what is typed in it is dropped, as with Cancel) and puts you back where you were.
     m.querySelectorAll("form").forEach(function (f) { f.addEventListener("keydown", function (ev) { if (ev.key !== "Escape") return; var c = f.querySelector('[data-act$="-cancel"]'); if (c) { ev.preventDefault(); c.click(); } }); });
   }
-  function focusSoon(sel) { setTimeout(function () { var f = S.mount && S.mount.querySelector(sel); if (f) f.focus(); }, 30); }
+  function focusSoon(sel) { E.focusSoon(function () { return S.mount && S.mount.querySelector(sel); }, 30); } // never away from a field the person went to meanwhile
 
   // After a one-tap save the list is redrawn: a keyboard user stays on that item (the same button, or the one now in its place).
   // Later redraws (the month list arriving) keep it there for a few seconds, unless focus has moved on by then.

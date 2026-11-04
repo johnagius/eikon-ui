@@ -269,7 +269,7 @@
         var a = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
         if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("dlvreg") : "#customers";
         else if (a === "who-all") { S.who = null; paint(); focusOn(".dlv-top [data-act=add]"); }
-        else if (a === "add") { S.carry = null; S.adding = {}; S.err = ""; S.fe = {}; paint(); setTimeout(function () { var f = m.querySelector("#dlv-add [name=client_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (a === "add") { S.carry = null; S.adding = {}; S.err = ""; S.fe = {}; paint(); E.focusSoon(function () { return m.querySelector("#dlv-add [name=client_name]"); }, 30); }
         else if (a === "add-cancel") closeAdd();
         else if (a === "open") openEdit(id);
         else if (a === "edit-cancel") closeEdit();
@@ -304,7 +304,7 @@
   }
 
   function find(id) { return S.entries.find(function (x) { return x.id === id; }); }
-  function focusOn(sel) { setTimeout(function () { var x = S.mount && S.mount.querySelector(sel); if (x) x.focus(); }, 0); }
+  function focusOn(sel) { E.focusSoon(function () { return S.mount && S.mount.querySelector(sel); }); } // never away from a field the person went to meanwhile
   function closeAdd() { var h = S.carry; S.carry = null; S.adding = null; S.err = ""; S.fe = {}; if (h && E.customerReturn && E.customerReturn(h)) return; paint(); focusOn(".dlv-top [data-act=add]"); } // opened from a customer's page: back to that person
   // Opened from a customer's page (modules.customers.js, BACKLOG4 item 1): who it is for stays in sight at the top, the
   // person is filled into the empty fields only, and focus goes to the first required field still empty.

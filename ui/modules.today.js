@@ -351,7 +351,7 @@
       await load({ silent: true });
       // Outside the limits: the note box is next, so the cursor goes there (not lost to the page); otherwise the next check.
       var nf = out && state.mount && state.mount.querySelector('[data-tnote="' + todayYmd() + "|" + row.device_id + '"] textarea');
-      if (nf) nf.focus(); else if (E.focusAfter) E.focusAfter(nextCheck);
+      if (nf) E.focusIfIdle(nf, E.lastAction(), null); else if (E.focusAfter) E.focusAfter(nextCheck); // not while the next reading is being typed
     } catch (e) {
       setRowBusy(rowEl, false); rowError(rowEl, E.saveFailText ? E.saveFailText(e) : "Not saved: " + String(e && (e.message || e) || "error")); // the readings stay typed
     } finally { state.busy[key] = false; }
@@ -632,8 +632,14 @@
     if (E.setRailBadge) { try { E.setRailBadge("today", nBefore); E.setRailBadge("customers", nWait); E.setRailBadge("stock", attention.filter(function (a) { return a.kind === "near_expiry" || a.kind === "returns" || a.kind === "alert"; }).length); } catch (eB) {} }
     html += '<div class="tdy-foot"><span>Updated ' + esc(state.loadedAt ? mt(state.loadedAt) : "–") + ' · refreshes every minute</span></div>'; // b4-9: the old dashboard is in Settings › Help, not one tap from Today
     html += '</div>';
-    m.innerHTML = html;
-    bind();
+    E.keepTyped(m, function () { m.innerHTML = html; bind(); }, TYPED, typedKey); // a reload after a Log keeps the next reading being typed
+  }
+  // The fields typed on Today, and which row each belongs to, so a redraw puts what was typed back in the same place.
+  var TYPED = "input[data-min],input[data-max],input[data-cleaner],[data-tnote] textarea";
+  function typedKey(el) {
+    var n = el.closest && el.closest("[data-tnote]"); if (n) return "note|" + n.getAttribute("data-tnote");
+    var r = el.closest && el.closest(".tdy-row"); if (!r) return "";
+    return (r.getAttribute("data-device") || r.getAttribute("data-kind") || "") + "|" + (el.hasAttribute("data-min") ? "min" : el.hasAttribute("data-max") ? "max" : "cleaner");
   }
 
   function bind() {

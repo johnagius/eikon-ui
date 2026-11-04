@@ -39,11 +39,13 @@
     var put = function (el) { if (!el) return; try { el.focus({ preventScroll: false }); } catch (e) { el.focus(); } if (el.scrollIntoView) try { el.scrollIntoView({ block: "center" }); } catch (e) {} };
     var later = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
     var waitFor = async function (fn, ms) { var t = Date.now(); while (Date.now() - t < ms) { if (!here()) return null; var x = fn(); if (x) return x; await later(40); } return null; };
+    var since = Date.now(); // the person may tap a field while the screen opens: from then on, focus is theirs (E.focusIfIdle)
+    var mine = function () { var a = document.activeElement; return !(E.personSince && E.personSince(since) && a && mount.contains(a) && a.matches && a.matches("input,select,textarea")); };
     var run = async function () {
       if (!here()) return;
       if (o.btn) { // the form may be open already (then it is filled, never reopened)
         var b = await waitFor(function () { var x = (o.form && mount.querySelector(o.form)) || mount.querySelector(o.btn); return x && !x.disabled ? x : null; }, 4000);
-        if (!b) return; if (!(o.form && b.matches(o.form))) b.click();
+        if (!b) return; if (!(o.form && b.matches(o.form))) { if (!mine()) return; b.click(); } // typing in the screen meanwhile (its search): no form is opened over it
       }
       var f = o.form ? await waitFor(function () { return mount.querySelector(o.form); }, 3000) : null;
       await later(40); // after the screen's own "focus the first field" (30 ms), so ours is the last word
@@ -58,7 +60,7 @@
         var all = Array.prototype.filter.call(f.querySelectorAll("input,select,textarea"), function (x) { return vis(x) && !x.readOnly && !/^(checkbox|radio|button|submit)$/.test(x.type); });
         target = all.filter(function (x) { return !String(x.value || "").trim(); })[0] || all[0] || null;
       }
-      if (!target) return;
+      if (!target || !mine()) return; // filled in all the same; only the cursor stays where the person put it
       put(target);
       // A late redraw (a second list arriving) can replace the form: put focus back on the same field, once, within 1.5 s.
       var name = target.getAttribute("name"), sel = o.focus && target.matches(o.focus) ? o.focus : null, until = Date.now() + 1500;

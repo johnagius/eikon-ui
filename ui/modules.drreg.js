@@ -221,7 +221,7 @@
         var a = b.getAttribute("data-act");
         if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("drreg") : "#registers";
         else if (a === "again") { var L = S.last; S.form = { entry_date: L.entry_date, client_id: L.client_id, client_name: L.client_name, prescriber_name: L.prescriber_name, prescriber_reg_no: L.prescriber_reg_no }; paint(); var md = m.querySelector("#drr-form [name=medicine_name_dose]"); if (md) md.focus(); }
-        else if (a === "new") { S.form = { entry_date: ymd(new Date()) }; paint(); setTimeout(function () { var c = m.querySelector("[name=client_id]"); if (c && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) c.focus(); }, 30); }
+        else if (a === "new") { S.form = { entry_date: ymd(new Date()) }; paint(); E.focusSoon(function () { return m.querySelector("[name=client_id]"); }, 30); }
         else if (a === "cancel") { S.form = null; paint(); var nb = m.querySelector("[data-act=new]"); if (nb) nb.focus(); }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "drreg"); } catch (e) {} E.openClassic("dailyregister"); }
       });

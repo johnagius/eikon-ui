@@ -335,7 +335,7 @@
     bind(m);
   }
   function paintResults() { var box = S.mount && S.mount.querySelector("#tkt-res"); if (!box) return paint(); keepEdit(); box.innerHTML = resultsHtml(); bind(box); }
-  function focusOn(sel) { setTimeout(function () { var x = S.mount && S.mount.querySelector(sel); if (x) x.focus(); }, 0); }
+  function focusOn(sel) { E.focusSoon(function () { return S.mount && S.mount.querySelector(sel); }); } // never away from a field the person went to meanwhile
   function editUnchanged() { var a = S.edit || {}, o = S.orig || {}; return EDIT.every(function (k) { return String(a[k] == null ? "" : a[k]).trim() === String(o[k] == null ? "" : o[k]).trim(); }); }
   function closeEdit() { var id = S.editing; S.editing = null; S.edit = null; S.editErr = ""; S.efe = {}; S.del = null; paint(); if (id) focusOn('[data-act=open][data-id="' + id + '"]'); }
   function closeNote() { var id = S.noting; S.noting = null; S.err = ""; S.noteDraft = ""; paint(); if (id) focusOn('[data-act=note][data-id="' + id + '"]'); }
@@ -347,9 +347,9 @@
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
         if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("tktreg") : "#customers";
-        else if (a === "add") { S.carry = null; S.adding = {}; S.err = ""; S.fe = {}; paint(); setTimeout(function () { var f = m.querySelector("#tkt-add [name=client_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (a === "add") { S.carry = null; S.adding = {}; S.err = ""; S.fe = {}; paint(); E.focusSoon(function () { return m.querySelector("#tkt-add [name=client_name]"); }, 30); }
         else if (a === "add-cancel") closeAdd();
-        else if (a === "note") { keepEdit(); S.noting = id; S.noteDraft = ""; S.err = ""; S.editing = null; S.edit = null; paint(); setTimeout(function () { var f = m.querySelector("#tkt-note input"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (a === "note") { keepEdit(); S.noting = id; S.noteDraft = ""; S.err = ""; S.editing = null; S.edit = null; paint(); E.focusSoon(function () { return m.querySelector("#tkt-note input"); }, 30); }
         else if (a === "note-cancel") closeNote();
         else if (a === "resolve") { var at = S.entries.filter(matchQ).map(function (x) { return x.id; }).indexOf(id); change(id, function (r) { r.status = "Resolved"; }, "Marked resolved").then(function (ok) { if (!ok) return focusOn('[data-act=resolve][data-id="' + id + '"]'); var bs = S.mount.querySelectorAll("#tkt-res [data-act=open]"); var nx = bs[Math.min(at, bs.length - 1)]; if (nx) nx.focus(); else focusOn(".tkt-top [data-act=add]"); }); } // focus moves to the next question in the list
         else if (a === "reopen") change(id, function (r) { r.status = "Open"; r.resolved_at = ""; }, "Open again");

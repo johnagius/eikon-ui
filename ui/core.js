@@ -1831,7 +1831,8 @@
   // Run a redraw only when nobody is typing in a form on this screen. A list that arrives while someone is filling a
   // form used to redraw everything under their fingers, and the next keystrokes could land in another field. The
   // redraw now waits until focus leaves the form (moving between its fields does not count), then catches up.
-  E.whenFormIdle = function (mount, fn) {
+  E.whenFormIdle = function (mount, fn0) {
+    var fn = function () { return E.keepChanged ? E.keepChanged(mount, fn0) : fn0(); }; // what the person set in an open form survives the data arriving
     var busy = function () { var a = document.activeElement; return !!(mount && a && mount.contains(a) && a.closest && a.closest("form")); };
     if (!busy()) return fn();
     var done = false, run = function () { if (done) return; done = true; mount.removeEventListener("focusout", onOut); clearInterval(t); fn(); };
@@ -1856,6 +1857,86 @@
     });
     return done;
   };
+  // Focus is never taken from where the person is typing. A screen often moves focus a moment after an action (a
+  // timer, a reply): on a busy tablet that moment comes after the person has already tapped the next field and is
+  // typing, so the rest of the word went into the first field ("Prefers SMS" landed in front of the name). One rule:
+  //   E.focusIfIdle(el, since, from) puts focus on el unless focus is in a field (input, text box, list, tick box)
+  //   other than el that the person went to or typed in since `since` (focus is no longer `from`, the element that
+  //   had it when the move was asked for, or a key or tap came after `since`). Returns true when focus is on el.
+  //   E.focusSoon(target, ms) is the deferred form: target is an element or a function giving one, read when the
+  //   timer fires; `since` and `from` are taken now.
+  //   E.lastAction() is when the person last pressed a button or Enter (what starts a save): E.focusAfter uses it.
+  var userAt = 0, actAt = 0, touchedAt = typeof WeakMap === "function" ? new WeakMap() : null;
+  function entryField(el) { return !!el && el.isConnected !== false && (el.isContentEditable || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || (el.tagName === "INPUT" && !/^(button|submit|reset|image|hidden)$/i.test(el.type || ""))); }
+  ["keydown", "pointerdown", "mousedown", "touchstart", "input"].forEach(function (ty) {
+    document.addEventListener(ty, function (ev) {
+      if (ev.isTrusted === false) return;
+      var now = Date.now(), t = ev.target; userAt = now;
+      if (entryField(t)) { if (touchedAt) touchedAt.set(t, now); if (ty === "keydown" && ev.key === "Enter") actAt = now; }
+      else if (ty !== "input") actAt = now;
+    }, true);
+  });
+  document.addEventListener("change", function (ev) { var t = ev.target; if (touchedAt && t && (t.tagName === "SELECT" || /^(checkbox|radio)$/i.test(t.type || ""))) touchedAt.set(t, Date.now()); }, true);
+  E.lastAction = function () { return actAt; };
+  // E.keepChanged(mount, paintFn): a redraw (data arriving, a list read late) keeps every field the person changed in an
+  // open form (an id'd form), not only the one with focus: a text, a list, a tick box. A field is put back only while
+  // the redraw brought the same starting value it had (so what the screen itself changes wins), and not once the form
+  // was sent after the change (a form cleared for the next entry stays clear).
+  function startOf(el) {
+    if (/^(checkbox|radio)$/i.test(el.type || "")) return el.defaultChecked;
+    if (el.tagName === "SELECT") { for (var i = 0; i < el.options.length; i++) if (el.options[i].defaultSelected) return el.options[i].value; return el.options.length ? el.options[0].value : ""; }
+    return el.defaultValue;
+  }
+  function nowOf(el) { return /^(checkbox|radio)$/i.test(el.type || "") ? el.checked : el.value; }
+  E.keepChanged = function (mount, paintFn) {
+    var list = [];
+    if (mount && touchedAt) Array.prototype.forEach.call(mount.querySelectorAll("form[id]"), function (f) {
+      Array.prototype.forEach.call(f.querySelectorAll("input,select,textarea"), function (el) {
+        var t = touchedAt.get(el) || 0, k = t > (f._eikonSentAt || 0) ? E.focusKey(el) : ""; if (!k) return;
+        var was = startOf(el), now = nowOf(el); if (now === was) return;
+        list.push({ f: f.id, k: k, n: Array.prototype.indexOf.call(f.querySelectorAll(k), el), was: was, now: now, t: t });
+      });
+    });
+    var r = paintFn();
+    list.forEach(function (x) {
+      var f = null; try { f = mount.querySelector("form#" + (window.CSS && CSS.escape ? CSS.escape(x.f) : x.f)); } catch (e) {}
+      var el = f && f.querySelectorAll(x.k)[x.n]; if (!el || el.disabled || nowOf(el) === x.now) return;
+      if (nowOf(el) !== x.was || startOf(el) !== x.was) return; // the screen changed it: its value stands
+      if (typeof x.now === "boolean") el.checked = x.now; else el.value = x.now;
+      touchedAt.set(el, x.t);
+    });
+    return r;
+  };
+  E.personSince = function (since) { return userAt >= (since || 0); }; // a key or a tap by the person since then
+  E.focusIfIdle = function (el, since, from) {
+    if (!el || !el.isConnected || el.disabled) return false;
+    var a = document.activeElement;
+    if (a && a !== el && a !== document.body && entryField(a) && (a !== from || userAt >= (since || 0) || (touchedAt && (touchedAt.get(a) || 0) >= (since || 0)))) return false; // the person is there: leave them
+    try { el.focus(); } catch (e) {}
+    return document.activeElement === el;
+  };
+  E.focusSoon = function (target, ms) {
+    var since = Date.now(), from = document.activeElement;
+    setTimeout(function () { var el = null; try { el = typeof target === "function" ? target() : target; } catch (e) {} if (el) E.focusIfIdle(el, since, from); }, ms || 0);
+  };
+  // E.keepTyped(mount, paintFn, sel, keyOf) is the same for a screen whose fields have no name (Today's readings): the
+  // redraw keeps what was typed in every field matching sel, put back in the field with the same keyOf(el) while that
+  // one still shows what it showed before (a row just saved is gone, so its numbers go with it), and the field you
+  // were in gets focus and its cursor back.
+  E.keepTyped = function (mount, paintFn, sel, keyOf) {
+    var ae = document.activeElement, kept = [], fk = "", s0 = null, s1 = null;
+    if (mount) Array.prototype.forEach.call(mount.querySelectorAll(sel), function (el) {
+      var k = keyOf(el); if (!k) return;
+      if (el === ae) { fk = k; try { s0 = el.selectionStart; s1 = el.selectionEnd; } catch (e) {} }
+      if (el.value !== el.defaultValue || el === ae) kept.push({ k: k, v: el.value, was: el.defaultValue, t: touchedAt ? touchedAt.get(el) || 0 : 0 });
+    });
+    paintFn();
+    if (!mount || !kept.length) return;
+    var now = {}; Array.prototype.forEach.call(mount.querySelectorAll(sel), function (el) { var k = keyOf(el); if (k && !(k in now)) now[k] = el; });
+    kept.forEach(function (x) { var el = now[x.k]; if (!el || el.disabled) return; if (el.value === "" || el.value === x.was) el.value = x.v; if (x.t && touchedAt) touchedAt.set(el, x.t); });
+    var back = fk && now[fk], a = document.activeElement;
+    if (back && !back.disabled && (!a || a === document.body || !a.isConnected)) { try { back.focus({ preventScroll: true }); } catch (e) { back.focus(); } if (s0 != null) { try { back.setSelectionRange(s0, s1); } catch (e) {} } }
+  };
   // E.repaintKeepingFocus(mount, paintFn) redraws, then puts back the field you were in, the cursor, and what you had
   // typed if the redraw brought an older copy. Called while focus is moving (from a "change", "blur" or "focusout"
   // handler, or between the two halves of a Tab) it waits for focus to land, so it brings back the field you went to.
@@ -1874,15 +1955,19 @@
     var ev = window.event;
     if ((ev && /^(blur|focusout|change)$/.test(ev.type)) || focusMoving) { setTimeout(function () { E.repaintKeepingFocus(mount, paintFn); }, 0); return; }
     var ae = document.activeElement, key = mount && ae && ae !== document.body && mount.contains(ae) ? E.focusKey(ae) : "";
-    var nth = 0, val = null, s0 = null, s1 = null;
-    if (key) { nth = Math.max(0, Array.prototype.indexOf.call(mount.querySelectorAll(key), ae)); if (typedIn(ae)) { val = ae.value; try { s0 = ae.selectionStart; s1 = ae.selectionEnd; } catch (e) {} } }
-    paintFn();
+    var nth = 0, val = null, s0 = null, s1 = null, fid = "", touched = 0;
+    // looked up inside its own form (by id) when it has one: a form opening or closing above it does not move it to another form's field of the same name
+    var inside = function () { if (!fid) return mount; var f = null; try { f = mount.querySelector("form#" + (window.CSS && CSS.escape ? CSS.escape(fid) : fid)); } catch (e) {} return f; };
+    if (key) { var fo = ae.closest && ae.closest("form[id]"); fid = fo && mount.contains(fo) ? fo.id : ""; nth = Math.max(0, Array.prototype.indexOf.call(inside().querySelectorAll(key), ae)); if (typedIn(ae)) { val = ae.value; try { s0 = ae.selectionStart; s1 = ae.selectionEnd; } catch (e) {} } touched = touchedAt ? touchedAt.get(ae) || 0 : 0; }
+    E.keepChanged(mount, paintFn); // the other fields the person changed in the form stay too
     if (!key) return;
-    var again = mount.querySelectorAll(key)[nth];
+    var root = inside(); if (!root) return;
+    var again = root.querySelectorAll(key)[nth];
     if (!again || again.disabled) return;
     if (val != null && typedIn(again) && again.value !== val) again.value = val; // what you typed wins over an older copy
     if (again !== document.activeElement) { try { again.focus({ preventScroll: true }); } catch (e) { again.focus(); } }
     if (s0 != null) { try { again.setSelectionRange(s0, s1); } catch (e) {} }
+    if (touched && touchedAt && again !== ae) touchedAt.set(again, touched); // the redrawn field is still the one the person typed in
   };
   // Focus is never lost (BACKLOG4 item 2). One place keeps the keyboard where the person is, in the new layout only:
   //  - E.focusAfter(target) puts focus on target as soon as it is on the screen: an element, a selector inside the
@@ -1919,7 +2004,7 @@
     }
     E.focusAfter = function (target, opts) {
       var c = screen(); if (!c) return false;
-      pending = { t: target, at: Date.now(), from: document.activeElement, scroll: !(opts && opts.scroll === false) };
+      pending = { t: target, at: Date.now(), since: Math.min(Date.now(), actAt || Date.now()), from: document.activeElement, scroll: !(opts && opts.scroll === false) };
       return tryPending(c);
     };
     function tryPending(c) {
@@ -1928,6 +2013,7 @@
       var el = resolve(p.t, c); if (!shown(el)) return false; // not on the screen yet: the next redraw tries again
       var a = document.activeElement;
       pending = null;
+      if (!lostNow() && a !== placed && a !== el && entryField(a) && touchedAt && (touchedAt.get(a) || 0) >= p.since) return false; // typed in since the action started (E.focusIfIdle): leave them there
       if (lostNow() || a === placed || (a === p.from && !inForm(a))) return put(el, p.scroll);
       if (c.contains(a) && inForm(a)) E.whenFormIdle(c, function () { if (lostNow()) put(resolve(p.t, c), p.scroll); }); // typing: only a focus that fell is taken
       return false; // the person went somewhere else meanwhile: leave them there
@@ -2037,7 +2123,8 @@
   })();
   // ==== Honest when the connection drops (BACKLOG4 item 8) ======================================================
   // 1. A thin banner (role=status, polite) says "No connection — what you type is kept" as soon as the browser goes
-  //    offline, and "Back online" when it returns. It floats (position:fixed), so the screen under it never moves.
+  //    offline, and "Back online" when it returns. It never covers the screen: a strip at the top with its height kept
+  //    free on phones, in the rail's corner on a wider screen (see css() below).
   // 2. A new record whose answer was lost (POST, dropped connection or timeout) is looked for once: one GET of the
   //    screen's own list (the last list of that address this screen read), compared with that list as it was before
   //    the save. The error then carries x.landed = true (saved) / false (not saved) / undefined (cannot tell), and
@@ -2186,15 +2273,20 @@
       if (document.getElementById("eikon-net-style")) return;
       var st = document.createElement("style"); st.id = "eikon-net-style";
       st.textContent =
-        ".eikon-net{position:fixed;left:16px;right:16px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:999998;pointer-events:none;display:flex;justify-content:center}" +
-        ".eikon-net span{display:inline-flex;align-items:center;gap:8px;min-height:32px;padding:6px 14px;border-radius:16px;background:#1b2332;color:#fff;font:600 14px/20px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.18)}" +
+        // Phones and the classic layout: a slim strip at the very top whose height the page keeps free (body padding),
+        // so it never sits over a field or a button; scrolling to a field leaves it clear (scroll-padding).
+        // New layout on a wider screen: in the rail's bottom corner, beside the screen, never over it (nothing moves).
+        ".eikon-net{position:fixed;left:0;right:0;top:0;z-index:999998;pointer-events:none;display:flex;justify-content:center;align-items:flex-end;box-sizing:border-box;height:calc(32px + env(safe-area-inset-top,0px));padding:env(safe-area-inset-top,0px) 16px 0;background:#1b2332;color:#fff}" +
+        ".eikon-net span{display:inline-flex;align-items:center;gap:8px;height:32px;font:600 14px/20px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}" +
         ".eikon-net span::before{content:'';width:8px;height:8px;border-radius:4px;background:#f5b94a;flex:none}" +
         ".eikon-net.back span::before{background:#43d17a}" +
         ".eikon-net:empty{display:none}" +
-        "html.eikon-net-on .eikon-toast-wrap{bottom:60px!important}" +
-        "@media (max-width:760px){html[data-ui2] .eikon-net{bottom:calc(86px + env(safe-area-inset-bottom,0px))}" +
-        "html[data-ui2].eikon-net-on .eikon-toast-wrap{bottom:calc(132px + env(safe-area-inset-bottom,0px))!important}" +
-        "html[data-ui2].eikon-net-on .eikon-content{padding-bottom:calc(136px + env(safe-area-inset-bottom,0px))}}" +
+        "html.eikon-net-on body{padding-top:32px}" +
+        "html.eikon-net-on{scroll-padding-top:44px}" +
+        "@media (min-width:761px){html[data-ui2] .eikon-net{top:auto;right:auto;left:12px;bottom:12px;width:212px;height:auto;padding:0;background:none;display:block}" +
+        "html[data-ui2] .eikon-net span{display:flex;align-items:flex-start;height:auto;padding:8px 12px;border-radius:12px;background:#1b2332;white-space:normal;line-height:18px;box-shadow:0 6px 20px rgba(0,0,0,.18)}" +
+        "html[data-ui2] .eikon-net span::before{margin-top:5px}" +
+        "html[data-ui2].eikon-net-on body{padding-top:0}html[data-ui2].eikon-net-on{scroll-padding-top:0}}" +
         "@media print{.eikon-net{display:none}}";
       document.head.appendChild(st);
     }

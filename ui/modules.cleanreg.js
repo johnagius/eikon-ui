@@ -196,7 +196,7 @@
         var a = b.getAttribute("data-act");
         if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("cleanreg") : "#registers";
         else if (a === "retry") load();
-        else if (a === "new") { S.form = { entry_date: ymd(new Date()), time_in: hmNow(), time_out: "", cleaner_name: "", notes: "", err: "" }; paint(); setTimeout(function () { var c = m.querySelector("[name=cleaner_name]"); if (c && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) c.focus(); }, 30); }
+        else if (a === "new") { S.form = { entry_date: ymd(new Date()), time_in: hmNow(), time_out: "", cleaner_name: "", notes: "", err: "" }; paint(); E.focusSoon(function () { return m.querySelector("[name=cleaner_name]"); }, 30); }
         else if (a === "cancel") { S.form = null; paint(); var nb = m.querySelector("[data-act=new]"); if (nb) nb.focus(); }
       });
     });

@@ -335,7 +335,7 @@
     E.months.wireHistory(m, "pocreg");
   }
 
-  function focus(sel) { setTimeout(function () { var x = S.mount && S.mount.querySelector(sel); if (x && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) x.focus(); }, 30); }
+  function focus(sel) { E.focusSoon(function () { return S.mount && S.mount.querySelector(sel); }, 30); }
 
   function wire(m) {
     m.querySelectorAll("[data-act]").forEach(function (b) {

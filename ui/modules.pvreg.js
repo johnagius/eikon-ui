@@ -262,7 +262,7 @@
     var qn = m.querySelector("#pvr-q"); if (qn) qn.addEventListener("input", function () { clearTimeout(S.qT); S.qT = setTimeout(function () { paint(); }, 120); }); // one redraw when typing pauses, not one per key
     var f = m.querySelector("#pvr-add"); if (f) { f.addEventListener("submit", function (ev) { ev.preventDefault(); save(); }); f.addEventListener("input", function (ev) { unmark(ev.target); }); }
   }
-  function focusSel(sel) { setTimeout(function () { var x = S.mount && S.mount.querySelector(sel); if (x && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) x.focus(); }, 30); }
+  function focusSel(sel) { E.focusSoon(function () { return S.mount && S.mount.querySelector(sel); }, 30); }
   function focus(n) { focusSel("[name=" + n + "]"); }
   function showErr() { var x = S.mount && S.mount.querySelector(".pvr-err"); if (x && x.scrollIntoView) try { x.scrollIntoView({ block: "center" }); } catch (e) {} } // the message sits under a long form
 

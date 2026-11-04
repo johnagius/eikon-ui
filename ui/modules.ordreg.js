@@ -356,7 +356,7 @@
     var m = S.mount, box = m && m.querySelector("#ord-res"); if (!box) return paint();
     keepEdit(); box.innerHTML = resultsHtml(); bind(box);
   }
-  function focusOn(sel) { setTimeout(function () { var x = S.mount && S.mount.querySelector(sel); if (x) x.focus(); }, 0); }
+  function focusOn(sel) { E.focusSoon(function () { return S.mount && S.mount.querySelector(sel); }); } // never away from a field the person went to meanwhile
   function addEmpty() { var a = S.adding || {}; return !["client_name", "id_card", "contact", "items", "needed_by", "pick_up_date", "deposit", "notes"].some(function (k) { return String(a[k] || "").trim(); }); }
   function editUnchanged() { var a = S.edit || {}, o = S.orig || {}; return EDIT.every(function (k) { return String(a[k] == null ? "" : a[k]).trim() === String(o[k] == null ? "" : o[k]).trim(); }); }
   function closeEdit() { var id = S.editing; S.editing = null; S.edit = null; S.editErr = ""; S.efe = {}; S.del = null; paint(); if (id) focusOn('[data-act=open][data-id="' + id + '"]'); }
@@ -367,7 +367,7 @@
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
         if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("ordreg") : "#customers";
-        else if (a === "add") { S.carry = null; S.adding = {}; S.err = ""; S.fe = {}; paint(); setTimeout(function () { var f = m.querySelector("#ord-add [name=client_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (a === "add") { S.carry = null; S.adding = {}; S.err = ""; S.fe = {}; paint(); E.focusSoon(function () { return m.querySelector("#ord-add [name=client_name]"); }, 30); }
         else if (a === "add-cancel") closeAdd();
         else if (a === "ready") ready(id, true);
         else if (a === "unready") ready(id, false);
@@ -523,7 +523,7 @@
     // the phone in place (no pop-up) and sends it with the change.
     var body = { fulfilled: on };
     if (!String(e.client_phone || e.contact || "").trim()) {
-      if (!ph) { S.askPhone = id; S.askOn = on; S.phErr = ""; S.phDraft = ""; paint(); focusOn("#ord-ph-in"); return; }
+      if (!ph) { S.askPhone = id; S.askOn = on; S.phErr = ""; S.phDraft = ""; paint(); var pin = S.mount && S.mount.querySelector("#ord-ph-in"); if (pin) pin.focus(); return; } // at once: the tap opened it
       body.client_phone = ph; body.contact = ph;
     }
     S.busy[id] = true; S.phErr = ""; paint();

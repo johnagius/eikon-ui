@@ -3,13 +3,15 @@
    never takes more than is left (the server itself does not check). Expired notes with money left are listed apart.
    Correct (the pharmacist only, eikon.correct.js) on each note listed with money left: read again, the classic edit's
    fields and body (no end date = no expiry), a required reason, the whole note sent (the update replaces every field).
-   A note is never deleted here. Undoing a use, notes and printing a note stay in the classic screen. */
+   A note is never deleted here. Each note lists its uses; the pharmacist can undo a use (the classic removal: the same
+   DELETE, after one plain-words question; the worker's audit keeps the use). A search also finds notes used up, so a
+   use that took the whole note can be undone. Notes and printing a note stay in the classic screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, entries: [], loading: false, error: "", q: "", using: null, draft: {}, adding: null, saving: false, err: "" };
+  var S = { mount: null, entries: [], loading: false, error: "", q: "", using: null, draft: {}, adding: null, saving: false, err: "", undo: null };
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
@@ -47,6 +49,11 @@
       ".cnr-in .acts,.cnr-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end;align-items:center}.cnr-in .acts .all{margin-right:auto;border:0;background:none;color:var(--accent);font:inherit;font-size:14px;font-weight:600;cursor:pointer;padding:0}" +
       ".cnr-form{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:6px 0;margin-top:16px}" +
       ".cnr-err{color:var(--danger);font-size:13.5px;padding:4px 14px}.cnr [aria-invalid=true]{box-shadow:inset 0 -2px 0 var(--danger)}" +
+      ".cnr-uses{list-style:none;margin:8px 0 0;padding:0;border-top:.5px solid var(--border)}.cnr-uses li{display:flex;align-items:center;gap:10px;min-height:44px;border-bottom:.5px solid var(--border);font-size:13.5px}" +
+      ".cnr-uses li span{flex:1;min-width:0;font-variant-numeric:tabular-nums}.cnr-uses li:last-child{border-bottom:0}" +
+      ".cnr-undo{font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border-radius:18px;border:1px solid var(--border);background:transparent;color:var(--accent);cursor:pointer}" +
+      ".cnr-ask{margin:6px 0 4px;padding:12px 14px;border-radius:12px;background:var(--warn-soft,rgba(201,138,18,.16));font-size:14px;line-height:1.45}.cnr-ask .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:10px}" +
+      ".cnr-ask .cnr-err{padding:6px 0 0}.cnr button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}" +
       ".cnr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       "@media (max-width:600px){.cnr{padding:4px 16px 0}.cnr h1{font-size:32px}.cnr-btn{height:44px;border-radius:22px;padding:0 18px}.cnr-q{height:44px}.cnr-in .acts .all{min-height:44px}}";
     document.head.appendChild(st);
@@ -85,13 +92,30 @@
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
+  // A use as the server stamps it (UTC, SQLite): its day in Malta.
+  function useDay(u) { var t = Date.parse(String(u.timestamp || "").replace(" ", "T") + (/[zZ+]/.test(String(u.timestamp || "").slice(10)) ? "" : "Z")); return isFinite(t) && E.maltaYmd ? dm(E.maltaYmd(new Date(t))) : ""; }
+  function usesHtml(cn) {
+    var uses = cn.purchase_entries || []; if (!uses.length) return "";
+    var can = E.correct && E.correct.can();
+    return '<ul class="cnr-uses" aria-label="' + esc("Uses of the note for " + cn.client_name + " " + cn.client_surname) + '">' + uses.map(function (u) {
+      var day = useDay(u), what = "Used " + eur(u.amount) + (day ? " on " + day : "") + (u.receipt_number ? " · receipt " + u.receipt_number : "");
+      var h = "<li><span>" + esc(what) + "</span>" + (can ? '<button type="button" class="cnr-undo" data-act="undo" data-id="' + esc(cn.id) + '" data-pid="' + esc(u.id) + '" aria-label="' + esc("Undo: " + what) + '">Undo</button>' : "") + "</li>";
+      var q = S.undo;
+      if (q && String(q.cn) === String(cn.id) && String(q.pid) === String(u.id)) {
+        h += '<li class="cnr-ask"><div role="group" aria-label="Undo this use"><b>Undo the use of ' + esc(eur(u.amount)) + (day ? " on " + esc(day) : "") + "?</b> " + esc(eur(u.amount)) + " goes back on the note, leaving " + esc(eur(left(cn) + (Number(u.amount) || 0))) + ". The audit keeps the use." +
+          (q.err ? '<div class="cnr-err" role="alert">' + esc(q.err) + "</div>" : "") +
+          '<div class="acts"><button type="button" class="cnr-btn" data-act="undo-no">Keep it</button><button type="button" class="cnr-btn p" data-act="undo-yes"' + (q.busy ? " disabled" : "") + ">" + (q.busy ? "Undoing…" : "Undo the use") + "</button></div></div></li>";
+      }
+      return h;
+    }).join("") + "</ul>";
+  }
   function card(cn) {
     var rem = left(cn), old = expired(cn);
     var sub = [];
     if (cn.telephone) sub.push('<a href="tel:' + esc(String(cn.telephone).replace(/\s+/g, "")) + '">' + esc(cn.telephone) + "</a>");
     sub.push(eur(cn.amount) + " from " + esc(dm(cn.issue_date))); if (cn.receipt_number) sub.push("Receipt " + esc(cn.receipt_number));
     sub.push(cn.no_expiry || !cn.expiry_date ? "No end date" : (old ? "Expired " : "Until ") + esc(dm(cn.expiry_date)));
-    var h = '<div class="cnr-card' + (old ? " old" : "") + '"><div class="h"><b>' + esc(cn.client_name) + " " + esc(cn.client_surname) + "</b><em>" + eur(rem) + ' left</em></div><div class="s">' + sub.join(" · ") + "</div>" + E.correct.mark("cnreg", cn);
+    var h = '<div class="cnr-card' + (old ? " old" : "") + '" data-cn="' + esc(cn.id) + '"><div class="h"><b>' + esc(cn.client_name) + " " + esc(cn.client_surname) + "</b><em>" + eur(rem) + ' left</em></div><div class="s">' + sub.join(" · ") + "</div>" + E.correct.mark("cnreg", cn) + usesHtml(cn);
     if (S.using === cn.id) {
       h += '<form class="cnr-in" id="cnr-use" autocomplete="off"><label><span>Using €</span><input name="amount" inputmode="decimal" value="' + esc(S.draft.amount || "") + '" placeholder="0.00"></label>' +
         '<label><span>Receipt no.</span><input name="receipt_number" value="' + esc(S.draft.receipt_number || "") + '" placeholder="Optional"></label>' + (S.err ? '<div class="cnr-err" id="cnr-err" role="alert">' + esc(S.err) + "</div>" : "") +
@@ -116,6 +140,10 @@
     if (!q) h += '<p class="cnr-sum"><b>' + withMoney.filter(function (cn) { return !expired(cn); }).length + "</b> open, <b>" + eur(withMoney.filter(function (cn) { return !expired(cn); }).reduce(function (t, cn) { return t + left(cn); }, 0)) + "</b> owed to customers.</p>";
     h += '<div class="cnr-lab">Open <b>' + open.length + "</b></div>" + (open.length ? open.map(card).join("") : '<div class="cnr-quiet">' + (q ? "No open credit note for “" + esc(S.q) + "”." : "No open credit notes.") + "</div>");
     if (old.length) h += '<div class="cnr-lab">Expired with money left <b>' + old.length + "</b></div>" + old.map(card).join("");
+    if (q) { // a search also finds notes used up: a use that took the whole note can be looked at, and undone
+      var gone = S.entries.filter(function (cn) { return left(cn) <= 0 && match(cn); });
+      if (gone.length) h += '<div class="cnr-lab">Used up <b>' + gone.length + "</b></div>" + gone.slice(0, 20).map(card).join("");
+    }
     return h;
   }
   function paint(fromState) {
@@ -139,7 +167,7 @@
       h += '<div id="cnr-list">' + listHtml() + "</div>";
     }
     h += E.months.history("cnreg", HIST);
-    h += E.correct.foot('Undoing a use, notes and printing a note are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.') + "</div>";
+    h += E.correct.foot('Notes and printing a note are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.') + "</div>";
     var ae = document.activeElement, sel = ae && m.contains(ae) ? (ae.id === "cnr-q" ? "#cnr-q" : ae.name ? "[name=" + ae.name + "]" : "") : "";
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) { again.focus(); try { var L = again.value.length; again.setSelectionRange(L, L); } catch (x) {} } }
@@ -150,8 +178,10 @@
       L.innerHTML = listHtml(); wireActs(L); var fu2 = L.querySelector("#cnr-use"); if (fu2) fu2.addEventListener("submit", function (ev) { ev.preventDefault(); use(); });
     });
     var fu = m.querySelector("#cnr-use"); if (fu) fu.addEventListener("submit", function (ev) { ev.preventDefault(); use(); });
+    m.addEventListener("keydown", onEsc);
     var fa = m.querySelector("#cnr-add"); if (fa) fa.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
   }
+  function onEsc(ev) { if (ev.key === "Escape" && S.undo && !S.undo.busy && ev.target && ev.target.closest && ev.target.closest(".cnr-ask")) { ev.preventDefault(); var q = S.undo; S.undo = null; paint(true); focusUndo(q); } }
   function wireActs(root) {
     var m = S.mount;
     E.correct.wire(root, "cnreg", FIX); // the whole screen, or only the list the search redrew
@@ -161,12 +191,40 @@
         if (act === "back") window.location.hash = E.ui2BackHash("cnreg");
         else if (act === "add") { S.adding = { issue_date: today() }; S.using = null; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=client_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
-        else if (act === "use") { S.using = Number(b.getAttribute("data-id")); S.draft = {}; S.err = ""; S.adding = null; paint(true); setTimeout(function () { var f = m.querySelector("#cnr-use [name=amount]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (act === "use") { S.using = Number(b.getAttribute("data-id")); S.draft = {}; S.err = ""; S.adding = null; S.undo = null; paint(true); setTimeout(function () { var f = m.querySelector("#cnr-use [name=amount]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (act === "all") { var cn = S.entries.find(function (x) { return x.id === S.using; }); keep(); S.draft.amount = cn ? left(cn).toFixed(2) : ""; paint(true); }
         else if (act === "cancel") { S.using = null; S.err = ""; paint(true); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "cnreg"); } catch (x) {} E.openClassic("creditnotes"); }
+        else if (act === "undo") { if (!E.correct.can()) return; keep(); S.undo = { cn: b.getAttribute("data-id"), pid: b.getAttribute("data-pid"), busy: false, err: "" }; S.using = null; S.err = ""; paint(true); var y = m.querySelector("[data-act=undo-yes]"); if (y) y.focus(); }
+        else if (act === "undo-no") { var q0 = S.undo; S.undo = null; paint(true); if (q0) focusUndo(q0); }
+        else if (act === "undo-yes") undoUse();
       });
     });
+  }
+
+  function focusUndo(q) { var b = S.mount && S.mount.querySelector('[data-act=undo][data-id="' + q.cn + '"][data-pid="' + q.pid + '"]'); if (b) b.focus(); }
+  // Undo a use: the classic removal, the pharmacist only. A lost answer counts as done only when the use is gone.
+  async function undoUse() {
+    var q = S.undo; if (!q || q.busy || !E.correct.can()) return;
+    var cn0 = S.entries.find(function (x) { return String(x.id) === String(q.cn); }) || {}, u0 = (cn0.purchase_entries || []).find(function (p) { return String(p.id) === String(q.pid); }) || {};
+    q.busy = true; q.err = ""; paint(true);
+    var path = "/creditnotes/entries/" + encodeURIComponent(String(q.cn)) + "/purchases/" + encodeURIComponent(String(q.pid));
+    try {
+      try { var r = await E.apiFetch(path, { method: "DELETE" }); if (!r || !r.ok) throw new Error((r && r.error) || "Could not undo"); }
+      catch (x0) {
+        if (!(x0 && (x0.network || x0.status === 404))) throw x0;
+        var again = (await fetchAll()).find(function (x) { return String(x.id) === String(q.cn); });
+        if (!again || (again.purchase_entries || []).some(function (p) { return String(p.id) === String(q.pid); })) throw x0;
+      }
+    } catch (x) {
+      if (S.undo === q) { q.busy = false; q.err = E.saveFailText(x) + ". The use is still on the note."; paint(true); var y = S.mount && S.mount.querySelector("[data-act=undo-yes]"); if (y) y.focus(); }
+      return;
+    }
+    S.undo = null;
+    E.toast("Use undone · " + eur(u0.amount) + " is back on the note for " + (cn0.client_name || "the customer"), "success");
+    await load();
+    var c = S.mount && S.mount.querySelector('.cnr-card[data-cn="' + q.cn + '"]'), to = c && (c.querySelector("[data-act=use]") || c.querySelector("[data-act=undo]"));
+    (to || (S.mount && S.mount.querySelector("#cnr-q")) || { focus: function () {} }).focus();
   }
 
   function keep() {
@@ -234,7 +292,7 @@
 
   E.registerModule({
     id: "cnreg", title: "Credit notes", order: 3, icon: "€", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.using = null; S.adding = null; S.err = ""; S.q = ""; E.months.historyReset("cnreg"); E.correct.reset("cnreg"); css(); paint(); return E.takeOpenForm("cnreg", S.mount, load(), { btn: "[data-act=add]", form: "#cnr-add" }); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.using = null; S.undo = null; S.adding = null; S.err = ""; S.q = ""; E.months.historyReset("cnreg"); E.correct.reset("cnreg"); css(); paint(); return E.takeOpenForm("cnreg", S.mount, load(), { btn: "[data-act=add]", form: "#cnr-add" }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("cnreg") < 0) E.UI2_DESTINATIONS.push("cnreg");
   if (E.UI2_PARENT) E.UI2_PARENT.cnreg = "money";

@@ -253,7 +253,7 @@
     MB.print({ register: "Repeat prescriptions", month: S.mo, landscape: true, sections: [{ cols: ["Date", "Expires", "Client", "Medicine name and dose", "Posology", "Prescriber name", "Reg no"],
       rows: S.moEntries.slice().reverse().map(function (e) { return [MB.dmy(e.entry_date), MB.dmy(e.expires_date), { html: "<b>" + esc(e.client_name || "") + "</b><br>ID: " + esc(e.client_id || "") }, e.medicine_name_dose || "", e.posology || "", e.prescriber_name || "", e.prescriber_reg_no || ""]; }) }] });
   }
-  function focus(n) { setTimeout(function () { var x = S.mount && S.mount.querySelector("[name=" + n + "]"); if (x && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) x.focus(); }, 30); }
+  function focus(n) { E.focusSoon(function () { return S.mount && S.mount.querySelector("[name=" + n + "]"); }, 30); }
   function uniq(a) { var seen = {}, out = []; a.forEach(function (x) { var k = String(x || "").trim(); if (k && !seen[low(k)]) { seen[low(k)] = 1; out.push(k); } }); return out.sort(); }
 
   function keep() {

@@ -106,9 +106,9 @@
         var act = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
         if (act === "back") window.location.hash = E.ui2BackHash("ssreg");
         else if (act === "retry") load();
-        else if (act === "add") { S.adding = {}; S.offering = null; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=item_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (act === "add") { S.adding = {}; S.offering = null; S.err = ""; paint(true); E.focusSoon(function () { return m.querySelector("[name=item_name]"); }, 30); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); setTimeout(function () { var b = m.querySelector('[data-act="add"]'); if (b) b.focus(); }, 30); }
-        else if (act === "offer") { S.offering = id; S.draft = {}; S.adding = null; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("#ssr-offer [name=quantity_offered]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (act === "offer") { S.offering = id; S.draft = {}; S.adding = null; S.err = ""; paint(true); E.focusSoon(function () { return m.querySelector("#ssr-offer [name=quantity_offered]"); }, 30); }
         else if (act === "offer-cancel") { var was = S.offering; S.offering = null; S.err = ""; paint(true); setTimeout(function () { var b = m.querySelector('[data-act="offer"][data-id="' + was + '"]'); if (b) b.focus(); }, 30); }
         else if (act === "accept") step(id, "accept", "Accepted. They will send it.");
         else if (act === "confirm") step(id, "confirm", "Marked as sent.");

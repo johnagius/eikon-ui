@@ -305,7 +305,7 @@
     wire(m);
   }
 
-  function focusSel(sel) { setTimeout(function () { var x = S.mount && S.mount.querySelector(sel); if (x && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) x.focus(); }, 30); }
+  function focusSel(sel) { E.focusSoon(function () { return S.mount && S.mount.querySelector(sel); }, 30); }
   function cssId(v) { return window.CSS && CSS.escape ? CSS.escape(v) : String(v).replace(/"/g, ""); }
 
   function wire(m) {

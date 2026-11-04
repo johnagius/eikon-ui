@@ -161,7 +161,7 @@
         var a = b.getAttribute("data-act");
         if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("locreg") : "#registers";
         else if (a === "retry") load();
-        else if (a === "new") { S.form = { entry_date: ymd(new Date()), time_in: hmNow() }; paint(); setTimeout(function () { var c = m.querySelector("[name=locum_full_name]"); if (c && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) c.focus(); }, 30); }
+        else if (a === "new") { S.form = { entry_date: ymd(new Date()), time_in: hmNow() }; paint(); E.focusSoon(function () { return m.querySelector("[name=locum_full_name]"); }, 30); }
         else if (a === "cancel") { S.form = null; paint(); var nb = m.querySelector("[data-act=new]"); if (nb) nb.focus(); }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "locreg"); } catch (e) {} E.openClassic("locumregister"); }
       });

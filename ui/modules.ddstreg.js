@@ -266,7 +266,7 @@
       else if (ev.key === "Escape") { ev.preventDefault(); var was = S.editId; S.editId = null; S.edit = null; S.editErr = ""; paint(); focusSoon('[data-fk="edit-' + was + '"]'); }
     });
   }
-  function focusSoon(sel) { setTimeout(function () { var x = S.mount && S.mount.querySelector(sel); if (x) x.focus(); }, 0); }
+  function focusSoon(sel) { E.focusSoon(function () { return S.mount && S.mount.querySelector(sel); }); } // never away from a field the person went to meanwhile
   function setStatus(id) { // only the line's status changes: the count boxes are never redrawn under the fingers
     var r = row(id), s = S.mount && S.mount.querySelector("#dst-s-" + id), inp = S.mount && S.mount.querySelector('input.dst-cnt[data-id="' + id + '"]');
     if (s) { s.textContent = r.state === "saving" ? "Saving…" : r.state === "saved" ? "Saved" : r.state === "bad" ? r.msg : ""; s.className = r.state === "bad" ? "bad" : ""; }

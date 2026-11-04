@@ -133,7 +133,7 @@
         if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("certreg") : "#registers";
         else if (a === "retry") load();
         else if (a === "print") printList();
-        else if (a === "edit") { S.editing = Number(b.getAttribute("data-id")); S.formErr = ""; S.formBad = ""; S.draft = null; paint(); setTimeout(function () { var f = m.querySelector("[name=last_date]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (a === "edit") { S.editing = Number(b.getAttribute("data-id")); S.formErr = ""; S.formBad = ""; S.draft = null; paint(); E.focusSoon(function () { return m.querySelector("[name=last_date]"); }, 30); }
         else if (a === "cancel") closeForm();
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "certreg"); } catch (e) {} E.openClassic("certificates"); }
       });

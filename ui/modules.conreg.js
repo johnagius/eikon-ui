@@ -308,7 +308,7 @@
   // Opening another contact while a form has typed changes would lose them: say so instead (no dialog).
   function confirmLeave() { keep(); var F = S.form; if (!F) return true; var dirty = Object.keys(F.vals).some(function (k) { return String(F.vals[k] || "") !== String((F.snap || {})[k] || ""); }); if (!dirty) return true; S.err = "Save or cancel this contact first. What you typed is still here."; paint(true); return false; }
   function top() { if (window.matchMedia && window.matchMedia("(max-width:900px)").matches) try { window.scrollTo(0, 0); } catch (e) {} }
-  function focus() { setTimeout(function () { var x = S.mount && S.mount.querySelector('#con-form [name="name"]'); if (x && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) x.focus(); }, 30); }
+  function focus() { E.focusSoon(function () { return S.mount && S.mount.querySelector('#con-form [name="name"]'); }, 30); }
   function focusTitle() { setTimeout(function () { var x = S.mount && S.mount.querySelector("#con-title"); var a = document.activeElement; if (x && !(a && a.closest && a.closest("form")) && !(a && a.id === "con-q")) x.focus(); }, 30); }
 
   function keep() {
