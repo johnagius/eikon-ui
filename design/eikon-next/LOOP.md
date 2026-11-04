@@ -1013,3 +1013,9 @@ All of it waits only on the worker deploy.
 - Shipped the m-152 combination: steal (wrong field, 4 live paths) + its follow-ups (E.keepChanged: lists/tick boxes kept through a redraw — the Stock-alerts "recall, room" reset was on base too; scanner bursts checked: a test-only split under page stalls, card the same once padded), b4-8b banner placement, b4-6b Money (A4 print, unlock audit, undo a credit-note use).
 - Checks: worker 209/0; real 44/1 (team, green alone); UI 395/1, 395/1, 392/1 over three runs, a different known timing check each time (each passed in the other runs). Test fixes: focus reads wait for the one-tick focus; diary counts only diary posts; scan compares the padded card.
 - Next: integrator merging consistency (cons4), Stock 6a, Team 6c onto 541d2d8 as .153 with a What's new entry. "midnight" agent auditing UTC vs Malta dates.
+
+## Round 139 — UI .153 LIVE (6ff30c8): consistency, Stock, Team
+
+- Integrator merged cons4 (sentence case, Maltese suggestions, Malta print time, E.formErrors/E.skeleton, steady real cases), b4-6a (order diary change/delete, price check change/delete, New return) and b4-6c (standing instructions, leave requests, "Add a person" every-visit fix) onto 541d2d8; new deferred focus routed through E.focusSoon/E.focusIfIdle. Worker 209/0, UI 412/0, real 48/0 (2207 checks). Live BUILD .153 confirmed 01:21 UTC.
+- "midnight" agent: tests were dating things in UTC (fixed: tests/clock.mjs, Malta calendar and zone, fakeable clock); two real UI bugs (classic dashboard Add to Stock, supplier delivery default) fixed; worker UTC defaults (Near expiry returns, scarce/transfer expiry checks, a few server-filled dates) — proposal + 6 worker tests held for John. Merging tests + UI parts as .154 (copy agents/m-154, running UI, real, and real at a faked 23:30 UTC).
+- Planner (plan5) walking the app for BACKLOG5.
