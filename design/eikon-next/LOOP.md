@@ -1081,3 +1081,9 @@ All of it waits only on the worker deploy.
 - .164: typing survives "Reload this screen" and a session that ends (q6-1).
 - Batch-6 (John approved): W2 Maltese folding in name searches, W3 server-issued TKT/DEL numbers, midnight Malta dates, W4 scarce stock within the org. Restore point 00000b9f-00000000-00005119-a2be1b2819fdfa28760e7ae22cb56e14; deployed 07:51 UTC (1151.83 KiB / gzip 190.86 KiB); /health batch-6, signed-out 401s, old-address 302. Rehearsal 32/32, predeploy 10/10, worker 222/0.
 - Open for John: scarce-stock *needs* are still visible to every pharmacy (only offers were grouped).
+
+## Round 151 — Batch-7 LIVE (89570a1b, UI .167): owner's view; customer record + Tell the customer
+
+- John approved. Restore point 00000ba8-00000000-00005119-8c54f9937fa18ee469a7a28723518781; deployed 09:18 UTC (1209.42 KiB / gzip 204.67 KiB); /health batch-7; signed-out 401s incl. /owner/summary, /messages/setup, /people/1/now; old-address 302.
+- .166 Bookings (move a booking, past/any day, refresh, Settings keeps hours) shipped before it.
+- Building: d-stock (Stock & ordering), d-book (Bookings as the full appointment system).
