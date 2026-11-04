@@ -278,9 +278,9 @@
     ["conreg", "team", "Contacts", "Suppliers, reps, doctors and everyone else the pharmacy calls.", [
       ["Find a number", "Choose a group, such as Suppliers or Doctors, or search."],
       ["Add a contact", "Press Add a contact.", "Choose the type and fill in the name, phone and email.", "Press Add contact. Every pharmacy in your group sees it."],
-      ["Change a contact", "Open the contact and press Edit."],
+      ["Change or delete a contact", "Open the contact and press Edit. Change what is needed and press Save.", "The pharmacist can press Delete…, then Delete contact. A shared contact goes for every pharmacy in your group."],
       ["Emergency numbers", "Choose Emergency for 112, police, hospitals and health centres."]
-    ], "Deleting a contact, import and export, hiding sections and the specialty filter are in the classic screen.", []],
+    ], "Import and export, hiding sections and the specialty filter are in the classic screen.", []],
 
     ["vaxreg", "services", "Vaccines", "Vaccines ordered for clients, for travel or routine.", [
       ["Order vaccines for a client", "Press New order.", "Choose Travel or Routine and other, fill in the client, and press Add a vaccine for each one.", "Press Save order. Saving takes these vaccines off stock.", "To print it, choose A4 or Receipt."],

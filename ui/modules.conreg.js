@@ -4,7 +4,8 @@
    Same endpoints and the same visibility as the classic screen: every list is the group's (org), clients are this
    pharmacy's only, and clients found in the registers are shown but not changed here. A change sends the whole record
    (the server replaces every field), after reading it again so another person's change is never overwritten blindly.
-   Deleting, import, export, hiding sections and the specialty filter stay in the classic screen. */
+   The pharmacist deletes a contact (the classic DELETE, after one plain question). Import, export, hiding sections and
+   the specialty filter stay in the classic screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -45,7 +46,7 @@
   var SPECIALTIES = ["Allergy & Immunology", "Anaesthesiology", "Andrology", "Cardiology", "Cardiac Surgery", "Clinical Genetics", "Clinical Pharmacology", "Colorectal Surgery", "Dentistry", "Dermatology", "Diabetology", "Emergency Medicine", "Endocrinology", "ENT", "Forensic Medicine", "Gastroenterology", "General Practice", "General Surgery", "Geriatrics", "Gynaecology", "Haematology", "Hand Surgery", "Hepatology", "Infectious Disease", "Internal Medicine", "Intensive Care", "Maxillofacial Surgery", "Microbiology", "Neonatology", "Nephrology", "Neurology", "Neurosurgery", "Nuclear Medicine", "Obstetrics", "Obs & Gynae", "Occupational Medicine", "Oncology", "Ophthalmology", "Oral Surgery", "Orthodontics", "Orthopaedics", "Paediatrics", "Paediatric Surgery", "Pain Medicine", "Palliative Care", "Pathology", "Plastic Surgery", "Podiatry", "Psychiatry", "Public Health", "Pulmonology", "Radiology", "Radiotherapy", "Rehabilitation Medicine", "Renal Medicine", "Rheumatology", "Sexual Health", "Sleep Medicine", "Spinal Surgery", "Sports Medicine", "Thoracic Surgery", "Transplant Surgery", "Trauma Surgery", "Urology", "Vascular Surgery"];
 
 
-  var S = { mount: null, rows: {}, agg: [], failed: [], loading: false, error: "", q: "", filter: "all", sel: null, form: null, saving: false, err: "" };
+  var S = { mount: null, rows: {}, agg: [], failed: [], loading: false, error: "", q: "", filter: "all", sel: null, form: null, saving: false, err: "", del: false, deleting: false, delErr: "" };
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
   function low(s) { return String(s || "").toLowerCase(); }
@@ -55,6 +56,7 @@
     return String(n || "").split(/\s*\/\s*/).filter(Boolean).map(function (x) { return digits(x) ? '<a href="' + esc(telHref(x)) + '">' + esc(x) + "</a>" : esc(x); }).join(" / ");
   }
   function callNo(t, r) { return r.phone || r.phone_patient || ""; } // a doctor's personal number is not offered from the list
+  function isAdmin() { var u = E.state && E.state.user; return !!(u && u.role === "admin"); } // the server lets staff delete too: this screen keeps it to the pharmacist, as the other rebuilt screens do
 
   function css() {
     if (document.getElementById("eikon-conreg-css")) return;
@@ -117,7 +119,11 @@
       ".con-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       "@media (max-width:600px){.con-btn{height:44px;border-radius:22px}.con-call{height:44px;border-radius:22px;padding:0 16px}.con-q{height:44px}.con-ferr{margin-left:0}" +
       ".con-chips{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding:0 16px 2px}.con-chips::-webkit-scrollbar{display:none}.con-chips button{height:44px;border-radius:22px;padding:0 14px;flex:none}}" +
-      ".con-back{min-height:44px;padding:0 12px 0 0;margin:-8px 0 2px}.con-open{min-height:44px}"; // q5-8: the way back and every row at least 44 px tall
+      ".con-back{min-height:44px;padding:0 12px 0 0;margin:-8px 0 2px}.con-open{min-height:44px}" + // q5-8: the way back and every row at least 44 px tall
+      // q5-10c: Delete… (the pharmacist's) sits apart from Edit; the one question replaces the buttons in place.
+      ".con-acts.l{justify-content:space-between}.con-btn.d{color:var(--danger);border-color:var(--danger);background:transparent}.con-btn.dd{background:#B42318;border-color:#B42318;color:#fff}" +
+      ".con-ask{margin:16px 0 0;font-size:15px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}.con-ask+.con-acts{margin-top:10px}.con-card .con-err{padding:8px 0 0}" +
+      "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .con-btn.d{color:#FF7A72;border-color:#FF7A72}}";
     document.head.appendChild(st);
   }
 
@@ -228,7 +234,13 @@
       });
     }
     h += "</dl>";
-    if (!c.fixed && !c.agg) h += '<div class="con-acts"><button type="button" class="con-btn" data-act="edit">Edit</button></div>';
+    if (!c.fixed && !c.agg) {
+      var nm = String(r.name || "").trim() || "this contact";
+      if (S.del) h += '<p class="con-ask" id="con-ask">' + esc("Delete " + nm + " from Contacts? This cannot be undone.") + "</p>" +
+        (S.delErr ? '<div class="con-err" role="alert">' + esc(S.delErr) + "</div>" : "") +
+        '<div class="con-acts"><button type="button" class="con-btn" data-act="del-cancel">Keep it</button><button type="button" class="con-btn dd" data-act="del-go" aria-describedby="con-ask"' + (S.deleting ? " disabled" : "") + ">" + (S.deleting ? "Deleting…" : "Delete contact") + "</button></div>";
+      else h += '<div class="con-acts' + (isAdmin() ? " l" : "") + '"><button type="button" class="con-btn" data-act="edit">Edit</button>' + (isAdmin() ? '<button type="button" class="con-btn d" data-act="del">Delete…</button>' : "") + "</div>";
+    }
     if (c.agg) h += '<p class="con-foot">Taken from orders, questions, deliveries and other registers. Saving it as a contact is in the <a href="#" data-act="classic">classic screen</a>.</p>';
     return h + "</div>";
   }
@@ -263,7 +275,7 @@
       '<input class="con-q" id="con-q" type="search" autocomplete="off" aria-label="Search contacts" placeholder="Name, number or email" value="' + esc(S.q) + '">' +
       '<div class="con-chips" role="group" aria-label="Show">' + chips.map(function (c) { return '<button type="button" data-filter="' + c[0] + '" aria-pressed="' + (S.filter === c[0]) + '">' + esc(c[1]) + "</button>"; }).join("") + "</div>" +
       '<div id="con-list">' + listHtml() + "</div>" +
-      '<p class="con-foot">Deleting a contact, import and export, hiding sections and the specialty filter are in the <a href="#" data-act="classic">classic screen</a>.</p>' +
+      '<p class="con-foot">Import and export, hiding sections and the specialty filter are in the <a href="#" data-act="classic">classic screen</a>.</p>' +
       '</div><div class="con-detail">' + detailHtml() + "</div></div></div>";
     var ae = document.activeElement, keepSel = ae && m.contains(ae) ? (ae.id === "con-q" ? "#con-q" : ae.name ? "#con-form [name=" + ae.name + "]" : "") : "";
     m.innerHTML = h;
@@ -280,22 +292,25 @@
         if (act === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("conreg") : "#team";
         else if (act === "retry") load();
         else if (act === "q58-more") { var nx = E.listPage.more(b.getAttribute("data-key")); paintList(); if (nx != null) E.focusSoon(function () { return S.mount && S.mount.querySelector('[data-open="' + nx + '"]'); }); } // q5-8: the first new contact
-        else if (act === "add") { var ty = TYPE[S.filter] ? S.filter : "suppliers"; S.form = { type: ty, id: null, vals: prefill(ty) }; S.err = ""; S.fe = {}; S.sel = null; paint(true); top(); focus(); }
-        else if (act === "edit") { var c = find(S.sel); if (!c || c.fixed || c.agg) return; var vals = {}; TYPE[c.t].cols.forEach(function (k) { vals[k] = String(c.r[k] == null ? "" : c.r[k]); }); S.form = { type: c.t, id: c.r.id, vals: vals, snap: Object.assign({}, vals), key: c.k }; S.err = ""; S.fe = {}; paint(true); top(); focus(); }
+        else if (act === "add") { S.del = false; S.delErr = ""; var ty = TYPE[S.filter] ? S.filter : "suppliers"; S.form = { type: ty, id: null, vals: prefill(ty) }; S.err = ""; S.fe = {}; S.sel = null; paint(true); top(); focus(); }
+        else if (act === "edit") { var c = find(S.sel); if (!c || c.fixed || c.agg) return; S.del = false; S.delErr = ""; var vals = {}; TYPE[c.t].cols.forEach(function (k) { vals[k] = String(c.r[k] == null ? "" : c.r[k]); }); S.form = { type: c.t, id: c.r.id, vals: vals, snap: Object.assign({}, vals), key: c.k }; S.err = ""; S.fe = {}; paint(true); top(); focus(); }
         else if (act === "form-cancel") cancelForm();
-        else if (act === "close") { var was = S.sel; S.sel = null; paint(true); var row = was && m.querySelector('[data-open="' + was + '"]'); if (row) row.focus(); }
+        else if (act === "del") { S.del = true; S.delErr = ""; paint(true); focusOn(".con-card [data-act=del-cancel]"); }
+        else if (act === "del-cancel") { if (S.deleting) return; S.del = false; S.delErr = ""; paint(true); focusOn(".con-card [data-act=del]"); }
+        else if (act === "del-go") remove();
+        else if (act === "close") { if (S.deleting) return; S.del = false; S.delErr = ""; var was = S.sel; S.sel = null; paint(true); var row = was && m.querySelector('[data-open="' + was + '"]'); if (row) row.focus(); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "conreg"); } catch (x) {} E.openClassic("contacts"); }
       });
     });
     root.querySelectorAll("[data-filter]").forEach(function (b) { b.addEventListener("click", function () { S.filter = b.getAttribute("data-filter"); paint(); var again = S.mount.querySelector('[data-filter="' + S.filter + '"]'); if (again) again.focus(); }); });
-    root.querySelectorAll("[data-open]").forEach(function (b) { b.addEventListener("click", function () { if (S.form && !confirmLeave()) return; S.form = null; S.err = ""; S.sel = b.getAttribute("data-open"); paint(true); top(); focusTitle(); }); });
+    root.querySelectorAll("[data-open]").forEach(function (b) { b.addEventListener("click", function () { if (S.form && !confirmLeave()) return; if (S.deleting) return; S.form = null; S.err = ""; S.del = false; S.delErr = ""; S.sel = b.getAttribute("data-open"); paint(true); top(); focusTitle(); }); });
     var qn = root.querySelector("#con-q");
     if (qn) {
       qn.addEventListener("input", function () { S.q = qn.value; paintList(); });
       qn.addEventListener("keydown", function (e) { if (e.key === "Escape" && qn.value) { e.preventDefault(); qn.value = ""; S.q = ""; paintList(); } });
     }
     var card = root.querySelector(".con-card");
-    if (card) card.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { var c = card.parentNode && card.parentNode.querySelector("[data-act=close]"); if (c) { ev.preventDefault(); c.click(); } } }); // Escape goes back to the list, on the row it came from
+    if (card) card.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { var k = card.querySelector("[data-act=del-cancel]") || (card.parentNode && card.parentNode.querySelector("[data-act=close]")); if (k) { ev.preventDefault(); k.click(); } } }); // Escape keeps the contact when asked, else goes back to the list, on the row it came from
     var f = root.querySelector("#con-form");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); save(); });
@@ -312,6 +327,7 @@
   }
   // Opening another contact while a form has typed changes would lose them: say so instead (no dialog).
   function confirmLeave() { keep(); var F = S.form; if (!F) return true; var dirty = Object.keys(F.vals).some(function (k) { return String(F.vals[k] || "") !== String((F.snap || {})[k] || ""); }); if (!dirty) return true; S.err = "Save or cancel this contact first. What you typed is still here."; paint(true); return false; }
+  function focusOn(sel) { E.focusSoon(function () { return S.mount && S.mount.querySelector(sel); }, 0); } // never from a field the person went to meanwhile
   function top() { if (window.matchMedia && window.matchMedia("(max-width:900px)").matches) try { window.scrollTo(0, 0); } catch (e) {} }
   function focus() { E.focusSoon(function () { return S.mount && S.mount.querySelector('#con-form [name="name"]'); }, 30); }
   function focusTitle() { setTimeout(function () { var x = S.mount && S.mount.querySelector("#con-title"); var a = document.activeElement; if (x && !(a && a.closest && a.closest("form")) && !(a && a.id === "con-q")) x.focus(); }, 30); }
@@ -380,9 +396,35 @@
     if (!S.form && S.sel) focusTitle();
   }
 
+  // Delete (the pharmacist's): the classic call, DELETE /contacts/<type>/<id> with no body, after one plain question. The
+  // server removes the row and writes CONTACT_DELETE, as for the classic Del. Focus goes to the contact that took its
+  // place in the list, else the one before, else Add a contact.
+  async function remove() {
+    var c = S.sel && find(S.sel);
+    if (S.deleting || !c || c.fixed || c.agg || !isAdmin()) return;
+    var rows = Array.prototype.slice.call(S.mount.querySelectorAll("#con-list [data-open]")), i = rows.findIndex(function (b) { return b.getAttribute("data-open") === c.k; });
+    var nb = i >= 0 ? (rows[i + 1] || rows[i - 1] || null) : null, near = nb && find(nb.getAttribute("data-open")), name = String(c.r.name || "").trim() || "the contact";
+    S.deleting = true; S.delErr = ""; paint(true);
+    try {
+      var r = await E.apiFetch("/contacts/" + c.t + "/" + c.r.id, { method: "DELETE" });
+      if (!r || r.ok === false) throw new Error((r && r.error) || "Delete failed");
+    } catch (x) {
+      var gone = false; try { gone = !(await list(c.t)).some(function (row) { return String(row.id) === String(c.r.id); }); } catch (e2) { gone = false; } // the answer was lost, or someone deleted it first: look
+      if (!gone) { S.delErr = E.saveFailText(x).replace(/^Not saved/, "Not deleted"); S.deleting = false; return paint(true); }
+    }
+    E.toast("Deleted " + name, "success"); S.del = false; S.deleting = false; S.sel = null; S.form = null;
+    await load();
+    var to = null;
+    if (near) { // a client from the registers has no id: find it again by name and ID card
+      if (near.agg) { var ix = S.agg.findIndex(function (a) { return low(a.name) === low(near.r.name) && low(a.id_card) === low(near.r.id_card); }); to = ix >= 0 ? "agg:" + ix : null; }
+      else to = near.k;
+    }
+    E.focusSoon(function () { return S.mount && ((to && S.mount.querySelector('#con-list [data-open="' + to + '"]')) || S.mount.querySelector(".con-top [data-act=add]")); }, 0);
+  }
+
   E.registerModule({
     id: "conreg", title: "Contacts", order: 3, icon: "☎", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; E.listPage.reset("con"); S.form = null; S.sel = null; S.err = ""; S.fe = {}; S.q = ""; S.filter = "all"; S.saving = false; css(); paint(); return E.takeOpenForm("conreg", S.mount, load(), { btn: ".con-top [data-act=add]", form: "#con-form", isNew: function () { return !!(S.form && !S.form.id); } }); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; E.listPage.reset("con"); S.form = null; S.sel = null; S.err = ""; S.fe = {}; S.q = ""; S.filter = "all"; S.saving = false; S.del = false; S.deleting = false; S.delErr = ""; css(); paint(); return E.takeOpenForm("conreg", S.mount, load(), { btn: ".con-top [data-act=add]", form: "#con-form", isNew: function () { return !!(S.form && !S.form.id); } }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("conreg") < 0) E.UI2_DESTINATIONS.push("conreg");
   if (E.UI2_PARENT) E.UI2_PARENT.conreg = "team";

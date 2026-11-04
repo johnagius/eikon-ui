@@ -2284,6 +2284,51 @@ report("contacts: opens from the old link; personal number kept out of the list;
   conPosts[0].path === "/contacts/suppliers" && JSON.stringify(conPosts[0].body) === JSON.stringify({ name: "Actavis Malta", phone: "2123 9999", email: "orders@actavis.example", id: 31 }) &&
   conPosts[1].path === "/contacts/medreps" && JSON.stringify(conPosts[1].body) === JSON.stringify({ name: "Rita Grech", phone: "9988 7766", email: "" }), JSON.stringify({ con1, conPosts }));
 
+// q5-10c: Contacts delete. The pharmacist's Delete… asks once in plain words (focus on Keep it; Escape keeps it); a failed
+// delete says so and keeps the question; Delete contact is the classic call (DELETE /contacts/<type>/<id>, no body),
+// once; focus goes to the next contact in the list. Staff see no Delete…; the footer no longer sends deleting away.
+try {
+  let conSup = [{ id: 31, org_id: 1, name: "Actavis Malta", phone: "2123 4567", email: "orders@actavis.example" }, { id: 32, org_id: 1, name: "Ħili Pharma", phone: "2133 0000", email: "" }, { id: 33, org_id: 1, name: "Żebbuġ Supplies", phone: "2144 1111", email: "" }];
+  let conFail = true; const conDels = [];
+  await page.route(/\/contacts\/suppliers(\/\d+)?(\?.*)?$/, (r) => {
+    const rq = r.request(), m = new URL(rq.url()).pathname.match(/\/contacts\/suppliers\/(\d+)$/);
+    if (rq.method() === "GET" && !m) return r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, rows: conSup }) });
+    if (rq.method() === "DELETE" && m) {
+      conDels.push({ path: new URL(rq.url()).pathname, body: rq.postData() });
+      if (conFail) { conFail = false; return r.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ ok: false, error: "Server busy" }) }); }
+      conSup = conSup.filter((x) => String(x.id) !== m[1]); return r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true }) });
+    }
+    return r.continue();
+  });
+  await page.goto(base + "&ui=2#today"); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "today", null, { timeout: 15000 }); // a fresh read of the list
+  await page.goto(base + "&ui=2#contacts");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "conreg" && document.querySelector('[data-open="suppliers:32"]'), null, { timeout: 15000 });
+  const cdFoot = await page.textContent(".con-foot");
+  await page.click('[data-open="suppliers:32"]'); await page.waitForSelector(".con-card [data-act=del]");
+  await page.click(".con-card [data-act=del]"); await page.waitForTimeout(80);
+  const cdAsk = await page.evaluate(() => ({ text: document.querySelector("#con-ask").textContent, focus: document.activeElement.getAttribute("data-act"), desc: document.querySelector("[data-act=del-go]").getAttribute("aria-describedby") }));
+  await page.keyboard.press("Escape"); await page.waitForTimeout(80);
+  const cdEsc = await page.evaluate(() => ({ ask: !!document.querySelector("#con-ask"), focus: document.activeElement.getAttribute("data-act"), open: !!document.querySelector(".con-card") }));
+  await page.click(".con-card [data-act=del]"); await page.click(".con-card [data-act=del-go]");
+  await page.waitForSelector(".con-card .con-err[role=alert]", { timeout: 5000 });
+  const cdErr = await page.evaluate(() => ({ err: document.querySelector(".con-card .con-err").textContent, ask: !!document.querySelector("#con-ask"), still: !!document.querySelector('[data-open="suppliers:32"]') }));
+  await page.click(".con-card [data-act=del-go]");
+  await page.waitForFunction(() => !document.querySelector(".con-card") && document.activeElement && document.activeElement.getAttribute("data-open"), null, { timeout: 5000 }).catch(() => {});
+  const cdDone = await page.evaluate(() => ({ focus: document.activeElement.getAttribute("data-open"), gone: !document.querySelector('[data-open="suppliers:32"]') }));
+  await page.evaluate(() => { window.EIKON.state.user.role = "staff"; });
+  await page.click('[data-open="suppliers:31"]'); await page.waitForSelector(".con-card [data-act=edit]");
+  const cdStaff = await page.evaluate(() => !document.querySelector("[data-act=del]"));
+  await page.evaluate(() => { window.EIKON.state.user.role = "admin"; });
+  await page.unroute(/\/contacts\/suppliers(\/\d+)?(\?.*)?$/);
+  report("contacts delete (q5-10c): the pharmacist's Delete… asks once in plain words, Escape keeps it, a failure says so and keeps the question, then one classic DELETE with no body; focus to the next contact; staff see no Delete…; footer shrunk",
+    !/Deleting/.test(cdFoot) && /^Import and export, hiding sections and the specialty filter are in the classic screen\.$/.test(cdFoot.trim()) &&
+    cdAsk.text === "Delete Ħili Pharma from Contacts? This cannot be undone." && cdAsk.focus === "del-cancel" && cdAsk.desc === "con-ask" &&
+    !cdEsc.ask && cdEsc.focus === "del" && cdEsc.open &&
+    /^Not deleted: Server busy/.test(cdErr.err) && cdErr.ask && cdErr.still &&
+    conDels.length === 2 && conDels.every((d) => d.path === "/contacts/suppliers/32" && d.body == null) && cdDone.gone && cdDone.focus === "suppliers:33" && cdStaff,
+    JSON.stringify({ cdFoot, cdAsk, cdEsc, cdErr, cdDone, cdStaff, conDels }));
+} catch (e) { await page.unroute(/\/contacts\/suppliers(\/\d+)?(\?.*)?$/).catch(() => {}); report("contacts delete (q5-10c): ran to the end", false, String(e).slice(0, 300)); }
+
 // Vaccines: the old link opens the new screen; Kenya brings its recommendations; a tapped vaccine and the client go in one POST shaped like the classic one.
 try {
   await page.goto(base + "&ui=2#vaccines");
