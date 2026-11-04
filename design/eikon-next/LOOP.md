@@ -1064,3 +1064,8 @@ All of it waits only on the worker deploy.
 
 - Planner 6 walked .160 on a busy stack (Malta time): BACKLOG5's numbers all moved the right way. New top items: (1) typing must survive the error bar's Reload and a session that ends (the promise "What you typed is kept" isn't yet true there); (2) Bookings: staff can't move a booking, only 7 days visible, no refresh, and Settings' Done silently throws away changed hours (data loss); (3) errors in plain words (raw "D1_ERROR: database is locked" reaches staff); (4) Maltese names via a 2-letter stretch miss Ċachia/Ħaġġar (W2 now urgent); (5) one team / hours set once; (6) same number and word everywhere (Waiting 59/32/23); (7) screen reader titles/headings/"Open" names; (8) thumbs part 2; (9) Possible duplicates sends 60 requests; (10) Settings calm.
 - Started q6-1 and q6-2 (D2: moving a booking offers "Tell the customer by e-mail", on by default; D3: past bookings read-only — both reversible, for John). q5-10a/b/c still running.
+
+## Round 148 — UI .161 on main (7cab50c): alerts, near-expiry offers, POCT print/change
+
+- q5-10b (rebased onto d055420 by its agent; tree checked equal): Alerts Change/Close, Near expiry Offer to Scarce stock, POCT Change and Print one test — classic bodies, rows and audit identical; print HTML identical. Worker 209/0, UI 453/0, real 59/0.
+- For John: Scarce stock is visible to every pharmacy on Eikon (classic too; the server has no group filter) — if chains should offer only within their group, that's a worker change.
