@@ -1075,3 +1075,9 @@ All of it waits only on the worker deploy.
 - John: stop polishing small things; work on whole departments that users notice. Chosen: Bookings & appointments, Customers & messaging, Owner's view & reports, Stock & ordering. Running one department agent each (d-cust, d-owner, d-stock; Bookings via q6-2 then a follow-on). Lean pace otherwise; small items (browser Maltese patch, Possible duplicates) stopped.
 - John approved four server fixes, being built together as worker batch-6 (agents/w6): Maltese folding in people search, server-issued TKT/DEL numbers, Malta dates for server-filled dates, Scarce stock only within the same group.
 - Shipped .162 (delete a contact) and .163 (print one credit note + its notes; End of day copies the deposit for the bank e-mail).
+
+## Round 150 — Worker batch-6 LIVE (fdc7ef6b) + UI .164/.165
+
+- .164: typing survives "Reload this screen" and a session that ends (q6-1).
+- Batch-6 (John approved): W2 Maltese folding in name searches, W3 server-issued TKT/DEL numbers, midnight Malta dates, W4 scarce stock within the org. Restore point 00000b9f-00000000-00005119-a2be1b2819fdfa28760e7ae22cb56e14; deployed 07:51 UTC (1151.83 KiB / gzip 190.86 KiB); /health batch-6, signed-out 401s, old-address 302. Rehearsal 32/32, predeploy 10/10, worker 222/0.
+- Open for John: scarce-stock *needs* are still visible to every pharmacy (only offers were grouped).

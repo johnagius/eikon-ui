@@ -13,7 +13,8 @@ does not: it changes only when someone runs `wrangler deploy`.
 
 | | Version | Cloudflare version id |
 |---|---|---|
-| Live now (21:39 UTC) | `2026-11-03-batch-5`: temperature notes and late logging, repeats coming due (two added columns on repeat_prescription_entries), Correct with an audit reason, Inspection check; UI .149 on main | `550951a7-b084-4c80-8612-11ccd9822a36` |
+| Live now (2026-11-04 07:51 UTC) | `2026-11-04-batch-6`: Maltese letters in name searches, server-issued TKT/DEL numbers (+2 indexes), Malta dates for server-filled dates, scarce stock within the org; UI .165 | `fdc7ef6b-26db-4d3a-a263-157d2cc41523` |
+| Before that (2026-11-03 21:39 UTC) | `2026-11-03-batch-5`: temperature notes and late logging, repeats coming due (two added columns on repeat_prescription_entries), Correct with an audit reason, Inspection check; UI .149 on main | `550951a7-b084-4c80-8612-11ccd9822a36` |
 | Before that (17:35 UTC) | `2026-11-03-batch-4`: whole-state saves write only changes, bulk imports safe, people links server side (UI flag off), CSP-safe print tabs | `f368bd4b-85dd-4a57-b9ad-c5f31ee5c1bd` |
 | Before that (17:20) | `2026-11-03-batch-3`, website now served from **main** (UI_GITHUB_BRANCH = main; same code) | `0c89cc74-a552-473d-8e74-a4e807edc828` |
 | Before that (16:15) | `2026-11-03-batch-3`: old address → eikonhq.com, install offer, months/print, Orders/Questions, staff accounts + idle lock, CSP report-only, DDA rewrites stopped, scale indexes, labels save | `b58f4ddc-f464-43b7-a1eb-9849a83253cd` |
@@ -91,6 +92,7 @@ open Bookings and press "Set up bookings".
 
 ## Restore points
 
+- Before batch-6 (2026-11-04 07:50 UTC): `00000b9f-00000000-00005119-a2be1b2819fdfa28760e7ae22cb56e14`.
 - Before batch-5 (21:38 UTC): `00000b5f-00000000-00005118-85ddf560ea98efb3b482472eb0cfc11d`.
 - Before batch-4 (17:34 UTC): `00000b3d-00000000-00005118-b2156fabccf982d1974cd87086fdfc5f`.
 - Before batch-3 (16:14 UTC): `00000b2b-00000000-00005118-a70517b43d851ec0ae40841274e7dbc7`.
