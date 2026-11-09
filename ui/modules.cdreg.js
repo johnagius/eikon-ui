@@ -292,6 +292,8 @@
       E.ddaDrugs.suggest(q, [], "/dda-sales").forEach(function (r) { (r.ds || []).forEach(function (d) { var g = key(d.g); if (gens.indexOf(g) < 0) gens.push(g); }); });
     } catch (e) {}
     var list = q ? all.filter(function (x) { return x.key.indexOf(q) >= 0 || gens.some(function (g) { return x.key.indexOf(g) >= 0; }) || Object.keys(x.names).some(function (y) { return key(y).indexOf(q) >= 0; }); }) : all;
+    var overOf = function (x) { return !x.lastCount && x.qOut - x.qIn > 0 ? 1 : 0; }; // C9 rows first, otherwise the order stays
+    list = list.map(function (x, i) { return { x: x, i: i }; }).sort(function (a, b) { return overOf(b.x) - overOf(a.x) || a.i - b.i; }).map(function (o) { return o.x; });
     h += '<div class="cdr-lab">' + (q ? "Found" : "Written or counted in the last 3 months") + " <b>" + list.length + "</b></div>";
     if (!list.length) {
       h += '<div class="cdr-quiet" data-empty>' + (q ? "No medicine like “" + esc(S.q) + "” in the last 3 months. " + (q.length >= 2 ? '<button class="cdr-btn t" data-act="further">Look back a year for “' + esc(S.q) + "”</button>" : "")
@@ -299,7 +301,7 @@
       return h;
     }
     var none = list.every(function (x) { return !x.lastCount; }); // one sentence for all, not a warning on every row
-    if (none) h += '<div class="cdr-note warn" role="status"><b>None of these has been counted in a stock take yet.</b><p>The balance of each starts at its first count.</p><button class="cdr-btn" data-nav="ddstreg">Open stock takes</button></div>';
+    if (none) h += '<div class="cdr-note warn" role="status"><b>None of these has been counted in a stock take yet.</b><p>The balance of each starts at its first count.</p><button class="cdr-btn" data-nav="ddstreg">Count it now</button></div>';
     h += '<div class="cdr-list">' + list.map(function (x) {
       var bits = [];
       if (x.received) bits.push(x.qIn + " received");
