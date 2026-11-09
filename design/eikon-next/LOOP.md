@@ -1100,3 +1100,11 @@ restore point 00000ea6-…-5c31fd442efef3937c9eee106bc5fc2a), UI .169 on main 57
 Checks: UI 499/0, real 67/70 then the 3 rerun green (focus fixed; stock6a, solo-q61keep timing), worker 252/0,
 predeploy 10/10 (55,307 rows unchanged, rollback ok, /today 27 reads). John: CD differences amber only; no month lock;
 inspection pack for all staff; sign-off reminder until signed.
+
+## Round 154 — Registers round 2 (2026-11-09)
+John's picks: C9 CD out>in flag, inline fridge reading on Today's registers (Today's own save), calmer rows (H5–H7), one
+device name (D9), one-line temperatures (D8), phone date chips (I8), since-last-inspection on the server, V1/V2/I10/I11.
+Worker batch-10 `82ad3d84` (restore point 00000eaa-…-e30c6050ffd55f56b3ed189c5e65c319); UI .171 (4457fcc), then .172
+(ddc632a: phone inline reading on one row; flagged medicines first). Checks: UI 499/0; real 68/70, the 2 rerun green
+(solo-dailytoday depends on earlier cases' fridge readings — test isolation); predeploy 10/10; worker 255/0.
+Open (nice): grey ring on Daily register row; "0 registers of 5 signed off" wording; phone temperature cells wrap.
