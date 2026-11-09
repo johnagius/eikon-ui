@@ -89,6 +89,7 @@
       var more = function (l) { return l.length > 1 ? " And " + plural(l.length - 1, "more") + "." : ""; };
       if (ex.length) add({ key: "cert", title: "Certificates", status: "overdue", text: ex[0].title + " expired " + (ex[0].days > 0 ? plural(ex[0].days, "day") + " ago" : "today") + " (" + dayText(ex[0].due) + ")." + more(ex.concat(soon)), act: "Renew", go: cg });
       else if (soon.length) add({ key: "cert", title: "Certificates", status: "todo", text: soon[0].title + (soon[0].days === 0 ? " is due today." : " is due in " + plural(soon[0].days, "day") + " (" + dayText(soon[0].due) + ").") + more(soon), act: "Open", go: cg });
+      else if (Number(D.certificates_not_recorded) > 0) add({ key: "cert", title: "Certificates", status: "todo", text: plural(Number(D.certificates_not_recorded), "certificate has", "certificates have") + " no date on file. An inspector will ask for these dates.", act: "Add dates", go: cg });
       else add({ key: "cert", title: "Certificates", status: "done", text: "All in date for the next " + SOON_DAYS + " days.", act: "Open", go: cg });
     }
 
@@ -249,7 +250,7 @@
     var l = by.locum; if (l) out.locumregister = l.status === "done" ? { status: "done", text: "In charge: " + ((D.locum.entries || [])[0] || {}).name } : { status: "todo", text: "Nobody signed in today" };
     var ce = by.cert; if (ce) {
       var ex = (D.certificates || []).filter(function (x) { return x.status === "expired"; }), sn = (D.certificates || []).filter(function (x) { return x.status === "due_soon"; });
-      out.certificates = ex.length ? { status: "overdue", text: plural(ex.length, "expired", "expired") } : sn.length ? { status: "todo", text: sn[0].days === 0 ? "Due today" : "Due in " + plural(sn[0].days, "day") } : { status: "done", text: "All in date" };
+      out.certificates = ex.length ? { status: "overdue", text: plural(ex.length, "expired", "expired") } : sn.length ? { status: "todo", text: sn[0].days === 0 ? "Due today" : "Due in " + plural(sn[0].days, "day") } : Number(D.certificates_not_recorded) > 0 ? { status: "todo", text: Number(D.certificates_not_recorded) + " not on file" } : { status: "done", text: "All in date" };
     }
     try {
       var last = JSON.parse(localStorage.getItem("eikon_ins_last:" + locId()) || "null");

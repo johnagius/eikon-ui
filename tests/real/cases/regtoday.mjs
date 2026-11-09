@@ -70,6 +70,10 @@ export default {
     t.ok(by("cd").cls === (early ? "todo" : "overdue") && by("cd").text.indexOf(lastName) === 0, "stock take for " + lastName + ": " + JSON.stringify(by("cd")));
     t.ok(by("cert").cls === "overdue" && by("cert").text.indexOf(certB.title + " expired") === 0, "expired certificate: " + JSON.stringify(by("cert")));
     t.ok(by("sign").cls === "todo" && /^0 registers of 5 signed off\./.test(by("sign").text) && by("sign").btn === "Sign", "last month not signed off: shown whatever the date (owner, 9 Nov): " + JSON.stringify(by("sign")));
+    // nothing expired but dates missing: never a tick (Visual QA H1) — the hub says what is not on file
+    await bad.api("PUT", "/certificates/items/" + certB.id, { last_date: add(today, -40), interval_months: 12, certified_person: certB.requires_person ? "Rita Camilleri" : undefined });
+    const B2 = await look(bad), c2 = B2.rows.find((r) => r.key === "cert") || {};
+    t.ok(c2.cls === "todo" && /certificates? ha(s|ve) no date on file/.test(c2.text) && c2.btn === "Add dates", "certificates with no date are not 'All in date': " + JSON.stringify(c2));
     t.ok(by("daily").cls === "info" || by("daily").cls === "todo", "daily register: for information until closing: " + JSON.stringify(by("daily")));
     const rank = { overdue: 0, todo: 1, info: 2, done: 3 }, order = B.rows.map((r) => rank[r.cls]);
     t.ok(order.every((v, i) => !i || order[i - 1] <= v), "overdue first, then to do, then done: " + B.rows.map((r) => r.cls).join(","));
