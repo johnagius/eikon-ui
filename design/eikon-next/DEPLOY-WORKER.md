@@ -13,7 +13,8 @@ does not: it changes only when someone runs `wrangler deploy`.
 
 | | Version | Cloudflare version id |
 |---|---|---|
-| Live now (2026-11-09 10:31 UTC) | `2026-11-09-batch-10`: Registers round 2 — GET/PUT /registers/last-inspection (new table), sign-off table ensured before the hub reads it; UI .171, then .172 | `82ad3d84-c3f8-4f9b-b676-223e5ebe937a` |
+| Live now (2026-11-09 16:17 UTC) | `2026-11-09-batch-11`: Money & end of day — GET /money/today, /endofday/overview, /emergency-pos/days (read-only), Malta holidays; UI .173 | `33a6d92a-b587-4785-b9b4-de170b06d1f4` |
+| Before that (2026-11-09 10:31 UTC) | `2026-11-09-batch-10`: Registers round 2 — GET/PUT /registers/last-inspection (new table), sign-off table ensured before the hub reads it; UI .171, then .172 | `82ad3d84-c3f8-4f9b-b676-223e5ebe937a` |
 | Before that (2026-11-09 09:59 UTC) | `2026-11-09-batch-9`: Registers & inspection — GET /registers/today, GET+POST /registers/signoffs (new table), GET /dda-register/medicines + /ledger (read-only); UI .169 | `037b5f34-9311-49e5-9f80-7827cfb9c24d` |
 | Before that (2026-11-04 10:36 UTC) | `2026-11-04-batch-8`: Stock & ordering flow (stock_flow_* tables), Bookings full system (4 additive bk_bookings columns); UI .168 | `1c2dfcb9-efa9-487e-854d-a24e3a699717` |
 | Before that (09:18 UTC) | `2026-11-04-batch-7`: owner's view (/owner/*, read-only) and customers & messaging (cust_* tables); UI .167 | `89570a1b-a3bb-4061-946b-78bda836239c` |
@@ -96,6 +97,7 @@ open Bookings and press "Set up bookings".
 
 ## Restore points
 
+- Before batch-11 (2026-11-09 16:17 UTC): `00000ecf-00000000-0000511e-658b63318ba9adc7749da4cc54556698`.
 - Before batch-10 (2026-11-09 10:31 UTC): `00000eaa-00000000-0000511e-e30c6050ffd55f56b3ed189c5e65c319`.
 - Before batch-9 (2026-11-09 09:58 UTC): `00000ea6-00000000-0000511e-5c31fd442efef3937c9eee106bc5fc2a`.
 - Before batch-8 (2026-11-04 10:35 UTC): `00000bb2-00000000-00005119-68bdf9813a05ae612d0c1d05d46cadac`.

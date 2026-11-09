@@ -1108,3 +1108,10 @@ Worker batch-10 `82ad3d84` (restore point 00000eaa-…-e30c6050ffd55f56b3ed189c5
 (ddc632a: phone inline reading on one row; flagged medicines first). Checks: UI 499/0; real 68/70, the 2 rerun green
 (solo-dailytoday depends on earlier cases' fridge readings — test isolation); predeploy 10/10; worker 255/0.
 Open (nice): grey ring on Daily register row; "0 registers of 5 signed off" wording; phone temperature cells wrap.
+
+## Round 155 — Money & end of day (2026-11-09)
+Six agents (Director, Visual QA, money-hub, eod, till, owed). John: unlocked days red until locked; Malta public holidays
+are closed days; End of day has nothing to do with the emergency till (offer removed); no customer quotations for now.
+Worker batch-11 `33a6d92a` (read-only /money/today, /endofday/overview, /emergency-pos/days; restore point
+00000ecf-…-658b63318ba9adc7749da4cc54556698); UI .173 on main d1cd2e2. Checks: UI 499/0, real 73/74 (solo-q61keep flake,
+green alone), worker 263/0, predeploy 10/10. Session restarted twice mid-round; builders' reports read from BOARD.md.
