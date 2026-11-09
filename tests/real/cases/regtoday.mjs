@@ -51,7 +51,7 @@ export default {
       await p.context().addInitScript((tok) => { try { localStorage.setItem("eikon_token", tok); } catch (e) {} }, P.token);
       p.on("request", (r) => { const u = new URL(r.url()); if (u.port === new URL(t.base).port && !u.pathname.startsWith("/ui/") && r.method() === "GET") reqs.push(u.pathname); });
       await t.open(p, "2", "registers", "registers", ".rgt-sum, .rgt-err");
-      const rows = await p.evaluate(() => [...document.querySelectorAll(".rgt-row")].map((r) => ({ key: r.dataset.rgt, cls: r.className.replace("rgt-row ", ""), title: r.querySelector(".rgt-t b").childNodes[0].textContent.trim(), text: r.querySelector(".rgt-t > span").textContent, btn: r.querySelector("button").textContent.trim() })));
+      const rows = await p.evaluate(() => [...document.querySelectorAll(".rgt-row")].map((r) => ({ key: r.dataset.rgt, cls: r.classList[1], title: r.querySelector(".rgt-t b").childNodes[0].textContent.trim(), text: r.querySelector(".rgt-t > span").textContent, btn: r.querySelector("button").textContent.trim() })));
       const head = await p.textContent(".rgt-sum");
       return { p, reqs, rows, head };
     };
@@ -63,7 +63,15 @@ export default {
     const by = (k) => B.rows.find((r) => r.key === k) || {};
     const fr = by("temp:" + fridgeB.id), room = B.rows.find((r) => /^temp:/.test(r.key) && r.key !== "temp:" + fridgeB.id) || {};
     t.ok(fr.cls === "overdue" && /9\.5 °C is outside/.test(fr.text) && fr.btn === "Add note", "fridge outside its limits, no note: " + JSON.stringify(fr));
-    t.ok(room.cls === "todo" && room.text === "Temperature not logged yet today." && room.btn === "Log", "room not logged: " + JSON.stringify(room));
+    const roomDev = devB.find((d) => "temp:" + d.id === room.key) || {};
+    const seededRoom = /^pharmacy$/i.test(roomDev.name) || roomDev.name.toLowerCase() === "registers today gaps";
+    t.ok(room.cls === "todo" && room.title === "Temperature · " + (seededRoom ? "Room" : roomDev.name) && room.text === "Not logged yet today." && room.btn === "Log", "seeded room sensor reads Room, never 'Room · Room' (D9, H6): " + JSON.stringify(room));
+    t.ok(fr.title === "Temperature · " + fridgeB.name, "fridge keeps its stored name: " + fr.title);
+    t.ok(!/fridge/i.test(fridgeB.name) || fr.text.indexOf("Fridge · ") !== 0, "no 'Fridge · ' under a name that says it: " + fr.text);
+    const marks = await B.p.evaluate(() => [...document.querySelectorAll(".rgt-row")].map((r) => r.querySelectorAll(".rgt-pill").length));
+    t.ok(marks.every((n) => n === 0), "one status marker per row, no chip beside it (H5)");
+    const red = await B.p.evaluate(() => { const r = document.querySelector('[data-rgt="cd"] .rgt-t > span'); return { all: getComputedStyle(r).color, hot: (r.querySelector(".rgt-hot") || {}).textContent || "" }; });
+    t.ok(red.hot === "was not counted" && !/^rgb\(2[01]\d, 3\d, 2\d\)$/.test(red.all), "only the key words coloured (H6): " + JSON.stringify(red));
     t.ok(by("clean").cls === "overdue" && /last done 9 days ago/.test(by("clean").text) && /Ġanni Żammit/.test(by("clean").text), "cleaning overdue, with the name as typed: " + JSON.stringify(by("clean")));
     t.ok(by("locum").cls === "todo" && by("locum").btn === "Sign in", "no pharmacist in charge: " + JSON.stringify(by("locum")));
     const early = Number(today.slice(8)) <= 7;
@@ -78,11 +86,21 @@ export default {
     const rank = { overdue: 0, todo: 1, info: 2, done: 3 }, order = B.rows.map((r) => rank[r.cls]);
     t.ok(order.every((v, i) => !i || order[i - 1] <= v), "overdue first, then to do, then done: " + B.rows.map((r) => r.cls).join(","));
     t.ok(/things to do today, \d+ overdue\./.test(B.head), "headline: " + B.head);
-    // one tap: the room's Log opens Temperature on today's row for that room
-    await B.p.click('[data-rgt="' + room.key + '"] button');
-    await B.p.waitForFunction(() => window.EIKON.state.activeModuleId === "tempreg", null, { timeout: 10000 });
-    t.ok(true, "Log opened Temperature");
+    // the room's reading typed right here: errors at once next to the fields, then Today's own save and body
+    const rs = '[data-rgt="' + room.key + '"]';
+    await B.p.fill(rs + ' [name="min"]', "19,4"); await B.p.click(rs + " button");
+    t.ok(/Write both the lowest and the highest reading/.test(await B.p.textContent(rs + " .rgt-msg")) && await B.p.getAttribute(rs + ' [name="max"]', "aria-invalid") === "true", "missing max: said next to the fields, nothing saved");
+    await B.p.fill(rs + ' [name="max"]', "23.1");
+    const before = t.maxId("temperature_entries");
+    const w = await t.write(B.p, /^\/temperature\/entries$/, () => B.p.press(rs + ' [name="max"]', "Enter"));
+    t.ok(JSON.stringify(w.body) === JSON.stringify({ device_id: roomDev.id, entry_date: today, min_temp: 19.4, max_temp: 23.1, notes: "" }), "the body Today sends: " + JSON.stringify(w.body));
+    const saved = await t.mine("temperature_entries", before, { device_id: roomDev.id, entry_date: today });
+    t.ok(saved.length === 1 && saved[0].min_temp === 19.4 && saved[0].max_temp === 23.1 && saved[0].notes === "", "stored: " + JSON.stringify(saved[0] || null));
+    await B.p.waitForFunction((k) => { const r = document.querySelector('[data-rgt="' + k + '"]'); return r && r.classList.contains("done"); }, room.key, { timeout: 10000 });
+    t.ok(/Logged 19\.4 to 23\.1 °C/.test(await B.p.textContent(rs)), "the row turns done without a reload");
     // a save anywhere makes the list stale: back on Registers it asks again and shows the cleaning done
+    await B.p.evaluate(() => { window.location.hash = "#cleanreg"; });
+    await B.p.waitForFunction(() => window.EIKON.state.activeModuleId === "cleanreg", null, { timeout: 10000 }); await t.idle(B.p);
     B.reqs.length = 0;
     await B.p.evaluate((d) => window.EIKON.apiFetch("/cleaning/entries", { method: "POST", body: JSON.stringify({ entry_date: d, time_in: "09:00", time_out: "09:20", cleaner_name: "Karl", staff_name: "Rita", notes: "" }) }), today);
     await B.p.evaluate(() => { window.location.hash = "#registers"; });
@@ -93,7 +111,7 @@ export default {
     // ---- complete pharmacy, on a phone: all done, with the status under the hub's cards
     const G = await look(good, { phone: true });
     t.ok(/^All done for today\.$/.test(G.head.trim()), "all done: " + G.head + " " + JSON.stringify(G.rows.filter((r) => r.cls !== "done")));
-    t.ok(G.rows.length >= 6 && G.rows.every((r) => r.cls === "done"), "every line done: " + G.rows.map((r) => r.key + ":" + r.cls).join(","));
+    t.ok(G.rows.length >= 6 && G.rows.every((r) => r.cls === "done" || (r.key === "daily" && r.cls === "info")) && G.rows.find((r) => r.key === "daily").text === "1 line today.", "every line done; the daily register for information, no tick (H7): " + G.rows.map((r) => r.key + ":" + r.cls).join(","));
     const gs = G.rows.find((r) => r.key === "sign");
     t.ok(Number(today.slice(8)) <= 7 ? gs && gs.cls === "done" : !gs, "last month signed off: a done line in the first week only: " + JSON.stringify(gs || null));
     t.ok(G.rows.find((r) => r.key === "cd").text === lastName + " counted on 20 " + ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][+lastYm.slice(5) - 1] + ".", "stock take counted: " + JSON.stringify(G.rows.find((r) => r.key === "cd")));

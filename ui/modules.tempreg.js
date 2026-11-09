@@ -47,6 +47,12 @@
   }
   function dayLong(key) { var p = key.split("-"); return Number(p[2]) + " " + MONTHS[Number(p[1]) - 1]; }
   function todayKey() { return (E.maltaYmd && E.maltaYmd()) || ymd(new Date()); }
+  // The name on screen, the same rule as Today and Today's registers (b4-9, round 2 D9): the room sensor stored as
+  // "Pharmacy" (or the pharmacy's own name) reads "Room"; any other fridge or room by its stored name. Display only.
+  function shown(dv) {
+    var n = String((dv && dv.name) || "").trim(), k = n.toLowerCase(), here = String((E.state.user || {}).location_name || "").trim().toLowerCase();
+    return k === "pharmacy" || (here && k === here) ? "Room" : n;
+  }
   function limitsText(dv) {
     if (dv.min_limit == null && dv.max_limit == null) return "No limits set";
     return fmt(dv.min_limit) + " to " + fmt(dv.max_limit) + " °C";
@@ -79,7 +85,7 @@
       "button.trg-d{font:inherit;color:inherit;border:0;text-align:left;cursor:pointer;width:100%}button.trg-d:hover{filter:brightness(.96)}button.trg-d:focus-visible{outline:2px solid var(--accent);outline-offset:2px}button.trg-d[aria-expanded=true]{box-shadow:inset 0 0 0 2px var(--text)}" +
       ".trg-card .ecr-mark{padding:0 2px}" +
       ".trg-d i{font-style:normal;font-size:11.5px;color:var(--muted);font-weight:600}" +
-      ".trg-d b{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em;display:flex;flex-direction:column;line-height:1.25}" +
+      ".trg-d b{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em;display:flex;flex-direction:column;line-height:1.25}.trg-d b .mm{white-space:nowrap}" +
       ".trg-d.ok{background:rgba(10,143,106,.08)}" +
       ".trg-d.bad{background:rgba(215,38,28,.10);box-shadow:inset 0 0 0 1.5px var(--danger)}.trg-d.bad b{color:var(--danger)}.trg-d.bad i::after{content:' !';color:var(--danger);font-weight:800}" +
       ".trg-d.miss{background:transparent;border:1px dashed rgba(201,138,18,.6)}.trg-d.miss b{color:var(--warn,#A06A0E);font-weight:500;font-size:12px}" +
@@ -104,7 +110,7 @@
       ".trg-btn.x{color:var(--danger);border-color:var(--danger);background:transparent}" +
       "@media (max-width:600px){.trg-dv .f{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.trg-dv .f label:nth-child(-n+2){grid-column:1/-1}}" +
       ".trg-print,.trg-pmeta{display:none}.trg-sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
-      "@media (max-width:600px){.trg{padding:4px 16px 0}.trg h1{font-size:32px}.trg-grid{gap:4px}.trg-d{min-height:50px;padding:5px;border-radius:8px}.trg-d b{font-size:11.5px}.trg-d i{font-size:10.5px}.trg-d.miss b{font-size:10px}.trg-d.today.future b{font-size:10px}.trg-card{padding:14px 12px}}" +
+      "@media (max-width:600px){.trg{padding:4px 16px 0}.trg h1{font-size:32px}.trg-grid{gap:4px}.trg-d{min-height:50px;padding:5px;border-radius:8px}.trg-d b{font-size:11.5px}.trg-d b .mm{white-space:normal;word-break:keep-all}.trg-d i{font-size:10.5px}.trg-d.miss b{font-size:10px}.trg-d.today.future b{font-size:10px}.trg-card{padding:14px 12px}}" +
       "@media print{.trg-day{display:none!important}}" +
       "@media print{.eikon-sidebar,.eikon-topbar,.trg-back,.trg-acts,.trg-due,.trg-month,.trg-grid,.trg-wd,.trg-dv,.eikon-toast{display:none!important}" +
       ".eikon-content{padding:0!important}.trg-card{border:0;padding:0;break-inside:avoid;margin-top:18px}.trg-pmeta{display:block;font-size:12px;margin:2px 0 0}.trg-print{display:table;width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}" +
@@ -137,14 +143,14 @@
     var lead = (first.getDay() + 6) % 7; // Monday first
     var cells = WD.map(function (w) { return '<div class="trg-wd">' + w + "</div>"; }).join("");
     for (var i = 0; i < lead; i++) cells += '<div class="trg-d pad"></div>';
-    var logged = 0, bad = 0, missed = 0, rows = "", tk = todayKey(), stop = n;
+    var logged = 0, bad = 0, bare = 0, missed = 0, rows = "", tk = todayKey(), stop = n;
     if (m === tk.slice(0, 7)) stop = Math.min(n, Number(tk.slice(8)) + (6 - (lead + Number(tk.slice(8)) - 1) % 7)); // later weeks are empty: not drawn (VISUAL temp-3)
     for (var d = 1; d <= n; d++) {
       if (d > stop) continue;
       var key = m + "-" + pad(d), e = byDay[key], cls, txt;
       if (e) {
-        logged++; var o = outside(e, dv); if (o) bad++;
-        cls = o ? "bad" : "ok"; txt = "<span>" + fmt(e.min_temp) + "</span><span>" + fmt(e.max_temp) + "</span>";
+        logged++; var o = outside(e, dv); if (o) { bad++; if (!String(e.notes || "").trim()) bare++; }
+        cls = o ? "bad" : "ok"; txt = '<span class="mm">' + fmt(e.min_temp) + "\u2013" + fmt(e.max_temp) + "°</span>"; // lowest–highest on one line (round 2 D8)
         rows += "<tr><td>" + key + "</td><td" + (o ? ' class="bad"' : "") + ">" + fmt(e.min_temp) + "</td><td" + (o ? ' class="bad"' : "") + ">" + fmt(e.max_temp) + "</td><td>" + (o ? "Outside limits" : "") + (e.notes ? " " + esc(e.notes) : "") + "</td></tr>";
       } else if (key < today) {
         missed++; cls = "miss"; txt = "Not logged";
@@ -155,17 +161,19 @@
       var say = d + " " + MONTHS[Number(p[1]) - 1] + ": " + (e ? "minimum " + fmt(e.min_temp) + ", maximum " + fmt(e.max_temp) + " °C" + (outside(e, dv) ? ", outside the limits" : "") + (e.notes ? ". Note: " + e.notes : "") : key < today ? "not logged" : key === today ? "not logged yet today" : "");
       if (key > today) { cells += '<div class="trg-d ' + cls + '" title="' + esc(say) + '"><i aria-hidden="true">' + d + '</i><b aria-hidden="true">' + txt + '</b><span class="trg-sr">' + esc(say) + "</span></div>"; continue; }
       var isOpen = S.open && S.open.day === key && String(S.open.device) === String(dv.id);
-      var lab = dayLong(key) + ", " + dv.name + ", " + (e ? fmt(e.min_temp) + " to " + fmt(e.max_temp) + (outside(e, dv) ? ", outside limits, " + (String(e.notes || "").trim() ? "has a note" : "no note") : ", within limits" + (String(e.notes || "").trim() ? ", has a note" : "")) : key === today ? "not logged yet" : "not logged");
+      var lab = dayLong(key) + ", " + shown(dv) + ", " + (e ? fmt(e.min_temp) + " to " + fmt(e.max_temp) + (outside(e, dv) ? ", outside limits, " + (String(e.notes || "").trim() ? "has a note" : "no note") : ", within limits" + (String(e.notes || "").trim() ? ", has a note" : "")) : key === today ? "not logged yet" : "not logged");
       var flag = e && outside(e, dv) && !String(e.notes || "").trim() ? "<em>no note</em>" : "";
       cells += '<button type="button" class="trg-d ' + cls + (isOpen ? " sel" : "") + '" title="' + esc(say) + '" data-day="' + esc(key) + '" data-dev="' + esc(dv.id) + '" aria-expanded="' + (isOpen ? "true" : "false") + '" aria-label="' + esc(lab) + '"><i aria-hidden="true">' + d + '</i><b aria-hidden="true">' + txt + "</b>" + flag + '<span class="trg-sr">' + esc(say) + "</span></button>";
     }
     var upto = m < thisMonth() ? n : (m === thisMonth() ? Number(todayKey().slice(8)) : 0), missList = [];
     for (var dd = 1; dd <= n; dd++) { var kk = m + "-" + pad(dd); if (kk < todayKey() && !byDay[kk]) missList.push(Number(dd) + ""); }
     var sum = "<b>" + logged + "</b> of " + upto + " days logged" + (m === thisMonth() ? " so far" : "") +
-      (bad ? ' · <span class="bad">' + bad + " outside the limits</span>" : " · none outside the limits") +
-      (missed ? ' · <span class="bad">Not logged: ' + esc(missList.slice(0, 12).join(", ") + (missList.length > 12 ? " and " + (missList.length - 12) + " more" : "") + " " + MONTHS[Number(p[1]) - 1].slice(0, 3)) + "</span>" : " · nothing missed");
-    return '<section class="trg-card" data-device="' + esc(dv.id) + '"><div class="trg-hd"><h2>' + esc(dv.name) + "</h2><span>" +
-      esc(dv.device_type === "fridge" ? "Fridge" : dv.device_type === "room" ? "Room" : (dv.device_type || "")) + " · " + esc(limitsText(dv)) + "</span></div>" +
+      // the same two things the Inspection check calls Missing: days not logged, readings outside the limits without a note
+      (bare ? ' · <span class="bad">' + bare + (bare === 1 ? " reading" : " readings") + " outside the limits without a note</span>" : "") +
+      (bad - bare ? " · " + (bad - bare) + " outside the limits, with a note" : "") + (!bad ? " · none outside the limits" : "") +
+      (missed ? ' · <span class="bad">Not logged: ' + esc(missList.slice(0, 12).join(", ") + (missList.length > 12 ? " and " + (missList.length - 12) + " more" : "") + " " + MONTHS[Number(p[1]) - 1].slice(0, 3)) + "</span>" : bare ? "" : " · nothing missed");
+    return '<section class="trg-card" data-device="' + esc(dv.id) + '"><div class="trg-hd"><h2>' + esc(shown(dv)) + "</h2><span>" +
+      esc(shown(dv) !== String(dv.name || "").trim() ? String(dv.name || "").trim() : dv.device_type === "fridge" ? "Fridge" : dv.device_type === "room" ? "Room" : (dv.device_type || "")) + " · " + esc(limitsText(dv)) + "</span></div>" +
       '<div class="trg-sum">' + sum + "</div>" +
       '<div class="trg-grid">' + cells + "</div>" + dayPanel(dv, byDay) +
       Object.keys(byDay).map(function (k) { var mk = E.correct.mark("tempreg", byDay[k]); return mk ? mk.replace("<span class=\"ecr-mark\">", '<span class="ecr-mark">' + esc(Number(k.slice(8)) + " " + MONTHS[Number(k.slice(5, 7)) - 1].slice(0, 3)) + ": ") : ""; }).join("") +
@@ -177,14 +185,14 @@
   function dayPanel(dv, byDay) {
     var o = S.open; if (!o || String(o.device) !== String(dv.id) || o.day.slice(0, 7) !== S.month) return "";
     var key = o.day, e = byDay[key], k = key + "|" + dv.id, today = todayKey(), N = E.tempNote;
-    var h = '<div class="trg-day" data-panel="' + esc(k) + '"><h3 tabindex="-1">' + esc(dv.name) + " · " + esc(new Date(key + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })) + "</h3>";
+    var h = '<div class="trg-day" data-panel="' + esc(k) + '"><h3 tabindex="-1">' + esc(shown(dv)) + " · " + esc(new Date(key + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })) + "</h3>";
     if (e) {
       var o2 = outside(e, dv), nt = String(e.notes || "").trim();
       h += "<p>Min <b>" + fmt(e.min_temp) + "</b> · Max <b>" + fmt(e.max_temp) + " °C</b> · limits " + esc(limitsText(dv)) + (o2 ? ' · <span class="bad">Outside limits</span>' : " · within limits") + "</p>" +
         "<p>" + (nt ? "Note: " + esc(nt) : '<span class="mut">No note.</span>') + "</p>";
       if (S.mode === "note" && N) h += N.noteForm({ key: k, existing: nt, draft: S.drafts[k], msg: S.msgs[k], cancel: true });
       else h += '<div class="trg-day-acts">' + (N ? '<button class="trg-btn" data-act="addnote">' + (nt ? "Change the note" : "Add a note") + "</button>" : "") +
-        E.correct.button("tempreg", e, "the reading of " + dv.name + " on " + dayLong(key)) + '<button class="trg-btn" data-act="close">Close</button></div>';
+        E.correct.button("tempreg", e, "the reading of " + shown(dv) + " on " + dayLong(key)) + '<button class="trg-btn" data-act="close">Close</button></div>';
       h += E.correct.panel("tempreg", e, FIX); // the pharmacist's correction of the reading itself, with a reason
     } else if (key < today) {
       h += '<p><span class="mut">Not logged.</span> Limits ' + esc(limitsText(dv)) + ".</p>";
@@ -261,16 +269,16 @@
     if (S.month !== thisMonth() || S.loading || S.error || !S.devices.length) return "";
     var t = todayKey(), Q = S.quick || {}, left = 0, lines = S.devices.map(function (dv) {
       var e = S.entries.find(function (x) { return Number(x.device_id) === Number(dv.id) && x.entry_date === t; }), q = Q[dv.id] || {};
-      var head = '<div class="n"><b>' + esc(dv.name) + "</b><span>Limits " + esc(limitsText(dv)) + "</span></div>";
+      var head = '<div class="n"><b>' + esc(shown(dv)) + "</b><span>Limits " + esc(limitsText(dv)) + "</span></div>";
       if (e) { var o = outside(e, dv); return '<div class="dly-line" data-qdev="' + esc(dv.id) + '">' + head + '<span class="' + (o ? "bad" : "ok") + '">' + (o ? "Outside limits: " : "Logged ✓ ") + esc(fmt(e.min_temp) + " to " + fmt(e.max_temp) + " °C") + "</span>" +
         (o && !String(e.notes || "").trim() ? '<button class="dly-btn" data-act="qnote" data-dev="' + esc(dv.id) + '">Add the note</button>' : "") + "</div>"; }
       left++;
       var y = yReading(dv), dis = q.saving ? " disabled" : "";
       return '<div class="dly-line" data-qdev="' + esc(dv.id) + '">' + head +
-        '<small aria-hidden="true">min</small><input name="qmin" inputmode="decimal" autocomplete="off" aria-label="' + esc(dv.name + ", lowest temperature today, °C") + '" value="' + esc(q.min || "") + '"' + (q.bad === "min" || q.bad === "both" ? ' aria-invalid="true"' : "") + dis + ">" +
-        '<small aria-hidden="true">max</small><input name="qmax" inputmode="decimal" autocomplete="off" aria-label="' + esc(dv.name + ", highest temperature today, °C") + '" value="' + esc(q.max || "") + '"' + (q.bad === "max" || q.bad === "both" ? ' aria-invalid="true"' : "") + dis + ">" +
+        '<small aria-hidden="true">min</small><input name="qmin" inputmode="decimal" autocomplete="off" aria-label="' + esc(shown(dv) + ", lowest temperature today, °C") + '" value="' + esc(q.min || "") + '"' + (q.bad === "min" || q.bad === "both" ? ' aria-invalid="true"' : "") + dis + ">" +
+        '<small aria-hidden="true">max</small><input name="qmax" inputmode="decimal" autocomplete="off" aria-label="' + esc(shown(dv) + ", highest temperature today, °C") + '" value="' + esc(q.max || "") + '"' + (q.bad === "max" || q.bad === "both" ? ' aria-invalid="true"' : "") + dis + ">" +
         '<button class="dly-btn p" data-act="qlog" data-dev="' + esc(dv.id) + '"' + dis + ">" + (q.saving ? "Saving…" : "Log reading") + "</button>" +
-        (y ? '<button class="dly-btn" data-act="qsame" data-dev="' + esc(dv.id) + '"' + dis + ' aria-label="' + esc(dv.name + ": the display shows the same as yesterday, log " + fmt(y.min_temp) + " to " + fmt(y.max_temp) + " °C") + '">Same as yesterday · ' + esc(fmt(y.min_temp) + " to " + fmt(y.max_temp)) + "</button>" : "") +
+        (y ? '<button class="dly-btn" data-act="qsame" data-dev="' + esc(dv.id) + '"' + dis + ' aria-label="' + esc(shown(dv) + ": the display shows the same as yesterday, log " + fmt(y.min_temp) + " to " + fmt(y.max_temp) + " °C") + '">Same as yesterday · ' + esc(fmt(y.min_temp) + " to " + fmt(y.max_temp)) + "</button>" : "") +
         '<div class="dly-msg" role="alert">' + esc(q.err || "") + "</div></div>";
     }).join("");
     var card = E.dailyReg.today({ tone: left ? "due" : "ok", word: left ? "Not yet" : "Done",
@@ -292,13 +300,13 @@
     q.saving = true; q.err = ""; q.bad = ""; paint();
     try {
       var cur = N ? await N.read(dv.id, day) : null;
-      if (cur) { delete S.quick[dv.id]; E.toast(dv.name + " was already logged today: " + fmt(cur.min_temp) + " to " + fmt(cur.max_temp) + " °C. Nothing was changed.", "warn"); }
+      if (cur) { delete S.quick[dv.id]; E.toast(shown(dv) + " was already logged today: " + fmt(cur.min_temp) + " to " + fmt(cur.max_temp) + " °C. Nothing was changed.", "warn"); }
       else {
         var r = await E.apiFetch("/temperature/entries", { method: "POST", body: JSON.stringify(body) });
         if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
         delete S.quick[dv.id];
         var o = outside(body, dv);
-        E.toast(dv.name + " logged " + pr.min + " to " + pr.max + " °C · " + (E.maltaHm ? E.maltaHm() : "") + (o ? " · outside the limits: say what was done" : ""), o ? "warn" : "success");
+        E.toast(shown(dv) + " logged " + pr.min + " to " + pr.max + " °C · " + (E.maltaHm ? E.maltaHm() : "") + (o ? " · outside the limits: say what was done" : ""), o ? "warn" : "success");
         if (o) { S.open = { device: String(dv.id), day: day }; S.mode = "note"; }
       }
     } catch (e) { q.saving = false; q.err = E.saveFailText(e); paint(); return; }
@@ -321,7 +329,7 @@
     else if (S.error) h += '<div class="trg-quiet" role="alert">' + esc(S.error) + ' <button class="trg-btn" data-act="retry">Try again</button></div>';
     else if (!S.devices.length) h += '<div class="trg-quiet">No fridges or rooms are set up yet. <button class="trg-btn p" data-act="devices" data-k="devices-empty">Add a fridge or room</button></div>';
     else h += (S.month < thisMonth() && !S.entries.length ? '<div class="trg-quiet" data-empty>' + esc(MB.empty(S.month)) + "</div>" : "") +
-      S.devices.map(deviceCard).join("") + '<p class="trg-note">Each day shows the minimum above the maximum, in °C. Red with ! is outside the limits; a dashed day was not logged. Tap a day to see it, add a note, or log a missed day.' + (E.correct.can() ? " Made a mistake? Open its day and press Correct \u2014 what it said before stays on record." : " A wrong reading is corrected by the pharmacist.") + "</p>";
+      S.devices.map(deviceCard).join("") + '<p class="trg-note">Each day shows the lowest and highest, for example 3.4–7.2°. Red with ! is outside the limits; a dashed day was not logged. Tap a day to see it, add a note, or log a missed day.' + (E.correct.can() ? " Made a mistake? Open its day and press Correct \u2014 what it said before stays on record." : " A wrong reading is corrected by the pharmacist.") + "</p>";
     if (!S.loading && !S.error && S.devices.length) h += D.sign("temperature", S.month, { gaps: missedAll(), what: "readings", changed: D.changedAfter("temperature", S.month, S.entries) });
     h += '<p class="dly-quietnote"><button class="dly-btn" data-act="devices" data-k="devices">Fridges and rooms</button> Add one, rename it, set its limits.</p>';
     h += "</div>";

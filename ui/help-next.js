@@ -57,7 +57,7 @@
     ], "", []],
 
     ["registers", "registers", "Registers", "The books an inspector asks for: fill them in, see what is missing, and print any month.", [
-      ["What is due today", "Today's registers, at the top, lists what each register needs today: overdue first, then to do, then what is done.", "Each line has its own button, such as Log, Record, Sign in or Count: it opens that register, on today.", "When nothing is left it says All done for today. Under each register's card a short line says how it stands, such as Done today or Due in 12 days. On Today, All registers opens this page."],
+      ["What is due today", "Today's registers, at the top, lists what each register needs today: overdue first, then to do, then what is done.", "A fridge or room not logged yet has min and max boxes on its line: type the readings and press Log, as on Today.", "Every other line has its own button, such as Record, Sign in or Count: it opens that register, on today.", "When nothing is left it says All done for today. Under each register's card a short line says how it stands, such as Done today or Due in 12 days. On Today, All registers opens this page."],
       ["Every day", "Temperature, Cleaning, Daily register and Locum register."],
       ["Controlled drugs", "Controlled drugs received, Controlled drugs supplied, POYC controlled drugs and Controlled drug stock takes."],
       ["Prescriptions", "Repeat prescriptions."],
@@ -94,7 +94,7 @@
       ["Log a missed day", "Each fridge or room lists the days not logged. Tap that day and press Log this day.", "Type the lowest and highest and say why it is logged late, then press Log this day again."],
       ["Correct a reading (the pharmacist)", "Tap the day and press Correct.", "Change what was wrong and say why, then press Save correction."],
       ["Sign off a month (the pharmacist)", "Open last month with ‹. At the bottom, say why any days are missing, then press Sign off."],
-      ["Read and print a month", "Each day shows the lowest above the highest; a dashed day was not logged.", "Use ‹ and › or the month name to change month.", "Press Print."],
+      ["Read and print a month", "Each day shows the lowest and highest, for example 3.4–7.2°; a dashed day was not logged.", "Use ‹ and › or the month name to change month.", "Press Print."],
       ["Set up fridges and rooms", "Press Fridges and rooms, at the bottom.", "Add a fridge or a room with its limits, or change a name or a limit."]
     ], "", [["Limits", "the lowest and highest a fridge or room may be, for example 2 to 8 °C for a fridge."], ["Sign off", "the pharmacist's check that the month is complete, with who and when; it prints at the end of the month."]]],
 

@@ -66,7 +66,7 @@
     (r.poyc || []).forEach(function (x) { add(x.name, "poyc", x.n, x.last, x.qty); });
     (r.counted || []).forEach(function (x) { add(countName(x), "counted", x.n, maltaDay(x.last)); });
     var list = Object.keys(map).map(function (k) { var m = map[k]; m.name = best(m.names); return m; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
-    cache.meds = { at: Date.now(), w: E.lastWriteAt, loc: loc(), v: list };
+    cache.meds = { at: Date.now(), w: E.lastWriteAt, loc: loc(), v: list, from: String(r.from || "") };
     return list;
   }
   function best(names) { var top = "", c = -1; Object.keys(names).forEach(function (x) { if (names[x] > c || (names[x] === c && x < top)) { top = x; c = names[x]; } }); return top; }
@@ -148,7 +148,10 @@
     if (lowAt) issues.push({ tone: "warn", row: lowAt, what: "Check: the registers go below zero on " + dm(lowAt.date) + " (" + lowAt.balance + ").", next: "A delivery may not be written in. Check the invoices before " + dm(lowAt.date) + " and add it in Controlled drugs received. " + UNITS, act: "received" });
     var same = rows.filter(function (r) { return r.sameDay; });
     if (same.length) issues.push({ tone: "warn", what: "Check: " + plural(same.length, "line is", "lines are") + " dated on the same day as a count.", next: "The count is compared with the days before it. Check whether " + (same.length === 1 ? "it was" : "they were") + " written before or after the count; the balance after the count includes " + (same.length === 1 ? "it" : "them") + "." });
-    if (!counted) issues.push({ tone: "warn", what: "No stock take has counted it since " + dm(from) + ", so there is no balance to check against.", next: "Count it in the next stock take: the balance starts from that count.", act: "count" });
+    // C9: never counted and more has gone out than came in: say it first, in one amber note (from the lines already read)
+    var over = !counted ? moved.outQ - moved.inQ : 0;
+    if (over > 0) issues.unshift({ tone: "warn", over: over, what: (best(names) || "This medicine") + ": " + over + " more supplied than received — count it now.", next: "No stock take has counted it since " + dm(from) + ", and more has gone out than came in. Count it now, and look for a delivery not written in Controlled drugs received.", act: "count" });
+    else if (!counted) issues.push({ tone: "warn", what: "No stock take has counted it since " + dm(from) + ", so there is no balance to check against.", next: "Count it in the next stock take: the balance starts from that count.", act: "count" });
     var variants = Object.keys(others).filter(function (x) { return x; }).map(function (x) { return { key: x, name: best(others[x].names), lines: others[x].lines, on: inc.indexOf(x) >= 0 }; })
       .sort(function (a, b) { return (termOf(a.key) === termOf(k) ? 0 : 1) - (termOf(b.key) === termOf(k) ? 0 : 1) || b.lines - a.lines || a.name.localeCompare(b.name); });
     return { name: best(names) || "", key: k, inc: inc.slice(), rows: rows, balance: bal, counted: counted, since: since, moved: moved, issues: issues, variants: variants, from: from, to: String(led.to || ""), auto: !!led.auto_from };
@@ -241,6 +244,7 @@
       ".cdr-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".cdr-med{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:8px 16px;border:0;border-top:.5px solid var(--border);background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}" +
       ".cdr-med:first-child{border-top:0}.cdr-med b{display:block;font-size:15.5px;font-weight:600;overflow-wrap:anywhere}.cdr-med span{display:block;font-size:13px;color:var(--muted);margin-top:2px}" +
+      ".cdr-med .cdr-over{color:var(--text);font-weight:600}.cdr-med .cdr-over b{display:inline;font-size:13px;color:var(--warn,#9a6700)}.cdr-med.over{box-shadow:inset 3px 0 0 var(--warn,#c98a12)}" +
       ".cdr-med i{font-style:normal;font-size:13px;font-weight:600;color:var(--warn,#9a6700);white-space:nowrap}.cdr-med em{font-style:normal;color:var(--accent);font-size:20px}" +
       ".cdr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".cdr-sum{display:grid;grid-template-columns:auto 1fr;gap:4px 20px;align-items:end;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-top:16px}" +
@@ -300,8 +304,9 @@
       var bits = [];
       if (x.received) bits.push(x.qIn + " received");
       if (x.supplied + x.poyc) bits.push(x.qOut + " supplied");
-      var cnt = x.lastCount ? "Counted " + dm(x.lastCount) : "";
-      return '<button class="cdr-med" data-open="' + esc(x.key) + '"><span style="min-width:0"><b>' + esc(x.name) + "</b><span>" + esc(bits.join(" · ") || "Counted only") + (cnt ? " · " + esc(cnt) : "") + "</span></span>" +
+      var cnt = x.lastCount ? "Counted " + dm(x.lastCount) : "", over = !x.lastCount ? x.qOut - x.qIn : 0; // C9: from the list already read
+      var flag = over > 0 ? '<span class="cdr-over"><b>Check:</b> ' + esc(over + " more supplied than received — count it now") + "</span>" : "";
+      return '<button class="cdr-med' + (over > 0 ? " over" : "") + '" data-open="' + esc(x.key) + '"><span style="min-width:0"><b>' + esc(x.name) + "</b><span>" + esc(bits.join(" · ") || "Counted only") + (cnt ? " · " + esc(cnt) : "") + "</span>" + flag + "</span>" +
         (x.lastCount || none ? '<em aria-hidden="true">›</em>' : '<i>Not counted</i>') + "</button>";
     }).join("") + "</div>";
     return h;
@@ -375,7 +380,7 @@
         else if (a === "print") printOne();
       });
     });
-    m.querySelectorAll("[data-open]").forEach(function (b) { b.addEventListener("click", function () { var k = b.getAttribute("data-open"), x = (S.meds || []).filter(function (y) { return y.key === k; })[0]; openMed(k, b.getAttribute("data-name") || (x && x.name) || k); }); });
+    m.querySelectorAll("[data-open]").forEach(function (b) { b.addEventListener("click", function () { var k = b.getAttribute("data-open"), x = (S.meds || []).filter(function (y) { return y.key === k; })[0]; openMed(k, b.getAttribute("data-name") || (x && x.name) || k, x && !x.lastCount ? (S.medsFrom || "") : ""); }); }); // not counted in the list's 3 months: the same 3 months (its C9 figure is the list's)
     m.querySelectorAll("[data-go]").forEach(function (b) { b.addEventListener("click", function () { var to = b.getAttribute("data-go"), L = S.led ? build(S.led, S.key, incOf(S.key)) : null; if (to !== "ddstreg" && E.cdHand) E.cdHand.give(to, (L && L.name) || S.name); window.location.hash = "#" + to; }); });
     m.querySelectorAll("[data-inc]").forEach(function (c) { c.addEventListener("change", function () { // tick: those lines join this balance (remembered here)
       var list = incOf(S.key).filter(function (x) { return x !== c.getAttribute("data-inc"); }); if (c.checked) list.push(c.getAttribute("data-inc"));
@@ -384,15 +389,15 @@
   }
 
   function keepMed(name) { try { if (name) sessionStorage.setItem(KEEP(), name); else sessionStorage.removeItem(KEEP()); } catch (e) {} }
-  function openMed(k, name) {
+  function openMed(k, name, from) {
     k = key(k); if (k.length < 2) return;
-    S.key = k; S.name = name || k; S.term = termOf(k); S.led = null; S.ledErr = ""; S.from = ""; keepMed(S.name);
+    S.key = k; S.name = name || k; S.term = termOf(k); S.led = null; S.ledErr = ""; S.from = /^\d{4}-\d{2}-\d{2}$/.test(from || "") ? from : ""; keepMed(S.name);
     paint(); loadLedger(true);
     E.focusSoon(function () { return S.mount && S.mount.querySelector(".cdr h1"); }, 30);
   }
   async function loadMeds(force) {
     S.medsLoading = true; S.medsErr = ""; if (!S.meds) paint();
-    try { S.meds = await getMeds(force); }
+    try { S.meds = await getMeds(force); S.medsFrom = (cache.meds && cache.meds.from) || ""; }
     catch (e) { S.medsErr = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the medicines"); }
     S.medsLoading = false; if (!S.key) E.whenFormIdle(S.mount, paint);
   }

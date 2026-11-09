@@ -169,6 +169,25 @@
       if (a < -40 || b > 60) return { error: "That reading is outside -40 to 60 °C. Nothing was saved." };
       return { min: a, max: b };
     };
+    // Today's reading, as typed on Today or on Registers' "Today's registers" (one save, one body, one set of words).
+    // checkToday: { min, max } or { error, bad: ["min"|"max", ...] } (the fields to mark). logToday posts
+    // base ({ device_id, entry_date }) + { min_temp, max_temp, notes: "" } — the body Today has always sent.
+    N.checkToday = function (minS, maxS) {
+      minS = String(minS || "").trim().replace(",", "."); maxS = String(maxS || "").trim().replace(",", "."); // some keyboards type a decimal comma
+      if (!minS || !maxS) return { error: "Write both the lowest and the highest reading, then press Log.", bad: [!minS ? "min" : "", !maxS ? "max" : ""].filter(Boolean) };
+      var a = Number(minS), b = Number(maxS);
+      if (!isFinite(a) || !isFinite(b)) return { error: "Write the readings as numbers, like 3.4.", bad: [!isFinite(a) ? "min" : "", !isFinite(b) ? "max" : ""].filter(Boolean) };
+      a = Math.round(a * 10) / 10; b = Math.round(b * 10) / 10; // one decimal, as the Temperature register stores it
+      if (a > b) return { error: "The lowest reading is higher than the highest. Check which is which.", bad: ["min", "max"] };
+      if (a < -40 || b > 60) return { error: "Check the reading: it is outside -40 to 60 °C.", bad: [a < -40 ? "min" : "max"] };
+      return { min: a, max: b };
+    };
+    N.logToday = async function (base, min, max, path, method) {
+      var body = Object.assign({}, base, { min_temp: min, max_temp: max, notes: "" });
+      var r = await E.apiFetch(path || "/temperature/entries", { method: method || "POST", body: JSON.stringify(body) });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      return r;
+    };
     // Log a past day that has no reading, with the reason in the note. Never today or a future day (today is logged
     // on Today), and never over a reading that arrived meanwhile.
     N.logLate = async function (deviceId, day, v) {
@@ -367,23 +386,16 @@
   }
   async function logTemperature(row, rowEl) {
     var minEl = rowEl.querySelector("[data-min]"), maxEl = rowEl.querySelector("[data-max]");
-    // Some keyboards type a decimal comma ("3,4"): read it as 3.4.
-    var minS = (minEl.value || "").trim().replace(",", "."), maxS = (maxEl.value || "").trim().replace(",", ".");
     var name = devName(row);
-    if (!minS || !maxS) return rowError(rowEl, "Write both the lowest and the highest reading, then press Log.", [!minS ? minEl : null, !maxS ? maxEl : null].filter(Boolean));
-    var minV = Number(minS), maxV = Number(maxS);
-    if (!isFinite(minV) || !isFinite(maxV)) return rowError(rowEl, "Write the readings as numbers, like 3.4.", [!isFinite(minV) ? minEl : null, !isFinite(maxV) ? maxEl : null].filter(Boolean));
-    minV = Math.round(minV * 10) / 10; maxV = Math.round(maxV * 10) / 10; // one decimal, as the Temperature register stores it
-    if (minV > maxV) return rowError(rowEl, "The lowest reading is higher than the highest. Check which is which.", [minEl, maxEl]);
-    if (minV < -40 || maxV > 60) return rowError(rowEl, "Check the reading: it is outside -40 to 60 °C.", [minV < -40 ? minEl : maxEl]);
+    var v = E.tempNote.checkToday(minEl.value, maxEl.value); // the same check and words as Registers (eikon.regtoday.js)
+    if (v.error) return rowError(rowEl, v.error, v.bad.map(function (k) { return k === "min" ? minEl : maxEl; }));
+    var minV = v.min, maxV = v.max;
     rowError(rowEl, "");
     var key = "temp" + row.device_id;
     if (state.busy[key]) return;
     state.busy[key] = true; setRowBusy(rowEl, true);
     try {
-      var body = Object.assign({}, row.action.body, { min_temp: minV, max_temp: maxV, notes: "" });
-      var r = await E.apiFetch(row.action.path, { method: row.action.method, body: JSON.stringify(body) });
-      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      await E.tempNote.logToday(row.action.body, minV, maxV, row.action.path, row.action.method);
       var out = (row.limits && ((row.limits.min != null && minV < row.limits.min) || (row.limits.max != null && maxV > row.limits.max)));
       E.toast(name + " logged " + minV + " to " + maxV + " °C · " + mt() + (out ? " · outside the limits: say what was done below" : ""), out ? "warn" : "success");
       await load({ silent: true });
@@ -474,11 +486,13 @@
   // device "<name> · reading", and the room sensor is seeded with the pharmacy's own name, so "Pharmacy · reading" sat next
   // to "Pharmacy Fridge · reading" and did not say it was the room. A device named just "Pharmacy" or the pharmacy's name
   // reads "Room"; every other name is shown as it was typed.
-  function devName(r) {
-    var n = String((r && r.title) || "").replace(/ · reading$/, "").trim(), k = n.toLowerCase();
+  // Shared (regs-hub): E.tempDeviceName({ name } or Today's row { title }) — the one rule for every screen.
+  E.tempDeviceName = function (d) {
+    var n = String((d && (d.name != null ? d.name : d.title)) || "").replace(/ · reading$/, "").trim(), k = n.toLowerCase();
     var here = String(((state.data && state.data.pharmacy) || {}).name || (E.state.user || {}).location_name || "").trim().toLowerCase();
     return k === "pharmacy" || (here && k === here) ? "Room" : n;
-  }
+  };
+  function devName(r) { return E.tempDeviceName({ title: r && r.title }); }
   // b4-9: the time of day decides the words, never the data. The heading reads "Before opening" in the morning and
   // "Today's checks" from noon (/today does not send the opening hours, so noon stands in for them, as the headline
   // already does). The Daily register is a to-do only once the day is closing (decision D3: End of day started, or

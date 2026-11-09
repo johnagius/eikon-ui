@@ -27,17 +27,54 @@
   function ymdLocal(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
   function maltaToday() { return (E.maltaYmd && E.maltaYmd()) || ymdLocal(new Date()); }
   function isYmd(s) { return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "")); }
-  function dmy(s) { var m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + "/" + m[2] + "/" + m[1] : String(s || ""); }
+  // The pack's own words write a day as the screen does ("1 Oct 2026"); the registers' pages keep their own dates.
+  var SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function dmy(s) { var m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? Number(m[3]) + " " + SHORT[+m[2] - 1] + " " + m[1] : String(s || ""); }
   function shiftYm(ym, n) { var a = ym.split("-"), d = new Date(Date.UTC(+a[0], +a[1] - 1 + n, 1)); return d.getUTCFullYear() + "-" + pad(d.getUTCMonth() + 1); }
   function monthsIn(from, to) { var out = [], m = from.slice(0, 7), end = to.slice(0, 7); while (m <= end && out.length < 600) { out.push(m); m = shiftYm(m, 1); } return out; }
   function monthName(ym) { var a = ym.split("-"); return MON[+a[1] - 1] + " " + a[0]; }
   function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
   function inRange(v, rg) { var d = String(v || "").slice(0, 10); return isYmd(d) && d >= rg.from && d <= rg.to; }
 
-  // ── "Since last inspection": the day is kept in this browser, per pharmacy (location).
+  // ── "Since last inspection": the day is kept on the server for the pharmacy (GET/PUT /registers/last-inspection), so
+  // every device of the pharmacy agrees; this browser keeps a copy, and is the only place when the route is missing
+  // (an older worker answers 404/405). lastInspection() is the day known now; loadLast() asks the server once a minute
+  // at most; setLastInspection(d) keeps it here at once and on the server (a Promise: { ok, server, error }).
+  var SRV = { loc: "", day: null, by: "", at: 0, missing: false };
   function locKey() { var u = user(); return String(u.location_id || u.location_name || "here"); }
-  function lastInspection() { try { var d = localStorage.getItem(LAST_KEY + locKey()); return isYmd(d) ? d : ""; } catch (e) { return ""; } }
-  function setLastInspection(d) { try { if (isYmd(d)) localStorage.setItem(LAST_KEY + locKey(), d); else localStorage.removeItem(LAST_KEY + locKey()); } catch (e) {} }
+  function localDay() { try { var d = localStorage.getItem(LAST_KEY + locKey()); return isYmd(d) ? d : ""; } catch (e) { return ""; } }
+  function keepLocal(d) { try { if (isYmd(d)) localStorage.setItem(LAST_KEY + locKey(), d); else localStorage.removeItem(LAST_KEY + locKey()); } catch (e) {} }
+  function fresh() { if (SRV.loc !== locKey()) SRV = { loc: locKey(), day: null, by: "", at: 0, missing: false }; return SRV; }
+  function lastInspection() { var s = fresh(); return s.day != null ? s.day : localDay(); }
+  function lastInspectionBy() { var s = fresh(); return s.day ? s.by : ""; }
+  function noRoute(e) { return e && (e.status === 404 || e.status === 405); }
+  async function loadLast() {
+    var s = fresh();
+    if (s.missing || Date.now() - s.at < 60000) return lastInspection();
+    try {
+      var r = await E.apiFetch("/registers/last-inspection", { method: "GET" });
+      if (s !== fresh()) return lastInspection();
+      s.at = Date.now();
+      if (r && r.ok !== false && typeof r.last_date === "string") {
+        var here = localDay();
+        if (!r.last_date && here) { s.day = here; s.by = ""; setLastInspection(here); return here; } // a day kept here before the server had it: share it once
+        s.day = r.last_date; s.by = r.set_name || ""; keepLocal(r.last_date);
+      }
+    } catch (e) { if (noRoute(e)) s.missing = true; }
+    return lastInspection();
+  }
+  async function setLastInspection(d) {
+    var s = fresh(); keepLocal(d); s.day = isYmd(d) ? d : ""; s.by = user().full_name || "";
+    if (s.missing) return { ok: true, server: false };
+    try {
+      var r = await E.apiFetch("/registers/last-inspection", { method: "PUT", body: JSON.stringify({ date: isYmd(d) ? d : "" }) });
+      if (r && r.ok !== false) { s.day = r.last_date || ""; s.by = r.set_name || s.by; s.at = Date.now(); return { ok: true, server: true }; }
+      return { ok: false, server: true, error: (r && r.error) || "not saved" };
+    } catch (e) {
+      if (noRoute(e)) { s.missing = true; return { ok: true, server: false }; }
+      return { ok: false, server: true, error: e && e.network ? "no connection" : String((e && e.message) || e) };
+    }
+  }
 
   // ── Each register's printout, as its own screen makes it: the screen's document builder E.printDocs[id](month,
   // entries, extra), the same object its Print button passes to E.months.print. The controlled-drug registers are never
@@ -234,7 +271,7 @@
     return h.slice(a + 7, b).replace(/^@page\{[^{}]*(\{[^{}]*\}[^{}]*)*\}/, "");
   }
   function html(pack) {
-    var u = user(), loc = u.location_name || "", org = u.org_name || "", rt = E.inspect.rangeText(pack.range), p = pack.at;
+    var u = user(), loc = u.location_name || "", org = u.org_name || "", rt = (E.inspect.niceRange || E.inspect.rangeText)(pack.range), p = pack.at;
     var stamp = (E.maltaYmd ? dmy(E.maltaYmd(p)) : dmy(ymdLocal(p))) + " " + (E.maltaHm ? E.maltaHm(p) : pad(p.getHours()) + ":" + pad(p.getMinutes()));
     var foot = (loc ? loc + " · " : "") + "Inspection pack · " + rt;
     var fq = foot.replace(/["\\]/g, "'");
@@ -353,6 +390,6 @@
   function estimate(rg) { var m = monthsIn(rg.from, rg.to).length; return 3 + 4 * m + 4 * m + m + 1; }
 
   var api = { build: build, open: open, estimate: estimate, contents: contents, html: html, bodyOf: bodyOf, takeBody: takeBody, docFor: docFor, DOCS: DOCS, REGS: REGS,
-    lastInspection: lastInspection, setLastInspection: setLastInspection, last: null };
+    lastInspection: lastInspection, lastInspectionBy: lastInspectionBy, loadLast: loadLast, setLastInspection: setLastInspection, last: null };
   E.inspack = api;
 })();

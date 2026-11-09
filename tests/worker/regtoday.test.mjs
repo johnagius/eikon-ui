@@ -58,7 +58,7 @@ test("registers today: one read says what each register needs today", async ({ a
   eq(j.stocktake.last_month, lastYm); eq(j.stocktake.last_month_counted, null); eq(j.stocktake.last_month_lines, true); eq(j.stocktake.open, null);
   ok(j.certificates.some((c) => c.status === "expired" && c.title === c0.title), "expired certificate: " + JSON.stringify(j.certificates));
   eq(j.end_of_day.saved, false);
-  eq(j.signoffs, null, "no sign-off table yet: null, not an empty list");
+  ok(Array.isArray(j.signoffs) && j.signoffs.length === 0, "V2: sign-offs are read on the hub's first open, before any daily register was opened: " + JSON.stringify(j.signoffs));
 
   // a stock-take, still open: it counts for its month and is reported as open
   eq((await api("POST", "/dda-stocktakes/stocktakes", { token, body: {} })).status, 200);

@@ -229,7 +229,7 @@
 
     // Certificates: as of today (they are not kept by month).
     (function () {
-      var R = [], never = [], sc = function (t) { return String(t == null ? "" : t).split(" ").map(function (w, i) { return !i || w.length < 2 || w === w.toUpperCase() || /\d/.test(w) ? w : w.charAt(0).toLowerCase() + w.slice(1); }).join(" "); }; // as the Certificates screen says them
+      var R = [], never = [], sc = function (t) { return String(t == null ? "" : t).replace(/Osmmosis/g, "Osmosis").split(" ").map(function (w, i) { return !i || w.length < 2 || w === w.toUpperCase() || /\d/.test(w) ? w : w.charAt(0).toLowerCase() + w.slice(1); }).join(" "); }; // as the Certificates screen says them
       (D.certs || []).slice().sort(function (a, b) { return String(a.next_due || "9") < String(b.next_due || "9") ? -1 : 1; }).forEach(function (it) {
         if (!it.next_due) { never.push(sc(it.title)); return; }
         var n = diffDays(today, it.next_due);
@@ -340,7 +340,7 @@
       ".ins{max-width:880px;margin:0 auto}.ins-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 12px 0 0;min-height:44px;margin:-8px 0 2px;cursor:pointer}" +
       ".ins h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.ins-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0;line-height:1.5}" +
       ".ins-box{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-top:16px}" +
-      ".ins-chips{display:flex;gap:6px;flex-wrap:wrap}.ins-chips button{font:inherit;font-size:14px;font-weight:600;min-height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer}" +
+      ".ins-chips{display:flex;gap:6px;flex-wrap:wrap;position:relative}.ins-chips button{font:inherit;font-size:14px;font-weight:600;min-height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer}" +
       ".ins-chips button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}" +
       ".ins-f{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:10px}.ins-f label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted);min-width:150px}" +
       ".ins-f input{height:38px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font:inherit;font-size:15px;padding:0 10px}" +
@@ -365,11 +365,20 @@
       ".ins-done{margin-top:16px;padding:12px 16px;border-radius:12px;border:1px solid var(--border);border-left:4px solid var(--ok,#0A8F6A);background:var(--panel2);font-size:14px;line-height:1.5}.ins-done b{display:block;margin-bottom:2px}.ins-done .ins-link,.ins-done .ins-quiet{display:block;margin-top:6px}.ins-quiet{color:var(--muted);font-size:13.5px}" +
       ".ins-err{color:var(--danger)}.ins-foot{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.5}" +
       "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .ins-chips button[aria-pressed=true]{color:#00160E}}" +
-      "@media (max-width:600px){.ins{padding:0 16px}.ins h1{font-size:28px}.ins-f label{flex:1 1 100%}.ins-reg li{flex-direction:column;gap:0}.ins-chips button,.ins-btn,.ins-go,.ins-link{min-height:44px}.ins-f input{height:44px;font-size:16px}.ins-acts .ins-btn.p{flex:1 1 100%}}";
+      "@media (max-width:600px){.ins{padding:0 16px}.ins h1{font-size:28px}.ins-f label{flex:1 1 100%}.ins-reg li{flex-direction:column;gap:0}.ins-chips button,.ins-btn,.ins-go,.ins-link{min-height:44px}.ins-chips{flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;margin:0 -16px;padding:2px 16px;scroll-padding:0 16px}.ins-chips::-webkit-scrollbar{display:none}.ins-chips button{flex:none;white-space:nowrap;scroll-snap-align:start}.ins-f input{height:44px;font-size:16px}.ins-acts .ins-btn.p{flex:1 1 100%}}";
     document.head.appendChild(st);
   }
 
   function rangeNow() { return S.range === "since" ? periodOf("since", maltaToday(), S.since, "") : periodOf(S.range, maltaToday(), S.from, S.to); }
+  // The day of the last inspection: kept for the whole pharmacy (eikon.inspack.js asks the server; this browser when it cannot).
+  function keepSince(d, say) {
+    if (!E.inspack) return;
+    E.inspack.setLastInspection(d).then(function (r) {
+      if (r && !r.ok) { if (E.toast) E.toast("Kept on this device only: the server did not save the day (" + r.error + "). Try again later.", "warn"); }
+      else if (say && E.toast) E.toast(r && r.server ? "Today is kept as the day of the last inspection, for every device here" : "Today is kept as the day of the last inspection on this device", "success");
+      paint();
+    });
+  }
   function packAllowed() { return !!E.inspack; } // anyone signed in may print the pack (owner, 9 Nov)
   function sinceDay() { return E.inspack && E.inspack.lastInspection ? E.inspack.lastInspection() : ""; }
   // ── Reads kept for the session: a month that is over is read once (Check again and the pack reuse it); this month,
@@ -455,7 +464,8 @@
       '<div class="ins-box" role="group" aria-label="Days to check"><div class="ins-chips">' + chip("this", "This month") + chip("last", "Last month") + chip("three", "Last 3 months") + chip("since", "Since last inspection") + chip("custom", "Choose days") + "</div>";
     if (S.range === "since" && (S.editSince || !S.since)) h += '<div class="ins-f"><label for="ins-since">Day of the last inspection<input type="date" id="ins-since" value="' + esc(S.since) + '" max="' + t + '"' + (busy ? " disabled" : "") + '></label><button type="button" class="ins-btn p" data-act="since"' + (busy ? " disabled" : "") + ">Check</button></div>";
     if (S.range === "custom") h += '<div class="ins-f"><label for="ins-from">First day<input type="date" id="ins-from" value="' + esc(S.from) + '" max="' + t + '"' + (busy ? " disabled" : "") + '></label><label for="ins-to">Last day<input type="date" id="ins-to" value="' + esc(S.to) + '" max="' + t + '"' + (busy ? " disabled" : "") + '></label><button type="button" class="ins-btn p" data-act="check"' + (busy ? " disabled" : "") + ">Check</button></div>";
-    h += '<p class="ins-days">' + (rg ? esc(niceRange(rg)) + (S.range === "since" && !S.editSince ? ' <button type="button" class="ins-link" data-act="edit-since"' + (busy ? " disabled" : "") + ">Change the day</button>" : "") : S.range === "since" ? "Choose the day the inspector last came. This browser remembers it." : "Choose a first and a last day.") + "</p></div>";
+    var by = S.range === "since" && E.inspack && E.inspack.lastInspectionBy ? E.inspack.lastInspectionBy() : "";
+    h += '<p class="ins-days">' + (rg ? esc(niceRange(rg) + (by ? " · kept by " + by : "")) + (S.range === "since" && !S.editSince ? ' <button type="button" class="ins-link" data-act="edit-since"' + (busy ? " disabled" : "") + ">Change the day</button>" : "") : S.range === "since" ? "Choose the day the inspector last came. Eikon keeps it for every device of the pharmacy." : "Choose a first and a last day.") + "</p></div>";
     // The job of the page, straight under the days: the pack (primary), this summary on one page, check again.
     h += '<div class="ins-acts">' + (busy ? '<button class="ins-btn" data-act="cancel">Cancel</button>' :
       (packAllowed() ? '<button class="ins-btn p" data-act="pack"' + (rg ? "" : " disabled") + ">Print inspection pack</button>" : "") +
@@ -499,6 +509,8 @@
       if (!again || again.disabled) again = m.querySelector(busy ? '[data-act="cancel"]' : '[data-act="pack"]');
       if (again) again.focus({ preventScroll: true });
     }
+    var cb = m.querySelector(".ins-chips"), pr = cb && cb.querySelector('[aria-pressed="true"]'); // phone: the chosen chip stays in view in its row
+    if (cb && pr && cb.scrollWidth > cb.clientWidth + 1) cb.scrollLeft = Math.max(0, pr.offsetLeft - (cb.clientWidth - pr.offsetWidth) / 2);
     bind(m);
   }
 
@@ -511,9 +523,9 @@
         else if (a === "cancel") { if (S.job) S.job.cancel = true; S.job = null; if (S.pack) { S.pack.run.cancel(); S.pack = null; } paint(); }
         else if (a === "print" && S.result) openPrint(S.result);
         else if (a === "pack") makePack();
-        else if (a === "since") { var v = m.querySelector("#ins-since"); S.since = v ? v.value : S.since; if (!isYmd(S.since) || S.since > maltaToday()) { S.error = "Choose the day of the last inspection, today or before."; return paint(); } if (E.inspack) E.inspack.setLastInspection(S.since); S.editSince = false; start(); }
+        else if (a === "since") { var v = m.querySelector("#ins-since"); S.since = v ? v.value : S.since; if (!isYmd(S.since) || S.since > maltaToday()) { S.error = "Choose the day of the last inspection, today or before."; return paint(); } S.editSince = false; keepSince(S.since, false); start(); }
         else if (a === "edit-since") { S.editSince = true; paint(); E.focusSoon ? E.focusSoon(function () { return m.querySelector("#ins-since"); }, 30) : 0; }
-        else if (a === "mark") { var d = maltaToday(); if (E.inspack) E.inspack.setLastInspection(d); S.since = d; paint(); if (E.toast) E.toast("Today is kept as the day of the last inspection", "success"); }
+        else if (a === "mark") { var d = maltaToday(); S.since = d; paint(); keepSince(d, true); }
       });
     });
     m.querySelectorAll("[data-range]").forEach(function (b) {
@@ -540,11 +552,16 @@
       var fresh = S.result && S.result.today === maltaToday() && Date.now() - S.result.at.getTime() < 10 * 60000; // back from a register: the last check stays
       // Opening runs the check by itself only for This month (the cheapest); other days wait for Check again.
       if (!fresh && S.range !== "this") S.result = null;
-      paint(); if (!fresh && !S.job && S.range === "this" && rangeNow()) return start();
+      paint();
+      if (E.inspack && E.inspack.loadLast) E.inspack.loadLast().then(function (d) { // the pharmacy's day (another device may have changed it)
+        if (E.state.activeModuleId !== ID || S.editSince || d === S.since) return;
+        S.since = d; if (S.range === "since" && !S.job && !S.pack) { S.result = null; if (d) start(); else { S.editSince = true; paint(); } } else paint();
+      });
+      if (!fresh && !S.job && S.range === "this" && rangeNow()) return start();
     }
   });
   // For Download our records, the tests and the real-stack check.
-  E.inspect = { periodOf: periodOf, gather: gather, checks: checks, headline: headline, run: run, printDoc: printDoc, openPrint: openPrint, coverSection: coverSection, rangeText: rangeText, state: S, WORD: WORD };
+  E.inspect = { periodOf: periodOf, gather: gather, checks: checks, headline: headline, run: run, printDoc: printDoc, openPrint: openPrint, coverSection: coverSection, rangeText: rangeText, niceRange: niceRange, state: S, WORD: WORD };
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf(ID) < 0) E.UI2_DESTINATIONS.push(ID);
   if (E.UI2_PARENT) E.UI2_PARENT[ID] = "registers";
 })();

@@ -164,5 +164,37 @@ export default {
     const sp = await t.page(); await sp.context().addInitScript((tok) => { try { localStorage.setItem("eikon_token", tok); } catch (e) {} }, st.token);
     await t.open(sp, "2", "insreg", "insreg", ".ins-acts");
     t.ok((await sp.locator('[data-act="pack"]').count()) === 1 && !(await sp.locator(".ins-who").count()) && !/only the pharmacist in charge/.test(await sp.textContent(".ins")), "a staff account has the Print inspection pack button and no restriction note");
+    // ---- round 2: the day of the last inspection is the pharmacy's, kept on the server; another device (the staff's
+    // browser, empty storage) gets it; the screen keeps working in the browser when the route is missing
+    const row = db.prepare("SELECT last_date, set_name FROM register_last_inspection WHERE org_id = ? AND location_id = ?").get(org, loc);
+    t.ok(row && row.last_date === since && row.set_name === "Rita Camilleri", "the day is stored on the server for this pharmacy: " + JSON.stringify(row));
+    await sp.click('[data-range="since"]');
+    await sp.waitForFunction((d) => { const s = window.EIKON.inspect.state; return !s.job && s.result && s.result.range.from === d; }, since, { timeout: 20000 });
+    t.ok(/kept by Rita Camilleri/.test(await sp.textContent(".ins-days")), "another device checks from the pharmacy's day, and says who kept it: " + await sp.textContent(".ins-days"));
+    const keepToday = await sp.locator('[data-act="mark"]').count(); // only after a pack; set it through the date field instead
+    await sp.click('[data-act="edit-since"]'); await sp.fill("#ins-since", add(today, -3)); await sp.press("#ins-since", "Enter");
+    await sp.waitForFunction((d) => { const s = window.EIKON.inspect.state; return !s.job && s.result && s.result.range.from === d; }, add(today, -3), { timeout: 20000 });
+    for (let i = 0; i < 40 && db.prepare("SELECT last_date FROM register_last_inspection WHERE location_id = ?").get(loc).last_date !== add(today, -3); i++) await sp.waitForTimeout(100);
+    t.ok(db.prepare("SELECT last_date, set_name FROM register_last_inspection WHERE location_id = ?").get(loc).last_date === add(today, -3), "staff change it for the whole pharmacy" + (keepToday ? "" : ""));
+    const other = db.prepare("SELECT COUNT(*) AS c FROM register_last_inspection WHERE location_id <> ?").get(loc).c;
+    t.ok(other === 0 || !db.prepare("SELECT 1 FROM register_last_inspection WHERE location_id <> ? AND last_date = ?").get(loc, add(today, -3)), "no other pharmacy got the day");
+    // an older worker (no route): the day stays in this browser and the check still runs from it
+    const op = await t.page(); await op.context().addInitScript((tok) => { try { localStorage.setItem("eikon_token", tok); } catch (e) {} }, u.token);
+    await op.route("**/registers/last-inspection", (r) => r.fulfill({ status: 404, contentType: "application/json", body: '{"ok":false,"error":"Not found"}' }));
+    await t.open(op, "2", "insreg", "insreg", ".ins-acts");
+    await op.click('[data-range="since"]'); await op.fill("#ins-since", add(today, -7)); await op.press("#ins-since", "Enter");
+    await op.waitForFunction((d) => { const s = window.EIKON.inspect.state; return !s.job && s.result && s.result.range.from === d; }, add(today, -7), { timeout: 20000 });
+    t.ok(await op.evaluate((l) => localStorage.getItem("eikon_inspack_last:" + l), String(loc)) === add(today, -7), "without the route the day is kept in this browser and the check runs from it");
+    t.ok(db.prepare("SELECT last_date FROM register_last_inspection WHERE location_id = ?").get(loc).last_date === add(today, -3), "and the server's day is untouched");
+    // I8: the day chips are one row that scrolls sideways on a phone; the page itself never scrolls sideways
+    const ph = await t.page({ phone: true }); await ph.context().addInitScript((tok) => { try { localStorage.setItem("eikon_token", tok); } catch (e) {} }, u.token);
+    await t.open(ph, "2", "insreg", "insreg", ".ins-acts");
+    const row8 = await ph.evaluate(() => { const c = document.querySelector(".ins-chips"), b = [...c.querySelectorAll("button")]; return { tops: new Set(b.map((x) => Math.round(x.getBoundingClientRect().top))).size, scrolls: c.scrollWidth > c.clientWidth, page: document.documentElement.scrollWidth, h: Math.min(...b.map((x) => x.getBoundingClientRect().height)) }; });
+    t.ok(row8.tops === 1 && row8.scrolls && row8.page <= 390 && row8.h >= 44, "phone: one scrolling row of 44 px chips, no sideways page scroll: " + JSON.stringify(row8));
+    await ph.click('[data-range="custom"]');
+    const vis = await ph.evaluate(() => { const c = document.querySelector(".ins-chips"), b = c.querySelector('[aria-pressed="true"]').getBoundingClientRect(), r = c.getBoundingClientRect(); return b.left >= r.left - 1 && b.right <= r.right + 1; });
+    t.ok(vis, "the chosen chip is scrolled into view");
+    // I10: the pack's own words write days as the screen does
+    t.ok(!/<dt>Days covered<\/dt><dd>[^<]*\d\d\/\d\d\/\d{4}/.test(html) && !/<dt>Prepared<\/dt><dd>\d\d\//.test(html) && /<dt>Days covered<\/dt><dd>1 [A-Z][a-z]{2}( \d{4})? to /.test(html), "cover dates are written out, not numeric: " + (html.match(/<dt>Days covered<\/dt><dd>[^<]*/) || [""])[0]);
   },
 };

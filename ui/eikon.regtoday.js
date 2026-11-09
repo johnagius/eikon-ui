@@ -22,7 +22,7 @@
   var WDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   // The registers a month sign-off covers (the Daily registers' sign-off card, register_signoffs.register).
   var SIGN_KEYS = [["temperature", "Temperature", "tempreg"], ["cleaning", "Cleaning", "cleanreg"], ["daily", "Daily register", "drreg"], ["locum", "Locum register", "locreg"], ["receipts", "Locum receipts", "lrcreg"]];
-  var S = { data: null, at: 0, loc: "", job: null, error: "", errorKind: "", slot: null };
+  var S = { typed: {}, focusAfter: "", data: null, at: 0, loc: "", job: null, error: "", errorKind: "", slot: null };
 
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
   function plural(n, one, many) { return n + " " + (n === 1 ? one : (many || one + "s")); }
@@ -40,17 +40,19 @@
     var today = D.date, out = [];
     var add = function (o) { out.push(o); };
 
-    var here = String((E.state && E.state.user && E.state.user.location_name) || "").trim().toLowerCase();
+    // D9: the device named as on Today and Temperature (E.tempDeviceName: the seeded room sensor reads "Room"), its type
+    // under it unless the name says it; H6: the register named first.
     (D.temperature || []).forEach(function (t) {
-      var nm = String(t.name || "").trim(), k0 = nm.toLowerCase(); // as Today (b4-9): the room sensor seeded with the pharmacy's name reads "Room"
-      t = Object.assign({}, t, { name: k0 === "pharmacy" || (here && k0 === here) ? "Room" : nm });
+      var name = (E.tempDeviceName ? E.tempDeviceName({ name: t.name }) : String(t.name || "").trim()) || "Device", type = t.device_type === "fridge" ? "Fridge" : t.device_type === "room" ? "Room" : "";
+      if (type && name.toLowerCase().indexOf(type.toLowerCase()) >= 0) type = ""; // never "Room · Room": the name already says it
       var lim = t.limits || {}, lo = num(lim.min), hi = num(lim.max), limText = (lo != null ? deg(lo) : "–") + " to " + (hi != null ? deg(hi) : "–") + " °C";
-      var go = { mod: "tempreg", day: today, device: t.device_id };
-      if (!t.today) return add({ key: "temp:" + t.device_id, title: t.name, status: "todo", text: "Temperature not logged yet today.", act: "Log", go: go });
+      var go = { mod: "tempreg", day: today, device: t.device_id }, base = { key: "temp:" + t.device_id, title: "Temperature · " + name, device: t, pre: type ? type + " · " : "", go: go };
+      var row = function (o) { return add(Object.assign({}, base, o)); };
+      if (!t.today) return row({ status: "todo", text: "Not logged yet today.", act: "Log", inline: true });
       var reading = deg(t.today.min) + " to " + deg(t.today.max) + " °C";
-      if (t.out_of_range && t.note === false) return add({ key: "temp:" + t.device_id, title: t.name, status: "overdue", text: reading + " is outside " + limText + ". Write what was done.", act: "Add note", go: go });
-      if (t.out_of_range && t.note == null) return add({ key: "temp:" + t.device_id, title: t.name, status: "todo", text: reading + " is outside " + limText + ". Check there is a note saying what was done.", act: "Check", go: go });
-      add({ key: "temp:" + t.device_id, title: t.name, status: "done", text: "Logged " + reading + (t.out_of_range ? ", outside the limits, with a note." : "."), act: "Open", go: go });
+      if (t.out_of_range && t.note === false) return row({ status: "overdue", text: reading + " is outside " + limText + ". Write what was done.", hot: "is outside " + limText, act: "Add note" });
+      if (t.out_of_range && t.note == null) return row({ status: "todo", text: reading + " is outside " + limText + ". Check there is a note saying what was done.", act: "Check" });
+      row({ status: "done", text: "Logged " + reading + (t.out_of_range ? ", outside the limits, with a note." : "."), act: "Open" });
     });
 
     if (D.cleaning) {
@@ -59,7 +61,7 @@
       else if (n <= 0) add({ key: "clean", title: "Cleaning", status: "done", text: "Done today" + who + ".", act: "Open", go: cgo });
       else if (n < CLEAN_DAYS) { var next = addDays(c.last_date, CLEAN_DAYS); add({ key: "clean", title: "Cleaning", status: "done", text: "Last done " + (n === 1 ? "yesterday" : n + " days ago") + who + ". Next due " + (n === CLEAN_DAYS - 1 ? "tomorrow" : weekdayOf(next) + " " + dayText(next)) + ".", act: "Open", go: cgo }); }
       else if (n === CLEAN_DAYS) add({ key: "clean", title: "Cleaning", status: "todo", text: "Due today: last done a week ago" + who + ".", act: "Record", go: cgo });
-      else add({ key: "clean", title: "Cleaning", status: "overdue", text: "Overdue: last done " + n + " days ago (" + dayText(c.last_date) + ")" + who + ". It is due once a week.", act: "Record", go: cgo });
+      else add({ key: "clean", title: "Cleaning", status: "overdue", text: "Overdue: last done " + n + " days ago (" + dayText(c.last_date) + ")" + who + ". It is due once a week.", hot: "Overdue", act: "Record", go: cgo });
     }
 
     if (D.locum) {
@@ -70,7 +72,7 @@
 
     if (D.daily_register) {
       var k = Number(D.daily_register.count_today) || 0, owed = !!(D.end_of_day && D.end_of_day.saved) || String(D.time || "") >= CLOSING, dgo = { mod: "drreg" };
-      if (k) add({ key: "daily", title: "Daily register", status: "done", text: plural(k, "line") + " today.", act: "Open", go: dgo });
+      if (k) add({ key: "daily", title: "Daily register", status: "info", text: plural(k, "line") + " today.", act: "Open", go: dgo }); // H7: never "done" (a day needs no line), as the Inspection check: for information
       else add({ key: "daily", title: "Daily register", status: owed ? "todo" : "info", text: owed ? "No line today. Add the prescription medicines supplied; a day with none needs no line." : "No line yet today. Add each prescription medicine as it is supplied.", act: owed ? "Add" : "Open", go: dgo });
     }
 
@@ -80,14 +82,14 @@
       else if (st.last_month_counted) add({ key: "cd", title: "Controlled drug stock take", status: "done", text: lastM + " counted on " + dayText(st.last_month_counted) + ".", act: "Open", go: sgo });
       else if (st.last_month_lines === true) {
         if (today <= dueBy) add({ key: "cd", title: "Controlled drug stock take", status: "todo", text: lastM + "'s count is due by " + dayText(dueBy) + ".", act: "Count", go: sgo });
-        else add({ key: "cd", title: "Controlled drug stock take", status: "overdue", text: lastM + " was not counted, and controlled drugs were supplied or received that month.", act: "Count", go: sgo });
+        else add({ key: "cd", title: "Controlled drug stock take", status: "overdue", text: lastM + " was not counted, and controlled drugs were supplied or received that month.", hot: "was not counted", act: "Count", go: sgo });
       } else if (st.last_month_lines === false) add({ key: "cd", title: "Controlled drug stock take", status: "done", text: "Not needed for " + lastM + ": no controlled drugs supplied or received.", act: "Open", go: sgo });
     }
 
     if (D.certificates) {
       var ex = D.certificates.filter(function (x) { return x.status === "expired"; }), soon = D.certificates.filter(function (x) { return x.status === "due_soon"; }), cg = { mod: "certreg" };
       var more = function (l) { return l.length > 1 ? " And " + plural(l.length - 1, "more") + "." : ""; };
-      if (ex.length) add({ key: "cert", title: "Certificates", status: "overdue", text: ex[0].title + " expired " + (ex[0].days > 0 ? plural(ex[0].days, "day") + " ago" : "today") + " (" + dayText(ex[0].due) + ")." + more(ex.concat(soon)), act: "Renew", go: cg });
+      if (ex.length) add({ key: "cert", title: "Certificates", status: "overdue", hot: "expired", text: ex[0].title + " expired " + (ex[0].days > 0 ? plural(ex[0].days, "day") + " ago" : "today") + " (" + dayText(ex[0].due) + ")." + more(ex.concat(soon)), act: "Renew", go: cg });
       else if (soon.length) add({ key: "cert", title: "Certificates", status: "todo", text: soon[0].title + (soon[0].days === 0 ? " is due today." : " is due in " + plural(soon[0].days, "day") + " (" + dayText(soon[0].due) + ").") + more(soon), act: "Open", go: cg });
       else if (Number(D.certificates_not_recorded) > 0) add({ key: "cert", title: "Certificates", status: "todo", text: plural(Number(D.certificates_not_recorded), "certificate has", "certificates have") + " no date on file. An inspector will ask for these dates.", act: "Add dates", go: cg });
       else add({ key: "cert", title: "Certificates", status: "done", text: "All in date for the next " + SOON_DAYS + " days.", act: "Open", go: cg });
@@ -162,9 +164,9 @@
       ".rgt-ic svg{display:block}.rgt-row.done .rgt-ic,.rgt-sum.all .rgt-ic{background:rgba(10,143,106,.14);color:var(--ok,#0A8F6A)}" +
       ".rgt-row.todo .rgt-ic{border:2px solid #C98A12}.rgt-row.overdue .rgt-ic{background:var(--danger);color:#fff}.rgt-row.info .rgt-ic{border:2px solid var(--border)}" +
       ".rgt-t{flex:1 1 auto;min-width:0}.rgt-t b{display:block;font-size:15px;font-weight:600;letter-spacing:-.01em}.rgt-t span{display:block;font-size:13.5px;color:var(--muted);line-height:1.4;margin-top:1px}" +
-      ".rgt-row.overdue .rgt-t span{color:var(--danger)}" +
-      ".rgt-pill.in{display:none;vertical-align:1px;margin-left:4px}.rgt-pill{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap;flex:none}" +
-      ".rgt-pill.todo{background:rgba(201,138,18,.16);color:var(--warn,#8A5A08)}.rgt-pill.overdue{background:rgba(215,38,28,.12);color:var(--danger)}" +
+      ".rgt-hot{font-style:normal;font-weight:600}.rgt-hot.overdue{color:var(--danger)}.rgt-hot.todo{color:var(--warn,#8A5A08)}.rgt-msg:empty{display:none}.rgt-t .rgt-msg{color:var(--danger);font-weight:600}" +
+      ".rgt-f{display:flex;align-items:center;gap:12px;flex:1 1 auto;min-width:0;margin:0}.rgt-in{display:flex;align-items:center;gap:8px;flex:none}.rgt-in label{display:flex;align-items:center;gap:4px}.rgt-in small{font-size:12px;color:var(--muted)}" +
+      ".rgt-in input{width:64px;height:40px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font:inherit;font-size:16px;padding:0 8px;font-variant-numeric:tabular-nums}.rgt-in input[aria-invalid=true]{border-color:var(--danger)}" +
       ".rgt-btn{font:inherit;font-size:14px;font-weight:600;min-height:40px;min-width:72px;padding:0 14px;border-radius:20px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;flex:none;-webkit-tap-highlight-color:transparent}" +
       ".rgt-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.rgt-btn.q{border-color:transparent;background:none;color:var(--accent);min-width:0;padding:0 8px}" +
       ".rgt-btn:hover{filter:brightness(.97)}.rgt-btn:active{filter:brightness(.9)}.rgt :focus-visible{outline:2px solid var(--accent);outline-offset:2px}" +
@@ -173,11 +175,11 @@
       ".rgt-err{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--panel2);font-size:14px}" +
       ".hub h2.rgt-all,html[data-ui2] .hub h2.rgt-all{font-size:19px;font-weight:700;letter-spacing:-.015em;text-transform:none;color:var(--text);margin:30px 2px 0}" +
       ".rgt-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.rgt-foot{font-size:12.5px;color:var(--muted);margin:8px 2px 0;line-height:1.5}" +
-      "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .rgt-btn.p{color:#00160E}html[data-ui2]:not([data-ui2-visit]) .rgt-pill.todo{color:#E8B04A}}" +
-      "@media (max-width:600px){.rgt-row{padding:10px 12px 10px 16px;gap:10px}.rgt-pill.out{display:none}.rgt-pill.in{display:inline-block}.rgt-btn{min-height:44px;min-width:64px;padding:0 12px}.rgt-btn.q{min-width:44px;padding:0 6px}.rgt-head h2{font-size:20px}}" +
+      "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .rgt-btn.p{color:#00160E}html[data-ui2]:not([data-ui2-visit]) .rgt-hot.todo{color:#E8B04A}}" +
+      "@media (max-width:600px){.rgt-row{padding:10px 12px 10px 16px;gap:10px}.rgt-f{flex-wrap:wrap;row-gap:8px}.rgt-in{order:3;margin-left:32px;flex:1 1 auto}.rgt-in label{flex:1 1 0}.rgt-in input{width:100%;height:44px}.rgt-f .rgt-t{flex:1 1 calc(100% - 120px)}.rgt-btn{min-height:44px;min-width:64px;padding:0 12px}.rgt-btn.q{min-width:44px;padding:0 6px}.rgt-head h2{font-size:20px}}" +
       // the status under a hub card: words first, a dot of colour for meaning (never colour alone)
       ".rgt-chip{display:flex;align-items:center;gap:6px;font-style:normal;font-size:12.5px;font-weight:600;margin-top:6px;color:var(--muted)}.rgt-chip::before{content:'';width:7px;height:7px;border-radius:50%;flex:none;background:var(--ok,#0A8F6A)}" +
-      ".rgt-chip.todo::before{background:#C98A12}.rgt-chip.overdue{color:var(--danger)}.rgt-chip.overdue::before{background:var(--danger)}";
+      ".rgt-chip.info::before{background:var(--muted)}.rgt-chip.todo::before{background:#C98A12}.rgt-chip.overdue{color:var(--danger)}.rgt-chip.overdue::before{background:var(--danger)}";
     document.head.appendChild(st);
   }
   var ICON = {
@@ -187,13 +189,51 @@
   };
   var WORD = { overdue: "Overdue", todo: "To do", done: "Done", info: "" };
 
+  // H5: one status marker per row (the icon; its word is read out), then the one button. H6: only the key words coloured.
+  function textHtml(x) {
+    var t = String(x.text || ""), k = x.hot ? t.indexOf(x.hot) : -1;
+    var body = k < 0 ? esc(t) : esc(t.slice(0, k)) + '<em class="rgt-hot ' + x.status + '">' + esc(x.hot) + "</em>" + esc(t.slice(k + x.hot.length));
+    return esc(x.pre || "") + body;
+  }
   function rowHtml(x, i) {
     var primary = x.status === "overdue" || x.status === "todo";
-    return '<li class="rgt-row ' + x.status + '" data-rgt="' + esc(x.key) + '">' +
-      '<span class="rgt-ic">' + ICON[x.status] + '</span>' +
-      '<div class="rgt-t"><b>' + esc(x.title) + (WORD[x.status] && !primary ? '<span class="rgt-sr">, ' + esc(WORD[x.status]) + "</span>" : "") + (primary ? ' <span class="rgt-pill in ' + x.status + '">' + WORD[x.status] + "</span>" : "") + "</b><span>" + esc(x.text) + "</span></div>" +
-      (primary ? '<span class="rgt-pill out ' + x.status + '">' + WORD[x.status] + "</span>" : "") +
+    var word = WORD[x.status] ? '<span class="rgt-sr">, ' + esc(WORD[x.status]) + "</span>" : "";
+    var head = '<span class="rgt-ic">' + ICON[x.status] + '</span><div class="rgt-t"><b>' + esc(x.title) + word + "</b><span" + (x.inline ? ' id="rgt-d-' + esc(x.device.device_id) + '"' : "") + ">" + textHtml(x) + "</span>" + (x.inline ? '<span class="rgt-msg" role="alert" id="rgt-e-' + esc(x.device.device_id) + '"></span>' : "") + "</div>";
+    if (x.inline) { // the reading typed right here, saved by Today's own save (E.tempNote.logToday)
+      var id = x.device.device_id, dr = S.typed[id] || {};
+      return '<li class="rgt-row ' + x.status + ' rgt-inl" data-rgt="' + esc(x.key) + '"><form class="rgt-f" data-rgt-log="' + i + '" novalidate>' + head +
+        '<div class="rgt-in"><label><small>min</small><input name="min" inputmode="decimal" enterkeyhint="next" autocomplete="off" value="' + esc(dr.min || "") + '" aria-label="' + esc("Lowest temperature, °C, " + x.device.name) + '" aria-describedby="rgt-d-' + esc(id) + '"></label>' +
+        '<label><small>max</small><input name="max" inputmode="decimal" enterkeyhint="done" autocomplete="off" value="' + esc(dr.max || "") + '" aria-label="' + esc("Highest temperature, °C, " + x.device.name) + '" aria-describedby="rgt-d-' + esc(id) + '"></label><small>°C</small></div>' +
+        '<button type="submit" class="rgt-btn p" aria-label="' + esc("Log: " + x.title) + '">Log</button></form></li>';
+    }
+    return '<li class="rgt-row ' + x.status + '" data-rgt="' + esc(x.key) + '">' + head +
       '<button type="button" class="rgt-btn' + (primary ? " p" : " q") + '" data-rgt-go="' + i + '" aria-label="' + esc(x.act + ": " + x.title) + '">' + esc(x.act) + (primary ? "" : " ›") + "</button></li>";
+  }
+  async function logInline(form, x) {
+    var minEl = form.querySelector('[name="min"]'), maxEl = form.querySelector('[name="max"]'), msg = form.querySelector(".rgt-msg");
+    var mark = function (bad, text) {
+      [minEl, maxEl].forEach(function (el) { el.removeAttribute("aria-invalid"); el.setAttribute("aria-describedby", "rgt-d-" + x.device.device_id); });
+      (bad || []).forEach(function (k) { var el = k === "min" ? minEl : maxEl; el.setAttribute("aria-invalid", "true"); el.setAttribute("aria-describedby", msg.id); });
+      msg.textContent = text || "";
+      if (bad && bad[0]) { var f = bad[0] === "min" ? minEl : maxEl; try { f.focus(); f.select(); } catch (e) {} }
+    };
+    var v = E.tempNote.checkToday(minEl.value, maxEl.value);
+    if (v.error) return mark(v.bad, v.error);
+    mark([], "");
+    if (form.dataset.busy) return;
+    form.dataset.busy = "1"; form.querySelectorAll("input,button").forEach(function (el) { el.disabled = true; });
+    var btn = form.querySelector("button"); btn.textContent = "Saving…";
+    try {
+      await E.tempNote.logToday({ device_id: x.device.device_id, entry_date: S.data.date }, v.min, v.max);
+      delete S.typed[x.device.device_id];
+      var lim = x.device.limits || {}, out = (lim.min != null && v.min < lim.min) || (lim.max != null && v.max > lim.max);
+      if (E.toast) E.toast(x.device.name + " logged " + v.min + " to " + v.max + " °C" + (out ? " · outside the limits: say what was done" : ""), out ? "warn" : "success");
+      S.focusAfter = x.key;
+      await render(S.slot, true);
+    } catch (e) {
+      delete form.dataset.busy; form.querySelectorAll("input,button").forEach(function (el) { el.disabled = false; }); btn.textContent = "Log";
+      mark([], E.saveFailText ? E.saveFailText(e) : "Not saved. The readings are still here; try again."); // what was typed stays
+    }
   }
 
   function paint(slot) {
@@ -214,9 +254,16 @@
     }
     paintChips(D, S.list || []);
     h += "</section>";
-    var ae = document.activeElement, keep = ae && slot.contains(ae) ? (ae.getAttribute("data-rgt-go") != null ? '[data-rgt-go="' + ae.getAttribute("data-rgt-go") + '"]' : ae.hasAttribute("data-rgt-retry") ? "[data-rgt-retry]" : "") : "";
+    var ae = document.activeElement, keep = ae && slot.contains(ae) ? (ae.name && ae.closest("[data-rgt]") ? '[data-rgt="' + ae.closest("[data-rgt]").getAttribute("data-rgt") + '"] [name="' + ae.name + '"]' : ae.getAttribute("data-rgt-go") != null ? '[data-rgt-go="' + ae.getAttribute("data-rgt-go") + '"]' : ae.hasAttribute("data-rgt-retry") ? "[data-rgt-retry]" : "") : "";
     slot.innerHTML = h;
     if (keep) { var k = slot.querySelector(keep); if (k) k.focus({ preventScroll: true }); }
+    slot.querySelectorAll("form[data-rgt-log]").forEach(function (f) {
+      var x = S.list && S.list[Number(f.getAttribute("data-rgt-log"))]; if (!x) return;
+      f.addEventListener("submit", function (ev) { ev.preventDefault(); logInline(f, x); });
+      f.querySelectorAll("input").forEach(function (el) { el.addEventListener("input", function () { var d = S.typed[x.device.device_id] = S.typed[x.device.device_id] || {}; d[el.name] = el.value; }); });
+      var mn = f.querySelector('[name="min"]'); mn.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); f.querySelector('[name="max"]').focus(); } });
+    });
+    if (S.focusAfter) { var fa = slot.querySelector('[data-rgt="' + S.focusAfter + '"] button'); S.focusAfter = ""; var nx = slot.querySelector(".rgt-inl input") || fa; if (nx) nx.focus({ preventScroll: true }); }
     slot.querySelectorAll("[data-rgt-go]").forEach(function (b) {
       b.addEventListener("click", function () { var x = S.list && S.list[Number(b.getAttribute("data-rgt-go"))]; if (x) go(x.go); });
     });
@@ -246,7 +293,7 @@
       out.temperature = bad ? { status: "overdue", text: plural(bad, "note") + " to write" } : notLogged ? { status: "todo", text: notLogged + " to log today" } : temps.some(function (x) { return x.status === "todo"; }) ? { status: "todo", text: "Check a note" } : { status: "done", text: "Done today" };
     }
     var c = by.clean; if (c) out.cleaning = { status: c.status, text: c.status === "overdue" ? "Overdue" : c.status === "todo" ? (D.cleaning && D.cleaning.days_since == null ? "Not recorded yet" : "Due today") : D.cleaning && D.cleaning.days_since === 0 ? "Done today" : "Done " + (D.cleaning.days_since === 1 ? "yesterday" : D.cleaning.days_since + " days ago") };
-    var d = by.daily; if (d) out.dailyregister = d.status === "done" ? { status: "done", text: plural(Number(D.daily_register.count_today) || 0, "line") + " today" } : d.status === "todo" ? { status: "todo", text: "No line today" } : null;
+    var d = by.daily; if (d) out.dailyregister = d.status === "info" && Number(D.daily_register.count_today) ? { status: "info", text: plural(Number(D.daily_register.count_today) || 0, "line") + " today" } : d.status === "todo" ? { status: "todo", text: "No line today" } : null;
     var l = by.locum; if (l) out.locumregister = l.status === "done" ? { status: "done", text: "In charge: " + ((D.locum.entries || [])[0] || {}).name } : { status: "todo", text: "Nobody signed in today" };
     var ce = by.cert; if (ce) {
       var ex = (D.certificates || []).filter(function (x) { return x.status === "expired"; }), sn = (D.certificates || []).filter(function (x) { return x.status === "due_soon"; });

@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-09-batch-9";
+const WORKER_VERSION = "2026-11-09-batch-10";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -16437,7 +16437,7 @@ function regCountsFor(day) { // the month a stock-take on this Malta day counts 
 async function registersTodayExtra(env, org, loc, today) {
   const all = async (sql, bind) => { try { return await dbAll(env, sql, bind); } catch (e) { return null; } };
   const one = async (sql, bind) => { try { return await dbFirst(env, sql, bind); } catch (e) { return null; } };
-  await Promise.all([ensureLocumRegisterSchema, ensureDdaStockTakesSchema, ensureDdaSalesSchema, ensureDdaPoycSchema, ensureDdaPurchasesSchema]
+  await Promise.all([ensureLocumRegisterSchema, ensureDdaStockTakesSchema, ensureDdaSalesSchema, ensureDdaPoycSchema, ensureDdaPurchasesSchema, ensureSignoffSchema] // V2: the sign-off table exists before the hub reads it (it was made only when a daily register was opened)
     .map((fn) => Promise.resolve().then(() => fn(env)).catch(() => {})));
   const ym = today.slice(0, 7), lastYm = regShiftYm(ym, -1);
   const since = ymdPlusDays(lastYm + "-01", -1) + " 00:00:00"; // UTC stamps: a day early so a Malta-midnight take is not missed
@@ -17973,6 +17973,11 @@ const authUser = await authFromRequest(request, env);
     if (url.pathname === "/registers/signoffs") {
       if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
       return await handleRegisterSignoffs(request, env, corsOkHeaders, authUser, url);
+    }
+    // Day of the last inspection (Registers & inspection, round 2): one per pharmacy, for "Since last inspection"
+    if (url.pathname === "/registers/last-inspection") {
+      if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
+      return await handleLastInspection(request, env, corsOkHeaders, authUser);
     }
     // Client error reports (backlog 7): signed in only
     if (url.pathname === "/client-log" && request.method === "POST") {
@@ -24131,6 +24136,44 @@ async function handleRegisterSignoffs(request, env, corsOkHeaders, authUser, url
   const row = await dbFirst(env, "SELECT register, month, signed_name, signed_at, note FROM register_signoffs WHERE org_id = ? AND location_id = ? AND month = ? AND register = ?", [org, loc, month, register]);
   await writeAudit(env, org, authUser.user_id, "REGISTER_SIGNOFF", "register_signoffs", register + ":" + month, { register, month, note }, loc);
   return jsonResponse({ ok: true, signoff: signoffRow(row) }, 200, corsOkHeaders);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   LAST INSPECTION (Registers & inspection, round 2) — the day an inspector last came, per pharmacy, so "Since last
+   inspection" on the Inspection check means the same on every device of the pharmacy.
+   GET /registers/last-inspection             { ok, last_date: "YYYY-MM-DD" | "", set_name, updated_at } (one read)
+   PUT /registers/last-inspection {date}      a day not after today (Malta time) and not before 2000; "" clears it.
+   Signed-in staff and admins (anyone may print the pack, owner 9 Nov). org_id and location_id come from the session,
+   never the body. One row per pharmacy (upsert); every change is in the audit with the day before and after.
+   Additive: a new table only; no existing table, row or route changes.
+   ══════════════════════════════════════════════════════════════════════════════ */
+async function ensureLastInspectionSchema__impl(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS register_last_inspection (org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+    last_date TEXT NOT NULL DEFAULT '', set_by INTEGER, set_name TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (org_id, location_id))`, []);
+}
+const ensureLastInspectionSchema = schemaOnce("ensureLastInspectionSchema", ensureLastInspectionSchema__impl);
+function lastInspectionOut(r) { return { last_date: (r && r.last_date) || "", set_name: (r && r.set_name) || "", updated_at: (r && r.updated_at) || "" }; }
+async function handleLastInspection(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = Number(authUser.org_id), loc = Number(authUser.location_id);
+  if (request.method !== "GET" && request.method !== "PUT") return jsonResponse({ ok: false, error: "Method not allowed" }, 405, corsOkHeaders);
+  await ensureLastInspectionSchema(env);
+  const read = () => dbFirst(env, "SELECT last_date, set_name, updated_at FROM register_last_inspection WHERE org_id = ? AND location_id = ?", [org, loc]);
+  if (request.method === "GET") return jsonResponse({ ok: true, ...lastInspectionOut(await read()) }, 200, corsOkHeaders);
+  const body = await readJson(request);
+  const date = String((body && body.date) == null ? "" : body.date).trim();
+  if (date && (!isValidYmd(date) || date < "2000-01-01" || isNaN(Date.parse(date + "T12:00:00Z")) || new Date(date + "T12:00:00Z").toISOString().slice(0, 10) !== date))
+    return jsonResponse({ ok: false, error: "Choose the day of the last inspection" }, 400, corsOkHeaders);
+  if (date && date > tzYmd()) return jsonResponse({ ok: false, error: "The day of the last inspection cannot be after today" }, 400, corsOkHeaders);
+  const had = await read();
+  if (had && had.last_date === date) return jsonResponse({ ok: true, unchanged: true, ...lastInspectionOut(had) }, 200, corsOkHeaders);
+  const me = await dbFirst(env, "SELECT full_name, email FROM users WHERE id = ?", [authUser.user_id]);
+  const name = String((me && (me.full_name || me.email)) || "").trim();
+  await dbRun(env, `INSERT INTO register_last_inspection (org_id, location_id, last_date, set_by, set_name, updated_at) VALUES (?,?,?,?,?,datetime('now'))
+    ON CONFLICT(org_id, location_id) DO UPDATE SET last_date = excluded.last_date, set_by = excluded.set_by, set_name = excluded.set_name, updated_at = excluded.updated_at`, [org, loc, date, authUser.user_id, name]);
+  await writeAudit(env, org, authUser.user_id, "LAST_INSPECTION_SET", "register_last_inspection", String(loc), { before: (had && had.last_date) || "", after: date }, loc);
+  return jsonResponse({ ok: true, ...lastInspectionOut(await read()) }, 200, corsOkHeaders);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════

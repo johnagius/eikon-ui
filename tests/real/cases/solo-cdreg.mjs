@@ -43,12 +43,24 @@ export default {
     // a spelling of another strength that the server's word search also finds: never in the balance unless ticked
     await t.api("POST", "/dda-purchases/entries", { entry_date: ymd(-2), dda_name_dose: "Tapentadol 100mg tablets", quantity: 500, agent: "Other", invoice_number: "CDR-OTHER" });
 
+    // C9 (round 2): supplied, never received or counted
+    for (const [d, q2, ser] of [[-4, 2, "C9-1"], [-2, 1, "C9-2"]]) await t.api("POST", "/dda-sales/entries", { entry_date: ymd(d), client_name: RX.name, client_id_card: RX.id, client_address: RX.addr, medicine_name_dose: "Buprenorphine 8mg tablets", quantity: q2, doctor_name: RX.doc, doctor_reg_no: RX.reg, prescription_serial_no: ser });
     // 2. the new screen: find it (part of the name), its balance, and only the two bounded reads
     const reads = []; p.on("request", (r) => { if (["fetch", "xhr"].includes(r.resourceType()) && /\/dda-/.test(r.url())) reads.push(new URL(r.url()).pathname); });
     await t.open(p, "2", "cdreg", "cdreg", ".cdr-find input");
     t.ok(reads.length && reads.every((x) => x === "/dda-register/medicines"), "opening the list reads only the medicines list: " + reads.join(", "));
     await p.fill(".cdr-find input", "tapentadol 50"); await p.waitForSelector(".cdr-med");
     t.ok((await p.locator(".cdr-med").count()) === 1 && /Tapentadol 50mg tablets/.test(await p.textContent(".cdr-med")), "the search finds the medicine");
+    // C9: the list row says it from the list already read (no extra read), and so does the medicine's banner
+    await p.fill(".cdr-find input", "bupren"); await p.waitForSelector(".cdr-med.over");
+    t.ok(/Check: 3 more supplied than received — count it now/.test(await p.textContent(".cdr-med.over")), "C9 list row: " + await p.textContent(".cdr-med"));
+    t.ok(reads.every((x) => x === "/dda-register/medicines"), "C9 costs no read: " + reads.join(", "));
+    await p.click(".cdr-med.over"); await p.waitForSelector(".cdr-sum"); await t.idle(p);
+    const c9 = await p.textContent(".cdr-note.warn");
+    t.ok(/^Buprenorphine 8mg tablets: 3 more supplied than received — count it now\./.test(c9) && await p.locator(".cdr-note.warn").first().getAttribute("role") === "status" && await p.locator(".cdr-note").count() === 1, "C9 banner, amber, one note: " + c9);
+    await p.click("[data-act=list]"); await p.waitForSelector(".cdr-find input");
+    await p.fill(".cdr-find input", "tapentadol 50"); await p.waitForSelector(".cdr-med");
+    t.ok(!(await p.locator(".cdr-med.over").count()), "a counted medicine has no C9 flag");
     reads.length = 0;
     await p.keyboard.press("Enter"); await p.waitForSelector(".cdr-sum [data-bal]"); await t.idle(p);
     t.ok(reads.join() === "/dda-register/ledger", "opening a medicine is one read: " + reads.join(", "));
