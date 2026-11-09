@@ -38,7 +38,8 @@ export default {
       await p.fill("#con-q", c.body.name.split(" ")[0]); await p.waitForSelector(`[data-open="${c.key}:${b}"]`);
       await p.click(`[data-open="${c.key}:${b}"]`); await p.click(".con-card [data-act=del]");
       t.ok((await p.textContent(".con-card")).includes(`Delete ${c.body.name} from Contacts? This cannot be undone.`), c.key + ": the question is in plain words, with the name");
-      t.ok(await p.evaluate(() => document.activeElement && document.activeElement.getAttribute("data-act")) === "del-cancel", c.key + ": the question opens on Keep it");
+      await p.waitForFunction(() => document.activeElement && document.activeElement.getAttribute("data-act") === "del-cancel", null, { timeout: 2000 }).catch(() => {}); // the focus follows the paint
+      t.ok(await p.evaluate(() => document.activeElement && document.activeElement.getAttribute("data-act")) === "del-cancel", c.key + ": the question opens on Keep it: " + await p.evaluate(() => document.activeElement && (document.activeElement.getAttribute("data-act") || document.activeElement.id || document.activeElement.tagName)));
       t.ok(t.row(c.table, b), c.key + ": nothing is deleted before the answer");
       let reqs = []; const onReq = (r) => { if (/\/contacts\//.test(r.url()) && r.method() !== "GET") reqs.push({ m: r.method(), path: new URL(r.url()).pathname, body: r.postData() }); };
       p.on("request", onReq);

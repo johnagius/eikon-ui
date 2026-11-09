@@ -95,7 +95,7 @@ export default {
     const [uA] = uses(A), [uB] = uses(B);
     await call("DELETE", `/creditnotes/entries/${B}/purchases/${uB.id}`); // as the classic sends it: DELETE, no body
     await t.open(p, "2", "creditnotes", "cnreg", "#cnr-q");
-    await p.fill("#cnr-q", "Undo-Test"); await p.waitForSelector(`.cnr-card[data-cn="${A}"] [data-act=undo]`);
+    await p.fill("#cnr-q", "Undo-Test"); await p.click(`[data-act=open][data-id="${A}"]`); await p.waitForSelector(`.cnr-card[data-cn="${A}"] [data-act=undo]`); // m1: the note opens in place
     let sent = 0; const onR = (r) => { if (r.method() === "DELETE") sent++; }; p.on("request", onR);
     await p.click(`[data-act=undo][data-pid="${uA.id}"]`); await p.waitForSelector(".cnr-ask");
     const q = (await p.textContent(".cnr-ask")).replace(/\s+/g, " "), qFocus = await p.evaluate(() => document.activeElement?.getAttribute("data-act"));
@@ -124,14 +124,14 @@ export default {
     }
     // a note used up is found by a search, with its uses
     await call("POST", `/creditnotes/entries/${A}/purchases`, { amount: 12.5, receipt_number: "R-12" });
-    await p.reload(); await p.waitForSelector("#cnr-q"); await p.fill("#cnr-q", "Undo-Test"); await p.waitForTimeout(300);
+    await p.reload(); await p.waitForSelector("#cnr-q"); await p.fill("#cnr-q", "Undo-Test"); await p.waitForTimeout(300); await p.click(`[data-act=open][data-id="${A}"]`); await p.waitForTimeout(150);
     const usedUp = await p.evaluate((a) => ({ lab: /Used up/.test(document.querySelector("#cnr-list").textContent), undo: !!document.querySelector(`.cnr-card[data-cn="${a}"] [data-act=undo]`), use: !!document.querySelector(`.cnr-card[data-cn="${a}"] [data-act=use]`) }), A);
     t.ok(usedUp.lab && usedUp.undo && !usedUp.use, "undo: a used-up note is not found by a search with its uses: " + JSON.stringify(usedUp));
     // staff: the uses are listed, no Undo
     if (!t.stack.staff) t.stack.staff = await app.addUser({ email: "staff-6b@demo.mt", role: "staff", name: "Sam Staff" }).catch(() => null);
     if (t.stack.staff) {
       const s = await t.page(); await s.context().addInitScript((tok) => { try { localStorage.setItem("eikon_token", tok); } catch (e) {} }, t.stack.staff.token);
-      await t.open(s, "2", "creditnotes", "cnreg", "#cnr-q"); await s.fill("#cnr-q", "Undo-Test"); await s.waitForTimeout(400);
+      await t.open(s, "2", "creditnotes", "cnreg", "#cnr-q"); await s.fill("#cnr-q", "Undo-Test"); await s.waitForTimeout(400); await s.click(".cnr-card [data-act=open]"); await s.waitForTimeout(150);
       t.ok(await s.locator(".cnr-uses li").count() > 0 && await s.locator("[data-act=undo]").count() === 0, "undo: staff see Undo, or no uses");
     }
   },

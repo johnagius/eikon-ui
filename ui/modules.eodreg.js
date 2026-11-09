@@ -46,6 +46,11 @@
   function isYmd(s) { return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "")); }
   function dayLabel(s) { if (s === today()) return "Today"; var p = String(s).split("-"); var d = new Date(+p[0], +p[1] - 1, +p[2]); return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()] + " " + (+p[2]) + " " + MON[+p[1] - 1]; }
   function eur(n) { var v = Number(n || 0); return (v < 0 ? "−€" : "€") + Math.abs(v).toFixed(2); }
+  function eurG(n) { var v = Math.round(Number(n || 0) * 100) / 100, a = Math.abs(v).toFixed(2).split("."); return (v < 0 ? "−€" : "€") + a[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + a[1]; } // totals in the register: thousands apart
+  function r2(n) { return Math.round(Number(n || 0) * 100) / 100; }
+  function addDays(s, n) { var p = String(s).split("-"); return ymd(new Date(+p[0], +p[1] - 1, +p[2] + n)); }
+  function dow(s) { var p = String(s).split("-"); return new Date(+p[0], +p[1] - 1, +p[2]).getDay(); }
+  function shortDay(s) { var p = String(s).split("-"); return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][dow(s)] + " " + (+p[2]); }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
   function user() { return (E.state && E.state.user) || {}; }
   function whoOpen() { return !S.w || !!S.whoOpen; } // b4-4: day, staff, shift and float are one summary line until "Change"
@@ -138,6 +143,27 @@
     if (!r || r.ok === false) throw new Error((r && r.error) || "Could not read the month");
     return ((r.dates || r.items || r.records) || []).map(function (x) { return typeof x === "string" ? x : (x && (x.date || x.eod_date)); }).filter(isYmd);
   }
+  // The month and the day being closed in one read (GET /endofday/overview): every saved day of the month, the last
+  // day saved before `date` and that day's paid outs. null: an older server
+  // without it (the per-day reads below are used instead, as before).
+  async function overview(ym, date) {
+    if (S.noOverview) return null;
+    try {
+      var r = await E.apiFetch("/endofday/overview?month=" + encodeURIComponent(ym) + (date ? "&date=" + encodeURIComponent(date) : ""), { method: "GET", headers: { "Cache-Control": "no-cache" } });
+      if (!r || r.ok === false || r.month !== ym || !Array.isArray(r.records)) return null;
+      return r;
+    } catch (e) { if (e && e.status === 404) S.noOverview = true; return null; }
+  }
+  function byDate(list) { var o = {}; (list || []).forEach(function (r) { var d = r && (r.date || r.eod_date); if (isYmd(d)) o[d] = r; }); return o; }
+  // The register shows another month: one read of that month (or the per-day reads on an older server).
+  async function goMonth(ym) {
+    if (!isYmd(ym + "-01") || ym > today().slice(0, 7)) return;
+    var seq = ++S.seq; S.monthYm = ym; S.month = null; S.monthErr = ""; paint(true);
+    var ov = await overview(ym, "");
+    if (seq !== S.seq) return;
+    if (ov) { S.month = byDate(ov.records); S.monthYm = ym; if (ov.hours && typeof ov.hours === "object") S.hours = ov.hours; E.whenFormIdle(S.mount, function () { paint(); }); }
+    else loadMonth(ym);
+  }
   // q5-6: the last day saved before `date` at this pharmacy (this month, else the two months before), read with the
   // same calls the month below makes anyway (kept in S.memo for it). null: none; false: it could not be read.
   async function prevDay(date) {
@@ -205,8 +231,17 @@
     if (S.fix && S.fix.date !== S.date) S.fix = null; // another day opened: its correction form goes
     S.loading = true; S.error = ""; S.memo = { dates: {}, recs: {} }; paint();
     try {
-      var both = await Promise.all([getDay(S.date), S.contacts.length ? null : loadContacts(), prevDay(S.date)]);
-      var rec = both[0]; S.prev = both[2]; if (rec) S.memo.recs[S.date] = rec;
+      var ym = S.date.slice(0, 7), seq = ++S.seq;
+      var both = await Promise.all([getDay(S.date), S.contacts.length ? null : loadContacts(), overview(ym, S.date)]);
+      var rec = both[0], ov = both[2];
+      if (ov) { // one read gave the day before, the month, and what the Paid out register holds for the day
+        S.prev = ov.before && (ov.before.date || ov.before.eod_date) < S.date ? ov.before : null;
+        S.hours = ov.hours && typeof ov.hours === "object" ? ov.hours : {};
+        S.extra = { date: S.date, paid: Array.isArray(ov.paid_out) ? ov.paid_out : [] };
+        if (seq === S.seq) { S.month = byDate(ov.records); if (rec) S.month[S.date] = rec; else delete S.month[S.date]; S.monthYm = ym; S.monthErr = ""; }
+      } else { S.extra = null; S.prev = await prevDay(S.date); }
+      S.ovOk = !!ov;
+      if (rec) S.memo.recs[S.date] = rec;
       if (!keepDraft || !S.w) { // a draft kept from a moment ago stays as typed, still measured against what it was based on
         S.base = rec; S.w = working(rec); S.dirty = false; S.conflict = null; S.ask = null;
         if (!rec) { // a new day: the person signed in, the float of the last saved day, the shift by the time (q5-6); all shown in the summary line, and Change changes them
@@ -221,7 +256,7 @@
       S.shadow = shadowCheck(S.date, rec);
     } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not open the day"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
-    if (!S.error && S.w) loadMonth(S.date.slice(0, 7));
+    if (!S.error && S.w && !S.ovOk) loadMonth(S.date.slice(0, 7));
   }
 
   // ---- drawing
@@ -269,6 +304,24 @@
       ".eod-unit input:checked+span{background:rgba(118,118,128,.2)}.eod-unit input:focus-visible+span{outline:3px solid rgba(10,143,106,.5);outline-offset:-3px}" +
       ".eod-hint{font-size:13px;color:var(--muted);padding:10px 14px;border-top:.5px solid var(--border);line-height:1.45}.eod-hint button{border:0;background:none;color:var(--accent);font:inherit;font-weight:600;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px}" +
       ".eod-hint.wn{color:var(--warn,#8A5A08)}" +
+      ".eod-step{display:flex;align-items:flex-start;gap:12px;margin:34px 2px 2px;font-size:19px;font-weight:700;letter-spacing:-.01em;line-height:1.25}.eod-step small{display:block;font-size:13.5px;font-weight:400;color:var(--muted);letter-spacing:0;margin-top:2px}" +
+      ".eod-step .n{flex:0 0 28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:14px;font-weight:700;display:grid;place-items:center;margin-top:-1px}" +
+      ".eod-why{margin:0;padding:0 14px 14px;font-size:14.5px;line-height:1.5;color:var(--text)}" +
+      ".eod-hint.ok{color:var(--ok,#1C8A5B)}.eod-pull button{margin-left:4px;min-height:44px;padding:0 4px}" +
+      ".eod-notes{display:block;width:100%;box-sizing:border-box;border:0;outline:0;background:transparent;font:inherit;font-size:16px;line-height:1.45;padding:12px 14px;resize:vertical;min-height:88px;color:inherit}" +
+      ".eod-card:has(.eod-notes:focus-visible){box-shadow:0 0 0 3px rgba(10,143,106,.35)}" +
+      ".eod-prev{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.eod-prev span{flex:1;min-width:200px}.eod-prev .eod-btn{min-height:44px}" +
+      ".eod-who .sep,.eod-who .fl{font-style:normal}" +
+      ".eod-reg{margin-top:40px}.eod-h2{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:0}.eod-regsum{margin:2px 2px 10px;font-size:14px;color:var(--muted)}" +
+      ".eod-tots{margin-bottom:12px}" +
+      ".eod-dl{background:var(--panel2);border:1px solid var(--border);border-radius:14px;overflow:hidden}.eod-dl>div{border-top:.5px solid var(--border)}.eod-dl>div:first-child{border-top:0}" +
+      ".eod-dr{display:grid;grid-template-columns:76px 1fr auto;align-items:center;gap:12px;width:100%;min-height:48px;padding:6px 14px;border:0;background:none;font:inherit;font-size:15px;color:inherit;text-align:left;cursor:pointer}" +
+      ".eod-dr:hover{background:rgba(118,118,128,.08)}.eod-dr:focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:-3px}.eod-dr[aria-current]{box-shadow:inset 3px 0 0 var(--accent);background:rgba(10,143,106,.07)}" +
+      ".eod-dr .d{font-weight:600;font-variant-numeric:tabular-nums}.eod-dr .v{display:flex;gap:16px;justify-content:flex-end;align-items:baseline}" +
+      ".eod-dr .c{color:var(--muted);font-variant-numeric:tabular-nums;min-width:96px;text-align:right}.eod-dr .o{font-weight:600;font-variant-numeric:tabular-nums;min-width:118px;text-align:right}" +
+      ".eod-dr .o.dn{color:var(--danger)}.eod-dr .o.wn{color:var(--warn,#8A5A08)}.eod-dr .o.ok{color:var(--ok,#1C8A5B)}" +
+      ".eod-chip.dn{background:var(--danger-soft,rgba(191,59,46,.12));color:var(--danger)}" +
+
       ".eod-note{background:var(--warn-soft,rgba(201,138,18,.16));color:var(--text);border-radius:12px;padding:12px 14px;margin-top:14px;font-size:14px;line-height:1.45}.eod-note .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}" +
       ".eod-note.dn{background:var(--danger-soft,rgba(191,59,46,.12))}" +
       ".eod-acts{margin:20px 0 0;padding:12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border);position:sticky;bottom:0;z-index:5;background:var(--bg)}" + // Save stays in reach while the long form scrolls
@@ -280,15 +333,42 @@
       ".eod-foot{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.5}" +
       ".eod .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .eod-chip.ok{color:#5FD3A0}html[data-ui2]:not([data-ui2-visit]) .eod-big b.ok{color:#5FD3A0}html[data-ui2]:not([data-ui2-visit]) .eod-big b.dn{color:#FF7A72}" +
+      "html[data-ui2]:not([data-ui2-visit]) .eod-dr .o.ok,html[data-ui2]:not([data-ui2-visit]) .eod-hint.ok{color:#5FD3A0}html[data-ui2]:not([data-ui2-visit]) .eod-dr .o.dn,html[data-ui2]:not([data-ui2-visit]) .eod-chip.dn{color:#FF7A72}html[data-ui2]:not([data-ui2-visit]) .eod-dr .o.wn{color:#F2B84B}html[data-ui2]:not([data-ui2-visit]) .eod-step .n{color:#00160E}" +
       "html[data-ui2]:not([data-ui2-visit]) .eod-chip.wn,html[data-ui2]:not([data-ui2-visit]) .eod-big b.wn,html[data-ui2]:not([data-ui2-visit]) .eod-hint.wn{color:#F2B84B}html[data-ui2]:not([data-ui2-visit]) .eod-err{color:#FF7A72}}" +
       "@media (max-width:760px){.eod-acts{position:fixed;left:0;right:0;bottom:calc(84px + env(safe-area-inset-bottom,0px));margin:0;padding:8px 16px;border-top:.5px solid var(--border);box-shadow:0 -6px 16px rgba(0,0,0,.06)}.eod-foot{padding-bottom:72px}.eod :is(input,select,button){scroll-margin-bottom:150px}}" + // phones: pinned just above the tab bar (the page itself scrolls there)
+      ".eod-who .eod-btn{min-height:44px}.eod-unit span{padding:0 12px;line-height:34px}" +
+      "@media (max-width:600px){.eod-pr input,.eod-f input,.eod-f select,.eod-cr input{min-height:44px}.eod-who .sep{display:none}.eod-who .fl{display:block}.eod-dr{grid-template-columns:56px 1fr auto}.eod-dr .v{flex-direction:column;gap:0;align-items:flex-end}.eod-dr .c{min-width:0;font-size:13px}.eod-dr .o{min-width:0}.eod-step{font-size:18px}}" +
       "@media (max-width:600px){.eod{padding:4px 16px 0}.eod h1{font-size:32px}.eod-f>span{flex-basis:88px}.eod-pr .amt{flex-basis:82px}.eod-cr em{min-width:72px}.eod-big b{font-size:24px}}";
     document.head.appendChild(st);
   }
 
   function counted(c) { return !!(c.A || c.B || c.C || c.D || c.till); } // b4-4: no figure typed yet is not "Exact"
-  function ouText(c) { var v = Math.round(c.OU * 100) / 100; if (!counted(c)) return "Nothing counted yet"; return v > 0 ? "Over by " + eur(v) : v < 0 ? "Short by " + eur(-v) : "Exact"; }
-  function ouCls(c) { var v = Math.round(c.OU * 100) / 100; if (!counted(c)) return ""; return v === 0 ? "ok" : v < 0 ? "dn" : "wn"; }
+  function ouText(c) { if (!counted(c)) return "Nothing counted yet"; return diffWords(c.OU); }
+  function ouCls(c) { var v = Math.round(c.OU * 100) / 100; if (!counted(c)) return ""; return v === 0 ? "ok" : "wn"; } // amber for short or over: a difference is something to check, not an error
+  // The words for a difference, the same on End of day, its register and the Money page: "Exact", "€2.40 short", "€2.40 over".
+  function diffWords(v) { v = Math.round(Number(v || 0) * 100) / 100; return v === 0 ? "Exact" : eurG(Math.abs(v)) + (v < 0 ? " short" : " over"); }
+  // For other screens (the Money page): one stored day's figures with this screen's own sums. diff is null until the
+  // till is counted (as GET /money/today's over_under).
+  E.eodDiff = function (rec) {
+    var c = calc(working(rec)), v = c.till > 0 ? Math.round(c.OU * 100) / 100 : null;
+    return { cash: r2(c.E), expected: r2(c.exp), diff: v, words: v == null ? "Not counted" : diffWords(v), tone: v == null ? "" : v === 0 ? "ok" : "wn" };
+  };
+  // Is the pharmacy open on this day? The Shifts screen's opening hours, by the same rule as GET /money/today: an
+  // override for the day, else a Malta public holiday (closed), else the weekly hours, else the default with the
+  // Saturday/Sunday flags (open Saturday, closed Sunday when nothing was saved).
+  function yes(v) { return v === true || v === 1 || v === "1" || v === "true"; }
+  E.eodOpenOn = function (h, d) {
+    h = h && typeof h === "object" ? h : {}; var def = h.default && typeof h.default === "object" ? h.default : {};
+    var ov = h.overrides && h.overrides[d]; if (ov && typeof ov === "object") return !yes(ov.closed);
+    if (E.maltaHoliday && E.maltaHoliday(d)) return false; // a Malta public holiday is a closed day unless the Shifts screen says it opens
+    var wd = new Date(d + "T12:00:00Z").getUTCDay(), wk = h.weekly && typeof h.weekly === "object" ? (h.weekly[wd] || h.weekly[String(wd)]) : null;
+    if (wk && typeof wk === "object") return !yes(wk.closed);
+    var sat = h.openSaturday, sun = h.openSunday;
+    if (typeof h.weekends === "boolean") { if (sat == null) sat = h.weekends; if (sun == null) sun = h.weekends; }
+    if (sat == null) sat = true; if (sun == null) sun = false;
+    return !(yes(def.closed) || (wd === 6 && !yes(sat)) || (wd === 0 && !yes(sun)));
+  };
+  function openOn(d) { return E.eodOpenOn(S.hours, d); }
   function shown(v, int) { var s = String(v == null ? "" : v); return (int ? inum(s) === 0 && /^\s*0*\s*$/.test(s) : /^\s*0*(\.0*)?\s*$/.test(s)) ? "" : s; } // a zero shows as an empty box with 0 behind it
 
   function paint(fromState) {
@@ -356,7 +436,7 @@
       : b ? '<span class="eod-chip">Saved</span><span>' + (hm(b.updated_at || b.saved_at) ? "Last saved at " + esc(hm(b.updated_at || b.saved_at)) : "Saved") + (b.staff || b.staff_name ? " by " + esc(b.staff || b.staff_name) : "") + ". Not locked yet.</span>"
       : '<span class="eod-chip wn">Not started</span><span>Nothing saved for ' + esc(dayLabel(S.date) === "Today" ? "today" : dayLabel(S.date)) + " yet.</span>";
     if (S.dirty && !locked) st += '<span class="eod-chip wn">Not saved</span>';
-    var h = '<div class="eod-st">' + st + a4 + "</div>" + fixHtml(locked);
+    var h = '<div class="eod-st">' + st + a4 + "</div>" + prevHtml() + closingHtml(locked) + fixHtml(locked);
     if (S.error) h += '<div class="eod-err" role="alert">' + esc(S.error) + "</div>";
     if (S.shadow) h += '<div class="eod-note">' + esc(S.shadow) + "</div>";
     if (S.conflict) {
@@ -367,16 +447,17 @@
     }
     h += '<form id="eod-form" autocomplete="off" novalidate>';
     // who and when
-    if (!whoOpen()) h += '<div class="eod-lab"><span>Who and when</span></div><div class="eod-card"><div class="eod-who"><span>' + esc([dayLabel(S.date), String(w.staff || "").trim(), w.time_of_day === "PM" ? "PM" : "AM", "float " + eur(mnum(w.float_amount))].join(" · ")) +
-      '</span><button type="button" class="eod-btn" data-act="who" aria-label="Change the day, staff, shift or float">Change</button></div>' + floatNoteHtml() + "</div>";
+    if (!whoOpen()) h += '<div class="eod-lab"><span>Who and when</span></div><div class="eod-card"><div class="eod-who"><span>' + esc([dayLabel(S.date), String(w.staff || "").trim(), w.time_of_day === "PM" ? "PM" : "AM"].join(" · ")) +
+      '<i class="sep"> · </i><i class="fl">' + esc("float " + eur(mnum(w.float_amount))) + '</i></span><button type="button" class="eod-btn" data-act="who" aria-label="Change the day, staff, shift or float">Change</button></div>' + floatNoteHtml() + "</div>";
     else h += '<div class="eod-lab"><span>Who and when</span></div><div class="eod-card">' +
       '<label class="eod-f"><span>Staff</span><input name="staff" value="' + esc(w.staff) + '" placeholder="Who is closing"' + RO + "></label>" +
       '<label class="eod-f"><span>Shift</span><select name="time_of_day"' + (ro ? " disabled" : "") + '><option value="AM"' + (w.time_of_day !== "PM" ? " selected" : "") + '>AM</option><option value="PM"' + (w.time_of_day === "PM" ? " selected" : "") + ">PM</option></select></label>" +
       '<label class="eod-f"><span>Float €</span><input name="float_amount" inputmode="decimal" value="' + esc(w.float_amount) + '" placeholder="0.00"' + RO + "></label>" + floatNoteHtml() + "</div>";
     // the four lists
+    h += step(1, "The till's readings", "The X readings, card payments (EPOS), cheques and paid outs.");
     LISTS.forEach(function (L) {
       var rows = w[L.k], key = { x: "A", epos: "B", cheques: "C", paid_outs: "D" }[L.k];
-      h += '<div class="eod-lab"><span>' + esc(L.title) + '</span><b data-b="' + key + '">' + esc(eur(c[key])) + '</b></div><div class="eod-card">';
+      h += '<div class="eod-lab"><span>' + esc(L.title) + '</span><b data-b="' + key + '">' + esc(eurG(c[key])) + '</b></div><div class="eod-card">';
       rows.forEach(function (r, i) {
         var nm = L.one + " " + (i + 1);
         h += '<div class="eod-pr"><span class="n" aria-hidden="true">' + (i + 1) + "</span>" +
@@ -385,50 +466,56 @@
           (rows.length > 1 && !ro ? '<button type="button" class="eod-x" data-act="rm" data-l="' + L.k + '" data-i="' + i + '" aria-label="Remove ' + esc(nm) + '">×</button>' : "") + "</div>";
       });
       if (!ro) h += '<button type="button" class="eod-add" data-act="addrow" data-l="' + L.k + '">' + esc(L.add) + "</button>";
+      if (L.k === "paid_outs") h += hintHtml("pohint", poHint(ro), "use-po");
       h += "</div>";
     });
     // cash
-    h += '<div class="eod-lab"><span>Cash in the till</span><b data-b="till">' + esc(eur(c.till)) + '</b></div><div class="eod-card">';
+    h += step(2, "Count the till", "How many of each note, and the coins as one total.");
+    h += '<div class="eod-lab"><span>Cash in the till</span><b data-b="till">' + esc(eurG(c.till)) + '</b></div><div class="eod-card">';
     DEN.forEach(function (d) {
-      h += '<label class="eod-cr"><span class="d">€' + d + '</span><input name="cash:n' + d + '" inputmode="numeric" value="' + esc(shown(w.cash["n" + d], true)) + '" placeholder="0" aria-label="€' + d + ' notes, how many"' + RO + '><em data-b="c' + d + '">' + esc(eur(inum(w.cash["n" + d]) * d)) + "</em></label>";
+      h += '<label class="eod-cr"><span class="d">€' + d + '</span><input name="cash:n' + d + '" inputmode="numeric" value="' + esc(shown(w.cash["n" + d], true)) + '" placeholder="0" aria-label="€' + d + ' notes, how many"' + RO + '><em data-b="c' + d + '">' + esc(lineAmt(w.cash["n" + d], d)) + "</em></label>";
     });
     h += '<label class="eod-cr"><span class="d">Coins</span><input name="cash:coins_total" inputmode="decimal" value="' + esc(shown(w.cash.coins_total)) + '" placeholder="0.00" aria-label="Coins, total in euro"' + RO + '><em data-b="ccoins">' + esc(eur(c.coins)) + "</em></label></div>";
     // the difference
     var u = unit();
-    h += '<div class="eod-lab"><span>The difference</span></div><div class="eod-card eod-sum">' +
+    h += step(3, "The difference", "") + '<div class="eod-card eod-sum">' +
       '<div class="eod-big"><span>Cash against the readings</span><b data-b="ouBig" class="' + ouCls(c) + '">' + esc(ouText(c)) + "</b></div>" +
-      '<div class="r"><span>Expected in cash<small>X readings − EPOS − cheques − paid outs</small></span><b data-b="exp">' + esc(eur(c.exp)) + "</b></div>" +
-      '<div class="r"><span>Cash taken<small>Till − float</small></span><b data-b="E">' + esc(eur(c.E)) + "</b></div>" +
-      '<div class="r"><span>Over / under<small>Cash taken − expected</small></span><b data-b="OU">' + esc(eur(c.OU)) + "</b></div>" +
+      '<p class="eod-why" data-b="why">' + esc(whyText(c, w, locked)) + "</p>" +
+      '<div class="r"><span>Expected in cash<small>X readings − EPOS − cheques − paid outs</small></span><b data-b="exp">' + esc(eurG(c.exp)) + "</b></div>" +
+      '<div class="r"><span>Cash taken<small>Till − float</small></span><b data-b="E">' + esc(eurG(c.E)) + "</b></div>" +
+      '<div class="r"><span>Over / under<small>Cash taken − expected</small></span><b data-b="OU">' + esc(eurG(c.OU)) + "</b></div>" +
       '<div class="r"><span>For the bank, rounded<span class="eod-unit" role="radiogroup" aria-label="Round to">' +
         '<label><input type="radio" name="eod-unit" value="10"' + (u === 10 ? " checked" : "") + '><span>10s</span></label><label><input type="radio" name="eod-unit" value="5"' + (u === 5 ? " checked" : "") + "><span>5s</span></label></span>" +
-        '<small>Cash taken, to the nearest ' + u + "</small></span><b data-b=\"F\">" + esc(eur(c.F)) + "</b></div>" +
-      '<div class="r"><span>Coins kept<small>Cash taken − rounded</small></span><b data-b="COINS">' + esc(eur(c.COINS)) + "</b></div></div>";
+        '<small>Cash taken, to the nearest ' + u + "</small></span><b data-b=\"F\">" + esc(eurG(c.F)) + "</b></div>" +
+      '<div class="r"><span>Coins kept<small>Cash taken − rounded</small></span><b data-b="COINS">' + esc(eurG(c.COINS)) + "</b></div></div>";
     // bank bag
-    h += '<div class="eod-lab"><span>Bank bag (BOV)</span><b data-b="bov">' + esc(eur(c.bov)) + '</b></div><div class="eod-card">' +
+    h += step(4, "Bank bag and notes", locked ? "" : "Then Save and lock to close the day.");
+    h += '<div class="eod-lab"><span>Bank bag (BOV)</span><b data-b="bov">' + esc(eurG(c.bov)) + '</b></div><div class="eod-card">' +
       '<label class="eod-f"><span>Bag number</span><input name="bag_number" value="' + esc(w.bag_number) + '" placeholder="Needed when there is a deposit"' + RO + "></label>" +
       '<label class="eod-f"><span>Contact</span><select name="contact_id"' + (ro ? " disabled" : "") + '><option value="">None</option>' +
         S.contacts.map(function (k) { return '<option value="' + esc(k.id) + '"' + (String(w.contact_id) === k.id ? " selected" : "") + ">" + esc(k.name) + "</option>"; }).join("") +
         (w.contact_id && !S.contacts.some(function (k) { return k.id === String(w.contact_id); }) ? '<option value="' + esc(w.contact_id) + '" selected>Contact ' + esc(w.contact_id) + "</option>" : "") + "</select></label>";
     h += '<div class="eod-hint" data-b="depmode">' + depHint(ro) + "</div>";
     DEN.forEach(function (d) {
-      h += '<label class="eod-cr"><span class="d">€' + d + '</span><input name="dep:n' + d + '" inputmode="numeric" value="' + esc(shown(w.deposit["n" + d], true)) + '" placeholder="0" aria-label="€' + d + ' notes in the bag, how many"' + RO + '><em data-b="d' + d + '">' + esc(eur(inum(w.deposit["n" + d]) * d)) + "</em></label>";
+      h += '<label class="eod-cr"><span class="d">€' + d + '</span><input name="dep:n' + d + '" inputmode="numeric" value="' + esc(shown(w.deposit["n" + d], true)) + '" placeholder="0" aria-label="€' + d + ' notes in the bag, how many"' + RO + '><em data-b="d' + d + '">' + esc(lineAmt(w.deposit["n" + d], d)) + "</em></label>";
     });
     h += '<div class="eod-hint wn" data-b="bagdiff"' + (Math.abs(c.bov - c.F) < 0.005 ? " hidden" : "") + ">" + esc(bagDiff(c)) + "</div>" +
       '<div class="eod-depcopy"><button type="button" class="eod-btn" data-act="copy-dep">Copy for the bank email</button><span>The contact, the day, the pharmacy and the bag, ready to paste into the email.</span></div></div>';
-    // the month
-    h += monthHtml();
+    // notes: what was found (the record's own notes field)
+    h += '<div class="eod-lab"><label for="eod-notes">Notes</label></div><div class="eod-card"><textarea id="eod-notes" class="eod-notes" name="notes" rows="3" maxlength="1000" placeholder="' + (locked ? "" : "What you found, e.g. €5 short: a refund given in cash") + '"' + RO + ">" + esc(w.notes) + "</textarea></div>";
     h += "</form>";
-    // the bar at the bottom
+    // questions about this day, right under its form
     if (S.ask === "lock") {
-      h += '<div class="eod-note" role="alertdialog" aria-label="Lock this day"><b>Lock ' + esc(dayLabel(S.date) === "Today" ? "today" : dayLabel(S.date)) + "?</b> The figures are saved and the day can no longer be changed. Only the pharmacist can unlock it again." +
+      h += '<div class="eod-note" role="alertdialog" aria-label="Lock this day"><b>Lock ' + esc(dayLabel(S.date) === "Today" ? "today" : dayLabel(S.date)) + (counted(c) ? " — " + esc(ouText(c) === "Exact" ? "exact" : ouText(c)) : "") + "?</b> The figures are saved and the day can no longer be changed. Only the pharmacist can unlock it again." +
         '<div class="acts"><button class="eod-btn" data-act="ask-no">Cancel</button><button class="eod-btn p" data-act="lock-yes">Save and lock</button></div></div>';
     } else if (S.ask === "leave") {
       h += '<div class="eod-note" role="alertdialog" aria-label="Figures not saved"><b>Your figures for ' + esc(dayLabel(S.date)) + " are not saved.</b> Open " + esc(dayLabel(S.pendingDate || today())) + " anyway?" +
         '<div class="acts"><button class="eod-btn" data-act="ask-no">Stay</button><button class="eod-btn" data-act="leave-yes">Leave without saving</button></div></div>';
     }
     if (S.err) h += '<div class="eod-err" id="eod-err" role="alert">' + esc(S.err) + "</div>";
-    if (!locked) {
+    // the register of past days comes after the questions about this day
+    h += registerHtml();
+    if (!locked && S.ask !== "lock") {
       h += '<div class="eod-acts"><div class="ou">Over / under<b data-b="ouBar">' + esc(ouText(c)) + "</b></div>" +
         '<button class="eod-btn" data-act="lock"' + (S.saving ? " disabled" : "") + ">Save and lock</button>" +
         '<button class="eod-btn p" data-act="save"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save") + "</button></div>";
@@ -440,7 +527,7 @@
     return S.autoDep ? "Filled from the cash count, rounded to the nearest " + unit() + ". Change a line to set it by hand."
       : 'Set by hand. <button type="button" data-act="refill">Fill from the cash count</button>';
   }
-  function bagDiff(c) { return "The bag holds " + eur(c.bov) + "; the cash taken, rounded, is " + eur(c.F) + "."; }
+  function bagDiff(c) { return "The bag holds " + eurG(c.bov) + "; the cash taken, rounded, is " + eurG(c.F) + "."; }
   function monthDays() { // the classic screen's month: every saved day, this one as it stands on screen
     if (!S.month || S.monthYm !== S.date.slice(0, 7)) return null;
     var t = { E: 0, OU: 0, COINS: 0, days: 0 }, add = function (r) { var c = calc(r); t.E += c.E; t.OU += c.E - c.exp; t.COINS += c.E - c.F; };
@@ -450,7 +537,7 @@
   }
   // The classic "Range report" for the month: every saved day, its columns in its order, and the totals row.
   function printMonth() {
-    var MB = E.months, ym = S.date.slice(0, 7); if (!MB || !S.month || S.monthYm !== ym) return;
+    var MB = E.months, ym = S.monthYm || S.date.slice(0, 7); if (!MB || !S.month || S.monthYm !== ym) return;
     var days = Object.keys(S.month).sort(), e2 = function (n) { return "€" + Number(n || 0).toFixed(2); };
     var cols = ["Staff Name", "Date"].concat(["Total Cash", "Rounded Cash Deposited"]).concat(["Bag Number"]).concat(["Total X Reading", "Total EPOS", "Total Cheques", "Total Paid Outs", "Total Cash Count", "Rounded", "Total Cash Till", "Total BOV Deposit", "Over / Under", "Coins"])
       .map(function (h, i) { return i < 2 || i === 4 ? h : { h: h, num: true }; });
@@ -586,14 +673,119 @@
     if (had) paint(true);
   }
 
-  function monthHtml() {
-    var mn = MON[+S.date.slice(5, 7) - 1], t = monthDays();
-    var h = '<div class="eod-lab"><span>' + esc(mn) + ' so far</span><span data-b="mdays">' + (t ? t.days + (t.days === 1 ? " day saved" : " days saved") : "") + '</span></div><div class="eod-card eod-sum">';
-    if (!t) return h + '<div class="r"><span>' + esc(S.monthErr || "Adding up the month…") + "</span></div></div>";
-    return h + '<div class="r"><span>Total cash</span><b data-b="mE">' + esc(eur(t.E)) + "</b></div>" +
-      '<div class="r"><span>Over / under</span><b data-b="mOU">' + esc(eur(t.OU)) + "</b></div>" +
-      '<div class="r"><span>Coin box</span><b data-b="mCOINS">' + esc(eur(t.COINS)) + "</b></div></div>" +
-      '<p class="eod-mp"><button type="button" class="eod-btn" data-act="print-month">Print ' + esc(E.months ? E.months.label(S.date.slice(0, 7)) : "the month") + '</button><span>The days saved, as the classic range report prints them. Choose a day in another month to print that one.</span></p>';
+  function lineAmt(n, d) { var k = inum(n); return k ? eur(k * d) : ""; } // a note line with no count shows no €0.00
+  function step(n, title, sub) { return '<h2 class="eod-step"><span class="n" aria-hidden="true">' + n + "</span><span>" + esc(title) + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span></h2>"; }
+
+  // ---- the difference in words: what it means and what to check
+  function whyText(c, w, locked) {
+    var v = Math.round(c.OU * 100) / 100, a = eur(Math.abs(v)), fl = eur(mnum(w.float_amount));
+    if (!counted(c)) return "Type the X readings and count the till. The difference is worked out as you type.";
+    if (!c.A && c.till) return "No X reading typed yet. Type the till's X reading first; until then all the cash shows as over.";
+    if (!c.till) return "Count the cash in the till (step 2). Until then the day shows as short.";
+    if (v === 0) return "The cash matches the readings to the cent.";
+    if (locked) return (v < 0 ? "The till held " + a + " less cash than the readings said." : "The till held " + a + " more cash than the readings said.") + (String(w.notes || "").trim() ? " See the notes." : "");
+    if (Math.abs(v) <= 1) return diffWords(v) + ": small enough to be the coins. Count the coins again if you want it exact.";
+    if (v < 0) return "The till holds " + a + " less cash than the readings say it should. Check: a card payment missing from EPOS, a paid out or a cash refund not written down, a cheque not listed, the float (" + fl + "), then count the notes again. Write what you found in the notes.";
+    return "The till holds " + a + " more cash than the readings say it should. Check: a sale not put through the till, an EPOS (card) line typed twice or too high, a paid out written down but paid from elsewhere, the float (" + fl + "). Write what you found in the notes.";
+  }
+
+  // ---- what the Paid out register already holds for the day (the emergency till is not part of the end of day)
+  function extraFor() { return S.extra && S.extra.date === S.date ? S.extra : null; }
+  function whenWord() { return S.date === today() ? "today" : "on " + dayLabel(S.date); }
+  function poCash() { var x = extraFor(); return x ? x.paid.filter(function (p) { return String(p.payment_method || "cash").toLowerCase() !== "cheque"; }) : []; }
+  function poHint(ro) {
+    var x = extraFor(); if (!x || !x.paid.length || !S.w) return null;
+    var cash = poCash(), chq = x.paid.length - cash.length, sum = r2(cash.reduce(function (t, p) { return t + Number(p.fee || 0); }, 0)), have = r2(calc(S.w).D);
+    var n = cash.length + (cash.length === 1 ? " paid out in cash" : " paid outs in cash");
+    var chqT = chq ? " " + chq + (chq === 1 ? " paid by cheque is" : " paid by cheque are") + " left out: a cheque does not come from the till." : "";
+    if (!cash.length) return { t: "The Paid out register has only cheques " + whenWord() + "; nothing came from the till." };
+    if (Math.round(sum * 100) === Math.round(have * 100)) return { ok: 1, t: "Matches the Paid out register: " + n + ", " + eur(sum) + "." + chqT };
+    if (!have) return { t: "The Paid out register has " + n + " " + whenWord() + ", " + eur(sum) + "." + chqT, b: ro ? "" : "Use them" };
+    return { wn: 1, t: "The Paid out register has " + eur(sum) + " in cash " + whenWord() + " (" + n + "); these lines add up to " + eur(have) + "." + chqT, b: ro ? "" : "Use the register's lines" };
+  }
+  function hintHtml(key, hn, act) {
+    return '<div class="eod-hint eod-pull' + (hn && hn.wn ? " wn" : "") + (hn && hn.ok ? " ok" : "") + '" data-b="' + key + '"' + (hn ? "" : " hidden") + ">" + (hn ? esc(hn.t) + (hn.b ? ' <button type="button" data-act="' + act + '">' + esc(hn.b) + "</button>" : "") : "") + "</div>";
+  }
+  function setHint(m, key, hn, act) {
+    var el = m.querySelector('[data-b="' + key + '"]'); if (!el) return;
+    var html = hn ? esc(hn.t) + (hn.b ? ' <button type="button" data-act="' + act + '">' + esc(hn.b) + "</button>" : "") : "";
+    if (el.innerHTML !== html) el.innerHTML = html;
+    el.hidden = !hn; el.classList.toggle("wn", !!(hn && hn.wn)); el.classList.toggle("ok", !!(hn && hn.ok));
+  }
+  function fillRow(rows, o) { // into the first empty line, else a new line
+    for (var i = 0; i < rows.length; i++) if (!mnum(rows[i].amount) && !String(rows[i].remark || "").trim()) { rows[i].amount = o.amount; rows[i].remark = o.remark; return; }
+    rows.push(o);
+  }
+  function usePaidOuts() {
+    keep(); var cash = poCash(); if (!cash.length || !S.w) return;
+    S.w.paid_outs = cash.map(function (p) { return { amount: Number(p.fee || 0).toFixed(2), remark: [String(p.payee_name || "").trim(), String(p.reason || "").trim()].filter(Boolean).join(" · ") }; });
+    S.dirty = true; paint(true); E.toast(cash.length + (cash.length === 1 ? " paid out" : " paid outs") + " from the Paid out register", "success");
+    var ad = S.mount && S.mount.querySelector('[data-act=addrow][data-l="paid_outs"]'); if (ad) ad.focus();
+  }
+  // ---- "yesterday is not closed", with one tap to close it
+  function prevNote() {
+    if (S.date !== today() || !S.prev) return null;
+    var y = addDays(S.date, -1), p = S.prev, pd = p.date || p.eod_date, last = null;
+    if (!isYmd(pd) || pd >= S.date) return null;
+    for (var i = 1; i <= 7; i++) { var d = addDays(S.date, -i); if (openOn(d)) { last = d; break; } }
+    var name = function (d) { return d === y ? "Yesterday, " + dayLabel(d) + "," : dayLabel(d); }, btn = function (d) { return d === y ? "Close yesterday" : "Close " + shortDay(d); };
+    if (!p.locked_at) return { d: pd, t: name(pd) + " was saved but not locked.", b: btn(pd) };
+    if (last && pd < last) return { d: last, t: "Nothing was saved for " + (last === y ? "yesterday, " + dayLabel(last) : dayLabel(last)) + ".", b: btn(last) };
+    return null;
+  }
+  function prevHtml() { var n = prevNote(); return n ? '<div class="eod-note eod-prev" role="status"><span>' + esc(n.t) + '</span><button type="button" class="eod-btn" data-act="prevday" data-d="' + esc(n.d) + '">' + esc(n.b) + "</button></div>" : ""; }
+  function closingHtml(locked) { // a day opened from "Close yesterday": look at it first, then lock it
+    return S.closing === S.date && !locked ? '<div class="eod-note" id="eod-closing" tabindex="-1" role="status">Check ' + esc(dayLabel(S.date)) + "'s figures and the difference (step 3), then press Save and lock at the bottom.</div>" : "";
+  }
+  // Open another day (the register, the note above): figures not saved are asked about first. The day opens at the top.
+  function openDay(v, closing) {
+    if (!isYmd(v) || v > today()) return;
+    if (v === S.date) return;
+    if (S.dirty) { keep(); S.pendingDate = v; S.pendingClose = !!closing; S.ask = "leave"; paint(true); var st = S.mount && S.mount.querySelector("[data-act=ask-no]"); if (st) st.focus(); return; }
+    S.date = v; S.w = null; S.month = null; S.err = ""; S.conflict = null; S.ask = null; S.closing = closing ? v : "";
+    load().then(function () { var f = S.mount && (S.mount.querySelector("#eod-closing") || S.mount.querySelector(".eod-st")); if (!f) return; if (!f.hasAttribute("tabindex")) f.setAttribute("tabindex", "-1"); try { f.focus({ preventScroll: true }); } catch (e) { f.focus(); } try { (S.mount.querySelector(".eod") || f).scrollIntoView({ block: "start" }); } catch (e) {} });
+  }
+
+  // ---- the register of past days: a month at a time, each day closed, saved, or not closed, and its difference
+  function monthDays() { // the classic screen's month sums (every saved day, this one as it stands on screen) and one row per day
+    var ym = S.monthYm; if (!S.month || !ym || !/^\d{4}-\d{2}$/.test(ym)) return null;
+    var cur = ym === S.date.slice(0, 7) && S.w, t = { E: 0, OU: 0, COINS: 0, days: 0, locked: 0, open: 0, missing: 0, rows: [] };
+    var add = function (w) { var c = calc(w); t.E += c.E; t.OU += c.E - c.exp; t.COINS += c.E - c.F; return c; };
+    var last = E.months ? E.months.lastShown(ym) : (ym === today().slice(0, 7) ? today() : ym + "-31");
+    Object.keys(S.month).forEach(function (d) { if (d.slice(0, 7) === ym) { t.days++; if (!(cur && d === S.date)) add(working(S.month[d])); } });
+    var curC = cur ? add(S.w) : null; // this day as it stands on screen (the classic screen: stored month − stored day + what is typed)
+    for (var d = last; d.slice(0, 7) === ym; d = addDays(d, -1)) {
+      var rec = S.month[d], row = { d: d, cur: !!(cur && d === S.date) };
+      if (row.cur) { row.c = (rec || S.dirty) ? curC : null; row.st = S.base && S.base.locked_at ? "locked" : S.dirty ? "dirty" : rec ? "saved" : "none"; }
+      else if (rec) { row.c = calc(working(rec)); row.st = rec.locked_at ? "locked" : "saved"; }
+      else { row.c = null; row.st = "none"; }
+      if (row.st === "locked") t.locked++; else if (row.st === "saved" || row.st === "dirty") t.open++; else if (d < today() && openOn(d)) t.missing++;
+      t.rows.push(row);
+    }
+    return t;
+  }
+  function coinWords(v) { v = Math.round(v * 100) / 100; return v < 0 ? eurG(-v) + " taken from the coin box" : eurG(v); }
+  function rowParts(r) {
+    var chip = r.st === "locked" ? ["ok", "Locked"] : r.st === "saved" ? ["wn", "Not locked"] : r.st === "dirty" ? ["wn", "Not saved"] : r.d >= today() ? ["", "Not started"] : !openOn(r.d) ? ["", E.maltaHoliday && E.maltaHoliday(r.d) ? "Public holiday" : "Closed"] : ["wn", "Not closed"];
+    var has = r.c && counted(r.c), v = has ? Math.round(r.c.OU * 100) / 100 : 0;
+    return { chip: chip, cash: has ? eurG(r.c.E) : "", ou: has ? diffWords(v) : "", cls: has ? (v === 0 ? "ok" : "wn") : "" };
+  }
+  function registerHtml() {
+    var ym = S.monthYm || S.date.slice(0, 7), MB = E.months, t = monthDays(), lab = MB ? MB.label(ym) : ym;
+    var h = '<section class="eod-reg" aria-labelledby="eod-reg-h"><h2 class="eod-h2" id="eod-reg-h">Past days</h2>' + (MB ? MB.bar(ym, { label: "End of day" }) : "");
+    if (!t) return h + '<div class="eod-quiet" role="status">' + esc(S.monthErr || "Reading " + lab + "…") + "</div></section>";
+    var bits = [t.locked + " locked"]; if (t.open) bits.push(t.open + " not locked"); if (t.missing) bits.push(t.missing + " not closed");
+    h += '<p class="eod-regsum" data-b="mdays">' + esc(bits.join(" · ")) + "</p>";
+    h += '<div class="eod-card eod-sum eod-tots"><div class="r"><span>Cash taken</span><b data-b="mE">' + esc(eurG(t.E)) + "</b></div>" +
+      '<div class="r"><span>Over / under, all days<small>Each day\'s difference is in the list below</small></span><b data-b="mOU">' + esc(diffWords(t.OU)) + "</b></div>" +
+      '<div class="r"><span>Coins kept, all days<small>Cash taken − what went to the bank</small></span><b data-b="mCOINS">' + esc(coinWords(t.COINS)) + "</b></div></div>";
+    h += '<div class="eod-dl" role="list" aria-label="Days in ' + esc(lab) + '">' + t.rows.map(function (r) {
+      var q = rowParts(r), name = dayLabel(r.d);
+      return '<div role="listitem"><button type="button" class="eod-dr" data-act="openday" data-d="' + r.d + '"' + (r.cur ? ' aria-current="date"' : "") + ' aria-label="' + esc(name + ", " + q.chip[1] + (q.ou ? ", " + q.ou + ", cash taken " + q.cash : "") + (r.cur ? ", open now" : "")) + '">' +
+        '<span class="d">' + esc(shortDay(r.d)) + '</span><span class="s"><span class="eod-chip ' + q.chip[0] + '"' + (r.cur ? ' data-b="rchip"' : "") + ">" + esc(q.chip[1]) + '</span></span><span class="v"><span class="c"' + (r.cur ? ' data-b="rc"' : "") + ">" + esc(q.cash) + '</span><span class="o ' + q.cls + '"' + (r.cur ? ' data-b="ro"' : "") + ">" + esc(q.ou) + "</span></span></button></div>";
+    }).join("") + "</div>";
+    h += '<p class="eod-mp">' + (t.days ? "Print gives the days saved, as the classic range report prints them." : esc(MB ? MB.empty(ym, "Nothing saved this month yet.") : "")) + "</p>";
+    return h + "</section>";
   }
 
   // ---- typing: numbers follow in place, nothing is redrawn under the fingers
@@ -606,24 +798,29 @@
       DEN.forEach(function (d) { var el = m.querySelector('[name="dep:n' + d + '"]'); if (el && el !== document.activeElement) el.value = shown(w.deposit["n" + d], true); });
     }
     var c = calc(w);
-    ["A", "B", "C", "D", "exp", "E", "F", "COINS"].forEach(function (k) { set(k, eur(c[k])); });
-    set("OU", eur(c.OU)); set("till", eur(c.till)); set("ccoins", eur(c.coins)); set("bov", eur(c.bov));
+    ["A", "B", "C", "D", "exp", "E", "F", "COINS"].forEach(function (k) { set(k, eurG(c[k])); });
+    set("OU", eurG(c.OU)); set("till", eurG(c.till)); set("ccoins", eur(c.coins)); set("bov", eurG(c.bov));
     set("ouBig", ouText(c)); set("ouBar", ouText(c));
     var big = m.querySelector('[data-b="ouBig"]'); if (big) big.className = ouCls(c);
-    DEN.forEach(function (d) { set("c" + d, eur(inum(w.cash["n" + d]) * d)); set("d" + d, eur(inum(w.deposit["n" + d]) * d)); });
+    DEN.forEach(function (d) { set("c" + d, lineAmt(w.cash["n" + d], d)); set("d" + d, lineAmt(w.deposit["n" + d], d)); });
     var bd = m.querySelector('[data-b="bagdiff"]'); if (bd) { bd.textContent = bagDiff(c); bd.hidden = Math.abs(c.bov - c.F) < 0.005; }
-    var t = monthDays(); if (t) { set("mE", eur(t.E)); set("mOU", eur(t.OU)); set("mCOINS", eur(t.COINS)); }
+    set("why", whyText(c, w, false));
+    setHint(m, "pohint", poHint(false), "use-po");
+    var t = monthDays(); if (t) {
+      set("mE", eurG(t.E)); set("mOU", diffWords(t.OU)); set("mCOINS", coinWords(t.COINS));
+      var r = t.rows.filter(function (x) { return x.cur; })[0]; if (r) { var q = rowParts(r); set("rc", q.cash); set("ro", q.ou); set("rchip", q.chip[1]); var o = m.querySelector('[data-b="ro"]'); if (o) o.className = "o " + q.cls; var ch = m.querySelector('[data-b="rchip"]'); if (ch) ch.className = "eod-chip " + q.chip[0]; }
+    }
   }
   function keep() {
     var f = S.mount && S.mount.querySelector("#eod-form"); if (!f || !S.w) return;
-    f.querySelectorAll("input[name],select[name]").forEach(function (el) { put(el.name, el.value); });
+    f.querySelectorAll("input[name],select[name],textarea[name]").forEach(function (el) { put(el.name, el.value); });
   }
   function put(name, v) {
     var w = S.w, p = String(name).split(":");
     if (p[0] === "row") { var row = w[p[1]] && w[p[1]][+p[2]]; if (row) row[p[3]] = v; }
     else if (p[0] === "cash") w.cash[p[1]] = v;
     else if (p[0] === "dep") w.deposit[p[1]] = v;
-    else if (["staff", "time_of_day", "float_amount", "bag_number", "contact_id"].indexOf(name) >= 0) w[name] = v;
+    else if (["staff", "time_of_day", "float_amount", "bag_number", "contact_id", "notes"].indexOf(name) >= 0) w[name] = v;
   }
 
   function wire(m) {
@@ -645,10 +842,10 @@
         else if (act === "fix-no") { S.fix = null; paint(true); var fb = m.querySelector("[data-act=fix]"); if (fb) fb.focus(); }
         else if (act === "fix-go") unlockToFix();
         else if (act === "who") { keep(); S.whoOpen = true; paint(true); var dy = m.querySelector("#eod-day"); if (dy) dy.focus(); }
-        else if (act === "lock") { keep(); S.ask = "lock"; S.err = ""; paint(true); setTimeout(function () { var y = m.querySelector("[data-act=lock-yes]"); if (y) y.focus(); }, 30); }
+        else if (act === "lock") { keep(); S.ask = "lock"; S.err = ""; paint(true); setTimeout(function () { var y = m.querySelector('[role=alertdialog] [data-act=ask-no]'); if (y) y.focus(); }, 30); }
         else if (act === "lock-yes") { S.ask = null; save(true); }
-        else if (act === "ask-no") { keep(); S.ask = null; S.pendingDate = ""; paint(true); var di = m.querySelector("#eod-day"); if (di) di.value = S.date; }
-        else if (act === "leave-yes") { S.ask = null; S.dirty = false; S.date = S.pendingDate || today(); S.pendingDate = ""; S.w = null; S.month = null; S.err = ""; S.conflict = null; load(); }
+        else if (act === "ask-no") { keep(); S.ask = null; S.pendingDate = ""; S.pendingClose = false; paint(true); var di = m.querySelector("#eod-day"); if (di) di.value = S.date; }
+        else if (act === "leave-yes") { var lk = S.pendingClose; S.ask = null; S.dirty = false; S.pendingClose = false; var nd = S.pendingDate || today(); S.pendingDate = ""; openDay(nd, lk); }
         else if (act === "theirs") { S.conflict = null; S.dirty = false; S.err = ""; load(); }
         else if (act === "mine") { keep(); var cf = S.conflict; S.conflict = null; if (cf && cf.locked_at) { S.err = "That day has been locked meanwhile. Nothing was saved."; return paint(true); } S.base = cf; save(false); } // measured against theirs now: a third save meanwhile is caught again
       });
@@ -660,6 +857,18 @@
       if (S.dirty) { keep(); S.pendingDate = v; S.ask = "leave"; paint(true); return; }
       S.date = v; S.w = null; S.month = null; S.err = ""; S.conflict = null; load();
     });
+    if (E.months && m.querySelector(".emb")) E.months.wire(m, { month: function () { return S.monthYm || S.date.slice(0, 7); }, go: function (ym) { goMonth(ym); }, paint: function () { paint(true); }, print: function () { printMonth(); } });
+    if (!m.__eodDel) { // actions inside lines redrawn while typing (the hints) and the register: one listener on the screen
+      m.__eodDel = true;
+      m.addEventListener("click", function (ev) {
+        if (E.state.activeModuleId !== "eodreg") return;
+        var b = ev.target && ev.target.closest && ev.target.closest("[data-act]"); if (!b || !m.contains(b)) return;
+        var act = b.getAttribute("data-act");
+        if (act === "use-po") usePaidOuts();
+        else if (act === "openday") openDay(b.getAttribute("data-d"), false);
+        else if (act === "prevday") openDay(b.getAttribute("data-d"), true);
+      });
+    }
     var f = m.querySelector("#eod-form");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); save(false); });
@@ -722,7 +931,7 @@
       created_by: String((S.base && S.base.created_by) || u.full_name || u.email || ""), float_amount: amt(w.float_amount),
       x: rows(w.x), epos: rows(w.epos), cheques: rows(w.cheques), paid_outs: rows(w.paid_outs), cash: cash,
       deposit: dep, bov_deposit: dep, bag_number: bag, bov_bag_number: bag, contact_id: w.contact_id ? String(w.contact_id) : "", bov_contact_id: w.contact_id ? (isFinite(+w.contact_id) ? +w.contact_id : w.contact_id) : null,
-      deposit_edited: !S.autoDep, notes: String((S.base && S.base.notes) || w.notes || ""), saved_at: new Date().toISOString(), action: lock ? "LOCK" : "SAVE" };
+      deposit_edited: !S.autoDep, notes: String(w.notes == null ? "" : w.notes), saved_at: new Date().toISOString(), action: lock ? "LOCK" : "SAVE" };
     if (lock) p.locked_at = new Date().toISOString(); // never an empty locked_at on a plain save (the server must not read an unlock)
     if (fixing()) p.correction_reason = S.fixReason; // a day unlocked for a correction: the reason goes into the audit of each save
     return p;
@@ -751,6 +960,7 @@
       if (rec) { S.base = rec; shadowReplace(rec); if (S.month && S.monthYm === S.date.slice(0, 7)) S.month[S.date] = rec; }
       S.dirty = false; S.err = ""; S.saving = false;
       if (lock && fixing()) { S.fixReason = ""; S.fixDate = ""; } // corrected and locked again
+      if (lock) S.closing = "";
       E.toast(lock ? dayLabel(S.date) + " is locked · " + ouText(calc(S.w)) : "Saved · " + ouText(calc(S.w)), "success");
       if (rec) { S.w = working(rec); S.autoDep = !rec.locked_at && sameDeposit(rec.deposit || rec.bov_deposit, autoDeposit(S.w)); if (S.autoDep) S.w.deposit = autoDeposit(S.w); }
       return paint(true);
@@ -767,7 +977,8 @@
     render: function (ctx) {
       S.mount = ctx && ctx.mount; S.err = ""; S.ask = null; css();
       var draft = S.dirty && S.w && S.date; // figures typed and not saved stay, as in the classic screen
-      if (!draft) { S.date = today(); S.w = null; S.base = null; S.month = null; S.conflict = null; S.whoOpen = false; }
+      var want = ""; try { want = sessionStorage.getItem("eikon_eodreg_day") || ""; sessionStorage.removeItem("eikon_eodreg_day"); } catch (e) {} // a day asked for by another screen (Money: "Close Sat 7 Nov")
+      if (!draft) { S.date = isYmd(want) && want <= today() ? want : today(); S.w = null; S.base = null; S.month = null; S.conflict = null; S.whoOpen = false; }
       paint(); return E.takeOpenForm("eodreg", S.mount, load({ keepDraft: !!draft }), { focus: "#eod-form input.amt" });
     }
   });

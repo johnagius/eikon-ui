@@ -170,6 +170,20 @@
   }
   E.maltaHm = function (d) { var p = maltaParts(d); return p ? p.h + ":" + p.mi : ""; };
   E.maltaYmd = function (d) { var p = maltaParts(d); return p ? p.y + "-" + p.mo + "-" + p.d : ""; };
+  // Malta's 14 national and public holidays: the name for a "YYYY-MM-DD", or "" on any other day. Good Friday moves
+  // with Easter (Gregorian computus). The worker's maltaHoliday (GET /money/today) is the same list.
+  E.maltaHoliday = function (ymd) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || "")); if (!m) return "";
+    var y = +m[1], fixed = { "01-01": "New Year's Day", "02-10": "St Paul's Shipwreck", "03-19": "St Joseph", "03-31": "Freedom Day",
+      "05-01": "Worker's Day", "06-07": "Sette Giugno", "06-29": "St Peter and St Paul", "08-15": "Santa Marija",
+      "09-08": "Victory Day", "09-21": "Independence Day", "12-08": "Immaculate Conception", "12-13": "Republic Day", "12-25": "Christmas Day" };
+    if (fixed[m[2] + "-" + m[3]]) return fixed[m[2] + "-" + m[3]];
+    var a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25),
+      g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4,
+      l = (32 + 2 * e + 2 * i - h - k) % 7, mm = Math.floor((a + 11 * h + 22 * l) / 451),
+      mo = Math.floor((h + l - 7 * mm + 114) / 31), dy = ((h + l - 7 * mm + 114) % 31) + 1;
+    return new Date(Date.UTC(y, mo - 1, dy - 2)).toISOString().slice(0, 10) === ymd ? "Good Friday" : "";
+  };
   E.openClassic = function (hash) {
     try {
       var u = new URL(window.location.href);
@@ -528,6 +542,10 @@
       setTimeout(cspFlush, 15000); setTimeout(cspFlush, 60000);
     } catch (e) {}
   })();
+
+  // Money on screen (Money department, X-M1): "€1,264.00", "−€3.40" (thousands comma, 2 decimals, € first).
+  // DISPLAY ONLY: saved bodies, prints and the bank e-mail keep their own classic formatting.
+  E.eur = function (n) { var v = Math.round((Number(n) || 0) * 100) / 100, a = Math.abs(v).toFixed(2).split("."); return (v < 0 ? "\u2212€" : "€") + a[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + a[1]; };
 
   // DOM helpers
   E.q = function (sel, root) { return (root || document).querySelector(sel); };

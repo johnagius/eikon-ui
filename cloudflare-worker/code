@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-09-batch-10";
+const WORKER_VERSION = "2026-11-09-batch-11";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -4785,6 +4785,35 @@ async function handleEodListDates(request, env, corsOkHeaders, authUser, url) {
   const rows = await dbAll(env, "SELECT eod_date FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date >= ? AND eod_date < ? ORDER BY eod_date ASC", [authUser.org_id, authUser.location_id, range.startStr, range.endStr]);
   const dates = rows.map(r => r.eod_date);
   return jsonResponse({ ok: true, dates: dates, items: dates, records: dates }, 200, corsOkHeaders);
+}
+
+// End of day, one read for the screen (Money department, eod): every saved day of a month (the register of past days,
+// its gaps and differences, and the month's totals), and for the day being closed: the last day saved before it (its
+// float and shift, "yesterday not closed") and that day's paid outs (the Paid out register); and the opening hours
+// (closed days and Malta public holidays are not gaps). The emergency till is not part of the end of day (John, 2026-11-09). Read only; each query date-bounded on its table's (org, location, date) index.
+// Replaces the screen's one-request-per-saved-day month read; the old routes stay as they are.
+async function handleEodOverview(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureEndOfDaySchema(env);
+  const month = String(url.searchParams.get("month") || "").trim();
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+  const range = monthRange(month);
+  if (!range) return jsonResponse({ ok: false, error: "Invalid month" }, 400, corsOkHeaders);
+  const date = String(url.searchParams.get("date") || "").trim();
+  if (date && !isValidYmd(date)) return jsonResponse({ ok: false, error: "Invalid date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  const sel = "SELECT e.*, l.name AS location_name FROM end_of_day e LEFT JOIN locations l ON l.id = e.location_id AND l.org_id = e.org_id WHERE e.org_id = ? AND e.location_id = ?";
+  const ui = (row) => { const u = eodRowToUi(row); if (u && !u.location_name && authUser.location_name) u.location_name = authUser.location_name; return u; };
+  const rows = await dbAll(env, sel + " AND e.eod_date >= ? AND e.eod_date < ? ORDER BY e.eod_date ASC", [authUser.org_id, authUser.location_id, range.startStr, range.endStr]);
+  const out = { ok: true, month: month, records: rows.map(ui) };
+  if (date) {
+    out.date = date;
+    out.before = ui(await dbFirst(env, sel + " AND e.eod_date < ? ORDER BY e.eod_date DESC LIMIT 1", [authUser.org_id, authUser.location_id, date]));
+    await ensurePaidOutSchema(env);
+    out.paid_out = await dbAll(env, "SELECT id, entry_time, payee_name, fee, payment_method, invoice_no, reason FROM paid_out_entries WHERE org_id = ? AND location_id = ? AND entry_date = ? ORDER BY entry_time ASC, id ASC", [authUser.org_id, authUser.location_id, date]);
+  }
+  // the Shifts screen's opening hours (one row): which days without an end of day are gaps and which were closed days
+  try { await ensureShiftsSchema(env); const h = await dbFirst(env, "SELECT hours_json FROM shift_opening_hours WHERE org_id = ? AND location_id = ?", [authUser.org_id, authUser.location_id]); out.hours = h ? JSON.parse(h.hours_json || "{}") : {}; } catch (e) { out.hours = {}; }
+  return jsonResponse(out, 200, corsOkHeaders);
 }
 
 async function handleEodContactsList(request, env, corsOkHeaders, authUser) {
@@ -16527,6 +16556,113 @@ async function handleRegistersToday(request, env, corsOkHeaders, authUser) {
     200, { ...corsOkHeaders, "Cache-Control": "private, max-age=10", "Vary": "Origin, Authorization" });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// TODAY'S MONEY  (money-hub)
+// What the Money page needs, in ONE read: GET /money/today, asked when the Money hub opens (not by Today, which is
+// re-read every minute: nothing here is added to /today). Read only; every statement bounded by the pharmacy and a
+// date, a short date range or a LIMIT, on the existing (org_id, location_id, …) indexes. Plain facts only: the words
+// and colours are the screen's (ui/eikon.moneytoday.js). Rights as the screens behind it: end of day and credit notes
+// for the pharmacist and staff (as /eod and /creditnotes), paid out also for "user" (as /paid-out), the emergency
+// till's day total for anyone signed in (as /emergency-pos/sales). A part a role cannot read is null.
+// ═══════════════════════════════════════════════════════════════════════════
+const MONEY_LOOKBACK_DAYS = 14; // earlier days started but not locked, looked for this far back
+const MONEY_SOON_DAYS = 30;     // a credit note "expires soon" within this many days
+function moneyBool(v) { return v === true || v === 1 || v === "1" || v === "true"; }
+// Is the pharmacy open on this Malta day, and when does it close? The Shifts screen's opening hours (one JSON row):
+// an override for the day, else the weekly hours, else the default with the Saturday/Sunday flags (the Shifts screen's
+// own defaults when nothing was saved: 07:30–19:30, open Saturday, closed Sunday).
+// Malta's 14 national and public holidays (the same list as E.maltaHoliday in ui/core.js): the name, or "" on any
+// other day. Good Friday moves with Easter (Gregorian computus).
+function maltaHoliday(ymd) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || "")); if (!m) return "";
+  const y = +m[1], md = m[2] + "-" + m[3];
+  const fixed = { "01-01": "New Year's Day", "02-10": "St Paul's Shipwreck", "03-19": "St Joseph", "03-31": "Freedom Day",
+    "05-01": "Worker's Day", "06-07": "Sette Giugno", "06-29": "St Peter and St Paul", "08-15": "Santa Marija",
+    "09-08": "Victory Day", "09-21": "Independence Day", "12-08": "Immaculate Conception", "12-13": "Republic Day", "12-25": "Christmas Day" };
+  if (fixed[md]) return fixed[md];
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25),
+    g = Math.floor((b - f + 1) / 3), hh = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4,
+    l = (32 + 2 * e + 2 * i - hh - k) % 7, mm = Math.floor((a + 11 * hh + 22 * l) / 451),
+    month = Math.floor((hh + l - 7 * mm + 114) / 31), day = ((hh + l - 7 * mm + 114) % 31) + 1;
+  const gf = new Date(Date.UTC(y, month - 1, day - 2)).toISOString().slice(0, 10);
+  return gf === ymd ? "Good Friday" : "";
+}
+function moneyHoursOn(h, ymd) {
+  h = h && typeof h === "object" ? h : {};
+  const def = h.default && typeof h.default === "object" ? h.default : {};
+  const ov = h.overrides && h.overrides[ymd];
+  if (ov && typeof ov === "object") return { closed: moneyBool(ov.closed), close: String(ov.close || def.close || "19:30") };
+  if (maltaHoliday(ymd)) return { closed: true, close: String(def.close || "19:30"), holiday: maltaHoliday(ymd) }; // a public holiday is a closed day unless the Shifts screen says it opens
+  const dow = new Date(ymd + "T12:00:00Z").getUTCDay();
+  const wk = h.weekly && typeof h.weekly === "object" ? (h.weekly[dow] || h.weekly[String(dow)]) : null;
+  if (wk && typeof wk === "object") return { closed: moneyBool(wk.closed), close: String(wk.close || def.close || "19:30") };
+  let sat = h.openSaturday, sun = h.openSunday;
+  if (typeof h.weekends === "boolean") { if (sat == null) sat = h.weekends; if (sun == null) sun = h.weekends; }
+  if (sat == null) sat = true; if (sun == null) sun = false;
+  const closed = moneyBool(def.closed) || (dow === 6 && !moneyBool(sat)) || (dow === 0 && !moneyBool(sun));
+  return { closed, close: String(def.close || "19:30") };
+}
+
+async function handleMoneyToday(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff", "user"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = authUser.org_id, loc = authUser.location_id, full = requireRole(authUser, ["admin", "staff"]);
+  const today = tzYmd(), from = ymdPlusDays(today, -MONEY_LOOKBACK_DAYS), soonBy = ymdPlusDays(today, MONEY_SOON_DAYS);
+  const all = async (sql, bind) => { try { return await dbAll(env, sql, bind); } catch (e) { return null; } };
+  const one = async (sql, bind) => { try { return await dbFirst(env, sql, bind); } catch (e) { return null; } };
+  await Promise.all([ensureEndOfDaySchema, ensurePaidOutSchema, ensurePosSchema, ensureCreditNotesSchema, ensureShiftsSchema]
+    .map((fn) => Promise.resolve().then(() => fn(env)).catch(() => {})));
+  const [eods, po, pos, cns, hrs] = await Promise.all([
+    full ? all(`SELECT eod_date, staff_name, time_of_day, float_amount, x_json, epos_json, cheques_json, paid_outs_json, cash_json, locked_at
+                  FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date >= ? AND eod_date <= ?
+                 ORDER BY eod_date DESC LIMIT ${MONEY_LOOKBACK_DAYS + 1}`, [org, loc, from, today]) : null,
+    one(`SELECT COALESCE(SUM(fee), 0) AS total, COUNT(*) AS c FROM paid_out_entries WHERE org_id = ? AND location_id = ? AND entry_date = ?`, [org, loc, today]),
+    one(`SELECT COALESCE(SUM(total), 0) AS total, COUNT(*) AS c FROM pos_sales WHERE org_id = ? AND location_id = ? AND sale_date = ? AND COALESCE(voided, 0) = 0`, [org, loc, today]),
+    full ? all(`SELECT c.amount, c.expiry_date, c.no_expiry,
+                  (SELECT COALESCE(SUM(p.amount), 0) FROM credit_note_purchases p WHERE p.credit_note_id = c.id AND p.org_id = c.org_id) AS used
+                  FROM credit_notes c WHERE c.org_id = ? AND c.location_id = ?
+                   AND (c.no_expiry = 1 OR c.expiry_date IS NULL OR c.expiry_date = '' OR c.expiry_date >= ?)
+                 ORDER BY c.id DESC LIMIT 1000`, [org, loc, today]) : null,
+    full ? one(`SELECT hours_json FROM shift_opening_hours WHERE org_id = ? AND location_id = ?`, [org, loc]) : null
+  ]);
+
+  let end_of_day = null;
+  if (full && eods != null) {
+    let hours = {}; try { hours = hrs ? JSON.parse(hrs.hours_json || "{}") : {}; } catch (e) { hours = {}; }
+    const byDay = {}; for (const r of eods) byDay[r.eod_date] = r;
+    const t = byDay[today], f = t ? ownerEodFigures(t) : null;
+    // the last day before today the pharmacy was open (up to a week back), and whether it has an end of day
+    let prev = null;
+    for (let i = 1; i <= 7; i++) { const d = ymdPlusDays(today, -i); if (!moneyHoursOn(hours, d).closed) { prev = d; break; } }
+    const earlier = [];
+    if (prev && !byDay[prev]) earlier.push({ date: prev, state: "missing" });
+    for (const r of eods) if (r.eod_date < today && !r.locked_at) earlier.push({ date: r.eod_date, state: "unlocked" });
+    earlier.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    const th = moneyHoursOn(hours, today);
+    end_of_day = {
+      today: t ? { staff: f.staff, shift: f.shift, takings: f.takings, over_under: f.over_under, counted: f.over_under != null, locked: !!t.locked_at } : null,
+      earlier, last_open_day: prev, open_today: !th.closed, closes_at: th.close
+    };
+  }
+  let credit_notes = null;
+  if (full && cns != null) {
+    let held = 0, open = 0, soon = 0, soonTotal = 0, soonFirst = null;
+    for (const c of cns) {
+      const left = Math.round(((Number(c.amount) || 0) - (Number(c.used) || 0)) * 100) / 100; // the Credit notes screen's own sum
+      if (!(left > 0)) continue;
+      open++; held += left;
+      const exp = !moneyBool(c.no_expiry) && c.expiry_date ? String(c.expiry_date) : "";
+      if (exp && exp <= soonBy) { soon++; soonTotal += left; if (!soonFirst || exp < soonFirst) soonFirst = exp; }
+    }
+    credit_notes = { held: ownerR2(held), open, soon, soon_total: ownerR2(soonTotal), soon_first: soonFirst, soon_days: MONEY_SOON_DAYS, truncated: cns.length >= 1000 };
+  }
+  return jsonResponse({ ok: true, date: today, time: tzHm(), timezone: PHARMACY_TZ,
+    end_of_day,
+    paid_out: po == null ? null : { total: ownerR2(po.total), count: Number(po.c) || 0 },
+    emergency: pos == null ? null : { total: ownerR2(pos.total), count: Number(pos.c) || 0 },
+    credit_notes },
+    200, { ...corsOkHeaders, "Cache-Control": "private, max-age=10", "Vary": "Origin, Authorization" });
+}
+
 // ---------------------------------------------------------------------------
 // Schema DDL runs ONCE per isolate per database. Before this every handler re-ran
 // its CREATE TABLE / CREATE INDEX / ALTER statements on every request (about 200
@@ -18090,6 +18226,9 @@ const authUser = await authFromRequest(request, env);
     if (url.pathname === "/registers/today" && request.method === "GET") {
       return await handleRegistersToday(request, env, corsOkHeaders, authUser);
     }
+    if (url.pathname === "/money/today" && request.method === "GET") {
+      return await handleMoneyToday(request, env, corsOkHeaders, authUser);
+    }
     if (url.pathname === "/people" && request.method === "GET") {
       return await handlePeopleSearch(request, env, corsOkHeaders, authUser);
     }
@@ -18149,6 +18288,8 @@ const authUser = await authFromRequest(request, env);
     if (request.method === "GET" && (url.pathname === "/eod/dates" || url.pathname === "/eod/month" || url.pathname === "/eod/list" || url.pathname === "/endofday/dates" || url.pathname === "/endofday/month" || url.pathname === "/endofday/list")) {
       return await handleEodListDates(request, env, corsOkHeaders, authUser, url);
     }
+    // EOD — the month and the day being closed in one read (new; the routes above stay)
+    if (request.method === "GET" && url.pathname === "/endofday/overview") return await handleEodOverview(request, env, corsOkHeaders, authUser, url);
     // EOD Contacts — list (GET, all paths the UI may try)
     if (request.method === "GET" && (url.pathname === "/eod/contacts" || url.pathname === "/endofday/contacts" || url.pathname === "/eod/contact" || url.pathname === "/endofday/contact")) {
       return await handleEodContactsList(request, env, corsOkHeaders, authUser);
@@ -19206,6 +19347,9 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
     if (url.pathname === "/emergency-pos/sales/sync" && request.method === "POST") {
       return await handlePosSalesSync(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/emergency-pos/days" && request.method === "GET") {
+      return await handlePosSalesDays(request, env, corsOkHeaders, authUser, url);
     }
     if (url.pathname === "/emergency-pos/sales" && request.method === "GET") {
       return await handlePosSalesList(request, env, corsOkHeaders, authUser, url);
@@ -20796,6 +20940,26 @@ async function handlePosSalesList(request, env, corsOkHeaders, authUser, url) {
     FROM pos_sales WHERE org_id=? AND location_id=? AND sale_date=? ORDER BY created_at DESC`,
     [authUser.org_id, authUser.location_id, date]);
   return jsonResponse({ ok: true, sales: rows }, 200, corsOkHeaders);
+}
+
+// The month at a glance (till, money batch): one grouped read on the (org, location, sale_date) index, a row per day
+// with sales. Voided sales are left out of the money (as the day list adds them) and counted apart. Read only.
+async function handlePosSalesDays(request, env, corsOkHeaders, authUser, url) {
+  await ensurePosSchema(env);
+  const month = (url.searchParams.get("month") || "").trim() || tzYmd().slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(month)) return jsonResponse({ ok: false, error: "month must be YYYY-MM" }, 400, corsOkHeaders);
+  const rows = await dbAll(env, `SELECT sale_date,
+      SUM(CASE WHEN COALESCE(voided,0)=1 THEN 0 ELSE 1 END) AS sales,
+      SUM(CASE WHEN COALESCE(voided,0)=1 THEN 1 ELSE 0 END) AS voided,
+      ROUND(SUM(CASE WHEN COALESCE(voided,0)=1 THEN 0 ELSE total END), 2) AS total,
+      ROUND(SUM(CASE WHEN COALESCE(voided,0)<>1 AND payment_method='cash' THEN total ELSE 0 END), 2) AS cash,
+      ROUND(SUM(CASE WHEN COALESCE(voided,0)<>1 AND payment_method='card' THEN total ELSE 0 END), 2) AS card,
+      ROUND(SUM(CASE WHEN COALESCE(voided,0)<>1 AND payment_method='other' THEN total ELSE 0 END), 2) AS other,
+      ROUND(SUM(CASE WHEN COALESCE(voided,0)=1 THEN 0 ELSE vat_total END), 2) AS vat
+    FROM pos_sales WHERE org_id=? AND location_id=? AND sale_date>=? AND sale_date<=?
+    GROUP BY sale_date ORDER BY sale_date DESC`,
+    [authUser.org_id, authUser.location_id, month + "-01", month + "-31"]);
+  return jsonResponse({ ok: true, month, days: rows }, 200, corsOkHeaders);
 }
 
 // The server computes the money of a sale from its lines; it never trusts client totals.

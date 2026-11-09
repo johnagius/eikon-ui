@@ -43,7 +43,7 @@
       ".qtr-btn{font:inherit;font-size:14px;font-weight:600;height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
       ".qtr-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.qtr-btn:disabled{opacity:.55;cursor:default}" +
       ".qtr-bar{display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap}.qtr-q{flex:1;min-width:200px;height:40px;border-radius:12px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font:inherit;font-size:16px;padding:0 12px;outline:0}" +
-      ".qtr-sw{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}.qtr-sw input{width:20px;height:20px;accent-color:var(--accent)}" +
+      ".qtr-sw{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);min-height:44px;cursor:pointer}.qtr-sw input{width:20px;height:20px;accent-color:var(--accent)}" +
       ".qtr-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 2px 7px;display:flex;justify-content:space-between;gap:8px}.qtr-lab b{color:var(--text);text-transform:none;letter-spacing:0;font-size:14px}" +
       ".qtr-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".qtr-row{display:flex;gap:12px;align-items:center;padding:10px 16px;border-top:.5px solid var(--border)}.qtr-row:first-child{border-top:0}" +
@@ -95,7 +95,7 @@
     if (S.adding) h += formHtml();
     h += '<div class="qtr-bar"><input class="qtr-q" id="qtr-q" type="search" aria-label="Search quotes" placeholder="Item, barcode or supplier" value="' + esc(S.q) + '"><label class="qtr-sw"><input type="checkbox" id="qtr-all"' + (S.all ? " checked" : "") + "> All our pharmacies</label></div>";
     h += '<div id="qtr-res">' + listHtml() + "</div>";
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Tap a supplier to change or delete that quote. Importing a price list, merging duplicates and printing are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">' + (S.entries.length ? "Tap a supplier to change or delete that quote. " : "") + 'Importing a price list, merging duplicates and printing are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
     var ae = document.activeElement, fm = ae && ae.closest ? ae.closest("form") : null, sel = ae && m.contains(ae) ? (ae.id === "qtr-q" ? "#qtr-q" : ae.name ? (fm && fm.id ? "#" + fm.id + " " : "") + "[name=" + ae.name + "]" : "") : "";
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) { again.focus(); try { var L = again.value.length; again.setSelectionRange(L, L); } catch (x) {} } }
@@ -152,7 +152,7 @@
       var groups = {}, order = [];
       rows.forEach(function (e) { var k = low(e.item_description); if (!groups[k]) { groups[k] = []; order.push(k); } groups[k].push(e); });
       var shown = order.slice(0, q ? 60 : 15);
-      if (!shown.length) h += '<div class="qtr-quiet">' + (q ? "No quote for “" + esc(S.q) + "” yet." : "No quotations yet.") + "</div>";
+      if (!shown.length) h += '<div class="qtr-quiet">' + (q ? "No supplier quote for “" + esc(S.q) + "” yet. Press New quote to add one." : "No supplier quotes yet. Press New quote to add the first.") + "</div>";
       if (!q && order.length) h += '<p style="font-size:13px;color:var(--muted);margin:12px 2px 0">The latest items. Search to compare suppliers for one item.</p>';
       shown.forEach(function (k) {
         var g = groups[k].slice().sort(function (a, b) { return calc(a).unit - calc(b).unit || String(b.quote_date).localeCompare(String(a.quote_date)); });

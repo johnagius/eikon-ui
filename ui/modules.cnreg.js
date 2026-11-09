@@ -24,10 +24,27 @@
   // The year is left out when it is this year (3 Nov), kept otherwise (4 Mar 2027): rows stay on fewer lines on a phone.
   function dm(s) { var p = String(s || "").split("-"); return p.length === 3 ? Number(p[2]) + " " + MON[Number(p[1]) - 1] + (Number(p[0]) === new Date().getFullYear() ? "" : " " + p[0]) : ""; }
   function eur(n) { return "€" + (Math.round((Number(n) || 0) * 100) / 100).toFixed(2); }
+  function show(n) { return E.eur ? E.eur(Math.round((Number(n) || 0) * 100) / 100) : eur(n); } // X-M1: display only (€1,264.00); saved bodies and prints keep eur()
   function money(raw) { var s = String(raw || "").replace(/[€\s]/g, "").replace(",", "."); return /^\d+(\.\d{1,2})?$/.test(s) && Number(s) > 0 ? Number(s) : null; }
   function left(cn) { var used = (cn.purchase_entries || []).reduce(function (t, p) { return t + (Number(p.amount) || 0); }, 0); return Math.round(((Number(cn.amount) || 0) - used) * 100) / 100; }
   function expired(cn) { return !cn.no_expiry && cn.expiry_date && cn.expiry_date < today(); }
   function low(s) { return String(s || "").toLowerCase(); }
+  // m1: ċ ġ ħ ż as c g h z on both sides (the shared people helper), so "zammit" finds Żammit.
+  function fold(s) { return E.people && E.people.foldMt ? E.people.foldMt(String(s || "")) : low(s); }
+  // Days from today to an end date (0 = it ends today, below 0 = it has expired).
+  function daysTo(ymd) { var a = Date.parse(String(ymd || "") + "T00:00:00Z"), b = Date.parse(today() + "T00:00:00Z"); return isFinite(a) ? Math.round((a - b) / 864e5) : null; }
+  var SOON = 30; // a note that ends within 30 days is shown as ending soon
+  function soon(cn) { if (cn.no_expiry || !cn.expiry_date || expired(cn)) return false; var n = daysTo(cn.expiry_date); return n != null && n <= SOON; }
+  // The end date in words, the same on every card: "No end date", "Until 9 Mar 2027", "Ends in 6 days", "Ends today", "Expired 4 Nov".
+  function endWords(cn) {
+    if (cn.no_expiry || !cn.expiry_date) return "No end date";
+    if (expired(cn)) return "Expired " + dm(cn.expiry_date);
+    var n = daysTo(cn.expiry_date);
+    return n === 0 ? "Ends today" : n != null && n <= SOON ? "Ends in " + n + (n === 1 ? " day" : " days") + " (" + dm(cn.expiry_date) + ")" : "Until " + dm(cn.expiry_date);
+  }
+  // A Maltese ID card typed in the search (123456M), whole: looked up once in the people the pharmacy knows.
+  function idLike(q) { return /^\d{3,7}\s*[A-Za-z]$/.test(String(q || "").trim()); }
+  function phoneKey(s) { return String(s || "").replace(/[^\d]/g, "").replace(/^(00356|356)(?=\d{8}$)/, ""); }
 
   function css() {
     if (document.getElementById("eikon-cnreg-css")) return;
@@ -61,6 +78,25 @@
       ".cnr-card .a{flex-wrap:wrap;justify-content:space-between;align-items:center}.cnr-card .a>span{display:flex;gap:8px;flex-wrap:wrap}.cnr-card .a>span.r{margin-left:auto}" +
       ".cnr-lnk{font:inherit;font-size:14px;font-weight:600;min-height:44px;padding:0 10px;border:0;border-radius:10px;background:none;color:var(--accent);cursor:pointer}.cnr-lnk:first-child{margin-left:-10px}" +
       ".cnr-notes li span small{display:block;color:var(--muted);font-size:12px}.cnr-notes li span{white-space:pre-wrap;overflow-wrap:anywhere;padding:6px 0}" +
+      // m1: what the pharmacy holds for customers, and end dates that matter, in words and colour
+      ".cnr-hold{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}.cnr-hold>div{flex:1 1 200px;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}" +
+      ".cnr-hold span{font-size:12.5px;color:var(--muted)}.cnr-hold b{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}.cnr-hold-main b{font-size:24px}.cnr-hold-side.gone b{color:var(--danger)}.cnr-hold small{font-size:12.5px;color:var(--muted)}" +
+      ".cnr-hold-side.soon{border-color:var(--warn)}.cnr-hold-side.soon b{color:var(--warn)}" +
+      ".cnr-hold+.cnr-sum{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
+      "@media (hover:none){.cnr-hint{display:none}}.cnr-end{font-weight:600}.cnr-end.soon{color:var(--warn)}.cnr-end.gone{color:var(--danger)}.cnr-hint{color:var(--muted)}" +
+      "@media (max-width:600px){.cnr-hold>div{flex-basis:140px}.cnr-hold-main{flex-basis:100%!important}}" +
+      // X-M4: Correct a quiet text link (44 px), the phone number a 44 px "Call" link, as in the other money screens
+      ".cnr .ecr-btn{border:0;background:none;min-height:44px;padding:0 10px;border-radius:10px;font-size:14px}.cnr-card.on>.s{display:flex;flex-wrap:wrap;align-items:center;gap:0 12px}" +
+      ".cnr-tel{display:inline-flex;align-items:center;min-height:44px;color:var(--accent);font-weight:600;text-decoration:none}" +
+      ".cnr-card{padding:0;overflow:hidden}.cnr-row{display:flex;width:100%;align-items:center;gap:12px;min-height:56px;padding:8px 16px;border:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer}" +
+      ".cnr-row .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.cnr-row .t b{font-size:15.5px;font-weight:600;overflow-wrap:anywhere}.cnr-row .t small{font-size:12.5px;color:var(--muted)}" +
+      ".cnr-row em{font-style:normal;font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);white-space:nowrap}.cnr-card.soon .cnr-row em{color:var(--warn)}.cnr-row em small{font-size:12.5px;font-weight:500;color:var(--muted)}.cnr-card.old .cnr-row em{color:var(--danger)}" +
+      ".cnr-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:12px}@media (hover:hover){.cnr-row:hover{background:rgba(127,127,127,.06)}}" +
+      ".cnr-card.on .cnr-row{border-bottom:.5px solid var(--border)}.cnr-card.on>.s,.cnr-card.on>.cnr-uses,.cnr-card.on>.cnr-in,.cnr-card.on>.a,.cnr-card.on>.ecr,.cnr-card>.ecr-mark{margin-left:16px;margin-right:16px}" +
+      ".cnr-card.on>.s{margin-top:8px}.cnr-card.on>.a{margin-bottom:8px}.cnr-card.on>.cnr-in{margin-bottom:10px}.cnr-card>.ecr-mark{display:block;margin-bottom:8px}" +
+      ".cnr-seg{display:flex;gap:4px;margin-top:16px;padding:3px;border-radius:12px;background:rgba(118,118,128,.12);width:max-content;max-width:100%}" +
+      ".cnr-seg-b{font:inherit;font-size:14px;font-weight:600;min-height:36px;padding:0 14px;border:0;border-radius:9px;background:none;color:var(--text);cursor:pointer}.cnr-seg-b[aria-pressed=true]{background:var(--panel2);box-shadow:0 1px 3px rgba(0,0,0,.12)}" +
+      "@media (max-width:600px){.cnr-seg{width:100%}.cnr-seg-b{flex:1;min-height:44px}}.cnr-seg+.cnr-q{margin-top:10px}" +
       ".cnr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       "@media (max-width:600px){.cnr{padding:4px 16px 0}.cnr h1{font-size:32px}.cnr-btn{height:44px;border-radius:22px;padding:0 18px}.cnr-q{height:44px}.cnr-in .acts .all{min-height:44px}}" +
       // q5-8: every target at least 44 px tall on a phone (the phone number, Undo, Correct).
@@ -94,7 +130,8 @@
     if (!r || !r.ok) throw new Error((r && r.error) || "Could not load credit notes");
     return r.entries || [];
   }
-  async function load() {
+  function load() { return (S.loadP = load0()); } // m1: the month below waits for this one read instead of making its own
+  async function load0() {
     var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try { S.entries = await fetchAll(); E.correct.loadMarks("cnreg", FIX, ""); }
     catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load credit notes"); }
@@ -108,7 +145,7 @@
     var can = E.correct && E.correct.can();
     return '<ul class="cnr-uses" aria-label="' + esc("Uses of the note for " + cn.client_name + " " + cn.client_surname) + '">' + uses.map(function (u) {
       var day = useDay(u), what = "Used " + eur(u.amount) + (day ? " on " + day : "") + (u.receipt_number ? " · receipt " + u.receipt_number : "");
-      var h = "<li><span>" + esc(what) + "</span>" + (can ? '<button type="button" class="cnr-undo" data-act="undo" data-id="' + esc(cn.id) + '" data-pid="' + esc(u.id) + '" aria-label="' + esc("Undo: " + what) + '">Undo</button>' : "") + "</li>";
+      var h = "<li><span>" + esc(what) + "</span>" + (can ? '<button type="button" class="cnr-undo" data-act="undo" data-id="' + esc(cn.id) + '" data-pid="' + esc(u.id) + '" aria-label="' + esc("Undo this use: " + what) + '">Undo this use</button>' : "") + "</li>";
       var q = S.undo;
       if (q && String(q.cn) === String(cn.id) && String(q.pid) === String(u.id)) {
         h += '<li class="cnr-ask"><div role="group" aria-label="Undo this use"><b>Undo the use of ' + esc(eur(u.amount)) + (day ? " on " + esc(day) : "") + "?</b> " + esc(eur(u.amount)) + " goes back on the note, leaving " + esc(eur(left(cn) + (Number(u.amount) || 0))) + ". The audit keeps the use." +
@@ -208,48 +245,128 @@
     if (!w) E.toast("The print page was blocked. Allow pop-ups for this site, then press Print again.", "error");
   }
 
+  // m1: one calm line per note (name, its number and end date, what is left); the note opens in place with its details,
+  // uses, notes and actions, Use the one primary button in it. A note opens by itself when it is the only one listed
+  // (a search that found it), or while something is open on it (Use, a note, Undo, Correct).
+  function isOpen(cn, panel) {
+    var id = String(cn.id);
+    return !!panel || String(S.using) === id || (S.undo && String(S.undo.cn) === id) || (S.noting && String(S.noting.cn) === id) || (S.rmNote && String(S.rmNote.cn) === id) ||
+      String(S.open) === id || (S.single && String(S.closed) !== id);
+  }
   function card(cn) {
-    var rem = left(cn), old = expired(cn);
+    var rem = left(cn), old = expired(cn), who = cn.client_name + " " + cn.client_surname, panel = E.correct.panel("cnreg", cn, FIX), opened = isOpen(cn, panel);
+    var ew = endWords(cn), sn = soon(cn), endHtml = old || sn ? '<span class="cnr-end ' + (old ? "gone" : "soon") + '">' + esc(ew) + "</span>" : esc(ew);
+    var line = (cn.receipt_number ? "Receipt " + esc(cn.receipt_number) + " · " : "") + "from " + esc(dm(cn.issue_date)) + (cn.no_expiry || !cn.expiry_date ? "" : " · " + endHtml);
+    var h = '<div class="cnr-card' + (old ? " old" : sn ? " soon" : "") + (opened ? " on" : "") + '" data-cn="' + esc(cn.id) + '">' +
+      '<button type="button" class="cnr-row" data-act="open" data-id="' + esc(cn.id) + '" aria-expanded="' + opened + '" aria-label="' + esc(who + ", " + show(rem) + " left, " + (cn.receipt_number ? "receipt " + cn.receipt_number + ", " : "") + ew) + '">' +
+      '<span class="t"><b>' + esc(who) + "</b><small>" + line + "</small></span><em>" + show(rem) + ' <small>left</small></em></button>' + E.correct.mark("cnreg", cn);
+    if (!opened) return h + "</div>";
     var sub = [];
-    if (cn.telephone) sub.push('<a href="tel:' + esc(String(cn.telephone).replace(/\s+/g, "")) + '">' + esc(cn.telephone) + "</a>");
-    sub.push(eur(cn.amount) + " from " + esc(dm(cn.issue_date))); if (cn.receipt_number) sub.push("Receipt " + esc(cn.receipt_number));
-    sub.push(cn.no_expiry || !cn.expiry_date ? "No end date" : (old ? "Expired " : "Until ") + esc(dm(cn.expiry_date)));
-    var h = '<div class="cnr-card' + (old ? " old" : "") + '" data-cn="' + esc(cn.id) + '"><div class="h"><b>' + esc(cn.client_name) + " " + esc(cn.client_surname) + "</b><em>" + eur(rem) + ' left</em></div><div class="s">' + sub.join(" · ") + "</div>" + E.correct.mark("cnreg", cn) + usesHtml(cn) + notesHtml(cn);
-    if (S.using === cn.id) {
+    sub.push(show(cn.amount) + " given " + esc(dm(cn.issue_date))); sub.push("No. " + esc(cn.id)); // the number on its printed page
+    if (!cn.no_expiry && cn.expiry_date) sub.push(esc(endWords(cn)));
+    h += '<div class="s">' + (cn.telephone ? '<a class="cnr-tel" href="tel:' + esc(String(cn.telephone).replace(/\s+/g, "")) + '" aria-label="' + esc("Call " + who + ", " + cn.telephone) + '">Call ' + esc(cn.telephone) + "</a>" : "") + "<span>" + sub.join(" · ") + "</span></div>" + usesHtml(cn) + notesHtml(cn);
+    if (String(S.using) === String(cn.id)) {
       h += '<form class="cnr-in" id="cnr-use" autocomplete="off"><label><span>Using €</span><input name="amount" inputmode="decimal" value="' + esc(S.draft.amount || "") + '" placeholder="0.00"></label>' +
         '<label><span>Receipt no.</span><input name="receipt_number" value="' + esc(S.draft.receipt_number || "") + '" placeholder="Optional"></label>' + (S.err ? '<div class="cnr-err" id="cnr-err" role="alert">' + esc(S.err) + "</div>" : "") +
         '<div class="acts"><button type="button" class="all" data-act="all">Use all ' + eur(rem) + '</button><button type="button" class="cnr-btn" data-act="cancel">Cancel</button><button type="submit" class="cnr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Use") + "</button></div></form>";
-    } else { var who = cn.client_name + " " + cn.client_surname;
+    } else {
       h += '<div class="a"><span><button type="button" class="cnr-lnk" data-act="print" data-id="' + esc(cn.id) + '" aria-label="' + esc("Print the credit note for " + who) + '">Print</button>' +
         (S.noting && String(S.noting.cn) === String(cn.id) ? "" : '<button type="button" class="cnr-lnk" data-act="note" data-id="' + esc(cn.id) + '" aria-label="' + esc("Add a note to the credit note for " + who) + '">Add a note</button>') +
-        '</span><span class="r">' + E.correct.button("cnreg", cn, "the credit note for " + who) + (rem > 0 && !old ? '<button class="cnr-btn p" data-act="use" data-id="' + cn.id + '">Use</button>' : "") + "</span></div>"; }
-    return h + E.correct.panel("cnreg", cn, FIX) + "</div>";
+        '</span><span class="r">' + E.correct.button("cnreg", cn, "the credit note for " + who) + (rem > 0 && !old ? '<button class="cnr-btn p" data-act="use" data-id="' + cn.id + '">Use</button>' : "") + "</span></div>";
+    }
+    return h + panel + "</div>";
   }
 
   // Every credit note issued in a month (any month, used up or not), and the classic printout of the list.
   var HIST = { dep: function () { return S.loading ? undefined : S.entries; }, title: "Issued by month", label: "Credit notes issued", nowText: "No credit note issued this month yet.",
-    active: function () { return E.state.activeModuleId === "cnreg"; }, paint: function () { paint(); },
-    fetch: async function (ym) { return (await fetchAll()).filter(function (cn) { return String(cn.issue_date || "").slice(0, 7) === ym; }).sort(function (a, b) { return String(b.issue_date).localeCompare(String(a.issue_date)) || b.id - a.id; }); },
-    row: function (cn) { return { t: (cn.client_name || "") + " " + (cn.client_surname || ""), s: [dm(cn.issue_date), eur(cn.amount), cn.receipt_number ? "Receipt " + cn.receipt_number : "", cn.telephone].filter(Boolean).join(" · "), r: eur(left(cn)) + " left" }; },
+    active: function () { return E.state.activeModuleId === "cnreg"; }, paint: function () { paint(); }, local: true,
+    // m1: cut from the list the screen already read (the same GET, the same 1,000 newest), not a second read of it
+    fetch: async function (ym) { if (S.loadP) { try { await S.loadP; } catch (e) {} } return (S.error ? await fetchAll() : S.entries).filter(function (cn) { return String(cn.issue_date || "").slice(0, 7) === ym; }).sort(function (a, b) { return String(b.issue_date).localeCompare(String(a.issue_date)) || b.id - a.id; }); },
+    row: function (cn) { return { t: (cn.client_name || "") + " " + (cn.client_surname || ""), s: [dm(cn.issue_date), show(cn.amount), cn.receipt_number ? "Receipt " + cn.receipt_number : "", cn.telephone].filter(Boolean).join(" · "), r: show(left(cn)) + " left" }; },
     print: function (ym, rows) {
       E.months.print({ register: "Credit Notes", month: ym, sections: [{ cols: ["Date", "Client", "Telephone", { h: "Balance / Total", num: true }, "Status"],
         rows: rows.slice().reverse().map(function (r) { return [E.months.dmy(r.issue_date), (r.client_name || "") + " " + (r.client_surname || ""), r.telephone || "", eur(left(r)) + " / " + eur(r.amount), left(r) > 0.004 ? "Open" : "Closed"]; }) }] });
     } };
+  // m1: one search finds a customer's credit by name (any order, ċ ġ ħ ż or not), phone, receipt, the note's number
+  // ("41" or "#41") or their ID card (looked up once in the people the pharmacy knows, then matched by phone or name).
+  function matcher(raw) {
+    var q = fold(raw).trim(); if (!q) return function () { return true; };
+    var words = q.split(/\s+/), digits = q.replace(/[\s#]/g, ""), onlyNo = /^#\d+$/.test(q), isNum = /^\d+$/.test(digits);
+    var id = S.id && S.id.q === String(raw).trim() ? S.id.hits : null;
+    return function (cn) {
+      if (isNum && String(cn.id) === digits) return true;
+      if (onlyNo) return false;
+      var name = fold(cn.client_name + " " + cn.client_surname);
+      if (words.every(function (w) { return name.indexOf(w) >= 0; })) return true;
+      if (isNum && digits.length >= 4 && phoneKey(cn.telephone).indexOf(digits) >= 0) return true;
+      if (cn.receipt_number && fold(cn.receipt_number).indexOf(q) >= 0) return true;
+      if (id) return id.some(function (p) { var ph = phoneKey(p.phone); return (ph && ph === phoneKey(cn.telephone)) || (E.people && E.people.nameKey ? E.people.nameKey(p.name) === E.people.nameKey(cn.client_name + " " + cn.client_surname) || E.people.nameKey(p.name) === E.people.nameKey(cn.client_surname + " " + cn.client_name) : false); });
+      return false;
+    };
+  }
+  // The ID card typed: one read of the people list (shared cache, 45 s), only for a whole ID card, after a pause.
+  var idTimer = null;
+  function lookId(raw) {
+    var q = String(raw || "").trim(); clearTimeout(idTimer);
+    if (!idLike(q) || !E.personPick || !E.personPick.find) { if (S.id && S.id.q !== q) S.id = null; return; }
+    if (S.id && S.id.q === q) return;
+    S.id = { q: q, hits: [], busy: true };
+    idTimer = setTimeout(async function () {
+      var hits = []; try { hits = (await E.personPick.find(q, 6)).filter(function (p) { return p.id_card && E.idCardKey && E.idCardKey(p.id_card) === E.idCardKey(q); }); } catch (e) { hits = []; }
+      if (!S.id || S.id.q !== q) return; S.id.hits = hits; S.id.busy = false;
+      var L = S.mount && S.mount.querySelector("#cnr-list"); if (L && E.state.activeModuleId === "cnreg") { L.innerHTML = listHtml(); wireActs(L); wireForms(L); }
+    }, 250);
+  }
+  function sum(list) { return list.reduce(function (t, cn) { return t + left(cn); }, 0); }
+  // What the pharmacy holds for customers: every note with money left that has not expired; what ends within 30 days;
+  // what expired with money left. Worked out from the notes on the screen: no other read.
+  function holdHtml(withMoney) {
+    var live = withMoney.filter(function (cn) { return !expired(cn); }), sn = live.filter(soon), gone = withMoney.filter(expired);
+    var h = '<div class="cnr-hold" role="group" aria-label="Held for customers"><div class="cnr-hold-main"><span>Held for customers</span><b>' + show(sum(live)) + "</b><small>" + live.length + (live.length === 1 ? " note" : " notes") + "</small></div>";
+    // a tile only when there is something in it (VISUAL round 1: no €0.00 tiles)
+    if (sn.length) h += '<div class="cnr-hold-side soon"><span>Ends within ' + SOON + " days</span><b>" + show(sum(sn)) + "</b><small>" + sn.length + (sn.length === 1 ? " note" : " notes") + "</small></div>";
+    if (gone.length) h += '<div class="cnr-hold-side gone"><span>Expired, money left</span><b>' + show(sum(gone)) + "</b><small>" + gone.length + (gone.length === 1 ? " note" : " notes") + "</small></div>";
+    h += "</div>";
+    // the sentence the screen always had, for a screen reader and the tests that read it
+    return h + '<p class="cnr-sum"><b>' + live.length + "</b> open, <b>" + eur(sum(live)) + "</b> owed to customers.</p>";
+  }
+  // A search: who it found and what they hold, in one line ("Rita Borg holds €45.00 on 2 notes").
+  function foundHtml(q, open, old) {
+    var who = {}, names = [], key = function (cn) { return phoneKey(cn.telephone) || fold(cn.client_name + " " + cn.client_surname); };
+    open.forEach(function (cn) { var k = key(cn); if (!who[k]) { who[k] = 1; names.push(cn.client_name + " " + cn.client_surname); } });
+    var theirs = names.length === 1 && old.every(function (cn) { return who[key(cn)]; });
+    var idq = idLike(q) && S.id && S.id.q === String(q).trim() ? S.id : null, h = "";
+    if (idq && idq.busy) h += '<p class="cnr-sum">Looking up ID card ' + esc(String(q).trim().toUpperCase()) + "…</p>";
+    else if (idq && idq.hits.length) h += '<p class="cnr-sum">ID card ' + esc(String(q).trim().toUpperCase()) + " is " + esc(idq.hits.map(function (p) { return p.name; }).join(" or ")) + ".</p>";
+    else if (idq) h += '<p class="cnr-sum">No customer known with ID card ' + esc(String(q).trim().toUpperCase()) + ". Try their name or phone.</p>";
+    if (open.length) h += '<p class="cnr-sum cnr-found">' + (names.length === 1 ? esc(names[0]) + " holds " : "") + "<b>" + show(sum(open)) + "</b>" + (names.length === 1 ? "" : " left") + " on " + open.length + (open.length === 1 ? " note" : " notes") + (names.length > 1 ? " (" + names.length + " customers)" : "") + (old.length ? (theirs ? ", and " + show(sum(old)) + " expired" : "; " + show(sum(old)) + " expired on " + (old.length === 1 ? "another note" : "other notes")) : "") + "." + (open.filter(function (cn) { return left(cn) > 0; }).length === 1 ? ' <span class="cnr-hint">Press Enter to use it.</span>' : "") + "</p>";
+    return h;
+  }
   function listHtml() { // what the search narrows: redrawn on its own while typing, so nothing else moves
-    var h = "", q = low(S.q).trim(), match = function (cn) { return !q || [cn.client_name + " " + cn.client_surname, cn.client_surname + " " + cn.client_name, cn.telephone, cn.receipt_number].some(function (v) { return low(v).indexOf(q) >= 0; }); };
+    var h = "", q = low(S.q).trim(), match = matcher(S.q);
     var withMoney = S.entries.filter(function (cn) { return left(cn) > 0; });
-    var open = withMoney.filter(function (cn) { return !expired(cn) && match(cn); }), old = withMoney.filter(function (cn) { return expired(cn) && match(cn); });
-    if (!q) h += '<p class="cnr-sum"><b>' + withMoney.filter(function (cn) { return !expired(cn); }).length + "</b> open, <b>" + eur(withMoney.filter(function (cn) { return !expired(cn); }).reduce(function (t, cn) { return t + left(cn); }, 0)) + "</b> owed to customers.</p>";
+    // m1: the notes that end soonest come first (the ones to tell the customer about); the rest as the server lists them
+    var live = withMoney.filter(function (cn) { return !expired(cn) && match(cn); }), old = withMoney.filter(function (cn) { return expired(cn) && match(cn); });
+    var ending = live.filter(soon).sort(function (a, b) { return daysTo(a.expiry_date) - daysTo(b.expiry_date); }), rest = live.filter(function (cn) { return !soon(cn); }), open = ending.concat(rest);
+    h += q ? foundHtml(S.q, open, old) : holdHtml(withMoney);
     // q5-8: the first 30 notes of the screen, then "Show 30 more"; each next list gets what the one above left of the 30. Counts and the sum are every note.
-    var kp = [S.using, S.undo && S.undo.cn], po = E.listPage.take("cnr:open", open, { q: q, keep: kp }), pe = E.listPage.take("cnr:old", old, { q: q, keep: kp, first: E.listPage.STEP - po.shown });
-    h += '<div class="cnr-lab">Open <b>' + open.length + "</b></div>" + (open.length ? po.rows.map(card).join("") + E.listPage.moreHtml("cnr:open", po, "cnr-btn") : '<div class="cnr-quiet">' + (q ? "No open credit note for “" + esc(S.q) + "”." : "No open credit notes.") + "</div>");
+    var kp = [S.using, S.undo && S.undo.cn], ps = E.listPage.take("cnr:soon", ending, { q: q, keep: kp }), po = E.listPage.take("cnr:open", rest, { q: q, keep: kp, first: E.listPage.STEP - ps.shown }), pe = E.listPage.take("cnr:old", old, { q: q, keep: kp, first: E.listPage.STEP - ps.shown - po.shown });
+    var gone = q ? S.entries.filter(function (cn) { return left(cn) <= 0 && match(cn); }) : [];
+    S.single = open.length + old.length + gone.length === 1; // the only note listed opens by itself
+    // the ones ending soon first, apart (the ones to tell the customer about), then the rest of the open notes
+    if (ending.length) h += '<div class="cnr-lab">Ending within ' + SOON + " days <b>" + ending.length + "</b></div>" + ps.rows.map(card).join("") + E.listPage.moreHtml("cnr:soon", ps, "cnr-btn");
+    if (rest.length || !ending.length) h += '<div class="cnr-lab">' + (ending.length ? "Other open notes" : "Open") + " <b>" + rest.length + "</b></div>" + (rest.length ? po.rows.map(card).join("") + E.listPage.moreHtml("cnr:open", po, "cnr-btn") : '<div class="cnr-quiet">' + (q ? "No open credit note for “" + esc(S.q) + "”." : "No open credit notes.") + "</div>");
     if (old.length) h += '<div class="cnr-lab">Expired with money left <b>' + old.length + "</b></div>" + pe.rows.map(card).join("") + E.listPage.moreHtml("cnr:old", pe, "cnr-btn");
     if (q) { // a search also finds notes used up: a use that took the whole note can be looked at, and undone
-      var gone = S.entries.filter(function (cn) { return left(cn) <= 0 && match(cn); });
-      var pg = E.listPage.take("cnr:gone", gone, { q: q, keep: kp, first: E.listPage.STEP - po.shown - pe.shown }); // was the first 20 only: now all of them, a page at a time
+      var pg = E.listPage.take("cnr:gone", gone, { q: q, keep: kp, first: E.listPage.STEP - ps.shown - po.shown - pe.shown }); // was the first 20 only: now all of them, a page at a time
       if (gone.length) h += '<div class="cnr-lab">Used up <b>' + gone.length + "</b></div>" + pg.rows.map(card).join("") + E.listPage.moreHtml("cnr:gone", pg, "cnr-btn");
     }
     return h;
+  }
+  // Open notes | Issued by month: the same notes two ways (VISUAL cnreg-3); the screen always opens on Open notes.
+  function segHtml() {
+    var v = S.view === "month" ? "month" : "open", b = function (k, t) { return '<button type="button" class="cnr-seg-b" data-act="view" data-v="' + k + '" aria-pressed="' + (v === k) + '">' + t + "</button>"; };
+    return '<div class="cnr-seg" role="group" aria-label="Show">' + b("open", "Open notes") + b("month", "Issued by month") + "</div>";
   }
   function paint(fromState) {
     var m = S.mount; if (!m) return;
@@ -267,11 +384,13 @@
     }
     if (S.loading && !S.entries.length) h += '<div class="cnr-quiet">Opening credit notes…</div>';
     else if (S.error) h += '<div class="cnr-quiet">' + esc(S.error) + "</div>";
+    else if (S.view === "month") h += segHtml();
     else {
-      h += '<input class="cnr-q" id="cnr-q" type="search" aria-label="Find a customer by name, phone or receipt number" aria-controls="cnr-list" placeholder="Customer name, phone or receipt" value="' + esc(S.q) + '">';
+      h += segHtml();
+      h += '<input class="cnr-q" id="cnr-q" type="search" aria-label="Find a customer by name, phone, ID card, receipt or note number" aria-controls="cnr-list" placeholder="Name, phone, ID card, receipt or note no." value="' + esc(S.q) + '">';
       h += '<div id="cnr-list">' + listHtml() + "</div>";
     }
-    h += E.months.history("cnreg", HIST);
+    if (S.view === "month" && !S.error) h += E.months.history("cnreg", HIST); // cnreg-3: a view of its own, not a second list under the notes
     h += (E.correct.can() ? E.correct.foot("", "Deleting a credit note is") : E.correct.foot('Deleting a credit note is in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.')) + "</div>";
     var ae = document.activeElement, sel = ae && m.contains(ae) ? (ae.id === "cnr-q" ? "#cnr-q" : ae.name ? "[name=" + ae.name + "]" : "") : "";
     m.innerHTML = h;
@@ -279,12 +398,43 @@
     E.months.wireHistory(m, "cnreg");
     wireActs(m);
     var qn = m.querySelector("#cnr-q"); if (qn) qn.addEventListener("input", function () { // only the list follows the typing
-      S.q = qn.value; keep(); var L = m.querySelector("#cnr-list"); if (!L) return paint();
+      S.q = qn.value; keep(); lookId(S.q); var L = m.querySelector("#cnr-list"); if (!L) return paint();
       L.innerHTML = listHtml(); wireActs(L); wireForms(L);
+    });
+    // m1: Enter in the search, when it found one note with money left, opens that note's Use with the amount ready
+    if (qn) qn.addEventListener("keydown", function (ev) {
+      if (ev.key !== "Enter" || !String(S.q || "").trim()) return;
+      var m1 = matcher(S.q), one = S.entries.filter(function (cn) { return left(cn) > 0 && !expired(cn) && m1(cn); });
+      if (one.length !== 1) return;
+      ev.preventDefault(); var b = m.querySelector('[data-act=use][data-id="' + one[0].id + '"]'); if (b) b.click();
     });
     wireForms(m);
     m.addEventListener("keydown", onEsc);
     var fa = m.querySelector("#cnr-add"); if (fa) fa.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
+    if (fa) pickPeople(fa);
+  }
+  // m1: people the pharmacy knows, offered as the name is typed (the shared suggestions, E.personPick, as Tickets and
+  // Deliveries do): choosing one fills the phone when it is empty and splits the name into name and surname, the way
+  // an earlier credit note for them was written when there is one. Nothing typed is written over.
+  // With no earlier credit note to go by: the last word is the surname (Maltese surnames are one word: Jean Paul Borg).
+  function splitName(full) { var w = String(full || "").trim().split(/\s+/); return w.length < 2 ? null : { name: w.slice(0, -1).join(" "), surname: w[w.length - 1] }; }
+  function pickPeople(fa) {
+    if (!E.personPick) return;
+    var nm = fa.querySelector("[name=client_name]"); if (!nm) return;
+    var mine = function () { var seen = {}, out = []; S.entries.forEach(function (cn) { var n = (cn.client_name + " " + cn.client_surname).trim(), k = fold(n) + "|" + phoneKey(cn.telephone); if (n && !seen[k]) { seen[k] = 1; out.push({ name: n, phone: cn.telephone, date: cn.issue_date, from: "credit note", cn: cn }); } }); return out; };
+    try {
+      E.personPick.attach({ key: "cnreg", form: fa, fields: { name: "client_name", phone: "telephone" }, local: mine, onFill: function (x) {
+        if (!x || !x.person || x.field !== "name") return;
+        var c = x.person, sur = fa.querySelector("[name=client_surname]"), name = fa.querySelector("[name=client_name]");
+        var was = S.entries.filter(function (cn) { var full = fold(cn.client_name + " " + cn.client_surname); return full === fold(c.name) || fold(cn.client_surname + " " + cn.client_name) === fold(c.name); })[0];
+        var sp = was ? { name: was.client_name, surname: was.client_surname } : splitName(c.name);
+        if (!sp || !sur || !name) return;
+        var sv = String(sur.value).trim();
+        if (!sv) { sur.value = sp.surname; name.value = sp.name; }
+        else if (fold(sv) === fold(sp.surname)) name.value = sp.name; // the surname was typed first: the name alone goes in Name
+        keep();
+      } });
+    } catch (e) {}
   }
   function wireForms(root) {
     var fu = root.querySelector("#cnr-use"); if (fu) fu.addEventListener("submit", function (ev) { ev.preventDefault(); use(); });
@@ -306,7 +456,12 @@
         if (act === "back") window.location.hash = E.ui2BackHash("cnreg");
         else if (act === "add") { S.adding = { issue_date: today() }; S.using = null; S.err = ""; paint(true); setTimeout(function () { var f = m.querySelector("[name=client_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); }
-        else if (act === "use") { S.using = Number(b.getAttribute("data-id")); S.draft = {}; S.err = ""; S.adding = null; S.undo = null; paint(true); setTimeout(function () { var f = m.querySelector("#cnr-use [name=amount]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
+        else if (act === "view") { keep(); S.view = b.getAttribute("data-v") === "month" ? "month" : "open"; paint(true); focusBtn('[data-act=view][data-v="' + S.view + '"]'); }
+        else if (act === "open") { var oid = b.getAttribute("data-id"), was = b.getAttribute("aria-expanded") === "true"; keep();
+          if (was) { if (String(S.open) === oid) S.open = null; if (S.single) S.closed = oid; if (String(S.using) === oid) { S.using = null; S.err = ""; } if (S.noting && String(S.noting.cn) === oid && !S.noting.busy) S.noting = null; }
+          else { S.open = oid; if (String(S.closed) === oid) S.closed = null; }
+          paint(true); focusBtn('[data-act=open][data-id="' + oid + '"]'); }
+        else if (act === "use") { S.open = b.getAttribute("data-id"); S.using = Number(b.getAttribute("data-id")); S.draft = {}; S.err = ""; S.adding = null; S.undo = null; paint(true); setTimeout(function () { var f = m.querySelector("#cnr-use [name=amount]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (act === "all") { var cn = S.entries.find(function (x) { return x.id === S.using; }); keep(); S.draft.amount = cn ? left(cn).toFixed(2) : ""; paint(true); }
         else if (act === "cancel") { S.using = null; S.err = ""; paint(true); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "cnreg"); } catch (x) {} E.openClassic("creditnotes"); }
@@ -462,7 +617,7 @@
 
   E.registerModule({
     id: "cnreg", title: "Credit notes", order: 3, icon: "€", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; E.listPage.reset("cnr"); S.using = null; S.undo = null; S.noting = null; S.rmNote = null; S.adding = null; S.err = ""; S.q = ""; E.months.historyReset("cnreg"); E.correct.reset("cnreg"); css(); paint(); return E.takeOpenForm("cnreg", S.mount, load(), { btn: "[data-act=add]", form: "#cnr-add" }); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; E.listPage.reset("cnr"); S.using = null; S.undo = null; S.noting = null; S.rmNote = null; S.adding = null; S.err = ""; S.q = ""; S.open = null; S.closed = null; S.id = null; S.view = "open"; E.months.historyReset("cnreg"); E.correct.reset("cnreg"); css(); paint(); return E.takeOpenForm("cnreg", S.mount, load(), { btn: "[data-act=add]", form: "#cnr-add" }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("cnreg") < 0) E.UI2_DESTINATIONS.push("cnreg");
   if (E.UI2_PARENT) E.UI2_PARENT.cnreg = "money";

@@ -103,7 +103,7 @@
     money: {
       title: "Money", lead: "How the pharmacy is doing, the till, and what it owes or holds for others.",
       groups: [
-        { label: "How we're doing", ids: ["ownreg"] }, // the pharmacist in charge only (adminOnly)
+        { label: "", ids: ["ownreg"] }, // the pharmacist in charge only (adminOnly); no label: it would only repeat the card's own name (Visual QA money 2)
         { label: "Till", ids: ["endofday", "paidout", "emergency-pos"] },
         { label: "Customers and locums", ids: ["creditnotes", "locumreceipts"] } // was "Owed": a locum receipt is money paid, not owed
       ]
@@ -161,6 +161,7 @@
       "@media (max-width:600px){.hub{padding:4px 16px 0}.hub h1{font-size:32px;margin-top:8px}.hub-grid{display:block;background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".hub-card{border:0;border-radius:0;min-height:0;padding:12px 40px 12px 16px;border-top:.5px solid var(--border)}.hub-card:first-child{border-top:0}.hub-card b{font-size:16px;font-weight:600}.hub-card span{font-size:13px}}" +
       ".hub-note{font-size:13px;color:var(--muted2,#8A94A3)}" +
+      ".hub-gap{height:14px}" + // a group with no label (Money: How we're doing) keeps the rhythm of the others
       // Services: group names in sentence case like its screens (the other hubs keep theirs until their owners move them)
       ".hub[data-hub=services] .hub-lab{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none}";
     document.head.appendChild(st);
@@ -182,7 +183,8 @@
       var html = '<div class="hub" data-hub="' + esc(id) + '"><h1>' + esc(cfg.title) + '</h1><p class="lead">' + esc(cfg.lead) + '</p>' +
         (id === "settings" ? '<div id="hub-wn-slot"></div>' : "") +
         (id === "stock" ? '<div id="stk-slot" class="stk"></div><h2 class="hub-lab stk-all">Every stock screen</h2>' : ""); // d-stock: the day's ordering first (modules.stkflow.js), every screen under it
-      if (id === "registers") html += '<div id="rgt-slot"></div><h2 class="rgt-all">Every register</h2>'; // regs-hub: what is due today first (eikon.regtoday.js), every register under it; a heading like "Today" above it, not a section label
+      if (id === "registers") html += '<div id="rgt-slot"></div><h2 class="rgt-all">Every register</h2>';
+      if (id === "money") html += '<div id="mny-slot"></div><h2 class="mny-all">Everything in Money</h2>'; // money-hub: what is left to close and what the till holds today first (eikon.moneytoday.js), every money screen under it // regs-hub: what is due today first (eikon.regtoday.js), every register under it; a heading like "Today" above it, not a section label
       cfg.groups.forEach(function (g, gi) {
         var cards = "";
         (g.ids || []).forEach(function (mid) {
@@ -196,7 +198,7 @@
           cards += '<button class="hub-card" data-action="' + gi + ":" + ai + '"><b>' + esc(a.title) + (a.dot ? '<span class="nxh-dot nxh-card-dot" data-wn-dot hidden><span class="nxh-sr">, something new</span></span>' : "") + '</b><span>' + esc(a.desc) + '</span></button>';
         });
         if (!cards) return;
-        html += '<div class="hub-sec' + (g.phoneOnly ? " hub-phone" : "") + '"><h2 class="hub-lab">' + esc(g.label) + '</h2><div class="hub-grid">' + cards + '</div></div>';
+        html += '<div class="hub-sec' + (g.phoneOnly ? " hub-phone" : "") + '">' + (g.label ? '<h2 class="hub-lab">' + esc(g.label) + '</h2>' : '<div class="hub-gap"></div>') + '<div class="hub-grid">' + cards + '</div></div>';
       });
       html += '</div>';
       m.innerHTML = html;
@@ -205,6 +207,7 @@
       });
       if (id === "stock") { var slot = m.querySelector("#stk-slot"); if (slot && E.stockFlow) E.stockFlow.render(slot); } // drawn by modules.stkflow.js when it arrives otherwise
       if (id === "registers") { var rs = m.querySelector("#rgt-slot"); if (rs && E.regToday) E.regToday.render(rs); } // drawn by eikon.regtoday.js when it arrives otherwise
+      if (id === "money") { var ms = m.querySelector("#mny-slot"); if (ms && E.moneyToday) E.moneyToday.render(ms); } // drawn by eikon.moneytoday.js when it arrives otherwise
       if (id === "settings" && E.helpSettings) E.helpSettings(m); // What's new (eikon.help.js, loaded just after the first screen)
       m.querySelectorAll("[data-action]").forEach(function (b) {
         b.addEventListener("click", function () {

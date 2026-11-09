@@ -70,6 +70,7 @@
     ], "", []],
 
     ["money", "money", "Money", "How the pharmacy is doing, the till, and what it owes or holds for others.", [
+      ["What is left today", "Today's money, at the top, says what is left to do: today's end of day, and an earlier day never closed or never locked, first.", "It also shows the takings so far once the X readings are in, what was paid from the till, what the emergency till sold (and any sale still waiting on this device), and what customers hold on credit notes, with those that expire within 30 days.", "Each line has one button, Close the day or Open: it opens that screen, on the right day for an earlier end of day. Days saved but not locked are one line: open the first, lock it, then the next.", "Under a card a short line says when something needs a look, such as Closed today, Saturday 7 Nov not closed or 2 notes end within 30 days."],
       ["How we're doing", "Takings against the week or month before, what needs you, hours and the month-end reports (the pharmacist in charge)."],
       ["Till", "End of day, Paid out and Emergency POS."],
       ["Customers and locums", "Credit notes and Locum receipts."]
@@ -234,7 +235,8 @@
     ], "", []],
 
     ["poreg", "money", "Paid out", "Money paid from the till: couriers, cleaners, small suppliers.", [
-      ["Record a payment", "Press New payment.", "Fill in who it was paid to, the amount, cash or cheque, and what for.", "Press Save payment."],
+      ["Record a payment", "Press New payment.", "Tap a name under Paid recently, or type who it was paid to.", "Fill in the amount, cash or cheque, and what for. Enter saves."],
+      ["See the totals", "Today's total and the month's are at the top, with how many payments."],
       ["Correct a payment (the pharmacist)", "Press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."],
       ["At closing", "Paid out is counted in End of day."]
@@ -277,11 +279,13 @@
 
     ["cnreg", "money", "Credit notes", "Money customers have with you, and what is left of it.", [
       ["Give a credit note", "Press New credit note.", "Fill in the name, surname, phone, amount and receipt no.", "Press Save credit note."],
-      ["Use a credit note", "Press Use on the customer's note and type what they spend, or press Use all."],
-      ["Put back a use made by mistake (the pharmacist)", "Find the note: a search also finds notes used up.", "Press Undo on the use, then Undo the use."],
-      ["Correct a note (the pharmacist)", "Press Correct on the note.", "Change what was wrong and say why, then press Save correction."],
-      ["Print a note, or write on it", "Press Print on the customer's note for its page.", "Press Add a note, type it and press Save note. The pharmacist can press Remove on a note, then Remove the note."],
-      ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
+      ["Find what a customer holds", "Type their name, phone, ID card, receipt or the note's number (it is on the printed page).", "The line above the notes says what they hold. Tap a note to open it."],
+      ["Use a credit note", "Open the customer's note and press Use.", "Type what they spend, or press Use all.", "When the search found one note, Enter opens its Use."],
+      ["See what is ending", "At the top: what you hold for customers, what ends within 30 days and what expired with money left.", "Notes ending within 30 days are listed first, soonest at the top."],
+      ["Put back a use made by mistake (the pharmacist)", "Find the note: a search also finds notes used up. Tap it to open it.", "Press Undo this use, then press Undo the use."],
+      ["Correct a note (the pharmacist)", "Open the note and press Correct.", "Change what was wrong and say why, then press Save correction."],
+      ["Print a note, or write on it", "Open the customer's note and press Print for its page.", "Press Add a note, type it and press Save note. The pharmacist can press Remove on a note, then Remove the note."],
+      ["Read and print a month", "Press Issued by month.", "Change month with ‹ and ›.", "Press Print."]
     ], "Deleting a credit note is in the classic screen.", []],
 
     ["lrcreg", "money", "Locum receipts", "What each locum was paid, ready to print and sign.", [
@@ -333,10 +337,12 @@
     ], "Stock, batches and expiry, the vaccine database and printed tables are in the classic screen.", []],
 
     ["eodreg", "money", "End of day", "Close the till: X readings, cash, cheques and the bank bag.", [
-      ["Close the day", "Check the day, staff, shift and float at the top; press Change to change them.", "Add an X reading for each till, then count the cash.", "Add any cheques, EPOS lines and paid outs.", "Press Save and lock when it balances, or Save to finish later."],
+      ["Close the day", "Check the day, staff, shift and float at the top; press Change to change them.", "Step 1: add an X reading for each till, and any EPOS lines, cheques and paid outs. Press Use them to add the Paid out register's cash paid outs. The emergency till is not part of the end of day.", "Step 2: count the notes and the coins.", "Step 3 says if the cash is over or short, and what to check. Write what you found in Notes.", "Press Save and lock when it balances, or Save to finish later."],
+      ["Yesterday not closed", "A note at the top says when the day before is not locked or nothing was saved. Press Close yesterday to open it."],
+      ["See past days", "Past days lists each day of the month: locked, not locked or not closed, with its difference. Choose a day to open it. Change month with ‹ and ›."],
       ["Print the day", "Press Print on A4."],
       ["Send the bag to the bank", "Fill in the bag number and choose the contact.", "Press Copy for the bank email, then paste it into the email."],
-      ["Print the month", "Press Print with the month's name. Choose a day in another month to print that one."],
+      ["Print the month", "Under Past days, choose the month and press Print."],
       ["Correct a locked day (the pharmacist)", "Open the locked day. Press Correct this day to write what was wrong.", "Press Unlock to correct.", "Change what was wrong, then press Save and lock."],
       ["From Today", "Press Close the day on Today at closing time."]
     ], "A date-range report across months, the audit log and managing bank contacts are in the classic screen.", [["X reading", "the till's total for the day so far, printed by the till."]]],
@@ -404,12 +410,14 @@
     ], "The map view, its score and limit filters and the complementary-items filter are in the classic screen.", []],
 
     ["eposreg", "money", "Emergency POS", "Sell when the main till is down. A sale with no connection waits on this device and is sent when it is back.", [
-      ["Make a sale", "Find each product and add it to the basket.", "Choose Cash, Card or Other.", "Press Take with the amount."],
-      ["Cash given", "Press Exact, or type what the customer gave to see the change."],
+      ["Make a sale", "Find each product, or tap it under Sold most today, and it goes in the basket.", "Choose Cash, Card or Other.", "Press Take with the amount. Sale saved shows the change to hand back."],
+      ["Cash given", "Tap the note the customer gave, press Exact, or type what they gave to see the change."],
+      ["Today's total", "Today so far, at the top, is the day's total and how many sales."],
+      ["Past days", "Under Sales by day, change month with ‹ and ›, then tap a day to see its sales and totals."],
       ["Cancel a sale", "Open the sale in the day's list, press Void, then Void sale."],
       ["No connection", "Keep selling. The sales are sent when the connection is back."],
       ["No products yet", "Press Import the product list."]
-    ], "Scanning with the camera, photo search, setting a barcode per line, importing a new product list or clearing it, and printing the day’s receipts are in the classic screen.", []],
+    ], "Camera scanning, photo search, a barcode per line, a new or cleared product list and the day’s receipts are in the classic screen.", []],
 
     ["calreg", "services", "Pharmacy calculators", "Dosing plans and the tablets or insulin to dispense, for one patient. The calculations, the saved plan and the printout are the same as on the classic screen.", [
       ["Make a plan", "Choose Levothyroxine, Steroid taper, Warfarin, Insulin supply or Methotrexate.", "Fill in the doses and dates."],

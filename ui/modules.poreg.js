@@ -45,6 +45,7 @@
   function nowHm() { var d = new Date(); return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
   function dayLabel(s) { if (s === today()) return "Today"; var p = String(s).split("-"); return Number(p[2]) + " " + MON[Number(p[1]) - 1]; }
   function eur(n) { return "€" + (Number(n) || 0).toFixed(2); }
+  function show(n) { return E.eur ? E.eur(Number(n) || 0) : eur(n); } // on screen only (thousands comma); saved bodies and prints never use it
   function money(raw) { var s = String(raw || "").replace(/[€\s]/g, "").replace(",", "."); return /^\d+(\.\d{1,2})?$/.test(s) && Number(s) > 0 ? Number(s) : null; } // a comma, as some keyboards type it
 
   function css() {
@@ -59,7 +60,10 @@
       ".por-btn{font:inherit;font-size:14px;font-weight:600;height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
       ".por-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.por-btn:disabled{opacity:.55;cursor:default}" +
       ".por-sum{display:flex;gap:10px;margin-top:16px}.por-sum div{flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 14px}" +
-      ".por-sum small{display:block;font-size:12px;color:var(--muted)}.por-sum b{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}" +
+      ".por-sum small{display:block;font-size:12px;color:var(--muted)}.por-sum i{display:block;font-style:normal;font-size:12.5px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums}" +
+      ".por-chips{display:flex;gap:8px;flex-wrap:wrap;padding:10px 14px;border-top:.5px solid var(--border)}.por-chips>span{flex-basis:100%;font-size:12.5px;color:var(--muted)}" +
+      ".por-chip{font:inherit;font-size:14px;font-weight:600;min-height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.por-chip:hover{border-color:var(--accent)}.por-chip[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}" +
+      ".por-sum b{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}" +
       ".por-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 2px 7px;display:flex;justify-content:space-between}.por-lab b{color:var(--text);font-variant-numeric:tabular-nums}" +
       ".por-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".por-row{display:flex;gap:12px;align-items:center;padding:10px 16px;border-top:.5px solid var(--border)}.por-row:first-child{border-top:0}" +
@@ -71,7 +75,8 @@
       ".por-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end}" +
       ".por-err{color:var(--danger);font-size:13.5px;padding:4px 14px}.por [aria-invalid=true]{box-shadow:inset 0 -2px 0 var(--danger)}" +
       ".por-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
-      "@media (max-width:600px){.por{padding:4px 16px 0}.por h1{font-size:32px}.por-btn{height:44px;border-radius:22px;padding:0 18px}.por-seg button{height:40px}}";
+      ".por .ecr-btn{border:0;background:none;min-height:44px;padding:0 8px;border-radius:8px}" +
+      "@media (max-width:600px){.por{padding:4px 16px 76px}.por-top .por-btn.p{position:fixed;right:16px;bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:6;height:48px;border-radius:24px;padding:0 22px;font-size:16px;box-shadow:0 6px 18px rgba(0,0,0,.18)}.por h1{font-size:32px}.por-btn{height:44px;border-radius:22px;padding:0 18px}.por-seg button{height:40px}.por-chip{min-height:44px;border-radius:22px}.por-form input,.por-form select{min-height:44px;box-sizing:border-box}}";
     document.head.appendChild(st);
   }
 
@@ -89,6 +94,8 @@
     try { var r = await E.apiFetch("/paid-out/names", { method: "GET" }); S.names = (r && r.ok && r.names) || []; } catch (e) { S.names = []; }
     // only the suggestion list changes: redrawing the form here could swallow a tap on Record that lands at the same moment
     var dl = S.mount && S.mount.querySelector("#por-names"); if (dl) dl.innerHTML = S.names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("");
+    var f = S.mount && S.mount.querySelector("#por-add"), ch = f && f.querySelector(".por-chips"), lab = f && f.querySelector("label");
+    if (f && S.adding && !ch && lab) { lab.insertAdjacentHTML("afterend", chipsHtml(S.adding)); wireChips(f); } // only the chips appear: nothing typed is touched
   }
 
   function paint(fromState) {
@@ -101,8 +108,8 @@
     if (S.adding) {
       var a = S.adding;
       h += '<form class="por-form" id="por-add" autocomplete="off">' +
-        '<label><span>Paid to</span><input name="payee_name" list="por-names" value="' + esc(a.payee_name) + '" placeholder="Who"></label>' +
-        '<label><span>Amount €</span><input name="fee" inputmode="decimal" value="' + esc(a.fee) + '" placeholder="0.00"></label>' +
+        '<label><span>Paid to</span><input name="payee_name" list="por-names" value="' + esc(a.payee_name) + '" placeholder="Who"></label>' + chipsHtml(a) +
+        '<label><span>Amount €</span><input name="fee" inputmode="decimal" value="' + esc(a.fee) + '" placeholder="' + esc(a.lastFee ? "Last time " + eur(a.lastFee) : "0.00") + '"></label>' +
         '<label><span>How</span><div class="por-seg"><button type="button" data-m="cash" aria-pressed="' + (a.payment_method !== "cheque") + '" class="' + (a.payment_method !== "cheque" ? "on" : "") + '">Cash</button><button type="button" data-m="cheque" aria-pressed="' + (a.payment_method === "cheque") + '" class="' + (a.payment_method === "cheque" ? "on" : "") + '">Cheque</button></div></label>' +
         (a.payment_method === "cheque" ? '<label><span>Cheque no.</span><input name="cheque_no" value="' + esc(a.cheque_no) + '"></label>' : "") +
         '<label><span>Invoice no.</span><input name="invoice_no" value="' + esc(a.invoice_no) + '" placeholder="Optional"></label>' +
@@ -118,14 +125,16 @@
     else if (S.error) h += '<div class="por-quiet">' + esc(S.error) + "</div>";
     else {
       var tdy = S.entries.filter(function (e) { return e.entry_date === today(); }), sum = function (l) { return l.reduce(function (t, e) { return t + (Number(e.fee) || 0); }, 0); };
-      h += '<div class="por-sum">' + (E.months.isNow(S.month) ? "<div><small>Today</small><b>" + eur(sum(tdy)) + "</b></div>" : "") + "<div><small>" + esc(mn) + "</small><b>" + eur(sum(S.entries)) + "</b></div></div>";
+      var chq = S.entries.filter(function (e) { return String(e.payment_method || "").toLowerCase() === "cheque"; });
+      h += '<div class="por-sum">' + (E.months.isNow(S.month) ? "<div><small>Today</small><b>" + show(sum(tdy)) + "</b><i>" + count(tdy.length) + "</i></div>" : "") +
+        "<div><small>" + esc(mn) + "</small><b>" + show(sum(S.entries)) + "</b><i>" + count(S.entries.length) + "</i>" + (chq.length ? "<i>" + show(sum(chq)) + " by cheque</i>" : "") + "</div></div>";
       if (!S.entries.length) h += '<div class="por-quiet" data-empty>' + esc(E.months.empty(S.month, "Nothing paid out this month.")) + "</div>";
       var days = []; S.entries.forEach(function (e) { if (days.indexOf(e.entry_date) < 0) days.push(e.entry_date); });
       days.forEach(function (d) {
         var list = S.entries.filter(function (e) { return e.entry_date === d; });
-        h += '<div class="por-lab"><span>' + esc(dayLabel(d)) + "</span><b>" + eur(sum(list)) + '</b></div><div class="por-list">' + list.map(function (e) {
-          var sub = [e.entry_time, e.payment_method === "cheque" ? "Cheque" + (e.cheque_no ? " " + e.cheque_no : "") : "Cash"]; if (e.invoice_no) sub.push("Invoice " + e.invoice_no); if (e.reason) sub.push(e.reason);
-          return '<div class="por-row"><div class="t"><b>' + esc(e.payee_name) + "</b><span>" + esc(sub.join(" · ")) + "</span>" + E.correct.mark("poreg", e) + "</div><em>" + eur(e.fee) + "</em>" +
+        h += '<div class="por-lab"><span>' + esc(dayLabel(d)) + "</span>" + (list.length > 1 ? "<b>" + show(sum(list)) + "</b>" : "") + '</div><div class="por-list">' + list.map(function (e) {
+          var sub = e.reason ? [e.reason] : []; sub.push(e.entry_time, e.payment_method === "cheque" ? "cheque" + (e.cheque_no ? " " + e.cheque_no : "") : "cash"); if (e.invoice_no) sub.push("invoice " + e.invoice_no);
+          return '<div class="por-row"><div class="t"><b>' + esc(e.payee_name) + "</b><span>" + esc(sub.join(" · ")) + "</span>" + E.correct.mark("poreg", e) + "</div><em>" + show(e.fee) + "</em>" +
             E.correct.button("poreg", e, eur(e.fee) + " to " + e.payee_name + ", " + dayLabel(e.entry_date)) + "</div>" + E.correct.panel("poreg", e, FIX);
         }).join("") + "</div>";
       });
@@ -141,8 +150,10 @@
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "poreg"); } catch (x) {} E.openClassic("paidout"); }
       });
     });
+    wireChips(m);
     m.querySelectorAll(".por-seg [data-m]").forEach(function (b) { b.addEventListener("click", function () { keep(); S.adding.payment_method = b.getAttribute("data-m"); paint(true); }); });
     var f = m.querySelector("#por-add"); if (f) f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
+    var pn = m.querySelector("#por-add [name=payee_name]"); if (pn) pn.addEventListener("change", typedPayee);
     E.correct.wire(m, "poreg", FIX);
     E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; E.correct.reset("poreg"); load(); }, paint: function () { paint(); }, print: printMonth });
   }
@@ -163,6 +174,51 @@
           foot: ["Subtotal", "", f2(sub), "", "", "", ""] };
       }) : [{ cols: cols, rows: [] }] });
   }
+
+  function count(n) { return n === 1 ? "1 payment" : n + " payments"; }
+  // Paid recently: the people paid most lately (this month's list first, then every name the pharmacy has paid), one tap
+  // fills who, and from their last payment how and what for (only boxes still empty); the amount is only suggested.
+  function recent() {
+    var out = [], seen = {};
+    S.entries.concat(S.names.map(function (n) { return { payee_name: n }; })).forEach(function (e) {
+      var n = String(e.payee_name || "").trim(), k = n.toLowerCase(); if (!n || seen[k] || out.length >= 6) return; seen[k] = 1; out.push(e.id ? e : { payee_name: n });
+    });
+    return out;
+  }
+  function chipsHtml(a) {
+    var r = recent(); if (!r.length) return "";
+    return '<div class="por-chips" role="group" aria-labelledby="por-chips-l"><span id="por-chips-l">Paid recently</span>' + r.map(function (e, i) {
+      var on = String(a.payee_name || "").toLowerCase() === String(e.payee_name).toLowerCase();
+      return '<button type="button" class="por-chip" data-chip="' + i + '" aria-pressed="' + on + '">' + esc(e.payee_name) + "</button>";
+    }).join("") + "</div>";
+  }
+  function lastOf(name) { var k = String(name || "").trim().toLowerCase(), hit = null; if (!k) return null; S.entries.forEach(function (e) { if (!hit && String(e.payee_name || "").trim().toLowerCase() === k) hit = e; }); return hit; }
+  // Typed or picked from the suggestions: a payee paid this month fills like a tap on Paid recently, without moving the cursor.
+  function typedPayee() {
+    var a = S.adding; if (!a) return; keep();
+    var e = lastOf(a.payee_name); if (!e || a.lastFee === Number(e.fee)) return;
+    var before = { r: a.reason, m: a.payment_method }; fillFrom(a, e);
+    setTimeout(function () {
+      var ae = document.activeElement, nm = ae && S.mount.contains(ae) && ae.name, cur = null;
+      try { cur = nm && typeof ae.selectionStart === "number" ? ae.selectionStart : null; } catch (x) {}
+      if (before.r === a.reason && before.m === a.payment_method) { var fe = S.mount.querySelector("#por-add [name=fee]"); if (fe) fe.placeholder = "Last time " + eur(a.lastFee); return; } // nothing else changed: no redraw
+      keep(); paint(true);
+      var back = nm && S.mount.querySelector("#por-add [name=" + nm + "]"); if (back) { back.focus(); if (cur != null) try { back.setSelectionRange(cur, cur); } catch (x) {} }
+    }, 0);
+  }
+  function fillFrom(a, e) {
+    a.lastFee = Number(e.fee) || 0;
+    if (!a.reason && e.reason) a.reason = String(e.reason);
+    if (!a.fee && !a.cheque_no && !a.invoice_no) a.payment_method = String(e.payment_method || "").toLowerCase() === "cheque" ? "cheque" : "cash";
+  }
+  function pickChip(i) {
+    keep(); var e = recent()[i], a = S.adding; if (!e || !a) return;
+    a.payee_name = String(e.payee_name).trim(); a.lastFee = 0;
+    if (e.id) fillFrom(a, e);
+    S.err = ""; paint(true); var f = S.mount.querySelector("#por-add [name=fee]"); if (f) f.focus();
+  }
+
+  function wireChips(root) { root.querySelectorAll("[data-chip]").forEach(function (b) { b.addEventListener("click", function () { pickChip(Number(b.getAttribute("data-chip"))); }); }); }
 
   function keep() {
     var f = S.mount && S.mount.querySelector("#por-add"); if (!f || !S.adding) return;
@@ -198,10 +254,13 @@
         var now = null; try { now = (await monthList()).filter(same).length; } catch (e1) { throw x0; }
         if (now <= had) throw x0;
       }
-      S.adding = null; E.toast("Saved · " + eur(fee) + " paid out to " + a.payee_name, "success");
+      S.adding = null; S.next = true; // the form closes; New payment has the cursor, so Enter starts the next one
+      E.toast("Saved · " + eur(fee) + " paid out to " + a.payee_name, "success");
       if (a.entry_date.slice(0, 7) !== S.month) S.month = a.entry_date.slice(0, 7);
     } catch (x) { S.err = E.saveFailText(x); }
-    S.saving = false; return load();
+    S.saving = false; var nx = S.next && !S.adding; S.next = false;
+    await load();
+    if (nx && !S.adding) { var nb = S.mount && S.mount.querySelector("[data-act=add]"); if (nb && !(document.activeElement && S.mount.contains(document.activeElement) && document.activeElement.matches("input,select,textarea"))) nb.focus({ preventScroll: true }); }
   }
 
   E.registerModule({

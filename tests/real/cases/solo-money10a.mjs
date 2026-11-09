@@ -26,7 +26,7 @@ export default {
     await p.fill("#cn-search, input[placeholder*='Search']", "R-10A1").catch(() => {});
     await p.click(`text=Żammit`); await p.waitForSelector("#cn-print-cn");
     const classic = await grab(() => p.click("#cn-print-cn"));
-    await t.open(p, "2", "creditnotes", "cnreg", `[data-act=print][data-id="${id}"]`);
+    await t.open(p, "2", "creditnotes", "cnreg", "#cnr-q"); await p.fill("#cnr-q", "#" + id); await p.waitForSelector(`[data-act=print][data-id="${id}"]`); // m1: the note found by its number opens by itself
     const fresh = await grab(() => p.click(`[data-act=print][data-id="${id}"]`));
     const c1 = classic.replace(PRINTED, ""), f1 = fresh.replace(PRINTED, "");
     t.ok(classic.length > 1500 && c1 === f1, "print: the new screen's page is the classic one, byte for byte (but the time printed)" + (c1 === f1 ? "" : ` (classic ${c1.length} chars, new ${f1.length})`));
@@ -45,7 +45,7 @@ export default {
     const cNote = t.since(N, n0)[0], cAud = auditSince(a0, "CREDITNOTE_NOTE_ADD")[0];
     // new add
     n0 = t.maxId(N); a0 = aMax();
-    await t.open(p, "2", "creditnotes", "cnreg", `[data-act=note][data-id="${id}"]`);
+    await t.open(p, "2", "creditnotes", "cnreg", "#cnr-q"); await p.fill("#cnr-q", "#" + id); await p.waitForSelector(`[data-act=note][data-id="${id}"]`); // m1: the note found by its number opens by itself
     await p.click(`[data-act=note][data-id="${id}"]`); await p.waitForSelector("#cnr-note [name=note_text]");
     await p.fill("#cnr-note [name=note_text]", "  Called, will come Friday  ");
     await t.write(p, new RegExp(`/creditnotes/entries/${id}/notes$`), () => p.press("#cnr-note [name=note_text]", "Enter"));
@@ -64,7 +64,7 @@ export default {
     await t.write(p, new RegExp(`/notes/${cNote.id}$`), () => p.click(`[data-cn-del-note='${cNote.id}']`), "DELETE");
     const cDel = auditSince(a0, "CREDITNOTE_NOTE_DELETE")[0];
     a0 = aMax();
-    await t.open(p, "2", "creditnotes", "cnreg", `[data-act=rmnote][data-nid="${nNote.id}"]`);
+    await t.open(p, "2", "creditnotes", "cnreg", "#cnr-q"); await p.fill("#cnr-q", "#" + id); await p.waitForSelector(`[data-act=rmnote][data-nid="${nNote.id}"]`); // m1: the note found by its number opens by itself
     await p.click(`[data-act=rmnote][data-nid="${nNote.id}"]`); await p.waitForSelector("[data-act=rmnote-yes]");
     const askTxt = (await p.textContent(".cnr-ask")).replace(/\s+/g, " ");
     await t.write(p, new RegExp(`/notes/${nNote.id}$`), () => p.click("[data-act=rmnote-yes]"), "DELETE");

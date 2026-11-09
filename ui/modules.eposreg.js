@@ -23,11 +23,12 @@
     mount: null, catalog: [], catLoading: false, catNote: "", cart: [], payment: { method: "cash", tendered: "" }, discount: 0,
     q: "", sales: [], date: "", salesLoading: false, salesErr: "", salesSeq: 0, saving: false, err: "", attempt: null, inflight: {},
     syncing: false, syncErr: "", done: null, askClear: false, voidId: null, voidReason: "", voiding: false, voidErr: "", open: null, said: "",
-    imp: { busy: false, msg: "", err: "" }
+    imp: { busy: false, msg: "", err: "" }, month: "", days: [], daysSeq: 0, daysLoading: false, daysErr: ""
   };
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
   function eur(n) { return "€" + fmt2(n); }
+  function show(n) { return E.eur ? E.eur(Number(n) || 0) : eur(n); } // on screen only (thousands comma); never in a sale body
 
   // ---- the classic screen's helpers and sums, unchanged (modules.emergencypos.js) ----
   function pad2(n) { return String(n).padStart(2, "0"); }
@@ -154,13 +155,23 @@
     S.catLoading = false;
   }
   async function loadSales() {
-    var seq = ++S.salesSeq, date = S.date; S.salesLoading = true; S.salesErr = "";
+    var seq = ++S.salesSeq, date = S.date; if (!date) { S.sales = []; S.salesLoading = false; return; } S.salesLoading = true; S.salesErr = "";
     try {
       var r = await E.apiFetch("/emergency-pos/sales?date=" + encodeURIComponent(date), { method: "GET" });
       if (seq !== S.salesSeq) return;
       S.sales = (r && Array.isArray(r.sales)) ? r.sales : [];
     } catch (e) { if (seq !== S.salesSeq) return; S.salesErr = e && e.network ? "The sales cannot be read: no connection." : "The sales could not be read: " + String((e && e.message) || e); }
     S.salesLoading = false;
+    E.whenFormIdle(S.mount, paint);
+  }
+  async function loadDays() {
+    var seq = ++S.daysSeq, ym = S.month; S.daysLoading = true; S.daysErr = "";
+    try {
+      var r = await E.apiFetch("/emergency-pos/days?month=" + encodeURIComponent(ym), { method: "GET" });
+      if (seq !== S.daysSeq) return;
+      S.days = (r && Array.isArray(r.days)) ? r.days : [];
+    } catch (e) { if (seq !== S.daysSeq) return; S.days = []; if (e && Number(e.status) === 404) { S.daysOff = true; S.daysLoading = false; return E.whenFormIdle(S.mount, paint); } S.daysErr = e && e.network ? "The month cannot be read: no connection." : "The month could not be read: " + String((e && e.message) || e); }
+    S.daysLoading = false;
     E.whenFormIdle(S.mount, paint);
   }
   async function syncPending() {
@@ -239,10 +250,13 @@
     }
     if (outcome === "saved") removePending([sale.offline_id]);
     S.cart = []; S.payment = { method: "cash", tendered: "" }; S.discount = 0; saveCart(); S.attempt = null; S.saving = false;
+    if (S.date !== todayYmd()) { var wasMonth = S.month; S.date = todayYmd(); S.month = S.date.slice(0, 7); S.open = null; S.voidId = null; S.sales = []; if (wasMonth !== S.month) { S.days = []; loadDays(); } } // the register shows the day the sale went to
     S.done = { total: sale.total, change: sale.change_given, method: payMethod, receipt: sale.receipt_no, queued: outcome === "queued" };
     S.said = (outcome === "queued" ? "No connection: sale of " : "Sale saved: ") + eur(sale.total) + (payMethod === "cash" ? ", change " + eur(change) : "") + (outcome === "queued" ? ", waiting on this device." : ".");
     E.toast(S.said, outcome === "queued" ? "warning" : "success");
-    S.q = ""; paint(); focus("#epr-q");
+    S.q = ""; paint();
+    var dn = window.matchMedia && window.matchMedia("(max-width:600px)").matches && S.mount.querySelector("[data-done]");
+    if (dn) { dn.focus({ preventScroll: true }); dn.scrollIntoView({ block: "center" }); } else focus("#epr-q"); // a phone shows the change to hand back; a counter keeps the scanner box ready
     loadSales();
   }
 
@@ -263,7 +277,7 @@
     var st = document.createElement("style");
     st.id = "eikon-eposreg-css";
     st.textContent =
-      ".epr{max-width:1180px;margin:0 auto;padding-bottom:8px}" +
+      ".epr{max-width:880px;margin:0 auto;padding-bottom:8px}" +
       ".epr [hidden]{display:none!important}" +
       ".epr-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 12px 0 0;min-height:44px;margin:-8px 0 2px;cursor:pointer}" +
       ".epr h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.epr-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
@@ -275,7 +289,7 @@
       ".epr-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       ".epr-wait{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;padding:12px 14px;border-radius:12px;background:var(--warn-soft,rgba(201,138,18,.13));color:var(--text);font-size:14px}" +
       ".epr-wait b{color:var(--warn,#8A5A08)}.epr-wait .t{flex:1;min-width:200px}" +
-      ".epr-grid{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:18px;align-items:start;margin-top:16px}" +
+      ".epr-grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:18px;align-items:start;margin-top:16px}" +
       ".epr-card{background:var(--panel2);border:1px solid var(--border);border-radius:14px}" +
       ".epr-find{padding:14px}.epr-q{width:100%;box-sizing:border-box;height:46px;border-radius:12px;border:1px solid var(--border);background:var(--bg,transparent);color:var(--text);font-size:17px;padding:0 14px;outline:0}" +
       ".epr-q:focus{border-color:var(--accent)}" +
@@ -324,11 +338,26 @@
       ".epr-vbox{padding:0 14px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}.epr-vbox input{flex:1;min-width:160px;height:36px;box-sizing:border-box;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--text);font-size:15px;padding:0 10px}" +
       ".epr-vbox input:focus{border-color:var(--accent);outline:0}.epr-vbox .q{flex-basis:100%;font-size:14px}" +
       ".epr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:18px;color:var(--muted);margin-top:10px;font-size:14px}" +
+      ".epr-today{display:inline-flex;align-items:center;gap:8px;margin-top:10px;padding:0 16px;border-radius:22px;min-height:44px;background:var(--panel2);border:1px solid var(--border);font-size:14px;color:var(--muted);text-decoration:none;box-sizing:border-box}" +
+      ".epr-today b{color:var(--text);font-size:17px;font-variant-numeric:tabular-nums}" +
+      ".epr-picks{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:10px}" +
+      ".epr-pick{display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:4px;min-height:64px;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--text);text-align:left;cursor:pointer}" +
+      ".epr-pick:hover{border-color:var(--accent)}.epr-pick b{font-size:14.5px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}.epr-pick em{font-style:normal;font-size:14px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}" +
+      ".epr-picks-l{font-size:12.5px;color:var(--muted);margin:12px 4px 0}" +
+      ".epr-notes{display:flex;gap:6px;margin-top:8px}.epr-notes button{flex:1;height:40px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:15px;font-weight:600;cursor:pointer;font-variant-numeric:tabular-nums}" +
+      ".epr-done h3{margin:0;font-size:20px;font-weight:800;letter-spacing:-.01em}.epr-done p{margin:4px 0 0}" +
+      ".epr-done .c{font-size:34px}" +
+      ".epr-sum1{margin:4px 4px 0;font-size:14px;color:var(--muted);line-height:1.6}.epr-sum1 b{color:var(--text);font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}" +
+      ".epr-month{display:flex;justify-content:space-between;align-items:baseline;margin:12px 2px 8px;font-size:14px;color:var(--muted)}.epr-month b{font-size:20px;color:var(--text);font-variant-numeric:tabular-nums}" +
+      ".epr-days{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}.epr-day{border-top:.5px solid var(--border)}.epr-day:first-child{border-top:0}" +
+      ".epr-dayb{display:flex;width:100%;align-items:center;gap:12px;text-align:left;border:0;background:none;color:var(--text);padding:12px 16px;min-height:52px;cursor:pointer}" +
+      ".epr-dayb .t{flex:1;min-width:0}.epr-dayb b{display:block;font-size:15px;font-weight:600}.epr-dayb .t span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}.epr-dayb em{font-style:normal;font-weight:700;font-variant-numeric:tabular-nums;font-size:16px}" +
+      ".epr-dayb:hover{background:rgba(118,118,128,.08)}.epr-day.on>.epr-dayb{background:rgba(118,118,128,.1)}.epr-dayin{padding:4px 12px 14px}" +
       ".epr-note{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.5}" +
       ".epr :focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:2px}" +
       "@media (max-width:900px){.epr-grid{grid-template-columns:minmax(0,1fr)}.epr-bask{position:static}.epr-sum{grid-template-columns:repeat(2,minmax(0,1fr))}.epr-sum .tt{grid-column:1/-1}}" +
       "@media (max-width:600px){.epr{padding:4px 16px 0}.epr h1{font-size:30px}.epr-f>label{flex-basis:100%}.epr-big b{font-size:34px}" +
-      ".epr-btn,.epr-seg button,.epr-f input,.epr-lab input{min-height:44px}.epr-qty button{width:44px;height:44px;border-radius:22px}.epr-qty input{height:44px}.epr-qty .x{width:auto}}" +
+      ".epr-btn,.epr-seg button,.epr-f input,.epr-lab input{min-height:44px}.epr-qty button{width:44px;height:44px;border-radius:22px}.epr-qty input{height:44px}.epr-qty .x{width:auto}.epr-notes button{min-height:44px}.epr-pick{min-height:72px}.epr-picks{grid-template-columns:repeat(2,minmax(0,1fr))}}" +
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .epr-seg button.on{color:#00160E}" +
       "html[data-ui2]:not([data-ui2-visit]) :is(.epr-err,.epr-btn.red,.epr-qty .x,.epr-vd){color:#FF7A72}" +
       "html[data-ui2]:not([data-ui2-visit]) .epr-wait b{color:#FFB340}html[data-ui2]:not([data-ui2-visit]) .epr-hit:hover{background:rgba(118,118,128,.2)}}";
@@ -339,7 +368,7 @@
     if (S.catLoading && !S.catalog.length) return '<div class="epr-hint">Opening the product list…</div>';
     if (!S.catalog.length) return importHtml();
     var list = filteredCatalog();
-    if (!S.q) return '<div class="epr-hint">' + S.catalog.length + " products. Type a name or a barcode, or scan into this box, then Enter.</div>";
+    if (!S.q) return '<div class="epr-hint">' + S.catalog.length + " products. Type a name or a barcode, or scan into this box, then Enter.</div>" + picksHtml();
     if (!list.length) return '<div class="epr-hint">No product matches “' + esc(S.q) + "”.</div>";
     return list.slice(0, HITS).map(function (p, i) {
       return '<button type="button" class="epr-hit' + (i === 0 ? " on" : "") + '" data-act="add" data-i="' + i + '" data-k="hit:' + i + '"><div class="t"><b>' + esc(p.name) + "</b><span>" +
@@ -372,6 +401,7 @@
     h += '<form class="epr-pay" id="epr-pay" autocomplete="off"><div class="epr-seg" role="group" aria-label="Payment">' +
       [["cash", "Cash"], ["card", "Card"], ["other", "Other"]].map(function (m) { return '<button type="button" data-act="method" data-m="' + m[0] + '" data-k="m:' + m[0] + '" class="' + (S.payment.method === m[0] ? "on" : "") + '" aria-pressed="' + (S.payment.method === m[0]) + '">' + m[1] + "</button>"; }).join("") + "</div>";
     if (cash) h += '<div class="epr-f"><label for="epr-tend">Cash handed €</label><input id="epr-tend" data-k="tendered" inputmode="decimal" placeholder="0.00" value="' + esc(S.payment.tendered) + '"><button type="button" class="epr-btn" data-act="exact" data-k="exact">Exact</button></div>' +
+      notesHtml(t.total) +
       '<div class="epr-chg"><span>Change</span><b data-b="change">' + eur(Math.max(0, round2((parseFloat(S.payment.tendered) || 0) - t.total))) + "</b></div>";
     h += '<div class="epr-f"><label for="epr-disc">Discount %</label><input id="epr-disc" data-k="discount" inputmode="decimal" placeholder="0, up to 10" value="' + esc(S.discount ? String(S.discount) : "") + '"></div>';
     if (S.err) h += '<div class="epr-err" role="alert">' + esc(S.err) + "</div>";
@@ -383,8 +413,40 @@
   }
   function doneHtml() { // the sale just taken, with the change to hand back
     var d = S.done;
-    return '<div class="epr-done' + (d.queued ? " q" : "") + '">' + (d.queued ? "No connection. The sale of <b>" + eur(d.total) + "</b> waits on this device and is sent when the connection is back." : "Saved: <b>" + eur(d.total) + "</b> " + esc(d.method) + " · " + esc(d.receipt)) +
+    return '<div class="epr-done' + (d.queued ? " q" : "") + '" data-done data-k="done" tabindex="-1">' + (d.queued ? "<h3>Sale kept on this device</h3><p>No connection. The sale of <b>" + eur(d.total) + "</b> waits here and is sent when the connection is back.</p>" : "<h3>Sale saved</h3><p><b>" + eur(d.total) + "</b> " + esc(d.method) + " · " + esc(d.receipt) + "</p>") +
       (d.method === "cash" && d.change != null ? '<span class="c">Change ' + eur(d.change) + "</span>" : "") + "</div>";
+  }
+
+  // Notes the customer may hand over: the next ones at or above the total, one tap fills the cash handed.
+  function notesHtml(total) {
+    var l = [5, 10, 20, 50, 100].filter(function (n) { return n + 0.005 >= total && n > total + 0.005; }).slice(0, 3);
+    if (!l.length) return "";
+    return '<div class="epr-notes" role="group" aria-label="Cash handed, one tap">' + l.map(function (n) { return '<button type="button" data-act="note" data-n="' + n + '" data-k="note:' + n + '">€' + n + "</button>"; }).join("") + "</div>";
+  }
+  // Big buttons for what sells most today (from today's list, already read), or the whole list when it is short.
+  function picks() {
+    if (S.q || !S.catalog.length) return { l: [] };
+    var tally = {}, order = [];
+    if (S.date === todayYmd()) S.sales.forEach(function (s) { if (s.voided === 1) return; itemsOf(s).forEach(function (x) { var k = norm(x.barcode); if (!k) return; if (!tally[k]) { tally[k] = 0; order.push(k); } tally[k] += 1; }); });
+    var out = order.sort(function (a, b) { return tally[b] - tally[a]; }).map(function (k) { return findProduct(k); }).filter(Boolean).slice(0, 6);
+    if (out.length) return { l: out, say: "Sold most today, tap to add" };
+    return { l: S.catalog.length <= 12 ? S.catalog.slice() : [], say: "Tap to add" };
+  }
+  function picksHtml() {
+    var r = picks(), l = r.l; if (!l || !l.length) return "";
+    return '<div class="epr-picks-l" id="epr-picks-l">' + r.say + '</div><div class="epr-picks" role="group" aria-labelledby="epr-picks-l">' +
+      l.map(function (p) { return '<button type="button" class="epr-pick" data-act="pick" data-bc="' + esc(p.barcode) + '" data-k="pick:' + esc(p.barcode) + '"><b>' + esc(p.name) + "</b><em>" + eur(p.price) + "</em></button>"; }).join("") + "</div>";
+  }
+  function todayLine() {
+    var t = todayYmd(), tot = 0, n = 0;
+    if (S.date === t) {
+      if (S.salesErr || (!S.sales.length && S.salesLoading)) return "";
+      var live = S.sales.filter(function (s) { return s.voided !== 1; }); n = live.length; tot = live.reduce(function (a, s) { return a + (Number(s.total) || 0); }, 0);
+    } else { // another day is open: today's row of the month read, when it is this month
+      if (!E.months.isNow(S.month) || S.daysLoading) return "";
+      (S.days || []).forEach(function (d) { if (d.sale_date === t) { n = Number(d.sales) || 0; tot = Number(d.total) || 0; } });
+    }
+    return '<a class="epr-today" href="#epr-day-l" data-act="to-sales">Today so far <b data-b="todaytop">' + show(tot) + "</b> " + n + (n === 1 ? " sale" : " sales") + "</a>";
   }
 
   function itemsOf(s) { try { var a = JSON.parse(s.items_json || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
@@ -392,23 +454,55 @@
     var s = String(ts || ""); if (!s) return ""; var d = new Date(/T|Z/.test(s) ? s : s.replace(" ", "T") + "Z"); if (isNaN(d.getTime())) return "";
     return pad2(d.getHours()) + ":" + pad2(d.getMinutes());
   }
+  // The register: the month bar, then a row per day with sales (today first, always there), each with its total;
+  // the open day shows its totals by payment and its sales. Day totals come from one grouped read per month
+  // (/emergency-pos/days); the open day's own numbers are added from its list, as before.
+  var MON = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  function dayName(d) { // "Today · Mon 9 Nov", "Tuesday 3 November"
+    var p = String(d).split("-"), w = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])), DAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    if (d === todayYmd()) return "Today · " + DAY[w.getDay()].slice(0, 3) + " " + Number(p[2]) + " " + MON[Number(p[1]) - 1].slice(0, 3);
+    return DAY[w.getDay()] + " " + Number(p[2]) + " " + MON[Number(p[1]) - 1];
+  }
   function salesHtml() {
-    var isToday = S.date === todayYmd();
-    var h = '<div class="epr-lab"><span>' + (isToday ? "Today’s sales" : "Sales on " + esc(S.date)) + '</span><label><span class="epr-sr">Day</span><input type="date" id="epr-day" data-k="day" max="' + esc(todayYmd()) + '" value="' + esc(S.date) + '"></label></div>';
+    if (S.daysOff) { // a server without the month read: one day at a time, as before
+      return '<div class="epr-lab"><span id="epr-day-l" tabindex="-1">' + (S.date === todayYmd() ? esc(dayName(S.date)) : "Sales on " + esc(dayName(S.date))) + '</span><label><span class="epr-sr">Day</span><input type="date" id="epr-day" data-k="day" max="' + esc(todayYmd()) + '" value="' + esc(S.date) + '"></label></div>' + dayBody();
+    }
+    var h = '<div class="epr-lab"><span id="epr-day-l" tabindex="-1">Sales by day</span></div>' + E.months.bar(S.month, { label: "Emergency POS sales", print: false });
+    var days = (S.days || []).slice(), t = todayYmd();
+    if (S.date && S.date.slice(0, 7) === S.month) { // the open day's row from its own list (fresh after each sale)
+      var live = S.sales.filter(function (x) { return x.voided !== 1; }), row = null;
+      days.forEach(function (d) { if (d.sale_date === S.date) row = d; });
+      if (!row) { row = { sale_date: S.date }; days.push(row); }
+      if (!S.salesLoading || S.sales.length) { row.sales = live.length; row.total = live.reduce(function (a, x) { return a + (Number(x.total) || 0); }, 0); row.voided = S.sales.length - live.length; }
+    }
+    if (E.months.isNow(S.month) && !days.some(function (d) { return d.sale_date === t; })) days.push({ sale_date: t, sales: 0, total: 0 });
+    days.sort(function (a, b) { return String(b.sale_date).localeCompare(String(a.sale_date)); });
+    if (S.daysErr && !days.length) return h + '<div class="epr-quiet">' + esc(S.daysErr) + ' <button type="button" class="epr-btn" data-act="reload-days">Try again</button></div>';
+    if (S.daysLoading && !days.length) return h + '<div class="epr-quiet">Opening the month…</div>';
+    if (!days.length) return h + '<div class="epr-quiet" data-empty>' + esc(E.months.empty(S.month)) + "</div>";
+    var mt = days.reduce(function (a, d) { return a + (Number(d.total) || 0); }, 0), mn = days.reduce(function (a, d) { return a + (Number(d.sales) || 0); }, 0);
+    h += '<div class="epr-month"><span>' + esc(MON[Number(S.month.slice(5)) - 1]) + ", " + mn + (mn === 1 ? " sale" : " sales") + '</span><b data-b="monthtotal">' + show(mt) + "</b></div>";
+    h += '<div class="epr-days">' + days.map(function (d) {
+      var open = d.sale_date === S.date, n = Number(d.sales) || 0;
+      return '<div class="epr-day' + (open ? " on" : "") + '"><button type="button" class="epr-dayb" data-act="day" data-d="' + esc(d.sale_date) + '" data-k="day:' + esc(d.sale_date) + '" aria-expanded="' + open + '"><span class="t"><b>' + esc(dayName(d.sale_date)) + "</b><span>" + (n ? n + (n === 1 ? " sale" : " sales") : "No sales") + (Number(d.voided) ? " · " + d.voided + " voided" : "") + "</span></span><em" + (open ? ' data-b="daytotal"' : "") + ">" + show(d.total) + "</em></button>" +
+        (open ? '<div class="epr-dayin">' + dayBody() + "</div>" : "") + "</div>";
+    }).join("") + "</div>";
+    return h;
+  }
+  function dayBody() {
+    var h = "";
     if (S.salesErr) return h + '<div class="epr-quiet">' + esc(S.salesErr) + ' <button type="button" class="epr-btn" data-act="reload">Try again</button></div>';
     if (S.salesLoading && !S.sales.length) return h + '<div class="epr-quiet">Opening the sales…</div>';
-    if (!S.sales.length) return h + '<div class="epr-quiet">No sales on this day.</div>'; // no row of €0.00 boxes
+    if (!S.sales.length) return h + '<div class="epr-quiet">' + (S.date === todayYmd() ? "No sales yet today." : "No sales on this day.") + "</div>"; // no row of €0.00 boxes
     var live = S.sales.filter(function (s) { return s.voided !== 1; });
     var sum = function (l, k) { return l.reduce(function (t, s) { return t + (Number(s[k]) || 0); }, 0); }; // as the classic day report adds them
     var by = function (m) { return sum(live.filter(function (s) { return String(s.payment_method || "") === m; }), "total"); };
-    h += '<div class="epr-sum"><div class="tt"><small>Total, ' + live.length + (live.length === 1 ? " sale" : " sales") + '</small><b data-b="daytotal">' + eur(sum(live, "total")) + "</b></div>" +
-      '<div><small>Cash</small><b data-b="daycash">' + eur(by("cash")) + '</b></div><div><small>Card</small><b data-b="daycard">' + eur(by("card")) + '</b></div><div><small>Other</small><b data-b="dayother">' + eur(by("other")) + "</b></div>" +
-      '<div><small>VAT included</small><b data-b="dayvat">' + eur(sum(live, "vat_total")) + "</b></div></div>";
+    h += '<p class="epr-sum1">' + (S.daysOff ? 'Total <b data-b="daytotal">' + show(sum(live, "total")) + "</b> · " : "") + 'Cash <b data-b="daycash">' + show(by("cash")) + '</b> · card <b data-b="daycard">' + show(by("card")) + '</b> · other <b data-b="dayother">' + show(by("other")) + '</b> · VAT included <b data-b="dayvat">' + show(sum(live, "vat_total")) + "</b></p>";
     h += '<div class="epr-list">' + S.sales.map(function (s) {
       var it = itemsOf(s), vd = s.voided === 1, open = S.open === s.id;
       var names = it.slice(0, 3).map(function (x) { return x.name; }).join(", ") + (it.length > 3 ? " +" + (it.length - 3) + " more" : "");
       var r = '<div class="epr-s' + (vd ? " vd" : "") + '"><div class="epr-sr2"><button type="button" class="epr-sb" data-act="open" data-id="' + s.id + '" data-k="open:' + s.id + '" aria-expanded="' + open + '"><div class="t"><b>' + esc(hm(s.created_at)) + " · " + esc(s.payment_method || "") + "</b><span>" + esc(names || s.receipt_no) + "</span></div><em>" + eur(s.total) + "</em></button>" +
-        (vd ? '<span class="epr-vd">Voided</span>' : (S.voidId === s.id ? "" : '<button type="button" class="epr-btn red" data-act="void" data-id="' + s.id + '" data-k="void:' + s.id + '" aria-label="Void sale ' + esc(s.receipt_no) + '">Void</button>')) + "</div>";
+        (vd ? '<span class="epr-vd">Voided</span>' : (S.voidId === s.id ? "" : '<button type="button" class="epr-btn" data-act="void" data-id="' + s.id + '" data-k="void:' + s.id + '" aria-label="Void sale ' + esc(s.receipt_no) + '">Void</button>')) + "</div>";
       if (open) {
         r += '<div class="epr-det">' + it.map(function (x) { return "<div><span>" + esc(fmtQty(x.qty) + " × " + x.name) + "</span><span>" + eur(x.line_total) + "</span></div>"; }).join("") +
           '<div class="m"><span>Subtotal</span><span>' + eur(s.subtotal) + '</span></div><div class="m"><span>VAT included</span><span>' + eur(s.vat_total) + "</span></div><div><b>Total</b><b>" + eur(s.total) + "</b></div>" +
@@ -432,15 +526,15 @@
     if (E.state.activeModuleId !== "eposreg") return; // left before a reply came back: do not draw over the next screen
     var wait = pending(), waitTot = wait.reduce(function (t, s) { return t + (Number(s && s.total) || 0); }, 0);
     var h = '<div class="epr"><button class="epr-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("eposreg")) + '</button>' +
-      '<h1>Emergency POS</h1><p class="epr-sub">Sell when the main till is down. A sale with no connection waits on this device and is sent when it is back.</p>';
-    if (wait.length) h += '<div class="epr-wait" role="status"><div class="t"><b>' + wait.length + (wait.length === 1 ? " sale is" : " sales are") + " waiting on this device</b> (" + eur(waitTot) + "), not yet on the server." + (S.syncErr ? " " + esc(S.syncErr) : "") + "</div>" +
+      '<h1>Emergency POS</h1><p class="epr-sub">Sell when the main till is down. A sale with no connection waits on this device and is sent when it is back.</p>' + todayLine();
+    if (wait.length) h += '<div class="epr-wait" role="status"><div class="t"><b>' + wait.length + (wait.length === 1 ? " sale" : " sales") + " waiting to send</b> (" + eur(waitTot) + "). They send by themselves when the connection is back." + (S.syncErr ? " " + esc(S.syncErr) : "") + "</div>" +
       '<button type="button" class="epr-btn" data-act="sync" data-k="sync"' + (S.syncing ? " disabled" : "") + ">" + (S.syncing ? "Sending…" : "Send now") + "</button></div>";
     if (S.catNote) h += '<div class="epr-wait" role="status"><div class="t">' + esc(S.catNote) + "</div></div>";
     h += '<div class="epr-grid"><section class="epr-card epr-find" aria-label="Find a product"><label class="epr-sr" for="epr-q">Find a product by name or barcode</label>' +
       '<input type="search" id="epr-q" class="epr-q" data-k="q" placeholder="Name or barcode, then Enter" autocomplete="off" value="' + esc(S.q) + '" aria-controls="epr-hits">' +
       '<div class="epr-hits" id="epr-hits">' + hitsHtml() + "</div></section>" + basketHtml() + "</div>";
     h += salesHtml();
-    h += '<p class="epr-note">Scanning with the camera, photo search, setting a barcode per line, importing a new product list or clearing it, and printing the day’s receipts are in the <a href="#" data-act="classic">classic screen</a>.</p>' +
+    h += '<p class="epr-note">Camera scanning, photo search, a barcode per line, a new or cleared product list and the day’s receipts are in the <a href="#" data-act="classic">classic screen</a>.</p>' +
       '<div class="epr-sr" role="status" aria-live="polite" id="epr-said">' + esc(S.said) + "</div></div>";
     var ae = document.activeElement, back = ae && m.contains(ae) && ae.getAttribute ? ae.getAttribute("data-k") : null, caret = null;
     if (back) try { caret = typeof ae.selectionStart === "number" ? ae.selectionStart : null; } catch (e) { caret = null; }
@@ -455,7 +549,7 @@
   function emptyNote(on) { try { if (on) localStorage.setItem(emptyKey(), "1"); else localStorage.removeItem(emptyKey()); } catch (e) {} }
   function importHtml() {
     var I = S.imp;
-    return '<div class="epr-hint"><b>No products yet.</b> Import the product list from an Excel or CSV file: one column with the product name, and, if you have them, barcode, price, VAT, category and unit.</div>' +
+    return '<div class="epr-hint"><b>To sell, import the product list once.</b> An Excel or CSV file: one column with the product name, and, if you have them, barcode, price, VAT, category and unit.</div>' +
       '<div class="epr-hint" role="status" id="epr-imp-said">' + esc(I.msg) + "</div>" + (I.err ? '<div class="epr-err" role="alert">' + esc(I.err) + "</div>" : "") +
       '<div style="padding:8px 4px 4px"><button type="button" class="epr-btn p" data-act="import" data-k="import"' + (I.busy ? " disabled" : "") + ">" + (I.busy ? "Importing…" : "Import the product list") + "</button></div>";
   }
@@ -583,27 +677,36 @@
       });
     });
     root.querySelectorAll("[data-act=classic]").forEach(function (a) { a.addEventListener("click", classic); });
+    root.querySelectorAll("[data-act=pick]").forEach(function (b) { b.addEventListener("click", function () { if (S.saving) return; var p = findProduct(b.getAttribute("data-bc")); if (p) { addToCart(p, 1, null); added(p); } }); });
   }
   function classic(ev) { if (ev) ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "eposreg"); } catch (x) {} E.openClassic("emergency-pos"); }
 
   function wire(m) {
     m.querySelectorAll("[data-act]").forEach(function (b) {
-      var act = b.getAttribute("data-act"); if (act === "add") return;
+      var act = b.getAttribute("data-act"); if (act === "add" || act === "pick") return;
       b.addEventListener("click", function (ev) {
         var id = b.getAttribute("data-id");
-        if (S.saving && /^(inc|dec|rm|method|exact|clear|clear-yes)$/.test(act)) return; // the basket being saved is not changed under it
+        if (S.saving && /^(inc|dec|rm|method|exact|note|clear|clear-yes)$/.test(act)) return; // the basket being saved is not changed under it
         if (act === "back") window.location.hash = E.ui2BackHash("eposreg");
         else if (act === "classic") classic(ev);
         else if (act === "inc") { keep(); changeQty(id, 1); S.err = ""; paint(); }
         else if (act === "dec") { keep(); var l = lineById(id); if (l && l.qty > 1) changeQty(id, -1); S.err = ""; paint(); }
         else if (act === "rm") { keep(); removeFromCart(id); S.err = ""; paint(); }
         else if (act === "method") { keep(); S.payment.method = b.getAttribute("data-m"); saveCart(); S.err = ""; paint(); if (S.payment.method === "cash") focus('[data-k="tendered"]'); }
+        else if (act === "note") { keep(); S.payment.tendered = fmt2(Number(b.getAttribute("data-n"))); saveCart(); S.err = ""; paint(); focus('[data-k="take"]'); }
+        else if (act === "to-sales") {
+          ev.preventDefault();
+          if (S.date !== todayYmd()) { S.date = todayYmd(); S.open = null; S.voidId = null; S.sales = []; paint(); loadSales(); }
+          var dl = S.mount.querySelector("#epr-day-l"); if (dl) { dl.scrollIntoView({ block: "start" }); dl.focus(); }
+        }
         else if (act === "exact") { keep(); S.payment.tendered = fmt2(cartTotals().total); saveCart(); S.err = ""; paint(); }
         else if (act === "clear") { keep(); S.askClear = true; paint(); focus('[data-k="clear-no"]'); }
         else if (act === "clear-no") { S.askClear = false; paint(); focus("#epr-q"); }
         else if (act === "clear-yes") { S.askClear = false; clearCart(); S.err = ""; S.attempt = null; paint(); focus("#epr-q"); }
         else if (act === "sync") syncPending();
         else if (act === "reload") loadSales();
+        else if (act === "reload-days") loadDays();
+        else if (act === "day") { keep(); var dd = b.getAttribute("data-d"); S.open = null; S.voidId = null; if (S.date === dd) { S.date = ""; S.sales = []; paint(); } else { S.date = dd; S.sales = []; paint(); loadSales(); } }
         else if (act === "open") { keep(); S.open = S.open === Number(id) ? null : Number(id); paint(); }
         else if (act === "void") { keep(); S.voidId = Number(id); S.voidReason = ""; S.voidErr = ""; paint(); focus("#epr-vr"); }
         else if (act === "void-no") { var vid = S.voidId; S.voidId = null; S.voidErr = ""; paint(); focus('[data-k="void:' + vid + '"]'); }
@@ -641,6 +744,8 @@
     var f = m.querySelector("#epr-pay"); if (f) f.addEventListener("submit", function (ev) { ev.preventDefault(); take(); });
     var day = m.querySelector("#epr-day");
     if (day) day.addEventListener("change", function () { if (!/^\d{4}-\d{2}-\d{2}$/.test(day.value)) return; S.date = day.value; S.open = null; S.voidId = null; S.sales = []; paint(); loadSales(); });
+    E.months.wire(m, { month: function () { return S.month; }, paint: function () { paint(); },
+      go: function (ym) { S.month = ym; S.days = []; S.open = null; S.voidId = null; S.sales = []; S.date = E.months.isNow(ym) ? todayYmd() : ""; paint(); loadDays(); loadSales(); } });
     var vr = m.querySelector("#epr-vr");
     if (vr) vr.addEventListener("input", function () { S.voidReason = vr.value; });
     if (vr) vr.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); doVoid(S.voidId); } });
@@ -659,14 +764,14 @@
 
   async function load() {
     S.salesLoading = true; paint();
-    await Promise.all([loadCatalog().then(function () { E.whenFormIdle(S.mount, paint); }), loadSales()]);
+    await Promise.all([loadCatalog().then(function () { E.whenFormIdle(S.mount, paint); }), loadSales(), loadDays()]);
     if (pending().length) syncPending(); // as the classic screen does when it opens
   }
 
   E.registerModule({
     id: "eposreg", title: "Emergency POS", order: 3, icon: "€", ui2Only: true,
     render: function (ctx) {
-      S.mount = ctx && ctx.mount; S.date = todayYmd(); S.q = ""; S.err = ""; S.done = null; S.askClear = false; S.voidId = null; S.voidErr = ""; S.open = null; S.said = ""; S.syncErr = "";
+      S.mount = ctx && ctx.mount; S.date = todayYmd(); S.month = S.date.slice(0, 7); S.days = []; S.daysErr = ""; E.months.reset(); S.q = ""; S.err = ""; S.done = null; S.askClear = false; S.voidId = null; S.voidErr = ""; S.open = null; S.said = ""; S.syncErr = "";
       if (!S.saving) { loadCart(); S.attempt = null; }
       if (!S.catalog.length) { var c = lsGet(LS.CATALOG); if (Array.isArray(c)) S.catalog = c; } // something to search at once; the server's list follows
       css(); paint(); focus("#epr-q"); return load();

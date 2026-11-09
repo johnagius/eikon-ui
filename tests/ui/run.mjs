@@ -2684,7 +2684,7 @@ try {
   const eodRefused = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT").length === 0 && eodState.rec.staff === "Karl";
   await page.click("[data-act=mine]"); await page.waitForFunction(() => !document.querySelector(".eod-note.dn") && !document.querySelector("[data-act=save][disabled]"), null, { timeout: 8000 });
   report("end of day: opens from #endofday; short by €0.70 as typed (commas); one whole-record PUT with staff/staff_name and bov_deposit aligned, no locked_at; a save from another till in between is refused until 'Save mine over theirs'",
-    eodOu === "Short by €0.70" && eodDep === "5" && eodPuts.length === 1 && e0.staff === "Maria" && e0.staff_name === "Maria" && e0.float_amount === "100.00" && e0.x[0].amount === "500.40" && e0.paid_outs[0].amount === "12.50" &&
+    eodOu === "€0.70 short" && eodDep === "5" && eodPuts.length === 1 && e0.staff === "Maria" && e0.staff_name === "Maria" && e0.float_amount === "100.00" && e0.x[0].amount === "500.40" && e0.paid_outs[0].amount === "12.50" &&
     e0.cash.coins_total === "117.10" && e0.deposit.n50 === 5 && e0.bov_deposit.n50 === 5 && e0.deposit.n20 === 1 && e0.deposit.n500 === 0 && e0.bag_number === "B-7" && e0.bov_bag_number === "B-7" && !("locked_at" in e0) && e0.action === "SAVE" &&
     eodRefused && eodState.rec.staff === "Maria B", JSON.stringify({ eodOu, eodDep, n: eodPuts.length, e0, eodRefused, now: eodState.rec && eodState.rec.staff }));
 } catch (e) { report("end of day: ran to the end", false, String(e).slice(0, 300)); }
@@ -2747,7 +2747,7 @@ try {
   report("money screens: a new day names who is signed in; Save and the over/under stay in reach on a phone; a missing value puts the cursor in its box (marked, announced, nothing sent); the credit-note search redraws only its list; an empty basket has no payment buttons; hub groups in plain words",
     !!mStaff && mStaff === mWho && mReach0 && mReach1 && mEod.name === "float_amount" && mEod.inv === "true" && mEod.by === "eod-err" && /Write the float/.test(mEod.alert) && mEodPuts === 0 &&
     mPo.name === "payee_name" && mPo.inv === "true" && /Write who was paid/.test(mPo.alert) && mPo.fee === "4" && mPo.pressed === "true" && mPoPosts === 0 &&
-    mCn.kept === "kept" && mCn.none && mCn.focus === "cnr-q" && !!mCn.label && mCnUse.name === "amount" && mCnUse.inv === "true" && !mPos0 && mPos1 && mHub === "How we're doing|Till|Customers and locums" && !mExp.jargon && mExp.btn === "Download spreadsheet",
+    mCn.kept === "kept" && mCn.none && mCn.focus === "cnr-q" && !!mCn.label && mCnUse.name === "amount" && mCnUse.inv === "true" && !mPos0 && mPos1 && mHub === "Till|Customers and locums" && !mExp.jargon && mExp.btn === "Download spreadsheet",
     JSON.stringify({ mStaff, mWho, mReach0, mReach1, mEod, mEodPuts, mPo, mPoPosts, mCn, mCnUse, mPos0, mPos1, mHub, mExp }));
 } catch (e) { report("money screens: ran to the end", false, String(e).slice(0, 300)); }
 await page.setViewportSize({ width: 1440, height: 900 }).catch(() => {});
@@ -2857,7 +2857,7 @@ try {
   const e2 = await page.evaluate(() => ({ day: !!document.querySelector("#eod-day"), staff: (document.querySelector("[name=staff]") || {}).value, focus: document.activeElement.id }));
   report("end of day: day/staff/shift/float are one summary line with Change, so Tab from it lands on X reading 1; Enter goes to the next amount (remarks skipped) and after the last to Save, never saving; 'Nothing counted yet' (not a green Exact) until a figure; untouched, the save sends the signed-in name, the shift by Malta time and the float shown",
     e0.line === "Today · Maria Borg · " + SH + " · float €1000.00" && !e0.day && !e0.staff && e0.ou === "Nothing counted yet" && e0.cls === "" && e0.bar === "Nothing counted yet" &&
-    tab1 === "row:x:0:amount" && ent1 === "row:epos:0:amount" && ent2 === "row:cheques:0:amount" && entLast === "save" && /^Short by/.test(e1.ou) && putsBefore === 0 &&
+    tab1 === "row:x:0:amount" && ent1 === "row:epos:0:amount" && ent2 === "row:cheques:0:amount" && entLast === "save" && / short$/.test(e1.ou) && putsBefore === 0 &&
     ePut.staff === "Maria Borg" && ePut.staff_name === "Maria Borg" && ePut.time_of_day === SH && ePut.float_amount === "1000.00" && ePut.x[0].amount === "500.00" && ePut.date === todayYmd &&
     e2.day && e2.staff === "Maria Borg" && e2.focus === "eod-day",
     JSON.stringify({ e0, tab1, ent1, ent2, entLast, e1, putsBefore, ePut: { staff: ePut.staff, tod: ePut.time_of_day, f: ePut.float_amount, x: ePut.x }, e2 }));
