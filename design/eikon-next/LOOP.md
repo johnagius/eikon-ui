@@ -1092,3 +1092,11 @@ All of it waits only on the worker deploy.
 
 - All four departments John chose are now live: Owner's view (.167), Customers & messaging (.167), Stock & ordering (.168), Bookings as the full appointment system (.166 + .168).
 - Restore point 00000bb2-00000000-00005119-68bdf9813a05ae612d0c1d05d46cadac; deployed 10:36 UTC (1232.30 KiB / gzip 209.53 KiB); /health batch-8 (first probe hit the old instance mid-rollout, then batch-8 ×4); signed-out 401s on new routes; old-address 302. GitHub push needed a retry (500 from GitHub).
+
+## Round 153 — Registers & inspection (2026-11-09)
+Six agents (Director, Visual QA, regs-hub, cd, daily, inspect), scoped e2e per section, one integration run.
+Shipped: worker batch-9 `037b5f34` (additive: /registers/today, /registers/signoffs + table, /dda-register/medicines + /ledger;
+restore point 00000ea6-…-5c31fd442efef3937c9eee106bc5fc2a), UI .169 on main 57834a7.
+Checks: UI 499/0, real 67/70 then the 3 rerun green (focus fixed; stock6a, solo-q61keep timing), worker 252/0,
+predeploy 10/10 (55,307 rows unchanged, rollback ok, /today 27 reads). John: CD differences amber only; no month lock;
+inspection pack for all staff; sign-off reminder until signed.

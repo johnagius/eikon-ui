@@ -13,7 +13,8 @@ does not: it changes only when someone runs `wrangler deploy`.
 
 | | Version | Cloudflare version id |
 |---|---|---|
-| Live now (2026-11-04 10:36 UTC) | `2026-11-04-batch-8`: Stock & ordering flow (stock_flow_* tables), Bookings full system (4 additive bk_bookings columns); UI .168 | `1c2dfcb9-efa9-487e-854d-a24e3a699717` |
+| Live now (2026-11-09 09:59 UTC) | `2026-11-09-batch-9`: Registers & inspection — GET /registers/today, GET+POST /registers/signoffs (new table), GET /dda-register/medicines + /ledger (read-only); UI .169 | `037b5f34-9311-49e5-9f80-7827cfb9c24d` |
+| Before that (2026-11-04 10:36 UTC) | `2026-11-04-batch-8`: Stock & ordering flow (stock_flow_* tables), Bookings full system (4 additive bk_bookings columns); UI .168 | `1c2dfcb9-efa9-487e-854d-a24e3a699717` |
 | Before that (09:18 UTC) | `2026-11-04-batch-7`: owner's view (/owner/*, read-only) and customers & messaging (cust_* tables); UI .167 | `89570a1b-a3bb-4061-946b-78bda836239c` |
 | Before that (07:51 UTC) | `2026-11-04-batch-6`: Maltese letters in name searches, server-issued TKT/DEL numbers (+2 indexes), Malta dates for server-filled dates, scarce stock within the org; UI .165 | `fdc7ef6b-26db-4d3a-a263-157d2cc41523` |
 | Before that (2026-11-03 21:39 UTC) | `2026-11-03-batch-5`: temperature notes and late logging, repeats coming due (two added columns on repeat_prescription_entries), Correct with an audit reason, Inspection check; UI .149 on main | `550951a7-b084-4c80-8612-11ccd9822a36` |
@@ -94,6 +95,7 @@ open Bookings and press "Set up bookings".
 
 ## Restore points
 
+- Before batch-9 (2026-11-09 09:58 UTC): `00000ea6-00000000-0000511e-5c31fd442efef3937c9eee106bc5fc2a`.
 - Before batch-8 (2026-11-04 10:35 UTC): `00000bb2-00000000-00005119-68bdf9813a05ae612d0c1d05d46cadac`.
 - Before batch-7 (2026-11-04 09:17 UTC): `00000ba8-00000000-00005119-8c54f9937fa18ee469a7a28723518781`.
 - Before batch-6 (2026-11-04 07:50 UTC): `00000b9f-00000000-00005119-a2be1b2819fdfa28760e7ae22cb56e14`.
