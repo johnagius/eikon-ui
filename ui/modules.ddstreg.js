@@ -45,12 +45,12 @@
     st.id = "eikon-ddst-css";
     st.textContent =
       ".dst{max-width:880px;margin:0 auto}" +
-      ".dst-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".dst-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 8px 0 0;margin-bottom:2px;min-height:44px;cursor:pointer}" +
       ".dst-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}" +
       ".dst h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.dst-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
       ".dst-btn{font:inherit;font-size:14px;font-weight:600;min-height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
       ".dst-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.dst-btn:disabled{opacity:.55;cursor:default}.dst-btn.t{border:0;background:none;color:var(--accent);padding:0 6px}" +
-      ".dst-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}" +
+      ".dst-acts{display:flex;flex-direction:row-reverse;gap:8px;flex-wrap:wrap;align-items:center}" +
       ".dst-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 2px 7px;display:flex;gap:8px}.dst-lab b{color:var(--text)}" +
       ".dst-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".dst-st{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:8px 16px;border:0;border-top:.5px solid var(--border);background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}" +
@@ -73,6 +73,8 @@
       ".dst-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end;align-items:center;flex-wrap:wrap}" +
       ".dst-err{color:var(--danger);font-size:13px;padding:4px 14px}.dst-top .dst-err{padding:4px 0}" +
       ".dst-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
+      ".dst-acts .dst-btn{min-height:44px;border-radius:22px}.dst-bymed{display:inline-flex;align-items:center;text-decoration:none}" +
+      ".dst-ny{display:flex;flex-wrap:wrap;gap:6px}.dst-ny .dst-btn{min-height:44px}" +
       ".dst-foot{font-size:12.5px;color:var(--muted);margin-top:12px}" +
       "@media (max-width:600px){.dst{padding:4px 16px 0}.dst h1{font-size:28px}.dst-form label>span{flex-basis:78px}.dst-cnt,.dst-form input.q{flex-basis:96px;width:96px}}";
     document.head.appendChild(st);
@@ -147,12 +149,12 @@
   function listHtml() {
     var h = '<button class="dst-back" data-act="back" data-fk="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel(ID) : "‹ Registers") + "</button>" +
       '<div class="dst-top"><div><h1>Controlled drug stock takes</h1><p class="dst-sub">Count each controlled drug and keep the count on file, ready to print.</p></div>' +
-      '<div class="dst-acts"><button class="dst-btn p" data-act="new" data-fk="new"' + (S.creating ? " disabled" : "") + ">" + (S.creating ? "Starting…" : "Start a stock take") + "</button></div></div>";
+      '<div class="dst-acts"><button class="dst-btn p" data-act="new" data-fk="new"' + (S.creating ? " disabled" : "") + ">" + (S.creating ? "Starting…" : "Start a stock take") + '</button><a class="dst-btn dst-bymed" href="#cdreg">By medicine</a></div></div>'; // the main button first in Tab order (right after the heading), drawn on the right
     if (S.createErr) h += '<div class="dst-err" role="alert">' + esc(S.createErr) + "</div>";
     if (S.loading && !S.list.length) return h + '<div class="dst-quiet">Opening the stock takes…</div>' + foot();
     if (S.error) return h + '<div class="dst-quiet">' + esc(S.error) + "</div>" + foot();
-    h += '<div class="dst-lab">Stock takes <b>' + S.list.length + "</b></div>";
-    if (!S.list.length) return h + '<div class="dst-quiet">No stock takes yet. Start one to count the controlled drugs.</div>' + foot();
+    if (!S.list.length) return h + '<div class="dst-quiet">No stock takes yet. Start one to count the controlled drugs. <button class="dst-btn p" data-act="new" style="margin-left:6px"' + (S.creating ? " disabled" : "") + '>Start a stock take</button></div>' + foot();
+    h += '<div class="dst-lab"><span><b>' + S.list.length + "</b> " + (S.list.length === 1 ? "stock take" : "stock takes") + "</span></div>";
     h += '<div class="dst-list">' + S.list.map(function (st) {
       var n = Number(st.item_count || 0);
       return '<button class="dst-st" data-act="open" data-id="' + esc(st.id) + '" data-fk="open-' + esc(st.id) + '"><div><b>' + esc(when(st.created_at)) +
@@ -197,6 +199,7 @@
       }).join("") + "</form>";
     }
 
+    if (!closed) h += '<div id="dst-nyslot">' + notYetHtml(items) + "</div>";
     var a = S.adding || (S.adding = { item_name: "", dosage: "", qty_tablets: "" }), ab = S.addErr ? S.addBad : "", inv = function (k) { return ab === k ? ' aria-invalid="true"' : ""; };
     h += '<form class="dst-form" id="dst-add" autocomplete="off" novalidate><div class="t">Add an item</div>' +
       '<label><span>Name</span><input name="item_name" data-fk="add-name" value="' + esc(a.item_name) + '" placeholder="e.g. Morphine sulphate" aria-label="Name"' + inv("add-name") + '></label>' +
@@ -207,6 +210,39 @@
       '<datalist id="dst-dosages">' + known("dosage").map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
     return h + foot();
   }
+
+  // "Not counted yet" (open stock takes only): the controlled drugs received, supplied, POYC or counted since the stock
+  // take before this one that have no line here yet. One read (GET /dda-register/medicines, bounded by those dates),
+  // once per stock take opened. A tap only fills the Add an item form (name and dosage); nothing is saved until Add item.
+  function splitName(nm) { var w = String(nm || "").trim().split(/\s+/), i = 1; while (i < w.length && !/\d/.test(w[i])) i++; return { item_name: w.slice(0, i).join(" "), dosage: w.slice(i).join(" ") }; }
+  function notYetHtml(items) {
+    var ny = S.notYet; if (!ny || ny.id !== String(S.openId) || !ny.list || !E.cdLedger) return "";
+    var K = E.cdLedger.key, have = {};
+    items.forEach(function (it) { have[K(String(it.item_name || "") + " " + String(it.dosage || ""))] = 1; });
+    var left = ny.list.filter(function (x) { return !have[x.key]; });
+    if (!left.length) return "";
+    return '<div class="dst-lab">Not counted yet <b>' + left.length + '</b></div><p class="dst-meta" style="margin:0 2px 8px">Received, supplied or counted since ' + esc(day(String(ny.since || "") + " 00:00")) + ", and no line here yet. Tap one to add it.</p>" +
+      '<div class="dst-ny">' + left.map(function (x) { return '<button type="button" class="dst-btn" data-ny="' + esc(x.key) + '" data-fk="ny-' + esc(x.key) + '">' + esc(x.item_name + (x.dosage ? " " + x.dosage : "")) + "</button>"; }).join("") + "</div>";
+  }
+  async function loadNotYet() {
+    var id = String(S.openId), st = S.cur && S.cur.stocktake; if (!st || st.closed_at || !E.cdLedger) return;
+    if (S.notYet && S.notYet.id === id) return;
+    var prev = S.list.filter(function (x) { return String(x.id) !== id && x.closed_at && String(x.created_at) < String(st.created_at); })[0]; // the list is newest first
+    var since = prev ? String(prev.created_at).slice(0, 10) : "";
+    S.notYet = { id: id, since: since, list: null };
+    try {
+      var r = await E.apiFetch("/dda-register/medicines?" + (since ? "from=" + since + "&" : "") + "to=" + (E.maltaYmd ? E.maltaYmd(new Date()) : ""), { method: "GET" });
+      if (!r || !r.ok || String(S.openId) !== id) return;
+      if (!since) S.notYet.since = r.from;
+      var K = E.cdLedger.key, map = {};
+      var add = function (nm, parts) { var k = K(nm); if (k && !map[k]) map[k] = Object.assign({ key: k }, parts || splitName(nm)); };
+      (r.counted || []).forEach(function (x) { add(String(x.item_name || "") + " " + String(x.dosage || ""), { item_name: String(x.item_name || "").trim(), dosage: String(x.dosage || "").trim() }); });
+      [].concat(r.received || [], r.supplied || [], r.poyc || []).forEach(function (x) { add(x.name); });
+      S.notYet.list = Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return (a.item_name + a.dosage).localeCompare(b.item_name + b.dosage); });
+      fillNotYet(); // in place: the count boxes and the form are left as they are (focus stays where it is)
+    } catch (e) {}
+  }
+  function fillNotYet() { var slot = S.mount && S.mount.querySelector("#dst-nyslot"); if (!slot || !S.cur) return; slot.innerHTML = notYetHtml(S.cur.items); wireNotYet(slot); }
 
   function editHtml(it) {
     var e = S.edit, id = String(it.id);
@@ -224,7 +260,17 @@
     return out.sort(function (x, y) { return x.localeCompare(y); });
   }
 
+  function wireNotYet(m) {
+    m.querySelectorAll("[data-ny]").forEach(function (b) { b.addEventListener("click", function () { // fill the Add an item form, then the tablets box
+      var x = S.notYet && (S.notYet.list || []).filter(function (y) { return y.key === b.getAttribute("data-ny"); })[0]; if (!x) return;
+      var f = S.mount.querySelector("#dst-add"); if (!f) return; // filled in place (a repaint would read the empty form back)
+      f.querySelector("[name=item_name]").value = x.item_name; f.querySelector("[name=dosage]").value = x.dosage; f.querySelector("[name=qty_tablets]").value = "";
+      S.adding = { item_name: x.item_name, dosage: x.dosage, qty_tablets: "" };
+      var q = S.mount.querySelector('[data-fk="add-qty"]'); if (q) { q.focus(); if (q.scrollIntoView) try { q.scrollIntoView({ block: "center" }); } catch (e) {} }
+    }); });
+  }
   function wire(m) {
+    wireNotYet(m);
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act"), id = b.getAttribute("data-id");
@@ -376,7 +422,7 @@
 
   function open(id) {
     S.openId = String(id); S.cur = null; S.rows = {}; S.adding = null; S.addErr = ""; S.editId = null; S.edit = null; S.closeErr = ""; S.curErr = "";
-    loadOne(S.openId, true).then(function () { focusSoon(S.cur && S.cur.items.length ? "input.dst-cnt" : '[data-fk="add-name"]'); });
+    loadOne(S.openId, true).then(function () { focusSoon(S.cur && S.cur.items.length ? "input.dst-cnt" : '[data-fk="add-name"]'); loadNotYet(); });
   }
 
   async function closeIt() {

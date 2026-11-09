@@ -1066,7 +1066,7 @@ await page.waitForFunction(() => document.querySelector(".hub-card"), null, { ti
 await page.locator(".hub-card", { hasText: "Temperature" }).first().click();
 await page.waitForFunction(() => document.querySelector(".trg-sum"), null, { timeout: 15000 });
 const trg = await page.evaluate(() => ({ hash: location.hash, classic: location.search.indexOf("ui=classic") >= 0, rail: [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod), cards: document.querySelectorAll(".trg-card").length, sum: document.querySelector(".trg-sum").textContent, next: document.querySelector(".emb [data-mb=next]").disabled, cells: document.querySelectorAll(".trg-card .trg-d:not(.pad)").length }));
-report("temperature register: opens in the new layout from Registers, rail stays on Registers, month summary shown", trg.hash === "#tempreg" && !trg.classic && trg.rail.join() === "registers" && trg.cards === 1 && /^0 of \d+ days logged/.test(trg.sum) && trg.next === true && trg.cells >= 28, JSON.stringify(trg));
+report("temperature register: opens in the new layout from Registers, rail stays on Registers, month summary shown", trg.hash === "#tempreg" && !trg.classic && trg.rail.join() === "registers" && trg.cards === 1 && /^0 of \d+ days logged/.test(trg.sum) && trg.next === true && trg.cells >= Math.min(28, new Date().getDate()), JSON.stringify(trg));
 
 // Cleaning register in the new layout: status from the last clean (even last month), a name is required, then one POST.
 await page.goto(base + "&ui=2#registers");
@@ -1086,7 +1086,7 @@ await page.click("#clr-form button[type=submit]");
 await page.waitForTimeout(700);
 const clrPosts2 = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/cleaning/entries");
 const b0 = (clrPosts2[0] || {}).body || {};
-report("cleaning register: opens in the new layout, overdue status from last month, needs a name, then records once with who checked", clr1.hash === "#cleanreg" && clr1.rail.join() === "registers" && /Overdue · last cleaned \d+ days ago by Karl/.test(clr1.status) && clr1.weeks >= 1 && clrPosts.length === 0 && /who cleaned/.test(clrErr) && clrPosts2.length === 1 && b0.cleaner_name === "Karl" && b0.staff_name === "Maria Borg" && /^\d{4}-\d{2}-\d{2}$/.test(b0.entry_date) && b0.time_out === "23:59", JSON.stringify({ clr1, clrErr, clrPosts2 }));
+report("cleaning register: opens in the new layout, overdue status from last month, needs a name, then records once with who checked", clr1.hash === "#cleanreg" && clr1.rail.join() === "registers" && /^Overdue\s*Last cleaned \d+ days ago by Karl/.test(clr1.status) && clr1.weeks >= 1 && clrPosts.length === 0 && /who cleaned/.test(clrErr) && clrPosts2.length === 1 && b0.cleaner_name === "Karl" && b0.staff_name === "Maria Borg" && /^\d{4}-\d{2}-\d{2}$/.test(b0.entry_date) && b0.time_out === "23:59", JSON.stringify({ clr1, clrErr, clrPosts2 }));
 
 // Daily register in the new layout: Today's "Open" lands on it; nothing saved until every line is filled;
 // a known ID card brings the name and a known prescriber the registration number; then one POST.
@@ -1186,10 +1186,9 @@ try {
   await page.goto(base + "&ui=2#tempreg");
   await page.waitForFunction(() => document.querySelector(".trg-due"), null, { timeout: 15000 });
   const tq = await page.evaluate(() => ({ due: (document.querySelector(".trg-due") || {}).textContent || "", back: document.querySelector(".trg-back").textContent, today: (document.querySelector(".trg-d.today .trg-sr") || {}).textContent || "", todayTxt: (document.querySelector(".trg-d.today b") || {}).textContent || "" }));
-  await page.click(".trg-due [data-act=log]"); await page.waitForTimeout(300);
-  const tqTo = await page.evaluate(() => location.hash);
-  report("temperature quality: today not logged shows 'Log today's readings', which opens Today; today's cell says 'Not yet' in words",
-    /Today is not logged yet/.test(tq.due) && tqTo === "#today" && tq.back === "‹ Registers" && /not logged yet today/.test(tq.today) && tq.todayTxt === "Not yet", JSON.stringify({ tq, tqTo }));
+  const tqTo = await page.evaluate(() => location.hash + "|" + document.querySelectorAll(".trg-due [name=qmin]").length + "|" + document.querySelectorAll(".trg-due [data-act=qlog]").length);
+  report("temperature quality: today not logged is logged right here (min, max, Log reading per fridge or room); today's cell says 'Not yet' in words",
+    /Today is not logged yet/.test(tq.due) && /^#tempreg\|[1-9]\d*\|[1-9]/.test(tqTo) && tq.back === "‹ Registers" && /not logged yet today/.test(tq.today) && tq.todayTxt === "Not yet", JSON.stringify({ tq, tqTo }));
 
   // Cleaning: all problems at once, first one focused; past cleaners offered; Escape closes and refocuses
   await page.goto(base + "&ui=2#cleanreg");
@@ -3987,11 +3986,11 @@ try {
     b.cleaning.s === "missing" && /No cleaning recorded in 1 week: week of 12 Oct\./.test(T("cleaning")) && !/Overdue/.test(T("cleaning")) && b.cleaning.go[0].ym === "2026-10" &&
     b.dailyregister.s === "info" && /10 lines on 10 days\. No line on 21 days/.test(T("dailyregister")) &&
     b.locum.s === "look" && /2 days with work recorded but no pharmacist in charge in the locum register \(15 Oct and 16 Oct\)/.test(T("locum")) && /Last signed 31 Oct by Pharm\. Daniela Spiteri \(reg no PH 1234\)/.test(T("locum")) && b.locum.go[0].mod === "locreg" && b.locum.go[0].ym === "2026-10", JSON.stringify({ c: b.cleaning, d: b.dailyregister, l: b.locum }));
-  report("inspect: certificates as of 3 Nov — expired 12 Oct is missing, due 20 Nov (17 days) needs a look, not recorded for information; controlled drugs: the stock-take of 01:30 Malta on 1 Nov counts for October, which is not due yet",
-    b.certificates.s === "missing" && /Fire Extinguisher expired on 12 Oct 2026 \(22 days ago\)/.test(T("certificates")) && /AC Maintenance is due on 20 Nov 2026 \(in 17 days\)/.test(T("certificates")) && !/Pest Control/.test(T("certificates")) && /info: Not recorded yet: First Aid Certificate/.test(T("certificates")) &&
+  report("inspect: certificates as of 3 Nov — expired 12 Oct is missing, due 20 Nov (17 days) needs a look, not recorded is not on file (unknown is not in order); controlled drugs: the stock-take of 01:30 Malta on 1 Nov counts for October, which is not due yet",
+    b.certificates.s === "missing" && /Fire extinguisher expired on 12 Oct 2026 \(22 days ago\)/.test(T("certificates")) && /AC maintenance is due on 20 Nov 2026 \(in 17 days\)/.test(T("certificates")) && !/Pest Control/.test(T("certificates")) && /nofile: Not recorded yet: First aid certificate\. An inspector will ask for these dates\./.test(T("certificates")) &&
     b.dda.s === "ok" && /1 stock-take in these days \(last on 1 Nov\)/.test(T("dda")) && /October 2026: the stock-take is not due yet/.test(T("dda")) && /3 registers have something missing, 1 needs a look\./.test(maths.head), JSON.stringify({ c: b.certificates, d: b.dda, h: maths.head }));
   report("inspect: the same month with nothing missing reports nothing (every register in order, daily register for information)",
-    maths.clean.join() === "temperature:ok,cleaning:ok,dailyregister:info,locum:ok,certificates:ok,dda:ok" && maths.cleanHead === "Everything checked is in order for these days.", JSON.stringify(maths.clean));
+    maths.clean.join() === "temperature:ok,cleaning:ok,dailyregister:info,locum:ok,certificates:ok,dda:ok" && maths.cleanHead === "Ready for an inspector. Everything checked is in order for these days.", JSON.stringify(maths.clean));
   report("inspect: periods in Malta days (last month 1–31 Oct, last 3 months 1 Sep to today, this month to today); DDA over 3 months — September's lines without a stock-take and an open stock-take need a look; this month: cleaning overdue (12 days), today not counted",
     maths.rg.from === "2026-10-01" && maths.rg.to === "2026-10-31" && maths.rg3.from === "2026-09-01" && maths.rg3.to === "2026-11-03" && maths.rgN.from === "2026-11-01" &&
     maths.dda3.s === "look" && /September 2026: controlled drugs were supplied or received \(3 lines in Controlled drugs supplied\)/.test(maths.dda3.t.join("|")) && /stock-take started on 20 Oct is not closed/.test(maths.dda3.t.join("|")) &&
@@ -4025,8 +4024,8 @@ try {
   await page.click('[data-open="insreg"]');
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "insreg" && document.querySelector(".ins-list"), null, { timeout: 15000 });
   const scr = await page.evaluate(() => ({ hash: location.hash, rail: [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join(), rows: [...document.querySelectorAll(".ins-reg")].map((r) => r.dataset.reg + ":" + r.querySelector(".ins-pill").textContent), head: document.querySelector(".ins-head").textContent }));
-  report("inspect: Registers › Inspection check opens in the new layout, reads this month at once, one row per register with its status in words, rail on Registers",
-    scr.hash === "#insreg" && scr.rail === "registers" && scr.rows.length === 6 && scr.rows.every((r) => /:(In order|Look at this|Missing|For information|Not checked)$/.test(r)) && /\d+ requests/.test(scr.head), JSON.stringify(scr));
+  report("inspect: Registers › Inspection check opens in the new layout, reads this month at once, one row per register with its status in words (no request counts), rail on Registers",
+    scr.hash === "#insreg" && scr.rail === "registers" && scr.rows.length === 6 && scr.rows.every((r) => /:(In order|Look at this|Missing|For information|Not checked|Not on file)$/.test(r)) && /checked \d{1,2} [A-Z][a-z]{2} \d{4}/.test(scr.head) && !/requests/.test(scr.head), JSON.stringify(scr));
   await page.click('[data-range="last"]');
   await page.waitForFunction(() => !window.EIKON.inspect.state.job && window.EIKON.inspect.state.result && window.EIKON.inspect.state.result.range.kind === "last", null, { timeout: 15000 });
   const lastYm = await page.evaluate(() => window.EIKON.inspect.state.result.range.from.slice(0, 7));
@@ -5187,7 +5186,7 @@ try {
   report("today at any hour: 09:12 says Before opening; 14:05 and 20:12 say Today's checks",
     /^Before opening/.test(m.lab) && /^Today's checks/.test(pm.lab) && /^Today's checks/.test(ev.lab) && /before the doors open/.test(m.h1) && /still to do today/.test(ev.h1), JSON.stringify({ m: m.lab, pm: pm.lab, ev: ev.lab, mh: m.h1, eh: ev.h1 }));
   report("today at any hour: the Daily register is one line with no pill, not owed before closing (2 checks, badge 2, not amber), owed at 20:12 or once End of day is started (3, amber, never red)",
-    /No entry yet today/.test(m.drText) && !/No entry yet(?! today)/.test(m.drText) && m.drPill === 0 && !m.drAmb && m.lab.replace(/\s+/g, " ").trim() === "Before opening 3" && /2 checks/.test(pm.h1) && pm.badge === "2" && !pm.drAmb &&
+    /No entry yet today/.test(m.drText) && !/No entry yet(?! today)/.test(m.drText) && m.drPill === 0 && !m.drAmb && m.lab.replace(/\s+/g, " ").trim() === "Before opening 3All registers ›" && /2 checks/.test(pm.h1) && pm.badge === "2" && !pm.drAmb &&
     /3 checks/.test(ev.h1) && ev.badge === "3" && ev.drAmb && !ev.drRed && ev.drPill === 0 && /3 checks/.test(ed.h1) && ed.drAmb,
     JSON.stringify({ m, pm: [pm.h1, pm.badge, pm.drAmb], ev: [ev.h1, ev.badge, ev.drAmb, ev.drRed], ed: [ed.h1, ed.drAmb] }));
   report("today at any hour: the room sensor named after the pharmacy reads Room, the fridge keeps its name; no Old dashboard link on Today",
@@ -6429,12 +6428,12 @@ try {
   const w = {};
   const open = async (h, mod, sel) => { await page.goto(base + "&ui=2#" + h); await page.waitForFunction(([m, s]) => window.EIKON.state.activeModuleId === m && document.querySelector(s), [mod, sel], { timeout: 15000 }); await page.waitForTimeout(300); };
   const foot = () => page.evaluate(() => [...document.querySelectorAll('#eikon-content [data-act="classic"]')].map((a) => ({ p: (a.closest("p") || a.parentElement).innerText.replace(/\s+/g, " ").trim(), a: a.textContent })));
-  for (const [h, mod, want] of [["cleanreg", "cleanreg", "Deleting a line is in the classic screen."], ["drreg", "drreg", "Deleting a line is in the classic screen."], ["poreg", "poreg", "Deleting a payment is in the classic screen."], ["cnreg", "cnreg", "Deleting a credit note is in the classic screen."]]) {
+  for (const [h, mod, want] of [["poreg", "poreg", "Deleting a payment is in the classic screen."], ["cnreg", "cnreg", "Deleting a credit note is in the classic screen."]]) {
     await open(h, mod, ".ecr-foot"); const f = await foot(); w[h] = f.length === 1 && f[0].a === "classic screen" && f[0].p.endsWith(want) && !/not deleted/.test(f[0].p) ? "ok" : f;
   }
-  await open("cleanreg", "cleanreg", ".ecr-foot [data-act=classic]");
+  await open("poreg", "poreg", ".ecr-foot [data-act=classic]");
   await Promise.all([page.waitForURL(/ui=classic/, { timeout: 15000 }), page.click(".ecr-foot [data-act=classic]")]);
-  w.cleanLink = /ui=classic/.test(page.url()) && /#cleaning$/.test(page.url());
+  w.cleanLink = /ui=classic/.test(page.url()) && /#paidout$/.test(page.url());
   const src = (f) => fs.readFileSync(path.join(root, f), "utf8");
   w.oneName = ["audreg", "calreg", "eposreg", "ocpreg", "pocreg", "rotreg", "shfreg", "alertreg"].filter((m) => { const t = src("modules." + m + ".js"); return [...t.matchAll(/data-act="classic"[^>]*>([^<]*)</g)].some((x) => x[1] !== "classic screen"); });
   await page.goto(base + "&ui=2#nexreg"); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "nexreg" && document.querySelector("[data-act=add]"), null, { timeout: 15000 });
@@ -6452,7 +6451,7 @@ try {
   w.temp = await page.evaluate(() => ({ cols: window.__tp.sections[0].cols.slice(1), intro: window.__tp.intro }));
   await page.unroute(/\/temperature\/devices/);
   report("same word, screen and print (item 11): Correct registers say deleting is in the classic screen and the link opens it; one name for the classic link; Save item, Add point, Date and Time; sales are sent when the connection is back; export names match the registers; the room prints as Room (Demo Pharmacy)",
-    ["cleanreg", "drreg", "poreg", "cnreg"].every((k) => w[k] === "ok") && w.cleanLink && !w.oneName.length && w.nex === "Save item" && w.hnd === "Add point" && w.po === "Date:entry_date,Time:entry_time" &&
+    ["poreg", "cnreg"].every((k) => w[k] === "ok") && w.cleanLink && !w.oneName.length && w.nex === "Save item" && w.hnd === "Add point" && w.po === "Date:entry_date,Time:entry_time" &&
     /sales are sent when the connection is back/.test(w.hub) && !/sync/.test(w.hub) && w.exp === "Controlled drugs received|Controlled drugs supplied|POYC controlled drugs" &&
     JSON.stringify(w.temp.cols) === JSON.stringify(["Room (Demo Pharmacy)", "Fridge 1"]) && /Room \(Demo Pharmacy\) 15/.test(w.temp.intro), JSON.stringify(w).slice(0, 900));
 } catch (e) { report("same word, screen and print (item 11): ran to the end", false, String(e && e.stack || e).slice(0, 500)); }

@@ -6,7 +6,12 @@
    never logged can be logged late with a reason (E.tempNote, in modules.today.js, does the saving and holds the words).
    Correct (the pharmacist only, eikon.correct.js): in an open day with a reading, Correct opens that reading (read
    again) with the minimum, maximum and note, a required reason, and saves it the classic way (POST /temperature/entries
-   for the device and day, the server's upsert: the same reading, never a second one). A reading is never deleted here. */
+   for the device and day, the server's upsert: the same reading, never a second one). A reading is never deleted here.
+   The daily registers' one pattern (eikon.dailyreg.js): today first — each fridge and room with today's reading, or
+   minimum and maximum to type and "Log reading" (Enter logs), and, when yesterday's reading was within the limits,
+   one tap "Same as yesterday" that logs those two numbers again. Both send the body Today sends (device, today,
+   minimum, maximum, empty note). A reading outside the limits opens its day for the note. Then the month with the days
+   not logged said plainly (each a tap to log it late, as before), the month's sign-off, the same printout. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -60,7 +65,6 @@
       ".trg-acts{display:flex;gap:8px;align-items:center}" +
       ".trg-btn{font:inherit;font-size:14px;font-weight:600;min-height:44px;padding:0 16px;border-radius:22px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer}.trg-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.trg-btn:active{opacity:.7}" +
       "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .trg-btn.p{color:#00160E}}" +
-      ".trg-due{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--panel2);border:1px solid var(--border);border-left:4px solid #C98A12;border-radius:14px;padding:12px 16px;margin-top:14px}.trg-due b{font-size:15.5px}.trg-due span{display:block;color:var(--muted);font-size:13px}" +
       ".trg-month{display:flex;align-items:center;gap:6px;margin:14px 0 4px}" +
       ".trg-month b{font-size:17px;min-width:150px;text-align:center}" +
       ".trg-arrow{width:34px;height:34px;border-radius:50%;border:0;background:rgba(118,118,128,.12);color:var(--text);font-size:18px;cursor:pointer}" +
@@ -117,6 +121,7 @@
       S.devices = ((dv && dv.devices) || []).filter(function (d) { return Number(d.active) !== 0; });
       S.entries = (en && en.entries) || [];
       E.correct.loadMarks("tempreg", FIX, S.month + "-01"); // which readings were corrected, by whom and why
+      if (S.month < thisMonth()) E.dailyReg.load(S.month, function () { E.whenFormIdle(S.mount, paint); }); // an ended month: its sign-off
     } catch (e) {
       if (!keepView) S.error = e && e.network ? "Can't reach the server. The register is safe; try again in a moment." : String((e && (e.message || e)) || "Could not load the register");
     }
@@ -132,8 +137,10 @@
     var lead = (first.getDay() + 6) % 7; // Monday first
     var cells = WD.map(function (w) { return '<div class="trg-wd">' + w + "</div>"; }).join("");
     for (var i = 0; i < lead; i++) cells += '<div class="trg-d pad"></div>';
-    var logged = 0, bad = 0, missed = 0, rows = "";
+    var logged = 0, bad = 0, missed = 0, rows = "", tk = todayKey(), stop = n;
+    if (m === tk.slice(0, 7)) stop = Math.min(n, Number(tk.slice(8)) + (6 - (lead + Number(tk.slice(8)) - 1) % 7)); // later weeks are empty: not drawn (VISUAL temp-3)
     for (var d = 1; d <= n; d++) {
+      if (d > stop) continue;
       var key = m + "-" + pad(d), e = byDay[key], cls, txt;
       if (e) {
         logged++; var o = outside(e, dv); if (o) bad++;
@@ -152,9 +159,11 @@
       var flag = e && outside(e, dv) && !String(e.notes || "").trim() ? "<em>no note</em>" : "";
       cells += '<button type="button" class="trg-d ' + cls + (isOpen ? " sel" : "") + '" title="' + esc(say) + '" data-day="' + esc(key) + '" data-dev="' + esc(dv.id) + '" aria-expanded="' + (isOpen ? "true" : "false") + '" aria-label="' + esc(lab) + '"><i aria-hidden="true">' + d + '</i><b aria-hidden="true">' + txt + "</b>" + flag + '<span class="trg-sr">' + esc(say) + "</span></button>";
     }
-    var sum = "<b>" + logged + "</b> of " + n + " days logged" +
+    var upto = m < thisMonth() ? n : (m === thisMonth() ? Number(todayKey().slice(8)) : 0), missList = [];
+    for (var dd = 1; dd <= n; dd++) { var kk = m + "-" + pad(dd); if (kk < todayKey() && !byDay[kk]) missList.push(Number(dd) + ""); }
+    var sum = "<b>" + logged + "</b> of " + upto + " days logged" + (m === thisMonth() ? " so far" : "") +
       (bad ? ' · <span class="bad">' + bad + " outside the limits</span>" : " · none outside the limits") +
-      (missed ? " · " + missed + " not logged" : "");
+      (missed ? ' · <span class="bad">Not logged: ' + esc(missList.slice(0, 12).join(", ") + (missList.length > 12 ? " and " + (missList.length - 12) + " more" : "") + " " + MONTHS[Number(p[1]) - 1].slice(0, 3)) + "</span>" : " · nothing missed");
     return '<section class="trg-card" data-device="' + esc(dv.id) + '"><div class="trg-hd"><h2>' + esc(dv.name) + "</h2><span>" +
       esc(dv.device_type === "fridge" ? "Fridge" : dv.device_type === "room" ? "Room" : (dv.device_type || "")) + " · " + esc(limitsText(dv)) + "</span></div>" +
       '<div class="trg-sum">' + sum + "</div>" +
@@ -242,13 +251,61 @@
     });
   }
 
-  // This month, a fridge or room with nothing logged today: say which, and take them to Today where readings are typed.
+  // Today first: each fridge and room, logged (its reading) or not (type it here, or one tap when it reads as yesterday).
+  function yReading(dv) {
+    var t = todayKey(), d = new Date(t + "T12:00:00"); d.setDate(d.getDate() - 1); var y = ymd(d);
+    var e = S.entries.find(function (x) { return Number(x.device_id) === Number(dv.id) && x.entry_date === y; });
+    return e && !outside(e, dv) ? e : null;
+  }
   function dueToday() {
-    if (S.month !== thisMonth() || S.loading || S.error) return "";
-    var today = ymd(new Date()), left = S.devices.filter(function (dv) { return !S.entries.some(function (e) { return Number(e.device_id) === Number(dv.id) && e.entry_date === today; }); });
-    if (!left.length) return "";
-    return '<div class="trg-due"><div><b>' + (left.length === S.devices.length ? "Today is not logged yet" : esc(left.map(function (d) { return d.name; }).join(", ")) + " not logged today") + "</b><span>Readings are typed on Today, in under a minute.</span></div>" +
-      '<button class="trg-btn p" data-act="log">Log today\u2019s readings</button></div>';
+    if (S.month !== thisMonth() || S.loading || S.error || !S.devices.length) return "";
+    var t = todayKey(), Q = S.quick || {}, left = 0, lines = S.devices.map(function (dv) {
+      var e = S.entries.find(function (x) { return Number(x.device_id) === Number(dv.id) && x.entry_date === t; }), q = Q[dv.id] || {};
+      var head = '<div class="n"><b>' + esc(dv.name) + "</b><span>Limits " + esc(limitsText(dv)) + "</span></div>";
+      if (e) { var o = outside(e, dv); return '<div class="dly-line" data-qdev="' + esc(dv.id) + '">' + head + '<span class="' + (o ? "bad" : "ok") + '">' + (o ? "Outside limits: " : "Logged ✓ ") + esc(fmt(e.min_temp) + " to " + fmt(e.max_temp) + " °C") + "</span>" +
+        (o && !String(e.notes || "").trim() ? '<button class="dly-btn" data-act="qnote" data-dev="' + esc(dv.id) + '">Add the note</button>' : "") + "</div>"; }
+      left++;
+      var y = yReading(dv), dis = q.saving ? " disabled" : "";
+      return '<div class="dly-line" data-qdev="' + esc(dv.id) + '">' + head +
+        '<small aria-hidden="true">min</small><input name="qmin" inputmode="decimal" autocomplete="off" aria-label="' + esc(dv.name + ", lowest temperature today, °C") + '" value="' + esc(q.min || "") + '"' + (q.bad === "min" || q.bad === "both" ? ' aria-invalid="true"' : "") + dis + ">" +
+        '<small aria-hidden="true">max</small><input name="qmax" inputmode="decimal" autocomplete="off" aria-label="' + esc(dv.name + ", highest temperature today, °C") + '" value="' + esc(q.max || "") + '"' + (q.bad === "max" || q.bad === "both" ? ' aria-invalid="true"' : "") + dis + ">" +
+        '<button class="dly-btn p" data-act="qlog" data-dev="' + esc(dv.id) + '"' + dis + ">" + (q.saving ? "Saving…" : "Log reading") + "</button>" +
+        (y ? '<button class="dly-btn" data-act="qsame" data-dev="' + esc(dv.id) + '"' + dis + ' aria-label="' + esc(dv.name + ": the display shows the same as yesterday, log " + fmt(y.min_temp) + " to " + fmt(y.max_temp) + " °C") + '">Same as yesterday · ' + esc(fmt(y.min_temp) + " to " + fmt(y.max_temp)) + "</button>" : "") +
+        '<div class="dly-msg" role="alert">' + esc(q.err || "") + "</div></div>";
+    }).join("");
+    var card = E.dailyReg.today({ tone: left ? "due" : "ok", word: left ? "Not yet" : "Done",
+      title: !left ? "Today is logged" : left === S.devices.length ? "Today is not logged yet" : left + " of " + S.devices.length + " not logged today",
+      sub: left ? "Read each display, type the lowest and highest, and log it." : "Every fridge and room has today's reading.", body: lines });
+    return card.replace('class="dly-today ', 'class="trg-due dly-today ');
+  }
+  // Log today's reading: the body Today sends ({ device_id, entry_date: today, min_temp, max_temp, notes: "" }).
+  async function quickLog(devId, same) {
+    var dv = S.devices.find(function (d) { return String(d.id) === String(devId); }); if (!dv) return;
+    S.quick = S.quick || {}; var q = S.quick[dv.id] = S.quick[dv.id] || {}; if (q.saving) return;
+    var row = S.mount.querySelector('[data-qdev="' + dv.id + '"]'), N = E.tempNote, minS, maxS;
+    if (same) { var y = yReading(dv); if (!y) return; minS = String(y.min_temp); maxS = String(y.max_temp); }
+    else { minS = row ? row.querySelector("[name=qmin]").value : ""; maxS = row ? row.querySelector("[name=qmax]").value : ""; }
+    q.min = minS; q.max = maxS;
+    var pr = N ? N.parseReading(minS, maxS) : null;
+    if (!pr || pr.error) { q.err = pr ? pr.error : "Could not read the numbers."; q.bad = !String(minS).trim() ? (!String(maxS).trim() ? "both" : "min") : !String(maxS).trim() ? "max" : "both"; paint(); var f1 = S.mount.querySelector('[data-qdev="' + dv.id + '"] [aria-invalid=true]'); if (f1) f1.focus(); return; }
+    var day = todayKey(), body = { device_id: Number(dv.id), entry_date: day, min_temp: pr.min, max_temp: pr.max, notes: "" };
+    q.saving = true; q.err = ""; q.bad = ""; paint();
+    try {
+      var cur = N ? await N.read(dv.id, day) : null;
+      if (cur) { delete S.quick[dv.id]; E.toast(dv.name + " was already logged today: " + fmt(cur.min_temp) + " to " + fmt(cur.max_temp) + " °C. Nothing was changed.", "warn"); }
+      else {
+        var r = await E.apiFetch("/temperature/entries", { method: "POST", body: JSON.stringify(body) });
+        if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+        delete S.quick[dv.id];
+        var o = outside(body, dv);
+        E.toast(dv.name + " logged " + pr.min + " to " + pr.max + " °C · " + (E.maltaHm ? E.maltaHm() : "") + (o ? " · outside the limits: say what was done" : ""), o ? "warn" : "success");
+        if (o) { S.open = { device: String(dv.id), day: day }; S.mode = "note"; }
+      }
+    } catch (e) { q.saving = false; q.err = E.saveFailText(e); paint(); return; }
+    try { var en = await E.apiFetch("/temperature/entries?month=" + encodeURIComponent(S.month), { method: "GET" }); if (en && en.ok) S.entries = en.entries || []; } catch (e) {}
+    paint();
+    var next = S.open && S.mode === "note" ? S.mount.querySelector("form[data-tnote] textarea") : S.mount.querySelector(".trg-due [name=qmin]") || S.mount.querySelector(".trg-due h2");
+    if (next) { if (next.tagName === "H2") next.setAttribute("tabindex", "-1"); next.focus({ preventScroll: true }); }
   }
 
   function paint() {
@@ -256,17 +313,17 @@
     if (E.state.activeModuleId !== "tempreg") return; // left before the data came back: do not draw over the next screen
     if (S.view === "devices") return E.repaintKeepingFocus(m, paintDevices); // a list arriving never moves you
     var MB = E.months;
-    var h = '<div class="trg">' +
-      '<button class="trg-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("tempreg") : "‹ Registers") + "</button>" +
-      '<div class="trg-top"><div><h1>Temperature</h1><p class="trg-sub">Fridges and rooms, every day, against their limits.</p></div>' +
-      '<div class="trg-acts"><button class="trg-btn" data-act="devices" data-k="devices">Fridges and rooms</button></div></div>' +
+    var D = E.dailyReg;
+    var h = '<div class="trg dly-page">' + D.head({ id: "tempreg", title: "Temperature", sub: "Fridges and rooms, every day, against their limits." }).replace('class="dly-back"', 'class="dly-back trg-back"') +
       '<p class="trg-pmeta">' + esc(((E.state.user || {}).location_name || "") + " · " + monthLabel(S.month) + " · printed " + ymd(new Date())) + "</p>" +
-      MB.bar(S.month, { label: "Temperature" });
+      dueToday() + (S.devices.length ? D.nudge("temperature", S.month, function () { E.whenFormIdle(S.mount, paint); }) : "") + MB.bar(S.month, { label: "Temperature" });
     if (S.loading && !S.devices.length) h += '<div class="trg-quiet">Opening the register…</div>';
     else if (S.error) h += '<div class="trg-quiet" role="alert">' + esc(S.error) + ' <button class="trg-btn" data-act="retry">Try again</button></div>';
     else if (!S.devices.length) h += '<div class="trg-quiet">No fridges or rooms are set up yet. <button class="trg-btn p" data-act="devices" data-k="devices-empty">Add a fridge or room</button></div>';
-    else h += dueToday() + (S.month < thisMonth() && !S.entries.length ? '<div class="trg-quiet" data-empty>' + esc(MB.empty(S.month)) + "</div>" : "") +
-      S.devices.map(deviceCard).join("") + '<p class="trg-note">Each day shows the minimum above the maximum. Red with ! is outside the limits; a dashed day was not logged. Tap a day to see it, add a note, or log a missed day.' + (E.correct.can() ? " To correct a reading, open its day and press Correct, saying what was wrong; the audit keeps what it said before." : " A wrong reading is corrected by the pharmacist.") + "</p>";
+    else h += (S.month < thisMonth() && !S.entries.length ? '<div class="trg-quiet" data-empty>' + esc(MB.empty(S.month)) + "</div>" : "") +
+      S.devices.map(deviceCard).join("") + '<p class="trg-note">Each day shows the minimum above the maximum, in °C. Red with ! is outside the limits; a dashed day was not logged. Tap a day to see it, add a note, or log a missed day.' + (E.correct.can() ? " Made a mistake? Open its day and press Correct \u2014 what it said before stays on record." : " A wrong reading is corrected by the pharmacist.") + "</p>";
+    if (!S.loading && !S.error && S.devices.length) h += D.sign("temperature", S.month, { gaps: missedAll(), what: "readings", changed: D.changedAfter("temperature", S.month, S.entries) });
+    h += '<p class="dly-quietnote"><button class="dly-btn" data-act="devices" data-k="devices">Fridges and rooms</button> Add one, rename it, set its limits.</p>';
     h += "</div>";
     if (E.tempNote) E.tempNote.css();
     m.innerHTML = h;
@@ -277,11 +334,20 @@
       });
     });
     wireForms(m);
+    D.wire(m, "temperature", S.month, paint);
+    m.querySelectorAll(".trg-due [name=qmin], .trg-due [name=qmax]").forEach(function (inp) {
+      var dev = inp.closest("[data-qdev]").getAttribute("data-qdev");
+      inp.addEventListener("input", function () { S.quick = S.quick || {}; var q = S.quick[dev] = S.quick[dev] || {}; q[inp.name === "qmin" ? "min" : "max"] = inp.value; inp.removeAttribute("aria-invalid"); });
+      inp.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); if (inp.name === "qmin" && !inp.closest("[data-qdev]").querySelector("[name=qmax]").value) inp.closest("[data-qdev]").querySelector("[name=qmax]").focus(); else quickLog(dev, false); } });
+    });
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act");
         if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("tempreg") : "#registers";
         else if (a === "log") window.location.hash = "#today";
+        else if (a === "qlog") quickLog(b.getAttribute("data-dev"), false);
+        else if (a === "qsame") quickLog(b.getAttribute("data-dev"), true);
+        else if (a === "qnote") { openDay(b.getAttribute("data-dev"), todayKey(), "note"); var tq = S.mount.querySelector("form[data-tnote] textarea"); if (tq) tq.focus(); }
         else if (a === "retry") load();
         else if (a === "close") closeDay();
         else if (a === "addnote" && S.open) { openDay(S.open.device, S.open.day, "note"); var ta = S.mount.querySelector("form[data-tnote] textarea"); if (ta) ta.focus(); }
@@ -460,11 +526,16 @@
 
   // The classic temperature report for one month: a line per day, a column per fridge or room, "min / max" in each,
   // "Not logged" for a day that has passed without a reading (bold when outside the limits).
-  function printMonth() {
-    var MB = E.months, m = S.month, n = daysIn(m), today = ymd(new Date()), at = {};
-    S.entries.forEach(function (e) { at[e.entry_date + "|" + e.device_id] = e; });
-    var devs = S.devices.slice();
-    S.entries.forEach(function (e) { if (!devs.some(function (d) { return Number(d.id) === Number(e.device_id); })) devs.push({ id: e.device_id, name: e.device_name || ("Device " + e.device_id), device_type: e.device_type, min_limit: e.min_limit, max_limit: e.max_limit }); });
+  function missedAll() {
+    var t = todayKey(), n = daysIn(S.month), c = 0;
+    S.devices.forEach(function (dv) { for (var d = 1; d <= n; d++) { var k = S.month + "-" + pad(d); if (k < t && !S.entries.some(function (e) { return Number(e.device_id) === Number(dv.id) && e.entry_date === k; })) c++; } });
+    return c;
+  }
+  function printDoc(m, entries, extra) {
+    var MB = E.months, n = daysIn(m), today = ymd(new Date()), at = {};
+    entries.forEach(function (e) { at[e.entry_date + "|" + e.device_id] = e; });
+    var devs = ((extra && extra.devices) || []).slice();
+    entries.forEach(function (e) { if (!devs.some(function (d) { return Number(d.id) === Number(e.device_id); })) devs.push({ id: e.device_id, name: e.device_name || ("Device " + e.device_id), device_type: e.device_type, min_limit: e.min_limit, max_limit: e.max_limit }); });
     var rows = [];
     for (var d = 1; d <= n; d++) {
       var key = m + "-" + pad(d); if (key > today) break;
@@ -475,15 +546,19 @@
         return o ? { html: "<b>" + esc(t) + "</b>" } : t;
       })));
     }
-    MB.print({ register: "Temperature", month: m,
+    var doc = { register: "Temperature", month: m,
       intro: '<p class="sub">Each day: minimum / maximum °C. Limits: ' + esc(devs.map(function (dv) { return printName(dv) + " " + limitsText(dv); }).join(" · ")) + ".</p>",
-      sections: [{ cols: [m.slice(0, 4) + "-" + m.slice(5)].concat(devs.map(printName)), rows: rows, empty: devs.length ? MB.empty(m) : "No fridges or rooms are set up." }] });
+      sections: [{ cols: [m.slice(0, 4) + "-" + m.slice(5)].concat(devs.map(printName)), rows: rows, empty: devs.length ? MB.empty(m) : "No fridges or rooms are set up." }] };
+    var after = E.dailyReg ? E.dailyReg.after("temperature", m) : ""; if (after) doc.after = after;
+    return doc;
   }
+  if (E.printDocs) E.printDocs.tempreg = printDoc; // the inspection pack prints the same page (extra.devices: the active fridges and rooms)
+  function printMonth() { E.months.print(printDoc(S.month, S.entries, { devices: S.devices })); }
 
   E.registerModule({
     id: "tempreg", title: "Temperature", order: 3, icon: "🌡", ui2Only: true,
     render: function (ctx) {
-      S.mount = ctx && ctx.mount; S.month = thisMonth(); S.entries = []; if (E.months.reset) E.months.reset(); E.correct.reset("tempreg");
+      S.mount = ctx && ctx.mount; S.month = (E.months.take && E.months.take("tempreg")) || thisMonth(); S.entries = []; S.quick = null; E.dailyReg.css(); if (E.months.reset) E.months.reset(); E.correct.reset("tempreg");
       S.focus = null; S.open = null; S.mode = ""; S.drafts = {}; S.msgs = {}; S.busy = false; S.view = ""; S.dv = null;
       document.removeEventListener("keydown", onKey); document.addEventListener("keydown", onKey);
       var want = ""; try { want = sessionStorage.getItem("eikon_tempreg_view") || ""; sessionStorage.removeItem("eikon_tempreg_view"); } catch (e) {} // Today's "Name your fridges and rooms"

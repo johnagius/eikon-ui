@@ -16,9 +16,10 @@
   var CLEAN_DAYS = 7;    // cleaned at least once a week (as the Cleaning screen)
   var COUNT_GRACE = 7;   // a stock-take in the first week of the next month counts for the month before
   var MAX_MONTHS = 12;
+  var ALL = 1e6;         // listDays without "and N more": the inspection pack lists every day
   var MON = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  var S = { mount: null, range: "this", from: "", to: "", job: null, result: null, error: "" };
+  var S = { mount: null, range: "this", from: "", to: "", since: "", editSince: false, job: null, result: null, error: "", pack: null, packed: null };
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function pad(n) { return (n < 10 ? "0" : "") + n; }
@@ -63,12 +64,18 @@
     if (kind === "this") return { kind: kind, from: ym + "-01", to: today, label: monthName(ym) };
     if (kind === "last") { var p = shiftYm(ym, -1); return { kind: kind, from: p + "-01", to: lastDay(p), label: monthName(p) }; }
     if (kind === "three") { var f = shiftYm(ym, -2); return { kind: kind, from: f + "-01", to: today, label: "Last 3 months" }; }
+    if (kind === "since") { // from the day of the last inspection (kept in this browser) to today
+      if (!isYmd(from) || from > today) return null;
+      return { kind: kind, from: from, to: today, label: "Since the last inspection on " + dmy(from) };
+    }
     if (!isYmd(from) || !isYmd(to) || to < from) return null;
     if (to > today) to = today;
     if (to < from) return null;
     return { kind: "custom", from: from, to: to, label: dmy(from) + " to " + dmy(to) };
   }
-  function rangeText(rg) { return rg.kind === "custom" ? rg.label : rg.label + " (" + dmy(rg.from) + " to " + dmy(rg.to) + ")"; }
+  // On the screen: "November 2026 · 1 to 9 Nov" (the printouts keep dd/mm/yyyy).
+  function niceRange(rg) { var w = rg.from.slice(0, 4) !== rg.to.slice(0, 4); var span = rg.from === rg.to ? dayText(rg.from, true) : dayText(rg.from, w) + " to " + dayText(rg.to, true); return rg.kind === "custom" ? span : rg.kind === "since" ? "Since the last inspection · " + span : rg.label + " · " + span; }
+  function rangeText(rg) { return rg.kind === "custom" ? rg.label : rg.kind === "since" ? rg.label + " (to " + dmy(rg.to) + ")" : rg.label + " (" + dmy(rg.from) + " to " + dmy(rg.to) + ")"; }
   function inRange(v, rg) { var d = String(v || "").slice(0, 10); return isYmd(d) && d >= rg.from && d <= rg.to; }
   function estimate(rg) { return 3 + 4 * monthsIn(rg.from, rg.to).length; } // devices, certificates, stock-takes; 4 registers a month
 
@@ -137,7 +144,7 @@
   // ── The checks. Pure: the same data, period and day always give the same answer (the UI suite runs them on fixed data).
   // Each register: { id, title, status: ok | look | missing | info | unread, reasons: [{ text, level: missing|look|info|ok, go }] }.
   // go: { mod, ym } opens that screen on that month; { mod: "tempreg", day, device } outlines that day.
-  var RANK = { ok: 0, info: 0, look: 1, missing: 2 };
+  var RANK = { ok: 0, info: 0, nofile: 1, look: 1.5, missing: 2 }; // nofile: nothing recorded yet (unknown is not in order)
   function worst(reasons) { var s = "ok"; reasons.forEach(function (r) { if ((RANK[r.level] || 0) > RANK[s]) s = r.level; }); return s; }
   function checks(D, rg, today) {
     var yest = addDays(today, -1), withYear = rg.from.slice(0, 4) !== rg.to.slice(0, 4) || rg.to.slice(0, 4) !== today.slice(0, 4);
@@ -158,7 +165,7 @@
         var at = {}; entries.forEach(function (e) { if (String(e.device_id) === String(dv.id)) at[e.entry_date] = 1; });
         var miss = []; for (var d = first; d <= last && miss.length < 400; d = addDays(d, 1)) if (!at[d]) miss.push(d);
         missTotal += miss.length;
-        if (miss.length) R.push({ level: "missing", text: dv.name + ": " + plural(miss.length, "day", "days") + " without a reading (" + listDays(miss, withYear) + ").", go: { mod: "tempreg", day: miss[0], device: dv.id } });
+        if (miss.length) R.push({ level: "missing", text: dv.name + ": " + plural(miss.length, "day", "days") + " without a reading (" + listDays(miss, withYear) + ").", all: dv.name + ": " + plural(miss.length, "day", "days") + " without a reading: " + listDays(miss, withYear, ALL) + ".", go: { mod: "tempreg", day: miss[0], device: dv.id } });
       });
       var outs = entries.filter(function (e) {
         var lo = num(e.min_limit), hi = num(e.max_limit), a = num(e.min_temp), b = num(e.max_temp);
@@ -168,7 +175,8 @@
       var byDev = {}; bare.forEach(function (e) { (byDev[e.device_name || ("Device " + e.device_id)] = byDev[e.device_name || ("Device " + e.device_id)] || []).push(e); });
       Object.keys(byDev).forEach(function (name) {
         var l = byDev[name], e0 = l[0], lim = (num(e0.min_limit) != null ? num(e0.min_limit) : "–") + " to " + (num(e0.max_limit) != null ? num(e0.max_limit) : "–") + " °C";
-        R.push({ level: "missing", text: name + ": " + plural(l.length, "reading", "readings") + " outside " + lim + " without a note (" + l.slice(0, 4).map(function (e) { return dayText(e.entry_date, withYear) + " " + num(e.min_temp) + " to " + num(e.max_temp) + " °C"; }).join(", ") + (l.length > 4 ? " and " + (l.length - 4) + " more" : "") + ").", go: { mod: "tempreg", day: e0.entry_date, device: e0.device_id } });
+        var each = function (e) { return dayText(e.entry_date, withYear) + " " + num(e.min_temp) + " to " + num(e.max_temp) + " °C"; };
+        R.push({ level: "missing", text: name + ": " + plural(l.length, "reading", "readings") + " outside " + lim + " without a note (" + l.slice(0, 4).map(each).join(", ") + (l.length > 4 ? " and " + (l.length - 4) + " more" : "") + ").", all: name + ": " + plural(l.length, "reading", "readings") + " outside " + lim + " without a note: " + l.map(each).join(", ") + ".", go: { mod: "tempreg", day: e0.entry_date, device: e0.device_id } });
       });
       if (noted) R.push({ level: "info", text: plural(noted, "reading", "readings") + " outside the limits, with a note." });
       if (!R.some(function (r) { return r.level !== "info"; })) R.unshift({ level: "ok", text: "Every day logged for " + plural(D.devices.length, "fridge or room", "fridges and rooms") + (last < rg.from ? " (no full day yet)" : "") + "; no reading outside the limits without a note." });
@@ -185,7 +193,7 @@
         var any = false; for (var i = 0; i < 7; i++) if (days[addDays(mon, i)]) { any = true; break; }
         if (!any) empty.push(mon);
       }
-      if (empty.length) R.push({ level: "missing", text: "No cleaning recorded in " + plural(empty.length, "week", "weeks") + ": " + empty.slice(0, 5).map(function (m) { return "week of " + dayText(m, withYear); }).join(", ") + (empty.length > 5 ? " and " + (empty.length - 5) + " more" : "") + ".", go: { mod: "cleanreg", ym: empty[0].slice(0, 7) } });
+      if (empty.length) R.push({ level: "missing", text: "No cleaning recorded in " + plural(empty.length, "week", "weeks") + ": " + empty.slice(0, 5).map(function (m) { return "week of " + dayText(m, withYear); }).join(", ") + (empty.length > 5 ? " and " + (empty.length - 5) + " more" : "") + ".", all: "No cleaning recorded in " + plural(empty.length, "week", "weeks") + ": " + empty.map(function (m) { return "week of " + dayText(m, withYear); }).join(", ") + ".", go: { mod: "cleanreg", ym: empty[0].slice(0, 7) } });
       if (inRange(today, rg)) {
         var lastC = all.filter(function (e) { return e.entry_date <= today; })[0];
         if (!lastC) R.push({ level: "missing", text: "Overdue: no cleaning recorded since " + dayText(D.cleanSince || (rg.from.slice(0, 7) + "-01"), true) + ". It is due once a week.", go: { mod: "cleanreg", ym: today.slice(0, 7) } });
@@ -201,7 +209,8 @@
       var lines = D.daily.filter(function (e) { return inRange(e.entry_date, rg); }), at = {}, none = [];
       lines.forEach(function (e) { at[e.entry_date] = 1; });
       for (var d = rg.from; d <= upTo(yest); d = addDays(d, 1)) if (!at[d]) none.push(d);
-      var R = [{ level: "info", text: (lines.length ? plural(lines.length, "line", "lines") + " on " + plural(Object.keys(at).length, "day", "days") + "." : "No line in these days.") + (none.length && lines.length ? " No line on " + plural(none.length, "day", "days") + " (" + listDays(none, withYear, 3) + "); a day with nothing supplied on prescription needs none." : ""), go: none.length ? { mod: "drreg", ym: none[0].slice(0, 7) } : null }];
+      var lead = lines.length ? plural(lines.length, "line", "lines") + " on " + plural(Object.keys(at).length, "day", "days") + "." : "No line in these days.";
+      var R = [{ level: "info", text: lead + (none.length && lines.length ? " No line on " + plural(none.length, "day", "days") + " (" + listDays(none, withYear, 3) + "); a day with nothing supplied on prescription needs none." : ""), all: lead + (none.length && lines.length ? " No line on " + plural(none.length, "day", "days") + ": " + listDays(none, withYear, ALL) + ". A day with nothing supplied on prescription needs none." : ""), go: none.length ? { mod: "drreg", ym: none[0].slice(0, 7) } : null }];
       add("dailyregister", "Daily register", R, D.err.dailyregister, "info");
     })();
 
@@ -211,7 +220,7 @@
       lines.forEach(function (e) { signed[e.entry_date] = 1; });
       [D.err.temperature ? [] : D.temp, D.err.cleaning ? [] : D.clean, D.err.dailyregister ? [] : D.daily].forEach(function (l) { l.forEach(function (e) { if (inRange(e.entry_date, rg) && e.entry_date < today) work[e.entry_date] = 1; }); });
       var gaps = Object.keys(work).filter(function (d) { return !signed[d]; }).sort();
-      if (gaps.length) R.push({ level: "look", text: plural(gaps.length, "day", "days") + " with work recorded but no pharmacist in charge in the locum register (" + listDays(gaps, withYear) + ").", go: { mod: "locreg", ym: gaps[0].slice(0, 7) } });
+      if (gaps.length) R.push({ level: "look", text: plural(gaps.length, "day", "days") + " with work recorded but no pharmacist in charge in the locum register (" + listDays(gaps, withYear) + ").", all: plural(gaps.length, "day", "days") + " with work recorded but no pharmacist in charge in the locum register: " + listDays(gaps, withYear, ALL) + ".", go: { mod: "locreg", ym: gaps[0].slice(0, 7) } });
       var lastL = lines.slice().sort(function (a, b) { return (a.entry_date + (a.time_in || "")) < (b.entry_date + (b.time_in || "")) ? 1 : -1; })[0];
       R.push(lastL ? { level: gaps.length ? "info" : "ok", text: "Last signed " + dayText(lastL.entry_date, withYear) + (lastL.locum_full_name ? " by " + lastL.locum_full_name : "") + (lastL.registration_number ? " (reg no " + lastL.registration_number + ")" : "") + "." + (gaps.length ? "" : " A pharmacist is recorded for every day with work."), go: { mod: "locreg", ym: lastL.entry_date.slice(0, 7) } }
         : { level: gaps.length ? "info" : "ok", text: "No pharmacist recorded in these days." + (gaps.length ? "" : " No day with work to match.") });
@@ -220,15 +229,16 @@
 
     // Certificates: as of today (they are not kept by month).
     (function () {
-      var R = [], never = [];
+      var R = [], never = [], sc = function (t) { return String(t == null ? "" : t).split(" ").map(function (w, i) { return !i || w.length < 2 || w === w.toUpperCase() || /\d/.test(w) ? w : w.charAt(0).toLowerCase() + w.slice(1); }).join(" "); }; // as the Certificates screen says them
       (D.certs || []).slice().sort(function (a, b) { return String(a.next_due || "9") < String(b.next_due || "9") ? -1 : 1; }).forEach(function (it) {
-        if (!it.next_due) { never.push(it.title); return; }
+        if (!it.next_due) { never.push(sc(it.title)); return; }
         var n = diffDays(today, it.next_due);
-        if (n < 0) R.push({ level: "missing", text: it.title + " expired on " + dayText(it.next_due, true) + " (" + plural(-n, "day", "days") + " ago).", go: { mod: "certreg" } });
-        else if (n <= SOON_DAYS) R.push({ level: "look", text: it.title + (n === 0 ? " is due today." : " is due on " + dayText(it.next_due, true) + " (in " + plural(n, "day", "days") + ")."), go: { mod: "certreg" } });
+        if (n < 0) R.push({ level: "missing", text: sc(it.title) + " expired on " + dayText(it.next_due, true) + " (" + plural(-n, "day", "days") + " ago).", go: { mod: "certreg" } });
+        else if (n <= SOON_DAYS) R.push({ level: "look", text: sc(it.title) + (n === 0 ? " is due today." : " is due on " + dayText(it.next_due, true) + " (in " + plural(n, "day", "days") + ")."), go: { mod: "certreg" } });
       });
-      if (!R.length) R.push({ level: "ok", text: (D.certs || []).length - never.length ? "Every certificate on file is in date for at least " + SOON_DAYS + " days." : "No certificate dates are on file yet." });
-      if (never.length) R.push({ level: "info", text: "Not recorded yet: " + never.join(", ") + ".", go: { mod: "certreg" } });
+      if (!(D.certs || []).length) R.push({ level: "nofile", text: "No certificates are set up for this pharmacy.", go: { mod: "certreg" } });
+      else if (!R.length && (D.certs || []).length > never.length) R.push({ level: "ok", text: "Every certificate on file is in date for at least " + SOON_DAYS + " days." });
+      if (never.length) R.push({ level: "nofile", text: "Not recorded yet: " + never.join(", ") + ". An inspector will ask for these dates.", go: { mod: "certreg" } }); // unknown is not in order
       R.push({ level: "info", text: "Certificates are as of today, whatever days are chosen." });
       add("certificates", "Certificates", R, D.err.certificates);
     })();
@@ -249,22 +259,29 @@
         if (d) R.push({ level: "missing", text: (b.name || "A controlled drug") + ": counted " + num(b.counted) + ", expected " + num(b.expected) + " (" + (d > 0 ? "+" : "") + d + ").", go: { mod: "ddstreg" } });
       });
       if (D.balanceErr) R.push({ level: "look", text: "The running balance could not be read (" + D.balanceErr + ")." });
-      if (!R.some(function (r) { return r.level !== "info"; })) R.unshift({ level: "ok", text: inP.length ? plural(inP.length, "stock-take", "stock-takes") + " in these days (last on " + dayText(inP[0].day, withYear) + "); every finished month with lines has one." : "No month with controlled-drug lines is without a stock-take." });
+      if (!takes.length) R.push({ level: "nofile", text: "No controlled-drug stock take is on file yet.", go: { mod: "ddstreg" } }); // none ever: not "in order"
+      var finished = D.months.filter(function (ym) { return addDays(lastDay(ym), COUNT_GRACE) < today; });
+      if (!R.some(function (r) { return r.level !== "info"; })) R.unshift({ level: "ok", text: inP.length ? plural(inP.length, "stock-take", "stock-takes") + " in these days (last on " + dayText(inP[0].day, withYear) + "); every finished month with lines has one." : finished.length ? "No finished month in these days had controlled-drug lines, so no stock-take was needed." : "No stock-take is due yet for these days." });
       if (cur.length) R.push({ level: "info", text: cur.map(monthName).join(" and ") + ": the stock-take is not due yet (it counts until a week after the month ends)." });
       add("dda", "Controlled drugs", R, D.err.dda);
     })();
     return out;
   }
+  // The verdict first: ready, or how many registers to put right before an inspector comes, then what kind.
   function headline(list) {
-    var miss = list.filter(function (r) { return r.status === "missing"; }).length, look = list.filter(function (r) { return r.status === "look"; }).length, un = list.filter(function (r) { return r.status === "unread"; }).length;
-    if (!miss && !look && !un) return { level: "ok", text: "Everything checked is in order for these days." };
+    var n = function (st) { return list.filter(function (r) { return r.status === st; }).length; };
+    var miss = n("missing"), look = n("look"), nof = n("nofile"), un = n("unread"), fix = miss + look + nof + un;
+    if (!fix) return { level: "ok", text: "Ready for an inspector. Everything checked is in order for these days." };
     var bits = [];
     if (miss) bits.push(plural(miss, "register has", "registers have") + " something missing");
     if (look) bits.push(plural(look, "needs", "need") + " a look");
+    if (nof) bits.push(plural(nof, "has", "have") + " nothing on file");
     if (un) bits.push(plural(un, "could not be checked", "could not be checked"));
-    return { level: miss ? "missing" : "look", text: bits.join(", ") + "." };
+    return { level: miss ? "missing" : "look", text: (fix === 1 ? "1 thing" : fix + " things") + " to put right before an inspector comes: " + bits.join(", ") + "." };
   }
-  var WORD = { ok: "In order", look: "Look at this", missing: "Missing", info: "For information", unread: "Not checked" };
+  var URGENT = { missing: 0, unread: 1, look: 2, nofile: 3, info: 4, ok: 4 }; // in order and for information keep their usual order
+  var GO_NAME = { tempreg: "temperature", cleanreg: "cleaning", drreg: "daily register", locreg: "locum register", certreg: "certificates", cdsreg: "controlled drugs supplied", poyreg: "POYC controlled drugs", cdpreg: "controlled drugs received", ddstreg: "stock takes" };
+  var WORD = { nofile: "Not on file", ok: "In order", look: "Look at this", missing: "Missing", info: "For information", unread: "Not checked" };
 
   // A whole run: read, check, keep the result. fetch is optional (Download our records passes its own, so a register month
   // it has already read is not read again).
@@ -273,7 +290,7 @@
     fetch = fetch || function (p) { return E.apiFetch(p, { method: "GET" }); };
     var D = await gather(rg, fetch, step, today);
     var list = checks(D, rg, today);
-    return { range: rg, today: today, at: new Date(), ms: Date.now() - t0, calls: D.calls, list: list, head: headline(list) };
+    return { range: rg, today: today, at: new Date(), ms: Date.now() - t0, calls: D.calls, list: list, head: headline(list), data: D }; // data: what was read (the inspection pack reuses it)
   }
 
   // ── Print. One function, so the print route can be switched in one place: the live CSP-safe route, E.openPrint (a new
@@ -320,7 +337,7 @@
     if (document.getElementById("eikon-insreg-css")) return;
     var st = document.createElement("style"); st.id = "eikon-insreg-css";
     st.textContent =
-      ".ins{max-width:880px;margin:0 auto}.ins-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".ins{max-width:880px;margin:0 auto}.ins-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 12px 0 0;min-height:44px;margin:-8px 0 2px;cursor:pointer}" +
       ".ins h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.ins-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0;line-height:1.5}" +
       ".ins-box{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-top:16px}" +
       ".ins-chips{display:flex;gap:6px;flex-wrap:wrap}.ins-chips button{font:inherit;font-size:14px;font-weight:600;min-height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer}" +
@@ -336,37 +353,91 @@
       ".ins-head.look{border-left-color:#C98A12}.ins-head.missing{border-left-color:var(--danger)}.ins-head small{display:block;font-weight:400;font-size:13px;color:var(--muted);margin-top:2px}" +
       ".ins-list{margin:14px 0 0;padding:0;list-style:none;background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".ins-reg{padding:12px 16px;border-top:.5px solid var(--border);border-left:3px solid transparent}.ins-reg:first-child{border-top:0}" +
-      ".ins-reg.missing{border-left-color:var(--danger)}.ins-reg.look,.ins-reg.unread{border-left-color:#C98A12}" +
+      ".ins-reg.missing{border-left-color:var(--danger)}.ins-reg.look,.ins-reg.unread,.ins-reg.nofile{border-left-color:#C98A12}" +
       ".ins-reg h2{display:flex;align-items:center;gap:10px;justify-content:space-between;font-size:16px;font-weight:700;margin:0}" +
       ".ins-pill{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;white-space:nowrap}" +
-      ".ins-pill.ok{background:rgba(10,143,106,.12);color:var(--accent)}.ins-pill.look,.ins-pill.unread{background:rgba(201,138,18,.16);color:var(--warn,#A06A0E)}.ins-pill.missing{background:rgba(215,38,28,.12);color:var(--danger)}.ins-pill.info{background:rgba(127,127,127,.14);color:var(--muted)}" +
+      ".ins-pill.ok{background:rgba(10,143,106,.12);color:var(--accent)}.ins-pill.look,.ins-pill.unread{background:rgba(201,138,18,.16);color:var(--warn,#A06A0E)}.ins-pill.missing{background:rgba(215,38,28,.12);color:var(--danger)}.ins-pill.nofile{background:rgba(201,138,18,.16);color:var(--warn,#A06A0E)}.ins-pill.info{background:rgba(127,127,127,.14);color:var(--muted)}" +
       ".ins-reg ul{margin:6px 0 0;padding:0;list-style:none}.ins-reg li{display:flex;gap:10px;align-items:baseline;justify-content:space-between;font-size:14px;line-height:1.45;padding:3px 0}" +
-      ".ins-reg li.info{color:var(--muted);font-size:13px}.ins-reg li.missing span::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--danger);margin-right:7px;vertical-align:1px}.ins-reg li.look span::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#C98A12;margin-right:7px;vertical-align:1px}" +
-      ".ins-go{border:0;background:none;color:var(--accent);font:inherit;font-size:14px;font-weight:600;padding:2px 0;cursor:pointer;white-space:nowrap;flex:none}" +
+      ".ins-reg li.info{color:var(--muted);font-size:13px}.ins-reg li.missing span::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--danger);margin-right:7px;vertical-align:1px}.ins-reg li.nofile span::before,.ins-reg li.look span::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#C98A12;margin-right:7px;vertical-align:1px}" +
+      ".ins-go{border:0;background:none;color:var(--accent);font:inherit;font-size:14px;font-weight:600;padding:0;min-height:44px;margin:2px 0 -8px;cursor:pointer}" +
       ".ins-prog{margin-top:16px;padding:12px 16px;border-radius:12px;border:1px solid var(--border);background:var(--panel2);font-size:14px}.ins-prog b{display:block;margin-bottom:2px}" +
+      ".ins-link{border:0;background:none;color:var(--accent);font:inherit;font-size:14px;font-weight:600;padding:0;min-height:32px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}" +
+      ".ins-done{margin-top:16px;padding:12px 16px;border-radius:12px;border:1px solid var(--border);border-left:4px solid var(--ok,#0A8F6A);background:var(--panel2);font-size:14px;line-height:1.5}.ins-done b{display:block;margin-bottom:2px}.ins-done .ins-link,.ins-done .ins-quiet{display:block;margin-top:6px}.ins-quiet{color:var(--muted);font-size:13.5px}" +
       ".ins-err{color:var(--danger)}.ins-foot{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.5}" +
       "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .ins-chips button[aria-pressed=true]{color:#00160E}}" +
-      "@media (max-width:600px){.ins{padding:0 16px}.ins h1{font-size:28px}.ins-f label{flex:1 1 100%}.ins-reg li{flex-direction:column;gap:0}}";
+      "@media (max-width:600px){.ins{padding:0 16px}.ins h1{font-size:28px}.ins-f label{flex:1 1 100%}.ins-reg li{flex-direction:column;gap:0}.ins-chips button,.ins-btn,.ins-go,.ins-link{min-height:44px}.ins-f input{height:44px;font-size:16px}.ins-acts .ins-btn.p{flex:1 1 100%}}";
     document.head.appendChild(st);
   }
 
-  function rangeNow() { return periodOf(S.range, maltaToday(), S.from, S.to); }
+  function rangeNow() { return S.range === "since" ? periodOf("since", maltaToday(), S.since, "") : periodOf(S.range, maltaToday(), S.from, S.to); }
+  function packAllowed() { return !!E.inspack; } // anyone signed in may print the pack (owner, 9 Nov)
+  function sinceDay() { return E.inspack && E.inspack.lastInspection ? E.inspack.lastInspection() : ""; }
+  // ── Reads kept for the session: a month that is over is read once (Check again and the pack reuse it); this month,
+  // the certificates, the stock-take list and the fridges are read again each time, as they can change today.
+  var KEEP = { loc: "", map: {} };
+  function locId() { var u = (E.state && E.state.user) || {}; return String(u.location_id || u.location_name || "here"); }
+  function kept(raw) {
+    if (KEEP.loc !== locId()) KEEP = { loc: locId(), map: {} }; // never across pharmacies
+    var thisYm = maltaToday().slice(0, 7);
+    return function (p) {
+      var m = /[?&]month=(\d{4}-\d{2})/.exec(p), keep = m && m[1] < thisYm;
+      if (keep && KEEP.map[p]) return KEEP.map[p];
+      var pr = Promise.resolve().then(function () { return raw(p); });
+      if (keep) { KEEP.map[p] = pr; pr.then(function (r) { if (!r || r.ok === false) delete KEEP.map[p]; }, function () { delete KEEP.map[p]; }); }
+      return pr;
+    };
+  }
+  // C2 (Registers hub): the last check of this pharmacy, in this browser.
+  function c2Key() { return "eikon_ins_last:" + locId(); }
+  function saveLast(res) {
+    var u = (E.state && E.state.user) || {};
+    try { localStorage.setItem(c2Key(), JSON.stringify({ at: res.at.toISOString(), from: res.range.from, to: res.range.to, level: res.head.level, text: res.head.text, by: u.full_name || u.email || "" })); } catch (e) {}
+  }
+  function readLast() { try { var o = JSON.parse(localStorage.getItem(c2Key()) || "null"); return o && o.at && o.text ? o : null; } catch (e) { return null; } }
+  function agoText(iso) {
+    var d = diffDays(maltaDay(iso), maltaToday());
+    return d <= 0 ? "today" : d === 1 ? "yesterday" : d + " days ago";
+  }
   async function start() {
     var rg = rangeNow();
     if (!rg) { S.error = "Choose a first and a last day, the last one not before the first."; return paint(); }
     if (monthsIn(rg.from, rg.to).length > MAX_MONTHS) { S.error = "Choose at most " + MAX_MONTHS + " months at a time."; return paint(); }
+    if (S.pack) { S.pack.run.cancel(); S.pack = null; }
     var job = { cancel: false, calls: 0, now: "", range: rg };
     S.job = job; S.error = ""; paint();
-    var fetch = function (p) { if (job.cancel || S.job !== job) return Promise.reject({ cancelled: true }); return E.apiFetch(p, { method: "GET" }); };
+    var get = kept(function (p) { return E.apiFetch(p, { method: "GET" }); });
+    var fetch = function (p) { if (job.cancel || S.job !== job) return Promise.reject({ cancelled: true }); return get(p); };
     try {
       var res = await run(rg, fetch, function (path, n) { job.calls = n; job.now = path; if (S.job === job) paint(); });
       if (S.job !== job) return;
-      S.result = res; E.inspectLast = res;
+      S.result = res; E.inspectLast = res; saveLast(res);
     } catch (e) {
       if (S.job !== job) return;
       if (!(e && e.cancelled)) S.error = "The check could not be made: " + errText(e) + ".";
     }
     S.job = null; paint();
+  }
+  // The inspection pack (eikon.inspack.js): called straight from the tap, so its tab opens at once; the pack is written
+  // into it when every register has been read (the months the check read are not read again).
+  function makePack() {
+    var rg = rangeNow();
+    if (!rg) { S.error = "Choose a first and a last day, the last one not before the first."; return paint(); }
+    if (monthsIn(rg.from, rg.to).length > MAX_MONTHS) { S.error = "Choose at most " + MAX_MONTHS + " months at a time."; return paint(); }
+    if (!E.inspack || S.pack || S.job) return;
+    var job = { range: rg, calls: 0, now: "Opening the pack" };
+    S.error = ""; S.packed = null; S.pack = job;
+    job.run = E.inspack.open(rg, { fetch: kept(function (p) { return E.apiFetch(p, { method: "GET" }); }), step: function (t, n) { job.now = t; job.calls = n; if (S.pack === job) paint(); } });
+    paint();
+    job.run.done.then(function (pack) {
+      if (S.pack !== job) return;
+      S.pack = null; S.packed = { range: rg, calls: pack.calls, gaps: pack.contents.filter(function (c) { return c.mark !== "ok"; }).length, blocked: !pack.tab };
+      if (pack.check && pack.check.list) { S.result = pack.check; E.inspectLast = pack.check; saveLast(pack.check); }
+      paint();
+    }, function (e) {
+      if (S.pack !== job) return;
+      S.pack = null; if (!(e && e.cancelled)) S.error = "The pack could not be made: " + errText(e) + ". Nothing was printed; try again.";
+      paint();
+    });
   }
   function stepText(path) {
     var m = /month=(\d{4}-\d{2})/.exec(path || ""), w = { "/temperature": "Temperature", "/cleaning": "Cleaning", "/daily-register": "Daily register", "/locumregister": "Locum register", "/certificates": "Certificates", "/dda": "Controlled drugs" }, k = "";
@@ -377,34 +448,55 @@
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== ID) return;
-    var busy = !!S.job, rg = rangeNow(), t = maltaToday();
+    var busy = !!S.job || !!S.pack, rg = rangeNow(), t = maltaToday();
     var chip = function (v, l) { return '<button type="button" data-range="' + v + '" aria-pressed="' + (S.range === v) + '"' + (busy ? " disabled" : "") + ">" + l + "</button>"; };
     var h = '<div class="ins"><button class="ins-back" data-act="back">‹ Registers</button><h1>Inspection check</h1>' +
       '<p class="ins-sub">Whether each register is in order for the days you choose, and what to look at before an inspector does. Read only: nothing is changed.</p>' +
-      '<div class="ins-box" role="group" aria-label="Days to check"><div class="ins-chips">' + chip("this", "This month") + chip("last", "Last month") + chip("three", "Last 3 months") + chip("custom", "Choose days") + "</div>";
+      '<div class="ins-box" role="group" aria-label="Days to check"><div class="ins-chips">' + chip("this", "This month") + chip("last", "Last month") + chip("three", "Last 3 months") + chip("since", "Since last inspection") + chip("custom", "Choose days") + "</div>";
+    if (S.range === "since" && (S.editSince || !S.since)) h += '<div class="ins-f"><label for="ins-since">Day of the last inspection<input type="date" id="ins-since" value="' + esc(S.since) + '" max="' + t + '"' + (busy ? " disabled" : "") + '></label><button type="button" class="ins-btn p" data-act="since"' + (busy ? " disabled" : "") + ">Check</button></div>";
     if (S.range === "custom") h += '<div class="ins-f"><label for="ins-from">First day<input type="date" id="ins-from" value="' + esc(S.from) + '" max="' + t + '"' + (busy ? " disabled" : "") + '></label><label for="ins-to">Last day<input type="date" id="ins-to" value="' + esc(S.to) + '" max="' + t + '"' + (busy ? " disabled" : "") + '></label><button type="button" class="ins-btn p" data-act="check"' + (busy ? " disabled" : "") + ">Check</button></div>";
-    h += '<p class="ins-days">' + (rg ? esc(rangeText(rg)) + " · about " + estimate(rg) + " requests to the server" : "Choose a first and a last day.") + "</p></div>";
+    h += '<p class="ins-days">' + (rg ? esc(niceRange(rg)) + (S.range === "since" && !S.editSince ? ' <button type="button" class="ins-link" data-act="edit-since"' + (busy ? " disabled" : "") + ">Change the day</button>" : "") : S.range === "since" ? "Choose the day the inspector last came. This browser remembers it." : "Choose a first and a last day.") + "</p></div>";
+    // The job of the page, straight under the days: the pack (primary), this summary on one page, check again.
+    h += '<div class="ins-acts">' + (busy ? '<button class="ins-btn" data-act="cancel">Cancel</button>' :
+      (packAllowed() ? '<button class="ins-btn p" data-act="pack"' + (rg ? "" : " disabled") + ">Print inspection pack</button>" : "") +
+      '<button class="ins-btn" data-act="print"' + (S.result ? "" : " disabled") + ">Print this summary</button>" + '<button class="ins-btn" data-act="again"' + (rg ? "" : " disabled") + ">Check again</button>") + "</div>";
     if (S.error) h += '<p class="ins-err" role="alert">' + esc(S.error) + "</p>";
     h += '<div class="ins-live" aria-live="polite">';
-    if (busy) h += '<div class="ins-prog"><b>Checking ' + esc(rangeText(S.job.range)) + "…</b>" + esc(stepText(S.job.now)) + " · " + S.job.calls + " requests so far</div>";
-    else if (S.result) {
+    if (S.pack) h += '<div class="ins-prog" role="status"><b>Making the inspection pack for ' + esc(niceRange(S.pack.range)) + "…</b>" + esc(S.pack.now) + ". It opens in a new tab when it is ready.</div>";
+    else if (busy) h += '<div class="ins-prog"><b>Checking ' + esc(niceRange(S.job.range)) + "…</b>" + esc(stepText(S.job.now)) + "</div>";
+    else if (S.packed) {
+      var P = S.packed;
+      h += '<div class="ins-done" role="status"><b>' + (P.blocked ? "The pack is ready, but the browser did not open its tab. Allow pop-ups for Eikon, or use the link it showed." : "The inspection pack opened in a new tab.") + "</b>" +
+        esc(niceRange(P.range) + " · " + (P.gaps ? plural(P.gaps, "register shows", "registers show") + " a gap, listed in the pack." : "every register in order.")) +
+        (sinceDay() === t ? '<span class="ins-quiet">Today is kept as the day of the last inspection.</span>' : '<button type="button" class="ins-link" data-act="mark">Inspector here today? Keep today as the last inspection</button>') + "</div>";
+    }
+    if (!busy && !S.result) {
+      var L0 = readLast();
+      if (L0) h += '<div class="ins-head ' + esc(L0.level) + '">' + esc("Last checked " + agoText(L0.at) + (L0.by ? " by " + L0.by : "") + ": " + L0.text) + "<small>" + esc(niceRange({ kind: "custom", from: L0.from, to: L0.to })) + " · press Check again for today's answer</small></div>";
+    }
+    if (!busy && S.result) {
       var R = S.result;
-      h += '<div class="ins-head ' + R.head.level + '">' + esc(R.head.text) + "<small>" + esc(rangeText(R.range)) + " · checked " + esc(dmy(R.today)) + " · " + R.calls + " requests</small></div>";
-      h += '<ul class="ins-list">' + R.list.map(function (r, ri) {
+      h += '<div class="ins-head ' + R.head.level + '">' + esc(R.head.text) + "<small>" + esc(niceRange(R.range)) + " · checked " + esc(dayText(R.today, true)) + "</small></div>";
+      var order = R.list.map(function (r, ri) { return ri; }).sort(function (a, b) { return (URGENT[R.list[a].status] - URGENT[R.list[b].status]) || a - b; }); // the most urgent first
+      h += '<ul class="ins-list">' + order.map(function (ri) { var r = R.list[ri];
+        // One way in per register: the first thing to put right (or the register itself), saying where it goes.
+        var gi = -1; r.reasons.forEach(function (x, xi) { if (gi < 0 && x.go && x.go.mod && (x.level === "missing" || x.level === "look" || x.level === "nofile")) gi = xi; });
+        if (gi < 0) r.reasons.forEach(function (x, xi) { if (gi < 0 && x.go && x.go.mod) gi = xi; });
+        var to = gi >= 0 ? (GO_NAME[r.reasons[gi].go.mod] || r.title) : "";
         return '<li class="ins-reg ' + r.status + '" data-reg="' + esc(r.id) + '"><h2><span>' + esc(r.title) + '</span><span class="ins-pill ' + r.status + '">' + esc(WORD[r.status]) + "</span></h2><ul>" +
-          r.reasons.map(function (x, xi) { return '<li class="' + x.level + '"><span>' + esc(x.text) + "</span>" + (x.go && x.go.mod && x.level !== "ok" && x.level !== "info" ? '<button type="button" class="ins-go" data-go="' + ri + ":" + xi + '" aria-label="Open: ' + esc(x.text) + '">Open ›</button>' : x.go && x.go.mod ? '<button type="button" class="ins-go" data-go="' + ri + ":" + xi + '" aria-label="Open ' + esc(r.title) + '">Open ›</button>' : "") + "</li>"; }).join("") + "</ul></li>";
+          r.reasons.map(function (x) { return '<li class="' + x.level + '"><span>' + esc(x.text) + "</span></li>"; }).join("") + "</ul>" +
+          (gi >= 0 ? '<button type="button" class="ins-go" data-go="' + ri + ":" + gi + '">Open ' + esc(to) + " ›</button>" : "") + "</li>";
       }).join("") + "</ul>";
     }
     h += "</div>";
-    h += '<div class="ins-acts">' + (busy ? '<button class="ins-btn" data-act="cancel">Cancel</button>' : '<button class="ins-btn p" data-act="print"' + (S.result ? "" : " disabled") + ">Print with sign-off lines</button>" + '<button class="ins-btn" data-act="again">Check again</button>') + "</div>";
-    h += '<p class="ins-foot">What is checked: a temperature reading every day for each fridge and room, and a note for each reading outside its limits; a cleaning every week; a pharmacist in the locum register on each day with work; certificates expired or due within ' + SOON_DAYS + ' days (as of today); a controlled-drug stock-take for each month with lines. Days with no daily-register line are listed for information only. Today is not counted until it is over.</p></div>';
+    h += '<p class="ins-foot">What is checked: a temperature reading every day for each fridge and room, and a note for each reading outside its limits; a cleaning every week; a pharmacist in the locum register on each day with work; certificates expired or due within ' + SOON_DAYS + ' days (as of today); a controlled-drug stock-take for each month with lines. Days with no daily-register line are listed for information only. Today is not counted until it is over. The inspection pack adds a cover page, the contents with the gaps in each register, each register&rsquo;s own printout for these months, and a sign-off page.</p></div>';
     var ae = document.activeElement, had = ae && m.contains(ae), sel = "";
     if (had) ["data-act", "data-range", "data-go"].forEach(function (k) { if (!sel && ae.getAttribute(k)) sel = "[" + k + '="' + ae.getAttribute(k) + '"]'; });
     if (had && !sel && ae.id) sel = "#" + ae.id;
     m.innerHTML = h;
     if (had) {
       var again = sel && m.querySelector(sel);
-      if (!again || again.disabled) again = m.querySelector(busy ? '[data-act="cancel"]' : '[data-act="again"]');
+      if (!again || again.disabled) again = m.querySelector(busy ? '[data-act="cancel"]' : '[data-act="pack"]');
       if (again) again.focus({ preventScroll: true });
     }
     bind(m);
@@ -416,14 +508,19 @@
         var a = b.getAttribute("data-act");
         if (a === "back") window.location.hash = "#registers";
         else if (a === "check" || a === "again") start();
-        else if (a === "cancel") { if (S.job) S.job.cancel = true; S.job = null; paint(); }
+        else if (a === "cancel") { if (S.job) S.job.cancel = true; S.job = null; if (S.pack) { S.pack.run.cancel(); S.pack = null; } paint(); }
         else if (a === "print" && S.result) openPrint(S.result);
+        else if (a === "pack") makePack();
+        else if (a === "since") { var v = m.querySelector("#ins-since"); S.since = v ? v.value : S.since; if (!isYmd(S.since) || S.since > maltaToday()) { S.error = "Choose the day of the last inspection, today or before."; return paint(); } if (E.inspack) E.inspack.setLastInspection(S.since); S.editSince = false; start(); }
+        else if (a === "edit-since") { S.editSince = true; paint(); E.focusSoon ? E.focusSoon(function () { return m.querySelector("#ins-since"); }, 30) : 0; }
+        else if (a === "mark") { var d = maltaToday(); if (E.inspack) E.inspack.setLastInspection(d); S.since = d; paint(); if (E.toast) E.toast("Today is kept as the day of the last inspection", "success"); }
       });
     });
     m.querySelectorAll("[data-range]").forEach(function (b) {
       b.addEventListener("click", function () {
-        S.range = b.getAttribute("data-range"); S.error = ""; S.result = null;
+        S.range = b.getAttribute("data-range"); S.error = ""; S.result = null; S.packed = null;
         if (S.range === "custom") { if (!S.from) { S.to = maltaToday(); S.from = S.to.slice(0, 7) + "-01"; } paint(); }
+        else if (S.range === "since") { S.since = sinceDay(); S.editSince = !S.since; paint(); if (S.since) start(); else if (E.focusSoon) E.focusSoon(function () { return m.querySelector("#ins-since"); }, 30); }
         else start();
       });
     });
@@ -433,14 +530,17 @@
     var on = function (id, fn) { var el = m.querySelector(id); if (el) el.addEventListener("change", fn); };
     on("#ins-from", function () { S.from = this.value; S.result = null; paint(); });
     on("#ins-to", function () { S.to = this.value; S.result = null; paint(); });
+    var si = m.querySelector("#ins-since"); if (si) si.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); var b = m.querySelector('[data-act="since"]'); if (b) b.click(); } });
   }
 
   E.registerModule({
     id: ID, title: "Inspection check", order: 3, icon: "☑", ui2Only: true,
     render: function (ctx) {
-      S.mount = ctx && ctx.mount; S.error = ""; css();
+      S.mount = ctx && ctx.mount; S.error = ""; css(); if (!S.since) S.since = sinceDay();
       var fresh = S.result && S.result.today === maltaToday() && Date.now() - S.result.at.getTime() < 10 * 60000; // back from a register: the last check stays
-      paint(); if (!fresh && !S.job && rangeNow()) return start();
+      // Opening runs the check by itself only for This month (the cheapest); other days wait for Check again.
+      if (!fresh && S.range !== "this") S.result = null;
+      paint(); if (!fresh && !S.job && S.range === "this" && rangeNow()) return start();
     }
   });
   // For Download our records, the tests and the real-stack check.

@@ -45,6 +45,7 @@
     ["modules.cdsreg.js", "cdsreg", "Controlled drugs supplied", "℞", 3, true, "new", ["pharmacy"]],
     ["modules.cdsreg.js", "poyreg", "POYC controlled drugs", "℞", 3, true, "new", ["pharmacy"]],
     ["modules.ddstreg.js", "ddstreg", "Controlled drug stock takes", "℞", 6, true, "new", ["pharmacy"]],
+    ["modules.cdreg.js", "cdreg", "Controlled drugs by medicine", "℞", 3, true, "new", ["pharmacy"]],
     ["modules.poreg.js", "poreg", "Paid out", "€", 3, true, "new", ["pharmacy"]],
     ["modules.hndreg.js", "hndreg", "Handover", "↻", 3, true, "new", ["pharmacy"]],
     ["modules.rotreg.js", "rotreg", "Who's in", "◷", 3, true, "new", ["pharmacy"]],

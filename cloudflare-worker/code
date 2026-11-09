@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-04-batch-8";
+const WORKER_VERSION = "2026-11-09-batch-9";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -9875,6 +9875,88 @@ async function handleDdaStockTakeItemDelete(request, env, corsOkHeaders, authUse
 }
 
 
+// Controlled drugs as one running register per medicine (new layout cdreg). READ ONLY: no table, column or row is
+// added or changed. Every read is bounded by date and uses the registers' (org_id, location_id, entry_date) indexes
+// and the stock takes' (org_id, location_id, created_at) index; at most 400 days per request.
+//   GET /dda-register/medicines?from&to   the medicines written in received / supplied / POYC and counted in stock
+//                                         takes in the period (default the last 92 days), one row per spelling.
+//   GET /dda-register/ledger?term&from&to every line whose medicine contains `term` (received, supplied, POYC) and every
+//                                         stock-take count of it. Without `from`, the period starts at the count before
+//                                         the latest (a balance needs every line since a count, and the latest count is
+//                                         checked against it), else at the only count, else 92 days back.
+function ddaRegYmdShift(ymd, days) {
+  const d = new Date(ymd + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+function ddaRegPeriod(url, needFrom) {
+  const today = tzYmd(); // the pharmacy's day (Malta), as the registers date their lines
+  const to = (url.searchParams.get("to") || "").trim() || today;
+  let from = (url.searchParams.get("from") || "").trim();
+  if (!isValidYmd(to) || (from && !isValidYmd(from))) return { error: "Invalid from/to (YYYY-MM-DD)" };
+  if (!from && needFrom) from = ddaRegYmdShift(to, -92);
+  if (from && from > to) return { error: "to must be >= from" };
+  const floor = ddaRegYmdShift(to, -400);
+  if (from && from < floor) from = floor; // never more than 400 days in one read
+  return { from, to, floor };
+}
+function ddaRegLike(term) { return "%" + String(term).toLowerCase().replace(/[\\%_]/g, (c) => "\\" + c) + "%"; }
+
+async function handleDdaRegisterMedicines(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const p = ddaRegPeriod(url, true);
+  if (p.error) return jsonResponse({ ok: false, error: p.error }, 400, corsOkHeaders);
+  await ensureDdaPurchasesSchema(env); await ensureDdaSalesSchema(env); await ensureDdaPoycSchema(env); await ensureDdaStockTakesSchema(env);
+  const o = authUser.org_id, l = authUser.location_id;
+  const grouped = (t, col) => dbAll(env, `SELECT ${col} AS name, COUNT(*) AS n, SUM(quantity) AS qty, MAX(entry_date) AS last FROM ${t}
+    WHERE org_id = ? AND location_id = ? AND entry_date >= ? AND entry_date <= ? GROUP BY ${col}`, [o, l, p.from, p.to]);
+  const [received, supplied, poyc, counted] = await Promise.all([
+    grouped("dda_purchases_entries", "dda_name_dose"),
+    grouped("dda_sales_entries", "medicine_name_dose"),
+    grouped("dda_poyc_entries", "medicine_name_dose"),
+    dbAll(env, `SELECT i.item_name, i.dosage, COUNT(*) AS n, MAX(s.created_at) AS last
+      FROM dda_stocktakes s JOIN dda_stocktake_items i ON i.org_id = s.org_id AND i.location_id = s.location_id AND i.stocktake_id = s.id
+      WHERE s.org_id = ? AND s.location_id = ? AND s.created_at >= ? AND s.created_at < ?
+      GROUP BY i.item_name, i.dosage`, [o, l, p.from, ddaRegYmdShift(p.to, 1)])
+  ]);
+  return jsonResponse({ ok: true, from: p.from, to: p.to, received, supplied, poyc, counted }, 200, corsOkHeaders);
+}
+
+async function handleDdaRegisterLedger(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const term = (url.searchParams.get("term") || "").trim();
+  if (term.length < 2 || term.length > 80) return jsonResponse({ ok: false, error: "Write at least 2 letters of the medicine" }, 400, corsOkHeaders);
+  const p = ddaRegPeriod(url, false);
+  if (p.error) return jsonResponse({ ok: false, error: p.error }, 400, corsOkHeaders);
+  await ensureDdaPurchasesSchema(env); await ensureDdaSalesSchema(env); await ensureDdaPoycSchema(env); await ensureDdaStockTakesSchema(env);
+  const o = authUser.org_id, l = authUser.location_id, like = ddaRegLike(term);
+  // the counts first: every count of it in the last 400 days (stock takes are few; their items are read by stock take)
+  const counts = await dbAll(env, `SELECT i.id, i.stocktake_id, i.item_name, i.dosage, i.qty_tablets, i.created_at, i.updated_at,
+      s.created_at AS stocktake_at, s.closed_at AS stocktake_closed_at
+    FROM dda_stocktakes s JOIN dda_stocktake_items i ON i.org_id = s.org_id AND i.location_id = s.location_id AND i.stocktake_id = s.id
+    WHERE s.org_id = ? AND s.location_id = ? AND s.created_at >= ? AND s.created_at < ?
+      AND lower(i.item_name || ' ' || COALESCE(i.dosage, '')) LIKE ? ESCAPE '\\'
+    ORDER BY s.created_at ASC, i.id ASC`, [o, l, p.floor, ddaRegYmdShift(p.to, 1), like]);
+  let from = p.from, auto = false;
+  if (!from) { // from the count before the latest (so the latest count can be checked against the lines before it),
+    // else the only count, else 92 days back. A count's UTC day is never later than its Malta day.
+    auto = true;
+    const days = [];
+    counts.forEach((c) => { const d = String(c.stocktake_at || "").slice(0, 10); if (isValidYmd(d) && days[days.length - 1] !== d) days.push(d); });
+    from = days.length >= 2 ? days[days.length - 2] : days.length ? days[0] : ddaRegYmdShift(p.to, -92);
+  }
+  const rows = (sql) => dbAll(env, sql, [o, l, from, p.to, like]);
+  const [received, supplied, poyc] = await Promise.all([
+    rows(`SELECT id, entry_date, dda_name_dose, quantity, agent, invoice_number, created_at FROM dda_purchases_entries
+      WHERE org_id = ? AND location_id = ? AND entry_date >= ? AND entry_date <= ? AND lower(dda_name_dose) LIKE ? ESCAPE '\\' ORDER BY entry_date ASC, id ASC`),
+    rows(`SELECT id, entry_date, medicine_name_dose, quantity, client_name, client_id_card, doctor_name, doctor_reg_no, prescription_serial_no, urgent, created_at FROM dda_sales_entries
+      WHERE org_id = ? AND location_id = ? AND entry_date >= ? AND entry_date <= ? AND lower(medicine_name_dose) LIKE ? ESCAPE '\\' ORDER BY entry_date ASC, id ASC`),
+    rows(`SELECT id, entry_date, medicine_name_dose, quantity, client_name, client_id_card, doctor_name, doctor_reg_no, prescription_serial_no, created_at FROM dda_poyc_entries
+      WHERE org_id = ? AND location_id = ? AND entry_date >= ? AND entry_date <= ? AND lower(medicine_name_dose) LIKE ? ESCAPE '\\' ORDER BY entry_date ASC, id ASC`)
+  ]);
+  return jsonResponse({ ok: true, term, from, to: p.to, auto_from: auto, received, supplied, poyc, counts }, 200, corsOkHeaders);
+}
+
 async function handleDdaStockTakeReportHtml(request, env, corsOkHeaders, authUser, stocktakeId) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   await ensureDdaStockTakesSchema(env);
@@ -16332,6 +16414,119 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
     200, { ...corsOkHeaders, "Cache-Control": "private, max-age=10", "Vary": "Origin, Authorization" }); // Authorization: a page load of /today (clean address) must not get this from the browser's cache
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// TODAY'S REGISTERS  (regs-hub)
+// What the registers need today, in ONE read: GET /registers/today, asked when the Registers hub opens (not by Today,
+// which is re-read every minute: nothing here is added to /today). Read-only, every statement bounded by the
+// pharmacy and a date or LIMIT, on the existing (org_id, location_id, …) indexes. Nothing decides "done" here except
+// plain facts (is there a line today, when was the last one): the words and colours are the screen's
+// (ui/eikon.regtoday.js), with the same rules as the Inspection check.
+// ═══════════════════════════════════════════════════════════════════════════
+const REG_COUNT_GRACE_DAYS = 7; // a controlled-drug stock-take in the first week of a month counts for the month before (as the Inspection check)
+function regTzDayOfUtc(s) { // the server's UTC "YYYY-MM-DD HH:MM:SS" as the Malta day it fell on
+  const t = String(s || "").trim(); if (!t) return "";
+  const ms = Date.parse(t.replace(" ", "T") + (/[zZ]$|[+-]\d\d:?\d\d$/.test(t) ? "" : "Z"));
+  return Number.isFinite(ms) ? tzYmd(new Date(ms)) : t.slice(0, 10);
+}
+function regShiftYm(ym, n) { const a = String(ym).split("-").map(Number); const d = new Date(Date.UTC(a[0], a[1] - 1 + n, 1)); return d.toISOString().slice(0, 7); }
+function regCountsFor(day) { // the month a stock-take on this Malta day counts for
+  return Number(day.slice(8, 10)) <= REG_COUNT_GRACE_DAYS ? regShiftYm(day.slice(0, 7), -1) : day.slice(0, 7);
+}
+// The parts /today does not read: the pharmacist in charge today, the controlled-drug stock-take, and the
+// month sign-offs (register_signoffs, written by the Daily registers' sign-off; read only if that table exists).
+async function registersTodayExtra(env, org, loc, today) {
+  const all = async (sql, bind) => { try { return await dbAll(env, sql, bind); } catch (e) { return null; } };
+  const one = async (sql, bind) => { try { return await dbFirst(env, sql, bind); } catch (e) { return null; } };
+  await Promise.all([ensureLocumRegisterSchema, ensureDdaStockTakesSchema, ensureDdaSalesSchema, ensureDdaPoycSchema, ensureDdaPurchasesSchema]
+    .map((fn) => Promise.resolve().then(() => fn(env)).catch(() => {})));
+  const ym = today.slice(0, 7), lastYm = regShiftYm(ym, -1);
+  const since = ymdPlusDays(lastYm + "-01", -1) + " 00:00:00"; // UTC stamps: a day early so a Malta-midnight take is not missed
+  const [loc1, takes, open, signs] = await Promise.all([
+    all(`SELECT locum_full_name, registration_number, time_in, time_out FROM locum_register_entries
+          WHERE org_id = ? AND location_id = ? AND entry_date = ? ORDER BY time_in ASC, id ASC LIMIT 6`, [org, loc, today]),
+    all(`SELECT id, created_at, closed_at FROM dda_stocktakes WHERE org_id = ? AND location_id = ? AND created_at >= ?
+          ORDER BY created_at DESC LIMIT 20`, [org, loc, since]),
+    one(`SELECT id, created_at FROM dda_stocktakes WHERE org_id = ? AND location_id = ? AND closed_at IS NULL
+          ORDER BY created_at DESC LIMIT 1`, [org, loc]),
+    all(`SELECT register, month, signed_name, signed_at FROM register_signoffs WHERE org_id = ? AND location_id = ? AND month IN (?, ?)
+          ORDER BY month DESC LIMIT 40`, [org, loc, ym, lastYm])
+  ]);
+  const locum = loc1 == null ? null : {
+    signed: loc1.length > 0,
+    entries: loc1.map((r) => ({ name: String(r.locum_full_name || ""), reg: String(r.registration_number || ""), from: String(r.time_in || ""), to: String(r.time_out || "") }))
+  };
+  let stocktake = null;
+  if (takes != null) {
+    const list = takes.map((s) => { const day = regTzDayOfUtc(s.created_at); return { id: s.id, day, closed: !!s.closed_at, for_month: day ? regCountsFor(day) : "" }; }).filter((s) => s.day);
+    const forLast = list.filter((s) => s.for_month === lastYm), forThis = list.filter((s) => s.for_month === ym);
+    let lines = null; // were controlled drugs supplied or received last month? asked only when it has no stock-take
+    if (!forLast.length) {
+      const f = lastYm + "-01", t = ymdPlusDays(regShiftYm(lastYm, 1) + "-01", -1);
+      const x = await one(`SELECT EXISTS(SELECT 1 FROM dda_sales_entries WHERE org_id = ? AND location_id = ? AND entry_date BETWEEN ? AND ?)
+            OR EXISTS(SELECT 1 FROM dda_poyc_entries WHERE org_id = ? AND location_id = ? AND entry_date BETWEEN ? AND ?)
+            OR EXISTS(SELECT 1 FROM dda_purchases_entries WHERE org_id = ? AND location_id = ? AND entry_date BETWEEN ? AND ?) AS any_line`,
+        [org, loc, f, t, org, loc, f, t, org, loc, f, t]);
+      lines = x == null ? null : !!Number(x.any_line);
+    }
+    const openDay = open ? regTzDayOfUtc(open.created_at) : "";
+    stocktake = {
+      this_month: ym, last_month: lastYm, grace_days: REG_COUNT_GRACE_DAYS,
+      last_month_counted: forLast.length ? forLast[0].day : null, this_month_counted: forThis.length ? forThis[0].day : null,
+      last_month_lines: forLast.length ? true : lines,
+      open: open && openDay ? { id: open.id, day: openDay } : null
+    };
+  }
+  const signoffs = signs == null ? null : signs.map((s) => ({ register: String(s.register || ""), month: String(s.month || ""), signed_by: String(s.signed_name || ""), signed_at: String(s.signed_at || "") }));
+  return { locum, stocktake, signoffs };
+}
+
+async function handleRegistersToday(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = authUser.org_id, loc = authUser.location_id;
+  const today = tzYmd(), in30 = ymdPlusDays(today, 30);
+  const all = async (sql, bind) => { try { return await dbAll(env, sql, bind); } catch (e) { return null; } };
+  const one = async (sql, bind) => { try { return await dbFirst(env, sql, bind); } catch (e) { return null; } };
+  await Promise.all([ensureDailyRegisterSchema, ensureCertificatesSchema, ensureEndOfDaySchema].map((fn) => Promise.resolve().then(() => fn(env)).catch(() => {})));
+  await Promise.all([ensureDefaultTempDevicesIfMissing(env, authUser).catch(() => {}), ensureDefaultCertificatesIfMissing(env, authUser).catch(() => {})]);
+  const [devs, dr, clean, certs, eod, extra] = await Promise.all([
+    all(`SELECT d.id, d.name, d.device_type, d.min_limit, d.max_limit, t.min_temp AS t_min, t.max_temp AS t_max, t.notes AS t_notes
+           FROM temperature_devices d
+           LEFT JOIN temperature_entries t ON t.device_id = d.id AND t.org_id = d.org_id AND t.location_id = d.location_id AND t.entry_date = ?
+          WHERE d.org_id = ? AND d.location_id = ? AND d.active = 1 ORDER BY d.id LIMIT 50`, [today, org, loc]),
+    one(`SELECT COUNT(*) AS c FROM daily_register_entries WHERE org_id = ? AND location_id = ? AND entry_date = ?`, [org, loc, today]),
+    one(`SELECT entry_date, cleaner_name FROM cleaning_entries WHERE org_id = ? AND location_id = ? ORDER BY entry_date DESC, time_in DESC LIMIT 1`, [org, loc]),
+    all(`SELECT title, last_date, interval_months FROM certificates_items WHERE org_id = ? AND location_id = ? LIMIT 100`, [org, loc]),
+    one(`SELECT saved_at, locked_at FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date = ?`, [org, loc, today]),
+    registersTodayExtra(env, org, loc, today)
+  ]);
+  const temperature = devs == null ? null : devs.map((d) => {
+    const done = d.t_min != null && d.t_max != null, lo = todayNum(d.min_limit), hi = todayNum(d.max_limit);
+    const out = done && ((lo != null && Number(d.t_min) < lo) || (hi != null && Number(d.t_max) > hi));
+    return { device_id: d.id, name: String(d.name || "Device"), device_type: d.device_type || "", limits: { min: lo, max: hi },
+      today: done ? { min: Number(d.t_min), max: Number(d.t_max) } : null, out_of_range: !!out, note: done ? String(d.t_notes || "").trim() !== "" : false };
+  });
+  let certificates = null, notRecorded = 0;
+  if (certs != null) {
+    certificates = [];
+    for (const c of certs) {
+      if (!c.last_date) { notRecorded++; continue; }
+      let due = ""; try { due = addMonthsToYmd(c.last_date, Number(c.interval_months) || 12) || ""; } catch (e) { due = ""; }
+      if (!due) continue;
+      if (due < today) certificates.push({ title: c.title, status: "expired", due, days: ymdDiffDays(due, today) });
+      else if (due <= in30) certificates.push({ title: c.title, status: "due_soon", due, days: ymdDiffDays(today, due) });
+    }
+    certificates.sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
+  }
+  return jsonResponse({ ok: true, date: today, time: tzHm(), timezone: PHARMACY_TZ,
+    temperature,
+    daily_register: dr == null ? null : { count_today: Number(dr.c) || 0 },
+    cleaning: { last_date: clean ? clean.entry_date : null, by: clean ? String(clean.cleaner_name || "") : "", days_since: clean ? ymdDiffDays(clean.entry_date, today) : null },
+    certificates, certificates_not_recorded: notRecorded,
+    end_of_day: { saved: !!eod, locked: !!(eod && eod.locked_at) },
+    locum: extra.locum, stocktake: extra.stocktake, signoffs: extra.signoffs },
+    200, { ...corsOkHeaders, "Cache-Control": "private, max-age=10", "Vary": "Origin, Authorization" });
+}
+
 // ---------------------------------------------------------------------------
 // Schema DDL runs ONCE per isolate per database. Before this every handler re-ran
 // its CREATE TABLE / CREATE INDEX / ALTER statements on every request (about 200
@@ -17774,6 +17969,11 @@ const authUser = await authFromRequest(request, env);
       return await handleTeam(request, env, corsOkHeaders, authUser, url);
     }
     request = await nameCaseRequest(request, env, url, authUser); // people's names in Title Case on save
+    // Register sign-offs (Registers & inspection): the month of a daily register, signed by the pharmacist
+    if (url.pathname === "/registers/signoffs") {
+      if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
+      return await handleRegisterSignoffs(request, env, corsOkHeaders, authUser, url);
+    }
     // Client error reports (backlog 7): signed in only
     if (url.pathname === "/client-log" && request.method === "POST") {
       if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
@@ -17881,6 +18081,9 @@ const authUser = await authFromRequest(request, env);
 
     if (url.pathname === "/today" && request.method === "GET") {
       return await handleToday(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/registers/today" && request.method === "GET") {
+      return await handleRegistersToday(request, env, corsOkHeaders, authUser);
     }
     if (url.pathname === "/people" && request.method === "GET") {
       return await handlePeopleSearch(request, env, corsOkHeaders, authUser);
@@ -18757,6 +18960,12 @@ if (url.pathname.startsWith("/dda-stocktakes/stocktakes/")) {
   if (parts.length === 5 && parts[3] === "report" && parts[4] === "html" && request.method === "GET")
     return await handleDdaStockTakeReportHtml(request, env, corsOkHeaders, authUser, id);
 }
+
+// Controlled drugs by medicine (cdreg): read only
+if (url.pathname === "/dda-register/medicines" && request.method === "GET")
+  return await handleDdaRegisterMedicines(request, env, corsOkHeaders, authUser, url);
+if (url.pathname === "/dda-register/ledger" && request.method === "GET")
+  return await handleDdaRegisterLedger(request, env, corsOkHeaders, authUser, url);
 
 if (url.pathname.startsWith("/dda-stocktakes/items/")) {
   const parts = url.pathname.split("/").filter(Boolean); // ["dda-stocktakes","items",":itemId"]
@@ -23876,6 +24085,52 @@ async function handleSuClientErrors(request, env, corsOkHeaders, url) {
     pharmacies: Number(g.pharmacies) || 0, first_at: g.first_at, last_at: g.last_at, builds: String(g.builds || "").split(",").filter(Boolean),
     stack: g.stack || "", where: by.get(g.screen + "\u0001" + g.message) || [] }));
   return jsonResponse({ ok: true, since, days, groups: out }, 200, corsOkHeaders);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   REGISTER SIGN-OFFS (Registers & inspection, "daily") — the pharmacist signs off a month of a daily register.
+   GET  /registers/signoffs?month=YYYY-MM   every register's sign-off for that month, this pharmacy only (one read)
+   POST /registers/signoffs {register, month, note}   admin only; a month that has ended (Malta time); once per
+        register and month (a second call returns the first sign-off unchanged, 200, already: true)
+   register: temperature | cleaning | daily | locum | receipts. note: up to 500 characters (why days are missing).
+   Additive: a new table only; no existing table, row or route changes. A sign-off is never deleted or changed here:
+   a line corrected afterwards is corrected the usual way (with a reason, in the audit), and the screen says so.
+   ══════════════════════════════════════════════════════════════════════════════ */
+const SIGNOFF_REGISTERS = ["temperature", "cleaning", "daily", "locum", "receipts"];
+async function ensureSignoffSchema__impl(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS register_signoffs (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+    register TEXT NOT NULL, month TEXT NOT NULL, signed_by INTEGER, signed_name TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '',
+    signed_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(org_id, location_id, month, register))`, []);
+}
+const ensureSignoffSchema = schemaOnce("ensureSignoffSchema", ensureSignoffSchema__impl);
+function signoffRow(r) { return { register: r.register, month: r.month, signed_name: r.signed_name || "", signed_at: r.signed_at || "", note: r.note || "" }; }
+async function handleRegisterSignoffs(request, env, corsOkHeaders, authUser, url) {
+  const org = Number(authUser.org_id), loc = Number(authUser.location_id);
+  if (request.method === "GET") {
+    if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+    const month = String(url.searchParams.get("month") || "").trim();
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+    await ensureSignoffSchema(env);
+    const rows = await dbAll(env, "SELECT register, month, signed_name, signed_at, note FROM register_signoffs WHERE org_id = ? AND location_id = ? AND month = ? ORDER BY register", [org, loc, month]);
+    return jsonResponse({ ok: true, month, signoffs: rows.map(signoffRow) }, 200, corsOkHeaders);
+  }
+  if (request.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405, corsOkHeaders);
+  if (!requireRole(authUser, ["admin"])) return jsonResponse({ ok: false, error: "Only the pharmacist can sign off a register" }, 403, corsOkHeaders);
+  const body = await readJson(request);
+  const register = String((body && body.register) || "").trim(), month = String((body && body.month) || "").trim();
+  const note = String((body && body.note) || "").trim().slice(0, 500);
+  if (SIGNOFF_REGISTERS.indexOf(register) < 0) return jsonResponse({ ok: false, error: "Unknown register" }, 400, corsOkHeaders);
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+  if (month >= tzYmd().slice(0, 7)) return jsonResponse({ ok: false, error: "A month is signed off once it has ended" }, 400, corsOkHeaders);
+  await ensureSignoffSchema(env);
+  const had = await dbFirst(env, "SELECT register, month, signed_name, signed_at, note FROM register_signoffs WHERE org_id = ? AND location_id = ? AND month = ? AND register = ?", [org, loc, month, register]);
+  if (had) return jsonResponse({ ok: true, already: true, signoff: signoffRow(had) }, 200, corsOkHeaders);
+  const me = await dbFirst(env, "SELECT full_name, email FROM users WHERE id = ?", [authUser.user_id]);
+  const name = String((me && (me.full_name || me.email)) || "").trim();
+  await dbRun(env, "INSERT OR IGNORE INTO register_signoffs (org_id, location_id, register, month, signed_by, signed_name, note) VALUES (?,?,?,?,?,?,?)", [org, loc, register, month, authUser.user_id, name, note]);
+  const row = await dbFirst(env, "SELECT register, month, signed_name, signed_at, note FROM register_signoffs WHERE org_id = ? AND location_id = ? AND month = ? AND register = ?", [org, loc, month, register]);
+  await writeAudit(env, org, authUser.user_id, "REGISTER_SIGNOFF", "register_signoffs", register + ":" + month, { register, month, note }, loc);
+  return jsonResponse({ ok: true, signoff: signoffRow(row) }, 200, corsOkHeaders);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════

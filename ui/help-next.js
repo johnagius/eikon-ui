@@ -57,10 +57,11 @@
     ], "", []],
 
     ["registers", "registers", "Registers", "The books an inspector asks for: fill them in, see what is missing, and print any month.", [
+      ["What is due today", "Today's registers, at the top, lists what each register needs today: overdue first, then to do, then what is done.", "Each line has its own button, such as Log, Record, Sign in or Count: it opens that register, on today.", "When nothing is left it says All done for today. Under each register's card a short line says how it stands, such as Done today or Due in 12 days. On Today, All registers opens this page."],
       ["Every day", "Temperature, Cleaning, Daily register and Locum register."],
       ["Controlled drugs", "Controlled drugs received, Controlled drugs supplied, POYC controlled drugs and Controlled drug stock takes."],
       ["Prescriptions", "Repeat prescriptions."],
-      ["Proof", "Inspection check, Certificates and the Audit trail."]
+      ["Inspection and certificates", "Inspection check, Certificates and the Audit trail."]
     ], "", []],
 
     ["services", "services", "Services", "Care given at the counter or by appointment, and the tools for it.", [
@@ -88,45 +89,56 @@
     ], "", []],
 
     ["tempreg", "registers", "Temperature", "Fridges and rooms, every day, against their limits.", [
-      ["Log today's reading", "Readings are logged on Today: type the lowest and highest, then press Log.", "Or press Log today’s readings on this screen."],
-      ["Say what was done about a reading outside the limits", "On Today, the reading asks what was done: pick a quick choice or type it, then press Save the note.", "Or tap the day here and press Add a note."],
-      ["Log a missed day", "Tap the day that was not logged and press Log this day.", "Type the lowest and highest and say why it is logged late, then press Log this day again."],
+      ["Log today's reading", "At the top, type the lowest and highest for each fridge or room, then press Log reading (or Enter).", "If the display shows the same as yesterday, press Same as yesterday: one tap logs yesterday's numbers again.", "Readings can also be logged on Today."],
+      ["Say what was done about a reading outside the limits", "After logging, the day opens and asks what was done: pick a quick choice or type it, then press Save the note.", "Or press Add the note at the top, or tap the day and press Add a note."],
+      ["Log a missed day", "Each fridge or room lists the days not logged. Tap that day and press Log this day.", "Type the lowest and highest and say why it is logged late, then press Log this day again."],
       ["Correct a reading (the pharmacist)", "Tap the day and press Correct.", "Change what was wrong and say why, then press Save correction."],
+      ["Sign off a month (the pharmacist)", "Open last month with ‹. At the bottom, say why any days are missing, then press Sign off."],
       ["Read and print a month", "Each day shows the lowest above the highest; a dashed day was not logged.", "Use ‹ and › or the month name to change month.", "Press Print."],
-      ["Set up fridges and rooms", "Press Fridges and rooms.", "Add a fridge or a room with its limits, or change a name or a limit."]
-    ], "", [["Limits", "the lowest and highest a fridge or room may be, for example 2 to 8 °C for a fridge."]]],
+      ["Set up fridges and rooms", "Press Fridges and rooms, at the bottom.", "Add a fridge or a room with its limits, or change a name or a limit."]
+    ], "", [["Limits", "the lowest and highest a fridge or room may be, for example 2 to 8 °C for a fridge."], ["Sign off", "the pharmacist's check that the month is complete, with who and when; it prints at the end of the month."]]],
 
     ["cleanreg", "registers", "Cleaning", "When the dispensary and fridge were cleaned, and by whom. At least once a week.", [
-      ["Record a cleaning", "Press New cleaning.", "Fill in the date, time in, time out and the cleaner.", "Press Save cleaning."],
-      ["Quick record", "On Today, press Done now on the Cleaning line."],
+      ["Record today's cleaning", "At the top, check the cleaner's name (the last one is filled in), then press Record cleaning. Today, now and you as checker are filled in."],
+      ["Record another day or time", "Press New cleaning.", "Fill in the date, time in, time out and the cleaner.", "Press Record cleaning."],
+      ["See the weeks with no cleaning", "Under the month, a line lists the weeks nobody cleaned."],
       ["Correct a line (the pharmacist)", "Press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
+      ["Sign off a month (the pharmacist)", "Open last month with ‹. At the bottom, say why any weeks are missing, then press Sign off."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Deleting a line is in the classic screen.", []],
+    ], "", []],
 
     ["drreg", "registers", "Daily register", "Prescription medicines supplied, one line each.", [
       ["Add a line", "Press New entry.", "Type the ID card: a known patient is filled in for you.", "Fill in the medicine, posology, prescriber and reg no., then press Save entry."],
+      ["Another medicine for the same patient", "After saving, press Another for (the patient's name): the patient and prescriber are filled in."],
+      ["See the month", "The calendar shows how many lines each day has."],
       ["Correct a line (the pharmacist)", "Press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
+      ["Sign off a month (the pharmacist)", "Open last month with ‹. At the bottom, press Sign off."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Deleting a line is in the classic screen.", [["Posology", "how the medicine is to be taken."], ["Reg no.", "the prescriber's registration number."]]],
+    ], "", [["Posology", "how the medicine is to be taken."], ["Reg no.", "the prescriber's registration number."]]],
 
     ["locreg", "registers", "Locum register", "Which pharmacist was in charge, and when.", [
-      ["Add a line", "Press New locum.", "Fill in the date, time in, time out, pharmacist and reg no.", "Press Save locum."],
+      ["Sign in as the pharmacist in charge", "At the top, check the name and reg no. (the last pharmacist is filled in), then press Sign in now. Today and the time now are filled in."],
+      ["Sign out", "At the top, press Sign out: the time out is now."],
+      ["Fill a missed day", "The calendar marks the days with work but no pharmacist. Tap that day: the form opens on it.", "Fill in the time in, time out, pharmacist and reg no., then press Save locum."],
+      ["Add another day or time", "Press New locum.", "Fill in the date, time in, time out, pharmacist and reg no.", "Press Save locum."],
       ["Correct a line (the pharmacist)", "Press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
+      ["Sign off a month (the pharmacist)", "Open last month with ‹. At the bottom, say why any days are missing, then press Sign off."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."],
       ["Pay a locum", "Use Locum receipts, under Money."]
-    ], "Deleting a line is in the classic screen.", []],
+    ], "", []],
 
     ["insreg", "registers", "Inspection check", "Is every register in order for the days you choose? Days not logged, notes missing, certificates due.", [
-      ["Check the registers", "Choose the days: This month, Last month, Last 3 months or Choose days.", "Each register says In order, Look at this or Missing, with what was found."],
-      ["Go to what needs a look", "Press Open › beside a finding: the register opens on that month or day."],
-      ["Print it for an inspector", "Press Print with sign-off lines. It prints on one page with lines to sign.", "Download our records puts the same page first in the inspection pack."]
+      ["Check the registers", "Choose the days: This month, Last month, Last 3 months, Since last inspection or Choose days.", "Each register says In order, Look at this or Missing, with what was found."],
+      ["Print the inspection pack", "Press Print inspection pack. It opens in a new tab: a cover page, contents with every gap, each register's own pages and a sign-off page. Anyone signed in can print it.", "After the inspector has been, keep today as the last inspection; next time choose Since last inspection."],
+      ["Go to what needs a look", "Under a register, press Open: the register opens on that month or day."],
+      ["Print only this page", "Press Print this summary. It prints on one page with lines to sign."]
     ], "", []],
 
     ["certreg", "registers", "Certificates", "Calibrations, services and licences, with what is due.", [
-      ["Record a service", "Press Update on the certificate (Record the first time).", "Fill in the last date and how many months until the next.", "Press Save. The next due date is worked out for you."],
-      ["See what is due", "Each certificate shows when it is next due."],
+      ["See what is expiring", "The top says what is overdue or due in the next 30 days, by name and date."],
+      ["Record a service", "Press Update on the certificate (Record the first time), or the button at the top for the most urgent one.", "Fill in the last date and how many months until the next.", "Press Save. The next due date is worked out for you."],
       ["Print the list", "Press Print."]
-    ], "To upload or download a certificate file, use the classic screen.", []],
+    ], "Certificate files (scans) are kept in the classic screen for now.", []],
 
     ["nexreg", "stock", "Near expiry", "What expires soon, nearest first.", [
       ["Add an item", "Press Add an item.", "Fill in the product, when it expires and where it is.", "Press Save item."],
@@ -178,26 +190,37 @@
     ["cdpreg", "registers", "Controlled drugs received", "Every delivery of a controlled drug, by invoice.", [
       ["Record a delivery", "Press New invoice.", "Fill in the date received, supplier and invoice no.", "Add each medicine with Add a line, then press Save invoice."],
       ["Find a medicine", "Type part of the name or the brand: suggestions appear as you type."],
+      ["See a medicine's balance", "Tap it under the month, or press By medicine: every delivery, supply and count of it in one list."],
       ["Correct a line (the pharmacist)", "Press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Deleting a line is in the classic screen.", [["DDA", "the controlled drugs register."]]],
+    ], "", [["DDA", "the controlled drugs register."]]],
 
     ["cdsreg", "registers", "Controlled drugs supplied", "Every controlled drug handed over against a prescription.", [
       ["Record a prescription", "Press New prescription.", "Type the ID card: a known patient and address are filled in.", "Fill in the medicine and quantity, prescriber, reg no. and serial no., then press Save prescription."],
       ["More than one medicine", "Press Add a medicine for each extra line on the same prescription."],
+      ["See a medicine's balance", "Tap it under the month, or press By medicine. Under the quantity, the form says what the registers give before and after this line."],
       ["Correct a line (the pharmacist)", "Press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Deleting a line is in the classic screen.", [["Serial no.", "the number printed on the prescription."], ["Reg no.", "the prescriber's registration number."]]],
+    ], "", [["Serial no.", "the number printed on the prescription."], ["Reg no.", "the prescriber's registration number."]]],
 
     ["poyreg", "registers", "POYC controlled drugs", "Controlled drugs given under the Pharmacy of Your Choice scheme.", [
       ["Record a prescription", "Press New prescription.", "Type the ID card: a known patient is filled in.", "Fill in the medicine and quantity, prescriber, reg no. and serial no., then press Save prescription."],
       ["More than one medicine", "Press Add a medicine for each extra line."],
       ["Correct a line (the pharmacist)", "Press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Deleting a line is in the classic screen.", [["POYC", "Pharmacy of Your Choice, the government scheme."]]],
+    ], "", [["POYC", "Pharmacy of Your Choice, the government scheme."]]],
+
+    ["cdreg", "registers", "Controlled drugs by medicine", "One running register for each medicine: what came in, what went out, and every count.", [
+      ["Find a medicine", "Type part of its name or the brand, then tap it.", "It shows what the registers give now, from the last stock-take count, and every line since, oldest first."],
+      ["Record a delivery or a supply", "Press Supply, Receive or POYC: that register's form opens with the medicine written in.", "Fill in the rest and save. You come back here with the new line counted."],
+      ["When it says Check", "Count it again, then look for a delivery or a prescription not written in, as it says.", "If it still does not match, tell the pharmacist in charge."],
+      ["Another spelling of the same medicine", "Under Also found, tick it. Its lines join this balance. Tick only the same medicine and strength."],
+      ["Print its lines", "Press Print."]
+    ], "", [["Check", "the count and the registers do not agree, or the registers go below zero. It assumes the invoices and the count use the same units (tablets)."]]],
 
     ["ddstreg", "registers", "Controlled drug stock takes", "Count each controlled drug and keep the count on file, ready to print.", [
       ["Start a stock take", "Press Start a stock take.", "For each medicine, fill in the name, dosage and tablets counted. Press Add item for the next one."],
+      ["Not counted yet", "In a stock take not yet closed, the medicines received or supplied since the last one that have no line yet are listed. Tap one: its name and dosage are filled in; type the tablets and press Add item."],
       ["Finish", "Press Save and close."],
       ["Print a stock take", "Open it and press Print."]
     ], "Deleting a line is in the classic screen.", []],
@@ -262,11 +285,13 @@
     ], "Deleting a credit note is in the classic screen.", []],
 
     ["lrcreg", "money", "Locum receipts", "What each locum was paid, ready to print and sign.", [
-      ["Write a receipt", "Press New receipt.", "Fill in the locum, reg no., day, hours and € per hour.", "Press Save receipt."],
+      ["Write a receipt", "Press New receipt. Today and the rate for today's kind of day are filled in.", "Fill in the locum, reg no., hours and € per hour.", "Press Save receipt."],
+      ["The same locum again", "Press Again for (the locum's name): the name and reg no. are filled in."],
       ["Print the month", "Press Print the month for every receipt, ready to sign."],
-      ["Correct a receipt (the pharmacist)", "Press Correct on the receipt. Correcting a receipt asks for the edit password, as the classic screen does.", "Change what was wrong and say why, then press Save correction."],
+      ["Correct a receipt (the pharmacist)", "Press Correct on the receipt. Correcting a receipt asks for the edit password.", "Change what was wrong and say why, then press Save correction."],
+      ["Sign off a month (the pharmacist)", "Open last month with ‹. At the bottom, press Sign off."],
       ["Change month", "Use ‹ and ›."]
-    ], "Deleting a receipt is in the classic screen.", []],
+    ], "", []],
 
     ["odreg", "stock", "Order diary", "What to order, by supplier, and what came in.", [
       ["Add an item to order", "Press Add an item.", "Fill in the item, how many and the supplier.", "Press Add to today."],

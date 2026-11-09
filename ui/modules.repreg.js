@@ -255,11 +255,15 @@
     S.moLoading = false; E.whenFormIdle(S.mount, paint);
   }
   // The classic printout: Date, Expires, Client (with the ID card), Medicine Name & Dose, Posology, Prescriber Name, Reg No; oldest first.
-  function printMonth() {
+  // The document is shared (E.printDocs.repreg) so the inspection pack prints the very same page; entries newest first.
+  function printMonth() { E.months.print(printDoc(S.mo, S.moEntries)); }
+  function printDoc(mo, entries) {
     var MB = E.months;
-    MB.print({ register: "Repeat prescriptions", month: S.mo, landscape: true, sections: [{ cols: ["Date", "Expires", "Client", "Medicine name and dose", "Posology", "Prescriber name", "Reg no"],
-      rows: S.moEntries.slice().reverse().map(function (e) { return [MB.dmy(e.entry_date), MB.dmy(e.expires_date), { html: "<b>" + esc(e.client_name || "") + "</b><br>ID: " + esc(e.client_id || "") }, e.medicine_name_dose || "", e.posology || "", e.prescriber_name || "", e.prescriber_reg_no || ""]; }) }] });
+    return ({ register: "Repeat prescriptions", month: mo, landscape: true, sections: [{ cols: ["Date", "Expires", "Client", "Medicine name and dose", "Posology", "Prescriber name", "Reg no"],
+      rows: entries.slice().reverse().map(function (e) { return [MB.dmy(e.entry_date), MB.dmy(e.expires_date), { html: "<b>" + esc(e.client_name || "") + "</b><br>ID: " + esc(e.client_id || "") }, e.medicine_name_dose || "", e.posology || "", e.prescriber_name || "", e.prescriber_reg_no || ""]; }) }] });
   }
+  E.printDocs = E.printDocs || {}; // for the inspection pack (eikon.inspack.js): the month's entries in any order, sorted as the screen sorts them
+  E.printDocs.repreg = function (mo, entries) { return printDoc(mo, (entries || []).slice().sort(function (a, b) { return String(b.entry_date).localeCompare(String(a.entry_date)) || b.id - a.id; })); };
   function focus(n) { E.focusSoon(function () { return S.mount && S.mount.querySelector("[name=" + n + "]"); }, 30); }
   function uniq(a) { var seen = {}, out = []; a.forEach(function (x) { var k = String(x || "").trim(); if (k && !seen[low(k)]) { seen[low(k)] = 1; out.push(k); } }); return out.sort(); }
 

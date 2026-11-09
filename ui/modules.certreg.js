@@ -1,6 +1,9 @@
 /* Certificates, new layout: what is overdue or due soon first, then what is in date; update the last date (the server
    works out the next due date, as in the classic screen); print for an inspector. Files stay in the classic screen.
-   Same endpoints as the classic screen (/certificates/items). */
+   Same endpoints as the classic screen (/certificates/items).
+   The daily registers' one pattern (eikon.dailyreg.js): the same header, then what is expiring first — overdue and
+   due within 30 days, by name and date, with "Update" on the most urgent one (one tap to its form, today's date in) —
+   then the list, the same printout. No month and no sign-off: certificates run on their own dates. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -15,7 +18,7 @@
   function ymd(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
   // The server's names are Title Case ("Thermometer Calibration", "Next Due"); the screen and its print say them in
   // sentence case like every other screen. Acronyms stay (AC); nothing stored changes.
-  function sc(t) { return String(t == null ? "" : t).split(" ").map(function (w, i) { return !i || w.length < 2 || w === w.toUpperCase() || /\d/.test(w) ? w : w.charAt(0).toLowerCase() + w.slice(1); }).join(" "); }
+  function sc(t) { return String(t == null ? "" : t).replace(/Osmmosis/g, "Osmosis").split(" ").map(function (w, i) { return !i || w.length < 2 || w === w.toUpperCase() || /\d/.test(w) ? w : w.charAt(0).toLowerCase() + w.slice(1); }).join(" "); }
   function nice(s) { if (!s) return ""; var p = String(s).split("-"); return Number(p[2]) + " " + MON[Number(p[1]) - 1] + " " + p[0]; }
   function daysUntil(s) { var p = String(s).split("-"); return Math.round((new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])) - new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())) / 86400000); }
   function state(it) {
@@ -98,13 +101,24 @@
     return h;
   }
 
+  // What is expiring, first: overdue and due within 30 days by name and date, the most urgent one a tap away.
+  function reminder(need, never) {
+    var D = E.dailyReg, over = need.filter(function (it) { return state(it).k === "over"; }), soon = need.filter(function (it) { return state(it).k === "soon"; });
+    var first = need[0] || never[0];
+    var list = need.slice(0, 4).map(function (it) { return sc(it.title) + " (" + (state(it).k === "over" ? "was due " : "due ") + nice(it.next_due) + ")"; }).join(", ") + (need.length > 4 ? " and " + (need.length - 4) + " more" : "");
+    var act = first && S.editing == null ? '<button class="dly-btn p" data-act="edit" data-id="' + first.id + '" aria-label="' + esc((first.last_date ? "Update " : "Record ") + sc(first.title)) + '">' + esc((first.last_date ? "Update " : "Record ") + sc(first.title)) + "</button>" : "";
+    if (over.length) return D.today({ tone: "late", word: "Overdue", title: over.length + (over.length === 1 ? " certificate is overdue" : " certificates are overdue") + (soon.length ? ", " + soon.length + " due soon" : ""), sub: list + ".", acts: act });
+    if (soon.length) return D.today({ tone: "due", word: "Due soon", title: soon.length + (soon.length === 1 ? " certificate is due" : " certificates are due") + " in the next " + SOON_DAYS + " days", sub: list + ".", acts: act });
+    if (never.length) return D.today({ tone: "due", word: "No date", title: never.length + (never.length === 1 ? " certificate has" : " certificates have") + " no date on file", sub: "Add the date of the last one for each; the next due date is worked out for you.", acts: act });
+    var next = S.items.filter(function (it) { return it.next_due; }).sort(function (a, b) { return String(a.next_due).localeCompare(String(b.next_due)); })[0];
+    return D.today({ tone: "ok", word: "In date", title: "Every certificate is in date", sub: next ? "Next due: " + sc(next.title) + " on " + nice(next.next_due) + "." : "" });
+  }
+
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "certreg") return; // left before a reply came back: do not draw over the next screen
     var user = E.state.user || {};
-    var h = '<div class="crt"><button class="crt-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("certreg") : "‹ Registers") + "</button>" +
-      '<div class="crt-top"><div><h1>Certificates</h1><p class="crt-sub">Calibrations, services and licences, with what is due.</p></div>' +
-      '<button class="crt-btn" data-act="print">Print</button></div>' +
+    var h = '<div class="crt dly-page">' + E.dailyReg.head({ id: "certreg", title: "Certificates", sub: "Calibrations, services and licences, with what is due.", acts: '<button class="dly-btn" data-act="print">Print</button>' }).replace('class="dly-back"', 'class="dly-back crt-back"').replace('class="dly-top"', 'class="dly-top crt-top"') +
       '<p class="crt-pmeta">' + esc((user.location_name || "") + " · Certificates · printed " + ymd(new Date())) + "</p>";
     if (S.loading && !S.items.length) h += '<div class="crt-quiet">Opening the certificates…</div>';
     else if (S.error) h += '<div class="crt-quiet" role="alert">' + esc(S.error) + ' <button class="crt-btn" data-act="retry">Try again</button></div>';
@@ -113,10 +127,11 @@
       var sorted = S.items.slice().sort(function (a, b) { var x = state(a), y = state(b); return x.order - y.order || (x.n || 0) - (y.n || 0) || String(a.title).localeCompare(String(b.title)); });
       // Never-recorded items get their own group at the end as one-line rows, so what is overdue or due soon is what you see first.
       var need = sorted.filter(function (it) { var k = state(it).k; return k === "over" || k === "soon"; }), fine = sorted.filter(function (it) { return state(it).k === "ok"; }), never = sorted.filter(function (it) { return state(it).k === "none"; });
+      h += reminder(need, never);
       if (need.length) h += '<div class="crt-lab">Needs attention</div><div class="crt-list">' + need.map(rowHtml).join("") + "</div>";
       if (fine.length) h += '<div class="crt-lab">In date</div><div class="crt-list">' + fine.map(rowHtml).join("") + "</div>";
-      if (never.length) h += '<div class="crt-lab">Not recorded yet</div><div class="crt-list">' + never.map(rowHtml).join("") + "</div>";
-      h += '<p class="crt-note" style="font-size:12.5px;color:var(--muted);margin-top:12px">To upload or download a certificate file, use the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p>';
+      if (never.length) h += '<div class="crt-lab">No date on file \u2014 add the date of the last one</div><div class="crt-list">' + never.map(rowHtml).join("") + "</div>";
+      h += '<p class="crt-note" style="font-size:12.5px;color:var(--muted);margin-top:12px">Certificate files (scans) are kept in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a> for now.</p>';
       h += '<table class="crt-print"><thead><tr><th>Item</th><th>Last</th><th>Next due</th><th>Every</th><th>Certified</th><th>Status</th></tr></thead><tbody>' +
         sorted.map(function (it) { return "<tr><td>" + esc(it.title) + "</td><td>" + esc(nice(it.last_date)) + "</td><td>" + esc(nice(it.next_due)) + "</td><td>" + esc(it.interval_months) + " months</td><td>" + esc(it.certified_person || "") + "</td><td>" + esc(state(it).label) + "</td></tr>"; }).join("") +
         "</tbody></table>";
@@ -151,13 +166,14 @@
   }
 
   // The printout as every register prints (E.months.print): the pharmacy, page numbers, black on white; the classic columns.
-  function printList() {
-    var MB = E.months, sorted = S.items.slice().sort(function (a, b) { var x = state(a), y = state(b); return x.order - y.order || (x.n || 0) - (y.n || 0) || String(a.title).localeCompare(String(b.title)); });
-    if (!MB || !MB.print) return window.print();
-    MB.print({ register: "Certificates", period: "Printed " + MB.dmy(ymd(new Date())), sections: [{ cols: ["Item", "Last", "Next due", "Every", "Certified", "Status"],
+  function printDoc(ym, items) {
+    var MB = E.months, sorted = items.slice().sort(function (a, b) { var x = state(a), y = state(b); return x.order - y.order || (x.n || 0) - (y.n || 0) || String(a.title).localeCompare(String(b.title)); });
+    return { register: "Certificates", period: "Printed " + MB.dmy(ymd(new Date())), sections: [{ cols: ["Item", "Last", "Next due", "Every", "Certified", "Status"],
       rows: sorted.map(function (it) { var st = state(it), t = st.label; return [sc(it.title || ""), MB.dmy(it.last_date || ""), MB.dmy(it.next_due || ""), it.interval_months ? it.interval_months + " months" : "", it.certified_person || "", st.k === "over" ? { html: "<b>" + esc(t) + "</b>" } : t]; }),
-      empty: "No certificates are set up for this pharmacy." }] });
+      empty: "No certificates are set up for this pharmacy." }] };
   }
+  if (E.printDocs) E.printDocs.certreg = printDoc; // the inspection pack prints the same page (ym unused: certificates have no month)
+  function printList() { if (!E.months || !E.months.print) return window.print(); E.months.print(printDoc(null, S.items)); }
 
   async function save(f) {
     if (S.saving) return;
@@ -190,7 +206,7 @@
 
   E.registerModule({
     id: "certreg", title: "Certificates", order: 3, icon: "✓", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.editing = null; css(); paint(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.editing = null; E.dailyReg.css(); css(); paint(); return load(); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("certreg") < 0) E.UI2_DESTINATIONS.push("certreg");
   if (E.UI2_PARENT) E.UI2_PARENT.certreg = "registers";

@@ -2,7 +2,10 @@
    with what was recorded (or that nothing was), a short form to record one, and a printout for an inspector.
    Same endpoints as the classic screen (/cleaning/entries). Correct (the pharmacist only, eikon.correct.js): read
    again, the classic edit's six fields and body, a required reason, the whole line sent (the update replaces every
-   column). A line is never deleted here. */
+   column). A line is never deleted here.
+   The daily registers' one pattern (eikon.dailyreg.js): the same header, today first with "Cleaned now" (one tap, the
+   body Today's "Done now" sends: today, now, who cleaned, the signed-in person as checker), the month's weeks with
+   the ones nobody cleaned said plainly, the month's sign-off and lock, the same printout. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -64,9 +67,6 @@
       ".clr-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.clr-btn:disabled{opacity:.55;cursor:default}.clr-btn:active:not(:disabled){opacity:.7}" +
       "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .clr-btn.p{color:#00160E}}" +
       ".clr-form label.miss{box-shadow:inset 3px 0 0 var(--danger)}.clr-form label.miss>span{font-weight:700}.clr-form label.miss>span::after{content:' *';color:var(--danger)}.clr-form :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}.clr-quiet .clr-btn{margin-left:8px}" +
-      ".clr-status{display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-top:16px}.clr-status.late{border-left:4px solid var(--danger)}" +
-      ".clr-dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--ok)}.clr-status.late .clr-dot{background:var(--danger)}" +
-      ".clr-status b{font-size:15.5px}.clr-status span{display:block;color:var(--muted);font-size:13px}" +
       ".clr-month{display:flex;align-items:center;gap:6px;margin:18px 0 6px}.clr-month b{font-size:17px;min-width:150px;text-align:center}" +
       ".clr-arrow{width:34px;height:34px;border-radius:50%;border:0;background:rgba(118,118,128,.12);color:var(--text);font-size:18px;cursor:pointer}.clr-arrow:disabled{opacity:.35;cursor:default}" +
       ".clr-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 2px 7px}" +
@@ -101,6 +101,7 @@
       S.entries = S.around.filter(function (e) { return String(e.entry_date).slice(0, 7) === S.month; });
       S.recent = S.around;
       E.correct.loadMarks("cleanreg", FIX, shiftMonth(S.month, -1) + "-01"); // which lines were corrected, by whom and why
+      if (S.month < thisMonth()) E.dailyReg.load(S.month, function () { E.whenFormIdle(S.mount, paint); }); // an ended month: its sign-off (one small read)
     } catch (e) {
       if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register");
     }
@@ -120,54 +121,79 @@
     return out.reverse();
   }
 
+  function cleanerKey() { var u = E.state.user || {}; return "eikon_tdy_cleaner:" + (u.location_id || ""); } // shared with Today
+  function lastCleaner() { try { return localStorage.getItem(cleanerKey()) || ""; } catch (e) { return ""; } }
+  // Today first: when it was last cleaned, and "Cleaned now" with the last cleaner's name already in (one tap).
   function statusHtml() {
-    if (S.month !== thisMonth()) return "";
-    var last = (S.recent || [])[0];
-    if (!last) return '<div class="clr-status late"><i class="clr-dot"></i><div><b>No cleaning recorded recently</b><span>The dispensary and fridge are cleaned at least once a week.</span></div></div>';
-    var n = daysAgo(last.entry_date), late = n > DUE_DAYS;
-    return '<div class="clr-status' + (late ? " late" : "") + '"><i class="clr-dot"></i><div><b>' +
-      (late ? "Overdue · last cleaned " : "Last cleaned ") + esc(agoText(n)) + (last.cleaner_name ? " by " + esc(last.cleaner_name) : "") + "</b><span>" +
-      (late ? "It is due once a week." : "Next one due " + esc(dayShort(ymd(new Date(parse(last.entry_date).getTime() + DUE_DAYS * 86400000)))) + ".") + "</span></div></div>";
+    if (S.month !== thisMonth() || (S.loading && !S.recent.length) || S.error) return "";
+    var D = E.dailyReg, last = (S.recent || [])[0], n = last ? daysAgo(last.entry_date) : null, late = !last || n > DUE_DAYS;
+    var who = S.quickName != null ? S.quickName : (lastCleaner() || (last && last.cleaner_name) || "");
+    var q = S.quick || {};
+    var body = '<div class="dly-line"><div class="n"><b>Record today\u2019s cleaning</b><span>Today, ' + esc(hmNow()) + ', checked by ' + esc((E.state.user || {}).full_name || "you") + "</span></div>" +
+      '<label class="dly-fl wide" for="clr-qc"><span>Cleaned by</span><input id="clr-qc" name="quick_cleaner" autocomplete="off" list="clr-names" placeholder="Who cleaned" value="' + esc(who) + '"' + (q.bad ? ' aria-invalid="true" aria-describedby="clr-qmsg"' : "") + "></label>" +
+      '<button class="dly-btn p" data-act="quick"' + (q.saving ? " disabled" : "") + ">" + (q.saving ? "Saving…" : "Record cleaning") + "</button>" +
+      '<div class="dly-msg" id="clr-qmsg" role="alert">' + esc(q.err || "") + "</div></div>";
+    var card = D.today({ tone: late ? "late" : "ok", word: late ? "Overdue" : "Done",
+      title: !last ? "No cleaning recorded recently" : (late ? "Last cleaned " : "Cleaned ") + agoText(n) + (last.cleaner_name ? " by " + last.cleaner_name : ""),
+      sub: !last ? "The dispensary and fridge are cleaned at least once a week." : late ? "It is due once a week." : "Next one due " + dayShort(ymd(new Date(parse(last.entry_date).getTime() + DUE_DAYS * 86400000))) + ".",
+      body: body });
+    return card.replace('class="dly-today ', 'class="clr-status dly-today ');
+  }
+  // Weeks of the month nobody cleaned (the week still running is not missed until the clean is overdue).
+  function missedWeeks() {
+    var last = (S.recent || [])[0], overdue = !last || daysAgo(last.entry_date) > DUE_DAYS, t = ymd(new Date());
+    return weeks().filter(function (w) {
+      var any = S.around.some(function (e) { return e.entry_date >= w.from && e.entry_date <= w.to; });
+      return !any && !(w.to >= t && !overdue);
+    }).map(function (w) { return w.from; }).reverse();
   }
 
+  function namesList() {
+    var names = [];
+    [lastCleaner()].concat((S.recent || []).map(function (e) { return e.cleaner_name; })).forEach(function (n) { n = String(n || "").trim(); if (n && names.indexOf(n) < 0) names.push(n); }); // newest first
+    return '<datalist id="clr-names">' + names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>";
+  }
   function formHtml() {
-    var f = S.form, bad = f.bad || [], names = [];
-    (S.recent || []).forEach(function (e) { var n = String(e.cleaner_name || "").trim(); if (n && names.indexOf(n) < 0) names.push(n); }); // newest first
+    var f = S.form, bad = f.bad || [];
     var lab = function (k, label, input) { var b = bad.indexOf(k) >= 0; return "<label" + (b ? ' class="miss"' : "") + "><span>" + label + "</span>" + input.replace("<input", "<input" + (b ? ' aria-invalid="true" aria-describedby="clr-err"' : "")) + "</label>"; };
     return '<form class="clr-form" id="clr-form" novalidate aria-label="New cleaning">' +
       lab("entry_date", "Date", '<input type="date" name="entry_date" value="' + esc(f.entry_date) + '" max="' + esc(ymd(new Date())) + '">') +
       lab("time_in", "Time in", '<input type="time" name="time_in" value="' + esc(f.time_in) + '">') +
       lab("time_out", "Time out", '<input type="time" name="time_out" placeholder="Optional" value="' + esc(f.time_out) + '">') +
       lab("cleaner_name", "Cleaner", '<input name="cleaner_name" autocomplete="off" placeholder="Who cleaned" list="clr-names" value="' + esc(f.cleaner_name) + '">') +
-      '<datalist id="clr-names">' + names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>" +
       lab("notes", "Notes", '<input name="notes" autocomplete="off" placeholder="Optional" value="' + esc(f.notes) + '">') +
       (f.err ? '<div class="clr-err" id="clr-err" role="alert">' + esc(f.err) + "</div>" : "") +
-      '<div class="acts"><button type="button" class="clr-btn" data-act="cancel">Cancel</button><button type="submit" class="clr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save cleaning") + "</button></div></form>";
+      '<div class="acts"><button type="button" class="clr-btn" data-act="cancel">Cancel</button><button type="submit" class="clr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Record cleaning") + "</button></div></form>";
   }
 
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "cleanreg") return; // left before a reply came back: do not draw over the next screen
     var MB = E.months, user = E.state.user || {};
-    var h = '<div class="clr"><button class="clr-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("cleanreg") : "‹ Registers") + "</button>" +
-      '<div class="clr-top"><div><h1>Cleaning</h1><p class="clr-sub">Dispensary and fridge, at least once a week.</p></div>' +
-      '<div class="clr-acts">' + (S.form ? "" : '<button class="clr-btn p" data-act="new">New cleaning</button>') + "</div></div>" +
+    var D = E.dailyReg;
+    var h = '<div class="clr dly-page">' + D.head({ id: "cleanreg", title: "Cleaning", sub: "Dispensary and fridge, at least once a week.", acts: S.form ? "" : '<button class="dly-btn' + (S.month === thisMonth() ? "" : " p") + '" data-act="new">' + "New cleaning" + "</button>" }) +
       '<p class="clr-pmeta">' + esc((user.location_name || "") + " · Cleaning register · " + monthLabel(S.month) + " · printed " + ymd(new Date())) + "</p>";
+    h += statusHtml() + D.nudge("cleaning", S.month, function () { E.whenFormIdle(S.mount, paint); });
     if (S.form) h += formHtml();
-    h += statusHtml();
     h += MB.bar(S.month, { label: "Cleaning" });
     if (S.loading && !S.entries.length) h += '<div class="clr-quiet">Opening the register…</div>';
     else if (S.error) h += '<div class="clr-quiet" role="alert">' + esc(S.error) + ' <button class="clr-btn" data-act="retry">Try again</button></div>';
     else {
       if (!S.entries.length && S.month < thisMonth()) h += '<div class="clr-quiet" data-empty>' + esc(MB.empty(S.month)) + "</div>";
+      var miss = missedWeeks(), lastC = (S.recent || [])[0], tY = ymd(new Date()), cnt = {}, usual = "";
+      var wk = weeks().filter(function (w) { return !(w.to >= tY && !(!lastC || daysAgo(lastC.entry_date) > DUE_DAYS) && !S.around.some(function (e) { return e.entry_date >= w.from && e.entry_date <= w.to; })); }); // the running week counts once cleaned (or overdue)
+      S.entries.forEach(function (e) { var k = String(e.staff_name || ""); cnt[k] = (cnt[k] || 0) + 1; if (k && (!usual || cnt[k] > cnt[usual])) usual = k; });
+      h += D.gaps({ unit: "week", done: wk.length - miss.length, total: wk.length, missed: miss, label: "with a cleaning" + (S.month === thisMonth() ? " so far" : ""), missLabel: "No cleaning" });
+      if (usual) h += '<p class="dly-quietnote" style="margin-top:4px">Checked by ' + esc(usual) + " unless the line says otherwise.</p>";
       weeks().forEach(function (w) {
         var inWeek = S.around.filter(function (e) { return e.entry_date >= w.from && e.entry_date <= w.to; });
         var current = w.to >= ymd(new Date()), last = (S.recent || [])[0], overdue = !last || daysAgo(last.entry_date) > DUE_DAYS;
+        if (!inWeek.length && current && !overdue) return; // nothing owed yet this week: the Today card already says so
         h += '<div class="clr-lab">' + (current ? "This week" : "Week of " + esc(dayShort(w.from))) + "</div><div class=\"clr-list\">";
-        if (!inWeek.length) h += current && !overdue ? '<div class="clr-row"><div class="t"><span>Nothing recorded yet this week</span></div></div>' : '<div class="clr-row none"><div class="t"><b>No cleaning recorded this week</b></div></div>';
+        if (!inWeek.length) h += '<div class="clr-row none"><div class="t"><b>No cleaning recorded this week</b></div></div>';
         inWeek.forEach(function (e) {
           h += '<div class="clr-row"><div class="t"><b>' + esc(dayShort(e.entry_date)) + (e.cleaner_name ? " · " + esc(e.cleaner_name) : "") + "</b><span>" +
-            (e.staff_name ? "Checked by " + esc(e.staff_name) : "") + (e.notes ? (e.staff_name ? " · " : "") + esc(e.notes) : "") + "</span>" + E.correct.mark("cleanreg", e) + "</div>" +
+            (e.staff_name && e.staff_name !== usual ? "Checked by " + esc(e.staff_name) : "") + (e.notes ? (e.staff_name && e.staff_name !== usual ? " · " : "") + esc(e.notes) : "") + "</span>" + E.correct.mark("cleanreg", e) + "</div>" +
             '<div class="tm">' + esc(e.time_in || "") + (e.time_out ? "–" + esc(e.time_out) : "") + "</div>" + E.correct.button("cleanreg", e, "the cleaning of " + dayShort(e.entry_date) + (e.cleaner_name ? " by " + e.cleaner_name : "")) + "</div>" + E.correct.panel("cleanreg", e, FIX);
         });
         h += "</div>";
@@ -177,18 +203,27 @@
           return "<tr><td>" + esc(e.entry_date) + "</td><td>" + esc(e.time_in || "") + "</td><td>" + esc(e.time_out || "") + "</td><td>" + esc(e.cleaner_name || "") + "</td><td>" + esc(e.staff_name || "") + "</td><td>" + esc(e.notes || "") + "</td></tr>";
         }).join("") : '<tr><td colspan="6">No cleaning recorded this month.</td></tr>') + "</tbody></table>";
     }
-    h += E.correct.foot().replace('class="ecr-foot"', 'class="ecr-foot clr-note"') + "</div>";
+    if (!S.loading && !S.error) h += D.sign("cleaning", S.month, { gaps: missedWeeks().length, what: "weeks", changed: D.changedAfter("cleaning", S.month, S.entries) });
+    h += namesList();
+    h += D.foot() + "</div>";
+    var ae = document.activeElement, qf = ae && ae.name === "quick_cleaner" && m.contains(ae), qs = qf ? [ae.selectionStart, ae.selectionEnd] : null;
     m.innerHTML = h;
+    if (qf) { var qi = m.querySelector("[name=quick_cleaner]"); if (qi) { qi.focus(); try { qi.setSelectionRange(qs[0], qs[1]); } catch (x) {} } } // a list arriving never takes the name being typed
     bind(m);
     E.correct.wire(m, "cleanreg", FIX);
+    D.wire(m, "cleaning", S.month, paint);
     MB.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; S.around = []; E.correct.reset("cleanreg"); load(); }, paint: paint, print: printMonth });
   }
   // The classic cleaning printout: one line per cleaning, oldest first.
-  function printMonth() {
+  function printDoc(ym, entries) {
     var MB = E.months;
-    MB.print({ register: "Cleaning register", month: S.month, sections: [{ cols: ["Date", "Time in", "Time out", "Cleaner", "Staff", "Notes"],
-      rows: S.entries.slice().reverse().map(function (e) { return [MB.dmy(e.entry_date), e.time_in || "", e.time_out || "", e.cleaner_name || "", e.staff_name || "", e.notes || ""]; }) }] });
+    var doc = { register: "Cleaning register", month: ym, sections: [{ cols: ["Date", "Time in", "Time out", "Cleaner", "Staff", "Notes"],
+      rows: entries.slice().sort(function (a, b) { return (a.entry_date + (a.time_in || "")) < (b.entry_date + (b.time_in || "")) ? 1 : -1; }).reverse().map(function (e) { return [MB.dmy(e.entry_date), e.time_in || "", e.time_out || "", e.cleaner_name || "", e.staff_name || "", e.notes || ""]; }) }] };
+    return doc;
   }
+  function printDocSigned(ym, entries) { var doc = printDoc(ym, entries), after = E.dailyReg ? E.dailyReg.after("cleaning", ym) : ""; if (after) doc.after = after; return doc; }
+  if (E.printDocs) E.printDocs.cleanreg = printDocSigned; // the inspection pack prints the same page
+  function printMonth() { E.months.print(printDocSigned(S.month, S.entries)); }
 
   function bind(m) {
     m.querySelectorAll("[data-act]").forEach(function (b) {
@@ -197,15 +232,41 @@
         if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("cleanreg") : "#registers";
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "cleanreg"); } catch (x) {} E.openClassic("cleaning"); }
         else if (a === "retry") load();
+        else if (a === "quick") quick();
         else if (a === "new") { S.form = { entry_date: ymd(new Date()), time_in: hmNow(), time_out: "", cleaner_name: "", notes: "", err: "" }; paint(); E.focusSoon(function () { return m.querySelector("[name=cleaner_name]"); }, 30); }
         else if (a === "cancel") { S.form = null; paint(); var nb = m.querySelector("[data-act=new]"); if (nb) nb.focus(); }
       });
     });
+    var qi = m.querySelector("[name=quick_cleaner]");
+    if (qi) {
+      qi.addEventListener("input", function () { S.quickName = qi.value; if (S.quick && S.quick.bad) { S.quick.bad = false; qi.removeAttribute("aria-invalid"); } });
+      qi.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); quick(); } });
+    }
     var f = m.querySelector("#clr-form");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); save(f); });
       f.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !S.saving) { ev.preventDefault(); S.form = null; paint(); var nb = m.querySelector("[data-act=new]"); if (nb) nb.focus(); } }); // Escape closes, focus back on the button that opened it
     }
+  }
+
+  // "Cleaned now": the body Today's "Done now" sends (and the form, for today and now), one POST.
+  async function quick() {
+    if (S.quick && S.quick.saving) return;
+    var qi = S.mount && S.mount.querySelector("[name=quick_cleaner]"), who = qi ? String(qi.value || "").trim() : "";
+    if (!who) { S.quick = { err: "Write who cleaned, then press Record cleaning.", bad: true }; paint(); var q2 = S.mount.querySelector("[name=quick_cleaner]"); if (q2) q2.focus(); return; }
+    var d = new Date(), body = { entry_date: (E.maltaYmd && E.maltaYmd()) || ymd(d), time_in: hmNow(), time_out: "", cleaner_name: who, staff_name: (E.state.user || {}).full_name || "", notes: "" };
+    S.quick = { saving: true }; paint();
+    try {
+      var r = await E.postOnce("/cleaning/entries", body, { list: async function () { var r0 = await E.apiFetch("/cleaning/entries?month=" + body.entry_date.slice(0, 7), { method: "GET" }); return (r0 && r0.ok && r0.entries) || []; },
+        same: function (e) { return e.entry_date === body.entry_date && String(e.time_in || "").slice(0, 5) === body.time_in && String(e.cleaner_name || "").trim().toLowerCase() === who.toLowerCase(); } });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      try { localStorage.setItem(cleanerKey(), who); } catch (e0) {}
+      S.quick = null; S.quickName = null;
+      E.toast("Saved · cleaning by " + who + " · " + body.time_in, "success");
+    } catch (e) { S.quick = { err: E.saveFailText(e) }; }
+    await load();
+    var ae = document.activeElement, nb = S.mount && S.mount.querySelector(S.quick ? "[name=quick_cleaner]" : ".clr-status h2");
+    if (nb && (!ae || ae === document.body || S.mount.contains(ae))) { if (!S.quick) nb.setAttribute("tabindex", "-1"); nb.focus({ preventScroll: true }); } // the result is read out where it is shown
   }
 
   async function save(f) {
@@ -239,7 +300,7 @@
 
   E.registerModule({
     id: "cleanreg", title: "Cleaning", order: 3, icon: "✓", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.month = E.months.take("cleanreg") || thisMonth(); S.entries = []; S.around = []; E.months.reset(); E.correct.reset("cleanreg"); css(); paint(); return E.takeOpenForm("cleanreg", S.mount, load(), { btn: "[data-act=new]", form: "#clr-form" }); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.quick = null; S.quickName = null; E.dailyReg.css(); S.month = E.months.take("cleanreg") || thisMonth(); S.entries = []; S.around = []; E.months.reset(); E.correct.reset("cleanreg"); css(); paint(); return E.takeOpenForm("cleanreg", S.mount, load(), { btn: "[data-act=new]", form: "#clr-form" }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("cleanreg") < 0) E.UI2_DESTINATIONS.push("cleanreg");
   if (E.UI2_PARENT) E.UI2_PARENT.cleanreg = "registers";

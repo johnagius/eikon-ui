@@ -599,7 +599,7 @@
 
     html += '<div class="tdy-col">';
     html += setupCard(before);
-    html += '<div class="tdy-lab">' + (hr < 12 ? "Before opening" : "Today's checks") + ' <b>' + nBefore + '</b></div>';
+    html += '<div class="tdy-lab">' + (hr < 12 ? "Before opening" : "Today's checks") + ' <b>' + nBefore + '</b><a href="#registers" data-open="#registers">All registers ›</a></div>'; // regs-hub: every register's status for today is on Registers
     // A fridge or room outside its limits yesterday is the first thing to see in the morning, in words and colour.
     var yOut = before.filter(function (r) { return r.kind === "temperature" && yesterdayOut(r); });
     // With its note box right there; once the note is saved it says what was done instead.

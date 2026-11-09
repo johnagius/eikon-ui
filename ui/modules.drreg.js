@@ -2,7 +2,9 @@
    that fills a known prescriber's registration number and a known client's name, and a printout.
    Same endpoints as the classic screen (/daily-register/entries). Correct (the pharmacist only, eikon.correct.js):
    the line is read again, the classic edit's seven fields, a required reason, the whole line sent (the update replaces
-   every column). A line is never deleted here. */
+   every column). A line is never deleted here.
+   The daily registers' one pattern (eikon.dailyreg.js): today first (how many lines today, "Add line" on today's date,
+   "Another for <client>"), the month as a calendar with the lines per day, the month's sign-off, the same printout. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -61,6 +63,15 @@
     try { mqWide = window.matchMedia(WIDE); var f = function () { if (S.mount && E.state.activeModuleId === "drreg") E.whenFormIdle(S.mount, paint); };
       if (mqWide.addEventListener) mqWide.addEventListener("change", f); else if (mqWide.addListener) mqWide.addListener(f); } catch (e) {}
   }
+  function todayYmd() { return (E.maltaYmd && E.maltaYmd()) || ymd(new Date()); }
+  // The month at a glance: lines per day (a day with none is not "missed": nothing may have been supplied).
+  function monthHtml() {
+    var D = E.dailyReg, by = {}, days = {};
+    S.entries.forEach(function (e) { by[e.entry_date] = (by[e.entry_date] || 0) + 1; });
+    Object.keys(by).forEach(function (d) { days[d] = { tone: "ok", n: String(by[d]), say: by[d] + (by[d] === 1 ? " line" : " lines") }; });
+    return '<p class="dly-gaps"><span><b>' + S.entries.length + "</b> " + (S.entries.length === 1 ? "line" : "lines") + " on <b>" + Object.keys(by).length + "</b> " + (Object.keys(by).length === 1 ? "day" : "days") + " in " + esc(monthLabel(S.month)) + "</span></p>" +
+      D.cal({ month: S.month, days: days, label: "Lines per day" });
+  }
   function dayShort(s) { var d = parse(s); return s === ymd(new Date()) ? "Today" : WDN[d.getDay()].slice(0, 3) + " " + d.getDate() + " " + MON[d.getMonth()]; }
 
   function css() {
@@ -78,8 +89,8 @@
       ".drr-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:18px 0 6px}" +
       ".drr-month{display:flex;align-items:center;gap:6px}.drr-month b{font-size:17px;min-width:150px;text-align:center}" +
       ".drr-arrow{width:34px;height:34px;border-radius:50%;border:0;background:rgba(118,118,128,.12);color:var(--text);font-size:18px;cursor:pointer}.drr-arrow:disabled{opacity:.35;cursor:default}" +
-      ".drr-q{flex:1;min-width:200px;height:38px;border-radius:12px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font:inherit;font-size:15px;padding:0 12px;outline:0}" +
-      ".drr-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 2px 7px;display:flex;gap:8px}.drr-lab b{color:var(--text)}" +
+      ".drr-q{flex:1;min-width:200px;height:44px;border-radius:12px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font:inherit;font-size:16px;padding:0 12px;outline:0}" +
+      ".drr-lab{font-size:13px;font-weight:600;color:var(--muted);margin:16px 2px 7px;display:flex;gap:8px}.drr-lab b{color:var(--text)}" +
       ".drr-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".drr-row{padding:11px 16px;border-top:.5px solid var(--border);display:flex;align-items:center;gap:12px}.drr-row:first-child{border-top:0}.drr-rt{flex:1;min-width:0}" +
       ".drr-tbl td.c{width:1%;white-space:nowrap;vertical-align:middle;padding-top:4px;padding-bottom:4px}.drr-tbl tr.drr-fix td{padding:0}.drr-sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
@@ -115,6 +126,7 @@
       S.entries = ((res[0] && res[0].entries) || []).slice().sort(byNewest);
       S.history = S.entries.concat((res[1] && res[1].entries) || []);
       E.correct.loadMarks("drreg", FIX, S.month + "-01"); // which lines were corrected, by whom and why
+      if (S.month < thisMonth()) E.dailyReg.load(S.month, function () { E.whenFormIdle(S.mount, paint); }); // an ended month: its sign-off
     } catch (e) {
       if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register");
     }
@@ -156,20 +168,29 @@
     keep();
     var ae = document.activeElement, back = ae && m.contains(ae) && ae.closest && ae.closest("#drr-form") && ae.name ? ae.name : "";
     var MB = E.months, user = E.state.user || {};
-    var h = '<div class="drr"><button class="drr-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("drreg") : "‹ Registers") + '</button>' +
-      '<div class="drr-top"><div><h1>Daily register</h1><p class="drr-sub">Prescription medicines supplied, one line each.</p></div>' +
-      '<div class="drr-acts">' + (S.form ? "" : (S.last ? '<button class="drr-btn again" data-act="again" aria-label="' + esc("Another medicine for " + S.last.client_name + ", same prescriber") + '">' + esc("Another for " + S.last.client_name) + "</button>" : "") + '<button class="drr-btn p" data-act="new">New entry</button>') + "</div></div>" +
+    var D = E.dailyReg, cur = S.month === thisMonth();
+    var again = S.last ? '<button class="dly-btn drr-btn again" data-act="again" aria-label="' + esc("Another medicine for " + S.last.client_name + ", same prescriber") + '">' + esc("Another for " + S.last.client_name) + "</button>" : "";
+    var h = '<div class="drr dly-page wide">' + D.head({ id: "drreg", title: "Daily register", sub: "Prescription medicines supplied, one line each.", acts: S.form ? "" : again + '<button class="dly-btn p" data-act="new">New entry</button>' }) +
       '<p class="drr-pmeta">' + esc((user.location_name || "") + " · Daily register · " + monthLabel(S.month) + " · printed " + ymd(new Date())) + "</p>";
+    if (cur && !(S.loading && !S.entries.length) && !S.error) {
+      var tn = S.entries.filter(function (e) { return e.entry_date === todayYmd(); }).length;
+      h += D.today({ tone: tn ? "ok" : "info", word: tn ? "Today" : "None yet", title: tn ? tn + (tn === 1 ? " line today" : " lines today") : "No lines today yet",
+        sub: "Each prescription medicine supplied goes on one line, on today's date." });
+    }
+    h += D.nudge("daily", S.month, function () { E.whenFormIdle(S.mount, paint); });
     if (S.form) h += formHtml();
     h += MB.bar(S.month, { label: "Daily register" }) +
       '<div class="drr-bar"><input class="drr-q" id="drr-q" type="search" aria-label="Search this month" placeholder="Search client, ID, medicine or prescriber" value="' + esc(S.q) + '"></div>';
+    if (!S.loading && !S.error && S.entries.length && !S.q) h += monthHtml();
     h += '<div id="drr-res">' + resultsHtml() + "</div>";
-    h += E.correct.foot().replace('class="ecr-foot"', 'class="ecr-foot drr-note"');
+    if (!S.loading && !S.error) h += D.sign("daily", S.month, { gaps: 0, what: "days", changed: D.changedAfter("daily", S.month, S.entries) });
+    h += D.foot();
     h += '<table class="drr-print"><thead><tr><th>Date</th><th>Client</th><th>ID card</th><th>Medicine and dose</th><th>Posology</th><th>Prescriber</th><th>Reg no</th></tr></thead><tbody>' +
       (S.entries.length ? S.entries.slice().reverse().map(function (e) {
         return "<tr><td>" + esc(e.entry_date) + "</td><td>" + esc(e.client_name) + "</td><td>" + esc(e.client_id) + "</td><td>" + esc(e.medicine_name_dose) + "</td><td>" + esc(e.posology) + "</td><td>" + esc(e.prescriber_name) + "</td><td>" + esc(e.prescriber_reg_no) + "</td></tr>";
       }).join("") : '<tr><td colspan="7">Nothing recorded this month.</td></tr>') + "</tbody></table></div>";
     m.innerHTML = h;
+    D.wire(m, "daily", S.month, paint);
     if (back) { var again = m.querySelector("#drr-form [name=" + back + "]"); if (again) again.focus(); } // a repaint keeps your place in the form
     bind(m);
     E.correct.wire(m, "drreg", FIX);
@@ -198,7 +219,7 @@
           if (day) h += "</div>";
           day = e.entry_date;
           var n = shown.filter(function (x) { return x.entry_date === day; }).length;
-          h += '<div class="drr-lab">' + esc(dayLong(day)) + " <b>" + n + '</b></div><div class="drr-list">';
+          h += '<div class="drr-lab">' + esc(dayShort(day)) + " · " + n + (n === 1 ? " line" : " lines") + '</div><div class="drr-list">';
         }
         h += '<div class="drr-row"><div class="drr-rt"><b>' + esc(e.medicine_name_dose) + " · " + esc(e.client_name) + "</b><span>" + esc(e.posology) + " · " + esc(e.prescriber_name) +
           (e.prescriber_reg_no ? " (" + esc(e.prescriber_reg_no) + ")" : "") + " · " + esc(e.client_id) + "</span>" + E.correct.mark("drreg", e) + "</div>" +
@@ -209,11 +230,15 @@
     return h;
   }
   // The classic daily register printout (its columns, in its order), oldest first; the whole month, whatever the search.
-  function printMonth() {
-    var MB = E.months;
-    MB.print({ register: "Daily register", month: S.month, landscape: true, sections: [{ cols: ["Date", "Client", "Medicine name and dose", "Posology", "Prescriber name", "Reg no"],
-      rows: S.entries.slice().reverse().map(function (e) { return [MB.dmy(e.entry_date), { html: "<b>" + esc(e.client_name || "") + "</b><br>ID: " + esc(e.client_id || "") }, e.medicine_name_dose || "", e.posology || "", e.prescriber_name || "", e.prescriber_reg_no || ""]; }) }] });
+  function printDoc(ym, entries) {
+    var MB = E.months, byNewest = function (a, b) { return (String(a.entry_date) + String(a.id).padStart(9, "0")) < (String(b.entry_date) + String(b.id).padStart(9, "0")) ? 1 : -1; };
+    var doc = { register: "Daily register", month: ym, landscape: true, sections: [{ cols: ["Date", "Client", "Medicine name and dose", "Posology", "Prescriber name", "Reg no"],
+      rows: entries.slice().sort(byNewest).reverse().map(function (e) { return [MB.dmy(e.entry_date), { html: "<b>" + esc(e.client_name || "") + "</b><br>ID: " + esc(e.client_id || "") }, e.medicine_name_dose || "", e.posology || "", e.prescriber_name || "", e.prescriber_reg_no || ""]; }) }] };
+    var after = E.dailyReg ? E.dailyReg.after("daily", ym) : ""; if (after) doc.after = after;
+    return doc;
   }
+  if (E.printDocs) E.printDocs.drreg = printDoc; // the inspection pack prints the same page
+  function printMonth() { E.months.print(printDoc(S.month, S.entries)); }
 
   function bind(m) {
     m.querySelectorAll("[data-act]").forEach(function (b) {
@@ -293,7 +318,7 @@
 
   E.registerModule({
     id: "drreg", title: "Daily register", order: 3, icon: "Rx", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; S.last = null; S.month = E.months.take("drreg") || thisMonth(); S.entries = []; E.months.reset(); E.correct.reset("drreg"); css(); watchWidth(); paint(); return E.takeOpenForm("drreg", S.mount, load(), { btn: "[data-act=new]", form: "#drr-form", fill: { id_card: "client_id", name: "client_name" } }); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.form = null; E.dailyReg.css(); S.last = null; S.month = E.months.take("drreg") || thisMonth(); S.entries = []; E.months.reset(); E.correct.reset("drreg"); css(); watchWidth(); paint(); return E.takeOpenForm("drreg", S.mount, load(), { btn: "[data-act=new]", form: "#drr-form", fill: { id_card: "client_id", name: "client_name" } }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("drreg") < 0) E.UI2_DESTINATIONS.push("drreg");
   if (E.UI2_PARENT) E.UI2_PARENT.drreg = "registers";

@@ -68,7 +68,7 @@
     st.id = "eikon-cdsreg-css";
     st.textContent =
       ".cds{max-width:880px;margin:0 auto}" +
-      ".cds-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 0 10px;cursor:pointer}" +
+      ".cds-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 8px 0 0;margin-bottom:2px;min-height:44px;cursor:pointer}" +
       ".cds-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}" +
       ".cds h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.cds-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
       ".cds-btn{font:inherit;font-size:14px;font-weight:600;height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
@@ -88,6 +88,7 @@
       ".cds-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:space-between;align-items:center}" +
       ".cds-err{color:var(--danger);font-size:13px;padding:4px 14px}.cds-err:empty{padding:0}.cds-form label.miss>span{color:var(--danger)}.cds-form label.miss:focus-within>span{color:inherit}.cds-form .row.miss input.n::placeholder{color:var(--danger)}.cds-form .row .q[aria-invalid=true]{color:var(--danger)}" +
       ".cds-dup{margin:6px 14px;padding:10px 12px;border-radius:10px;background:rgba(201,138,18,.12);font-size:13.5px}.cds-dup b{display:block;margin-bottom:4px}.cds-dup div{color:var(--muted);font-size:12.5px}" +
+      ".cds-hacts{display:flex;flex-direction:row-reverse;gap:8px;align-items:center}.cds-hacts .cds-btn{min-height:44px;display:inline-flex;align-items:center;text-decoration:none;border-radius:22px}.cds " + ".ecr-btn{border:0;background:none;min-height:44px;padding:0 8px;border-radius:8px}" +
       ".cds-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       "@media (max-width:600px){.cds{padding:4px 16px 0}.cds h1{font-size:32px}.cds-form label>span{flex-basis:92px}}";
     document.head.appendChild(st);
@@ -105,15 +106,18 @@
   }
   // The legal register as the classic screen prints it (its report): the month, the classic's columns in its order,
   // oldest first (the report's order: date, then the order typed). DDA sales has the Urgent column; POYC has none.
-  function printMonth() {
-    var MB = E.months, m = S.month, rows = S.entries.slice().sort(function (a, b) { return String(a.entry_date).localeCompare(String(b.entry_date)) || Number(a.id) - Number(b.id); });
-    MB.print({ register: C.report, month: m, landscape: true, sections: [{ heading: m, sub: "Range: " + MB.first(m) + " to " + MB.last(m), cols: C.printCols,
+  // E.printDocs.<cdsreg|poyreg>(ym, entries): the same doc the screen prints, for the inspection pack (one object, no copy).
+  E.printDocs = E.printDocs || {};
+  E.printDocs[C.id] = function (m, entries) {
+    var MB = E.months, rows = (entries || []).slice().sort(function (a, b) { return String(a.entry_date).localeCompare(String(b.entry_date)) || Number(a.id) - Number(b.id); });
+    return { register: C.report, month: m, landscape: true, sections: [{ heading: m, sub: "Range: " + MB.first(m) + " to " + MB.last(m), cols: C.printCols,
       rows: rows.map(function (r) {
         var row = [r.entry_date || "", r.client_name || "", r.client_id_card || "", r.client_address || "", r.medicine_name_dose || "", r.quantity == null ? "" : String(r.quantity), r.doctor_name || "", r.doctor_reg_no || "", r.prescription_serial_no || ""];
         if (C.urgent) row.push(r.urgent === 1 || r.urgent === true || String(r.urgent || "").toLowerCase() === "true" ? "URGENT" : "");
         return row; }),
-      empty: "No entries for the selected date range." }] });
-  }
+      empty: "No entries for the selected date range." }] };
+  };
+  function printMonth() { E.months.print(E.printDocs[C.id](S.month, S.entries)); }
   async function loadDoctors() { // the prescribers this pharmacy sees most, for the name list
     try { S.doctors = await C.doctors(""); } catch (e) { S.doctors = []; }
     // only the suggestion list changes: redrawing the form here could swallow a tap that lands at the same moment
@@ -126,7 +130,7 @@
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var mn = MON[Number(S.month.slice(5)) - 1] + " " + S.month.slice(0, 4);
     var h = '<div class="cds"><button class="cds-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel(C.id) : "‹ Registers") + "</button>" +
-      '<div class="cds-top"><div><h1>' + esc(C.title) + '</h1><p class="cds-sub">' + esc(C.sub) + '</p></div>' + (S.adding ? "" : '<button class="cds-btn p" data-act="add">New prescription</button>') + "</div>";
+      '<div class="cds-top"><div><h1>' + esc(C.title) + '</h1><p class="cds-sub">' + esc(C.sub) + '</p></div><span class="cds-hacts">' + (S.adding ? "" : '<button class="cds-btn p" data-act="add">New prescription</button>') + '<a class="cds-btn cds-bymed" href="#cdreg">By medicine</a></span></div>'; // the main button first in Tab order (right after the heading), drawn on the right
     if (S.adding) {
       var a = S.adding, saved = a.lines.some(function (l) { return l.saved; }), lock = saved ? " disabled" : "";
       var bad = S.bad || {}, inv = function (k) { return bad[k] ? ' aria-invalid="true"' : ""; };
@@ -157,14 +161,15 @@
     if (S.loading && !S.entries.length) h += '<div class="cds-quiet">Opening the register…</div>';
     else if (S.error) h += '<div class="cds-quiet">' + esc(S.error) + "</div>";
     else {
-      h += '<div class="cds-lab">' + esc(mn) + " <b>" + S.entries.length + "</b></div>";
+      if (S.entries.length) h += '<div class="cds-lab"><span><b>' + S.entries.length + "</b> " + (S.entries.length === 1 ? "line" : "lines") + " supplied in " + esc(mn) + "</span></div>";
+      if (E.cdMonthSummary) h += E.cdMonthSummary(S.entries, "medicine_name_dose", "supplied"); // this month by medicine, from the lines already here
       h += S.entries.length ? '<div class="cds-list">' + S.entries.map(function (e) {
         return '<div class="cds-row"><div class="t"><b>' + esc(e.medicine_name_dose) + "</b>" + (Number(e.urgent) ? '<i class="cds-pill" style="font-style:normal">Urgent</i>' : "") +
           "<span>" + esc(dmy(e.entry_date)) + " · " + esc(e.client_name) + " · " + esc(e.doctor_name) + " · Rx " + esc(e.prescription_serial_no) + "</span>" + E.correct.mark(C.id, e) + "</div><em>" + esc(e.quantity) + "</em>" +
           E.correct.button(C.id, e, e.medicine_name_dose + " × " + e.quantity + " for " + e.client_name + ", " + dmy(e.entry_date)) + "</div>" + E.correct.panel(C.id, e, FIX);
-      }).join("") + "</div>" : '<div class="cds-quiet" data-empty>' + esc(E.months.empty(S.month, "Nothing supplied this month yet.")) + "</div>";
+      }).join("") + "</div>" : '<div class="cds-quiet" data-empty>' + esc(E.months.empty(S.month, "Nothing supplied this month yet.")) + (S.adding ? "" : ' <button class="cds-btn p" data-act="add" style="margin-left:6px">New prescription</button>') + "</div>";
     }
-    h += E.correct.foot() + "</div>";
+    h += '<p class="ecr-foot" style="font-size:12.5px;color:var(--muted);margin-top:12px">' + (E.correct.can && E.correct.can() ? "Made a mistake? Press Correct on the line — what it said before stays on record." : "Made a mistake? A wrong line is corrected by the pharmacist (Correct, with the reason).") + "</p></div>";
     var ae = document.activeElement, back = ae && m.contains(ae) && ae.closest && ae.closest("#cds-add") ? (ae.name ? "[name=" + ae.name + "]" : ae.getAttribute("data-i") != null ? '[data-i="' + ae.getAttribute("data-i") + '"][data-k="' + ae.getAttribute("data-k") + '"]' : "") : "";
     m.innerHTML = h;
     if (back) { var again = m.querySelector("#cds-add " + back); if (again && !again.disabled) again.focus(); } // a lookup filling fields keeps your place
@@ -173,6 +178,7 @@
         var act = b.getAttribute("data-act");
         if (act === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash(C.id) : "#registers";
         else if (act === "add") { S.adding = blank(); S.err = ""; S.bad = {}; S.dup = null; S.dupOk = ""; paint(); if (!S.doctors.length) loadDoctors(); var f = m.querySelector("[name=client_id_card]"); if (f) f.focus(); }
+        else if (act === "add-cancel" && S.fromCd && E.cdHand) { S.adding = null; S.dup = null; S.fromCd = ""; E.cdHand.back(); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; S.bad = {}; S.dup = null; paint(); var ab = m.querySelector("[data-act=add]"); if (ab) ab.focus(); }
         else if (act === "line") { keep(); S.adding.lines.push({ medicine_name_dose: "", quantity: "" }); paint(); var ins = m.querySelectorAll(".cds-form .row input.n"); if (ins.length) ins[ins.length - 1].focus(); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", C.id); } catch (x) {} E.openClassic(C.classic); }
@@ -180,7 +186,9 @@
     });
     E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; E.correct.reset(C.id); load(); }, paint: function () { paint(); }, print: printMonth });
     E.correct.wire(m, C.id, FIX);
+    if (E.cdMonthWire) E.cdMonthWire(m);
     var f = m.querySelector("#cds-add");
+    if (f && E.cdBalanceWire) E.cdBalanceWire(f, -1); // the balance check at entry (words only)
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
       f.addEventListener("input", function (ev) { unmark(ev.target); }); // a field being put right stops being red
@@ -322,14 +330,19 @@
     }
     S.saving = false;
     if (done && E.linkPerson) E.linkPerson({ name: a.client_name, id_card: a.client_id_card, address: a.client_address, doctor_name: a.doctor_name }, C.id === "poyreg" ? "register:poyc" : "register:dda-sales", asked); // one person in Customers, found or added
+    var backCd = !failed && S.fromCd && E.cdHand; if (backCd) S.fromCd = ""; // opened from the medicine's register: back to it after the save
     if (!failed) { S.adding = null; S.bad = {}; S.dup = null; S.dupOk = ""; E.toast("Saved · " + (done === 1 ? ((a.lines.filter(function (l) { return l.saved; })[0] || a.lines[0] || {}).medicine_name_dose || "1 medicine") : done + " medicines") + " for " + a.client_name, "success"); if (a.entry_date.slice(0, 7) !== S.month) S.month = a.entry_date.slice(0, 7); }
     else S.err = (done ? done + " saved. " : "") + "Not saved from " + (todo[done] || {}).medicine_name_dose + ": " + String(failed).replace(/\.$/, "") + ". Press Save prescription to try the rest again.";
+    if (backCd) { E.cdHand.back(); return; }
     return load();
   }
 
   E.registerModule({
     id: C.id, title: C.title, order: 3, icon: "℞", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = E.months.take(C.id) || today().slice(0, 7); S.entries = []; E.months.reset(); E.correct.reset(C.id); S.adding = null; S.err = ""; S.bad = {}; S.dup = null; S.dupOk = ""; css(); paint(); if (E.onReconnect) E.onReconnect(load); return E.takeOpenForm(C.id, S.mount, load(), { btn: "[data-act=add]", form: "#cds-add", fill: { id_card: "client_id_card", name: "client_name", address: "client_address" } }); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = E.months.take(C.id) || today().slice(0, 7); S.entries = []; E.months.reset(); E.correct.reset(C.id); S.adding = null; S.err = ""; S.bad = {}; S.dup = null; S.dupOk = ""; S.fromCd = ""; css();
+      var hand = E.cdHand && E.cdHand.take(C.id); // "Supplied" / "POYC" on a medicine's running register: the form opens with it written in
+      if (hand) { S.fromCd = hand.name; S.adding = blank(); S.adding.lines[0].medicine_name_dose = String(hand.name || ""); paint(true); loadDoctors(); if (E.onReconnect) E.onReconnect(load); E.focusSoon(function () { return S.mount && S.mount.querySelector("#cds-add [name=client_id_card]"); }, 30); return load(); }
+      paint(); if (E.onReconnect) E.onReconnect(load); return E.takeOpenForm(C.id, S.mount, load(), { btn: "[data-act=add]", form: "#cds-add", fill: { id_card: "client_id_card", name: "client_name", address: "client_address" } }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf(C.id) < 0) E.UI2_DESTINATIONS.push(C.id);
   if (E.UI2_PARENT) E.UI2_PARENT[C.id] = "registers";

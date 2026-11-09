@@ -34,7 +34,8 @@
     rotreg: "This week at a glance: who works, when, and who is away.",
     ssreg: "What other pharmacies are looking for, and what you asked for.",
     certificates: "Calibrations, services and licences, with what is due.",
-    audit: "Who changed what, across the whole system.",
+    audit: "Every change, who made it and when.",
+    cdreg: "Each controlled drug's running balance, and any difference from the count.",
     expreg: "Your registers as a spreadsheet, or printed for an inspector, for any month or year.",
     insreg: "Is every register in order? Days not logged, notes missing, certificates due; printed with sign-off lines.",
     ownreg: "Takings this week and month against the last, what needs you, hours, controlled-drug totals and month-end reports.",
@@ -87,9 +88,9 @@
       title: "Registers", lead: "The books an inspector asks for: fill them in, see what is missing, and print any month.",
       groups: [
         { label: "Every day", ids: ["temperature", "cleaning", "dailyregister", "locumregister"] },
-        { label: "Controlled drugs", ids: ["dda-purchases", "dda-sales", "dda-poyc", "dda_stocktakes"] },
+        { label: "Controlled drugs", ids: ["cdreg", "dda-purchases", "dda-sales", "dda-poyc", "dda_stocktakes"] }, // cdreg: the cd builder's screen, shown once it is in the build
         { label: "Prescriptions", ids: ["repeatprescriptions"] },
-        { label: "Proof", ids: ["insreg", "certificates", "audit"] } // Certificates live here; the audit trail's home is Settings
+        { label: "Inspection and certificates", ids: ["insreg", "certificates", "audit"] } // was "Proof" (not a pharmacist's word). Certificates live here; the audit trail's home is Settings
       ]
     },
     services: {
@@ -181,6 +182,7 @@
       var html = '<div class="hub" data-hub="' + esc(id) + '"><h1>' + esc(cfg.title) + '</h1><p class="lead">' + esc(cfg.lead) + '</p>' +
         (id === "settings" ? '<div id="hub-wn-slot"></div>' : "") +
         (id === "stock" ? '<div id="stk-slot" class="stk"></div><h2 class="hub-lab stk-all">Every stock screen</h2>' : ""); // d-stock: the day's ordering first (modules.stkflow.js), every screen under it
+      if (id === "registers") html += '<div id="rgt-slot"></div><h2 class="rgt-all">Every register</h2>'; // regs-hub: what is due today first (eikon.regtoday.js), every register under it; a heading like "Today" above it, not a section label
       cfg.groups.forEach(function (g, gi) {
         var cards = "";
         (g.ids || []).forEach(function (mid) {
@@ -202,6 +204,7 @@
         b.addEventListener("click", function () { openCard(b.getAttribute("data-open"), id); });
       });
       if (id === "stock") { var slot = m.querySelector("#stk-slot"); if (slot && E.stockFlow) E.stockFlow.render(slot); } // drawn by modules.stkflow.js when it arrives otherwise
+      if (id === "registers") { var rs = m.querySelector("#rgt-slot"); if (rs && E.regToday) E.regToday.render(rs); } // drawn by eikon.regtoday.js when it arrives otherwise
       if (id === "settings" && E.helpSettings) E.helpSettings(m); // What's new (eikon.help.js, loaded just after the first screen)
       m.querySelectorAll("[data-action]").forEach(function (b) {
         b.addEventListener("click", function () {
