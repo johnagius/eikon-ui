@@ -95,9 +95,30 @@
     URINE.forEach(function (u) { if (u[0] === "ph") return; var v = must(r[u[0]]); if (v && v !== "Negative" && v !== "Normal") out.push(u[1] + " " + v); });
     return out;
   }
+  // On screen only: a stored 5.800000000000001 reads 5.8 (the stored value and every print stay as they are).
+  function nv(v) { if (typeof v === "number" && isFinite(v)) return String(Math.round(v * 100) / 100); var t = String(v == null ? "" : v); return /^-?\d+\.\d{4,}$/.test(t) ? String(Math.round(Number(t) * 100) / 100) : t; }
+  function niceRes(x) { var o = {}; for (var k in x) if (Object.prototype.hasOwnProperty.call(x, k)) o[k] = nv(x[k]); return o; }
+  // The result in plain words against the same guide as the marks: "In the guide range" (green), or the marks themselves
+  // ("High", "Raised", "Low": red or amber), with the guide's own numbers. Shown only, never saved; the pharmacist decides.
+  // Each sentence says exactly what flags() tests, with its numbers (checked line by line against flags()).
+  var GUIDE = { bp: "Guide for adults: from 90/60 to under 140/90 mmHg; pulse from 50 to 100.", hba1c: "Guide: under 42 mmol/mol; from 42 to under 48 is raised.", bmi: "Guide: BMI from 18.5 to under 25.",
+    chol: "Guide: total 5.0 or less, LDL 3.0 or less, HDL 1.0 or more, triglycerides 1.7 or less (2.3 if not fasting).", urine: "Guide: every pad negative, urobilinogen normal." };
+  var READS = { bp: ["sys", "dia", "pulse"], bg: ["glucose"], hba1c: ["pct", "mmol"], chol: ["tc", "hdl", "ldl", "tg"], bmi: ["weight", "height", "bmi"], urine: ["leu", "nit", "uro", "pro", "bld", "ket", "glu"] };
+  function verdict(type, res) {
+    var r = res || {}; if (!(READS[type] || []).some(function (k) { return has(r[k]); })) return null;
+    var f = flags(type, r), lvl = f.some(function (x) { return x.k === "bad"; }) ? "bad" : f.length ? "warn" : "ok";
+    var very = f.some(function (x) { return x.t === "Very high"; });
+    var guide = type === "bg" ? (r.timing === "Fasting" ? "Guide when fasting: from 4.0 to under 7.0 mmol/L." : "Guide when not fasting: from 4.0 to under 11.1 mmol/L.") : (GUIDE[type] || "");
+    return { lvl: lvl, very: very, f: f, guide: guide };
+  }
+  function vchip(v) { return v ? (v.f.length ? pills(v.f) : '<em class="poc-v ok">In the guide range</em>') : ""; }
+  // Advice and referral, in the words of the screening referrals (16:35 directive): a tap writes
+  // them into Intervention (the same free-text field as always), a second tap takes them out. Nothing is suggested.
+  var ADVICE = ["Lifestyle advice given", "Self-monitoring advised", "Referred to GP", "Referred to pharmacist follow-up"];
   function pills(f) { return f.map(function (x) { return '<em class="poc-flag ' + x.k + '">' + esc(x.t) + "</em>"; }).join(""); }
-  function summary(r) {
+  function summary(r, nice) {
     var x = (r && r.results) || {}, t = r && r.testType, a = [];
+    if (nice) x = niceRes(x);
     if (t === "bp") { if (has(x.sys) || has(x.dia)) a.push((has(x.sys) ? x.sys : "–") + "/" + (has(x.dia) ? x.dia : "–") + " mmHg"); if (has(x.pulse)) a.push("pulse " + x.pulse); return a.join(" · "); }
     if (t === "bg") return (has(x.glucose) ? x.glucose + " mmol/L" : "") + (x.timing ? " · " + lower(x.timing) : "");
     if (t === "hba1c") { if (has(x.pct)) a.push(x.pct + "%"); if (has(x.mmol)) a.push(x.mmol + " mmol/mol"); return a.join(" · "); }
@@ -150,6 +171,10 @@
       ".poc-flag.bad{background:rgba(215,38,28,.12);color:var(--danger)}.poc-flag.warn{background:rgba(201,138,18,.14);color:var(--warn,#8A5A08)}" +
       ".poc-who{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}" +
       ".poc-who .t{flex:1 1 200px;min-width:0}.poc-who h2{font-size:22px;margin:0;font-weight:700;letter-spacing:-.015em;overflow-wrap:anywhere}.poc-who p{margin:3px 0 0;color:var(--muted);font-size:13.5px;overflow-wrap:anywhere}" +
+      ".poc-form .poc-pat1{min-height:60px;padding:6px 14px}.poc-pat1 .t{flex:1;min-width:0}.poc-pat1 b{display:block;font-size:17px;font-weight:650;overflow-wrap:anywhere}.poc-pat1 span{display:block;font-size:13px;color:var(--muted);overflow-wrap:anywhere}" +
+      ".poc-saved{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin-top:10px;padding:10px 12px;border-radius:12px;background:rgba(10,143,106,.10);font-size:14px}.poc-saved span{flex:1 1 220px;min-width:0;overflow-wrap:anywhere}" +
+      ".poc-who-a{display:flex;gap:8px;flex-wrap:wrap}" +
+      ".poc-spark{flex:0 0 auto;color:var(--text)}.poc-spark .d{opacity:.45}.poc-trow .f{min-width:84px}" +
       ".poc-warnbox{margin-top:10px;padding:10px 12px;border-radius:10px;background:rgba(201,138,18,.12);font-size:13.5px}" +
       ".poc-form{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:6px 0;margin-top:16px}" +
       ".poc-form label,.poc-form .row{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 14px;border-top:.5px solid var(--border)}" +
@@ -158,9 +183,18 @@
       ".poc-form label small{color:var(--accent);font-size:12px;font-weight:600;white-space:nowrap}" +
       ".poc-form .hd{font-size:13px;font-weight:600;color:var(--muted);padding:14px 14px 5px;border-top:.5px solid var(--border)}.poc-form .hd:first-child{border-top:0}" +
       ".poc-seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:4px 14px 10px}" +
-      ".poc-seg button{font:inherit;font-size:13.5px;font-weight:600;min-height:36px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;padding:4px 6px;line-height:1.15;overflow-wrap:anywhere}" +
+      ".poc-seg button{font:inherit;font-size:14px;font-weight:600;min-height:44px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;padding:4px 6px;line-height:1.15;overflow-wrap:anywhere}" +
       ".poc-seg button.on{background:var(--accent);border-color:var(--accent);color:#fff}" +
-      ".poc-live{padding:8px 14px;font-size:13.5px;color:var(--muted);border-top:.5px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:20px}.poc-live b{color:var(--text);font-weight:600}" +
+      ".poc-live{padding:10px 14px;font-size:14px;color:var(--muted);border-top:.5px solid var(--border);min-height:24px}.poc-live b{color:var(--text);font-weight:600}" +
+      ".poc-res-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;color:var(--text)}.poc-res-g{margin-top:6px;line-height:1.45}.poc-res-wait{color:var(--muted)}" +
+      ".poc-v{font-style:normal;font-size:15px;font-weight:700;padding:4px 12px;border-radius:999px;white-space:nowrap}" +
+      ".poc-v.ok{background:rgba(10,143,106,.13);color:var(--accent)}.poc-v.warn{background:rgba(201,138,18,.16);color:var(--warn,#8A5A08)}.poc-v.bad{background:rgba(215,38,28,.12);color:var(--danger)}" +
+      ".poc-row .poc-v{font-size:11.5px;padding:2px 8px}.poc-row .poc-v.ok{font-weight:700}" +
+      ".poc-adv{display:flex;flex-wrap:wrap;gap:8px;padding:2px 14px 12px}" +
+      ".poc-adv button{font:inherit;font-size:14px;font-weight:600;min-height:44px;padding:0 14px;border-radius:22px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer}" +
+      ".poc-adv button.on{background:var(--accent);border-color:var(--accent);color:#fff}" +
+      ".poc-form label.big{min-height:60px}.poc-form label.big input{flex:0 1 6.5em;font-size:26px;font-weight:650;font-variant-numeric:tabular-nums;padding:8px 0;letter-spacing:-.01em}.poc-form label.big>i{font-size:15px;flex:1}.poc-form label.big input::placeholder{font-weight:400;font-size:17px}" +
+      ".poc-form label.sel{min-height:52px}" +
       ".poc-form .acts{display:flex;gap:8px;padding:8px 14px;justify-content:flex-end}" +
       ".poc-err{color:var(--danger);font-size:13.5px;padding:6px 14px;line-height:1.45}" +
       ".poc-form label.miss>span{color:var(--danger);font-weight:600}.poc-form label.miss{box-shadow:inset 3px 0 0 var(--danger)}" +
@@ -168,8 +202,8 @@
       ".poc-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".poc-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       ".poc-note{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5}" +
-      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .poc-seg button.on{color:#00160E}html[data-ui2]:not([data-ui2-visit]) :is(.poc-err,.poc-form label.miss>span){color:#FF7A72}}" +
-      "@media (max-width:600px){.poc-btn{height:44px;border-radius:22px;padding:0 18px;font-size:15px}.poc-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.poc-seg button{min-height:44px}.poc{padding:4px 16px 0}.poc h1{font-size:32px}.poc-form label>span{flex-basis:92px}.poc-row{padding:10px 14px}.poc-row:has(.a){flex-wrap:wrap}.poc-row .a{flex-basis:100%;justify-content:flex-end}.poc-row .a .poc-btn{height:44px;padding:0 16px}}";
+      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) :is(.poc-seg button.on,.poc-adv button.on){color:#00160E}html[data-ui2]:not([data-ui2-visit]) .poc-v.bad{color:#FF7A72}html[data-ui2]:not([data-ui2-visit]) .poc-v.warn{color:#F2B84B}html[data-ui2]:not([data-ui2-visit]) :is(.poc-err,.poc-form label.miss>span){color:#FF7A72}}" +
+      "@media (max-width:600px){.poc-btn{height:44px;border-radius:22px;padding:0 18px;font-size:15px}.poc-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.poc-seg button{min-height:44px}.poc-seg{grid-template-columns:repeat(2,minmax(0,1fr))}.poc{padding:4px 16px 0}.poc h1{font-size:32px}.poc-form label>span{flex-basis:92px}.poc-row{padding:10px 14px}.poc-row:has(.a){flex-wrap:wrap}.poc-row .a{flex-basis:100%;justify-content:flex-end}.poc-row .a .poc-btn{height:44px;padding:0 16px}.poc-trow{flex-wrap:wrap}.poc-trow .t{flex-basis:100%}.poc-trow .f{flex:1;max-width:none}}";
     document.head.appendChild(st);
   }
 
@@ -206,17 +240,19 @@
     return a;
   }
 
-  function field(k, lab, extra, unit) {
+  function field(k, lab, extra, unit, big) {
     var a = S.adding;
-    var bad = S.miss.indexOf(k) >= 0;
-    return "<label" + (bad ? ' class="miss"' : "") + "><span>" + lab + '</span><input name="' + k + '" value="' + esc(a[k]) + '"' + (bad ? ' aria-invalid="true" aria-describedby="poc-errmsg"' : "") + (extra || "") + ">" + (unit ? "<i>" + unit + "</i>" : "") + "</label>";
+    var bad = S.miss.indexOf(k) >= 0, cls = [bad ? "miss" : "", big || (bigNow && k !== "appearance") ? "big" : ""].filter(Boolean).join(" ");
+    return "<label" + (cls ? ' class="' + cls + '"' : "") + "><span>" + lab + '</span><input name="' + k + '" value="' + esc(a[k]) + '"' + (bad ? ' aria-invalid="true" aria-describedby="poc-errmsg"' : "") + (extra || "") + ">" + (unit ? "<i>" + unit + "</i>" : "") + "</label>";
   }
   function pick(k, lab, opts) {
     var a = S.adding;
-    return "<label><span>" + lab + '</span><select name="' + k + '">' + opts.map(function (o) { var v = Array.isArray(o) ? o[0] : o, t = Array.isArray(o) ? o[1] : o; return '<option value="' + esc(v) + '"' + (String(a[k]) === v ? " selected" : "") + ">" + esc(t) + "</option>"; }).join("") + "</select></label>";
+    return "<label" + (bigNow ? ' class="sel"' : "") + "><span>" + lab + '</span><select name="' + k + '">' + opts.map(function (o) { var v = Array.isArray(o) ? o[0] : o, t = Array.isArray(o) ? o[1] : o; return '<option value="' + esc(v) + '"' + (String(a[k]) === v ? " selected" : "") + ">" + esc(t) + "</option>"; }).join("") + "</select></label>";
   }
   var DEC = ' inputmode="decimal" autocomplete="off"';
-  function resultFields(t) {
+  var bigNow = false;
+  function resultFields(t) { bigNow = true; try { return resultFields0(t); } finally { bigNow = false; } } // the readings are big targets
+  function resultFields0(t) {
     if (t === "bp") return field("sys", "Systolic", DEC + ' placeholder="e.g. 120"', "mmHg") + field("dia", "Diastolic", DEC + ' placeholder="e.g. 80"', "mmHg") + field("pulse", "Pulse", DEC + ' placeholder="Optional"', "bpm") +
       pick("arm", "Arm", ["Left", "Right"]) + pick("position", "Position", ["Sitting", "Standing", "Supine"]);
     if (t === "bg") return field("glucose", "Glucose", DEC + ' placeholder="e.g. 6.4"', "mmol/L") + pick("timing", "Timing", ["Random", "Fasting", "Post-prandial"]);
@@ -243,26 +279,46 @@
     if (a.type === "chol" && r.ratio) bits.push("TC/HDL ratio <b>" + esc(r.ratio) + "</b>");
     if (a.type === "bmi" && r.bmi) bits.push("BMI <b>" + esc(r.bmi) + "</b> · " + esc(r.category));
     if (a.type === "urine") { var p = positives(r); bits.push(p.length ? esc(p.join(", ")) : "Negative throughout"); }
-    var f = flags(a.type, r);
-    return bits.join(" · ") + (bits.length && f.length ? " " : "") + pills(f);
+    var f = flags(a.type, r), v = verdict(a.type, r), last = lastOf(a);
+    var h = '<div class="poc-res-top">' + (v ? vchip(v) : '<span class="poc-res-wait">The result shows here as you write the readings.</span>') + (bits.length ? "<span>" + bits.join(" · ") + "</span>" : "") + "</div>";
+    if (v && v.guide) h += '<div class="poc-res-g">' + esc(v.guide) + "</div>";
+    if (last) h += '<div class="poc-res-g">Last time: <b>' + esc(summary(last, true)) + "</b> on " + esc(when(last.performedAtIso)) + (flags(last.testType, last.results).length ? " (" + esc(flags(last.testType, last.results).map(function (x) { return lower(x.t); }).join(", ")) + ")" : "") + "</div>";
+    return h;
+  }
+  // The patient's last test of this kind (not the one being changed), to compare at a glance while the readings go in.
+  function lastOf(a) {
+    var id = pid(a.patientId); if (!id) return null;
+    return S.records.filter(function (r) { return r.testType === a.type && r.id !== a.recId && pid((r.patient || {}).patientId) === id; })[0] || null;
+  }
+  function advHtml(a) {
+    var now = lower(a.intervention);
+    return '<div class="poc-adv" role="group" aria-labelledby="poc-adv-lab"><span id="poc-adv-lab" class="poc-sr">Advice and referral, written into Intervention</span>' + ADVICE.map(function (t, i) {
+      var on = now.indexOf(lower(t)) >= 0;
+      return '<button type="button" data-adv="' + i + '" aria-pressed="' + on + '" class="' + (on ? "on" : "") + '">' + esc(t) + "</button>";
+    }).join("") + "</div>";
   }
 
   function formHtml() {
-    var a = S.adding;
+    var a = S.adding, short = !!a.short && !!must(a.name) && !!must(a.patientId) && !!must(a.phone) && !S.miss.some(function (k) { return PAT.indexOf(k) >= 0; });
     return '<form class="poc-form" id="poc-add" autocomplete="off" aria-label="' + (a.editing ? "Change test" : "New test") + '">' +
-      (a.editing ? '<div class="hd">Change ' + esc(lower(NICE[a.type])) + " of " + esc(when(S.records.filter(function (r) { return r.id === a.recId; }).map(function (r) { return r.performedAtIso; })[0])) + "</div>" :
-      '<div class="hd" id="poc-type-lab">Test</div><div class="poc-seg" role="group" aria-labelledby="poc-type-lab">' + TYPES.map(function (t) { return '<button type="button" data-type="' + t[0] + '" aria-pressed="' + (a.type === t[0]) + '" class="' + (a.type === t[0] ? "on" : "") + '">' + esc(t[1]) + "</button>"; }).join("") + "</div>") +
-      '<div class="hd">Patient</div>' +
+      (a.editing ? '<div class="hd">Change ' + esc(lower(NICE[a.type])) + " of " + esc(when(S.records.filter(function (r) { return r.id === a.recId; }).map(function (r) { return r.performedAtIso; })[0])) + "</div>" : "") +
+      '<div class="hd">' + (a.editing ? "Patient" : "1 · Patient") + "</div>" +
+      // Opened from the patient's page (or to change a test): the patient is one line with Change; the fields stay in the
+      // form (and open by themselves when one of them needs fixing).
+      (short ? '<div class="row poc-pat1"><div class="t"><b>' + esc(a.name) + "</b><span>" + esc([pid(a.patientId), a.phone, has(a.age) ? a.age + " years" : ""].filter(Boolean).join(" · ")) + '</span></div><button type="button" class="poc-btn" data-act="pat-open" aria-label="Change the patient\'s details">Change</button></div>' : "") +
+      '<div class="poc-pat"' + (short ? " hidden" : "") + ">" +
       field("patientId", "ID card", ' placeholder="ID card or passport" autocapitalize="characters"', a.found ? "<small>Known</small>" : "") +
       field("name", "Name", ' placeholder="Name and surname"') +
-      field("phone", "Phone", ' type="tel" inputmode="tel" placeholder="+356 ..."') +
+      field("phone", "Phone", ' type="tel" inputmode="tel" placeholder="+356"') +
       field("age", "Age", ' inputmode="numeric" placeholder="Years, optional"') +
-      field("address", "Address", ' placeholder="Optional"') +
-      '<div class="hd">' + esc(NICE[a.type]) + "</div>" + resultFields(a.type) +
-      '<div class="poc-live" id="poc-live" aria-live="polite">' + liveHtml(a) + "</div>" +
+      field("address", "Address", ' placeholder="Optional"') + "</div>" +
+      (a.editing ? "" : '<div class="hd" id="poc-type-lab">2 · Test</div><div class="poc-seg" role="group" aria-labelledby="poc-type-lab">' + TYPES.map(function (t) { return '<button type="button" data-type="' + t[0] + '" aria-pressed="' + (a.type === t[0]) + '" class="' + (a.type === t[0] ? "on" : "") + '">' + esc(t[1]) + "</button>"; }).join("") + "</div>") +
+      '<div class="hd">' + (a.editing ? "" : "3 · ") + esc(NICE[a.type]) + "</div>" + resultFields(a.type) +
+      '<div class="hd">' + (a.editing ? "" : "4 · ") + "Result and advice</div>" +
+      '<div class="poc-live" id="poc-live" aria-live="polite">' + liveHtml(a) + "</div>" + advHtml(a) +
       '<div class="hd">Details</div>' +
       field("dt", "Done at", ' type="datetime-local"') +
-      field("intervention", "Intervention", ' placeholder="Optional, e.g. lifestyle advice, referred"') +
+      field("intervention", "Intervention", ' placeholder="Optional, or tap the advice above"') +
       field("notes", "Notes", ' placeholder="Optional"') +
       (S.err ? '<div class="poc-err" id="poc-errmsg" role="alert">' + esc(S.err) + "</div>" : "") +
       '<div class="acts"><button type="button" class="poc-btn" data-act="add-cancel">Cancel</button><button type="submit" class="poc-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : a.editing ? "Save changes" : "Save test") + "</button></div></form>";
@@ -273,7 +329,7 @@
     var sub = showWho ? [p.name || p.patientId || "No name", when(r.performedAtIso)] : [when(r.performedAtIso)];
     if (!showWho && r.intervention) sub.push(r.intervention);
     if (!showWho && r.notes) sub.push(r.notes);
-    var inner = '<div class="t"><b>' + esc(label(r)) + " · " + esc(summary(r)) + '</b><span' + (showWho ? "" : ' class="w"') + ">" + esc(sub.join(" · ")) + "</span></div>" + (f.length ? '<div class="f">' + pills(f) + "</div>" : "");
+    var inner = '<div class="t"><b>' + esc(label(r)) + " · " + esc(summary(r, true)) + '</b><span' + (showWho ? "" : ' class="w"') + ">" + esc(sub.join(" · ")) + "</span></div>" + (f.length ? '<div class="f">' + pills(f) + "</div>" : "");
     var id = pid(p.patientId);
     if (!showWho) inner += '<div class="a"><button type="button" class="poc-btn" data-act="print-test" data-rid="' + esc(r.id) + '" aria-label="Print this ' + esc(lower(label(r))) + ' for the patient">Print</button>' +
       (S.adding ? "" : '<button type="button" class="poc-btn" data-act="edit-test" data-rid="' + esc(r.id) + '" aria-label="Change this ' + esc(lower(label(r))) + '">Change</button>') + "</div>";
@@ -281,17 +337,12 @@
   }
 
   function ymOf(iso) { var d = new Date(iso); return isNaN(d) ? "" : d.getFullYear() + "-" + pad(d.getMonth() + 1); }
-  // The tests of any month (from the records already read), and the classic POCT list printout for it:
-  // Date/Time, Test, Patient, Patient ID, Phone, Age, Results, Intervention, Notes; oldest first.
-  var HIST = { local: true, title: "By month", label: "Tests done", nowText: "No test recorded this month yet.", dep: function () { return S.loading ? undefined : S.records; },
-    active: function () { return E.state.activeModuleId === "pocreg" && !S.view; }, paint: function () { paint(); },
-    fetch: function (ym) { return Promise.resolve(S.records.filter(function (r) { return ymOf(r.performedAtIso) === ym; })); },
-    row: function (r) { var p = r.patient || {}; return { t: label(r) + " · " + summary(r), s: [p.name || p.patientId || "No name", when(r.performedAtIso)].join(" · ") }; },
-    print: function (ym, list) { printMonth(ym, list); } };
+  // The classic POCT list printout for a month: Date/Time, Test, Patient, Patient ID, Phone, Age, Results, Intervention, Notes; oldest first.
   function printMonth(ym, list) {
     E.months.print({ register: "POCT records", month: ym, landscape: true, sections: [{ cols: ["Date/Time", "Test", "Patient", "Patient ID", "Phone", "Age", "Results", "Intervention", "Notes"],
       rows: list.slice().reverse().map(function (r) { var p = r.patient || {}; var d = new Date(r.performedAtIso), dt = isNaN(d.getTime()) ? "" : pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear() + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()); return [dt, r.testLabel || label(r), p.name || "", p.patientId || "", p.phone || "", p.age == null ? "" : String(p.age), summary(r), r.intervention || "", r.notes || ""]; }) }] });
   }
+  function monthShown() { return S.month || ymOf((S.records[0] || {}).performedAtIso) || E.months.now(); }
   function homeHtml() {
     var h = '<label class="poc-find"><span class="poc-sr">Find a patient</span><input type="search" id="poc-q" value="' + esc(S.q) + '" placeholder="Find a patient: name, ID card or phone" autocomplete="off"></label>';
     var q = lower(S.q).replace(/\s+/g, "");
@@ -305,25 +356,63 @@
       }).join("") + "</div>" : '<div class="poc-quiet">No patient matches “' + esc(S.q) + '”. <button type="button" class="poc-btn" data-act="add-q" style="margin-left:6px">New test for a new patient</button></div>';
       return h;
     }
-    var recent = S.records.slice(0, 25);
-    h += '<div class="poc-lab">Latest tests <b>' + S.records.length + "</b></div>";
-    h += recent.length ? '<div class="poc-list">' + recent.map(function (r) { return row(r, true); }).join("") + "</div>" : '<div class="poc-quiet">No tests recorded yet. Press New test to add the first one.</div>';
-    h += E.months.history("pocreg", HIST); // every test of a month, any month, and its printout
+    if (!S.records.length) return h + '<div class="poc-quiet">No tests recorded yet. Press New test to add the first one.</div>';
+    // One list: the tests of the month on the bar, newest first (it opens on the month of the latest test), in pages of 30
+    var ym = monthShown(), list = S.records.filter(function (r) { return ymOf(r.performedAtIso) === ym; }), pg = E.listPage.take("poc:month:" + ym, list);
+    h += '<section class="poc-month" aria-label="Tests by month"><div class="poc-lab">Tests in ' + esc(E.months.label(ym)) + " <b>" + list.length + "</b></div>" + E.months.bar(ym, { label: "Tests" }) + "</section>";
+    h += list.length ? '<div class="poc-list">' + pg.rows.map(function (r) { return row(r, true); }).join("") + "</div>" + E.listPage.moreHtml("poc:month:" + ym, pg, "poc-btn") : '<div class="poc-quiet">' + esc(E.months.empty(ym, "No test recorded this month yet.")) + "</div>";
     return h;
   }
 
+  // The trend of a test's main number (systolic, glucose, HbA1c in mmol/mol, total cholesterol, BMI): in words against the
+  // one before, and a small line of the last ten (drawn only, the words carry it), from the tests already read.
+  var MAIN = { bp: ["sys", "mmHg"], bg: ["glucose", "mmol/L"], hba1c: ["mmol", "mmol/mol"], chol: ["tc", "mmol/L"], bmi: ["bmi", ""] };
+  var LINE = { bp: 140, hba1c: 48, chol: 5, bmi: 25 }; // the guide's upper number, drawn dashed (glucose: 7.0 fasting / 11.1 at random, so none)
+  function mainOf(r) {
+    var m = MAIN[r.testType], x = r.results || {}; if (!m) return null;
+    var n = num(x[m[0]]);
+    if (n === null && r.testType === "hba1c" && num(x.pct) !== null) n = pctToMmol(num(x.pct));
+    if (n === null && r.testType === "bmi") n = bmiOf(num(x.weight), num(x.height));
+    return n;
+  }
+  function trend(l) {
+    var m = MAIN[l[0].testType], out = { words: "", svg: "" }; if (!m) return out;
+    var pts = l.slice(0, 10).reverse().map(mainOf).filter(function (n) { return n !== null; });
+    var cur = mainOf(l[0]), pv = l[1] ? mainOf(l[1]) : null;
+    if (cur !== null && pv !== null) {
+      var d = Math.round((cur - pv) * 10) / 10, unit = m[1] ? " " + m[1] : "", what = l[0].testType === "bp" ? "systolic " : "";
+      out.words = d === 0 ? what + "same as " + when(l[1].performedAtIso) : what + (d > 0 ? "up " : "down ") + nv(Math.abs(d)) + unit + " since " + when(l[1].performedAtIso);
+    }
+    if (pts.length >= 2) {
+      var rs = l.slice(0, 10).reverse().filter(function (r) { return mainOf(r) !== null; }), dia = l[0].testType === "bp" ? rs.map(function (r) { return num((r.results || {}).dia); }) : [];
+      var all = pts.concat(dia.filter(function (n) { return n !== null; })), g = LINE[l[0].testType];
+      if (g) all.push(g);
+      var lo = Math.min.apply(null, all), hi = Math.max.apply(null, all), W = 104, H = 34, sp = hi - lo || 1;
+      var X = function (i) { return Math.round(3 + i * (W - 6) / (pts.length - 1)); }, Y = function (n) { return Math.round(H - 4 - (n - lo) * (H - 8) / sp); };
+      var line = function (list, cls) { var q = []; list.forEach(function (n, i) { if (n !== null) q.push(X(i) + "," + Y(n)); }); return q.length > 1 ? '<polyline class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" points="' + q.join(" ") + '"/>' : ""; };
+      out.svg = '<svg class="poc-spark" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + " " + H + '" aria-hidden="true" focusable="false">' +
+        (g ? '<line x1="0" x2="' + W + '" y1="' + Y(g) + '" y2="' + Y(g) + '" stroke="currentColor" stroke-dasharray="3 3" stroke-width="1" opacity=".5"/>' : "") +
+        line(dia, "d") + line(pts, "s") + '<circle cx="' + X(pts.length - 1) + '" cy="' + Y(pts[pts.length - 1]) + '" r="2.8" fill="currentColor"/></svg>';
+      out.sr = (l[0].testType === "bp" ? "Readings, oldest first: " : "Readings, oldest first: ") + rs.map(function (r) { return summary(r, true) + " on " + when(r.performedAtIso); }).join("; ") + ".";
+    }
+    return out;
+  }
   function patientHtml(id) {
     var map = people(), p = map[id] || { id: id, name: "", phone: "", conflicts: 0 }, list = recordsOf(id);
-    var h = '<button class="poc-back" data-act="home" style="padding-top:10px">‹ All tests</button>' +
-      '<div class="poc-who"><div class="t"><h2>' + esc(p.name || p.id) + "</h2><p>" + esc([p.id, p.phone, has(p.age) ? p.age + " years" : "", p.address].filter(Boolean).join(" · ")) + "</p></div>" +
-      (S.adding ? "" : '<button class="poc-btn p" data-act="add-for" data-pid="' + esc(id) + '">New test</button>') + "</div>";
+    var h = '<div class="poc-who"><div class="t"><h2>' + esc(p.name || p.id) + "</h2><p>" + esc([p.id, p.phone, has(p.age) ? p.age + " years" : "", p.address].filter(Boolean).join(" · ")) + "</p></div>" +
+      (S.adding ? "" : '<span class="poc-who-a">' + (E.bookingsOn && E.bookingsOn() && p.name && !(S.justSaved && S.justSaved.pid === id) ? '<button class="poc-btn" data-act="book" data-pid="' + esc(id) + '">Book a re-check</button>' : "") +
+        '<button class="poc-btn p" data-act="add-for" data-pid="' + esc(id) + '">New test</button></span>') + "</div>";
+    var js = S.justSaved && S.justSaved.pid === id && S.records.filter(function (r) { return r.id === S.justSaved.rid; })[0];
+    if (js) h += '<div class="poc-saved" role="status"><span>Saved: ' + esc(lower(label(js))) + " " + esc(summary(js, true)) + '.</span><button type="button" class="poc-btn" data-act="print-saved" data-rid="' + esc(js.id) + '">Print for the patient</button>' +
+      (E.bookingsOn && E.bookingsOn() && p.name ? '<button type="button" class="poc-btn" data-act="book" data-pid="' + esc(id) + '">Book a re-check</button>' : "") + "</div>";
     if (p.conflicts) h += '<div class="poc-warnbox">This ID card was also used with a different name or phone (' + p.conflicts + (p.conflicts === 1 ? " time" : " times") + "). The patient's details were kept; check them in the classic screen.</div>";
     // the latest result of each test, with the one before it
     var latest = TYPES.map(function (t) { return list.filter(function (r) { return r.testType === t[0]; }); }).filter(function (l) { return l.length; });
-    if (latest.length) {
-      h += '<div class="poc-lab">Latest of each test</div><div class="poc-list">' + latest.map(function (l) {
-        var r = l[0], f = flags(r.testType, r.results), prev = l[1];
-        return '<div class="poc-row"><div class="t"><b>' + esc(label(r)) + " · " + esc(summary(r)) + "</b><span class=\"w\">" + esc(when(r.performedAtIso) + (prev ? " · before: " + summary(prev) + " (" + when(prev.performedAtIso) + ")" : "") + (l.length > 1 ? " · " + l.length + " in all" : "")) + "</span></div>" + (f.length ? '<div class="f">' + pills(f) + "</div>" : "") + "</div>";
+    if (latest.length && list.length > latest.length) { // only when there is more than one of a test: otherwise History says it all
+      h += '<div class="poc-lab">Latest of each test, and the trend</div><div class="poc-list">' + latest.map(function (l) {
+        var r = l[0], f = flags(r.testType, r.results), prev = l[1], v = verdict(r.testType, r.results), tr = trend(l);
+        return '<div class="poc-row poc-trow"><div class="t"><b>' + esc(label(r)) + " · " + esc(summary(r, true)) + "</b><span class=\"w\">" + esc(when(r.performedAtIso) + (tr.words ? " · " + tr.words : prev ? " · before: " + summary(prev, true) + " (" + when(prev.performedAtIso) + ")" : "") + (l.length > 1 ? " · " + l.length + " in all" : "")) + "</span></div>" +
+          tr.svg + (tr.sr ? '<span class="poc-sr">' + esc(tr.sr) + "</span>" : "") + '<div class="f">' + (f.length ? pills(f) : vchip(v)) + "</div></div>";
       }).join("") + "</div>";
     }
     h += '<div class="poc-lab">History <b>' + list.length + "</b></div>";
@@ -335,20 +424,22 @@
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "pocreg") return; // left before a reply came back: do not draw over the next screen
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
-    var h = '<div class="poc"><button class="poc-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("pocreg")) + '</button>' +
+    var h = '<div class="poc">' + (S.view && !S.adding ? '<button class="poc-back" data-act="home">‹ All tests</button>' : '<button class="poc-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("pocreg")) + "</button>") + // one back: on a patient, to all the tests
+
       '<div class="poc-top"><div><h1>Point-of-care tests</h1><p class="poc-sub">Blood pressure, glucose, cholesterol and other tests, per patient.</p></div>' + (S.adding || S.view ? "" : '<button class="poc-btn p" data-act="add">New test</button>') + "</div>";
     if (S.adding) h += formHtml();
     if (S.loading && !S.records.length && !S.patients.length) h += E.skeleton(5, "Opening the tests", "poc-skel");
     else if (S.error) h += '<div class="poc-quiet" role="alert">' + esc(S.error) + ' <button type="button" class="poc-btn" data-act="retry" style="margin-left:6px">Try again</button></div>';
-    else h += S.view ? patientHtml(S.view) : homeHtml();
-    h += '<p class="poc-note">High and low marks are a guide for adults (blood pressure 140/90, fasting glucose 7.0 and random 11.1 mmol/L, HbA1c 48 mmol/mol, total cholesterol 5.0, LDL 3.0, HDL 1.0, BMI 25) and are not saved with the test. ' +
-      'Deleting a test, the patients list with its flags, and exporting or importing a spreadsheet are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
+    else if (!S.adding) h += S.view ? patientHtml(S.view) : homeHtml(); // while a test is written, the form is the whole page (Save is its end)
+    h += '<p class="poc-note">The marks are a guide for adults and are not saved with the test. More in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
     var ae = document.activeElement, back = ae && m.contains(ae) && ae.closest && ae.closest("#poc-add") && ae.name ? "[name=" + ae.name + "]" : (ae && ae.id === "poc-q" ? "#poc-q" : "");
     var caret = null; if (back) try { caret = typeof ae.selectionStart === "number" ? ae.selectionStart : null; } catch (e) { caret = null; }
     m.innerHTML = h;
     if (back) { var again = m.querySelector(back); if (again) { again.focus(); if (caret != null) try { again.setSelectionRange(caret, caret); } catch (e) {} } } // a lookup filling fields keeps your place
     wire(m);
-    E.months.wireHistory(m, "pocreg");
+    var sec = m.querySelector(".poc-month");
+    if (sec) E.months.wire(sec, { month: monthShown, go: function (ym) { S.month = ym; paint(); }, paint: function () { paint(); },
+      print: function () { var ym = monthShown(); printMonth(ym, S.records.filter(function (r) { return ymOf(r.performedAtIso) === ym; })); } });
   }
 
   function focus(sel) { E.focusSoon(function () { return S.mount && S.mount.querySelector(sel); }, 30); }
@@ -357,16 +448,21 @@
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
+        if (act !== "print-saved" && act !== "book" && act !== "retry") S.justSaved = null;
         if (act === "back") window.location.hash = E.ui2BackHash("pocreg");
         else if (act === "add") { S.adding = blank(null); S.err = ""; S.miss = []; paint(true); focus("[name=patientId]"); }
         else if (act === "add-q") { var q = S.q; S.adding = blank(null); S.miss = []; if (/\d/.test(q) && !/\s/.test(q.trim()) && !/^[+\d\s]{8,}$/.test(q.trim())) S.adding.patientId = pid(q); else if (/^[+\d\s]{8,}$/.test(q.trim())) S.adding.phone = q.trim(); else S.adding.name = q.trim(); S.err = ""; paint(true); focus("[name=patientId]"); }
-        else if (act === "add-for") { var p = people()[b.getAttribute("data-pid")]; S.adding = blank(p); S.err = ""; S.miss = []; paint(true); focus("[name=sys],[name=glucose],[name=pct],[name=tc],[name=weight],[name=leu]"); }
+        else if (act === "add-for") { var p = people()[b.getAttribute("data-pid")]; S.adding = blank(p); S.adding.short = true; S.err = ""; S.miss = []; paint(true); focus("[name=sys],[name=glucose],[name=pct],[name=tc],[name=weight],[name=leu]"); }
         else if (act === "add-cancel") { var was = S.adding && S.adding.editing ? S.adding.recId : ""; S.adding = null; S.err = ""; S.miss = []; paint(true); if (was) focus('[data-act="edit-test"][data-rid="' + was + '"]'); }
-        else if (act === "edit-test") { var r0 = S.records.filter(function (x) { return x.id === b.getAttribute("data-rid"); })[0]; if (!r0) return; S.adding = fromRecord(r0); S.err = ""; S.miss = []; paint(true); window.scrollTo(0, 0); focus("[name=" + RES[r0.testType][0] + "]"); }
+        else if (act === "edit-test") { var r0 = S.records.filter(function (x) { return x.id === b.getAttribute("data-rid"); })[0]; if (!r0) return; S.adding = fromRecord(r0); S.adding.short = true; S.err = ""; S.miss = []; paint(true); window.scrollTo(0, 0); focus("[name=" + RES[r0.testType][0] + "]"); }
+        else if (act === "print-saved") { var r2 = S.records.filter(function (x) { return x.id === b.getAttribute("data-rid"); })[0]; if (r2) printOne(r2); }
         else if (act === "print-test") { var r1 = S.records.filter(function (x) { return x.id === b.getAttribute("data-rid"); })[0]; if (r1) printOne(r1); }
         else if (act === "open") { S.view = b.getAttribute("data-pid"); paint(); window.scrollTo(0, 0); }
+        else if (act === "pat-open") { keep(); S.adding.short = false; paint(true); focus("[name=patientId]"); }
         else if (act === "home") { S.view = null; paint(); }
+        else if (act === "book") { var pb = people()[b.getAttribute("data-pid")] || {}; try { sessionStorage.setItem("eikon_bk_carry", JSON.stringify({ name: pb.name || "", phone: pb.phone || "", email: "", at: Date.now() })); } catch (x) {} window.location.hash = "#bookings"; } // Bookings opens a new booking with the person filled in, as from Customers
         else if (act === "retry") load();
+        else if (act === "q58-more") { E.listPage.more(b.getAttribute("data-key")); paint(); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "pocreg"); } catch (x) {} E.openClassic("poct"); }
       });
     });
@@ -385,11 +481,27 @@
       pct.addEventListener("input", function () { var v = num(pct.value); mm.value = v === null ? "" : String(pctToMmol(v)); });
       mm.addEventListener("input", function () { var v = num(mm.value); pct.value = v === null ? "" : String(mmolToPct(v)); });
     }
-    var live = f.querySelector("#poc-live"), upd = function () { keep(); if (live) live.innerHTML = liveHtml(S.adding); };
-    f.addEventListener("input", function (ev) { unmark(ev.target); if (ev.target && RES[S.adding.type].indexOf(ev.target.name) >= 0) upd(); });
+    var live = f.querySelector("#poc-live"), upd = function () { keep(); if (live) live.innerHTML = liveHtml(S.adding); advMarks(); };
+    f.addEventListener("input", function (ev) { unmark(ev.target); if (ev.target && RES[S.adding.type].indexOf(ev.target.name) >= 0) upd(); else if (ev.target && ev.target.name === "intervention") { keep(); advMarks(); } });
     f.addEventListener("change", function (ev) { if (ev.target && ev.target.tagName === "SELECT") upd(); });
+    S.upd = upd;
+    f.querySelectorAll(".poc-adv [data-adv]").forEach(function (b) { b.addEventListener("click", function () {
+      keep(); var t = ADVICE[Number(b.getAttribute("data-adv"))], cur = must(S.adding.intervention), i = lower(cur).indexOf(lower(t));
+      if (i >= 0) cur = (cur.slice(0, i) + cur.slice(i + t.length)).replace(/^[\s;,.]+|[\s;,]+$/g, "").replace(/\s*;\s*;\s*/g, "; ");
+      else cur = cur ? cur.replace(/[\s;,]+$/, "") + "; " + t : t;
+      S.adding.intervention = cur; var el = f.querySelector("[name=intervention]"); if (el) el.value = cur; advMarks();
+    }); });
   }
 
+  // The advice buttons follow the Intervention text (which ones are in it), in place.
+  function advMarks() {
+    var f = S.mount && S.mount.querySelector("#poc-add"); if (!f || !S.adding) return;
+    var now = lower(S.adding.intervention);
+    f.querySelectorAll(".poc-adv [data-adv]").forEach(function (b) {
+      var on = now.indexOf(lower(ADVICE[Number(b.getAttribute("data-adv"))])) >= 0;
+      b.setAttribute("aria-pressed", String(on)); b.classList.toggle("on", on);
+    });
+  }
   function unmark(el) { // a field being corrected loses its red mark at once; the message stays until the next Save test
     var i = el && el.name ? S.miss.indexOf(el.name) : -1; if (i < 0) return;
     S.miss.splice(i, 1); el.removeAttribute("aria-invalid"); el.removeAttribute("aria-describedby"); var l = el.closest("label"); if (l) l.classList.remove("miss");
@@ -409,8 +521,8 @@
       var want = {}; [["name", p.name], ["phone", p.phone], ["age", has(p.age) ? String(p.age) : ""], ["address", p.address]].forEach(function (x) { if (x[1] && !S.adding[x[0]]) want[x[0]] = String(x[1]); });
       var f = S.mount && S.mount.querySelector("#poc-add");
       (f ? E.fillEmpty(f, want) : Object.keys(want)).forEach(function (k) { S.adding[k] = want[k]; });
-      knownMark(true);
-    } else if (S.adding.found) { keep(); knownMark(false); }
+      knownMark(true); if (S.upd) S.upd();
+    } else if (S.adding.found) { keep(); knownMark(false); if (S.upd) S.upd(); }
     else if (card && el && document.activeElement !== el) el.value = id; // a new ID card: only shown padded, nothing redrawn under the fingers
   }
   function knownMark(on) {
@@ -496,11 +608,12 @@
         if (!got) throw x0;
       }
       var edited = !!a.editing;
-      S.adding = null; S.miss = []; S.view = pt.patientId; S.q = ""; if (!edited) { S.lastType = t; try { localStorage.setItem("eikon_pocreg_type", t); } catch (e2) {} }
+      S.adding = null; S.miss = []; S.view = pt.patientId; S.q = ""; S.justSaved = { pid: pt.patientId, rid: rec.id }; if (!edited) { S.lastType = t; try { localStorage.setItem("eikon_pocreg_type", t); } catch (e2) {} }
       if (!edited && E.linkPerson) E.linkPerson({ name: pt.name, id_card: pt.patientId, phone: pt.phone, address: pt.address }, "register:poct", asked); // one person in Customers, found or added
       E.toast(mc.conflict ? "Saved. This ID card was on file with a different name or phone; the patient's details were kept." : (edited ? "Changes saved · " : "Saved · ") + NICE[t] + " for " + pt.name, mc.conflict ? "warning" : "success");
     } catch (x) { S.err = E.saveFailText(x); }
-    S.saving = false; return load();
+    S.saving = false; await load();
+    if (S.justSaved && !S.adding) focus(".poc-saved [data-act=print-saved]"); // the obvious next step, one key away
   }
 
   // One test, printed for the patient: the classic screen's printRecord page, word for word and tag for tag
@@ -563,9 +676,14 @@
     try { w.focus(); } catch (e) {}
   }
 
+  // The same reading guide for Screening (scrreg), so a reading is marked with the same words on both screens.
+  E.pocGuide = { verdict: verdict, flags: flags, guide: GUIDE };
+
   E.registerModule({
     id: "pocreg", title: "Point-of-care tests", order: 3, icon: "🩺", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.miss = []; S.view = null; S.q = ""; E.months.historyReset("pocreg"); css(); paint(); return E.takeOpenForm("pocreg", S.mount, load(), { btn: "[data-act=add]", form: "#poc-add", fill: { name: "name", phone: "phone", address: "address" } }); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.err = ""; S.miss = []; S.view = null; S.q = ""; S.justSaved = null;
+      // Opened for one patient (the Services list, 16:31 directive): sessionStorage eikon_svc_open { to: "pocreg", p, at }, taken once
+      try { var so = JSON.parse(sessionStorage.getItem("eikon_svc_open") || "null"); if (so && so.to === "pocreg") { sessionStorage.removeItem("eikon_svc_open"); if (Date.now() - Number(so.at || 0) < 60000 && so.p) S.view = pid(so.p); } } catch (e) {} S.month = ""; E.months.reset(); css(); paint(); return E.takeOpenForm("pocreg", S.mount, load(), { btn: "[data-act=add]", form: "#poc-add", fill: { name: "name", phone: "phone", address: "address" } }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("pocreg") < 0) E.UI2_DESTINATIONS.push("pocreg");
   if (E.UI2_PARENT) E.UI2_PARENT.pocreg = "services";

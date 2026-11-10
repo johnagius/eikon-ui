@@ -246,52 +246,7 @@
 
     if (!state.results || state.results.length === 0) return;
 
-    var rows = state.results.map(function (p) {
-      return "<tr>" +
-        "<td style='padding:9px 12px;font-weight:700;border-bottom:1px solid #e5e7eb;'>" + esc(p.trade) + (p.multiphasic ? " <span style='font-size:10px;color:#7c3aed;font-weight:600;'>(Multiphasic)</span>" : "") + "</td>" +
-        "<td style='padding:9px 12px;border-bottom:1px solid #e5e7eb;color:" + (p.estrogen ? "#0e4a8a" : "#999") + "'>" + (p.estrogen ? esc(p.estrogen) : "—") + "</td>" +
-        "<td style='padding:9px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#0e4a8a;'>" + (p.estrogenDose != null ? (typeof p.estrogenDose === "string" ? p.estrogenDose + " mg" : autoDisplayDose(p.estrogenDose)) : "—") + "</td>" +
-        "<td style='padding:9px 12px;border-bottom:1px solid #e5e7eb;color:#7c3aed;'>" + esc(p.progestogen) + "</td>" +
-        "<td style='padding:9px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#7c3aed;'>" + (p.progestogenDose != null ? (typeof p.progestogenDose === "string" ? p.progestogenDose + " mg" : autoDisplayDose(p.progestogenDose)) : "—") + "</td>" +
-      "</tr>";
-    }).join("");
-
-    var criteriaHtml = "";
-    if (state.estrogen || state.estrogenDose) {
-      criteriaHtml += "<span style='display:inline-block;background:#e0ecff;color:#1a4d9a;border-radius:6px;padding:2px 8px;margin:2px;font-size:11px;'>";
-      if (state.estrogen) criteriaHtml += "Estrogen: " + esc(state.estrogen);
-      if (state.estrogenDose) criteriaHtml += (state.estrogen ? " · " : "Estrogen dose: ") + esc(state.estrogenDose) + " " + esc(state.estrogenUnit);
-      criteriaHtml += "</span>";
-    }
-    if (state.progestogen || state.progestogenDose) {
-      criteriaHtml += "<span style='display:inline-block;background:#f3e8ff;color:#6b21a8;border-radius:6px;padding:2px 8px;margin:2px;font-size:11px;'>";
-      if (state.progestogen) criteriaHtml += "Progestogen: " + esc(state.progestogen);
-      if (state.progestogenDose) criteriaHtml += (state.progestogen ? " · " : "Progestogen dose: ") + esc(state.progestogenDose) + " " + esc(state.progestogenUnit);
-      criteriaHtml += "</span>";
-    }
-
-    var html = "<!DOCTYPE html><html><head><meta charset='utf-8'>" +
-      "<title>OCP Finder – Results</title>" +
-      "<style>" +
-        "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;padding:28px 32px;color:#111;}" +
-        "h1{font-size:20px;font-weight:900;color:#0b0f14;margin:0 0 4px 0;}" +
-        ".subtitle{font-size:12px;color:#666;margin:0 0 16px 0;}" +
-        ".criteria{margin-bottom:18px;padding:10px 14px;background:#f7f8fa;border-radius:8px;border:1px solid #e5e7eb;}" +
-        ".criteria-label{font-size:11px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;}" +
-        "table{width:100%;border-collapse:collapse;font-size:13px;}" +
-        "thead th{background:#0b0f14;color:#fff;padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.07em;}" +
-        "thead th:nth-child(3),thead th:nth-child(5){text-align:center;}" +
-        "tbody tr:nth-child(even){background:#f9fafb;}" +
-        ".footer{margin-top:24px;font-size:10px;color:#999;text-align:center;border-top:1px solid #e5e7eb;padding-top:10px;}" +
-        "@media print{body{padding:16px 20px;} .no-print{display:none;}}" +
-      "</style></head><body>" +
-      "<h1>OCP Finder – Results</h1>" +
-      "<p class='subtitle'>Generated on " + new Date().toLocaleString() + " · " + state.results.length + " result" + (state.results.length===1?"":"s") + " found</p>" +
-      "<div class='criteria'><div class='criteria-label'>Search Criteria</div>" + (criteriaHtml || "<em style='font-size:12px;color:#999;'>No specific criteria (all OCPs)</em>") + "</div>" +
-      "<table><thead><tr><th>Trade Name</th><th>Estrogen</th><th>Estrogen Dose</th><th>Progestogen</th><th>Progestogen Dose</th></tr></thead><tbody>" +
-      rows + "</tbody></table>" +
-      "<div class='footer'>Eikon Pharmacy System – OCP Finder · For professional use only</div>" +
-      "</body></html>";
+    var html = E.ocpPrintHtml(state.results, state); // modules.ocpreg.js: the same printout, shared with the new screen
 
     var blob = new Blob([html], { type: "text/html" });
     var url = URL.createObjectURL(blob);

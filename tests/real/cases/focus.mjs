@@ -8,7 +8,7 @@
 import { ymd } from "../lib.mjs";
 
 const SCREENS = ["tempreg", "cleanreg", "drreg", "locreg", "certreg", "nexreg", "retreg", "trfreg", "alertreg", "ordreg", "tktreg", "dlvreg", "cdpreg", "cdsreg", "poyreg", "poreg", "hndreg", "repreg", "cnreg", "lrcreg", "odreg", "qtreg", "brdreg", "conreg", "vaxreg", "eodreg", "shfreg", "pocreg", "scsreg", "audreg", "pvreg", "scrreg", "ocpreg", "lblreg", "sinreg", "otcreg", "eposreg", "calreg", "ddstreg", "ssreg", "teamreg", "rotreg", "expreg"];
-const SELF_FOCUS = ["lblreg", "eposreg"]; // put focus in their first field themselves: kept
+const SELF_FOCUS = ["lblreg", "eposreg", "ocpreg", "otcreg"]; // put focus in their first field themselves: kept (ocpreg, otcreg: Services 2026-11-09, the search focused on desktop, one look-up pattern)
 const at = () => { const a = document.activeElement; return !a || a === document.body ? "BODY" : a.tagName === "H1" ? "H1" : a.tagName + ":" + (a.getAttribute("data-act") || a.getAttribute("name") || a.getAttribute("data-kind") || a.textContent || "").trim().slice(0, 30); };
 
 export default {

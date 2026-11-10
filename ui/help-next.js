@@ -64,7 +64,8 @@
       ["Inspection and certificates", "Inspection check, Certificates and the Audit trail."]
     ], "", []],
 
-    ["services", "services", "Services", "Care given at the counter or by appointment, and the tools for it.", [
+    ["services", "services", "Services", "Who is waiting for care today, the clinical services, and the look-up tools for the counter. Appointments are in Bookings.", [
+      ["Who is waiting today", "Today's services, at the top, says what is waiting first: a serious reaction report not sent yet, in red at the very top, then a booking that started and is not marked yet, screening follow-ups due today or overdue, vaccine doses due, other reaction reports not sent yet, and a vaccine batch past its expiry still in stock.", "Under them: today's bookings still to come, a screening campaign running, vaccine batches that expire within 30 days, and the tests and vaccine orders done today.", "Each line has one button, Open: it opens that screen, on the person, the booking, the dose due or the reports not sent yet where it can. When nothing is waiting it says Nothing waiting.", "Under a card a short line says how it stands, such as 4 tests today, 3 follow-ups due or 2 not sent yet."],
       ["Clinical", "Point-of-care tests, Vaccines, Screening campaigns and Adverse reactions."],
       ["Look up and print", "Contraceptive pills, Pharmacy calculators, Over the counter and Dispensing labels."]
     ], "", []],
@@ -330,9 +331,13 @@
       ["Emergency numbers", "Choose Emergency for 112, police, hospitals and health centres."]
     ], "Import and export, hiding sections and the specialty filter are in the classic screen.", []],
 
-    ["vaxreg", "services", "Vaccines", "Vaccines ordered for clients, for travel or routine.", [
-      ["Order vaccines for a client", "Press New order.", "Choose Travel or Routine and other, fill in the client, and press Add a vaccine for each one.", "Press Save order. Saving takes these vaccines off stock.", "To print it, choose A4 or Receipt."],
-      ["Find an order", "Search covers the latest 200 orders."],
+    ["vaxreg", "services", "Vaccines", "Vaccinations given, doses due, and vaccines ordered for clients.", [
+      ["Record a vaccination", "Press Record a vaccination.", "Fill in the patient and the vaccine. The batch and expiry you used last for that vaccine come in by themselves; check them.", "Choose the dose, where it was given and who gave consent. Nothing is saved without consent.", "Set the next dose if one is due, then press Save vaccination.", "Recording a vaccination does not change stock. Stock is taken off when you record the order."],
+      ["Doses due", "Doses due lists the overdue doses first, then those due in the next 14 days.", "When the patient comes, press Record beside the dose due; their reminder closes by itself.", "Press Not needed, then Yes, not needed, if the dose will not be given here."],
+      ["A patient's vaccinations", "Choose the patient's name to see every vaccination recorded for them, and record the next one from there."],
+      ["A reaction after a vaccine", "Press Reaction beside the vaccination. The reaction report opens filled from it; describe what happened and save it."],
+      ["Order vaccines for a client", "Press New order.", "Choose Travel or Routine and other, fill in the client, and press Add a vaccine for each one.", "Press Save order. Saving takes these vaccines off stock.", "To print it, choose A4 or Receipt. Press Record given when you give the vaccine."],
+      ["Find a vaccination or an order", "Search covers this month's vaccinations and the latest 200 orders."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
     ], "Stock, batches and expiry, the vaccine database and printed tables are in the classic screen.", []],
 
@@ -348,12 +353,14 @@
     ], "A date-range report across months, the audit log and managing bank contacts are in the classic screen.", [["X reading", "the till's total for the day so far, printed by the till."]]],
 
     ["pocreg", "services", "Point-of-care tests", "Blood pressure, glucose, cholesterol and other tests, per patient.", [
-      ["Record a test", "Press New test, then choose the test, such as Blood pressure.", "Find the patient or fill in their details, then the results.", "Press Save test."],
-      ["Print a test for the patient", "Open the patient, then press Print beside the test."],
+      ["Record a test", "Press New test. Find the patient or fill in their details.", "Choose the test, such as Blood pressure, and write the readings. The result shows in words as you type, with the last one.", "Tap the advice you gave, then press Save test."],
+      ["Print it or book a re-check", "After saving, press Print for the patient, or Book a re-check to open Bookings with the patient filled in."],
+      ["See how a patient is doing", "Open the patient: each test shows its latest result, whether it went up or down, and a small line of the last ten."],
       ["Change a test", "Open the patient, then press Change beside the test.", "Correct the results or the details, then press Save changes."],
-      ["Read the marks", "High and low marks are a guide for adults and are not saved with the test."],
-      ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Deleting a test, the patients list with its flags, and exporting or importing a spreadsheet are in the classic screen.", []],
+      ["Read the result", "In the guide range, High, Raised and Low are a guide for adults and are not saved with the test."],
+      ["Read and print a month", "The list shows one month, the latest first. Change month with ‹ and ›.", "Press Print."],
+      ["In the classic screen", "Deleting a test, the patients list with its flags, and exporting or importing a spreadsheet."]
+    ], "More in the classic screen.", []],
 
     ["scsreg", "stock", "Scarce stock", "Hard-to-get lines pharmacies have spare, and who asked for them.", [
       ["Share spare stock", "Press Share stock.", "Fill in the item, how many, expiry and batch.", "Press Share it. Change it later, or press None left."],
@@ -375,24 +382,34 @@
 
     ["pvreg", "services", "Adverse reactions", "Reactions to medicines reported here, and where each report stands.", [
       ["Record a reaction", "Press New report.", "Fill in the patient's initials and age, the medicine and what happened.", "Press Add another medicine if more than one was taken, then press Save report."],
-      ["Follow a report", "Open it and press Correct to change its status when it is sent to the medicines authority, then press Save changes."],
+      ["Not sent yet", "Reports not sent yet come first, the longest waiting at the top. Choose Not sent yet to see only those."],
+      ["Send a report", "Make the MPA form in the classic screen and send it.", "Open the report and press Mark as sent to MPA."],
+      ["Follow a report", "Open it and press Correct to change its status, such as when it is closed, then press Save changes."],
+      ["After a vaccine", "In Vaccines, press Reaction beside the vaccination: the report opens filled from it."],
       ["Initials only", "Never write a patient's full name here."]
     ], "Deleting a report, printing it and the PDF form are in the classic screen.", [["Causality", "how likely the medicine caused the reaction, by the WHO scale."]]],
 
     ["scrreg", "services", "Screening campaigns", "Health checks run as events, and the people screened at each.", [
       ["Start a campaign", "Press New campaign.", "Fill in the name, type, place and dates. The type sets which results are written.", "Press Create campaign."],
-      ["Screen a person", "Open the campaign and press New screening.", "Fill in the person and their results, then press Save screening. Record the next person starts the next one."],
-      ["Back to the list", "Press All campaigns."]
-    ], "Editing or removing a person, scheduling follow-ups, editing, duplicating or deleting a campaign, and the summary are in the classic screen.", []],
+      ["Screen a person", "Open the campaign and press New screening.", "Fill in the person and their results. The reading shows against the guide as you type.", "Choose a follow-up date if one is needed, then press Save screening. Record the next person starts the next one."],
+      ["Follow-ups", "Press Follow-ups to see who is due. Press Mark done when you have seen or called them."],
+      ["See a campaign at a glance", "Open it: how many were screened, each result with its count, and the follow-ups due. People needing urgent attention come first."],
+      ["Back to the list", "Press ‹ Campaigns at the top."],
+      ["In the classic screen", "Editing or removing a person, changing a follow-up or adding one later, editing, duplicating or deleting a campaign, and the summary."]
+    ], "More in the classic screen.", []],
 
     ["ocpreg", "services", "Contraceptive pills", "Find a pill by its hormones and doses.", [
-      ["Find a pill", "Choose the hormones and type the doses.", "Matching pills appear as you type."],
-      ["Find the same pill", "Tap a pill to see others with the same hormones and doses. Clear starts again."],
-      ["Change units", "Use mg or mcg."]
-    ], "To print the results, use the classic screen.", []],
+      ["Find a pill", "Type a brand or hormone in the search, or choose the hormones and type the doses.", "Matching pills appear as you type."],
+      ["Find the same pill", "A pill says how many others are the same. Tap it to see them. Press Clear, or Escape, to start again."],
+      ["Look up again", "Pills you looked up are under Looked up recently. Tap one to see it again."],
+      ["Change units", "Use mg or mcg."],
+      ["Print the list", "Press Print beside the count. The printout is the classic finder's, with the pills shown."]
+    ], "", []],
 
-    ["lblreg", "services", "Dispensing labels", "Fill in the label, check it, print it.", [
-      ["Print a label", "Fill in the patient, medicine and how to take it.", "Tap the warnings that apply.", "Check the preview and press Print label."],
+    ["lblreg", "services", "Dispensing labels", "Type the medicine, check the label, print it. A recent label prints again in one tap.", [
+      ["Print a label again", "Type the medicine or the patient under Print a recent label again.", "Press Print again on the label. Use again puts it in the form to change it first."],
+      ["Print a new label", "Type the medicine; one given before fills in how it was taken.", "Add the patient's name if it goes on the label, and tap the warnings that apply.", "Check the label and press Print label."],
+      ["Usual labels", "Press Usual label to keep a medicine and its directions on this device. Tap it at the top to fill the form; × takes it off."],
       ["Read it in Maltese", "Choose English + Maltese to see the words to read to the patient. The printed label is in English, as on the classic screen; Maltese prints only from a Maltese template."],
       ["Start again", "Press Clear."]
     ], "Templates, pharmacy details, the full print history and the warnings table are in the classic screen.", []],
@@ -403,10 +420,11 @@
       ["Check your orders", "Press Sent orders to see what each supplier did. Press Mark as received when it arrives."]
     ], "Columns, sorting, expiry warning months and reporting a problem with a delivery are in the classic screen.", []],
 
-    ["otcreg", "services", "Over the counter", "What to recommend, by symptom.", [
-      ["Find by symptom", "Search, or pick a symptom from the list."],
-      ["Choose a product", "Open a product to see its cautions and alternatives."],
-      ["Go back", "Use the ‹ link at the top to return to where you were."]
+    ["otcreg", "services", "Over the counter", "What to recommend, by symptom. Cautions always come first.", [
+      ["Find by symptom", "Search, or tap a symptom."],
+      ["Choose a product", "Open a product to see its cautions first, then its alternatives and what goes with it."],
+      ["Keep it handy", "Press Star on a symptom or product. Starred and Opened recently are at the top, on this device."],
+      ["Go back", "Use the ‹ link at the top, or Escape, to return to where you were."]
     ], "The map view, its score and limit filters and the complementary-items filter are in the classic screen.", []],
 
     ["eposreg", "money", "Emergency POS", "Sell when the main till is down. A sale with no connection waits on this device and is sent when it is back.", [
@@ -421,8 +439,9 @@
 
     ["calreg", "services", "Pharmacy calculators", "Dosing plans and the tablets or insulin to dispense, for one patient. The calculations, the saved plan and the printout are the same as on the classic screen.", [
       ["Make a plan", "Choose Levothyroxine, Steroid taper, Warfarin, Insulin supply or Methotrexate.", "Fill in the doses and dates."],
-      ["Save and print", "Press Save and print. The full plan is on the printout."],
-      ["Start over", "Press Start again. Print again prints a saved plan once more."]
+      ["Save and print", "Press Save and print. It stays at the bottom of the screen with the answer beside it. The full plan is on the printout."],
+      ["Same as last time", "Each calculator opens with the values you used last on this device, never the patient."],
+      ["Start over", "Press Start again for the usual values. Print again prints a saved plan once more."]
     ], "Deleting a saved plan is in the classic screen.", []],
 
     ["dupreg", "customers", "Possible duplicates", "People who look like the same person but were written down differently in different sections. Nothing here changes a record.", [

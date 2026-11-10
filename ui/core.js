@@ -2275,6 +2275,24 @@
     function keepHere() { var c = document.getElementById("eikon-content"), m = E.state && E.state.activeModuleId; return !!(c && m && keep(m, c)); }
     return { spec: spec, keep: keep, keepHere: keepHere, own: own, take: take, offer: offer, clear: clear, dropMine: dropMine };
   })();
+
+  // counter: the look-up tools' shortcuts (Labels, Over the counter, Contraceptive pills, Calculators). What this person
+  // opened last and what they starred, kept in this browser only (per pharmacy and person), never sent anywhere.
+  //   var pk = E.picks("otcreg"); pk.recent() / pk.push({ id, label, sub }) / pk.favs() / pk.fav(item, on) / pk.isFav(id)
+  E.picks = function (name, max) {
+    max = max || 6;
+    function who() { var u = E.state && E.state.user; if (!u) return ""; var id = u.id != null ? u.id : (u.user_id != null ? u.user_id : String(u.email || "").toLowerCase()); return String(u.location_id) + "|" + String(id); }
+    function key(k) { var u = E.state && E.state.user; return "eikon_picks_v1|" + who() + "|" + name + "|" + k + ":" + (u ? u.location_id : ""); } // ends in :<location_id> (BOARD rule)
+    function read(k) { try { var v = JSON.parse(window.localStorage.getItem(key(k)) || "[]"); return Array.isArray(v) ? v.filter(function (x) { return x && x.id; }) : []; } catch (e) { return []; } }
+    function write(k, list) { try { window.localStorage.setItem(key(k), JSON.stringify(list)); } catch (e) {} }
+    return {
+      recent: function () { return read("r"); },
+      push: function (item) { if (!item || !item.id) return; var l = read("r").filter(function (x) { return x.id !== item.id; }); l.unshift(item); write("r", l.slice(0, max)); },
+      favs: function () { return read("f"); },
+      isFav: function (id) { return read("f").some(function (x) { return x.id === id; }); },
+      fav: function (item, on) { var l = read("f").filter(function (x) { return x.id !== item.id; }); if (on) l.push(item); write("f", l.slice(0, 24)); return on; }
+    };
+  };
   // ==== end q5-2 ====================================================================================================
   // Form problems, said one way on every screen. E.formErrors(form, problems, opts): problems is a list of
   // { field: a [name] or the element, msg }. Every field named is marked aria-invalid and tied (aria-describedby) to ONE

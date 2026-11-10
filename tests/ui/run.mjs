@@ -2644,7 +2644,7 @@ try {
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "vaxreg" && document.querySelector(".vxr-row"), null, { timeout: 15000 });
   const vx1 = await page.textContent(".vxr-row");
   await fetch(`http://localhost:${PORT}/__reset`);
-  await page.click("[data-act=add]");
+  await page.click("[data-act=add]"); await page.click("[data-act=sec][data-sec=travel]"); // the form opens on the kind chosen last (Routine, a step before)
   await page.waitForFunction(() => document.querySelectorAll("#vxr-countries option").length > 200, null, { timeout: 15000 });
   await page.fill("[name=country]", "keny"); await page.press("[name=country]", "Enter");
   await page.waitForFunction(() => document.querySelector("[data-act=pick]"), null, { timeout: 5000 });
@@ -3054,7 +3054,7 @@ try {
     pocPrint.title === "POCT - Blood Pressure" && pocPrint.h1 === "Blood Pressure Result" && pocPrint.rows[0] === "Systolic (mmHg)150" && /^Date\/Time: 2026-10-01 10:00/.test(pocPrint.meta) &&
     !pe0.seg && pe0.sys === "150" && pe0.dia === "95" && pe0.dt === "2026-10-01T10:00" && pe0.name === "Zammit Carmel" && pe0.focus === "sys" && pe0.btn === "Save changes" &&
     peCalls.length === 1 && peCalls[0].path === "/poct/state" && prc.id === "r_1" && prc.results.sys === 142 && prc.results.dia === 95 && prc.notes === "Rechecked" && prc.performedAtLocal === "2026-10-01T10:00" && pb.records.length === 1 && pb.patients.length === 1 && !("deleted_record_ids" in pb) &&
-    /^Deleting a test, the patients list/.test(pocFoot.slice(pocFoot.indexOf("Deleting"))) && !/printing one test|Editing/.test(pocFoot),
+    /More in the classic screen\.$/.test(pocFoot) && !/printing one test|Editing/.test(pocFoot), // the one Services footer (16:35 directive X5)
     JSON.stringify({ pocPrint, pe0, peCalls, pocFoot }).slice(0, 900));
 } catch (e) { report("poct: print one and change a test ran to the end", false, String(e).slice(0, 300)); }
 
@@ -3255,7 +3255,7 @@ try {
 try {
   await fetch(`http://localhost:${PORT}/__reset`);
   await page.goto(base + "&ui=2#otcmindmap");
-  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "otcreg" && document.querySelectorAll(".otc-side .otc-row").length === 88, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "otcreg" && document.querySelectorAll(".otc-side .otc-groups .otc-chip").length === 76, null, { timeout: 15000 });
   const otcRail = await page.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join());
   await page.click('.otc-side [data-open="symptom:S002"]'); await page.waitForSelector("#otc-title"); await page.waitForTimeout(150);
   const otcSym = await page.evaluate(() => ({ title: document.querySelector("#otc-title").textContent, n: document.querySelector(".otc-detail .otc-lab b").textContent,
@@ -3272,8 +3272,8 @@ try {
   const otcW = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth && ![...document.querySelectorAll("#eikon-content *")].some((e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 0.5));
   await page.setViewportSize({ width: 1440, height: 900 });
   const otcApi = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => /productmap|otc/i.test(c.path));
-  report("over the counter: #otcmindmap opens it under Services; 88 symptoms; acid reflux lists its 29 products, best score first; a product's cautions come first, in words; Escape steps back; fits 360 px; reads only the classic's files",
-    otcRail === "services" && otcSym.title === "acid reflux" && otcSym.n === "29" && otcSym.first === "Acidex Oral Suspension" && /^Primary · Imported symptom tags · Score 92$/.test(otcSym.sub) && otcSym.focus === "otc-title" &&
+  report("over the counter: #otcmindmap opens it under Services; 76 symptoms with products (as chips); acid reflux lists its 29 products, best score first; a product's cautions come first, in words; Escape steps back; fits 360 px; reads only the classic's files",
+    otcRail === "services" && otcSym.title === "Acid reflux" && otcSym.n === "29" && otcSym.first === "Acidex Oral Suspension" && /^Primary · Imported symptom tags · Score 92$/.test(otcSym.sub) && otcSym.focus === "otc-title" &&
     otcRes.join("|") === "Actifed 60mg/2.5mg Tablets|ACTIFED 30mg/1.25mg per 5ml Syrup" && /Caution: 2 products to check before selling together/.test(otcCaut) && !/guardrail/i.test(otcCaut) && /Do not cross-sell together by default; show as alternative options instead\./.test(otcCaut) && /Medofed/.test(otcCaut) &&
     /otc-caution/.test(otcFirst) && otcBack === "ACTIFED 30mg/1.25mg per 5ml Syrup" && otcW && otcApi.length === 0,
     JSON.stringify({ otcRail, otcSym, otcRes: otcRes.slice(0, 3), otcCaut: otcCaut.slice(0, 200), otcFirst, otcBack, otcW, otcApi }).slice(0, 700));
@@ -3326,11 +3326,11 @@ try {
   const pvNoPut = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT").length;
   await page.click("[data-act=form-cancel]");
   report("services: adverse reactions — a failed load says why with Try again, which reloads; an empty report lists all three checks at once, marks the fields, focuses the first, sends nothing",
-    /Database busy/.test(pvFailTxt) && /initials or age/.test(pvE.err) && /suspected medicine/.test(pvE.err) && /MedDRA term/.test(pvE.err) && pvE.bad.join() === "pt_initials,pt_age,name,reaction_meddra,reaction_description" && pvE.focus === "pt_initials" && pvNoPut === 0,
+    /Database busy/.test(pvFailTxt) && /initials or age/.test(pvE.err) && /suspected medicine/.test(pvE.err) && /MedDRA term/.test(pvE.err) && pvE.bad.join() === "reaction_meddra,reaction_description,name,pt_initials,pt_age" && pvE.focus === "reaction_meddra" && pvNoPut === 0,
     JSON.stringify({ pvFailTxt, pvE, pvNoPut }));
   // OTC: typing keeps the same search box (only the list under it is redrawn); Services hub group names in sentence case
   await page.goto(base + "&ui=2#otcmindmap");
-  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "otcreg" && document.querySelectorAll(".otc-side .otc-row").length === 88, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "otcreg" && document.querySelectorAll(".otc-side .otc-groups .otc-chip").length === 76, null, { timeout: 15000 });
   await page.evaluate(() => { window.__otcBox = document.querySelector("#otc-q"); });
   await page.click("#otc-q"); await page.keyboard.type("acti"); await page.waitForTimeout(80);
   const otcSame = await page.evaluate(() => ({ same: window.__otcBox === document.querySelector("#otc-q"), focus: document.activeElement === window.__otcBox, val: window.__otcBox.value, hits: document.querySelectorAll("#otc-res .otc-row").length }));

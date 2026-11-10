@@ -44,12 +44,12 @@
     "emergency-pos": "Sell when the main till is down; sales are sent when the connection is back.",
     creditnotes: "Money customers have with you, and what is left of it.",
     locumreceipts: "What each locum was paid, ready to print and sign.",
-    poct: "Blood pressure, glucose, cholesterol and other tests, per patient.",
-    vaccines: "Order vaccines for clients, for travel or routine jabs.",
-    screening: "Health-check events and the people screened at each.",
-    pharmacovigilance: "Report a reaction to a medicine and follow the report.",
+    poct: "Record a test and see a patient's results over time.",
+    vaccines: "Vaccine orders for clients, with what is in stock.",
+    screening: "Health-check events, the people screened and follow-ups.",
+    pharmacovigilance: "Report a reaction to a medicine; see what is not sent.",
     ocps: "Find a contraceptive pill by its hormones and doses.",
-    pharmacycalc: "Dosing plans and supply for levothyroxine, steroid tapers, warfarin, insulin and methotrexate.",
+    pharmacycalc: "Dosing plans and the supply to dispense, for one patient.",
     otcmindmap: "What to recommend over the counter, by symptom.",
     labels: "Print dispensing labels in English or Maltese.",
     alerts: "Recalls and quarantines, with each step ticked off.",
@@ -94,7 +94,7 @@
       ]
     },
     services: {
-      title: "Services", lead: "Care given at the counter or by appointment, and the tools for it.",
+      title: "Services", lead: "Who is waiting for care today, the clinical services, and the look-up tools for the counter. Appointments are in Bookings.",
       groups: [
         { label: "Clinical", ids: ["poct", "vaccines", "screening", "pharmacovigilance"] },
         { label: "Look up and print", ids: ["ocps", "pharmacycalc", "otcmindmap", "labels"] }
@@ -184,7 +184,8 @@
         (id === "settings" ? '<div id="hub-wn-slot"></div>' : "") +
         (id === "stock" ? '<div id="stk-slot" class="stk"></div><h2 class="hub-lab stk-all">Every stock screen</h2>' : ""); // d-stock: the day's ordering first (modules.stkflow.js), every screen under it
       if (id === "registers") html += '<div id="rgt-slot"></div><h2 class="rgt-all">Every register</h2>';
-      if (id === "money") html += '<div id="mny-slot"></div><h2 class="mny-all">Everything in Money</h2>'; // money-hub: what is left to close and what the till holds today first (eikon.moneytoday.js), every money screen under it // regs-hub: what is due today first (eikon.regtoday.js), every register under it; a heading like "Today" above it, not a section label
+      if (id === "money") html += '<div id="mny-slot"></div><h2 class="mny-all">Everything in Money</h2>';
+      if (id === "services") html += '<div id="svt-slot"></div><h2 class="svt-all">Every service</h2>'; // svc-hub: who is waiting for care today first (eikon.svctoday.js), every service under it // money-hub: what is left to close and what the till holds today first (eikon.moneytoday.js), every money screen under it // regs-hub: what is due today first (eikon.regtoday.js), every register under it; a heading like "Today" above it, not a section label
       cfg.groups.forEach(function (g, gi) {
         var cards = "";
         (g.ids || []).forEach(function (mid) {
@@ -208,6 +209,7 @@
       if (id === "stock") { var slot = m.querySelector("#stk-slot"); if (slot && E.stockFlow) E.stockFlow.render(slot); } // drawn by modules.stkflow.js when it arrives otherwise
       if (id === "registers") { var rs = m.querySelector("#rgt-slot"); if (rs && E.regToday) E.regToday.render(rs); } // drawn by eikon.regtoday.js when it arrives otherwise
       if (id === "money") { var ms = m.querySelector("#mny-slot"); if (ms && E.moneyToday) E.moneyToday.render(ms); } // drawn by eikon.moneytoday.js when it arrives otherwise
+      if (id === "services") { var ss = m.querySelector("#svt-slot"); if (ss && E.svcToday) E.svcToday.render(ss); } // drawn by eikon.svctoday.js when it arrives otherwise
       if (id === "settings" && E.helpSettings) E.helpSettings(m); // What's new (eikon.help.js, loaded just after the first screen)
       m.querySelectorAll("[data-action]").forEach(function (b) {
         b.addEventListener("click", function () {

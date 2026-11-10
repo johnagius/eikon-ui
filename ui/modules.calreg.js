@@ -697,6 +697,14 @@
     if (id === "ins") return { weeks: "4", morning: "0", afternoon: "0", evening: "0", night: "0", type: "pen", unitsPerCont: "300", contsPerBox: "5", roundBoxes: "yes", priming: "yes", primeUnits: "2", discard: "yes", discardDays: "28" };
     return { weeks: "8", weeklyDose: "10", weekday: "0", strength: "2.5", split: "no", tabsPerBox: "30", roundBoxes: "yes" };
   }
+  // counter: the last values of each calculator (doses, strengths, boxes; never the patient) come back on this device
+  function lastKey() { return "eikon_calreg_v:" + ((E.state.user || {}).location_id || ""); }
+  function remember() { if (!S.v) return; try { localStorage.setItem(lastKey(), JSON.stringify(S.v)); } catch (e) {} }
+  function restored() {
+    var o = freshValues(), any = false;
+    try { var got = JSON.parse(localStorage.getItem(lastKey()) || "null"); if (got && typeof got === "object") CALCS.forEach(function (c) { var g = got[c[0]]; if (g && typeof g === "object" && !Array.isArray(g)) { var base = o[c[0]], ok = Object.keys(base).every(function (k) { return k in g && typeof g[k] === typeof base[k]; }); if (ok) { o[c[0]] = g; if (JSON.stringify(g) !== JSON.stringify(base)) any = true; } } }); } catch (e) {}
+    return { v: o, any: any };
+  }
   function freshValues() { var o = {}; CALCS.forEach(function (c) { o[c[0]] = defaults(c[0]); }); return o; }
   function clone(v) { return JSON.parse(JSON.stringify(v)); }
   function inputsFor(id) { var v = clone(S.v[id]); v.startDate = S.pat.start; return v; }
@@ -759,6 +767,12 @@
       ".cal-acts{display:flex;gap:8px;flex-wrap:wrap;padding:10px 14px}.cal-acts.end{justify-content:flex-end;border-top:.5px solid var(--border);margin:14px -16px 0;padding:12px 16px 0}" +
       ".cal-note{margin:8px 14px 10px;padding:10px 12px;border-radius:10px;background:rgba(201,138,18,.12);font-size:13.5px;line-height:1.45}.cal-note b{font-weight:700}" +
       ".cal-note.big{font-size:15px}" +
+      // counter: the answer and Save and print stay in reach; box sizes fold; the restored-values note
+      ".cal-mini{display:none}.cal-mini .bad{color:var(--danger);font-weight:600}" +
+      ".cal-acts.end{position:sticky;bottom:0;background:var(--panel2);z-index:2;padding-bottom:12px;margin-bottom:-14px;border-radius:0 0 14px 14px}" +
+      ".cal-tbl td:nth-child(2){white-space:nowrap}" +
+      ".cal-rest{margin:10px 0 0;font-size:13.5px;color:var(--muted)}.cal-link{border:0;background:none;padding:0;font:inherit;color:var(--accent);font-weight:600;cursor:pointer;text-decoration:underline}" +
+      ".cal-fold{border-top:.5px solid var(--border)}.cal-fold>summary{cursor:pointer;list-style:none;border-top:0}.cal-fold>summary::-webkit-details-marker{display:none}.cal-fold>summary::before{content:'›';display:inline-block;margin-right:6px;transition:transform .15s}.cal-fold[open]>summary::before{transform:rotate(90deg)}.cal-fold>summary .n{font-weight:400}.cal-fold>summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}" +
       ".cal-out{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;min-width:0}" +
       ".cal-out h2{font-size:14px;font-weight:600;color:var(--muted);margin:0 0 8px}" +
       ".cal-big{display:flex;flex-wrap:wrap;gap:10px 18px;margin:4px 0 6px}.cal-big div{min-width:0}.cal-big b{display:block;font-size:34px;font-weight:700;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}.cal-big span{display:block;font-size:13px;color:var(--muted);margin-top:2px}" +
@@ -789,7 +803,10 @@
       ".cal-form label:focus-within{box-shadow:inset 3px 0 0 var(--accent)}" +
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .cal-seg button.on{color:#00160E}html[data-ui2]:not([data-ui2-visit]) :is(.cal-err,.cal-x){color:#FF7A72}}" +
       "@media (max-width:760px){.cal-seg{grid-template-columns:repeat(3,minmax(0,1fr))}}" +
-      "@media (max-width:600px){.cal-btn{min-height:44px;border-radius:22px;padding:0 18px;font-size:15px}.cal-btn.sm{min-height:44px}.cal-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.cal-seg button{min-height:44px}.cal-x{min-height:44px}.cal{padding:4px 16px 0}.cal h1{font-size:32px}.cal-form label>span{flex-basis:104px}.cal-row{padding:10px 14px}.cal-big b{font-size:30px}}";
+      "@media (max-width:600px){.cal-btn{min-height:44px;border-radius:22px;padding:0 18px;font-size:15px}.cal-btn.sm{min-height:44px}.cal-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.cal-seg button{min-height:44px}.cal-x{min-height:44px}.cal{padding:4px 16px 0}.cal h1{font-size:32px}.cal-form label>span{flex-basis:104px}.cal-row{padding:10px 14px}.cal-big b{font-size:30px}" +
+        ".cal-acts.end{position:fixed;left:0;right:0;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:6;margin:0;padding:8px 16px;border-radius:0;background:var(--bg);border-top:.5px solid var(--border);box-shadow:0 -6px 16px rgba(0,0,0,.06);flex-wrap:wrap}" +
+        ".cal-mini{display:block;flex:1 1 100%;font-size:13.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cal-mini b{color:var(--text);font-variant-numeric:tabular-nums}.cal-acts.end .cal-btn.p{flex:1 1 auto}" +
+        ".cal{padding-bottom:120px}.cal-form :is(input,select,button){scroll-margin-bottom:170px}}";
     document.head.appendChild(st);
   }
 
@@ -831,9 +848,10 @@
         return pick("lev.days." + d[0], DOW[d[0]], v.days[d[0]], [["1", "Dose 1 · " + (v.d1 || "?") + " mcg"], ["2", "Dose 2 · " + (v.d2 || "?") + " mcg"], ["3", "Dose 3 · " + (v.d3 || "?") + " mcg"]], v.mode === "alt2" ? ["3"] : null);
       }).join("") + "</div>";
     }
-    h += '<div class="hd">Pack sizes (tablets a box)</div>' + fld("lev.boxDef", "Default box", v.boxDef, INT, "tablets") +
+    // counter: box sizes rarely change: folded under one line that says what they are
+    h += '<details class="cal-fold"' + (S.packOpen ? " open" : "") + '><summary class="hd">Pack sizes (tablets a box) <span class="n">· ' + esc(LEV_MARKET.map(function (s) { return s + " mcg: " + (v.box[s] || v.boxDef); }).join(", ")) + "</span></summary>" + fld("lev.boxDef", "Default box", v.boxDef, INT, "tablets") +
       LEV_MARKET.map(function (s) { return fld("lev.box." + s, s + " mcg box", v.box[s], INT, "tablets"); }).join("") +
-      '<div class="cal-help">75 mcg boxes are 90 tablets; 25, 50 and 100 mcg are 28 tablets by default.</div>';
+      '<div class="cal-help">75 mcg boxes are 90 tablets; 25, 50 and 100 mcg are 28 tablets by default.</div></details>';
     return h;
   }
 
@@ -940,7 +958,7 @@
       return li(esc(formatStrength(d.strength)) + " mcg", "<b>" + d.boxes + " " + plural(d.boxes, "box", "boxes") + "</b> of " + d.boxSize, esc(d.physicalTablets + " tablets needed (" + pieces + ") · " + d.extra + " extra"));
     }).join("") + "</div>";
     h += '<div class="cal-h3">Plan, first 21 days</div><table class="cal-tbl"><thead><tr><th scope="col">Day</th><th scope="col">Dose</th><th scope="col">Tablets</th></tr></thead><tbody>' + m.schedule.slice(0, 21).map(function (x) {
-      return "<tr><td>" + esc(sd(x.date)) + "</td><td><b>" + esc(formatStrength(x.mcg)) + "&nbsp;mcg</b></td><td>" + esc(levParts(x)) + "</td></tr>";
+      return "<tr><td>" + esc(sd(x.date)) + "</td><td><b>" + esc(formatStrength(x.mcg)) + "&nbsp;mcg</b></td><td>" + esc(levParts(x).replace(/× /g, " × ")) + "</td></tr>"; // on screen "1 × 100 mcg" as in the lines above (the printout keeps its own)
     }).join("") + "</tbody></table>" + (m.schedule.length > 21 ? '<p class="cal-more">The full ' + m.schedule.length + "-day plan is on the printout.</p>" : "");
     return h;
   }
@@ -1008,6 +1026,9 @@
     box.setAttribute("aria-busy", S.working ? "true" : "false");
     var say = S.mount.querySelector("#cal-say"), r = S.res && S.resJob === S.job ? S.res.r : null;
     if (say) say.textContent = !r ? "" : r.error ? "Check: " + r.error : (box.querySelector(".cal-big") || box).textContent.replace(/\s+/g, " ").trim().slice(0, 160);
+    var mini = S.mount.querySelector("#cal-mini"); // counter (phone): the answer in one line beside Save and print
+    if (mini) { var bg = box.querySelector(".cal-big"); mini.innerHTML = r && r.error ? '<span class="bad">Check the plan</span>' : bg ? [].map.call(bg.children, function (d) { var b = d.querySelector("b"), sp = d.querySelector("span"); return "<b>" + esc(b ? b.textContent : "") + "</b> " + esc(sp ? sp.textContent.split(" · ")[0] : ""); }).join(" · ") : ""; }
+    remember();
   }
 
   // ───────────── Saved plans ─────────────
@@ -1068,13 +1089,14 @@
     if (!fromState) keep(); // what is typed is kept; fromState: the values were just changed in code
     var h = '<div class="cal"><button class="cal-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("calreg")) + '</button>' +
       '<h1>Pharmacy calculators</h1><p class="cal-sub">Dosing plans and the tablets or insulin to dispense, for one patient.</p>' +
+      (S.restored ? '<p class="cal-rest" role="note">Opened with the values last used on this device (never the patient). <button type="button" class="cal-link" data-act="reset">Start again</button> for the usual values.</p>' : "") +
       '<div class="cal-seg" role="group" aria-label="Calculator">' + CALCS.map(function (c) { return '<button type="button" data-calc="' + c[0] + '" aria-pressed="' + (S.calc === c[0]) + '" class="' + (S.calc === c[0] ? "on" : "") + '">' + esc(c[1]) + "</button>"; }).join("") + "</div>" +
       '<div class="cal-grid"><form class="cal-form" id="cal-form" autocomplete="off" aria-label="' + esc(TITLE[S.calc]) + '" novalidate>' +
       patientHtml() + FORMS[S.calc](S.v[S.calc]) + "</form>" +
       '<section class="cal-out" aria-labelledby="cal-out-h"><h2 id="cal-out-h">' + esc(TITLE[S.calc]) + '</h2><div id="cal-res" aria-busy="false">' + resultHtml() + '</div><div class="cal-sr" aria-live="polite" id="cal-say"></div>' +
       (S.err ? '<div class="cal-err" role="alert">' + esc(S.err) + "</div>" : "") +
       (S.msg ? '<div class="cal-ok" role="status"><span>' + esc(S.msg) + '</span><button type="button" class="cal-btn sm" data-act="print-again">Print again</button></div>' : "") +
-      '<div class="cal-acts end"><button type="button" class="cal-btn" data-act="reset">Start again</button><button type="submit" form="cal-form" class="cal-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save and print") + "</button></div></section></div>" +
+      '<div class="cal-acts end"><div class="cal-mini" id="cal-mini" aria-hidden="true"></div><button type="button" class="cal-btn" data-act="reset">Start again</button><button type="submit" form="cal-form" class="cal-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save and print") + "</button></div></section></div>" +
       '<div id="cal-recs">' + recordsHtml() + "</div>" +
       '<p class="cal-foot">The calculations, the saved plan and the printout are the same as on the classic screen. Deleting a saved plan is in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
     var ae = document.activeElement, sel = "";
@@ -1128,7 +1150,7 @@
         var act = b.getAttribute("data-act"), v = S.v[S.calc];
         if (act === "back") window.location.hash = E.ui2BackHash("calreg");
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "calreg"); } catch (x) {} E.openClassic("pharmacycalc"); }
-        else if (act === "reset") { keep(); S.v[S.calc] = defaults(S.calc); if (S.calc === "lev") S.levModeShown = S.v.lev.mode; S.err = ""; S.msg = null; paint(true); compute(); focus('[data-calc="' + S.calc + '"]'); }
+        else if (act === "reset") { keep(); S.v[S.calc] = defaults(S.calc); S.restored = false; if (S.calc === "lev") S.levModeShown = S.v.lev.mode; S.err = ""; S.msg = null; paint(true); compute(); focus('[data-calc="' + S.calc + '"]'); }
         else if (act === "step-add") { keep(); v.steps.push({ dose: "5", days: "5", note: "" }); paint(true); compute(); focus('[name="pred.steps.' + (v.steps.length - 1) + '.dose"]'); }
         else if (act === "step-example") { keep(); S.v.pred.steps = defaults("pred").steps; paint(true); compute(); }
         else if (act === "step-del") { keep(); v.steps.splice(Number(b.getAttribute("data-i")), 1); paint(true); compute(); focus(v.steps.length ? '[name="pred.steps.' + Math.max(0, Math.min(Number(b.getAttribute("data-i")), v.steps.length - 1)) + '.dose"]' : '[data-act="step-add"]'); }
@@ -1139,6 +1161,7 @@
       b.addEventListener("click", function () { keep(); var c = b.getAttribute("data-calc"); if (c === S.calc) return; S.calc = c; try { localStorage.setItem("eikon_calreg_calc", c); } catch (e0) {} S.err = ""; S.msg = null; S.res = null; paint(true); compute(); var x = S.mount.querySelector('[data-calc="' + c + '"]'); if (x) x.focus(); });
     });
     var f = m.querySelector("#cal-form"); if (!f) return;
+    var fold = f.querySelector(".cal-fold"); if (fold) fold.addEventListener("toggle", function () { S.packOpen = fold.open; });
     f.addEventListener("submit", function (ev) { ev.preventDefault(); save(); });
     f.addEventListener("input", function (ev) {
       var el = ev.target; if (!el || !el.name) return;
@@ -1146,6 +1169,7 @@
       if (/^lev\.d[123]$/.test(el.name)) { var n = el.name.slice(5); m.querySelectorAll('[name^="lev.days."] option[value="' + n + '"]').forEach(function (o) { o.textContent = "Dose " + n + " · " + (el.value || "?") + " mcg"; }); }
       if (el.name === "war.strengths") { var pk = m.querySelector("#cal-pack"); if (pk) pk.innerHTML = packRowsHtml(S.v.war); }
       if (S.msg) { S.msg = null; var ok = m.querySelector(".cal-ok"); if (ok) ok.remove(); }
+      if (S.restored) { S.restored = false; var rn = m.querySelector(".cal-rest"); if (rn) rn.remove(); } // the note has done its job once they change a value
       if (el.name.indexOf("pat.") === 0 && el.name !== "pat.start") { if (el.name === "pat.name") lookupPatient("name"); return; } // the patient does not change the plan
       later();
     });
@@ -1223,7 +1247,7 @@
     id: "calreg", title: "Pharmacy calculators", order: 3, icon: "🧮", ui2Only: true,
     render: function (ctx) {
       S.mount = ctx && ctx.mount; S.err = ""; S.msg = null; S.q = ""; S.open = null; S.openRec = null; S.saving = false;
-      if (!S.v) { S.v = freshValues(); try { var lc = localStorage.getItem("eikon_calreg_calc"); if (CALCS.some(function (c) { return c[0] === lc; })) S.calc = lc; } catch (e0) {} } // opens on the calculator this person used last
+      if (!S.v) { var rv = restored(); S.v = rv.v; S.restored = rv.any; try { var lc = localStorage.getItem("eikon_calreg_calc"); if (CALCS.some(function (c) { return c[0] === lc; })) S.calc = lc; } catch (e0) {} } // opens on the calculator this person used last
       S.pat = { name: "", id: "", start: todayYmd(), note: "" }; S.levModeShown = S.v.lev.mode;
       css(); paint(); compute(); loadPatients(); return load();
     }

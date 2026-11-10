@@ -102,7 +102,7 @@ export default {
         const cur = await p.evaluate((form) => {
           const a = document.activeElement, f = document.querySelector(form);
           const key = (e) => !e || e === document.body ? "BODY" : (e.getAttribute("name") || e.getAttribute("data-k") && e.getAttribute("data-k") + "#" + e.getAttribute("data-i") || e.id || e.tagName + ":" + (e.innerText || "").trim().slice(0, 20));
-          const order = f ? [...f.querySelectorAll("input,select,textarea,button,a[href],[tabindex]")].filter((e) => e.offsetParent !== null && !e.disabled && e.tabIndex >= 0 && e.type !== "hidden") : [];
+          const order = f ? [...f.querySelectorAll("input,select,textarea,button,a[href],summary,[tabindex]")].filter((e) => e.offsetParent !== null && !e.disabled && e.tabIndex >= 0 && e.type !== "hidden") : [];
           const i = order.indexOf(a);
           return { key: key(a), inForm: !!(f && f.contains(a)), tag: a ? a.tagName : "", type: a && a.type || "", name: a && (a.getAttribute("name") || a.getAttribute("data-k") || a.id) || "", next: i >= 0 && order[i + 1] ? key(order[i + 1]) : null, value: a && "value" in a ? a.value : null };
         }, sc.form);

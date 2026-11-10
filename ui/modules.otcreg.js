@@ -17,6 +17,10 @@
   var TYPE = { product: "Product", symptom: "Symptom", usecase: "Use case", bundle: "Bundle" };
   var SHOW = 12; // rows per section before "Show all"
 
+  // counter: sentence case on screen only ("blocked nose" → "Blocked nose"); product names stay as the data has them
+  function cap(t) { t = String(t == null ? "" : t); return t.charAt(0).toUpperCase() + t.slice(1); }
+  function nice(n) { return n && n.nodeType !== "product" && !/^product:/.test(String(n.id || "")) ? cap(n.label) : String(n.label || ""); }
+  function picks() { return E.picks ? E.picks("otcreg") : null; }
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
   function norm(s) { return String(s || "").trim().toLowerCase(); }
 
@@ -53,9 +57,17 @@
       "@media (min-width:901px){.otc-dback.root{display:none}}" +
       ".otc-skel{margin-top:16px;max-width:380px}.otc-skel i{height:48px}" + // the rest is .eikon-skel in app.css (E.skeleton)
       ".otc-retry{font:inherit;font-size:14px;font-weight:600;min-height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;margin-left:6px}" +
+      // counter: chips for symptoms, starred and recent; the whole width while nothing is open
+      ".otc-chips{display:flex;flex-wrap:wrap;gap:6px}.otc-groups{display:block}" +
+      ".otc-chip{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:14px;font-weight:500;min-height:36px;padding:4px 12px;border-radius:999px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;text-align:left}" +
+      ".otc-chip:hover{background:rgba(127,127,127,.07)}.otc-chip.on{border-color:var(--accent);background:rgba(10,143,106,.08)}.otc-chip .k{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}.otc-chip .st{color:#B7791F}.otc-chip.on .k{color:var(--text)}" +
+      ".otc.wide .otc-grid{grid-template-columns:minmax(0,1fr)}.otc.wide .otc-q{max-width:560px}.otc.wide .otc-detail:empty{display:none}" +
+      "@media (min-width:901px){.otc.wide .otc-groups{columns:2 380px;column-gap:24px}.otc.wide .otc-grp{break-inside:avoid}}" +
+      ".otc-ct{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}" +
+      ".otc-star{flex:none;font:inherit;font-size:14px;font-weight:600;min-height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer}.otc-star[aria-pressed=true] span{color:#B7791F}" +
       ".otc-foot{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.5}.otc-foot a{color:var(--accent)}" +
       "@media (max-width:900px){.otc-grid{grid-template-columns:minmax(0,1fr)}.otc.has-sel .otc-side,.otc.has-sel .otc-head{display:none}.otc.has-sel .otc-grid{margin-top:0}.otc-pick{display:none}}" +
-      "@media (max-width:600px){.otc-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.otc-q{height:44px}.otc-dback{min-height:44px;padding:0 0 4px}.otc-more,.otc-retry{min-height:44px}.otc{padding:4px 16px 0}.otc h1{font-size:32px}.otc-card{padding:16px}}" +
+      "@media (max-width:600px){.otc-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.otc-q{height:44px}.otc-dback{min-height:44px;padding:0 0 4px}.otc-more,.otc-retry,.otc-chip,.otc-star{min-height:44px}.otc{padding:4px 16px 0}.otc h1{font-size:32px}.otc-card{padding:16px}}" +
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .otc-row.on{background:rgba(43,196,138,.14)}html[data-ui2]:not([data-ui2-visit]) .otc-caution h3{color:#FF7A72}html[data-ui2]:not([data-ui2-visit]) .otc-caution{border-left-color:#FF7A72}}";
     document.head.appendChild(st);
   }
@@ -112,6 +124,7 @@
       S.opening = "";
     }
     if (push) S.stack.push(id); else S.stack = [id];
+    var pk = picks(), cn = sections(S.data[id]).center; if (pk) pk.push({ id: id, label: nice(cn), type: TYPE[cn.nodeType] || "" });
     S.more = {}; paint(); top(); focusTitle();
   }
 
@@ -135,7 +148,7 @@
   }
 
   function row(n, sub, pill) {
-    return '<button type="button" class="otc-row" data-open="' + esc(n.id) + '"><span class="t"><b>' + esc(n.label) + "</b>" + (sub ? '<span class="s">' + esc(sub) + "</span>" : "") + "</span>" +
+    return '<button type="button" class="otc-row" data-open="' + esc(n.id) + '"><span class="t"><b>' + esc(nice(n)) + "</b>" + (sub ? '<span class="s">' + esc(sub) + "</span>" : "") + "</span>" +
       (pill ? '<span class="otc-pill">' + esc(pill) + "</span>" : "") + '<i aria-hidden="true">›</i></button>';
   }
   function linkSub(l) { return [l.label, l.why, l.score != null ? "Score " + l.score : ""].filter(Boolean).join(" · "); }
@@ -150,10 +163,11 @@
 
   function detail() {
     var id = S.stack[S.stack.length - 1], d = S.data[id], x = sections(d), c = x.center, by = x.by, h = "";
-    var prev = S.stack.length > 1 ? (sections(S.data[S.stack[S.stack.length - 2]]).center.label) : "Over the counter";
+    var prev = S.stack.length > 1 ? nice(sections(S.data[S.stack[S.stack.length - 2]]).center) : "Over the counter";
     var meta = (c.meta || {}), desc = c.nodeType === "usecase" ? [meta.Description, meta.Trigger_Symptoms ? "Symptoms: " + meta.Trigger_Symptoms : ""] : c.nodeType === "bundle" ? [meta.Description] : [];
     h += '<button type="button" class="otc-dback' + (S.stack.length > 1 ? "" : " root") + '" data-act="close">‹ ' + esc(prev) + "</button>";
-    h += '<div class="otc-card"><h2 id="otc-title" tabindex="-1">' + esc(c.label) + '</h2><div class="otc-meta"><span class="otc-pill">' + esc(TYPE[c.nodeType] || c.nodeType) + "</span>" + (c.subtext ? "<span>" + esc(c.subtext) + "</span>" : "") + "</div>" +
+    var pk = picks(), starred = !!(pk && pk.isFav(c.id));
+    h += '<div class="otc-card"><div class="otc-ct"><h2 id="otc-title" tabindex="-1">' + esc(nice(c)) + "</h2>" + (pk ? '<button type="button" class="otc-star" data-act="star" aria-pressed="' + starred + '" aria-label="' + (starred ? "Starred: " : "Star: ") + esc(nice(c)) + '"><span aria-hidden="true">' + (starred ? "★" : "☆") + "</span> " + (starred ? "Starred" : "Star") + "</button>" : "") + '</div><div class="otc-meta"><span class="otc-pill">' + esc(TYPE[c.nodeType] || c.nodeType) + "</span>" + (c.subtext ? "<span>" + esc(c.subtext) + "</span>" : "") + "</div>" +
       desc.filter(Boolean).map(function (t) { return '<p class="otc-desc">' + esc(t) + "</p>"; }).join("") + "</div>";
     if (by.guardrail && by.guardrail.length) {
       var acts = []; by.guardrail.forEach(function (g) { var a = g.link.meta && g.link.meta.posAction; if (a && acts.indexOf(a) < 0) acts.push(a); });
@@ -188,18 +202,23 @@
       h += res.length ? '<div class="otc-list" id="otc-res">' + res.map(function (r) { return row(r.item, "", TYPE[r.item.nodeType]).replace('class="otc-row"', 'class="otc-row' + (r.item.id === sel ? " on" : "") + '"'); }).join("") + "</div>"
         : '<div class="otc-quiet">Nothing matches “' + esc(S.q.trim()) + "”. Try another word, or fewer letters.</div>";
     } else {
-      // Symptoms by group, in the order the data lists them; names in alphabetical order
+      // counter: this person's starred and recent first, then symptoms by group as chips (empty ones left out: a dead end)
+      var pk = picks(), favs = pk ? pk.favs() : [], rec = pk ? pk.recent().filter(function (x) { return !favs.some(function (f) { return f.id === x.id; }); }) : [];
+      var chip = function (x, star) { return '<button type="button" class="otc-chip' + (x.id === sel ? " on" : "") + '" data-open="' + esc(x.id) + '">' + (star ? '<span class="st" aria-hidden="true">★</span>' : "") + esc(x.label) + (x.type ? '<span class="k">' + esc(x.type) + "</span>" : "") + "</button>"; };
+      if (favs.length) h += '<div class="otc-lab"><span>Starred</span></div><div class="otc-chips">' + favs.map(function (x) { return chip(x, true); }).join("") + "</div>";
+      if (rec.length) h += '<div class="otc-lab"><span>Opened recently</span></div><div class="otc-chips">' + rec.map(function (x) { return chip(x, false); }).join("") + "</div>";
       var groups = [], byG = {};
-      (S.syms || []).forEach(function (s) { var g = s.Display_Group || s.Symptom_Category || "Other"; if (!byG[g]) { byG[g] = []; groups.push(g); } byG[g].push(s); });
+      (S.syms || []).forEach(function (s) { if (Number(s.Linked_Product_Count) === 0) return; var g = s.Display_Group || s.Symptom_Category || "Other"; if (!byG[g]) { byG[g] = []; groups.push(g); } byG[g].push(s); });
       groups.sort(function (a, b) { return a === "General" ? 1 : b === "General" ? -1 : a.localeCompare(b); });
-      h += '<p class="otc-sub" style="margin-top:14px">Or pick a symptom.</p>';
+      h += '<p class="otc-sub" style="margin-top:14px">Or pick a symptom.</p><div class="otc-groups">';
       groups.forEach(function (g) {
         var list = byG[g].slice().sort(function (a, b) { return String(a.Symptom_Name).localeCompare(String(b.Symptom_Name)); });
-        h += '<div class="otc-lab"><span>' + esc(g) + "</span><b>" + list.length + '</b></div><div class="otc-list">' + list.map(function (s) {
+        h += '<div class="otc-grp" role="group" aria-label="' + esc(g) + '"><div class="otc-lab"><span>' + esc(g) + '</span></div><div class="otc-chips">' + list.map(function (s) {
           var id = "symptom:" + s.Symptom_ID;
-          return row({ id: id, label: s.Symptom_Name }, s.Linked_Product_Count != null ? s.Linked_Product_Count + " product" + (Number(s.Linked_Product_Count) === 1 ? "" : "s") : "", "").replace('class="otc-row"', 'class="otc-row' + (id === sel ? " on" : "") + '"');
-        }).join("") + "</div>";
+          return '<button type="button" class="otc-chip' + (id === sel ? " on" : "") + '" data-open="' + esc(id) + '"' + (s.Linked_Product_Count != null ? ' aria-label="' + esc(cap(s.Symptom_Name)) + ", " + s.Linked_Product_Count + " product" + (Number(s.Linked_Product_Count) === 1 ? "" : "s") + '"' : "") + ">" + esc(cap(s.Symptom_Name)) + (s.Linked_Product_Count != null ? '<span class="k" aria-hidden="true">' + s.Linked_Product_Count + "</span>" : "") + "</button>";
+        }).join("") + "</div></div>";
       });
+      h += "</div>";
     }
     return h;
   }
@@ -208,14 +227,14 @@
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "otcreg") return; // left before the data came back: do not draw over the next screen
     var sel = S.stack.length > 0;
-    var h = '<div class="otc' + (sel ? " has-sel" : "") + '"><div class="otc-head"><button type="button" class="otc-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("otcreg")) + '</button>' +
-      '<h1>Over the counter</h1><p class="otc-sub">What to recommend, by symptom. Search, or pick a symptom, then follow a product to its cautions and alternatives.</p></div>';
+    var h = '<div class="otc' + (sel ? " has-sel" : " wide") + '"><div class="otc-head"><button type="button" class="otc-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("otcreg")) + '</button>' +
+      '<h1>Over the counter</h1><p class="otc-sub">What to recommend, by symptom. Cautions always come first.</p></div>';
     if (S.loading && !S.idx) h += E.skeleton(5, "Opening the OTC guide", "otc-skel");
     else if (S.error) h += '<div class="otc-quiet" style="margin-top:16px" role="alert">' + esc(S.error) + ' <button type="button" class="otc-retry" data-act="retry">Try again</button></div>';
     else {
       h += '<div class="otc-grid"><div class="otc-side">' + side() + '</div><div class="otc-detail" aria-live="polite">' +
         (S.openErr ? '<div class="otc-quiet">' + esc(S.openErr) + "</div>" : "") +
-        (S.opening ? '<div class="otc-quiet">Opening…</div>' : sel ? detail() : '<div class="otc-quiet otc-pick">Pick a symptom to see the products for it. Open a product to see its cautions, alternatives and what goes with it.</div>') +
+        (S.opening ? '<div class="otc-quiet">Opening…</div>' : sel ? detail() : "") +
         "</div></div>";
     }
     h += '<p class="otc-foot">The map view, its score and limit filters and the complementary-items filter are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
@@ -228,6 +247,7 @@
         if (act === "back") window.location.hash = E.ui2BackHash("otcreg");
         else if (act === "close") back();
         else if (act === "retry") load();
+        else if (act === "star") { var pk = picks(), cid = S.stack[S.stack.length - 1]; if (!pk || !cid) return; var cn = sections(S.data[cid]).center, on = !pk.isFav(cid); pk.fav({ id: cid, label: nice(cn), type: TYPE[cn.nodeType] || "" }, on); paint(); var sb = m.querySelector("[data-act=star]"); if (sb) sb.focus(); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "otcreg"); } catch (x) {} E.openClassic("otcmindmap"); }
       });
     });
@@ -243,7 +263,7 @@
       qn.addEventListener("input", function () { keep(); var box = m.querySelector("#otc-side-res"); if (!box) return paint(); box.innerHTML = sideList(); wireOpen(box); }); // only the list under the box is redrawn: the box itself is never replaced while typing
       qn.addEventListener("keydown", function (e) {
         if (e.key === "Enter") { e.preventDefault(); var first = m.querySelector("#otc-res .otc-row"); if (first) first.click(); }
-        else if (e.key === "ArrowDown") { var f = m.querySelector(".otc-side .otc-list .otc-row"); if (f) { e.preventDefault(); f.focus(); } }
+        else if (e.key === "ArrowDown") { var f = m.querySelector(".otc-side .otc-list .otc-row, .otc-side .otc-chip"); if (f) { e.preventDefault(); f.focus(); } }
       });
     }
   }
@@ -269,7 +289,7 @@
 
   E.registerModule({
     id: "otcreg", title: "Over the counter", order: 3, icon: "✚", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.stack = []; S.q = ""; S.more = {}; S.opening = ""; S.openErr = ""; css(); return load(); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.stack = []; S.q = ""; S.more = {}; S.opening = ""; S.openErr = ""; css(); return Promise.resolve(load()).then(function () { var phone = false; try { phone = window.matchMedia("(max-width:600px)").matches; } catch (e) {} if (!phone && E.focusIfIdle) E.focusIfIdle(S.mount && S.mount.querySelector("#otc-q")); }); } // the search is ready to type in (not on a phone: no keyboard jumping up)
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("otcreg") < 0) E.UI2_DESTINATIONS.push("otcreg");
   if (E.UI2_PARENT) E.UI2_PARENT.otcreg = "services";

@@ -5,13 +5,17 @@
    removes only ids listed in deleted_ids, so a save sends just this one report, complete, and an empty deleted_ids.
    The id is made when the form opens and kept through retries, so a save whose answer is lost can never make two.
    An edit starts from the whole record as read and checks the report is still there, unchanged, before saving.
-   Deleting, printing and the PDF form stay in the classic screen. */
+   Deleting, printing and the PDF form stay in the classic screen.
+   Services (2026-11-09): reports not sent yet (Draft) come first, oldest first, with how long they have waited; a Draft
+   is marked as sent to the MPA in one tap through the same edit path (re-read, unchanged check, whole report, only the
+   status changed); "A reaction after this vaccine" in Vaccines opens a new report pre-filled from the vaccination
+   (sessionStorage eikon_pv_prefill, V-C3); Services' "not sent yet" opens the drafts (eikon_svc_open {to:"pvreg", f:"draft"}). */
 (function () {
   "use strict";
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, reports: [], loading: false, error: "", q: "", view: "list", openId: "", adding: null, base: null, saving: false, err: "", force: "", miss: [] };
+  var S = { mount: null, reports: [], loading: false, error: "", q: "", view: "list", openId: "", adding: null, base: null, saving: false, err: "", force: "", miss: [], f: "", pre: "" };
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   // The classic screen's lists, word for word (stored as these strings).
   var SERIOUSNESS = ["Non-serious", "Serious – Hospitalisation", "Serious – Life-threatening", "Serious – Disability", "Serious – Congenital anomaly", "Serious – Other medically important", "Fatal"];
@@ -105,8 +109,11 @@
       ".pvr-one dt{flex:0 0 120px;color:var(--muted);margin:0}.pvr-one dd{flex:1;min-width:0;margin:0;overflow-wrap:anywhere;white-space:pre-wrap}" +
       ".pvr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".pvr-note{font-size:12.5px;color:var(--muted);margin-top:14px}" +
+      ".pvr-seg{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}.pvr-seg b{font-variant-numeric:tabular-nums;margin-left:4px}" +
+      ".pvr-send{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:14px;padding:12px 16px;border-radius:12px;background:rgba(201,138,18,.10);border:1px solid rgba(201,138,18,.35)}.pvr-send b{display:block;font-size:15px;color:var(--warn,#8A5A08)}.pvr-send span{display:block;font-size:13px;color:var(--text);margin-top:2px}.pvr-send a{text-decoration:underline}" +
+      ".pvr-pre{margin-top:12px;padding:10px 14px;border-radius:12px;background:rgba(10,143,106,.08);font-size:14px}" +
       "@media (max-width:600px){.pvr-btn{height:44px;border-radius:22px;padding:0 18px;font-size:15px}.pvr-btn.t{padding:0 4px}.pvr-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.pvr-q{height:44px}.pvr-form .two select{min-height:44px}.pvr{padding:4px 16px 0}.pvr h1{font-size:32px}.pvr-form label>span,.pvr-form .two>span{flex-basis:96px}.pvr-one dt{flex-basis:96px}}" +
-      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .pvr-pill.s,html[data-ui2]:not([data-ui2-visit]) .pvr-err,html[data-ui2]:not([data-ui2-visit]) .pvr-form label.miss>span{color:#FF7A72}html[data-ui2]:not([data-ui2-visit]) .pvr-pill.w{color:#F2B84B}}";
+      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .pvr-pill.s,html[data-ui2]:not([data-ui2-visit]) .pvr-err,html[data-ui2]:not([data-ui2-visit]) .pvr-form label.miss>span{color:#FF7A72}html[data-ui2]:not([data-ui2-visit]) .pvr-pill.w,html[data-ui2]:not([data-ui2-visit]) .pvr-send b{color:#F2B84B}}";
     document.head.appendChild(st);
   }
 
@@ -131,12 +138,14 @@
   }
   function rowHtml(r) {
     var d = drugsOf(r).map(function (x) { return x.name; }).join(", ");
-    var who = [str(r.pt_initials).trim(), [str(r.pt_sex), r.pt_age ? r.pt_age + "y" : ""].filter(Boolean).join(" ")].filter(Boolean).join(" ");
-    var st = str(r.status || "Draft"), stc = st === "Draft" ? "w" : st === "Closed" ? "" : "ok";
+    var who = [str(r.pt_initials).trim(), low(str(r.pt_sex).trim()), r.pt_age ? r.pt_age + " years" : ""].filter(Boolean).join(" · ");
+    var dr = isDraft(r), st = str(r.status || "Draft"), stc = dr ? "w" : st === "Closed" ? "" : "ok", wait = dr ? waited(r) : "";
     return '<button class="pvr-row" data-act="open" data-id="' + esc(r.id) + '"><div class="t"><b>' + esc(r.reaction_meddra || r.reaction_description || "Reaction not described") + "</b><span>" +
       esc([dm(when(r)), who, d].filter(Boolean).join(" · ")) + '</span></div><div class="a">' +
-      (serious(r) ? '<span class="pvr-pill s">' + esc(r.reaction_seriousness) + "</span>" : "") + '<span class="pvr-pill ' + stc + '">' + esc(st) + "</span></div></button>";
+      (serious(r) ? '<span class="pvr-pill s">' + esc(r.reaction_seriousness) + "</span>" : "") + '<span class="pvr-pill ' + stc + '">' + esc(dr ? "Not sent yet" + (wait ? " · " + wait : "") : st) + "</span></div></button>";
   }
+  function waited(r) { var m = /^(\d{4}-\d{2}-\d{2})/.exec(when(r)); if (!m) return ""; var n = Math.round((Date.parse(today() + "T12:00:00Z") - Date.parse(m[1] + "T12:00:00Z")) / 864e5); return n <= 0 ? "today" : n === 1 ? "1 day" : n + " days"; }
+  function isDraft(r) { return low(str(r.status || "Draft")).trim() === "draft"; } // "draft" typed by hand elsewhere is still not sent
   function dl(pairs) {
     return '<dl class="pvr-one">' + pairs.filter(function (p) { return str(p[1]).trim(); }).map(function (p) { return "<div><dt>" + esc(p[0]) + "</dt><dd>" + esc(p[1]) + "</dd></div>"; }).join("") + "</dl>";
   }
@@ -145,9 +154,9 @@
       ["Weight", r.pt_weight ? r.pt_weight + " kg" : ""], ["Height", r.pt_height ? r.pt_height + " cm" : ""], ["Patient ID", r.pt_id], ["Medical history", r.pt_medical_history]]);
     var ds = drugsOf(r);
     h += ds.length ? ds.map(function (d, i) {
-      return '<div class="pvr-hd">Suspected medicine' + (ds.length > 1 ? " " + (i + 1) : "") + "</div>" + dl([["Medicine", d.name], ["Dose", d.dose], ["Route", d.route], ["Frequency", d.frequency], ["Started", dm(d.start_date)], ["Stopped", dm(d.stop_date)], ["Indication", d.indication], ["Batch no.", d.batch_no], ["MAH", d.mah]]);
+      return '<div class="pvr-hd">Suspected medicine' + (ds.length > 1 ? " " + (i + 1) : "") + "</div>" + dl([["Medicine", d.name], ["Dose", d.dose], ["Route", d.route], ["Frequency", d.frequency], ["Started", dm(d.start_date)], ["Stopped", dm(d.stop_date)], ["Indication", d.indication], ["Batch", d.batch_no], ["Company (MAH)", d.mah]]);
     }).join("") : '<div class="pvr-hd">Suspected medicine</div><div class="pvr-quiet">No medicine recorded.</div>';
-    h += '<div class="pvr-hd">Reaction</div>' + dl([["MedDRA term", r.reaction_meddra], ["Description", r.reaction_description], ["Started", dm(r.reaction_start)], ["Stopped", dm(r.reaction_stop)],
+    h += '<div class="pvr-hd">Reaction</div>' + dl([["Reaction term (MedDRA)", r.reaction_meddra], ["Description", r.reaction_description], ["Started", dm(r.reaction_start)], ["Stopped", dm(r.reaction_stop)],
       ["Seriousness", r.reaction_seriousness], ["Outcome", r.reaction_outcome], ["Causality", r.reaction_causality]]);
     h += '<div class="pvr-hd">Report</div>' + dl([["Date", dm(r.report_date)], ["Type", r.report_type], ["Status", r.status], ["Reporter", r.reporter_name], ["Qualification", r.reporter_qualification],
       ["Institution", r.reporter_institution], ["Phone", r.reporter_phone], ["Email", r.reporter_email], ["Address", r.reporter_address], ["Notes", r.notes]]);
@@ -161,27 +170,27 @@
     var txt = function (k, label, ph) { return '<label class="tx' + (bad(k) ? " miss" : "") + '"><span>' + label + '</span><textarea name="' + k + '"' + (bad(k) ? inv : "") + ' placeholder="' + esc(ph || "") + '">' + esc(a[k]) + "</textarea></label>"; };
     var days = [["", "Day"]]; for (var i = 1; i <= 31; i++) days.push([String(i), String(i)]);
     var mons = [["", "Month"]].concat(MON.map(function (m, j) { return [String(j + 1), m]; }));
-    var h = '<form id="pvr-add" autocomplete="off" novalidate>' +
-      '<div class="pvr-hd">Patient</div><div class="pvr-form">' +
-      fld("pt_initials", "Initials", ' placeholder="e.g. J.D." autocapitalize="characters"') + "<small>Initials only, no full names.</small>" +
-      fld("pt_age", "Age (years)", ' inputmode="numeric" placeholder="e.g. 65"') + sel("pt_sex", "Sex", SEXES) +
-      fld("pt_weight", "Weight (kg)", ' inputmode="decimal" placeholder="Optional"') + fld("pt_height", "Height (cm)", ' inputmode="decimal" placeholder="Optional"') +
-      '<div class="two" role="group" aria-label="Birthday"><span>Birthday</span><select name="pt_dob_day" aria-label="Birthday day">' + opts(days, str(a.pt_dob_day)) + '</select><select name="pt_dob_month" aria-label="Birthday month">' + opts(mons, str(a.pt_dob_month)) + "</select></div>" +
-      "<small>Day and month; the year is worked out from the age.</small>" +
-      fld("pt_id", "Patient ID", ' placeholder="ID card or passport"') + txt("pt_medical_history", "Relevant medical history", "Allergies, conditions, past reactions") + "</div>";
+    // what happened first (the reason the report is made), then the medicine, then the patient (VISUAL P2; display order only)
+    var h = '<form id="pvr-add" autocomplete="off" novalidate>' + '<div class="pvr-hd">Reaction</div><div class="pvr-form">' +
+      fld("reaction_meddra", "Reaction term (MedDRA)", ' list="pvr-meddra" placeholder="e.g. Rash, Nausea"') + txt("reaction_description", "What happened", "Onset, symptoms, course, any lab results") +
+      fld("reaction_start", "Started", ' type="date"') + fld("reaction_stop", "Stopped", ' type="date"') +
+      sel("reaction_seriousness", "Seriousness", SERIOUSNESS) + sel("reaction_outcome", "Outcome", OUTCOMES) + sel("reaction_causality", "Causality", CAUSALITY) + "<small>Causality by the WHO-UMC scale.</small></div>";
     h += a.drugs.map(function (d, i) {
       var df = function (k, label, extra) { var b = bad("drug" + i + "." + k); return "<label" + (b ? ' class="miss"' : "") + "><span>" + label + '</span><input data-i="' + i + '" data-k="' + k + '" value="' + esc(d[k]) + '"' + (b ? inv : "") + (extra || "") + "></label>"; };
       return '<div class="pvr-hd"><span>Suspected medicine' + (a.drugs.length > 1 ? " " + (i + 1) : "") + "</span>" + (a.drugs.length > 1 ? '<button type="button" class="pvr-btn t" data-act="drug-rm" data-i="' + i + '" aria-label="Remove medicine ' + (i + 1) + '">Remove</button>' : "") + '</div><div class="pvr-form">' +
         df("name", "Medicine", ' placeholder="e.g. Amoxicillin 500mg"') + df("dose", "Dose", ' placeholder="e.g. 500mg"') +
         '<label><span>Route</span><select data-i="' + i + '" data-k="route">' + opts(ROUTES, str(d.route)) + "</select></label>" +
         df("frequency", "Frequency", ' placeholder="e.g. TDS, BD"') + df("start_date", "Started", ' type="date"') + df("stop_date", "Stopped", ' type="date"') +
-        df("indication", "Indication", ' placeholder="e.g. URTI"') + df("batch_no", "Batch no.", ' placeholder="Batch or lot"') + df("mah", "MAH", ' placeholder="Marketing auth. holder"') + "</div>";
+        df("indication", "Indication", ' placeholder="e.g. URTI"') + df("batch_no", "Batch", ' placeholder="Batch or lot"') + df("mah", "Company (MAH)", ' placeholder="Marketing authorisation holder"') + "</div>";
     }).join("");
     h += '<div style="margin-top:8px"><button type="button" class="pvr-btn t" data-act="drug-add">Add another medicine</button></div>';
-    h += '<div class="pvr-hd">Reaction</div><div class="pvr-form">' +
-      fld("reaction_meddra", "MedDRA term", ' list="pvr-meddra" placeholder="e.g. Rash, Nausea"') + txt("reaction_description", "What happened", "Onset, symptoms, course, any lab results") +
-      fld("reaction_start", "Started", ' type="date"') + fld("reaction_stop", "Stopped", ' type="date"') +
-      sel("reaction_seriousness", "Seriousness", SERIOUSNESS) + sel("reaction_outcome", "Outcome", OUTCOMES) + sel("reaction_causality", "Causality", CAUSALITY) + "<small>Causality by the WHO-UMC scale.</small></div>";
+    h += '<div class="pvr-hd">Patient</div><div class="pvr-form">' +
+      fld("pt_initials", "Initials", ' placeholder="e.g. J.D." autocapitalize="characters"') + "<small>Initials only, no full names.</small>" +
+      fld("pt_age", "Age (years)", ' inputmode="numeric" placeholder="e.g. 65"') + sel("pt_sex", "Sex", SEXES) +
+      fld("pt_weight", "Weight (kg)", ' inputmode="decimal" placeholder="Optional"') + fld("pt_height", "Height (cm)", ' inputmode="decimal" placeholder="Optional"') +
+      '<div class="two" role="group" aria-label="Birthday"><span>Birthday</span><select name="pt_dob_day" aria-label="Birthday day">' + opts(days, str(a.pt_dob_day)) + '</select><select name="pt_dob_month" aria-label="Birthday month">' + opts(mons, str(a.pt_dob_month)) + "</select></div>" +
+      "<small>Day and month; the year is worked out from the age.</small>" +
+      fld("pt_id", "Patient ID", ' placeholder="ID card or passport"') + txt("pt_medical_history", "Relevant medical history", "Allergies, conditions, past reactions") + "</div>";
     h += '<div class="pvr-hd">Report</div><div class="pvr-form">' +
       fld("report_date", "Report date", ' type="date"') + sel("report_type", "Type", REPORT_TYPES) + sel("status", "Status", STATUS_LIST) + "</div>";
     h += '<div class="pvr-hd">Reporter</div><div class="pvr-form">' +
@@ -201,7 +210,7 @@
   var HIST = { local: true, title: "By month", label: "Reports made", nowText: "No reaction reported this month yet.", dep: function () { return S.loading ? undefined : S.reports; },
     active: function () { return E.state.activeModuleId === "pvreg" && S.view === "list"; }, paint: function () { paint(); },
     fetch: function (ym) { return Promise.resolve(S.reports.filter(function (r) { return when(r).slice(0, 7) === ym; }).sort(function (a, b) { return when(b).localeCompare(when(a)); })); },
-    row: function (r) { return { t: r.reaction_meddra || r.reaction_description || "Reaction not described", s: [dm(when(r)), r.pt_initials, drugsOf(r).map(function (d) { return d.name; }).join(", ")].filter(Boolean).join(" · "), r: str(r.status || "Draft") }; },
+    row: function (r) { return { t: r.reaction_meddra || r.reaction_description || "Reaction not described", s: [dm(when(r)), r.pt_initials, drugsOf(r).map(function (d) { return d.name; }).join(", ")].filter(Boolean).join(" · "), r: isDraft(r) ? "Not sent yet" : str(r.status) }; },
     print: function (ym, list) { printMonth(ym, list); } };
   function printMonth(ym, list) {
     var rows = list.slice().sort(function (a, b) { return when(a).localeCompare(when(b)); });
@@ -213,13 +222,15 @@
     if (E.state.activeModuleId !== "pvreg") return; // left before a reply came back: do not draw over the next screen
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var qi = m.querySelector("#pvr-q"); if (qi) S.q = qi.value;
-    var h = '<div class="pvr"><button class="pvr-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("pvreg")) + '</button>';
+    var inner = (S.view === "form" && S.adding) || S.view === "one"; // inside a report: back goes to the list (the form's Cancel)
+    var h = '<div class="pvr"><button class="pvr-back" data-act="' + (inner ? (S.view === "form" ? "form-cancel" : "list") : "back") + '">' + (inner ? "‹ Adverse reactions" : E.escapeHtml(E.ui2BackLabel("pvreg"))) + "</button>";
     var one = S.view === "one" ? S.reports.filter(function (r) { return String(r.id) === S.openId; })[0] : null;
     if (S.view === "form" && S.adding) {
-      h += '<div class="pvr-top"><div><h1>' + (S.base ? "Correct the report" : "New report") + '</h1><p class="pvr-sub">Fill in what you know; the rest can be added later.</p></div></div>' + formHtml();
+      h += '<div class="pvr-top"><div><h1>' + (S.base ? "Correct the report" : "New report") + '</h1><p class="pvr-sub">Fill in what you know; the rest can be added later.</p></div></div>' + (S.pre && !S.base ? '<div class="pvr-pre" role="status">' + esc(S.pre) + "</div>" : "") + formHtml();
     } else if (S.view === "one" && one) {
       h += '<div class="pvr-top"><div><h1 style="overflow-wrap:anywhere">' + esc(one.reaction_meddra || one.reaction_description || "Reaction") + '</h1><p class="pvr-sub">' + esc([dm(when(one)), one.report_type, one.status].filter(Boolean).join(" · ")) + "</p></div>" +
-        '<span style="display:flex;gap:8px"><button class="pvr-btn" data-act="list">All reports</button><button class="pvr-btn p" data-act="edit" data-id="' + esc(one.id) + '">Correct</button></span></div>' + oneHtml(one);
+        '<span style="display:flex;gap:8px;flex-wrap:wrap"><button class="pvr-btn" data-act="list">All reports</button><button class="pvr-btn' + (isDraft(one) ? "" : " p") + '" data-act="edit" data-id="' + esc(one.id) + '">Correct</button></span></div>' +
+        (isDraft(one) ? '<div class="pvr-send"><div><b>Not sent yet' + (waited(one) ? " · " + esc(waited(one)) : "") + '</b><span>Make the MPA form in the <a href="#" data-act="classic-mpa" style="color:inherit">classic screen</a>, send it, then mark it here.</span></div><button class="pvr-btn p" data-act="sent" data-id="' + esc(one.id) + '"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Mark as sent to MPA") + "</button></div>" : "") + oneHtml(one);
     } else {
       h += '<div class="pvr-top"><div><h1>Adverse reactions</h1><p class="pvr-sub">Reactions to medicines reported here, and where each report stands.</p></div><button class="pvr-btn p" data-act="add">New report</button></div>';
       if (S.loading && !S.reports.length) h += E.skeleton(4, "Opening the reports", "pvr-skel");
@@ -230,11 +241,21 @@
         var q = low(S.q).trim(), list = S.reports.filter(function (r) {
           return !q || [r.pt_initials, r.pt_id, r.reaction_description, r.reaction_meddra, r.status, r.reporter_name, r.reaction_seriousness].concat(drugsOf(r).map(function (d) { return d.name; })).some(function (v) { return low(v).indexOf(q) >= 0; });
         });
-        var drafts = S.reports.filter(function (r) { return str(r.status || "Draft") === "Draft"; }).length, shown = list.slice(0, 60);
-        h += '<div class="pvr-lab"><span>' + (q ? "Matching" : "Recent") + " <b>" + list.length + "</b></span>" + (drafts && !q ? "<span>Drafts <b>" + drafts + "</b></span>" : "") + "</div>";
-        h += shown.length ? '<div class="pvr-list">' + shown.map(rowHtml).join("") + "</div>" : '<div class="pvr-quiet">No report matches.</div>';
+        var drafts = S.reports.filter(isDraft), shown = list.slice(0, 60);
+        h += '<div class="pvr-seg" role="group" aria-label="Which reports"><button type="button" class="pvr-btn' + (S.f ? "" : " p") + '" data-act="f-all" aria-pressed="' + !S.f + '">All <b>' + S.reports.length + '</b></button><button type="button" class="pvr-btn' + (S.f ? " p" : "") + '" data-act="f-draft" aria-pressed="' + !!S.f + '">Not sent yet <b>' + drafts.length + "</b></button></div>";
+        if (S.f) list = list.filter(isDraft);
+        if (!q) { // not sent yet first, the longest waiting at the top; then the sent and closed ones, newest first
+          var nd = list.filter(isDraft).sort(function (a, b) { return when(a).localeCompare(when(b)); }), sent = list.filter(function (r) { return !isDraft(r); });
+          if (nd.length) h += '<div class="pvr-lab"><span>Not sent yet <b>' + nd.length + '</b></span><span>Longest waiting first</span></div><div class="pvr-list">' + nd.slice(0, 60).map(rowHtml).join("") + "</div>";
+          else if (S.f) h += '<div class="pvr-quiet">Every report has been sent. Nothing is waiting.</div>';
+          if (!S.f) { shown = sent.slice(0, 60); if (sent.length) h += '<div class="pvr-lab"><span>Sent and closed <b>' + sent.length + '</b></span></div><div class="pvr-list">' + shown.map(rowHtml).join("") + "</div>"; list = sent; }
+          else { shown = list; }
+        } else {
+          h += '<div class="pvr-lab"><span>Matching <b>' + list.length + "</b></span></div>";
+          h += shown.length ? '<div class="pvr-list">' + shown.map(rowHtml).join("") + "</div>" : '<div class="pvr-quiet">No report matches.</div>';
+        }
         if (list.length > shown.length) h += '<p class="pvr-note">Showing the newest 60. Search to find an older one, or go by month below.</p>';
-        if (!q) h += E.months.history("pvreg", HIST); // every report of a month, any month, and its printout
+        if (!q && !S.f) h += E.months.history("pvreg", HIST); // every report of a month, any month, and its printout
       }
     }
     h += '<p class="pvr-note">Deleting a report, printing it and the PDF form are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
@@ -247,14 +268,17 @@
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
         if (act === "back") window.location.hash = E.ui2BackHash("pvreg");
-        else if (act === "add") { S.adding = fresh(); S.base = null; S.err = ""; S.miss = []; S.force = ""; S.view = "form"; paint(true); window.scrollTo(0, 0); focus("pt_initials"); }
+        else if (act === "add") { S.adding = fresh(); S.base = null; S.err = ""; S.miss = []; S.force = ""; S.view = "form"; paint(true); window.scrollTo(0, 0); focus("reaction_meddra"); }
         else if (act === "open") { S.openId = b.getAttribute("data-id"); S.view = "one"; paint(true); window.scrollTo(0, 0); focusSel("[data-act=list]"); }
         else if (act === "list") { var id = S.openId; S.view = "list"; paint(true); focusSel('.pvr-row[data-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]'); }
         else if (act === "edit") { startEdit(b.getAttribute("data-id")); }
-        else if (act === "form-cancel") { S.err = ""; S.miss = []; S.force = ""; S.view = S.base ? "one" : "list"; S.adding = null; S.base = null; paint(true); }
+        else if (act === "form-cancel") { S.pre = ""; S.err = ""; S.miss = []; S.force = ""; S.view = S.base ? "one" : "list"; S.adding = null; S.base = null; paint(true); }
         else if (act === "drug-add") { keep(); S.adding.drugs.push(blankDrug()); paint(true); focusSel('[data-i="' + (S.adding.drugs.length - 1) + '"][data-k=name]'); }
         else if (act === "drug-rm") { keep(); S.adding.drugs.splice(Number(b.getAttribute("data-i")), 1); paint(true); }
         else if (act === "retry") load();
+        else if (act === "f-all" || act === "f-draft") { S.f = act === "f-draft" ? "draft" : ""; paint(true); focusSel("[data-act=" + act + "]"); }
+        else if (act === "sent") markSent(b.getAttribute("data-id"));
+        else if (act === "classic-mpa") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "pvreg"); } catch (x) {} E.openClassic("pharmacovigilance"); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "pvreg"); } catch (x) {} E.openClassic("pharmacovigilance"); }
       });
     });
@@ -288,13 +312,26 @@
       reporter_phone: prev ? str(prev.reporter_phone) : "", reporter_institution: str(u.location_name), reporter_address: prev ? str(prev.reporter_address) : "",
       report_date: today(), notes: "" };
   }
-  function startEdit(id) {
-    var r = S.reports.filter(function (x) { return String(x.id) === String(id); })[0]; if (!r) return;
-    S.base = copy(r); S.adding = copy(r); S.err = ""; S.miss = []; S.force = ""; S.openId = String(r.id);
+  function prepEdit(id) { // the record as read, every field as the form would hold it
+    var r = S.reports.filter(function (x) { return String(x.id) === String(id); })[0]; if (!r) return null;
+    S.base = copy(r); S.adding = copy(r); S.err = ""; S.miss = []; S.force = ""; S.openId = String(r.id); S.pre = "";
     FIELDS.forEach(function (k) { S.adding[k] = str(S.adding[k]); });
     if (!Array.isArray(S.adding.drugs) || !S.adding.drugs.length) S.adding.drugs = [blankDrug()];
     S.adding.drugs = S.adding.drugs.map(function (d) { var o = Object.assign({}, d || {}); DRUG.forEach(function (k) { o[k] = str(o[k]); }); return o; });
-    S.view = "form"; paint(true); window.scrollTo(0, 0); focus("pt_initials");
+    return r;
+  }
+  function startEdit(id) {
+    if (!prepEdit(id)) return;
+    S.view = "form"; paint(true); window.scrollTo(0, 0); focus("reaction_meddra");
+  }
+  // One tap on a Draft: the same edit as choosing "Submitted to MPA" in the form and saving (re-read, unchanged check,
+  // the whole report with only the status changed). Anything the save needs from a person opens the form instead.
+  async function markSent(id) {
+    if (S.saving || !prepEdit(id)) return;
+    S.adding.status = "Submitted to MPA"; S.view = "one"; S.marking = true;
+    try { await save(); } finally { S.marking = false; }
+    if (S.adding && S.err) { S.view = "form"; paint(true); window.scrollTo(0, 0); showErr(); return; }
+    focusSel("[data-act=edit]");
   }
 
   // The whole report: for an edit, the record as read with the form laid over it (fields the form does not show are
@@ -315,9 +352,9 @@
     keep();
     var a = S.adding, errs = [], mk = []; S.err = ""; S.miss = [];
     // the classic screen's three checks, all shown at once, each field marked and the first one focused
-    if (!str(a.pt_initials).trim() && !str(a.pt_age).trim()) { errs.push("Write the patient's initials or age."); mk.push("pt_initials", "pt_age"); }
-    if (!a.drugs.some(function (d) { return str(d.name).trim(); })) { errs.push("Write at least one suspected medicine."); mk.push("drug0.name"); }
     if (!str(a.reaction_description).trim() && !str(a.reaction_meddra).trim()) { errs.push("Describe the reaction or choose a MedDRA term."); mk.push("reaction_meddra", "reaction_description"); }
+    if (!a.drugs.some(function (d) { return str(d.name).trim(); })) { errs.push("Write at least one suspected medicine."); mk.push("drug0.name"); }
+    if (!str(a.pt_initials).trim() && !str(a.pt_age).trim()) { errs.push("Write the patient's initials or age."); mk.push("pt_initials", "pt_age"); }
     if (errs.length) { S.miss = mk; S.err = errs.join(" ") + " Nothing was saved."; paint(true); var first = S.mount && S.mount.querySelector("#pvr-add [aria-invalid=true]"); if (first) first.focus(); else showErr(); return; }
     var rec = build(), editing = !!S.base;
     S.saving = true; paint(true);
@@ -348,12 +385,34 @@
     S.openId = String(rec.id); S.view = "one";
     var i = -1; S.reports.forEach(function (x, j) { if (String(x.id) === String(rec.id)) i = j; });
     if (i >= 0) S.reports[i] = rec; else S.reports.unshift(rec);
-    E.toast(editing ? "Saved · report corrected" : "Saved · reaction report", "success");
+    S.pre = "";
+    E.toast(editing ? (S.marking ? "Saved · marked as sent to MPA" : "Saved · report corrected") : "Saved · reaction report", "success");
+  }
+
+  function take(key, maxAge) { // read once and remove (V-C2/V-C3); stale or broken entries are dropped
+    var v = null; try { v = JSON.parse(sessionStorage.getItem(key) || "null"); sessionStorage.removeItem(key); } catch (e) { v = null; }
+    return v && typeof v === "object" && Date.now() - Number(v.at || 0) <= maxAge ? v : null;
+  }
+  function applyPrefill(pre) { // only fields the form already has; every one stays editable
+    var a = S.adding, d = a.drugs[0];
+    if (pre.pt_initials) a.pt_initials = str(pre.pt_initials); if (pre.pt_id) a.pt_id = str(pre.pt_id);
+    d.name = str(pre.drug_name); if (pre.drug_dose) d.dose = str(pre.drug_dose); if (ROUTES.indexOf(pre.drug_route) >= 0) d.route = pre.drug_route;
+    d.start_date = str(pre.drug_start_date); d.stop_date = str(pre.drug_stop_date); d.indication = str(pre.drug_indication); d.batch_no = str(pre.drug_batch_no);
+    (Array.isArray(pre.more_drugs) ? pre.more_drugs : []).forEach(function (nm) { var x = blankDrug(); x.name = str(nm); x.route = d.route; x.start_date = d.start_date; x.indication = d.indication; a.drugs.push(x); });
+    if (pre.reaction_start) a.reaction_start = str(pre.reaction_start); if (pre.notes) a.notes = str(pre.notes);
+    S.pre = "Filled from the vaccination of " + str(pre.who) + (pre.on ? " on " + dm(pre.on) : "") + ". Describe what happened, check the rest, and save.";
   }
 
   E.registerModule({
     id: "pvreg", title: "Adverse reactions", order: 3, icon: "!", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; E.months.historyReset("pvreg"); S.view = "list"; S.openId = ""; S.adding = null; S.base = null; S.err = ""; S.miss = []; S.force = ""; S.q = ""; css(); paint(); return E.takeOpenForm("pvreg", S.mount, load(), { btn: "[data-act=add]", form: "#pvr-add", isNew: function () { return !S.base; } }); }
+    render: function (ctx) {
+      S.mount = ctx && ctx.mount; E.months.historyReset("pvreg"); S.view = "list"; S.openId = ""; S.adding = null; S.base = null; S.err = ""; S.miss = []; S.force = ""; S.q = ""; S.f = ""; S.pre = ""; css();
+      var o = take("eikon_svc_open", 60000); if (o && o.to === "pvreg" && o.f === "draft") S.f = "draft";
+      var pre = take("eikon_pv_prefill", 5 * 60000);
+      if (pre && pre.from === "vaxreg") { // a reaction after a vaccine: a new report, filled from the vaccination, for the person to complete
+        var p0 = load(); S.adding = fresh(); applyPrefill(pre); S.base = null; S.view = "form"; paint(true); window.scrollTo(0, 0); focus("reaction_meddra"); return p0;
+      }
+      paint(); return E.takeOpenForm("pvreg", S.mount, load(), { btn: "[data-act=add]", form: "#pvr-add", isNew: function () { return !S.base; } }); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("pvreg") < 0) E.UI2_DESTINATIONS.push("pvreg");
   if (E.UI2_PARENT) E.UI2_PARENT.pvreg = "services";

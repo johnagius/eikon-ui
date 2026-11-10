@@ -88,6 +88,33 @@
     return "";
   }
 
+  // On screen only: the stored "Blood Pressure Check" reads "Blood pressure check" (short capitals such as BMI and GP stay).
+  function sc(v) { return str(v).split(/(\s+|\/)/).map(function (w, i) { return i && /^[A-Z][a-z]+$/.test(w) ? w.toLowerCase() : w; }).join(""); }
+  // The reading against POCT's own guide (E.pocGuide, the same words: "In the guide range", "High", "Raised", "Low"),
+  // shown only. Screening stores fasting as Yes/No; the guide reads Fasting/Non-fasting.
+  function guideOf(t, r) {
+    if (!t || !E.pocGuide) return null;
+    var x = copy(r || {});
+    if (t === "chol") x.fasting = x.fasting === "Yes" ? "Fasting" : x.fasting === "No" ? "Non-fasting" : "";
+    try { return E.pocGuide.verdict(t, x); } catch (e) { return null; }
+  }
+  function marks(v) { return v ? (v.f.length ? v.f.map(function (m) { return '<span class="scr-pill ' + (m.k === "bad" ? "s" : "w") + '">' + esc(m.t) + "</span>"; }).join("") : '<span class="scr-pill ok">In the guide range</span>') : ""; }
+  // Follow-ups in the words used across Services: "Due today", "Overdue · 3 days", "Due Mon 16 Nov", "Done ✓".
+  var DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  function daysFrom(a, b) { return Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 864e5); }
+  function fuWords(f) {
+    if (f.status === "Completed") return ["Done ✓", "ok"];
+    if (f.status === "Cancelled") return ["Cancelled", ""];
+    var d = str(f.scheduledDate), t = today(); if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return [f.status || "Pending", ""];
+    var n = daysFrom(d, t);
+    if (n > 0) return ["Overdue · " + n + (n === 1 ? " day" : " days"), "w"];
+    if (n === 0) return ["Due today", "w"];
+    var dt = new Date(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10));
+    return ["Due " + DAY[dt.getDay()] + " " + dt.getDate() + " " + MON[dt.getMonth()], ""];
+  }
+  function fuDay(d) { if (!/^\d{4}-\d{2}-\d{2}$/.test(str(d))) return ""; var dt = new Date(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)); return "<i>" + DAY[dt.getDay()] + " " + dt.getDate() + " " + MON[dt.getMonth()] + (dt.getFullYear() !== new Date().getFullYear() ? " " + dt.getFullYear() : "") + "</i>"; }
+  function openFu(f) { return !!f && f.status !== "Completed" && f.status !== "Cancelled"; }
+  function addDays(n) { var d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
   function css() {
     if (document.getElementById("eikon-scrreg-css")) return;
     var st = document.createElement("style");
@@ -112,6 +139,8 @@
       ".scr-row .a{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:0 0 auto;max-width:44%}" +
       ".scr-pill{display:inline-block;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;box-sizing:border-box;background:rgba(118,118,128,.14);color:var(--muted)}" +
       ".scr-pill.s{background:rgba(215,38,28,.12);color:var(--danger)}.scr-pill.w{background:rgba(201,138,18,.16);color:var(--warn,#8A5A08)}.scr-pill.ok{background:rgba(10,143,106,.12);color:var(--accent)}" +
+      ".scr-row .scr-pill:not(.s):not(.w):not(.ok){color:var(--text)}" +
+      "button.scr-row[data-act=part] .a{flex-direction:row;flex-wrap:wrap;justify-content:flex-end;align-items:center;max-width:55%}" +
       ".scr-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:14px}" +
       ".scr-stats div{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;min-width:0}" +
       ".scr-stats b{display:block;font-size:22px;font-weight:700;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.scr-stats span{display:block;font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
@@ -133,10 +162,30 @@
       ".scr-one{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:8px 0 0}" +
       ".scr-one div{display:flex;gap:12px;padding:9px 16px;border-top:.5px solid var(--border);font-size:14.5px}.scr-one div:first-child{border-top:0}" +
       ".scr-one dt{flex:0 0 130px;color:var(--muted);margin:0}.scr-one dd{flex:1;min-width:0;margin:0;overflow-wrap:anywhere;white-space:pre-wrap}" +
+      ".scr-tabs{display:flex;gap:6px;margin-top:16px;background:rgba(118,118,128,.12);border-radius:12px;padding:3px;width:max-content;max-width:100%}" +
+      ".scr-tabs button{font:inherit;font-size:14.5px;font-weight:600;min-height:40px;padding:0 16px;border-radius:10px;border:0;background:transparent;color:var(--text);cursor:pointer}" +
+      ".scr-tabs button[aria-pressed=true]{background:var(--panel2);box-shadow:0 1px 3px rgba(0,0,0,.12)}.scr-tabs b{color:var(--warn,#8A5A08);font-weight:700}" +
+      ".scr-tabs button:focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:1px}" +
+      ".scr-stats div.s b{color:var(--danger)}.scr-stats div.w b{color:var(--warn,#8A5A08)}" +
+      ".scr-sub .scr-pill{vertical-align:1px;margin-right:4px}" +
+      ".scr-bar{display:flex;gap:2px;height:10px;border-radius:5px;overflow:hidden;margin-top:14px}.scr-bar i{display:block;min-width:4px}" +
+      ".scr-legend{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13.5px;color:var(--muted)}.scr-legend b{color:var(--text);font-variant-numeric:tabular-nums}" +
+      ".scr-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}" +
+      ".scr-bar .ok,.scr-legend .ok{background:#0A8F6A}.scr-bar .w,.scr-legend .w{background:#C98A12}.scr-bar .s,.scr-legend .s{background:#E0584F}.scr-bar .u,.scr-legend .u{background:#9E1B14}.scr-bar .n,.scr-legend .n{background:rgba(118,118,128,.35)}" +
+      ".scr-fu{gap:10px}.scr-fu-open{flex:1;min-width:0;text-align:left;font:inherit;color:inherit;background:none;border:0;padding:4px 0;cursor:pointer;min-height:44px}" +
+      ".scr-fu-open:focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:2px;border-radius:6px}.scr-fu .a{flex-direction:row;align-items:center;flex-wrap:wrap;justify-content:flex-end;max-width:60%}" +
+      ".scr-row .a .scr-btn{height:36px}" +
+      ".scr-marks{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin:8px 2px 0;font-size:13.5px;color:var(--muted)}" +
+      ".scr-marks .scr-pill.s{color:#A31B14}" +
+      ".scr-live{padding:10px 14px;border-top:.5px solid var(--border)}.scr-live .scr-marks{margin:0}.scr-live-wait{font-size:13.5px;color:var(--muted)}" +
+      ".scr-form.res label:has(input[inputmode=decimal]){min-height:58px}.scr-form.res input[inputmode=decimal]{flex:0 1 6.5em;font-size:24px;font-weight:650;font-variant-numeric:tabular-nums}.scr-form.res label>i{flex:1;font-size:15px}" +
+      ".scr-when{display:flex;flex-wrap:wrap;gap:8px;padding:4px 14px 10px}" +
+      ".scr-when button{font:inherit;font-size:14px;font-weight:600;min-height:44px;padding:0 14px;border-radius:22px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer}" +
+      ".scr-when button:focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:2px}" +
       ".scr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".scr-note{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.5}.scr-note a{color:var(--accent)}" +
-      "@media (max-width:600px){.scr-btn{height:44px;border-radius:22px;padding:0 18px;font-size:15px}.scr-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.scr-q{height:44px}.scr{padding:4px 16px 0}.scr h1{font-size:32px}.scr-form label>span{flex-basis:100px}.scr-one dt{flex-basis:100px}.scr-row{padding:10px 14px}.scr-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}" +
-      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .scr-pill.s,html[data-ui2]:not([data-ui2-visit]) .scr-err,html[data-ui2]:not([data-ui2-visit]) .scr-form label.miss>span{color:#FF7A72}html[data-ui2]:not([data-ui2-visit]) .scr-pill.w{color:#F2B84B}}";
+      "@media (max-width:600px){.scr-btn{height:44px;border-radius:22px;padding:0 18px;font-size:15px}.scr-back{display:inline-flex;align-items:center;min-height:44px;padding:0}.scr-q{height:44px}.scr{padding:4px 16px 0}.scr h1{font-size:32px}.scr-form label>span{flex-basis:100px}.scr-one dt{flex-basis:100px}.scr-row{padding:10px 14px}.scr-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.scr-tabs{width:auto}.scr-tabs button{flex:1;min-height:44px}.scr-row .a .scr-btn{height:44px}.scr-fu{flex-wrap:wrap}.scr-fu .a{max-width:none;flex-basis:100%}}" +
+      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .scr-pill.s,html[data-ui2]:not([data-ui2-visit]) .scr-err,html[data-ui2]:not([data-ui2-visit]) .scr-form label.miss>span{color:#FF7A72}html[data-ui2]:not([data-ui2-visit]) .scr-pill.w{color:#F2B84B}html[data-ui2]:not([data-ui2-visit]) .scr-stats div.s b{color:#FF7A72}html[data-ui2]:not([data-ui2-visit]) :is(.scr-stats div.w b,.scr-tabs b){color:#F2B84B}}";
     document.head.appendChild(st);
   }
 
@@ -165,7 +214,12 @@
     return rows.length ? '<dl class="scr-one">' + rows.map(function (p) { return "<div><dt>" + esc(p[0]) + "</dt><dd>" + esc(p[1]) + "</dd></div>"; }).join("") + "</dl>" : "";
   }
   function statusPill(s) { return '<span class="scr-pill' + (s === "Active" ? " ok" : s === "Cancelled" ? " w" : "") + '">' + esc(s) + "</span>"; }
-  function catPill(c) { return c ? '<span class="scr-pill' + (c === "Normal" ? " ok" : c === "Borderline" ? " w" : " s") + '">' + esc(c) + "</span>" : ""; }
+  // The stored category as chosen; a reading outside the guide adds its own mark beside it (a "Normal" next to a high
+  // reading is then never alone).
+  function catPill(c, v) {
+    var off = v && v.f.length;
+    return (c ? '<span class="scr-pill' + (c === "Normal" ? " ok" : c === "Borderline" ? " w" : " s") + '">' + esc(c) + "</span>" : "") + (off ? marks(v) : "");
+  }
   function counts(c) {
     var ps = parts(c), fu = 0, od = 0;
     ps.forEach(function (p) { (Array.isArray(p.followUps) ? p.followUps : []).forEach(function (f) { fu++; if (overdue(f)) od++; }); });
@@ -177,13 +231,13 @@
     var k = counts(c), st = statusOf(c);
     var line = [k.n + " screened" + (k.goal ? " of " + k.goal : ""), k.abn ? k.abn + " abnormal" : "", k.ref ? k.ref + (k.ref === 1 ? " referral" : " referrals") : "", k.od ? k.od + " follow-up" + (k.od === 1 ? "" : "s") + " overdue" : ""].filter(Boolean).join(" · ");
     return '<button type="button" class="scr-row" data-act="camp" data-id="' + esc(c.id) + '"><div class="t"><b>' + esc(c.name || "Untitled campaign") + "</b><span>" +
-      esc([c.type, period(c), c.location].filter(Boolean).join(" · ")) + "</span><span>" + esc(line) + '</span></div><div class="a">' + statusPill(st) + "</div></button>";
+      esc([sc(c.type), period(c), sc(c.location)].filter(Boolean).join(" · ")) + "</span><span>" + esc(line) + '</span></div><div class="a">' + statusPill(st) + "</div></button>";
   }
   function partRow(c, p) {
     var t = testOf(c), sm = summary(t, p.poctResults);
     return '<button type="button" class="scr-row" data-act="part" data-id="' + esc(p.id) + '"><div class="t"><b>' + esc(p.name || p.idCard || "No name") + "</b><span>" +
       esc([p.idCard && p.name ? p.idCard : "", dm(p.date), p.type].filter(Boolean).join(" · ")) + "</span>" + (sm || p.resultNotes ? "<span>" + esc(sm || p.resultNotes) + "</span>" : "") +
-      '</div><div class="a">' + catPill(p.resultCategory) + (isRef(p) ? '<span class="scr-pill w">' + esc(p.referral) + "</span>" : "") + "</div></button>";
+      '</div><div class="a">' + catPill(p.resultCategory, guideOf(t, p.poctResults)) + (isRef(p) ? '<span class="scr-pill">' + esc(p.referral) + "</span>" : "") + "</div></button>";
   }
 
   function listHtml() {
@@ -191,6 +245,10 @@
     if (S.loading && !S.campaigns.length) return h + E.skeleton(3, "Opening the campaigns", "scr-skel");
     if (S.error) return h + '<div class="scr-quiet" role="alert">' + esc(S.error) + ' <button type="button" class="scr-btn" data-act="retry" style="margin-left:6px">Try again</button></div>';
     if (!S.campaigns.length) return h + '<div class="scr-quiet">No campaign yet. Press New campaign to plan the first one, for example a blood pressure check day.</div>';
+    var fus = allFus(), due = fus.filter(function (x) { return x.f.scheduledDate && x.f.scheduledDate <= today(); }).length;
+    h += '<div class="scr-tabs" role="group" aria-label="Show"><button type="button" data-act="tab" data-tab="camps" aria-pressed="' + (S.tab !== "fu") + '">Campaigns</button>' +
+      '<button type="button" data-act="tab" data-tab="fu" aria-pressed="' + (S.tab === "fu") + '">Follow-ups' + (due ? " <b>" + due + " due</b>" : fus.length ? " " + fus.length : "") + "</button></div>";
+    if (S.tab === "fu") return h + fuHtml(fus);
     h += '<input class="scr-q" id="scr-q" type="search" aria-label="Search campaigns" placeholder="Search campaigns by name or type" value="' + esc(S.q) + '">';
     var q = low(S.q).trim(), list = S.campaigns.filter(function (c) { return !q || low(c.name).indexOf(q) >= 0 || low(c.type).indexOf(q) >= 0; });
     var now = list.filter(function (c) { return statusOf(c) === "Active"; }), rest = list.filter(function (c) { return statusOf(c) !== "Active"; });
@@ -200,18 +258,50 @@
     return h;
   }
 
+  // Every follow-up still open, across the campaigns: overdue and due today first, then the coming ones by date.
+  function allFus() {
+    var out = [];
+    S.campaigns.forEach(function (c) { parts(c).forEach(function (p) { (Array.isArray(p.followUps) ? p.followUps : []).forEach(function (f) { if (openFu(f)) out.push({ c: c, p: p, f: f }); }); }); });
+    return out.sort(function (a, b) { return str(a.f.scheduledDate || "9999").localeCompare(str(b.f.scheduledDate || "9999")); });
+  }
+  function fuRow(x, withCamp) {
+    var w = fuWords(x.f), busy = S.marking === x.f.id;
+    return '<div class="scr-row scr-fu"><button type="button" class="t scr-fu-open" data-act="fu-open" data-c="' + esc(x.c.id) + '" data-p="' + esc(x.p.id) + '"><b>' + esc(x.p.name || x.p.idCard || "No name") + "</b><span>" +
+      esc([x.f.reason || "Follow-up", withCamp ? x.c.name : "", x.p.phone].filter(Boolean).join(" · ")) + "</span></button>" +
+      '<div class="a"><span class="scr-pill ' + w[1] + '">' + esc(w[0]) + "</span>" +
+      '<button type="button" class="scr-btn" data-act="fu-done" data-c="' + esc(x.c.id) + '" data-p="' + esc(x.p.id) + '" data-f="' + esc(x.f.id) + '"' + (busy ? " disabled" : "") + ' aria-label="Mark done: ' + esc(x.f.reason || "follow-up") + " for " + esc(x.p.name || x.p.idCard || "") + '">' + (busy ? "Saving…" : "Mark done") + "</button></div></div>";
+  }
+  function fuHtml(fus) {
+    var e = S.fuErr ? '<div class="scr-err" role="alert">' + esc(S.fuErr) + "</div>" : "";
+    if (!fus.length) return (e || "") + '<div class="scr-quiet">No follow-up waiting. A follow-up date can be set when a person is screened.</div>';
+    var due = fus.filter(function (x) { return x.f.scheduledDate && x.f.scheduledDate <= today(); }), later = fus.filter(function (x) { return !(x.f.scheduledDate && x.f.scheduledDate <= today()); });
+    var h = e || "";
+    if (due.length) h += '<div class="scr-lab"><span>Due now <b>' + due.length + '</b></span></div><div class="scr-list">' + due.map(function (x) { return fuRow(x, true); }).join("") + "</div>";
+    if (later.length) h += '<div class="scr-lab"><span>Coming up <b>' + later.length + '</b></span></div><div class="scr-list">' + later.slice(0, 50).map(function (x) { return fuRow(x, true); }).join("") + "</div>";
+    return h;
+  }
+
   function campHtml(c) {
     var k = counts(c), st = statusOf(c), ps = parts(c);
-    var h = '<div class="scr-top"><div><h1>' + esc(c.name || "Untitled campaign") + '</h1><p class="scr-sub">' + esc([c.type, period(c), c.location].filter(Boolean).join(" · ")) + " " + "</p></div>" +
-      '<span class="scr-acts-top"><button class="scr-btn" data-act="list">All campaigns</button><button class="scr-btn p" data-act="add">New screening</button></span></div>';
+    var h = '<div class="scr-top"><div><h1>' + esc(c.name || "Untitled campaign") + '</h1><p class="scr-sub">' + statusPill(st) + " " + esc([sc(c.type), period(c), sc(c.location)].filter(Boolean).join(" · ")) + "</p></div>" +
+      '<span class="scr-acts-top"><button class="scr-btn p" data-act="add">New screening</button></span></div>';
     h += '<div class="scr-stats" role="group" aria-label="Campaign totals">' +
       "<div><b>" + k.n + (k.goal ? ' <span style="display:inline;font-size:14px">/ ' + k.goal + "</span>" : "") + "</b><span>Screened" + (k.goal ? " of the goal" : "") + "</span></div>" +
-      "<div><b>" + k.abn + "</b><span>Abnormal</span></div><div><b>" + k.ref + "</b><span>Referrals</span></div><div><b>" + k.od + "</b><span>Follow-ups overdue</span></div></div>";
-    h += '<div style="margin-top:10px">' + statusPill(st) + "</div>";
+      "<div" + (k.abn ? ' class="s"' : "") + "><b>" + k.abn + "</b><span>Abnormal</span></div><div><b>" + k.ref + "</b><span>Referrals</span></div><div" + (k.od ? ' class="w"' : "") + "><b>" + k.od + "</b><span>Follow-ups overdue</span></div></div>";
+    if (ps.length) { // the results at a glance: each category in words with its count, on one bar
+      var cats = RESULT_CATEGORIES.map(function (x) { return [x, ps.filter(function (p) { return p.resultCategory === x; }).length]; }), none = ps.filter(function (p) { return RESULT_CATEGORIES.indexOf(p.resultCategory) < 0; }).length;
+      if (none) cats.push(["Not chosen", none]);
+      var cls = { "Normal": "ok", "Borderline": "w", "Abnormal": "s", "Requires urgent attention": "u", "Not chosen": "n" };
+      h += '<div class="scr-bar" aria-hidden="true">' + cats.filter(function (x) { return x[1]; }).map(function (x) { return '<i class="' + cls[x[0]] + '" style="flex-grow:' + x[1] + '"></i>'; }).join("") + "</div>" +
+        '<ul class="scr-legend" aria-label="Results">' + cats.filter(function (x) { return x[1]; }).map(function (x) { return '<li><i class="' + cls[x[0]] + '"></i>' + esc(x[0]) + " <b>" + x[1] + "</b></li>"; }).join("") + "</ul>";
+      var cfu = allFus().filter(function (x) { return String(x.c.id) === String(c.id) && x.f.scheduledDate && x.f.scheduledDate <= today(); });
+      if (cfu.length) h += '<div class="scr-lab"><span>Follow-ups due <b>' + cfu.length + '</b></span></div><div class="scr-list">' + cfu.map(function (x) { return fuRow(x, false); }).join("") + "</div>";
+    }
     if (has(c.notes)) h += '<div class="scr-hd">Notes</div>' + dl([["Notes", c.notes]]);
     if (!ps.length) return h + '<div class="scr-quiet">Nobody screened yet. Press New screening for each person you check.</div>';
     if (ps.length > 6) h += '<input class="scr-q" id="scr-pq" type="search" aria-label="Search people in this campaign" placeholder="Search by name, ID card or phone" value="' + esc(S.pq) + '">';
-    var q = low(S.pq).replace(/\s+/g, ""), list = ps.slice().reverse().filter(function (p) { // the latest screened first
+    var urg = function (p) { return p.resultCategory === "Requires urgent attention" ? 0 : 1; };
+    var q = low(S.pq).replace(/\s+/g, ""), list = ps.slice().reverse().sort(function (a, b) { return urg(a) - urg(b); }).filter(function (p) { // urgent first, then the latest screened
       return !q || low(p.name).replace(/\s+/g, "").indexOf(q) >= 0 || low(p.idCard).indexOf(q) >= 0 || low(p.phone).replace(/\s+/g, "").indexOf(q) >= 0;
     });
     h += '<div class="scr-lab"><span>' + (q ? "Matching" : "Screened") + " <b>" + list.length + "</b></span></div>";
@@ -226,16 +316,17 @@
     h += '<div class="scr-hd">Person</div>' + dl([["ID card", p.idCard], ["Name", p.name], ["Phone", p.phone], ["Email", p.email], ["Date of birth", dm(p.dob)], ["Type", p.type], ["Screened on", dm(p.date)]]);
     if (def) {
       var rows = def.f.map(function (f) { return [f[1], has(r[f[0]]) ? r[f[0]] + (f[2] === "%" ? "%" : f[2] ? " " + f[2] : "") : ""]; });
-      var shown = dl(rows);
-      h += '<div class="scr-hd">' + esc(def.label) + "</div>" + (shown || '<div class="scr-quiet">No results written.</div>');
+      var shown = dl(rows), gv = guideOf(t, r);
+      h += '<div class="scr-hd">' + esc(def.label) + "</div>" + (shown ? (gv ? '<div class="scr-marks">' + marks(gv) + (gv.guide ? "<span>" + esc(gv.guide) + "</span>" : "") + "</div>" : "") + shown : '<div class="scr-quiet">No results written.</div>');
     }
     h += '<div class="scr-hd">Assessment</div>' + (dl([["Result", p.resultNotes], ["Category", p.resultCategory], ["Referral", p.referral], ["Referral notes", p.referralNotes]]) || '<div class="scr-quiet">No assessment written.</div>');
     var fus = Array.isArray(p.followUps) ? p.followUps.filter(Boolean) : [];
     h += '<div class="scr-hd">Follow-ups</div>';
-    h += fus.length ? '<div class="scr-list" style="margin-top:8px">' + fus.map(function (f) {
-      return '<div class="scr-row"><div class="t"><b>' + esc(f.reason || "Follow-up") + "</b><span>" + esc([dm(f.scheduledDate), f.notes].filter(Boolean).join(" · ")) + '</span></div><div class="a">' +
-        (overdue(f) ? '<span class="scr-pill s">Overdue</span>' : "") + '<span class="scr-pill' + (f.status === "Completed" ? " ok" : "") + '">' + esc(f.status || "Pending") + "</span></div></div>";
-    }).join("") + "</div>" : '<div class="scr-quiet">No follow-up scheduled. Follow-ups are scheduled in the classic screen.</div>';
+    h += fus.length ? (S.fuErr ? '<div class="scr-err" role="alert">' + esc(S.fuErr) + "</div>" : "") + '<div class="scr-list" style="margin-top:8px">' + fus.map(function (f) {
+      var w = fuWords(f), busy = S.marking === f.id;
+      return '<div class="scr-row"><div class="t"><b>' + esc(f.reason || "Follow-up") + "</b><span>" + esc([dm(f.scheduledDate), f.status && f.status !== "Pending" && f.status !== "Completed" ? f.status : "", f.notes].filter(Boolean).join(" · ")) + '</span></div><div class="a">' +
+        '<span class="scr-pill ' + w[1] + '">' + esc(w[0]) + "</span>" + (openFu(f) ? '<button type="button" class="scr-btn" data-act="fu-done" data-c="' + esc(c.id) + '" data-p="' + esc(p.id) + '" data-f="' + esc(f.id) + '"' + (busy ? " disabled" : "") + ">" + (busy ? "Saving…" : "Mark done") + "</button>" : "") + "</div></div>";
+    }).join("") + "</div>" : '<div class="scr-quiet">No follow-up for this person.</div>';
     return h;
   }
 
@@ -249,28 +340,39 @@
 
   function addHtml(c) {
     var a = S.adding, t = testOf(c), def = t ? FIELDS[t] : null;
-    var h = '<div class="scr-top"><div><h1>New screening</h1><p class="scr-sub">' + esc([c.name, c.type].filter(Boolean).join(" · ")) + "</p></div></div>" +
+    var h = '<div class="scr-top"><div><h1>New screening</h1><p class="scr-sub">' + esc([c.name, sc(c.type)].filter(Boolean).join(" · ")) + "</p></div></div>" +
       '<form id="scr-add" autocomplete="off" novalidate aria-label="New screening">';
     h += '<div class="scr-hd">Person</div><div class="scr-form">' +
       fld("idCard", "ID card", ' placeholder="e.g. 123456M" autocapitalize="characters"', a.found ? "<small>Known</small>" : "") +
-      fld("name", "Name", ' placeholder="Name and surname"') + fld("phone", "Phone", ' type="tel" inputmode="tel" placeholder="+356 …"') +
+      fld("name", "Name", ' placeholder="Name and surname"') + fld("phone", "Phone", ' type="tel" inputmode="tel" placeholder="+356"') +
       fld("dob", "Date of birth", ' type="date"') + sel("type", "Type", PARTICIPANT_TYPES) + fld("date", "Screened on", ' type="date"') +
       '<span class="hint">An ID card or a name is needed.</span></div>';
     if (a.before) h += '<div class="scr-info" role="status">' + esc(a.before) + "</div>";
     if (def) {
-      h += '<div class="scr-hd">' + esc(def.label) + '</div><div class="scr-form">' + def.f.map(function (f) {
+      h += '<div class="scr-hd">' + esc(def.label) + '</div><div class="scr-form res">' + def.f.map(function (f) {
         var lab = f[1] + (f[4] ? " *" : "");
         if (f[3]) return sel("r_" + f[0], lab, f[3], "Not recorded");
         return fld("r_" + f[0], lab, ' inputmode="decimal" placeholder="' + esc(f[5] || "") + '"' + (f[4] ? ' aria-required="true"' : ""), f[2] ? "<i>" + esc(f[2]) + "</i>" : "");
-      }).join("") + (def.f.some(function (f) { return f[4]; }) ? '<span class="hint">* needed for this test.</span>' : "") + (t === "bmi" ? '<span class="hint">BMI and its category are worked out from the weight and height, as in the classic screen; both can be changed.</span>' : "") + "</div>";
+      }).join("") + (E.pocGuide ? '<div class="scr-live" id="scr-live" aria-live="polite">' + liveHtml() + "</div>" : "") + (def.f.some(function (f) { return f[4]; }) ? '<span class="hint">* needed for this test.</span>' : "") + (t === "bmi" ? '<span class="hint">BMI and its category are worked out from the weight and height, as in the classic screen; both can be changed.</span>' : "") + "</div>";
     }
     h += '<div class="scr-hd">Assessment</div><div class="scr-form">' + txt("resultNotes", "Result notes", "Describe the screening results") +
       sel("resultCategory", "Category", RESULT_CATEGORIES, "Not chosen") + sel("referral", "Referral", REFERRAL_OPTIONS) + txt("referralNotes", "Referral notes", "Optional") + "</div>";
+    // A follow-up, if one is needed: saved with the person exactly as the classic "Schedule follow-up" saves one (Pending)
+    h += '<div class="scr-hd">Follow-up</div><div class="scr-form">' + fld("fuDate", "Follow-up on", ' type="date"', fuDay(a.fuDate)) +
+      '<div class="scr-when" role="group" aria-label="Follow-up in"><button type="button" data-act="fu-in" data-d="14">In 2 weeks</button><button type="button" data-act="fu-in" data-d="28">In 4 weeks</button><button type="button" data-act="fu-in" data-d="91">In 3 months</button>' +
+      (a.fuDate ? '<button type="button" data-act="fu-in" data-d="">No follow-up</button>' : "") + "</div>" +
+      fld("fuReason", "Reason", ' placeholder="e.g. Re-test blood pressure"') + '<span class="hint">Leave the date empty when no follow-up is needed.</span></div>';
     h += (S.err ? '<div class="scr-err" id="scr-errmsg" role="alert">' + esc(S.err) + "</div>" : "") +
       '<div class="scr-acts"><button type="button" class="scr-btn" data-act="cancel">Cancel</button><button type="submit" class="scr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save screening") + "</button></div></form>";
     return h;
   }
 
+  function liveHtml() {
+    var a = S.adding, t = testOf(a.camp); if (!t) return "";
+    var r = {}; FIELDS[t].f.forEach(function (f) { var v = str(a["r_" + f[0]]).trim(); r[f[0]] = !f[3] && v && numOk(v) ? parseFloat(v.replace(",", ".")) : v; });
+    var v = guideOf(t, r);
+    return v ? '<div class="scr-marks">' + marks(v) + (v.guide ? "<span>" + esc(v.guide) + "</span>" : "") + "</div>" : '<span class="scr-live-wait">The reading shows here against the guide as you write it.</span>';
+  }
   function newCampHtml() {
     var h = '<div class="scr-top"><div><h1>New campaign</h1><p class="scr-sub">A screening event or a run of days, such as a diabetes awareness week.</p></div></div>' +
       '<form id="scr-camp" autocomplete="off" novalidate aria-label="New campaign"><div class="scr-form" style="margin-top:16px">' +
@@ -289,13 +391,14 @@
     if (S.adding && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var c = S.campId ? campOf(S.campId) : null, p = c && S.partId ? parts(c).filter(function (x) { return String(x.id) === S.partId; })[0] : null;
     if (S.view === "add" && S.adding && S.adding.camp) c = S.adding.camp; // the campaign as it was when the form opened: its result fields stay put
-    var h = '<div class="scr"><button class="scr-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("scrreg")) + '</button>';
+    var inCamp = (S.view === "camp" || S.view === "part") && c; // inside a campaign, the back goes to the campaigns, not to Services
+    var h = '<div class="scr">' + (inCamp ? '<button class="scr-back" data-act="list">' + "‹ Campaigns" + "</button>" : '<button class="scr-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("scrreg")) + "</button>");
     if (S.view === "newcamp" && S.adding) h += newCampHtml();
     else if (S.view === "add" && S.adding && c) h += addHtml(c);
     else if (S.view === "part" && p) h += partHtml(c, p);
     else if ((S.view === "camp" || S.view === "part") && c) h += campHtml(c);
     else h += listHtml();
-    h += '<p class="scr-note">Editing or removing a person, scheduling follow-ups, editing, duplicating or deleting a campaign, and the summary are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
+    h += '<p class="scr-note">More in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
     var ae = document.activeElement, back = "";
     if (ae && m.contains(ae)) back = ae.id ? "#" + ae.id : ae.name ? "[name=" + ae.name + "]" : "";
     var caret = null; if (back) try { caret = typeof ae.selectionStart === "number" ? ae.selectionStart : null; } catch (e) { caret = null; }
@@ -319,6 +422,10 @@
         else if (act === "newcamp") { S.adding = freshCamp(); S.err = ""; S.miss = []; S.view = "newcamp"; paint(true); window.scrollTo(0, 0); focusSel("[name=name]"); }
         else if (act === "cancel") { var nc = S.view === "newcamp"; S.adding = null; S.err = ""; S.miss = []; S.view = nc ? "list" : "camp"; paint(true); focusSel(nc ? "[data-act=newcamp]" : "[data-act=add]"); }
         else if (act === "retry") load();
+        else if (act === "tab") { S.tab = b.getAttribute("data-tab"); S.fuErr = ""; paint(true); focusSel('[data-act=tab][data-tab="' + S.tab + '"]'); }
+        else if (act === "fu-open") { S.campId = b.getAttribute("data-c"); S.partId = b.getAttribute("data-p"); S.view = "part"; S.fuErr = ""; paint(true); window.scrollTo(0, 0); focusSel(".scr-acts-top [data-act=camp]"); }
+        else if (act === "fu-done") markDone(b.getAttribute("data-c"), b.getAttribute("data-p"), b.getAttribute("data-f"));
+        else if (act === "fu-in") { keep(); var dd = b.getAttribute("data-d"); S.adding.fuDate = dd ? addDays(Number(dd)) : ""; if (!dd) S.adding.fuReason = ""; paint(true); focusSel(dd ? "[name=fuReason]" : "[name=fuDate]"); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "scrreg"); } catch (x) {} E.openClassic("screening"); }
       });
     });
@@ -327,7 +434,9 @@
     var f = m.querySelector("#scr-add");
     if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); saveScreening(); });
-      f.addEventListener("input", function (ev) { unmark(ev.target); });
+      f.addEventListener("input", function (ev) { unmark(ev.target); if (ev.target && /^r_/.test(ev.target.name || "")) { keep(); var lv = f.querySelector("#scr-live"); if (lv) lv.innerHTML = liveHtml(); } });
+      f.addEventListener("change", function (ev) { if (ev.target && /^r_/.test(ev.target.name || "") && ev.target.tagName === "SELECT") { keep(); var lv = f.querySelector("#scr-live"); if (lv) lv.innerHTML = liveHtml(); } });
+      var fd = f.querySelector("[name=fuDate]"); if (fd) fd.addEventListener("change", function () { var l = fd.closest("label"), i = l && l.querySelector("i"), w = fuDay(fd.value); if (i) i.remove(); if (w) l.insertAdjacentHTML("beforeend", w); });
       var idIn = f.querySelector("[name=idCard]");
       if (idIn) idIn.addEventListener("blur", function () { var v = idIn.value; setTimeout(function () { lookup(v); }, 0); }); // after the blur: focus has moved on, and the redraw puts it back there
       if (E.personPick) E.personPick.attach({ key: "scrreg", form: f, fields: { id: "idCard", name: "name", phone: "phone", dob: "dob" }, idValue: pid, onFill: function () { keep(); },
@@ -392,7 +501,7 @@
   // A new person, shaped like the classic one (same keys, same defaults). The campaign is kept as it was read, to show
   // the right result fields even if the list refreshes.
   function fresh(c) {
-    var a = { id: uid(), camp: copy(c), idCard: "", name: "", phone: "", email: "", dob: "", type: "Walk-in", date: today(), resultNotes: "", resultCategory: "", referral: "No referral needed", referralNotes: "" };
+    var a = { id: uid(), fuId: uid(), camp: copy(c), idCard: "", name: "", phone: "", email: "", dob: "", type: "Walk-in", date: today(), resultNotes: "", resultCategory: "", referral: "No referral needed", referralNotes: "", fuDate: "", fuReason: "" };
     var t = testOf(c); if (t) FIELDS[t].f.forEach(function (f) { a["r_" + f[0]] = ""; });
     return a;
   }
@@ -405,7 +514,8 @@
     if (t) FIELDS[t].f.forEach(function (f) { var v = str(a["r_" + f[0]]).trim(); res[f[0]] = !f[3] && v ? parseFloat(v.replace(",", ".")) : v; });
     var raw = str(a.idCard).trim(), id = pid(raw);
     return { id: a.id, idCard: id || raw, name: str(a.name).trim(), phone: str(a.phone).trim(), email: str(a.email), dob: str(a.dob), type: str(a.type), date: str(a.date),
-      resultNotes: str(a.resultNotes).trim(), resultCategory: str(a.resultCategory), referral: str(a.referral), referralNotes: str(a.referralNotes).trim(), poctResults: res, followUps: [] };
+      resultNotes: str(a.resultNotes).trim(), resultCategory: str(a.resultCategory), referral: str(a.referral), referralNotes: str(a.referralNotes).trim(), poctResults: res,
+      followUps: str(a.fuDate) ? [{ id: a.fuId, scheduledDate: str(a.fuDate), reason: str(a.fuReason).trim(), status: "Pending", notes: "" }] : [] }; // the classic follow-up, as its Save Follow-up makes it
   }
   function showErr() { var x = S.mount && S.mount.querySelector(".scr-err"); if (x && x.scrollIntoView) try { x.scrollIntoView({ block: "center" }); } catch (e) {} }
   async function putOne(camp) {
@@ -423,6 +533,8 @@
       if (f[4] && !v) { errs.push("Write the " + low(f[1]) + (f[2] ? " (" + f[2] + ")" : "") + "."); mk.push("r_" + f[0]); }
       else if (!f[3] && v && !numOk(v)) { errs.push("The " + low(f[1]) + " is not a number. Check it."); mk.push("r_" + f[0]); }
     });
+    if (str(a.fuDate) && !/^\d{4}-\d{2}-\d{2}$/.test(str(a.fuDate))) { errs.push("Choose the follow-up date, or leave it empty."); mk.push("fuDate"); }
+    else if (str(a.fuDate) && str(a.date) && str(a.fuDate) < str(a.date)) { errs.push("The follow-up date is before the screening. Choose a later day."); mk.push("fuDate"); }
     if (errs.length) return stop(errs, mk);
     // the ID card and the person (E.people.confirmPerson): asked before anything is saved; Go back keeps the form
     if (E.people && E.people.confirmPerson && pid(a.idCard)) {
@@ -461,6 +573,36 @@
     focusSel(".scr-acts-top [data-act=camp]");
   }
 
+  // Mark done: the follow-up as the classic "Edit follow-up" › Status Completed › Save Follow-up leaves it (the classic copies
+  // the row it showed, which also carries the person's name and id, trims the reason and notes, and sets the status), in
+  // the campaign as stored right now, sent alone through the same re-read and upsert as a new screening.
+  async function markDone(cid, ppid, fid) {
+    if (S.marking) return;
+    S.marking = fid; S.fuErr = ""; paint(true);
+    var ok = false, who = "";
+    try {
+      var all = await readAll(), now = all.filter(function (x) { return String(x.id) === String(cid); })[0];
+      var out = now && copy(now), p = out && parts(out).filter(function (x) { return String(x.id) === String(ppid); })[0];
+      var list = p && Array.isArray(p.followUps) ? p.followUps : [], i = -1;
+      list.forEach(function (f, k) { if (f && String(f.id) === String(fid)) i = k; });
+      if (i < 0) { S.fuErr = "This follow-up was changed or removed on another screen. Nothing was saved."; S.campaigns = all; }
+      else if (list[i].status === "Completed") { ok = true; S.campaigns = all; } // already done (an earlier press, or another screen)
+      else {
+        var data = Object.assign({}, list[i], { participantName: p.name, participantId: p.id });
+        data.scheduledDate = data.scheduledDate; data.status = "Completed"; data.reason = str(data.reason).trim(); data.notes = str(data.notes).trim();
+        list[i] = data; who = p.name || p.idCard || "";
+        await putOne(out); ok = true;
+      }
+    } catch (x) {
+      var got = false;
+      if (x && x.network) { try { got = (await readAll()).some(function (c) { return String(c.id) === String(cid) && parts(c).some(function (pp) { return String(pp.id) === String(ppid) && (pp.followUps || []).some(function (f) { return f && String(f.id) === String(fid) && f.status === "Completed"; }); }); }); } catch (e1) { got = false; } }
+      if (got) ok = true; else S.fuErr = E.saveFailText(x);
+    }
+    S.marking = "";
+    if (ok) E.toast("Follow-up done" + (who ? " · " + who : ""), "success");
+    await load();
+  }
+
   async function saveCampaign() {
     if (S.saving) return;
     keep();
@@ -493,7 +635,14 @@
 
   E.registerModule({
     id: "scrreg", title: "Screening campaigns", order: 3, icon: "🩺", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.view = "list"; S.campId = ""; S.partId = ""; S.adding = null; S.err = ""; S.miss = []; S.q = ""; S.pq = ""; css(); paint(); return load(); }
+    render: function (ctx) {
+      S.mount = ctx && ctx.mount; S.view = "list"; S.campId = ""; S.partId = ""; S.adding = null; S.err = ""; S.miss = []; S.q = ""; S.pq = ""; S.tab = "camps"; S.fuErr = ""; S.marking = "";
+      // Opened for one person, one campaign or the follow-ups (the Services list, 16:31 directive): sessionStorage
+      // eikon_svc_open { to: "scrreg", c, p, f: "followups", at }, taken once
+      try { var so = JSON.parse(sessionStorage.getItem("eikon_svc_open") || "null"); if (so && so.to === "scrreg") { sessionStorage.removeItem("eikon_svc_open");
+        if (Date.now() - Number(so.at || 0) < 60000) { if (so.f === "followups") S.tab = "fu"; else if (so.c) { S.campId = String(so.c); S.view = so.p ? "part" : "camp"; S.partId = so.p ? String(so.p) : ""; } } } } catch (e) {}
+      css(); paint(); return load();
+    }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("scrreg") < 0) E.UI2_DESTINATIONS.push("scrreg");
   if (E.UI2_PARENT) E.UI2_PARENT.scrreg = "services";

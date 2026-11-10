@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-09-batch-11";
+const WORKER_VERSION = "2026-11-09-batch-12";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -13635,6 +13635,134 @@ async function handleVaccinesStockRowUpdate(request, env, corsOkHeaders, authUse
   return jsonResponse({ ok: true, id, updated_at }, 200, corsOkHeaders);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   VACCINATIONS GIVEN (Services, 2026-11-09) — a record of each vaccine given in the pharmacy: who, which vaccine,
+   batch and expiry, site, dose, consent, and when the next dose is due (the recall).
+   GET  /vaccines/given?month=YYYY-MM            { ok, given:[...] }  the month's vaccinations (index org/loc/given_on)
+   GET  /vaccines/given?first=&last=&phone=      { ok, given:[...] }  one person's history (exact name or phone, 100 max)
+   GET  /vaccines/given/due?to=YYYY-MM-DD        { ok, due:[...] }    recalls still open, due on or before `to`
+                                                 (and not more than a year overdue), earliest first, 100 max
+   POST /vaccines/given {...}                    { ok, given }        records one; closes this person's earlier open
+                                                 recall for the same vaccine (that dose has now been given)
+   POST /vaccines/given/:id/close                { ok }               a recall that is no longer needed (never deleted)
+   next_state: 0 = recall open, 1 = answered by a later dose (closed_at/closed_by = who recorded it), 2 = closed by hand.
+   Signed-in staff and admins; org_id and location_id come from the session, never the body. Audited.
+   Additive: a new table only. Orders, their items and vaccine stock are not read or changed here.
+   ══════════════════════════════════════════════════════════════════════════════ */
+const VAX_SITES = ["Left upper arm", "Right upper arm", "Left thigh", "Right thigh", "By mouth", "Nose", "Other"];
+const VAX_CONSENT = ["Patient", "Parent or guardian"];
+async function ensureVaccinationsSchema__impl(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS vaccinations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    given_on TEXT NOT NULL,
+    client_first TEXT NOT NULL,
+    client_last TEXT NOT NULL,
+    phone TEXT NOT NULL DEFAULT '',
+    email TEXT NOT NULL DEFAULT '',
+    id_card TEXT NOT NULL DEFAULT '',
+    vaccine_name TEXT NOT NULL,
+    dose TEXT NOT NULL DEFAULT '',
+    batch TEXT NOT NULL DEFAULT '',
+    expiry_date TEXT NOT NULL DEFAULT '',
+    site TEXT NOT NULL DEFAULT '',
+    consent_by TEXT NOT NULL DEFAULT '',
+    next_due TEXT NOT NULL DEFAULT '',
+    next_state INTEGER NOT NULL DEFAULT 0,
+    order_id INTEGER NOT NULL DEFAULT 0,
+    notes TEXT NOT NULL DEFAULT '',
+    closed_at TEXT NOT NULL DEFAULT '',
+    closed_by INTEGER,
+    given_by INTEGER,
+    given_by_name TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_vaccinations_org_loc_given ON vaccinations (org_id, location_id, given_on)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_vaccinations_org_loc_due ON vaccinations (org_id, location_id, next_state, next_due)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_vaccinations_org_loc_name ON vaccinations (org_id, location_id, client_last COLLATE NOCASE, client_first COLLATE NOCASE)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_vaccinations_org_loc_phone ON vaccinations (org_id, location_id, phone)`, []);
+}
+const ensureVaccinationsSchema = schemaOnce("ensureVaccinationsSchema", ensureVaccinationsSchema__impl);
+const VAX_GIVEN_COLS = "id, given_on, client_first, client_last, phone, email, id_card, vaccine_name, dose, batch, expiry_date, site, consent_by, next_due, next_state, closed_at, order_id, notes, given_by_name, created_at";
+function vaxRealYmd(s) { return isValidYmd(s) && new Date(s + "T12:00:00Z").toISOString().slice(0, 10) === s; }
+async function handleVaccinationsGiven(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = Number(authUser.org_id), loc = Number(authUser.location_id);
+  const parts = url.pathname.split("/").filter(Boolean); // vaccines, given, [due | :id, close]
+  await ensureVaccinationsSchema(env);
+  if (parts.length === 3 && parts[2] === "due") {
+    if (request.method !== "GET") return jsonResponse({ ok: false, error: "Method not allowed" }, 405, corsOkHeaders);
+    let to = String(url.searchParams.get("to") || "").trim();
+    if (!to) to = ymdPlusDays(tzYmd(), 14);
+    if (!vaxRealYmd(to)) return jsonResponse({ ok: false, error: "Missing/invalid to (YYYY-MM-DD)" }, 400, corsOkHeaders);
+    const from = ymdPlusDays(tzYmd(), -366);
+    const due = await dbAll(env, `SELECT ${VAX_GIVEN_COLS} FROM vaccinations WHERE org_id = ? AND location_id = ? AND next_state = 0 AND next_due >= ? AND next_due <= ? ORDER BY next_due ASC, id ASC LIMIT 100`, [org, loc, from, to]);
+    return jsonResponse({ ok: true, due, to }, 200, corsOkHeaders);
+  }
+  if (parts.length === 4 && parts[3] === "close") {
+    if (request.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405, corsOkHeaders);
+    const id = parseInt(parts[2], 10);
+    if (!id) return jsonResponse({ ok: false, error: "Invalid id" }, 400, corsOkHeaders);
+    const row = await dbFirst(env, "SELECT id, next_state, vaccine_name, client_first, client_last FROM vaccinations WHERE id = ? AND org_id = ? AND location_id = ?", [id, org, loc]);
+    if (!row) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+    if (Number(row.next_state) !== 0) return jsonResponse({ ok: true, already: true }, 200, corsOkHeaders);
+    await dbRun(env, "UPDATE vaccinations SET next_state = 2, closed_at = ?, closed_by = ? WHERE id = ? AND org_id = ? AND location_id = ?", [nowIso(), authUser.user_id, id, org, loc]);
+    await writeAudit(env, org, authUser.user_id, "VAX_RECALL_CLOSE", "vaccinations", String(id), { vaccine_name: row.vaccine_name, client_first: row.client_first, client_last: row.client_last }, loc);
+    return jsonResponse({ ok: true }, 200, corsOkHeaders);
+  }
+  if (parts.length !== 2) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
+  if (request.method === "GET") {
+    const month = String(url.searchParams.get("month") || "").trim();
+    const first = vaxNormName(url.searchParams.get("first") || ""), last = vaxNormName(url.searchParams.get("last") || ""), phone = vaxNormName(url.searchParams.get("phone") || "");
+    if (month) {
+      const range = /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? monthRange(month) : null;
+      if (!range) return jsonResponse({ ok: false, error: "Missing/invalid month (YYYY-MM)" }, 400, corsOkHeaders);
+      const given = await dbAll(env, `SELECT ${VAX_GIVEN_COLS} FROM vaccinations WHERE org_id = ? AND location_id = ? AND given_on >= ? AND given_on < ? ORDER BY given_on DESC, id DESC LIMIT 500`, [org, loc, range.startStr, range.endStr]);
+      return jsonResponse({ ok: true, given }, 200, corsOkHeaders);
+    }
+    if ((first && last) || phone) { // two index reads (surname, phone), merged: never a scan of the pharmacy's rows
+      const byName = first && last ? await dbAll(env, `SELECT ${VAX_GIVEN_COLS} FROM vaccinations WHERE org_id = ? AND location_id = ? AND client_last = ? COLLATE NOCASE AND client_first = ? COLLATE NOCASE LIMIT 100`, [org, loc, last, first]) : [];
+      const byPhone = phone ? await dbAll(env, `SELECT ${VAX_GIVEN_COLS} FROM vaccinations WHERE org_id = ? AND location_id = ? AND phone = ? LIMIT 100`, [org, loc, phone]) : [];
+      const seen = new Set(), given = [];
+      for (const r of byName.concat(byPhone)) if (!seen.has(r.id)) { seen.add(r.id); given.push(r); }
+      given.sort((a, b) => String(b.given_on).localeCompare(String(a.given_on)) || b.id - a.id);
+      given.length = Math.min(given.length, 100);
+      return jsonResponse({ ok: true, given }, 200, corsOkHeaders);
+    }
+    return jsonResponse({ ok: false, error: "Give a month, or a person (first and last name, or phone)" }, 400, corsOkHeaders);
+  }
+  if (request.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405, corsOkHeaders);
+  const b = (await readJson(request)) || {};
+  const s = (k, n) => vaxNormName(b[k] == null ? "" : b[k]).slice(0, n || 200);
+  const rec = { given_on: s("given_on", 10), client_first: s("client_first"), client_last: s("client_last"), phone: s("phone", 40), email: s("email"), id_card: s("id_card", 20),
+    vaccine_name: s("vaccine_name"), dose: s("dose", 40), batch: s("batch", 60), expiry_date: s("expiry_date", 10), site: s("site", 40), consent_by: s("consent_by", 40),
+    next_due: s("next_due", 10), order_id: Math.max(0, vaxInt(b.order_id, 0)), notes: s("notes", 1000) };
+  const today = tzYmd();
+  if (!rec.given_on) rec.given_on = today;
+  if (!vaxRealYmd(rec.given_on) || rec.given_on > today || rec.given_on < "2000-01-01") return jsonResponse({ ok: false, error: "Choose the day it was given (not after today)" }, 400, corsOkHeaders);
+  if (!rec.client_first || !rec.client_last) return jsonResponse({ ok: false, error: "Missing client name" }, 400, corsOkHeaders);
+  if (!rec.vaccine_name) return jsonResponse({ ok: false, error: "Missing vaccine" }, 400, corsOkHeaders);
+  if (rec.expiry_date && !vaxRealYmd(rec.expiry_date)) return jsonResponse({ ok: false, error: "Expiry must be a date (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (rec.next_due && (!vaxRealYmd(rec.next_due) || rec.next_due <= rec.given_on)) return jsonResponse({ ok: false, error: "The next dose must be due after the day it was given" }, 400, corsOkHeaders);
+  if (VAX_SITES.indexOf(rec.site) < 0) return jsonResponse({ ok: false, error: "Choose where it was given" }, 400, corsOkHeaders);
+  if (VAX_CONSENT.indexOf(rec.consent_by) < 0) return jsonResponse({ ok: false, error: "Consent is needed: by the patient, or a parent or guardian" }, 400, corsOkHeaders);
+  const me = await dbFirst(env, "SELECT full_name, email FROM users WHERE id = ?", [authUser.user_id]);
+  const byName = String((me && (me.full_name || me.email)) || "").trim();
+  const ins = await dbRun(env, `INSERT INTO vaccinations (org_id, location_id, given_on, client_first, client_last, phone, email, id_card, vaccine_name, dose, batch, expiry_date, site, consent_by, next_due, next_state, order_id, notes, given_by, given_by_name)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?)`,
+    [org, loc, rec.given_on, rec.client_first, rec.client_last, rec.phone, rec.email, rec.id_card, rec.vaccine_name, rec.dose, rec.batch, rec.expiry_date, rec.site, rec.consent_by, rec.next_due, rec.order_id, rec.notes, authUser.user_id, byName]);
+  const id = ins && ins.meta && ins.meta.last_row_id ? Number(ins.meta.last_row_id) : 0;
+  if (!id) return jsonResponse({ ok: false, error: "Could not save the vaccination" }, 500, corsOkHeaders);
+  // this dose answers the person's earlier open recall for the same vaccine
+  const closed = await dbRun(env, `UPDATE vaccinations SET next_state = 1, closed_at = ?, closed_by = ? WHERE org_id = ? AND location_id = ? AND id <> ? AND next_state = 0 AND next_due <> '' AND vaccine_name = ? COLLATE NOCASE
+      AND ((client_last = ? COLLATE NOCASE AND client_first = ? COLLATE NOCASE)` + (rec.phone ? " OR phone = ?" : "") + ")",
+    [nowIso(), authUser.user_id, org, loc, id, rec.vaccine_name, rec.client_last, rec.client_first].concat(rec.phone ? [rec.phone] : []));
+  await writeAudit(env, org, authUser.user_id, "VAX_GIVEN_CREATE", "vaccinations", String(id), rec, loc);
+  const given = await dbFirst(env, `SELECT ${VAX_GIVEN_COLS} FROM vaccinations WHERE id = ?`, [id]);
+  return jsonResponse({ ok: true, given, closed_recalls: (closed && closed.meta && closed.meta.changes) || 0 }, 200, corsOkHeaders);
+}
+
 // ── Pharmacy Calculators ────────────────────────────────────────────────────
 
 async function ensurePharmacyCalcSchema__impl(env) {
@@ -16663,6 +16791,126 @@ async function handleMoneyToday(request, env, corsOkHeaders, authUser) {
     200, { ...corsOkHeaders, "Cache-Control": "private, max-age=10", "Vary": "Origin, Authorization" });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// TODAY'S SERVICES  (svc-hub, contract V-C1)
+// What the Services page needs, in ONE read: GET /services/today, asked when the Services hub opens (not by Today, which
+// is re-read every minute: nothing here is added to /today). Read only, this pharmacy only, admin and staff (the roles
+// that open POCT, Vaccines, Screening, Pharmacovigilance and Bookings). Plain facts; the words and colours are the
+// screen's (ui/eikon.svctoday.js). Each statement bounded by the pharmacy and a date, a short range or a LIMIT:
+//  - reaction reports not yet sent (status not "Submitted…" or "Closed"), oldest first (JSON parsed here, never shipped);
+//  - screening campaigns (JSON, people inside): the ones running today, and follow-ups due today or earlier;
+//  - point-of-care tests done today (three-day index range on performed_at_iso, counted by the Malta day);
+//  - vaccine stock rows (expired, expiring within 30 days, out of stock), vaccine orders taken today (index range), and
+//    doses due from the vaccinations record when that table exists (vax; absent → null, nothing created here);
+//  - today's bookings (the Bookings screen's own rows), no cancelled ones.
+// Nothing is written. No new table, column or index.
+// ═══════════════════════════════════════════════════════════════════════════
+const SVC_SOON_DAYS = 30;     // a vaccine batch "expires soon" within this many days
+const SVC_MAX_DOCS = 300;     // reaction reports / screening campaigns looked at, newest first
+function svcStr(v, n) { return String(v == null ? "" : v).slice(0, n || 120); }
+async function handleServicesToday(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = authUser.org_id, loc = authUser.location_id;
+  const today = tzYmd(), nowHm = tzHm(), soonBy = ymdPlusDays(today, SVC_SOON_DAYS);
+  const all = async (sql, bind) => { try { return await dbAll(env, sql, bind); } catch (e) { return null; } };
+  await Promise.all([ensurePvSchema, ensureScreeningSchema, ensurePoctSchema, ensureVaccinesSchema, ensureBookingsSchema]
+    .map((fn) => Promise.resolve().then(() => fn(env)).catch(() => {})));
+  const [pvs, scs, pocs, stock, vord, vdue, bks] = await Promise.all([
+    all(`SELECT report_id, report_json FROM pv_reports WHERE org_id = ? AND location_id = ?
+          AND LOWER(COALESCE(json_extract(report_json, '$.status'), '')) NOT LIKE 'submitted%'
+          AND LOWER(COALESCE(json_extract(report_json, '$.status'), '')) <> 'closed'
+        ORDER BY id DESC LIMIT ${SVC_MAX_DOCS}`, [org, loc]),
+    all(`SELECT campaign_id, campaign_json FROM screening_campaigns WHERE org_id = ? AND location_id = ? ORDER BY updated_at DESC, id DESC LIMIT ${SVC_MAX_DOCS}`, [org, loc]),
+    all(`SELECT performed_at_iso, performed_at_local FROM poct_records WHERE org_id = ? AND location_id = ? AND performed_at_iso >= ? AND performed_at_iso < ?`,
+      [org, loc, ymdPlusDays(today, -1), ymdPlusDays(today, 2)]),
+    all(`SELECT vaccine_name, qty, batch, expiry_date FROM vaccines_stock WHERE org_id = ? AND location_id = ? ORDER BY vaccine_name LIMIT 500`, [org, loc]),
+    all(`SELECT created_at FROM vaccines_orders WHERE org_id = ? AND location_id = ? AND created_at >= ? AND created_at < ?`,
+      [org, loc, ymdPlusDays(today, -1), ymdPlusDays(today, 2)]),
+    // vax's record of vaccinations given (merged before svc-hub): an open next dose due today or earlier. No table yet → null.
+    all(`SELECT id, client_first, client_last, vaccine_name, dose, next_due FROM vaccinations
+          WHERE org_id = ? AND location_id = ? AND next_state = 0 AND next_due >= ? AND next_due <= ?
+          ORDER BY next_due ASC, id ASC LIMIT 100`, [org, loc, ymdPlusDays(today, -366), today]), // vax's own bound: open recalls, at most a year overdue
+    all(`SELECT b.id, b.start_time, b.person_name, b.status, s.name AS service
+           FROM bk_bookings b LEFT JOIN bk_services s ON s.id = b.service_id
+          WHERE b.org_id = ? AND b.location_id = ? AND b.date = ? AND b.status <> 'cancelled'
+          ORDER BY b.start_time ASC, b.id ASC LIMIT 200`, [org, loc, today])
+  ]);
+
+  let pv = null;
+  if (pvs != null) {
+    const list = [];
+    for (const r of pvs) {
+      let v = null; try { v = JSON.parse(String(r.report_json)); } catch (e) { v = null; }
+      if (!v || typeof v !== "object") continue;
+      const drugs = Array.isArray(v.drugs) ? v.drugs : [];
+      const made = /^\d{4}-\d{2}-\d{2}/.test(String(v.report_date || "")) ? String(v.report_date).slice(0, 10) : ownerMaltaDay(v.created_at) || "";
+      list.push({ id: svcStr(r.report_id, 80), date: made, status: svcStr(v.status || "Draft", 60), serious: /^serious|^fatal/i.test(String(v.reaction_seriousness || "")),
+        reaction: svcStr(v.reaction_meddra || v.reaction_description, 80), medicine: svcStr(drugs[0] && drugs[0].name, 80) });
+    }
+    list.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    pv = { drafts: list.length, serious: list.filter((x) => x.serious).length, oldest_draft_date: list.length ? list[0].date || null : null, reports: list.slice(0, 5) };
+  }
+
+  let screening = null, followups = null;
+  if (scs != null) {
+    const running = [], due = [];
+    for (const r of scs) {
+      let c = null; try { c = JSON.parse(String(r.campaign_json)); } catch (e) { c = null; }
+      if (!c || typeof c !== "object") continue;
+      const cid = svcStr(c.id || r.campaign_id, 80), people = Array.isArray(c.participants) ? c.participants : [];
+      // the classic screen's own rule: cancelled, ended (end date past), running (started, not ended), else planned
+      if (c.status !== "Cancelled" && c.startDate && String(c.startDate) <= today && (!c.endDate || String(c.endDate) >= today))
+        running.push({ id: cid, name: svcStr(c.name, 80), type: svcStr(c.type, 60), end: c.endDate ? String(c.endDate).slice(0, 10) : null,
+          screened: people.length, today: people.filter((p) => p && String(p.date || "") === today).length, target: Number(c.targetScreenings) || 0 });
+      for (const p of people) {
+        for (const f of (p && Array.isArray(p.followUps) ? p.followUps : [])) {
+          // as the classic follow-ups list: due by its date until it is Completed or Cancelled
+          if (!f || !f.scheduledDate || f.status === "Completed" || f.status === "Cancelled") continue;
+          const d = String(f.scheduledDate).slice(0, 10);
+          if (d > today) continue;
+          due.push({ campaign_id: cid, campaign: svcStr(c.name, 80), participant_id: svcStr(p.id, 80), name: svcStr(p.name, 80), date: d, reason: svcStr(f.reason, 80), status: svcStr(f.status || "Pending", 20) });
+        }
+      }
+    }
+    running.sort((a, b) => (String(a.end || "9") < String(b.end || "9") ? -1 : 1));
+    due.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    screening = { running: running.slice(0, 10) };
+    followups = { count: due.length, overdue: due.filter((x) => x.date < today).length, due: due.slice(0, 20) };
+  }
+
+  const poct = pocs == null ? null : { today: pocs.filter((r) => (String(r.performed_at_local || "").slice(0, 10) || ownerMaltaDay(r.performed_at_iso)) === today).length };
+
+  let vaccines = null;
+  if (stock != null) {
+    const held = stock.filter((v) => (Number(v.qty) || 0) > 0 && v.expiry_date);
+    const expired = held.filter((v) => String(v.expiry_date) < today), soon = held.filter((v) => String(v.expiry_date) >= today && String(v.expiry_date) <= soonBy);
+    const sum = {}; for (const v of stock) { const k = String(v.vaccine_name || "").trim(); if (k) sum[k] = (sum[k] || 0) + (Number(v.qty) || 0); }
+    const pick = (v) => ({ name: svcStr(v.vaccine_name, 80), batch: svcStr(v.batch, 40), expiry: String(v.expiry_date).slice(0, 10), qty: Number(v.qty) || 0 });
+    const by = (a, b) => (a.expiry < b.expiry ? -1 : a.expiry > b.expiry ? 1 : 0);
+    vaccines = { orders_today: vord == null ? null : vord.filter((o) => ownerMaltaDay(o.created_at) === today).length,
+      expired: expired.length, expiring30: soon.length, soon_days: SVC_SOON_DAYS, out_of_stock: Object.keys(sum).filter((k) => sum[k] <= 0).length,
+      batches: expired.map(pick).sort(by).concat(soon.map(pick).sort(by)).slice(0, 5),
+      due: vdue == null ? null : { count: vdue.length, overdue: vdue.filter((x) => String(x.next_due) < today).length,
+        first: vdue.slice(0, 5).map((x) => ({ id: x.id, name: svcStr((String(x.client_first || "") + " " + String(x.client_last || "")).trim(), 80), vaccine: svcStr(x.vaccine_name, 80), dose: svcStr(x.dose, 30), next_due: String(x.next_due).slice(0, 10) })) } };
+  }
+
+  let bookings = null, bookings_summary = null;
+  if (bks != null) {
+    const st = (b) => String(b.status || "");
+    const open = bks.filter((b) => st(b) === "booked" || st(b) === "confirmed");
+    const late = open.filter((b) => String(b.start_time) < nowHm).length; // started and not marked arrived, done or no-show
+    // the ones still to see first (late, then to come), then arrived, then the finished ones, at most 20
+    const rank = (b) => (st(b) === "booked" || st(b) === "confirmed" ? 0 : st(b) === "arrived" ? 1 : 2);
+    bookings = bks.slice().sort((a, b) => rank(a) - rank(b) || (a.start_time < b.start_time ? -1 : a.start_time > b.start_time ? 1 : a.id - b.id)).slice(0, 20)
+      .map((b) => ({ id: b.id, start_time: svcStr(b.start_time, 5), person_name: svcStr(b.person_name, 80), service: svcStr(b.service, 80), status: st(b) }));
+    bookings_summary = { total: bks.length, done: bks.filter((b) => st(b) === "done").length, arrived: bks.filter((b) => st(b) === "arrived").length,
+      no_show: bks.filter((b) => st(b) === "no_show").length, late, to_come: open.length - late };
+  }
+
+  return jsonResponse({ ok: true, date: today, time: nowHm, timezone: PHARMACY_TZ, bookings, bookings_summary, followups, pv, screening, poct, vaccines },
+    200, { ...corsOkHeaders, "Cache-Control": "private, max-age=10", "Vary": "Origin, Authorization" });
+}
+
 // ---------------------------------------------------------------------------
 // Schema DDL runs ONCE per isolate per database. Before this every handler re-ran
 // its CREATE TABLE / CREATE INDEX / ALTER statements on every request (about 200
@@ -18229,6 +18477,9 @@ const authUser = await authFromRequest(request, env);
     if (url.pathname === "/money/today" && request.method === "GET") {
       return await handleMoneyToday(request, env, corsOkHeaders, authUser);
     }
+    if (url.pathname === "/services/today" && request.method === "GET") {
+      return await handleServicesToday(request, env, corsOkHeaders, authUser);
+    }
     if (url.pathname === "/people" && request.method === "GET") {
       return await handlePeopleSearch(request, env, corsOkHeaders, authUser);
     }
@@ -18562,6 +18813,10 @@ const authUser = await authFromRequest(request, env);
     }
 
 // Vaccines
+// Vaccinations given (Services, additive): /vaccines/given, /vaccines/given/due, /vaccines/given/:id/close
+if (url.pathname === "/vaccines/given" || url.pathname.startsWith("/vaccines/given/")) {
+  return await handleVaccinationsGiven(request, env, corsOkHeaders, authUser, url);
+}
 if (url.pathname === "/vaccines/catalog" && request.method === "GET") {
   return await handleVaccinesCatalogList(request, env, corsOkHeaders, authUser, url);
 }
@@ -23888,6 +24143,7 @@ const NAME_SAVE_RULES = [
   { re: /^\/client-deliveries\/entries(\/\d+)?$/, keys: ["client_name", "recipient_name"] },
   { re: /^\/creditnotes\/entries(\/\d+)?$/, keys: ["client_name", "client_surname"] },
   { re: /^\/vaccines\/orders(\/\d+)?$/, keys: ["client_first", "client_last"] },
+  { re: /^\/vaccines\/given$/, keys: ["client_first", "client_last"] },
   { re: /^\/(api\/)?appointments\/(entries|waitlist)(\/\d+)?$/, keys: ["patientName", "patient_name"] },
   { re: /^\/(api\/)?appointments\/doctors(\/\d+)?$/, keys: ["name"] },
   { re: /^\/bookings(\/waitlist)?$/, keys: ["personName"] },
