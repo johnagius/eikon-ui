@@ -1,8 +1,8 @@
 /* Who's in, new layout: the week's rota at a glance: who works and when, who is on leave, each day's opening hours
    (a Malta public holiday is closed unless a one-day override opens it) and any gap in pharmacist cover (E.teamCover,
    the classic coverage rule). On a wide screen the week is one table, a person to a row; on a phone, today comes first.
-   Below it, hours per person for the month, read only when opened. Read only: shifts are planned, gaps filled and leave
-   asked for in Plan shifts; patterns and the calendar link stay in the classic Shifts screen. */
+   Below it, hours per person for the month, read only when opened. Read only: shifts are planned, swapped, gaps filled
+   and leave asked for in Plan shifts (a tapped shift opens there, ready to swap); patterns and the calendar link stay in the classic Shifts screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -54,6 +54,10 @@
       ".rot-gap{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;text-align:left;font:inherit;font-size:14px;min-height:44px;padding:8px 14px;border:0;border-top:.5px solid var(--border);background:var(--warn-soft,rgba(201,138,18,.16));color:var(--warn,#8A5A08);cursor:pointer}.rot-gap b{flex:1;min-width:0;font-weight:700}.rot-gap span{font-weight:600;white-space:nowrap;text-decoration:underline;text-underline-offset:2px}" +
       ".rot-day.today .rot-gap,.rot-grid tr.cov td.today .rot-gap{background:#FBEAE9;color:#C4221A}" + // solid, not a tint over today's tint (axe 4.4:1): 5:1, the rail badge's red
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) :is(.rot-day.today,.rot-grid tr.cov td.today) .rot-gap{background:#4A1C1A;color:#FF7A72}}" +
+      "button.rot-p{width:100%;box-sizing:border-box;text-align:left;font:inherit;color:var(--text);background:none;border-left:0;border-right:0;border-bottom:0;min-height:48px;cursor:pointer}button.rot-p:hover{background:rgba(118,118,128,.08)}" +
+      ".rot-p .t b{display:block}.rot-p .chev{flex:0 0 8px;width:7px;height:7px;border-right:2px solid var(--muted);border-top:2px solid var(--muted);transform:rotate(45deg);opacity:.6;margin-left:2px}" +
+      ".rot-grid td button.t{font:inherit;font-weight:600;color:var(--text);background:rgba(118,118,128,.07);border:0;padding:3px 6px;margin:0 0 2px -6px;border-radius:6px;cursor:pointer;text-align:left}.rot-grid td button.t:hover,.rot-grid td button.t:focus-visible{background:rgba(118,118,128,.16);text-decoration:underline}" +
+      ".rot-hint{margin:10px 2px 0;font-size:13.5px;color:var(--muted)}" +
       ".rot-p .t .tag{font-style:normal;color:var(--warn,#8A5A08);font-weight:600}" +
       ".rot-p em .on{font-style:normal;font-size:11.5px;font-weight:700;color:var(--ok);margin-right:8px;text-transform:none}.rot-p.now{background:var(--ok-soft,rgba(28,138,91,.1))}" +
       ".rot-past{display:block;width:100%;margin-top:10px;font:inherit;font-size:14px;font-weight:600;color:var(--accent);background:var(--panel2);border:1px dashed var(--border);border-radius:12px;min-height:44px;cursor:pointer}" +
@@ -110,6 +114,8 @@
   // Hours: the classic Shifts screen's rule (shiftMinutes): end minus start, nothing when the end is not after the start.
   function shiftMins(x) { var a = mins(x.start_time), z = mins(x.end_time); return isFinite(a) && isFinite(z) && z > a ? z - a : 0; }
   function hrs(m) { var r = Math.round((m || 0) / 6) / 10; return Math.abs(r - Math.round(r)) < 1e-9 ? String(Math.round(r)) : r.toFixed(1); } // the classic fmtHoursFromMinutes, without its "h"
+  // A shift is one tap from swapping it: Plan shifts opens on its week with that shift's "Swap with" ready.
+  function swapLabel(x, day) { return "Swap " + person(x.staff_id).full_name + "’s shift, " + day + ", " + hm(x.start_time) + " to " + hm(x.end_time); }
   function gapLink(key, g) { return '<button class="rot-gap" data-act="gap" data-date="' + key + '" data-s="' + g.from + '" data-e="' + g.to + '" aria-label="No pharmacist ' + esc(g.from) + " to " + esc(g.to) + ', fill the gap in Plan shifts"><b>No pharmacist ' + esc(g.from + "–" + g.to) + '</b><span>Fill the gap</span></button>'; }
 
   // The week as one table: a person to a row, a day to a column; the first row says each day's hours and cover.
@@ -129,7 +135,7 @@
       keys.forEach(function (k, n) {
         var sh = S.shifts.filter(function (x) { return x.shift_date === k && Number(x.staff_id) === Number(p.id); });
         var lv = awayOn(k).filter(function (l) { return Number(l.staff_id) === Number(p.id); })[0];
-        h += '<td class="' + (k === today ? "today" : "") + (cov[n].closed ? " shut" : "") + '">' + sh.map(function (x) { var now = onNow(x); return '<span class="t' + (now ? " now" : "") + '">' + esc(hm(x.start_time)) + "–" + esc(hm(x.end_time)) + (now ? '<i class="rot-sr"> (on now)</i>' : "") + "</span>"; }).join("") +
+        h += '<td class="' + (k === today ? "today" : "") + (cov[n].closed ? " shut" : "") + '">' + sh.map(function (x) { var now = onNow(x); return '<button class="t' + (now ? " now" : "") + '" data-act="swap" data-id="' + x.id + '" data-date="' + k + '" title="Swap this shift" aria-label="' + esc(swapLabel(x, DAY[n] + " " + plus(S.monday, n).getDate() + " " + MON[plus(S.monday, n).getMonth()]) + (now ? " (on now)" : "")) + '">' + esc(hm(x.start_time)) + "–" + esc(hm(x.end_time)) + "</button>"; }).join("") +
           (lv ? '<span class="lv">' + (low(lv.status) === "pending" ? "Asked for leave" : esc(leaveLabel(lv.leave_type))) + "</span>" : "") + "</td>";
       });
       h += "</tr>";
@@ -202,6 +208,7 @@
     }
     else {
       var today = ymd(new Date()), ti = thisWeek ? (new Date().getDay() + 6) % 7 : 0;
+      if (S.shifts.length) h += '<p class="rot-hint">Tap a shift to swap it with someone else’s, on any day of the week.</p>';
       h += gridHtml(today);
       // Phone and narrow screens: day by day, today first (the days already gone this week one tap away).
       h += '<div class="rot-week">';
@@ -217,7 +224,7 @@
         day.forEach(function (x) {
           while (gq.length && gq[0].at <= hm(x.start_time)) out.push(gq.shift().h);
           var p = person(x.staff_id), now = onNow(x), asked = S.leaves.some(function (l) { return low(l.status) === "pending" && Number(l.staff_id) === Number(x.staff_id) && l.start_date <= key && l.end_date >= key; });
-          out.push('<div class="rot-p' + (now ? " now" : "") + '"><span class="rot-av" style="background:hsl(' + hue(p.full_name) + ',45%,32%)">' + esc(initials(p.full_name)) + '</span><div class="t"><b>' + esc(p.full_name) + "</b><span>" + (asked ? '<i class="tag">Asked for leave this day</i> · ' : "") + esc(desig(x.role_override || p.designation || "")) + (x.notes ? " · " + esc(x.notes) : "") + "</span></div><em>" + (now ? '<i class="on">On now</i>' : "") + esc(hm(x.start_time)) + "–" + esc(hm(x.end_time)) + "</em></div>");
+          out.push('<button class="rot-p' + (now ? " now" : "") + '" data-act="swap" data-id="' + x.id + '" data-date="' + key + '" aria-label="' + esc(swapLabel(x, DAY[i] + " " + d.getDate() + " " + MON[d.getMonth()]) + (now ? " (on now)" : "") + (asked ? ". Asked for leave this day" : "")) + '"><span class="rot-av" aria-hidden="true" style="background:hsl(' + hue(p.full_name) + ',45%,32%)">' + esc(initials(p.full_name)) + '</span><span class="t"><b>' + esc(p.full_name) + "</b><span>" + (asked ? '<i class="tag">Asked for leave this day</i> · ' : "") + esc(desig(x.role_override || p.designation || "")) + (x.notes ? " · " + esc(x.notes) : "") + "</span></span><em>" + (now ? '<i class="on">On now</i>' : "") + esc(hm(x.start_time)) + "–" + esc(hm(x.end_time)) + '</em><span class="chev" aria-hidden="true"></span></button>');
         });
         h += out.concat(gq.map(function (r) { return r.h; })).join("");
         h += away.map(function (l) {
@@ -231,7 +238,7 @@
     }
     h += '<p class="rot-foot">Plan the week in <a href="#" data-act="plan">Plan shifts</a>, or <a href="#" data-act="leave">ask for leave</a>. Patterns and the calendar link are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
     m.innerHTML = h;
-    if (keepAct) { var back = m.querySelector('[data-act="' + keepAct + '"]') || (keepAct === "now" ? m.querySelector('[data-act="next"]') : null); if (back) back.focus(); }
+    if (keepAct && keepAct !== "swap") { var back = m.querySelector('[data-act="' + keepAct + '"]') || (keepAct === "now" ? m.querySelector('[data-act="next"]') : null); if (back) back.focus(); }
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act");
@@ -244,6 +251,7 @@
         else if (a === "month") { if (S.month && S.month.key === monthOf().y + "-" + pad(monthOf().m + 1) && S.month.open) { S.month.open = false; paint(); } else if (S.month && S.month.rows && S.month.key === monthOf().y + "-" + pad(monthOf().m + 1)) { S.month.open = true; paint(); } else loadMonth(); }
         else if (a === "month-retry") { S.month = null; loadMonth(); }
         else if (a === "gap") { E._shfWeek = ymd(S.monday); E._shfGap = { date: b.getAttribute("data-date"), from: b.getAttribute("data-s"), to: b.getAttribute("data-e") }; location.hash = "#shfreg"; } // Plan shifts opens on that day with the gap's shift ready
+        else if (a === "swap") { E._shfSwap = { id: Number(b.getAttribute("data-id")), date: b.getAttribute("data-date") }; location.hash = "#shfreg"; }
         else if (a === "plan") { ev.preventDefault(); E._shfWeek = ymd(S.monday); location.hash = "#shfreg"; }
         else if (a === "leave") { ev.preventDefault(); E._shfLeaveNew = true; location.hash = "#shfreg"; } // Plan shifts opens with a new leave request
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "rotreg"); } catch (x) {} E.openClassic("shifts"); }

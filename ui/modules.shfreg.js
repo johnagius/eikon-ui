@@ -12,7 +12,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, monday: null, staff: {}, shifts: [], leaves: [], hours: null, rules: null, loading: false, error: "", leaveErr: "", form: null, saving: false, ask: null, busy: 0, lvMsg: "", last: null, who: null, lv: null, lvYears: [] };
+  var S = { msg: "", mount: null, monday: null, staff: {}, shifts: [], leaves: [], hours: null, rules: null, loading: false, error: "", leaveErr: "", form: null, saving: false, ask: null, busy: 0, lvMsg: "", last: null, who: null, lv: null, lvYears: [] };
   var DAY = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   // The classic Leave tab's leave types, in its order, in the words used on this screen ("Annual leave").
@@ -83,7 +83,7 @@
       ".shf-p .t{flex:1;min-width:0}.shf-p .t b{display:block;font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.shf-p .t span{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
       ".shf-p em{font-style:normal;font-variant-numeric:tabular-nums;font-size:14px;font-weight:600;white-space:nowrap}" +
       ".shf-p .chev{flex:0 0 8px;width:7px;height:7px;border-right:2px solid var(--muted);border-top:2px solid var(--muted);transform:rotate(45deg);opacity:.6;margin-left:2px}" +
-      ".shf-p.off .t b{color:var(--muted)}.shf-p.off em{font-weight:500;color:var(--warn,#8A5A08)}.shf-p .tag{color:var(--warn,#8A5A08);font-weight:600}" +
+      ".shf-p .t span.tag{display:inline}.shf-p.off .t b{color:var(--muted)}.shf-p.off em{font-weight:500;color:var(--warn,#8A5A08)}.shf-p .tag{color:var(--warn,#8A5A08);font-weight:600}" +
       ".shf-add{display:block;width:100%;text-align:left;font:inherit;font-size:14.5px;font-weight:600;color:var(--accent);background:none;border:0;border-top:.5px solid var(--border);padding:11px 14px;cursor:pointer;min-height:44px}" +
       ".shf-add:hover{background:rgba(118,118,128,.08)}" +
       ".shf-btn{font:inherit;font-size:14px;font-weight:600;height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
@@ -96,7 +96,7 @@
       ".shf-form select:focus-visible,.shf-form input:focus-visible{outline:0}" +
       ".shf-form .acts{display:flex;gap:8px;padding:10px 14px;justify-content:flex-end;align-items:center;flex-wrap:wrap;border-top:.5px solid var(--border)}" +
       ".shf-form .acts .q{flex:1 1 100%;font-size:14px}.shf-form .acts label.sw{display:flex;padding:0;border:0;min-height:44px}.shf-form .acts label.sw>span{flex:0 0 auto;min-width:72px;white-space:nowrap}.shf-swq.bad{color:var(--danger)}.shf-swq b{color:var(--warn,#8A5A08)}" +
-      ".shf-err{color:var(--danger);font-size:13.5px;padding:8px 14px 0}" +
+      ".shf-err{color:var(--danger);font-size:13.5px;padding:8px 14px 0}.shf-warn.shf-msg{margin:10px 0 0}" +
       ".shf-warn{font-size:13.5px;margin:8px 14px 0;padding:10px 12px;border-radius:10px;background:rgba(201,138,18,.14);line-height:1.4}" +
       ".shf-lv{padding:10px 14px;border-top:.5px solid var(--border)}.shf-lv:first-child{border-top:0}.shf-lv .top{display:flex;align-items:center;gap:10px}" +
       ".shf-lv .t{flex:1;min-width:0}.shf-lv .t b{display:block;font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.shf-lv .t span{display:block;font-size:12.5px;color:var(--muted)}" +
@@ -114,6 +114,7 @@
       ".shf-sk{height:150px;margin-top:10px;border-radius:12px;background:rgba(118,118,128,.1)}.shf-sk+.shf-sk{height:110px}" +
       // A wide desktop shows the week in two columns (Monday to Sunday reading across), so most of it is seen without scrolling.
       "@media (min-width:1280px){.shf{max-width:1180px}.shf-week{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;align-items:stretch}.shf-week .shf-day{margin-top:0;display:flex;flex-direction:column}.shf-week .shf-day>.shf-add:last-child{margin-top:auto}}" +
+      "@media (max-width:600px){.shf-form .acts label.sw{flex-direction:column;align-items:stretch;gap:2px}.shf-form .acts label.sw select{width:100%;padding:8px 0}}" +
       "@media (max-width:600px){.shf{padding:4px 16px 0}.shf h1{font-size:32px}.shf-nav button{width:44px;height:44px;flex-basis:44px;border-radius:22px}.shf-nav .now{flex:0 0 auto}.shf-btn{height:44px;border-radius:22px}.shf-note a{display:inline-block;padding:12px 0;margin:-12px 0}}";
     document.head.appendChild(st);
   }
@@ -144,12 +145,13 @@
   }
 
   // After a change, only that day is read again (one bounded read), so the day's cover and any gap update at once.
-  async function refreshDay(key) {
-    var wk = ymd(S.monday);
+  // A swap across two days reads those two days only.
+  async function refreshDay(key, key2) {
+    var wk = ymd(S.monday), ks = [key, key2 || key].sort(), lo = ks[0], hi = ks[1];
     try {
-      var list = await dayList(key);
+      var list = lo === hi ? await dayList(lo) : (await Promise.all([dayList(lo), dayList(hi)])).reduce(function (a, b) { return a.concat(b); }, []);
       if (wk !== ymd(S.monday)) return; // the week moved meanwhile: its own load paints
-      S.shifts = S.shifts.filter(function (x) { return x.shift_date !== key; }).concat(list).sort(function (a, b) { return String(a.start_time).localeCompare(String(b.start_time)); });
+      S.shifts = S.shifts.filter(function (x) { return x.shift_date !== lo && x.shift_date !== hi; }).concat(list).sort(function (a, b) { return String(a.start_time).localeCompare(String(b.start_time)); });
       E.whenFormIdle(S.mount, function () { paint(); });
     } catch (e) { await load(); }
   }
@@ -205,7 +207,9 @@
       var p = person(f.staff_id);
       h += '<div class="row"><span>Who</span><b>' + esc(p.full_name) + "</b></div>";
     }
-    h += '<label><span>Starts</span><input type="time" name="start_time" value="' + esc(f.start_time) + '"></label>' +
+    var saved = f.swap && S.shifts.filter(function (x) { return Number(x.id) === Number(f.id); })[0];
+    if (saved) h += '<div class="row"><span>Hours</span><b>' + esc(hm(saved.start_time) + "–" + hm(saved.end_time)) + "</b></div>" + (saved.notes ? '<div class="row"><span>Note</span><b>' + esc(saved.notes) + "</b></div>" : "");
+    else h += '<label><span>Starts</span><input type="time" name="start_time" value="' + esc(f.start_time) + '"></label>' +
       '<label><span>Ends</span><input type="time" name="end_time" value="' + esc(f.end_time) + '"></label>' +
       '<label><span>Note</span><input name="notes" value="' + esc(f.notes) + '" placeholder="Optional"></label>';
     if (f.warn) h += '<div class="shf-warn" role="status">' + esc(f.warn) + "</div>";
@@ -243,6 +247,7 @@
       if (S.who) h += whoHtml();
       h += '<div class="shf-nav"><button data-act="prev" aria-label="Previous week" title="Previous week (←)">‹</button><b>' + esc(label) + "</b>" + (thisWeek ? "" : '<button class="now" data-act="now">This week</button>') + '<button data-act="next" aria-label="Next week" title="Next week (→)">›</button></div>';
       var today = ymd(new Date());
+      if (S.msg) h += '<div class="shf-warn shf-msg" role="alert" tabindex="-1">' + esc(S.msg) + "</div>";
       h += '<div class="shf-week">';
       for (var i = 0; i < 7; i++) {
         var d = plus(S.monday, i), key = ymd(d), oh = hoursFor(key);
@@ -278,13 +283,13 @@
         var a = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
         if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("shfreg") : "#team";
         else if (a === "retry") load();
-        else if (a === "prev" || a === "next" || a === "now") { if (S.saving) return; S.form = null; S.ask = null; S.monday = a === "now" ? mondayOf(new Date()) : plus(S.monday, a === "prev" ? -7 : 7); S.shifts = []; load(); }
-        else if (a === "add") { var key = b.getAttribute("data-date"); S.form = addDefaults(key); paint(true); focus(S.form.staff_id ? "start_time" : "staff_id"); }
-        else if (a === "edit") { var x = S.shifts.filter(function (s) { return Number(s.id) === id; })[0]; if (!x) return; S.form = { mode: "edit", id: x.id, date: x.shift_date, staff_id: x.staff_id, start_time: hm(x.start_time), end_time: hm(x.end_time), notes: x.notes || "", err: "", warn: "", warnSig: "" }; paint(true); focus("start_time"); }
+        else if (a === "prev" || a === "next" || a === "now") { if (S.saving) return; S.form = null; S.msg = ""; S.ask = null; S.monday = a === "now" ? mondayOf(new Date()) : plus(S.monday, a === "prev" ? -7 : 7); S.shifts = []; load(); }
+        else if (a === "add") { S.msg = ""; var key = b.getAttribute("data-date"); S.form = addDefaults(key); paint(true); focus(S.form.staff_id ? "start_time" : "staff_id"); }
+        else if (a === "edit") { S.msg = ""; var x = S.shifts.filter(function (s) { return Number(s.id) === id; })[0]; if (!x) return; S.form = editForm(x); paint(true); focus("start_time"); }
         else if (a === "cancel") closeForm();
         else if (a === "del") { keep(); S.form.confirmDel = true; S.form.err = ""; paint(true); var y = m.querySelector('[data-act="del-no"]'); if (y) y.focus(); }
         else if (a === "del-no") { S.form.confirmDel = false; paint(true); }
-        else if (a === "swap") { keep(); S.form.swap = { with: swapList(S.form).length === 1 ? String(swapList(S.form)[0].id) : "" }; S.form.err = ""; paint(true); var sw = m.querySelector("#shf-form [name=swap_with]"); if (sw) sw.focus(); }
+        else if (a === "swap") { keep(); openSwap(); }
         else if (a === "swap-no") { S.form.swap = null; paint(true); var sb2 = m.querySelector('#shf-form [data-act="swap"]'); if (sb2) sb2.focus(); }
         else if (a === "swap-yes") swap();
         else if (a === "del-yes") remove();
@@ -322,7 +327,7 @@
     var f = m.querySelector("#shf-form"); if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); if (S.form && S.form.swap) swap(); else save(); });
       f.addEventListener("change", function (ev) { if (ev.target && ev.target.name === "swap_with" && S.form && S.form.swap) { keep(); S.form.swap.with = ev.target.value; paint(true); var w2 = m.querySelector("#shf-form [name=swap_with]"); if (w2) w2.focus(); } });
-      f.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !S.saving) { ev.preventDefault(); ev.stopPropagation(); if (S.form && S.form.swap) { S.form.swap = null; paint(true); } else if (S.form && S.form.confirmDel) { S.form.confirmDel = false; paint(true); } else closeForm(); } }); // Escape closes, as everywhere
+      f.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !S.saving) { ev.preventDefault(); ev.stopPropagation(); if (S.form && S.form.swap) { S.form.swap = null; paint(true); var sb3 = m.querySelector('#shf-form [data-act="swap"]'); if (sb3) sb3.focus(); } else if (S.form && S.form.confirmDel) { S.form.confirmDel = false; paint(true); var db3 = m.querySelector('#shf-form [data-act="del"]'); if (db3) db3.focus(); } else closeForm(); } }); // Escape steps back (focus stays in the form), then closes, as everywhere
     }
   }
   // ---- Add a person to the rota: the classic "Add Employee" with what it sends for a name and a role ----
@@ -437,53 +442,152 @@
     }
     return f;
   }
-  // ---- Swap two shifts on the same day: each person takes the other's hours ----
-  // Two changes as Plan shifts (and the classic change) send them, each the shift's whole record with only start and end
-  // swapped (role and note stay with the person). The server keeps a shift's person and day, so a swap is between two
-  // shifts of the same day. If the second change fails, the first is put back.
-  function swapList(f) { return S.shifts.filter(function (x) { return x.shift_date === f.date && Number(x.id) !== Number(f.id) && Number(x.staff_id) !== Number(f.staff_id); }); }
+  // ---- Swap two shifts: each person takes the other's shift, on the same day or on two days of the week ----
+  // The writes are the ones a person makes by hand:
+  //  - same day: two changes, each the shift's whole record with start and end swapped (as Save sends it);
+  //  - two days: the server keeps a shift's person and day, so each shift is moved as it is by hand: + Add shift's body
+  //    for the other person ({staff_id, shift_date, start_time, end_time, notes}, then Save's whole record when they had a
+  //    role of their own), and Remove shift for the old one. Both new shifts are added before either old one is removed.
+  // One rule for both: each person takes the other's hours and keeps their own note and role.
+  // If a write fails, what already went through is undone (each undo first reads the day, so a write whose answer was
+  // lost is undone too) and the screen says so plainly.
+  function swapList(f) {
+    return S.shifts.filter(function (x) { return Number(x.id) !== Number(f.id) && Number(x.staff_id) !== Number(f.staff_id); })
+      .sort(function (a, b) { return (a.shift_date === f.date ? 0 : 1) - (b.shift_date === f.date ? 0 : 1) || String(a.shift_date).localeCompare(String(b.shift_date)) || String(a.start_time).localeCompare(String(b.start_time)); });
+  }
+  function dayWords(key) { var d = parse(key); return DAY[(d.getDay() + 6) % 7].slice(0, 3) + " " + short(key); } // "Tue 19 Nov"
   function swapCheck(f, other) {
     var mine = S.shifts.filter(function (x) { return Number(x.id) === Number(f.id); })[0]; if (!mine || !other) return { err: "Choose the shift to swap with." };
-    var A = person(mine.staff_id), B = person(other.staff_id);
-    if (approvedOn(mine.staff_id, f.date)) return { err: A.full_name + " is on approved leave that day." };
-    if (approvedOn(other.staff_id, f.date)) return { err: B.full_name + " is on approved leave that day." };
-    var clash = function (sid, skip, st, et) { return S.shifts.filter(function (x) { return x.shift_date === f.date && Number(x.staff_id) === Number(sid) && Number(x.id) !== Number(skip) && Number(x.id) !== Number(mine.id) && Number(x.id) !== Number(other.id) && mins(x.start_time) < mins(et) && mins(x.end_time) > mins(st); })[0]; };
-    var ca = clash(mine.staff_id, mine.id, other.start_time, other.end_time), cb = clash(other.staff_id, other.id, mine.start_time, mine.end_time);
-    if (ca) return { err: A.full_name + " already works " + hm(ca.start_time) + "–" + hm(ca.end_time) + " that day." };
-    if (cb) return { err: B.full_name + " already works " + hm(cb.start_time) + "–" + hm(cb.end_time) + " that day." };
-    var after = S.shifts.map(function (x) { return Number(x.id) === Number(mine.id) ? Object.assign({}, x, { start_time: other.start_time, end_time: other.end_time }) : Number(x.id) === Number(other.id) ? Object.assign({}, x, { start_time: mine.start_time, end_time: mine.end_time }) : x; });
-    var was = dayCover(f.date).gaps.map(function (g) { return g.from + g.to; }).join(), now = E.teamCover(f.date, { hours: S.hours, settings: S.rules, shifts: after, staff: S.staff, leaves: S.leaves });
-    return { mine: mine, other: other, A: A, B: B, gap: now.gaps.length && now.gaps.map(function (g) { return g.from + g.to; }).join() !== was ? now.words : "" };
+    var A = person(mine.staff_id), B = person(other.staff_id), d1 = mine.shift_date, d2 = other.shift_date, same = d1 === d2;
+    var first = function (p) { return String(p.full_name).split(/\s+/)[0]; };
+    if (approvedOn(mine.staff_id, d2)) return { err: A.full_name + " is on approved leave " + (same ? "that day." : "on " + dayWords(d2) + "."), why: first(A) + " is on leave then" };
+    if (approvedOn(other.staff_id, d1)) return { err: B.full_name + " is on approved leave " + (same ? "that day." : "on " + dayWords(d1) + "."), why: "on leave " + (same ? "that day" : dayWords(d1)) };
+    var clash = function (sid, key, st, et) { return S.shifts.filter(function (x) { return x.shift_date === key && Number(x.staff_id) === Number(sid) && Number(x.id) !== Number(mine.id) && Number(x.id) !== Number(other.id) && mins(x.start_time) < mins(et) && mins(x.end_time) > mins(st); })[0]; };
+    var ca = clash(mine.staff_id, d2, other.start_time, other.end_time), cb = clash(other.staff_id, d1, mine.start_time, mine.end_time);
+    if (ca) return { err: A.full_name + " already works " + hm(ca.start_time) + "–" + hm(ca.end_time) + (same ? " that day." : " on " + dayWords(d2) + "."), why: first(A) + " already works then" };
+    if (cb) return { err: B.full_name + " already works " + hm(cb.start_time) + "–" + hm(cb.end_time) + (same ? " that day." : " on " + dayWords(d1) + "."), why: "already works " + (same ? "then" : dayWords(d1)) };
+    // Afterwards each shift has the other person (with their role and note): the cover of both days is checked again.
+    var after = S.shifts.map(function (x) {
+      if (Number(x.id) === Number(mine.id)) return Object.assign({}, x, { staff_id: other.staff_id, role_override: other.role_override || "" });
+      if (Number(x.id) === Number(other.id)) return Object.assign({}, x, { staff_id: mine.staff_id, role_override: mine.role_override || "" });
+      return x;
+    });
+    var gaps = (same ? [d1] : [d1, d2].sort()).map(function (key) {
+      var was = dayCover(key).gaps, now = E.teamCover(key, { hours: S.hours, settings: S.rules, shifts: after, staff: S.staff, leaves: S.leaves });
+      var worse = now.gaps.some(function (g) { return !was.some(function (o) { return o.from <= g.from && o.to >= g.to; }); }); // hours with no pharmacist that had one before
+      return worse ? now.words.replace(/^No/, "no") + (same ? "" : " on " + dayWords(key)) : "";
+    }).filter(Boolean);
+    // As when a shift is added by hand: a pharmacist put on at the same time as another pharmacist is said first.
+    var both = function (who, key, slot) {
+      if (!(isPharm(person(who.staff_id)) || String(who.role_override || "") === "pharmacist")) return [];
+      return S.shifts.filter(function (x) { return x.shift_date === key && Number(x.id) !== Number(mine.id) && Number(x.id) !== Number(other.id) && (isPharm(person(x.staff_id)) || String(x.role_override || "") === "pharmacist") && mins(x.start_time) < mins(slot.end_time) && mins(x.end_time) > mins(slot.start_time); });
+    };
+    var ov = both(mine, d2, other).concat(both(other, d1, mine)).map(function (x) { return person(x.staff_id).full_name + " " + (same ? "" : dayWords(x.shift_date) + " ") + hm(x.start_time) + "–" + hm(x.end_time); });
+    return { mine: mine, other: other, A: A, B: B, same: same, gap: gaps.join(" and "), both: ov.join(", ") };
+  }
+  function swapSentence(c) {
+    var w = function (x) { return (c.same ? "" : dayWords(x.shift_date) + " ") + hm(x.start_time) + "–" + hm(x.end_time); };
+    return c.A.full_name + " works " + w(c.other) + " and " + c.B.full_name + " works " + w(c.mine) + ".";
   }
   function swapHtml(key) {
     var f = S.form, list = swapList(f), c = f.swap.with ? swapCheck(f, list.filter(function (x) { return String(x.id) === String(f.swap.with); })[0]) : null;
-    var h = '<label class="q sw"><span>Swap with</span><select name="swap_with"' + (S.saving ? " disabled" : "") + '><option value="">Choose a shift</option>' + list.map(function (x) { return '<option value="' + x.id + '"' + (String(f.swap.with) === String(x.id) ? " selected" : "") + ">" + esc(person(x.staff_id).full_name + " " + hm(x.start_time) + "–" + hm(x.end_time)) + "</option>"; }).join("") + "</select></label>";
+    // Each choice says its day (the group label only shows while the list is open); one that cannot happen is greyed
+    // out with the reason, so the list offers only swaps that can be made.
+    var opt = function (x) {
+      var c = String(f.swap.with) === String(x.id) ? {} : swapCheck(f, x), no = !!c.err, why = no ? " · " + c.why : "";
+      return '<option value="' + x.id + '"' + (String(f.swap.with) === String(x.id) ? " selected" : "") + (no ? " disabled" : "") + ">" + esc((x.shift_date === key ? "" : dayWords(x.shift_date) + " · ") + person(x.staff_id).full_name + " " + hm(x.start_time) + "–" + hm(x.end_time) + why) + "</option>";
+    };
+    var days = []; list.forEach(function (x) { if (days.indexOf(x.shift_date) < 0) days.push(x.shift_date); });
+    var h = '<label class="q sw"><span>Swap with</span><select name="swap_with"' + (S.saving ? " disabled" : "") + '><option value="">Choose a shift</option>' +
+      days.map(function (d) { return '<optgroup label="' + esc(d === key ? "Same day" : DAY[(parse(d).getDay() + 6) % 7] + " " + short(d)) + '">' + list.filter(function (x) { return x.shift_date === d; }).map(opt).join("") + "</optgroup>"; }).join("") + "</select></label>";
     if (c && c.err) h += '<span class="q shf-swq bad" role="alert">' + esc(c.err) + "</span>";
-    else if (c) h += '<span class="q shf-swq" role="status">' + esc(c.A.full_name) + " works " + esc(hm(c.other.start_time) + "–" + hm(c.other.end_time)) + " and " + esc(c.B.full_name) + " works " + esc(hm(c.mine.start_time) + "–" + hm(c.mine.end_time)) + "." + (c.gap ? ' <b>This leaves ' + esc(c.gap.replace(/^No/, "no")) + ".</b>" : "") + "</span>";
-    h += '<button type="button" class="shf-btn" data-act="swap-no">Keep as is</button><button type="button" class="shf-btn p" data-act="swap-yes"' + (S.saving || !c || c.err ? " disabled" : "") + ">" + (S.saving ? "Swapping…" : c && c.gap ? "Swap anyway" : "Swap shifts") + "</button>";
+    else if (c) h += '<span class="q shf-swq" role="status">' + esc(swapSentence(c)) + (c.gap ? ' <b>This leaves ' + esc(c.gap) + ".</b>" : "") + (c.both ? " <b>Another pharmacist is already on then: " + esc(c.both) + ".</b>" : "") + "</span>";
+    h += '<button type="button" class="shf-btn" data-act="swap-no">Keep as is</button><button type="button" class="shf-btn p" data-act="swap-yes"' + (S.saving || !c || c.err ? " disabled" : "") + ">" + (S.saving ? "Swapping…" : c && (c.gap || c.both) ? "Swap anyway" : "Swap shifts") + "</button>";
     return h;
   }
   async function swap() {
     var f = S.form; if (S.saving || !f || !f.swap || !f.swap.with) return;
-    var key = f.date, c0 = swapCheck(f, S.shifts.filter(function (x) { return String(x.id) === String(f.swap.with); })[0]); if (!c0 || c0.err) return;
+    var c0 = swapCheck(f, S.shifts.filter(function (x) { return String(x.id) === String(f.swap.with); })[0]); if (!c0 || c0.err) return;
     S.saving = true; f.err = ""; paint(true);
-    var body = function (x, from) { return { id: x.id, staff_id: x.staff_id, shift_date: x.shift_date, start_time: hm(from.start_time), end_time: hm(from.end_time), role_override: x.role_override || "", notes: x.notes || "" }; };
-    var put = async function (b) { var r = await E.apiFetch("/shifts/assignments/" + b.id, { method: "PUT", body: JSON.stringify(b) }); if (!r || !r.ok) throw new Error((r && r.error) || "Save failed"); };
-    var a = null, b = null, done1 = false;
+    if (c0.same) await swapSameDay(f, c0); else await swapDays(f, c0);
+    S.saving = false; await refreshDay(c0.mine.shift_date, c0.other.shift_date);
+    if (S.form && !S.shifts.some(function (x) { return Number(x.id) === Number(S.form.id); })) { // undone by adding it back: the same shift under its new number
+      var back = S.shifts.filter(function (x) { return x.shift_date === c0.mine.shift_date && Number(x.staff_id) === Number(c0.mine.staff_id) && hm(x.start_time) === hm(c0.mine.start_time) && hm(x.end_time) === hm(c0.mine.end_time); })[0];
+      if (back) { S.form.id = back.id; paint(true); } else { S.msg = S.form.err; S.form = null; paint(true); } // its shift is gone: what is left is said above the week
+    }
+    if (!S.form) {
+      var mb = S.msg && S.mount && S.mount.querySelector(".shf-msg"), now = S.shifts.filter(function (x) { return x.shift_date === c0.mine.shift_date && Number(x.staff_id) === Number(c0.other.staff_id) && hm(x.start_time) === hm(c0.mine.start_time) && hm(x.end_time) === hm(c0.mine.end_time); })[0];
+      var row = !mb && S.mount && (c0.same ? S.mount.querySelector('.shf-p[data-id="' + c0.mine.id + '"]') : now && S.mount.querySelector('.shf-p[data-id="' + now.id + '"]'));
+      if (mb) mb.focus(); else if (row) row.focus(); else refocus(f);
+    }
+    else { var sy = S.mount && S.mount.querySelector('#shf-form [data-act="swap-yes"]'); if (sy) E.focusIfIdle(sy, E.lastAction(), null); } // not swapped: the button to try again
+  }
+  var whole = function (x, from) { return { id: x.id, staff_id: x.staff_id, shift_date: x.shift_date, start_time: hm(from.start_time), end_time: hm(from.end_time), role_override: x.role_override || "", notes: x.notes || "" }; }; // Save's body
+  var putShift = async function (b) { var r = await E.apiFetch("/shifts/assignments/" + b.id, { method: "PUT", body: JSON.stringify(b) }); if (!r || !r.ok) throw new Error((r && r.error) || "Save failed"); };
+  async function swapSameDay(f, c0) {
+    var key = f.date, a = null, b = null, done1 = false;
     try {
       var day = await dayList(key); // as they are now, in case another till changed them
       a = day.filter(function (x) { return Number(x.id) === Number(c0.mine.id); })[0]; b = day.filter(function (x) { return Number(x.id) === Number(c0.other.id); })[0];
       if (!a || !b) throw new Error("one of the two shifts was removed on another till");
-      await put(body(a, b)); done1 = true;
-      await put(body(b, a));
+      await putShift(whole(a, b)); done1 = true;
+      await putShift(whole(b, a));
       S.form = null; E.toast("Shifts swapped: " + c0.A.full_name + " " + hm(b.start_time) + "–" + hm(b.end_time) + ", " + c0.B.full_name + " " + hm(a.start_time) + "–" + hm(a.end_time), "success");
     } catch (x) {
       var why = E.saveFailText(x).replace(/^Not saved/, "Not swapped");
-      if (done1) { try { await put(body(a, a)); why += " " + c0.A.full_name + "’s shift is back to " + hm(a.start_time) + "–" + hm(a.end_time) + "."; } catch (y) { why = "Only half of the swap went through: " + c0.A.full_name + " now works " + hm(b.start_time) + "–" + hm(b.end_time) + " and " + c0.B.full_name + "’s shift did not change. Change one of them by hand."; } }
+      if (done1) { try { await putShift(whole(a, a)); why += " " + c0.A.full_name + "’s shift is back to " + hm(a.start_time) + "–" + hm(a.end_time) + "."; } catch (y) { why = "Only half of the swap went through: " + c0.A.full_name + " now works " + hm(b.start_time) + "–" + hm(b.end_time) + " and " + c0.B.full_name + "’s shift did not change. Change one of them by hand."; } }
       f.err = why;
     }
-    S.saving = false; await refreshDay(key);
-    if (!S.form) refocus(f);
+  }
+  async function swapDays(f, c0) {
+    var d1 = c0.mine.shift_date, d2 = c0.other.shift_date, undo = [], a = null, b = null;
+    // A shift as + Add shift sends it, then Save's whole record when the person has a role of their own on it.
+    var addAs = async function (staffId, key, slot, src, before) { // slot: the hours; src: the person's own shift (note, role)
+      var body = { staff_id: Number(staffId), shift_date: key, start_time: hm(slot.start_time), end_time: hm(slot.end_time), notes: src.notes || "" };
+      var isIt = function (x) { return Number(x.staff_id) === body.staff_id && x.shift_date === key && hm(x.start_time) === body.start_time && hm(x.end_time) === body.end_time && before.indexOf(Number(x.id)) < 0; };
+      undo.push(async function () { var l = (await dayList(key)).filter(isIt); for (var i = 0; i < l.length; i++) await del(l[i].id); return l.length > 0; }); // taken off again, even if its answer was lost
+      var r = await E.postOnce("/shifts/assignments", body, { list: function () { return dayList(key); }, same: isIt });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      if (src.role_override) {
+        var id = r.shift_id || ((await dayList(key)).filter(isIt)[0] || {}).id; if (!id) throw new Error("the new shift could not be found");
+        await putShift({ id: id, staff_id: body.staff_id, shift_date: key, start_time: body.start_time, end_time: body.end_time, role_override: src.role_override, notes: body.notes });
+      }
+    };
+    var del = async function (id) { var r = await E.apiFetch("/shifts/assignments/" + id, { method: "DELETE" }); if (!r || !r.ok) throw new Error((r && r.error) || "Not removed"); };
+    var removeOld = async function (x) {
+      undo.push(async function () { var l = await dayList(x.shift_date); if (l.some(function (y) { return Number(y.id) === Number(x.id); })) return false; await addAs(x.staff_id, x.shift_date, x, x, l.map(function (y) { return Number(y.id); })); undo.pop(); return true; }); // put back as it was
+      await del(x.id);
+    };
+    try {
+      var lists = await Promise.all([dayList(d1), dayList(d2)]); // as they are now, in case another till changed them
+      a = lists[0].filter(function (x) { return Number(x.id) === Number(c0.mine.id); })[0]; b = lists[1].filter(function (x) { return Number(x.id) === Number(c0.other.id); })[0];
+      if (!a || !b) throw new Error("one of the two shifts was removed on another till");
+      var ids = function (l) { return l.map(function (x) { return Number(x.id); }); };
+      await addAs(b.staff_id, d1, a, b, ids(lists[0]));
+      await addAs(a.staff_id, d2, b, a, ids(lists[1]));
+      await removeOld(a);
+      await removeOld(b);
+      S.form = null; E.toast("Shifts swapped: " + c0.B.full_name + " " + dayWords(d1) + " " + hm(a.start_time) + "–" + hm(a.end_time) + ", " + c0.A.full_name + " " + dayWords(d2) + " " + hm(b.start_time) + "–" + hm(b.end_time), "success");
+    } catch (x) {
+      var why = E.saveFailText(x).replace(/^We could not tell if it was saved\. Check the list before trying again\./, "Not saved: the connection dropped."); if (!/[.!?]$/.test(why)) why += ".";
+      var stuck = false, steps = undo.splice(0);
+      for (var i = steps.length - 1; i >= 0; i--) { try { await steps[i](); } catch (y) { stuck = true; } } // newest first; one that fails does not stop the rest
+      f.err = stuck ? await leftWords(c0, why) : "Nothing was changed — " + why;
+    }
+  }
+  // An undo that failed too: the two days are read once more and the screen says exactly who is on them now.
+  async function leftWords(c0, why) {
+    var d1 = c0.mine.shift_date, d2 = c0.other.shift_date, l;
+    try { l = (await Promise.all([dayList(d1), dayList(d2)])).reduce(function (a, b) { return a.concat(b); }, []); }
+    catch (e) { return "Only part of the swap went through, and it could not be put back (" + why.replace(/\.$/, "") + "). Look at " + dayWords(d1) + " and " + dayWords(d2) + " below and change them by hand."; }
+    var slot = function (x) { return (x.shift_date === d1 && hm(x.start_time) === hm(c0.mine.start_time) && hm(x.end_time) === hm(c0.mine.end_time)) || (x.shift_date === d2 && hm(x.start_time) === hm(c0.other.start_time) && hm(x.end_time) === hm(c0.other.end_time)); };
+    var on = function (p) { var w = l.filter(function (x) { return Number(x.staff_id) === Number(p.id) && slot(x); }).sort(function (a, b) { return a.shift_date < b.shift_date ? -1 : 1; }).map(function (x) { return dayWords(x.shift_date) + " " + hm(x.start_time) + "–" + hm(x.end_time); }); return p.full_name + (w.length ? " is now on " + w.join(" and ") : " is now on neither day"); };
+    return "Only part of the swap went through, and it could not be put back: " + on(c0.A) + "; " + on(c0.B) + ". Remove or add one here so each day is right.";
+  }
+  function editForm(x) { return { mode: "edit", id: x.id, date: x.shift_date, staff_id: x.staff_id, start_time: hm(x.start_time), end_time: hm(x.end_time), notes: x.notes || "", err: "", warn: "", warnSig: "" }; }
+  function openSwap() {
+    var l = swapList(S.form); S.form.swap = { with: l.length === 1 ? String(l[0].id) : "" }; S.form.err = ""; paint(true);
+    var sw = S.mount && S.mount.querySelector("#shf-form [name=swap_with]"); if (sw) { sw.focus(); if (sw.scrollIntoView) try { sw.scrollIntoView({ block: "nearest" }); } catch (e) {} }
   }
   // Fill a gap: a new shift on that day for the gap's hours, the first free pharmacist already chosen (Add shift saves it).
   function openGap(key, g) {
@@ -604,8 +708,8 @@
   E.registerModule({
     id: "shfreg", title: "Plan shifts", order: 3, icon: "◷", ui2Only: true,
     render: function (ctx) {
-      var wk = E._shfWeek, gap = E._shfGap; E._shfWeek = null; E._shfGap = null; // from Who's in: its week, and a gap to fill
-      S.mount = ctx && ctx.mount; S.monday = gap ? mondayOf(parse(gap.date)) : wk ? mondayOf(parse(wk)) : mondayOf(new Date()); S.shifts = []; S.form = null; S.ask = null; S.lvMsg = ""; S.busy = 0; S.saving = false; S.who = null; S.lv = null;
+      var wk = E._shfWeek, gap = E._shfGap, sw = E._shfSwap; E._shfWeek = null; E._shfGap = null; E._shfSwap = null; // from Who's in: its week, a gap to fill, a shift to swap
+      S.mount = ctx && ctx.mount; S.monday = gap ? mondayOf(parse(gap.date)) : sw ? mondayOf(parse(sw.date)) : wk ? mondayOf(parse(wk)) : mondayOf(new Date()); S.shifts = []; S.form = null; S.msg = ""; S.ask = null; S.lvMsg = ""; S.busy = 0; S.saving = false; S.who = null; S.lv = null;
       var wantLeave = E._shfLeaveNew; E._shfLeaveNew = false; // "Ask for leave" on Who's in opens the new request
       S.loading = true; // the first paint is the skeleton (an empty rota is only offered "Who works here?" once it is known to be empty)
       css(); paint(); document.removeEventListener("keydown", onKey); document.addEventListener("keydown", onKey);
@@ -613,6 +717,7 @@
         if (E.state.activeModuleId !== "shfreg" || S.error) return;
         if (wantLeave && leavers().length) openLeave();
         else if (gap && dayCover(gap.date).gaps.some(function (g) { return g.from === gap.from && g.to === gap.to; })) openGap(gap.date, gap);
+        else if (sw) { var x = S.shifts.filter(function (y) { return Number(y.id) === Number(sw.id); })[0]; if (x) { S.form = editForm(x); openSwap(); } } // the shift tapped on Who's in, ready to swap
       });
     },
     destroy: function () { document.removeEventListener("keydown", onKey); }

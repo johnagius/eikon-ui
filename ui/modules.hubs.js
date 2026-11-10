@@ -176,6 +176,20 @@
     E.openClassic(mid);
   }
 
+  // A button drawn again keeps the keyboard: found again by its data-* attributes and its label (today's lists'
+  // buttons carry no name or id).
+  function keepPlace(m, paint) {
+    var a = document.activeElement, key = "";
+    if (a && a !== document.body && m.contains(a) && a.attributes) {
+      Array.prototype.forEach.call(a.attributes, function (at) { if (/^data-|^aria-label$/.test(at.name)) key += "[" + at.name + '="' + String(at.value).replace(/["\\]/g, "\\$&") + '"]'; });
+      if (key) key = a.tagName.toLowerCase() + key;
+    }
+    paint();
+    if (!key || (document.activeElement && document.activeElement !== document.body && document.activeElement.isConnected)) return;
+    var back = null; try { back = m.querySelector(key); } catch (e) {}
+    if (back) { try { back.focus({ preventScroll: true }); } catch (e) { back.focus(); } }
+  }
+
   function makeHub(id, cfg) {
     function render(ctx) {
       var m = ctx && ctx.mount; if (!m) return;
@@ -187,6 +201,15 @@
       if (id === "money") html += '<div id="mny-slot"></div><h2 class="mny-all">Everything in Money</h2>';
       if (id === "team") html += '<div id="tmt-slot"></div><h2 class="tmt-all">Everything in Team</h2>'; // team-hub: who is in and what to read today first (eikon.teamtoday.js), every team screen under it
       if (id === "services") html += '<div id="svt-slot"></div><h2 class="svt-all">Every service</h2>'; // svc-hub: who is waiting for care today first (eikon.svctoday.js), every service under it // money-hub: what is left to close and what the till holds today first (eikon.moneytoday.js), every money screen under it // regs-hub: what is due today first (eikon.regtoday.js), every register under it; a heading like "Today" above it, not a section label
+      var cs = cards();
+      m.innerHTML = html + cs + '</div>';
+      var hub = m.querySelector(".hub"); hub._cards = cs;
+      wire(hub);
+      drawSlots(m);
+    }
+    // The cards: every screen of the hub that is in this build (late screens appear once they arrive).
+    function cards() {
+      var html = "";
       cfg.groups.forEach(function (g, gi) {
         var cards = "";
         (g.ids || []).forEach(function (mid) {
@@ -202,18 +225,13 @@
         if (!cards) return;
         html += '<div class="hub-sec' + (g.phoneOnly ? " hub-phone" : "") + '">' + (g.label ? '<h2 class="hub-lab">' + esc(g.label) + '</h2>' : '<div class="hub-gap"></div>') + '<div class="hub-grid">' + cards + '</div></div>';
       });
-      html += '</div>';
-      m.innerHTML = html;
-      m.querySelectorAll("[data-open]").forEach(function (b) {
+      return html;
+    }
+    function wire(root) {
+      root.querySelectorAll(".hub-card[data-open]").forEach(function (b) {
         b.addEventListener("click", function () { openCard(b.getAttribute("data-open"), id); });
       });
-      if (id === "stock") { var slot = m.querySelector("#stk-slot"); if (slot && E.stockFlow) E.stockFlow.render(slot); } // drawn by modules.stkflow.js when it arrives otherwise
-      if (id === "registers") { var rs = m.querySelector("#rgt-slot"); if (rs && E.regToday) E.regToday.render(rs); } // drawn by eikon.regtoday.js when it arrives otherwise
-      if (id === "money") { var ms = m.querySelector("#mny-slot"); if (ms && E.moneyToday) E.moneyToday.render(ms); } // drawn by eikon.moneytoday.js when it arrives otherwise
-      if (id === "team") { var ts = m.querySelector("#tmt-slot"); if (ts && E.teamToday && E.teamToday.render) E.teamToday.render(ts); } // team-hub: drawn by eikon.teamtoday.js when it arrives otherwise
-      if (id === "services") { var ss = m.querySelector("#svt-slot"); if (ss && E.svcToday) E.svcToday.render(ss); } // drawn by eikon.svctoday.js when it arrives otherwise
-      if (id === "settings" && E.helpSettings) E.helpSettings(m); // What's new (eikon.help.js, loaded just after the first screen)
-      m.querySelectorAll("[data-action]").forEach(function (b) {
+      root.querySelectorAll(".hub-card[data-action]").forEach(function (b) {
         b.addEventListener("click", function () {
           var p = b.getAttribute("data-action").split(":");
           var a = cfg.groups[Number(p[0])].actions[Number(p[1])];
@@ -221,13 +239,44 @@
         });
       });
     }
-    E.registerModule({ id: id, title: cfg.title, order: 2, icon: "◯", ui2Only: true, render: render });
+    // The parts other files draw (today's list above the cards, What's new): theirs when they are in.
+    function drawSlots(m, late) {
+      if (id === "stock") { var slot = m.querySelector("#stk-slot"); if (slot && E.stockFlow && !(late && slot.firstChild)) E.stockFlow.render(slot); } // drawn by modules.stkflow.js when it arrives otherwise
+      if (id === "registers") { var rs = m.querySelector("#rgt-slot"); if (rs && E.regToday) E.regToday.render(rs); } // drawn by eikon.regtoday.js when it arrives otherwise
+      if (id === "money") { var ms = m.querySelector("#mny-slot"); if (ms && E.moneyToday) E.moneyToday.render(ms); } // drawn by eikon.moneytoday.js when it arrives otherwise
+      if (id === "team") { var ts = m.querySelector("#tmt-slot"); if (ts && E.teamToday && E.teamToday.render) E.teamToday.render(ts); } // team-hub: drawn by eikon.teamtoday.js when it arrives otherwise
+      if (id === "services") { var ss = m.querySelector("#svt-slot"); if (ss && E.svcToday) E.svcToday.render(ss); } // drawn by eikon.svctoday.js when it arrives otherwise
+      if (id === "settings" && E.helpSettings) E.helpSettings(m); // What's new (eikon.help.js, loaded just after the first screen)
+    }
+    // typing: the late screens arrived (a second after a fresh load). The hub is not drawn again: the cards are put
+    // in place (each card's status chip and the keyboard's place on a card kept), and the lists above them, which
+    // can hold what someone is typing, are drawn again (cached: no new reads) only once no field there has focus or
+    // unsaved text (E.whenFieldsIdle). Nothing typed or focused is lost, and the late cards still appear at once.
+    function lateIn(m) {
+      var hub = m.querySelector('.hub[data-hub="' + id + '"]'); if (!hub) return;
+      var html = cards();
+      if (html !== hub._cards) keepPlace(m, function () {
+        var chips = {};
+        hub.querySelectorAll(".hub-card[data-open]").forEach(function (c) { chips[c.getAttribute("data-open")] = Array.prototype.filter.call(c.children, function (x) { return x.tagName === "EM"; }); });
+        Array.prototype.forEach.call(hub.querySelectorAll(".hub-sec"), function (s) { if (s.parentNode === hub) hub.removeChild(s); });
+        var box = document.createElement("div"); box.innerHTML = html;
+        Array.prototype.slice.call(box.children).forEach(function (s) { hub.appendChild(s); wire(s); });
+        hub.querySelectorAll(".hub-card[data-open]").forEach(function (c) { (chips[c.getAttribute("data-open")] || []).forEach(function (x) { c.appendChild(x); }); });
+        hub._cards = html;
+      });
+      E.whenFieldsIdle(m, function () { keepPlace(m, function () { drawSlots(m, true); }); }, function () { return E.state.activeModuleId === id && m.querySelector(".hub") === hub; });
+    }
+    E.registerModule({ id: id, title: cfg.title, order: 2, icon: "◯", ui2Only: true, render: render, lateIn: lateIn });
   }
 
   Object.keys(HUBS).forEach(function (id) { makeHub(id, HUBS[id]); });
-  // Hub cards list modules that may still be loading in the background: redraw once they are in.
+  // Hub cards list modules that may still be loading in the background: they are put in once they are in, without
+  // drawing the hub again under someone typing (lateIn above).
   window.addEventListener("eikon:modules", function () {
-    try { var a = document.activeElement, typing = a && a.closest && a.closest(".hub form"); if (HUBS[E.state.activeModuleId] && document.querySelector(".hub") && !typing) E.renderActiveModule(); } catch (e) {} // never under someone typing in Stock's forms
+    try {
+      var mod = HUBS[E.state.activeModuleId] && E.modules[E.state.activeModuleId], m = document.getElementById("eikon-content");
+      if (mod && mod.lateIn && m && m.querySelector(".hub")) mod.lateIn(m);
+    } catch (e) {}
   });
 
   // Every card behind every hub, once each (its first hub), for the search (eikon.search.js): the name the screen shows,

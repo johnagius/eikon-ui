@@ -6897,8 +6897,8 @@ try {
   const calls = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json());
   globalThis.__stk = null;
   await page.goto(base + "&ui=2#stock");
-  // the background screens in too (E._lateIn, as the other fresh-page cases wait): their arrival redraws the hub
-  await page.waitForFunction(() => document.querySelector(".stk-seg [data-view=order]") && document.querySelector(".stk-head") && window.EIKON._lateIn, null, { timeout: 15000 });
+  // no wait for the background screens (E._lateIn): their arrival no longer redraws the hub (typing, tests/real typing-late)
+  await page.waitForFunction(() => document.querySelector(".stk-seg [data-view=order]") && document.querySelector(".stk-head"), null, { timeout: 15000 });
   await page.click("[data-view=order]").catch(() => {});
   await page.waitForSelector('[data-act=arrived][data-ids="101"]', { timeout: 8000 });
   const f0 = await page.evaluate(() => ({ text: document.querySelector("#stk-slot").innerText, cards: document.querySelectorAll(".hub-card[data-open]").length, all: !!document.querySelector(".stk-all") }));
@@ -6936,6 +6936,7 @@ try {
   // Add an item: typing survives the lists arriving; Enter saves the classic body; the form stays for the next item
   await page.evaluate(() => { window.EIKON.stockFlow.tell = null; });
   await page.click("[data-view=order]"); await page.click(".stk-head [data-act=add]"); await page.waitForSelector("#stk-add [name=item_name]");
+  await page.waitForFunction(() => document.activeElement && document.activeElement.name === "item_name", null, { timeout: 3000 }).catch(() => {}); // the form puts the keyboard there a moment after it opens
   await page.keyboard.type("Ħ-test Panadol");
   await page.evaluate(() => window.EIKON.stockFlow.reload()); await page.keyboard.type(" 500mg"); await page.waitForTimeout(400);
   const typed = await page.inputValue("#stk-add [name=item_name]");

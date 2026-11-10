@@ -142,6 +142,25 @@
       "@media (min-width:901px){.con-detail{position:sticky;top:16px}.con-cw{display:none}.con-call{font-variant-numeric:tabular-nums}}@media (max-width:900px){.con-cn{display:none}}" +
       "i.con-cw{font-style:normal}.con-chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent);padding-right:28px}.con-chips::-webkit-scrollbar{display:none}.con-chips button{flex:none}" +
       "@media (max-width:600px){.con-sos{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding:0 16px 2px}.con-sos::-webkit-scrollbar{display:none}.con .con-sos a{min-height:44px;border-radius:22px;padding:0 14px;flex:none}.con-star{min-height:44px;border-radius:22px}}";
+    // Team round 2 (polish): emergency numbers in ink, bold, with a small "Emergency" label (red means wrong/overdue
+    // app-wide). On a desktop the search and the type chips are one bar over both columns, the chips wrap (nothing cut
+    // off), and the emergency numbers fill the right pane until a contact is opened; a phone keeps the strip and the
+    // sliding chips under the search.
+    st.textContent += ".con .con-sos a b,html[data-ui2]:not([data-ui2-visit]) .con .con-sos a b{color:var(--text);font-weight:700}" +
+      ".con-sos-l{font-size:12px;font-weight:600;color:var(--muted);align-self:center;margin-right:2px;flex:none}" +
+      ".con-main>.con-chips{margin-top:16px}.con-main>.con-grid{margin-top:14px}" +
+      ".con-em{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:16px 20px 18px}" +
+      ".con-em h2{font-size:15px;font-weight:700;margin:0}" +
+      ".con-em ul{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:0 24px}@media (min-width:1240px){.con-em ul{grid-template-columns:repeat(2,minmax(0,1fr))}}" +
+      ".con-em li{padding:9px 0;border-top:.5px solid var(--border);min-width:0}" +
+      ".con-em li b{display:block;font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text)}.con-em li b a{color:var(--text);text-decoration:none}.con-em li b a:hover{text-decoration:underline}" +
+      ".con-em li span{display:block;font-size:14px;margin-top:1px}.con-em li small{display:block;font-size:12.5px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
+      ".con-em p{margin:14px 0 0;font-size:13.5px;color:var(--muted)}" +
+      "@media (min-width:901px){.con .con-sos{display:none}.con-main>.con-chips{flex-wrap:wrap;overflow:visible;-webkit-mask-image:none;mask-image:none;padding-right:0}}" +
+      // a phone: one column in the order search, emergency strip, chips, list (the two wrappers step aside)
+      "@media (max-width:900px){.con-main{display:flex;flex-direction:column;margin-top:16px}.con-main>.con-grid,.con-side{display:contents}.con-main>.con-chips{order:3}.con-q{order:1}.con-side>.con-sos{order:2}#con-list{order:4}.con-side>.con-foot{order:5}.con-detail{order:6}" +
+      ".con-main>.con-grid{margin-top:0}.con.has-sel .con-main>.con-chips,.con.has-sel .con-side{display:none}.con.has-sel .con-main{margin-top:0}}" +
+      ".con .con-em li b a{text-decoration:none!important;color:var(--text)!important}.con .con-em li b a:hover{text-decoration:underline!important}";
     document.head.appendChild(st);
   }
 
@@ -211,8 +230,12 @@
   // On a desktop the number is on the row's button, so the line under the name leaves it out (said once).
   function subHtml(c, n) {
     var parts = sub(c).split(" · ");
-    var hide = parts.length > 1 && n && digits(n) ? parts.indexOf(n) : -1; // the number, with the dot that joins it
-    return parts.map(function (x, i) { var t = (i ? " · " : "") + esc(x); if (i !== hide) return t; return '<i class="con-cw">' + (i ? t : esc(x) + " · ") + "</i>"; }).join("").replace(/^(<i class="con-cw">[^<]*<\/i>) · /, "$1");
+    var hide = n && digits(n) ? parts.indexOf(n) : -1; // the number, with the dot that joins it (also when it is all there is)
+    return parts.map(function (x, i) {
+      if (hide < 0 && n && x.indexOf(n + " / ") === 0) return (i ? " · " : "") + '<i class="con-cw">' + esc(n) + " / </i>" + esc(x.slice(n.length + 3)); // "2143 3256 / 2143 2062": the button has the first
+      if (i === hide) return '<i class="con-cw">' + (i ? " · " : "") + esc(x) + (i === 0 && parts.length > 1 ? " · " : "") + "</i>";
+      return (i && !(i === 1 && hide === 0) ? " · " : "") + esc(x);
+    }).join("");
   }
   function rowHtml(c) {
     var n = c.fixed ? String(c.r.phone).split("/")[0].trim() : callNo(c.t, c.r);
@@ -260,10 +283,18 @@
     return h;
   }
   function sosHtml() { // the numbers needed in a hurry, one tap from the top of the screen
-    return '<div class="con-sos" role="group" aria-label="Emergency numbers">' + [EMERGENCY[0], EMERGENCY[4], EMERGENCY[3]].map(function (r) {
+    return '<div class="con-sos" role="group" aria-label="Emergency numbers"><span class="con-sos-l" aria-hidden="true">Emergency</span>' + [EMERGENCY[0], EMERGENCY[4], EMERGENCY[3]].map(function (r) {
       var n = String(r.phone).split("/")[0].trim();
-      return '<a href="' + esc(telHref(n)) + '" aria-label="Call ' + esc(r.name + " " + n) + '"><b>' + esc(n) + "</b> " + esc(r.name === "All emergencies" ? "Emergency" : /^Urgent/.test(r.name) ? "Urgent care" : r.name.replace(/ Hospital$/, "")) + "</a>";
+      return '<a href="' + esc(telHref(n)) + '" aria-label="Call ' + esc(r.name + " " + n) + '"><b>' + esc(n) + "</b>" + (r.name === "All emergencies" ? "" : " " + esc(/^Urgent/.test(r.name) ? "Urgent care" : r.name.replace(/ Hospital$/, ""))) + "</a>";
     }).join("") + "</div>";
+  }
+
+  // Desktop, nothing open: every emergency number and 24/7 health centre, in the right pane (hidden on a phone, where
+  // the strip under the search does this job).
+  function emHtml() {
+    return '<section class="con-em con-pick" aria-labelledby="con-em-h"><h2 id="con-em-h">Emergency and health centres</h2><ul>' +
+      EMERGENCY.map(function (r) { return "<li><b>" + tel(r.phone) + "</b><span>" + esc(r.name) + "</span>" + (r.note ? '<small title="' + esc(r.note) + '">' + esc(String(r.note).split(" Covers ")[0]) + "</small>" : "") + "</li>"; }).join("") +
+      "</ul><p>Pick a contact to see their numbers, or search for one.</p></section>";
   }
 
   /* ---------- one contact ---------- */
@@ -271,7 +302,7 @@
   function detailHtml() {
     if (S.form) return formHtml();
     var c = S.sel && find(S.sel);
-    if (!c) return '<div class="con-quiet con-pick" style="padding:34px;text-align:center">Pick a contact to see their numbers, or search for one.</div>';
+    if (!c) return S.filter === "emergency" ? '<div class="con-quiet con-pick" style="padding:34px;text-align:center">Pick a contact to see their numbers, or search for one.</div>' : emHtml();
     var r = c.r, t = TYPE[c.t], h = '<button type="button" class="con-dback" data-act="close">‹ Contacts</button><div class="con-card">';
     var P = picks(), starred = !!(P && P.isFav(c.k)), nm0 = String(r.name || "").trim() || "(no name)";
     h += '<div class="con-ttl"><h2 tabindex="-1" id="con-title">' + esc(nm0) + '</h2>' + (P ? '<button type="button" class="con-star" data-act="star" aria-pressed="' + starred + '" aria-label="Star ' + esc(nm0) + ' (kept at the top of Contacts on this device)">' + (starred ? "★ Starred" : "☆ Star") + "</button>" : "") + '</div><div class="con-meta"><span class="con-pill">' + esc(c.fixed ? "Emergency" : c.team ? r.role : t.one) + "</span>" +
@@ -335,12 +366,12 @@
     var chips = [["all", "All"]].concat(S.team && S.team.length ? [["team", "Our team"]] : []).concat(TYPES.map(function (t) { return [t.key, t.many]; })).concat([["emergency", "Emergency"]]);
     var h = '<div class="con' + (open ? " has-sel" : "") + '"><div class="con-head"><button type="button" class="con-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("conreg") : "‹ Team") + "</button>" +
       '<div class="con-top"><div><h1>Contacts</h1><p class="con-sub">Suppliers, reps, doctors and everyone else the pharmacy calls.</p></div>' + (S.form && !S.form.id ? "" : '<button type="button" class="con-btn p" data-act="add">Add a contact</button>') + "</div></div>" +
+      '<div class="con-main"><div class="con-chips" role="group" aria-label="Show">' + chips.map(function (c) { return '<button type="button" data-filter="' + c[0] + '" aria-pressed="' + (S.filter === c[0]) + '">' + esc(c[1]) + "</button>"; }).join("") + "</div>" +
       '<div class="con-grid"><div class="con-side">' +
       '<input class="con-q" id="con-q" type="search" autocomplete="off" aria-label="Search contacts" placeholder="Name, number or email" value="' + esc(S.q) + '">' + sosHtml() +
-      '<div class="con-chips" role="group" aria-label="Show">' + chips.map(function (c) { return '<button type="button" data-filter="' + c[0] + '" aria-pressed="' + (S.filter === c[0]) + '">' + esc(c[1]) + "</button>"; }).join("") + "</div>" +
       '<div id="con-list">' + listHtml() + "</div>" +
       '<p class="con-foot">Import and export, hiding sections and the specialty filter are in the <a href="#" data-act="classic">classic screen</a>.</p>' +
-      '</div><div class="con-detail">' + detailHtml() + "</div></div></div>";
+      '</div><div class="con-detail">' + detailHtml() + "</div></div></div></div>";
     var ae = document.activeElement, keepSel = ae && m.contains(ae) ? (ae.id === "con-q" ? "#con-q" : ae.name ? "#con-form [name=" + ae.name + "]" : "") : "";
     m.innerHTML = h;
     if (keepSel) { var again = m.querySelector(keepSel); if (again) { again.focus(); try { if (again.setSelectionRange && again.type !== "email") { var L = again.value.length; again.setSelectionRange(L, L); } } catch (x) {} } } // typing keeps its place

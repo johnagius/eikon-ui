@@ -68,10 +68,16 @@
     return HOWTO.filter(function (h) { var x = g[h[0]]; return x && typeof x.text === "string" && x.text.trim() && ((h[0] !== "hiv" && h[0] !== "concerta") || x.enabled === true); })
       .map(function (h) { return { k: h[0], title: h[1], text: g[h[0]].text }; });
   }
+  // Team round 2 (H6): once read, the section folds to one row ("How we do things 7 ›") so today's notes and For
+  // tomorrow stay in view. Read = this person opened one of them on this device before, or pressed Got it on what the
+  // last shift left. Opening or closing the row is kept while the screen is open; nothing is sent.
+  function howKey() { var u = (E.state && E.state.user) || {}; return "eikon_hnd_how_" + (u.user_id || u.id || "0") + ":" + (u.location_id != null ? u.location_id : ""); } // per person, per pharmacy
+  function howRead() { try { return localStorage.getItem(howKey()) === "1"; } catch (e) { return false; } }
+  function howFolded() { if (S.howAll != null) return !S.howAll; return howRead() || !!(S.incoming.length && seenMine()); }
   function howtoHtml() {
     if (!S.howto.length) return "";
-    return '<h2 class="hnd-lab" id="hnd-how-l">How we do things <b>' + S.howto.length + '</b></h2><div class="hnd-list hnd-how" role="group" aria-labelledby="hnd-how-l">' +
-      S.howto.map(function (x) { return '<details data-k="' + esc(x.k) + '"' + (S.open[x.k] ? " open" : "") + "><summary>" + esc(x.title) + '</summary><div class="hnd-howt">' + esc(x.text) + "</div></details>"; }).join("") + "</div>";
+    return '<details class="hnd-howall" id="hnd-how"' + (howFolded() ? "" : " open") + '><summary><span id="hnd-how-l">How we do things</span> <b>' + S.howto.length + '</b></summary><div class="hnd-list hnd-how" role="group" aria-labelledby="hnd-how-l">' +
+      S.howto.map(function (x) { return '<details data-k="' + esc(x.k) + '"' + (S.open[x.k] ? " open" : "") + "><summary>" + esc(x.title) + '</summary><div class="hnd-howt">' + esc(x.text) + "</div></details>"; }).join("") + "</div></details>";
   }
   function clean(rec) { return { notes: String((rec && rec.notes) || ""), handover_out: Array.isArray(rec && rec.handover_out) ? rec.handover_out : [] }; }
 
@@ -100,7 +106,7 @@
       ".hnd-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:12px;padding:16px;color:var(--muted)}.hnd-quiet .hnd-btn{display:block;margin-top:12px}" +
       ".hnd-dirty{font-size:13px;color:var(--muted);margin-right:auto}" +
       ".hnd-list.new{border-color:var(--accent)}.hnd-ack{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:8px 14px;border-top:.5px solid var(--border);font-size:14px;color:var(--muted);min-height:34px}.hnd-ack:focus{outline:0}.hnd-ack{flex-wrap:wrap}.hnd-ack .ok{color:var(--ok);font-weight:600}.hnd-ack .by{order:-1;margin-right:auto;font-size:13px}" +
-      ".hnd-btn.x.c{color:var(--accent)}.hnd-car{font-size:13px;color:var(--muted);white-space:nowrap;padding-top:2px}.hnd-pins{list-style:none;margin:0;padding:0}.hnd-pt small.w{color:var(--muted)}a.hnd-ch{text-decoration:none;display:inline-flex;align-items:center}" +
+      ".hnd-btn.x.c{color:var(--muted);font-weight:500;height:44px;margin:-9px -6px -9px 0;padding:0 10px}.hnd-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.hnd-car{font-size:13px;color:var(--muted);white-space:nowrap;padding-top:2px}.hnd-pins{list-style:none;margin:0;padding:0}.hnd-pt small.w{color:var(--muted)}a.hnd-ch{text-decoration:none;display:inline-flex;align-items:center}" +
       ".hnd-how details{border-top:.5px solid var(--border)}.hnd-how details:first-child{border-top:0}.hnd-how summary{cursor:pointer;padding:0 14px;min-height:44px;display:flex;align-items:center;font-size:15px;font-weight:600;list-style:none}.hnd-how summary::-webkit-details-marker{display:none}" +
       ".hnd-how summary::after{content:'›';margin-left:auto;color:var(--muted);font-size:20px;transition:transform .15s}.hnd-how details[open] summary::after{transform:rotate(90deg)}.hnd-how summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}.hnd-howt{padding:0 14px 12px;font-size:15px;line-height:1.45;white-space:pre-wrap}" +
       ".hnd-undo{background:rgba(118,118,128,.07);color:var(--muted)}.hnd-undo .t{font-style:italic}.hnd-btn.x.u{color:var(--accent)}" +
@@ -108,6 +114,10 @@
       ".hnd-addstd{display:block;width:100%;text-align:left;font:inherit;font-size:14.5px;font-weight:600;color:var(--accent);background:var(--panel2);border:1px dashed var(--border);border-radius:12px;padding:11px 14px;cursor:pointer;min-height:44px;margin-top:22px}" +
       ".hnd-sk{height:120px;margin-top:22px;border-radius:12px;background:rgba(118,118,128,.1)}.hnd-sk+.hnd-sk{height:96px}" +
       ".hnd-foot{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.6}.hnd-foot a{color:var(--accent)}" +
+      // H6: the folded row is a list row; open, it is the section's label with the list under it
+      ".hnd-howall>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:44px;box-sizing:border-box;margin-top:22px;padding:0 14px;font-size:15px;font-weight:600;background:var(--panel2);border:1px solid var(--border);border-radius:12px}.hnd-howall>summary::-webkit-details-marker{display:none}" +
+      ".hnd-howall>summary b{color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}.hnd-howall>summary::after{content:'›';margin-left:auto;color:var(--muted);font-size:20px;transition:transform .15s}.hnd-howall>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}" +
+      ".hnd-howall[open]>summary{background:none;border-color:transparent;padding:0 2px;min-height:32px;margin:14px 0 2px;font-size:13px;color:var(--muted)}.hnd-howall[open]>summary b{color:var(--text)}.hnd-howall[open]>summary::after{transform:rotate(90deg);font-size:18px}" +
       "@media (max-width:600px){.hnd{padding:4px 16px 0}.hnd h1{font-size:32px}.hnd-btn{height:44px;border-radius:22px}.hnd-btn.x{height:44px;padding:0 10px}.hnd-in{height:44px}.hnd-seg button{height:44px;padding:0 12px}.hnd-foot a{display:inline-block;padding:12px 0;margin:-12px 0}.hnd-lab .hnd-ch{min-height:44px;margin:-12px 0 -12px auto;padding:0 4px}}";
     document.head.appendChild(st);
   }
@@ -207,7 +217,8 @@
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "hndreg"); } catch (x) {} E.openClassic("instructions"); }
       });
     });
-    m.querySelectorAll(".hnd-how details").forEach(function (d) { d.addEventListener("toggle", function () { S.open[d.getAttribute("data-k")] = d.open; }); }); // stays open across redraws
+    m.querySelectorAll(".hnd-how details").forEach(function (d) { d.addEventListener("toggle", function () { S.open[d.getAttribute("data-k")] = d.open; if (d.open) try { localStorage.setItem(howKey(), "1"); } catch (e6) {} }); }); // stays open across redraws; read once, folded next time
+    var ha = m.querySelector("#hnd-how"); if (ha) ha.addEventListener("toggle", function () { if (ha.open !== !howFolded()) S.howAll = ha.open; });
     m.querySelectorAll(".hnd-seg [data-sev]").forEach(function (b) { b.addEventListener("click", function () { S.sev = b.getAttribute("data-sev"); paint(); var again = S.mount && S.mount.querySelector('.hnd-seg [data-sev="' + S.sev + '"]'); if (again) again.focus(); }); });
     var t = m.querySelector("#hnd-notes"); if (t) {
       t.addEventListener("input", function () { S.notes = t.value; var btn = m.querySelector('[data-act="notes"]'); if (btn) { btn.disabled = S.saving; btn.hidden = !dirty(); } var d = m.querySelector("#hnd-dirty"), w = notesHint(); if (d && d.textContent !== w) d.textContent = w; });
@@ -330,7 +341,7 @@
     render: function (ctx) {
       // Notes typed and not saved, and a point not yet added, are still there when you come back the same day.
       var keepDraft = S.ymd === today();
-      S.mount = ctx && ctx.mount; S.ymd = today(); S.mine = null; S.err = ""; S.warn = ""; S.savedAt = ""; S.stdBusy = false; S.stdMsg = "";
+      S.mount = ctx && ctx.mount; S.ymd = today(); S.mine = null; S.err = ""; S.warn = ""; S.savedAt = ""; S.stdBusy = false; S.stdMsg = ""; S.howAll = null;
       if (S.std && S.std.text === S.std.base) S.std = null; // a change typed and not saved is still open on coming back
       if (!keepDraft || !dirty()) S.notes = null;
       if (!keepDraft) S.draft = "";

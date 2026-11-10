@@ -2065,6 +2065,34 @@
     mount.addEventListener("focusout", onOut);
     var t = setInterval(function () { if (!busy() || !document.body.contains(mount)) run(); }, 2000); // a safety net
   };
+  // E.whenFieldsIdle(mount, fn, still): the stricter form, for a redraw nobody asked for (the late screens arriving a
+  // second after a fresh page load). fn runs only while no field in mount has focus and none holds unsaved text (a
+  // value the person changed that nothing has saved or cleared yet); otherwise it waits for focus to leave or the text
+  // to go, checking again on focusout, input and change, and every 2 s as a safety net. It is dropped once mount
+  // leaves the page or still() (optional: "is this still the same screen?") turns false. Asked again for the same
+  // mount before it ran, only the newest fn waits.
+  function fieldsBusy(mount) {
+    var a = document.activeElement;
+    if (a && a !== document.body && mount.contains(a) && (entryField(a) || (a.closest && a.closest("form")))) return true;
+    return Array.prototype.some.call(mount.querySelectorAll("input,textarea,select"), function (el) {
+      if (el.type === "hidden" || el.disabled) return false;
+      if (el.tagName === "SELECT") return Array.prototype.some.call(el.options, function (op) { return op.selected !== op.defaultSelected; }) && el.selectedIndex > 0;
+      if (/^(checkbox|radio)$/i.test(el.type || "")) return el.checked !== el.defaultChecked;
+      return !/^(button|submit|reset|image|file)$/i.test(el.type || "") && el.value !== el.defaultValue;
+    });
+  }
+  E.whenFieldsIdle = function (mount, fn, still) {
+    if (!mount) return;
+    if (mount._eikonIdleWait) mount._eikonIdleWait.stop();
+    var gone = function () { return !document.body.contains(mount) || (still && !still()); };
+    if (gone()) return;
+    if (!fieldsBusy(mount)) return fn();
+    var t = 0, w = {}, check = function () { setTimeout(function () { if (mount._eikonIdleWait !== w) return; if (gone()) w.stop(); else if (!fieldsBusy(mount)) { w.stop(); fn(); } }, 0); };
+    w.stop = function () { clearInterval(t); ["focusout", "input", "change"].forEach(function (ty) { mount.removeEventListener(ty, check); }); if (mount._eikonIdleWait === w) mount._eikonIdleWait = null; };
+    ["focusout", "input", "change"].forEach(function (ty) { mount.addEventListener(ty, check); });
+    t = setInterval(check, 2000);
+    mount._eikonIdleWait = w;
+  };
   // Typing is never lost when a lookup fills a field (BACKLOG3 item 1). A lookup run as a field was left used to
   // redraw the whole form while focus was on its way to the next field; that field was replaced, focus fell to the
   // page, and the next thing typed (a DDA serial number) went nowhere.

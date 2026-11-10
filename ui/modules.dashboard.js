@@ -1026,7 +1026,9 @@
       var bd = state.data.board.data;
       var boardSub = [];
       if (bd.unread > 0) boardSub.push(bd.unread + " unread mention" + (bd.unread > 1 ? "s" : ""));
-      if (bd.unread_messages > 0) boardSub.push(bd.unread_messages + " unread message" + (bd.unread_messages > 1 ? "s" : ""));
+      // the server counts unread messages up to 100: 100 means "99+"
+      var unreadMsgText = bd.unread_messages >= 100 ? "99+" : String(bd.unread_messages);
+      if (bd.unread_messages > 0) boardSub.push(unreadMsgText + " unread message" + (bd.unread_messages > 1 ? "s" : ""));
       if (bd.recent && bd.recent.length > 0) {
         var latest = bd.recent[0];
         var preview = String(latest.body || "").substring(0, 60);
@@ -1051,7 +1053,7 @@
           '</div>' +
         '</div>';
       } else {
-        var boardPill = bd.unread_messages > 0 ? pill("warn", bd.unread_messages + " new") : pill("ok", "OK");
+        var boardPill = bd.unread_messages > 0 ? pill("warn", unreadMsgText + " new") : pill("ok", "OK");
         boardRow = row("\uD83D\uDCAC", "Chat Board", boardSub.join(" \u2022 "), boardPill,
           btn("dash-open-messageboard", "Open", { primary: bd.unread_messages > 0, small: true }));
       }

@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-10-batch-13";
+const WORKER_VERSION = "2026-11-10-batch-14";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -15860,6 +15860,10 @@ async function ensureBoardSchema__impl(env) {
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_board_msg_scope_created ON board_messages(scope, created_at DESC)`, []);
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_board_msg_org_created ON board_messages(org_id, scope, created_at DESC)`, []);
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_board_msg_pinned ON board_messages(is_pinned, created_at DESC)`, []);
+  // Board cost (Team round 2): the list, its minute refresh, the pinned list and the dashboard read only the rows they
+  // show. Each visibility branch walks its own index in id order and stops at the LIMIT (see boardVisibleSql).
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_board_msg_scope_id ON board_messages(scope, id)`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_board_msg_org_scope_id ON board_messages(org_id, scope, id)`, []);
 
   await dbRun(env, `CREATE TABLE IF NOT EXISTS board_mentions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -15914,6 +15918,27 @@ async function boardCleanupOldMessages(env) {
   }
 }
 
+// Board visibility, verbatim everywhere: (m.scope = 'all' OR (m.scope = 'org' AND m.org_id = ?)) — a group's private
+// messages never reach another group. The planner turns that OR into a MULTI-INDEX OR over the scope indexes and then
+// sorts every visible row to find the newest few (~13k rows read for 50 shown on a 20k board; D1 keeps no ANALYZE
+// statistics). Here the same rows come from the two disjoint halves of that clause, each walking its own index
+// (idx_board_msg_scope_id, idx_board_msg_org_scope_id) in id order and stopping at the LIMIT, then merged and cut to the
+// same LIMIT: the same messages in the same order, at most 2 x LIMIT rows read. `extra` is extra conditions on m (id
+// cursors), `order` is "DESC" or "ASC"; bind: [...extraBind, limit, orgId, ...extraBind, limit, limit].
+// orgOnly: the "Our group only" view (the second half alone, as before: m.scope = 'org' AND m.org_id = ?).
+const BOARD_MSG_COLS = `m.id, m.org_id, m.location_id, m.user_id, m.user_name, m.location_name, m.org_name,
+           m.body, m.scope, m.is_pinned, m.pinned_at, m.pinned_by, m.created_at, m.updated_at`;
+function boardVisibleSql(cols, extra, order, orgOnly) {
+  const grp = `SELECT ${cols} FROM board_messages m WHERE m.org_id = ? AND m.scope = 'org'${extra} ORDER BY m.id ${order} LIMIT ?`;
+  if (orgOnly) return { sql: grp, bind: (orgId, extraBind, limit) => [orgId, ...extraBind, limit] };
+  return {
+    sql: `SELECT * FROM (SELECT ${cols} FROM board_messages m WHERE m.scope = 'all'${extra} ORDER BY m.id ${order} LIMIT ?)
+          UNION ALL SELECT * FROM (${grp})
+          ORDER BY id ${order} LIMIT ?`,
+    bind: (orgId, extraBind, limit) => [...extraBind, limit, orgId, ...extraBind, limit, limit]
+  };
+}
+
 // --- List messages (cursor-based) ---
 async function handleBoardMessagesList(request, env, corsOkHeaders, authUser, url) {
   await ensureBoardSchema(env);
@@ -15925,43 +15950,29 @@ async function handleBoardMessagesList(request, env, corsOkHeaders, authUser, ur
   const limit = Math.min(parseInt(url.searchParams.get("limit")) || 50, 100);
   const pinnedOnly = url.searchParams.get("pinned") === "1";
 
-  let where = [];
-  let bind = [];
-
-  if (pinnedOnly) {
-    // Pinned view: the same visibility as the All view (a group's own messages never reach other groups)
-    where.push("m.is_pinned = 1 AND (m.scope = 'all' OR (m.scope = 'org' AND m.org_id = ?))");
-    bind.push(authUser.org_id);
-  } else if (scope === "org") {
-    // Org view: only org-scoped messages from user's own organisation
-    where.push("m.scope = 'org' AND m.org_id = ?");
-    bind.push(authUser.org_id);
-  } else {
-    // All view: show all global messages + org messages from user's own org
-    where.push("(m.scope = 'all' OR (m.scope = 'org' AND m.org_id = ?))");
-    bind.push(authUser.org_id);
-  }
-
-  if (before > 0) {
-    where.push("m.id < ?");
-    bind.push(before);
-  }
-  if (after > 0) {
-    where.push("m.id > ?");
-    bind.push(after);
-  }
-
-  const whereClause = where.length ? "WHERE " + where.join(" AND ") : "";
+  // Cursors, as before: older than `before`, newer than `after` (both may be given).
+  let extra = "", extraBind = [];
+  if (before > 0) { extra += " AND m.id < ?"; extraBind.push(before); }
+  if (after > 0) { extra += " AND m.id > ?"; extraBind.push(after); }
   const order = after > 0 ? "ASC" : "DESC";
 
-  const rows = await dbAll(env, `
-    SELECT m.id, m.org_id, m.location_id, m.user_id, m.user_name, m.location_name, m.org_name,
-           m.body, m.scope, m.is_pinned, m.pinned_at, m.pinned_by, m.created_at, m.updated_at
-    FROM board_messages m
-    ${whereClause}
-    ORDER BY m.id ${order}
-    LIMIT ?
-  `, [...bind, limit]);
+  let rows;
+  if (pinnedOnly) {
+    // Pinned view: the same visibility as the All view (a group's own messages never reach other groups). Pinned rows
+    // are few (30 per group): read them on idx_board_msg_pinned and sort those; the unary + keeps the planner off the
+    // scope indexes (a MULTI-INDEX OR there would read every visible message).
+    rows = await dbAll(env, `
+      SELECT ${BOARD_MSG_COLS}
+      FROM board_messages m
+      WHERE m.is_pinned = 1 AND (+m.scope = 'all' OR (+m.scope = 'org' AND +m.org_id = ?))${extra}
+      ORDER BY m.id ${order}
+      LIMIT ?
+    `, [authUser.org_id, ...extraBind, limit]);
+  } else {
+    // "Our group only" (scope=org): only the group's own messages; Everything: everyone's + the group's own.
+    const q = boardVisibleSql(BOARD_MSG_COLS, extra, order, scope === "org");
+    rows = await dbAll(env, q.sql, q.bind(authUser.org_id, extraBind, limit));
+  }
 
   // If we fetched with ASC (polling for new), reverse so newest is first
   if (after > 0) rows.reverse();
@@ -16081,7 +16092,12 @@ async function handleBoardMessagePin(request, env, corsOkHeaders, authUser, msgI
   const newPinned = existing.is_pinned ? 0 : 1;
 
   if (newPinned === 1) {
-    const countRow = await dbFirst(env, `SELECT COUNT(*) as c FROM board_messages WHERE is_pinned = 1`, []);
+    // At most 30 pinned per group (Team round 2; it used to be 30 across all groups together): what counts is what this
+    // person's group sees pinned — everyone's pinned messages plus its own group-only ones, the board's visibility clause
+    // — so one group's group-only pins never block another group. Reads only pinned rows (idx_board_msg_pinned; the
+    // unary + keeps the planner off the scope indexes).
+    const countRow = await dbFirst(env, `SELECT COUNT(*) as c FROM board_messages m
+      WHERE m.is_pinned = 1 AND (+m.scope = 'all' OR (+m.scope = 'org' AND +m.org_id = ?))`, [authUser.org_id]);
     if (countRow && countRow.c >= 30) {
       return jsonResponse({ ok: false, error: "Maximum 30 pinned messages reached. Unpin another message first." }, 400, corsOkHeaders);
     }
@@ -16327,6 +16343,7 @@ async function handleBoardUserSearch(request, env, corsOkHeaders, authUser, url)
 }
 
 // --- Dashboard summary ---
+const BOARD_UNREAD_CAP = 100; // unread messages counted up to here; 100 means "99+" (owner, 2026-11-10)
 async function handleBoardDashboard(request, env, corsOkHeaders, authUser) {
   await ensureBoardSchema(env);
 
@@ -16335,13 +16352,9 @@ async function handleBoardDashboard(request, env, corsOkHeaders, authUser) {
     WHERE bm.mentioned_user_id = ? AND bm.is_read = 0 AND (m.scope = 'all' OR (m.scope = 'org' AND m.org_id = ?))`, [authUser.user_id, authUser.org_id]);
   const unreadMentions = (countRow && countRow.c) || 0;
 
-  // Recent messages (org + all scope)
-  const recent = await dbAll(env, `
-    SELECT id, user_name, location_name, body, scope, created_at
-    FROM board_messages
-    WHERE scope = 'all' OR (scope = 'org' AND org_id = ?)
-    ORDER BY id DESC LIMIT 5
-  `, [authUser.org_id]);
+  // Recent messages (org + all scope): the five newest visible, each half of the visibility clause on its own index
+  const rq = boardVisibleSql("m.id, m.user_name, m.location_name, m.body, m.scope, m.created_at", "", "DESC", false);
+  const recent = await dbAll(env, rq.sql, rq.bind(authUser.org_id, [], 5));
 
   // Recent mentions for this user
   const recentMentions = await dbAll(env, `
@@ -16352,12 +16365,16 @@ async function handleBoardDashboard(request, env, corsOkHeaders, authUser) {
     ORDER BY bm.created_at DESC LIMIT 5
   `, [authUser.user_id, authUser.org_id]);
 
-  // Unread messages count (messages since user last opened the board)
+  // Unread messages count (messages since user last opened the board): exact up to 99, then capped at 100 (screens show
+  // "99+", as /team/today does). Each half of the visibility clause walks its own covering index (id > last read) and the
+  // UNION ALL stops at 100, so at most ~100 unread rows are read, however long the person has been away.
   const unreadMsgRow = await dbFirst(env, `
-    SELECT COUNT(*) as c FROM board_messages
-    WHERE id > COALESCE((SELECT last_read_id FROM board_user_state WHERE user_id = ?), 0)
-      AND (scope = 'all' OR (scope = 'org' AND org_id = ?))
-  `, [authUser.user_id, authUser.org_id]);
+    SELECT COUNT(*) AS c FROM (
+      SELECT 1 FROM board_messages m WHERE m.scope = 'all' AND m.id > COALESCE((SELECT last_read_id FROM board_user_state WHERE user_id = ?), 0)
+      UNION ALL
+      SELECT 1 FROM board_messages m WHERE m.org_id = ? AND m.scope = 'org' AND m.id > COALESCE((SELECT last_read_id FROM board_user_state WHERE user_id = ?), 0)
+      LIMIT ${BOARD_UNREAD_CAP})
+  `, [authUser.user_id, authUser.org_id, authUser.user_id]);
   const unreadMessages = (unreadMsgRow && unreadMsgRow.c) || 0;
 
   return jsonResponse({ ok: true, unread_mentions: unreadMentions, unread_messages: unreadMessages, recent_messages: recent, recent_mentions: recentMentions }, 200, corsOkHeaders);

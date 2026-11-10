@@ -246,7 +246,7 @@
 
     ["hndreg", "team", "Handover", "What the last shift left you, and what you leave the next one.", [
       ["Read what was left", "From yesterday is at the top, most critical first.", "Press Got it when you have read it. It shows the time you read it, and the pharmacist sees who has read it.", "Still needs doing? Press Carry over to leave it for tomorrow too.", "What your group pinned on the chat board is shown under Always."],
-      ["Look up how we do things", "Under How we do things, open Opening the pharmacy, Closing the pharmacy or any other to read it."],
+      ["Look up how we do things", "Under How we do things, open Opening the pharmacy, Closing the pharmacy or any other to read it.", "Once you have read them, or pressed Got it, How we do things folds to one row so today's notes stay in view. Tap the row to open it again."],
       ["Leave a point for the next shift", "Under For tomorrow, type it and mark it Low, Medium or Critical.", "Press Add point.", "Removed one by mistake? Press Undo, straight away."],
       ["Write today's notes", "Type in the notes box.", "Press Save notes."],
       ["Change the standing instructions", "Press Change beside Always, or + Standing instructions for every shift when there are none.", "Type what every shift should see, every day, and press Save standing instructions."],
@@ -256,6 +256,7 @@
       ["See the week", "Use ‹ and › to change week. Each day shows its opening hours; a public holiday is closed unless its opening hours were changed for that day."],
       ["Find a gap", "A day with no pharmacist for some hours says so in amber, for example No pharmacist 13:30–19:30.", "Press Fill the gap: Plan shifts opens with that shift ready to add."],
       ["See the hours this month", "Under the week, open the month's hours (for example Hours in November). Each person's planned hours, shifts and leave show."],
+      ["Swap two shifts", "Tap a shift. Plan shifts opens with Swap with ready.", "Choose the other person's shift, on any day of the week. The screen says who will work when; then swap them there."],
       ["Change the rota", "Press Plan shifts."],
       ["Ask for leave", "Press ask for leave. The request is made in Plan shifts."],
       ["See who is away", "Leave shows on each person's day."]
@@ -265,7 +266,7 @@
       ["Add a shift", "Press + Add shift on the day.", "Choose the person and set the times.", "Press Add shift."],
       ["Change or remove a shift", "Tap the shift and change the times, then press Save, or press Remove shift."],
       ["Fill a gap", "A day with no pharmacist for some hours says so in amber. Press Fill the gap.", "The hours are filled in and a free pharmacist is chosen. Press Add shift."],
-      ["Swap two shifts", "Tap one of the shifts, then press Swap….", "Choose the other person's shift that day. The screen says who will work when.", "Press Swap shifts."],
+      ["Swap two shifts", "Tap one of the shifts, then press Swap….", "Choose the other person's shift: the same day or any day of the week. The screen says who will work when, and any hours left without a pharmacist. Each person keeps their own note.", "Press Swap shifts. If something goes wrong half way, it is put back and the screen says so."],
       ["Ask for leave", "Press + New leave request.", "Fill in who, the type, from and until, and the reason.", "Press Save leave request."],
       ["Answer a leave request", "Press Approve or Refuse on the request. You are warned if no one would cover."]
     ], "Patterns, opening hours, changing a person's details, leave balances and history, and the calendar link are in the classic screen.", []],
@@ -340,7 +341,7 @@
       ["Our team", "The people on the rota, with their role. Their number and e-mail are changed in Plan shifts."],
       ["Add a contact", "Press Add a contact.", "Choose the type and fill in the name, phone and email.", "Press Add contact. Every pharmacy in your group sees it."],
       ["Change or delete a contact", "Open the contact and press Edit. Change what is needed and press Save.", "The pharmacist can press Delete…, then Delete contact. A shared contact goes for every pharmacy in your group."],
-      ["Emergency numbers", "112, Mater Dei and urgent care are one tap under the search.", "Choose Emergency for police, hospitals and every health centre."]
+      ["Emergency numbers", "On a computer, every emergency number and 24/7 health centre is on the right until you open a contact.", "On a phone, 112, Mater Dei and urgent care are one tap under the search.", "Choose Emergency for police, hospitals and every health centre."]
     ], "Import and export, hiding sections and the specialty filter are in the classic screen.", []],
 
     ["vaxreg", "services", "Vaccines", "Vaccinations given, doses due, and vaccines ordered for clients.", [
