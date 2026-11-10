@@ -1123,3 +1123,11 @@ reduce stock (not now). Worker batch-12 `b8ba8bc3` (vaccinations table + /vaccin
 restore point 00000f2b-…-77c6248ca6894da0c7726b1881f3dac8); UI .174 on main 124158a. Checks: UI 499/0, real 80 cases
 green apart from the known focus flake, worker 272/0, rehearsals 11/11 + 13/13, predeploy 10/10. Disk filled once
 (old agent copies) — cleaned to 21 GB free.
+
+## Round 157 — Team & shifts (2026-11-10)
+Six agents (Director, Visual QA, team-hub, rota, handover, people). John: leave rights unchanged; fix server @mention
+matching (done, isolation tested incl. Maltese names); handover read list kept; board list/count query cost and
+cross-day swaps → next Team round. Worker batch-13 `fa9f09aa` (restore point 00000f49-…-f5b141dc54fc3665823d9e66fa887a3c);
+UI .175 on main c2e0a40. Checks: worker 277/0, rehearsals 14/14 ×2, predeploy 10/10, real 82/84 (2 green alone),
+UI 497/499 (stock "Short or at risk" fails on base; drafts flaked 1/4). Rollout took ~1 min to settle on batch-13.
+Known (pre-existing): late-loading screens can redraw the Stock hub and drop typing ~1 s after a fresh load.
