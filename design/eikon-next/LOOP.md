@@ -1131,3 +1131,10 @@ cross-day swaps → next Team round. Worker batch-13 `fa9f09aa` (restore point 0
 UI .175 on main c2e0a40. Checks: worker 277/0, rehearsals 14/14 ×2, predeploy 10/10, real 82/84 (2 green alone),
 UI 497/499 (stock "Short or at risk" fails on base; drafts flaked 1/4). Rollout took ~1 min to settle on batch-13.
 Known (pre-existing): late-loading screens can redraw the Stock hub and drop typing ~1 s after a fresh load.
+
+## Round 158 — Team round 2 (2026-11-10)
+Cross-day swaps, chat board cost (list 15,358 → 91 rows, refresh 15,400 → 133; same answers for 10 user kinds on 20k
+messages; unread 99+; pins per group), Contacts/Handover polish, typing kept when late screens arrive. Worker batch-14
+`5434019e` (restore point 00000f64-…-4bfe2dbc3d68c239b3c8f9f0879891b0); UI .176. Checks: worker 280/0, board rehearsal
+12/12, predeploy 10/10, UI 498/499 (stock fails on base), real green alone except focus (base). John then asked for
+"the perfect roster planner" — RP build running (S/agents/RP).
