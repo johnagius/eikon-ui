@@ -108,7 +108,7 @@ export default {
     await t.write(p, /\/board\/messages$/, () => p.click("#brd-new button[type=submit]"));
     t.ok((t.since(B, b0)[0] || {}).scope === "all", "Every pharmacy is stored as scope all");
     try {
-      t.db.prepare("INSERT INTO orgs (id, name) VALUES (77, 'Other Group')").run(); t.db.prepare("INSERT INTO locations (id, org_id, name) VALUES (770, 77, 'Other Pharmacy')").run();
+      t.db.prepare("INSERT OR IGNORE INTO orgs (id, name) VALUES (77, 'Other Group')").run(); t.db.prepare("INSERT OR IGNORE INTO locations (id, org_id, name) VALUES (770, 77, 'Other Pharmacy')").run();
       await t.stack.app.addUser({ orgId: 77, locationId: 770, email: "other77@demo.mt", password: "Demo-Pass-2026", name: "Other" });
       const L = await t.stack.app.api("POST", "/auth/login", { body: { email: "other77@demo.mt", password: "Demo-Pass-2026" } });
       const seen = (await t.stack.app.api("GET", "/board/messages?scope=all&limit=200", { token: L.json.token })).json.messages || [];

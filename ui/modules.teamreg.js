@@ -17,16 +17,23 @@
 
   var ID = "teamreg";
   var S = { mount: null, list: null, me: null, manageAdmins: false, loading: false, error: "", missing: false,
-    adding: false, add: { name: "", email: "", role: "staff" }, addErr: "", fieldErr: {}, addSaving: false, shown: null, rowBusy: {}, rowErr: {} };
+    q: "", adding: false, add: { name: "", email: "", role: "staff" }, addErr: "", fieldErr: {}, addSaving: false, shown: null, rowBusy: {}, rowErr: {} };
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
   function isAdmin() { var u = E.state.user; return !!(u && u.role === "admin"); }
-  function when(s) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(s || ""));
-    return m ? Number(m[3]) + " " + MON[Number(m[2]) - 1] + " " + m[1] : "";
+  // The server's clocks are UTC ("2026-11-10 06:12:00"); everything shown is Malta time.
+  function utc(s) { var t = String(s || "").trim(); if (!/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(t)) return null; var d = new Date(t.replace(" ", "T") + (/[zZ]|[+-]\d{2}:?\d{2}$/.test(t) ? "" : "Z")); return isFinite(d.getTime()) ? d : null; }
+  function ymdAdd(ymd, k) { var d = new Date(ymd + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + k); return d.toISOString().slice(0, 10); }
+  function dayWord(ymd) {
+    var t = E.maltaYmd(); if (ymd === t) return "today"; if (ymd === ymdAdd(t, -1)) return "yesterday";
+    var p = ymd.split("-"); return Number(p[2]) + " " + MON[Number(p[1]) - 1] + (p[0] !== t.slice(0, 4) ? " " + p[0] : "");
   }
+  function when(s) { var d = utc(s); if (!d) return ""; var w = dayWord(E.maltaYmd(d)); return w === "today" || w === "yesterday" ? w + " at " + E.maltaHm(d) : w; }
+  function signedToday(u) { var d = utc(u.last_sign_in_at); return !!d && E.maltaYmd(d) === E.maltaYmd(); }
+  function fold(s) { return E.people && E.people.foldMt ? E.people.foldMt(s) : String(s || "").toLowerCase(); }
   function roleWord(r) { return r === "admin" ? "Admin" : r === "staff" ? "Staff" : "Limited"; }
+  var SEARCH_FROM = 9; // a search box once the list no longer fits on one screen
 
   function css() {
     if (document.getElementById("eikon-teamreg-css")) return;
@@ -39,14 +46,17 @@
       ".tmr h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.tmr-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0;max-width:620px;line-height:1.45}" +
       ".tmr-btn{font:inherit;font-size:14px;font-weight:600;min-height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
       ".tmr-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.tmr-btn:disabled{opacity:.55;cursor:default}.tmr-btn.red{color:var(--danger)}" +
-      ".tmr-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 2px 7px}" +
+      ".tmr-lab{font-size:13px;font-weight:600;color:var(--muted);margin:20px 2px 7px;font-variant-numeric:tabular-nums}" +
       ".tmr-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".tmr-row{display:flex;align-items:center;gap:12px;min-height:60px;padding:10px 14px 10px 16px;border-top:.5px solid var(--border);flex-wrap:wrap}.tmr-row:first-child{border-top:0}" +
-      ".tmr-row.off{opacity:.72}.tmr-who{flex:1;min-width:200px}.tmr-who b{display:block;font-size:15.5px;font-weight:600;overflow-wrap:anywhere}.tmr-who span{display:block;font-size:13px;color:var(--muted);overflow-wrap:anywhere}" +
+      ".tmr-row.off .tmr-who b{color:var(--muted)}.tmr-who{flex:1;min-width:200px}.tmr-who b{display:block;font-size:15.5px;font-weight:600;overflow-wrap:anywhere}.tmr-who span{display:block;font-size:13px;color:var(--muted);overflow-wrap:anywhere}" +
       ".tmr-who .tmr-pill{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:9px;background:var(--bg);color:var(--muted);margin-left:6px;vertical-align:1px}.tmr-who .tmr-pill.a{color:var(--accent)}.tmr-who .tmr-pill.w{color:var(--danger)}" +
+      ".tmr-who span b.tmr-today{display:inline;font-size:inherit;font-weight:600;color:var(--text)}.tmr-who span{font-variant-numeric:tabular-nums}" +
+      ".tmr-lab2{font-weight:400}" +
+      ".tmr-q{display:block;width:100%;box-sizing:border-box;height:44px;margin-top:18px;border-radius:12px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font:inherit;font-size:16px;padding:0 12px}.tmr-q:focus-visible{outline:2px solid var(--accent);outline-offset:2px}" +
       ".tmr-acts{display:flex;gap:8px;flex-wrap:wrap}.tmr-note{font-size:12.5px;color:var(--muted)}" +
       ".tmr-form{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:6px 0;margin-top:14px}" +
-      ".tmr-form .t{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:8px 14px 4px}" +
+      ".tmr-form .t{font-size:13px;font-weight:600;color:var(--muted);padding:8px 14px 4px}" +
       ".tmr-form label{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 14px;border-top:.5px solid var(--border)}" +
       ".tmr-form label>span{flex:0 0 84px;font-size:15px}.tmr-form input,.tmr-form select{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
       ".tmr-form input:focus-visible,.tmr-form select:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}" +
@@ -93,9 +103,12 @@
   function row(u) {
     var busy = S.rowBusy[u.id], err = S.rowErr[u.id];
     var meta = [esc(u.email)];
-    if (!u.is_active) meta.push("Switched off");
-    else if (u.signed_in_devices) meta.push("Signed in on " + u.signed_in_devices + (u.signed_in_devices === 1 ? " device" : " devices") + (u.last_sign_in_at ? ", last " + esc(when(u.last_sign_in_at)) : ""));
-    else meta.push(u.last_sign_in_at ? "Last signed in " + esc(when(u.last_sign_in_at)) : "Not signed in now");
+    // When they last signed in comes first (Malta time), then how many devices are still signed in.
+    if (!u.is_active) meta.push("Switched off" + (u.last_sign_in_at ? ", last signed in " + esc(when(u.last_sign_in_at)) : ""));
+    else {
+      meta.push(u.last_sign_in_at ? (signedToday(u) ? '<b class="tmr-today">Signed in ' + esc(when(u.last_sign_in_at)) + "</b>" : "Last signed in " + esc(when(u.last_sign_in_at))) : "Never signed in");
+      if (u.signed_in_devices) meta.push("open on " + u.signed_in_devices + (u.signed_in_devices === 1 ? " device" : " devices"));
+    }
     var pills = '<span class="tmr-pill' + (u.role === "admin" ? " a" : "") + '">' + roleWord(u.role) + '</span>' +
       (u.must_change_password && u.is_active ? '<span class="tmr-pill w">Has not chosen a password yet</span>' : "");
     var acts = "";
@@ -109,6 +122,26 @@
       (err ? '<span style="color:var(--danger)" role="alert">' + esc(err) + '</span>' : "") + '</div><div class="tmr-acts">' + acts + '</div></div>';
   }
 
+  // Today first: who signed in today, earliest first (who opened up), then everyone else in the server's order (by name).
+  function ordered(list) {
+    var today = [], rest = [];
+    list.forEach(function (u) { (signedToday(u) ? today : rest).push(u); });
+    today.sort(function (a, b) { return String(a.last_sign_in_at).localeCompare(String(b.last_sign_in_at)); });
+    return today.concat(rest);
+  }
+  function peopleHtml() {
+    var q = fold(S.q).trim(), all = S.list || [];
+    var hit = q ? all.filter(function (u) { var h = fold((u.full_name || "") + " " + (u.email || "")); return q.split(/\s+/).every(function (w) { return h.indexOf(w) >= 0; }); }) : all;
+    var on = ordered(hit.filter(function (u) { return u.is_active; })), off = hit.filter(function (u) { return !u.is_active; });
+    var allOn = all.filter(function (u) { return u.is_active; }), nToday = allOn.filter(signedToday).length;
+    if (q && !hit.length) return '<div class="tmr-quiet" role="status">Nobody here matches “' + esc(S.q.trim()) + '”. <button class="tmr-btn" data-act="q-clear">Show everyone</button></div>';
+    var h = '<div class="tmr-lab">Can sign in · ' + on.length + (allOn.length ? '<span class="tmr-lab2"> · ' + nToday + ' signed in today</span>' : "") + '</div><div class="tmr-list">' + (on.length ? on.map(row).join("") : '<div class="tmr-row">Nobody.</div>') + '</div>';
+    if (off.length) h += '<div class="tmr-lab">Switched off · ' + off.length + '</div><div class="tmr-list">' + off.map(row).join("") + '</div>';
+    return h;
+  }
+  // A search changes only the list: the box is never rebuilt under the fingers.
+  function paintPeople() { var box = S.mount && S.mount.querySelector("#tmr-people"); if (!box) return paint(); box.innerHTML = peopleHtml(); bindIn(box); }
+
   // An error under its own field, tied to it for screen readers.
   function ferr(k) { return S.fieldErr[k] ? ' aria-invalid="true" aria-describedby="tmr-ferr-' + k + '"' : ""; }
   function ferrText(k) { return S.fieldErr[k] ? '<span class="tmr-ferr" id="tmr-ferr-' + k + '" role="alert">' + esc(S.fieldErr[k]) + "</span>" : ""; }
@@ -121,6 +154,7 @@
   function paint() {
     var m = S.mount; if (!m || !here()) return;
     keep();
+    var qn = m.querySelector("#tmr-q"); if (qn) S.q = qn.value;
     var focusId = document.activeElement && m.contains(document.activeElement) ? document.activeElement.id : "";
     var h = '<div class="tmr"><button class="tmr-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel(ID) : "‹ Team") + '</button><div class="tmr-top"><div><h1>People who sign in</h1>' +
       '<p class="tmr-sub">Everyone at ' + esc((E.state.user && E.state.user.location_name) || "this pharmacy") + ' signs in as themselves, so the registers show who did what.</p></div>';
@@ -152,11 +186,10 @@
     }
     if (S.error) h += '<div class="tmr-quiet" role="alert">' + esc(S.error) + ' <button class="tmr-btn" data-act="retry">Try again</button></div>';
     if (S.list) {
-      var on = S.list.filter(function (u) { return u.is_active; }), off = S.list.filter(function (u) { return !u.is_active; });
-      h += '<div class="tmr-lab">Can sign in · ' + on.length + '</div><div class="tmr-list">' + (on.length ? on.map(row).join("") : '<div class="tmr-row">Nobody.</div>') + '</div>';
-      if (off.length) h += '<div class="tmr-lab">Switched off · ' + off.length + '</div><div class="tmr-list">' + off.map(row).join("") + '</div>';
-      h += '<p class="tmr-foot">Switching someone off signs them out of every device at once; their name stays on everything they recorded. ' +
-        'A new password signs them out too, and they choose their own at the next sign-in. Every change is in the Audit trail.</p>';
+      if (S.list.length >= SEARCH_FROM) h += '<input class="tmr-q" id="tmr-q" type="search" autocomplete="off" spellcheck="false" aria-label="Find a person by name or e-mail" aria-controls="tmr-people" placeholder="Find a person" value="' + esc(S.q) + '">';
+      h += '<div id="tmr-people">' + peopleHtml() + '</div>';
+      h += '<p class="tmr-foot"><b>Admin</b> adds people, changes sign-ins and the pharmacy\'s settings. <b>Staff</b> record and read everything else. ' +
+        'Every change is in the Audit trail.</p>'; // what Switch off and New password do is said in their own question
     } else if (S.loading && !S.error) h += '<div class="tmr-list" role="status" aria-label="Loading the sign-ins" style="margin-top:20px">' + '<div class="tmr-sk"><i></i><i></i></div>'.repeat(3) + '</div>'; // the shape of the list, not a spinner
     h += '</div>';
     m.innerHTML = h;
@@ -164,12 +197,20 @@
     if (focusId) { var f = document.getElementById(focusId); if (f) f.focus(); }
   }
 
-  function bind() {
-    var m = S.mount; if (!m) return;
-    m.querySelectorAll("[data-act]").forEach(function (b) {
+  function bindIn(root) {
+    root.querySelectorAll("[data-act]").forEach(function (b) {
       if (b.tagName === "FORM") return;
       b.addEventListener("click", function (ev) { act(b.getAttribute("data-act"), b.getAttribute("data-id"), ev); });
     });
+  }
+  function bind() {
+    var m = S.mount; if (!m) return;
+    bindIn(m);
+    var qi = m.querySelector("#tmr-q");
+    if (qi) {
+      qi.addEventListener("input", function () { S.q = qi.value; paintPeople(); });
+      qi.addEventListener("keydown", function (e) { if (e.key === "Escape" && qi.value) { e.preventDefault(); qi.value = ""; S.q = ""; paintPeople(); } });
+    }
     var f = m.querySelector("#tmr-add");
     if (f) {
       f.addEventListener("submit", function (e) { e.preventDefault(); create(); });
@@ -182,6 +223,7 @@
   function act(a, id, ev) {
     if (a === "back") { window.location.hash = E.ui2BackHash ? E.ui2BackHash(ID) : "#team"; return; }
     if (a === "retry") { load(); return; }
+    if (a === "q-clear") { S.q = ""; var qi = S.mount && S.mount.querySelector("#tmr-q"); if (qi) { qi.value = ""; qi.focus(); } paintPeople(); return; }
     if (a === "add") { S.adding = true; S.addErr = ""; S.fieldErr = {}; paint(); var n = document.getElementById("tmr-name"); if (n) n.focus(); return; }
     if (a === "add-cancel") { S.adding = false; S.add = { name: "", email: "", role: "staff" }; S.addErr = ""; S.fieldErr = {}; paint(); focusAdd(); return; }
     if (a === "copy") { copy(); return; }
@@ -276,7 +318,7 @@
 
   async function render(ctx) {
     S.mount = ctx && ctx.mount;
-    S.shown = null; S.adding = false; S.addErr = ""; S.fieldErr = {}; S.rowBusy = {}; S.rowErr = {}; S.error = ""; S.missing = false;
+    S.q = ""; S.shown = null; S.adding = false; S.addErr = ""; S.fieldErr = {}; S.rowBusy = {}; S.rowErr = {}; S.error = ""; S.missing = false;
     css();
     paint();
     if (isAdmin()) await load();

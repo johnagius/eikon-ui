@@ -11,7 +11,8 @@
   if (!E) return;
 
   var S = { mount: null, view: "all", to: "org", msgs: null, pinned: [], hasOlder: false, loading: false, error: "", draft: "", sending: false, err: "",
-    busy: 0, confirmDel: 0, pinAll: false, ment: [], mentQ: null, mentT: 0, poll: 0, older: false };
+    busy: 0, confirmDel: 0, pinAll: false, ment: [], mentQ: null, mentT: 0, poll: 0, older: false,
+    readMax: null, newN: 0, forMe: [], forMeN: 0, readBusy: 0, loadedAt: 0, onVis: null };
   var MON = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var PAGE = 50;
 
@@ -53,7 +54,7 @@
       ".brd h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.brd-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0}" +
       ".brd-btn{font:inherit;font-size:14px;font-weight:600;height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
       ".brd-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.brd-btn:disabled{opacity:.55;cursor:default}" +
-      ".brd-btn.x{border:0;background:none;color:var(--muted);height:30px;padding:0 8px;font-size:13px;font-weight:600;border-radius:8px}.brd-btn.x.d{color:var(--danger)}" +
+      ".brd-btn.x{border:0;background:none;color:var(--muted);height:30px;padding:0 8px;font-size:13px;font-weight:600;border-radius:8px}.brd-btn.x.d{color:var(--muted)}.brd-btn.x[data-act=del-yes]{color:var(--danger)}" +
       ".brd-new{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-top:16px}" +
       ".brd-ta{display:block;width:100%;box-sizing:border-box;min-height:76px;max-height:240px;border:1px solid var(--border);border-radius:12px;background:transparent;color:var(--text);font:inherit;font-size:16px;line-height:1.4;padding:10px 12px;outline:0;resize:vertical}" +
       ".brd-ment{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.brd-ment:empty{display:none}.brd-ment small{width:100%;font-size:12px;color:var(--muted)}" +
@@ -73,13 +74,17 @@
       ".brd-pill{font-size:11px;font-weight:700;letter-spacing:.02em;padding:1px 7px;border-radius:7px;border:1px solid var(--border);color:var(--muted)}.brd-pill.me{border-color:var(--accent);color:var(--accent)}" +
       ".brd-at{font-weight:600;color:var(--accent)}.brd-tag{font-weight:600}" +
       ".brd-pin .brd-m{border-left:3px solid var(--accent)}" +
+      ".brd-pill.grp{display:inline-flex;align-items:center;gap:4px}.brd-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
+      ".brd-you{margin-top:16px}.brd-you .brd-list{border-color:var(--accent)}.brd-you .brd-m{padding-bottom:11px}" +
+      ".brd-pill.nw{border-color:var(--accent);background:var(--accent);color:#fff}.brd-m.new{box-shadow:inset 3px 0 0 var(--accent)}.brd-lab b.brd-nw{color:var(--accent)}" +
       ".brd-more{display:block;margin:10px auto 0}" +
       ".brd-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:12px;padding:16px;color:var(--muted)}.brd-quiet .brd-btn{display:block;margin-top:12px}" +
       ".brd-sk{height:64px;border-top:.5px solid var(--border)}.brd-sk:first-child{border-top:0}.brd-sk i{display:block;height:12px;border-radius:6px;background:rgba(118,118,128,.14);margin:14px 14px 0;width:40%}.brd-sk i+i{width:75%;margin-top:10px}" +
       ".brd-foot{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.6}.brd-foot a{color:var(--accent)}" +
-      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .brd-chip.on{background:rgba(43,196,138,.16)}html[data-ui2]:not([data-ui2-visit]) .brd-m.mine{background:rgba(43,196,138,.07)}html[data-ui2]:not([data-ui2-visit]) .brd-btn.x.d{color:#FF7A72}}" +
+      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .brd-chip.on{background:rgba(43,196,138,.16)}html[data-ui2]:not([data-ui2-visit]) .brd-m.mine{background:rgba(43,196,138,.07)}html[data-ui2]:not([data-ui2-visit]) .brd-btn.x[data-act=del-yes]{color:#FF7A72}}" +
+      "@media (min-width:601px){.brd-m{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;padding-bottom:11px}.brd-m .h,.brd-m .t{grid-column:1}.brd-m .a{grid-column:2;grid-row:1/span 2;align-self:center;margin:0;flex-wrap:nowrap}.brd-m .a span{margin-right:4px;white-space:nowrap}}" +
       "@media (max-width:600px){.brd{padding:4px 16px 0}.brd h1{font-size:32px}.brd-to .lbl{flex-basis:100%}.brd-to .sp{flex-basis:100%;height:0}.brd-to .brd-btn.p{margin-left:auto}" +
-        ".brd-btn,.brd-chip{min-height:44px;height:auto;border-radius:22px}.brd-btn.x{min-height:44px;padding:0 12px}.brd-foot a{display:inline-block;padding:12px 0;margin:-12px 0}}";
+        ".brd-btn,.brd-chip{min-height:44px;height:auto;border-radius:22px}.brd-btn.x{min-height:44px;padding:0 12px}.brd-m .a{gap:16px}.brd-foot a{display:inline-block;padding:12px 0;margin:-12px 0}}";
     document.head.appendChild(st);
   }
 
@@ -94,10 +99,30 @@
   async function load() {
     var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
-      var res = await Promise.all([fetchMsgs("scope=" + S.view + "&limit=" + PAGE), pinnedList()]);
+      // Mentions not yet seen: the server's own indexed list (GET /board/mentions?unread=1, a few rows). Only on the
+      // first open of a visit; switching Everything / Our group only keeps them and what was new.
+      var first = S.readMax == null;
+      var res = await Promise.all([fetchMsgs("scope=" + S.view + "&limit=" + PAGE), pinnedList(), first ? E.apiFetch("/board/mentions?unread=1", { method: "GET" }).catch(function () { return null; }) : null]);
       S.msgs = res[0].slice().sort(byIdDesc); S.hasOlder = res[0].length >= PAGE; S.pinned = res[1].slice().sort(byIdDesc);
+      if (res[2] && res[2].ok) forMe(res[2].mentions);
+      if (first) { S.readMax = seenGet(); seenSet(); if (S.forMe.length) markShown(); }
     } catch (e) { if (!keepView) S.error = netText(e, "Could not load the board"); }
-    S.loading = false; E.whenFormIdle(S.mount, paint);
+    S.loading = false; S.loadedAt = Date.now(); E.whenFormIdle(S.mount, paint);
+  }
+  function isNew(x) { return S.readMax != null && Number(x.id) > S.readMax && Number(x.user_id) !== Number(myId()); }
+  function forMe(list) { var have = {}; S.forMe = (list || []).filter(function (x) { var k = Number(x.message_id); if (!k || have[k] || Number(x.is_read)) return false; have[k] = 1; return true; }).sort(function (x, y) { return Number(y.message_id) - Number(x.message_id); }); S.forMeN = S.forMe.length; }
+  // "New": messages newer than the newest one this person saw on this device (kept in the browser, per person, so
+  // nothing more is read from the server). The first visit on a device marks nothing new.
+  function seenKey() { return "eikon_brd_seen_" + (myId() || "0"); }
+  function seenGet() { var v = null; try { v = localStorage.getItem(seenKey()); } catch (e) {} var n = Number(v); return v != null && isFinite(n) ? n : (S.msgs && S.msgs.length ? Number(S.msgs[0].id) : 0); }
+  function seenSet() { var top = S.msgs && S.msgs.length ? Number(S.msgs[0].id) : 0; if (!top) return; try { var was = Number(localStorage.getItem(seenKey()) || 0); if (top > was) localStorage.setItem(seenKey(), String(top)); } catch (e) {} }
+  // Shown = seen: the mentions on screen are marked read once (PUT /board/mentions/read, the server's own call), so the
+  // Team page stops counting them. They stay on screen, at the top, until the board is opened again.
+  async function markShown() {
+    if (!S.forMe.length || S.readBusy) return;
+    S.readBusy = 1;
+    try { await E.apiFetch("/board/mentions/read", { method: "PUT", body: "{}" }); } catch (e) { /* still unread: shown again next time */ }
+    S.readBusy = 0;
   }
   async function older() {
     if (S.older || !S.msgs || !S.msgs.length) return;
@@ -109,7 +134,8 @@
     } catch (e) { E.toast(netText(e, "Could not load older messages"), "error"); }
     S.older = false; E.whenFormIdle(S.mount, paint);
   }
-  // Every 30 s while the board is open and the tab is visible: new messages and the pinned list.
+  // Once a minute while the board is open and the tab is visible (the app's minute refresh, never faster): new
+  // messages and the pinned list; on coming back to the tab after a minute, at once.
   async function tick() {
     if (E.state.activeModuleId !== "brdreg" || !S.mount || !document.body.contains(S.mount)) return stopPoll();
     if (document.hidden || S.loading || S.sending || S.busy || !S.msgs) return;
@@ -122,20 +148,26 @@
       var pinIds = function (l) { return l.map(function (x) { return x.id + ":" + x.is_pinned; }).join(); };
       if (!fresh.length && pinIds(res[1]) === pinIds(S.pinned)) return;
       if (max && res[0].length >= PAGE) return load(); // a lot came in: start again from the newest
-      S.msgs = fresh.concat(S.msgs).sort(byIdDesc); S.pinned = res[1].slice().sort(byIdDesc);
+      S.msgs = fresh.concat(S.msgs).sort(byIdDesc); S.pinned = res[1].slice().sort(byIdDesc); seenSet();
       var pinned = {}; S.pinned.forEach(function (x) { pinned[x.id] = 1; }); S.msgs.forEach(function (x) { x.is_pinned = pinned[x.id] ? 1 : 0; });
       E.whenFormIdle(S.mount, paint);
-    } catch (e) { /* a missed poll is retried in 30 s */ }
+    } catch (e) { /* a missed poll is retried in a minute */ }
+    finally { S.loadedAt = Date.now(); }
   }
-  function startPoll() { stopPoll(); S.poll = setInterval(tick, 30000); }
-  function stopPoll() { if (S.poll) clearInterval(S.poll); S.poll = 0; }
+  function startPoll() {
+    stopPoll(); S.poll = setInterval(tick, 60000);
+    S.onVis = function () { if (!document.hidden && Date.now() - S.loadedAt > 60000) tick(); };
+    document.addEventListener("visibilitychange", S.onVis);
+  }
+  function stopPoll() { if (S.poll) clearInterval(S.poll); S.poll = 0; if (S.onVis) document.removeEventListener("visibilitychange", S.onVis); S.onVis = null; }
 
   function row(x, inPinned) {
     var d = when(x.created_at), own = Number(x.user_id) === Number(myId()), id = Number(x.id);
     var who = cleanName(x.user_name), loc = String(x.location_name || "") || "A pharmacy";
-    var h = '<li class="brd-m' + (own ? " mine" : "") + '" data-id="' + id + '"><div class="h"><b>' + esc(own ? "You" : loc) + "</b>" +
+    var nw = !inPinned && isNew(x);
+    var h = '<li class="brd-m' + (own ? " mine" : "") + (nw ? " new" : "") + '" data-id="' + id + '"><div class="h">' + (nw ? '<span class="brd-pill nw">New</span>' : "") + "<b>" + esc(own ? "You" : loc) + "</b>" +
       (who && !own ? "<span>" + esc(who) + "</span>" : "") + "<span>· " + esc(inPinned ? dayLabel(d) + " " + hm(d) : hm(d)) + "</span>" +
-      (x.scope === "org" ? '<span class="brd-pill">Our group</span>' : "") +
+      (x.scope === "org" ? '<span class="brd-pill grp" title="Only your group sees this"><svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><rect x="2" y="5.5" width="8" height="5.5" rx="1.2" fill="currentColor"/><path d="M4 5.5V4a2 2 0 0 1 4 0v1.5" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>Our group<span class="brd-sr"> only: only your group sees this</span></span>' : "") +
       (mentionsMe(x) ? '<span class="brd-pill me">Mentions you</span>' : "") +
       (!inPinned && Number(x.is_pinned) ? '<span class="brd-pill">Pinned</span>' : "") + "</div>" +
       '<div class="t">' + rich(x.body) + "</div><div class=\"a\">";
@@ -149,6 +181,16 @@
     return h + "</div></li>";
   }
 
+  // ── For you: messages that mention this person's pharmacy and are not yet seen (the server's own list, max 5) ──
+  function forMeHtml() {
+    if (!S.forMe.length) return "";
+    return '<section class="brd-you" aria-labelledby="brd-you-h"><h2 class="brd-lab" id="brd-you-h" style="margin:0 0 7px">Mentions you <b>' + S.forMeN + '</b></h2><ul class="brd-list">' +
+      (S.youAll ? S.forMe : S.forMe.slice(0, 2)).map(function (x) {
+        var d = when(x.msg_created_at || x.created_at), mid = Number(x.message_id);
+        return '<li class="brd-m"><div class="h"><b>' + esc(String(x.location_name || "") || cleanName(x.user_name) || "A pharmacy") + "</b>" + (x.location_name && x.user_name ? "<span>" + esc(cleanName(x.user_name)) + "</span>" : "") + "<span>· " + esc(dayLabel(d) + " " + hm(d)) + "</span></div><div class=\"t\">" + rich(x.body) + "</div></li>";
+      }).join("") + "</ul>" + (S.forMe.length > 2 ? '<button class="brd-btn brd-more" data-act="you-all">' + (S.youAll ? "Show fewer" : "Show all " + S.forMe.length) + "</button>" : "") + "</section>";
+  }
+
   function paint(fromState) {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "brdreg") return; // left before a reply came back: do not draw over the next screen
@@ -156,6 +198,7 @@
     if (ta && !fromState) keep(); // a reply landing while someone types must not wipe the message
     var u = me(), org = String(u.org_name || "").trim();
     var h = '<div class="brd"><button class="brd-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("brdreg") : "‹ Team") + '</button><h1>Chat board</h1><p class="brd-sub">Messages between pharmacies. Kept for six months unless pinned.</p>';
+    h += forMeHtml();
     h += '<form class="brd-new" id="brd-new" autocomplete="off"><label for="brd-ta" class="brd-lab" style="margin:0 0 7px">New message</label>' +
       '<textarea class="brd-ta" id="brd-ta" maxlength="2000" aria-describedby="brd-hint" placeholder="Write a message. Type @ to mention a pharmacy.">' + esc(S.draft) + "</textarea>" +
       '<div class="brd-ment" id="brd-ment" role="group" aria-label="Pharmacies to mention">' + mentHtml() + "</div>" +
@@ -174,7 +217,8 @@
         h += '<h2 class="brd-lab">Pinned <b>' + S.pinned.length + '</b></h2><ul class="brd-list brd-pin">' + shown.map(function (x) { return row(x, true); }).join("") + "</ul>" +
           (S.pinned.length > 3 ? '<button class="brd-btn brd-more" data-act="pin-all">' + (S.pinAll ? "Show fewer" : "Show all " + S.pinned.length + " pinned") + "</button>" : "");
       }
-      h += '<div class="brd-bar"><h2 class="brd-lab" style="margin:0">Messages</h2><div class="brd-to" style="margin:0" role="group" aria-label="Show">' +
+      var nNew = S.msgs.filter(isNew).length;
+      h += '<div class="brd-bar"><h2 class="brd-lab" style="margin:0">Messages' + (nNew ? ' <b class="brd-nw">' + nNew + " new</b>" : "") + '</h2><div class="brd-to" style="margin:0" role="group" aria-label="Show"><span>Show</span>' +
         '<button type="button" class="brd-chip' + (S.view === "all" ? " on" : "") + '" data-view="all" aria-pressed="' + (S.view === "all") + '">Everything</button>' +
         '<button type="button" class="brd-chip' + (S.view === "org" ? " on" : "") + '" data-view="org" aria-pressed="' + (S.view === "org") + '">Our group only</button></div></div>';
       if (S.loading && !S.msgs.length) h += sk;
@@ -204,6 +248,7 @@
         else if (act === "del-yes") del(id);
         else if (act === "pin-all") { S.pinAll = !S.pinAll; paint(); var pa = m.querySelector('[data-act="pin-all"]'); if (pa) pa.focus(); }
         else if (act === "older") older();
+        else if (act === "you-all") { S.youAll = !S.youAll; paint(); var ya = m.querySelector('[data-act="you-all"]'); if (ya) ya.focus(); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "brdreg"); } catch (x) {} E.openClassic("messageboard"); }
       });
     });
@@ -271,7 +316,9 @@
   function pickMention(name) {
     var ta = S.mount && S.mount.querySelector("#brd-ta"); if (!ta || !name) return;
     var c = mentionCtx(ta); if (!c) return;
-    var after = ta.value.slice(ta.selectionStart), ins = "@" + name + "​ ";
+    // The server reads a mentioned name up to the next comma, colon or end of the message: "@Name can you…" would
+    // reach nobody, so the picked name is closed with a comma ("@Sliema Pharmacy, can you…").
+    var after = ta.value.slice(ta.selectionStart), ins = "@" + name + "​, ";
     ta.value = ta.value.slice(0, c.at) + ins + after; S.draft = ta.value;
     S.ment = []; S.mentQ = null; drawMent();
     ta.focus(); var p = c.at + ins.length; try { ta.setSelectionRange(p, p); } catch (x) {}
@@ -343,7 +390,7 @@
   E.registerModule({
     id: "brdreg", title: "Chat board", order: 3, icon: "✉", ui2Only: true,
     render: function (ctx) {
-      S.mount = ctx && ctx.mount; S.msgs = null; S.pinned = []; S.err = ""; S.error = ""; S.to = "org"; S.confirmDel = 0; S.busy = 0; S.ment = []; S.mentQ = null; S.pinAll = false;
+      S.mount = ctx && ctx.mount; S.msgs = null; S.pinned = []; S.err = ""; S.error = ""; S.to = "org"; S.confirmDel = 0; S.busy = 0; S.ment = []; S.mentQ = null; S.pinAll = false; S.readMax = null; S.newN = 0; S.youAll = false; S.forMe = []; S.forMeN = 0; S.readBusy = 0;
       css(); paint(); startPoll(); // no focus on the box on open: the board would wait for it to be left before showing (E.whenFormIdle)
       return load();
     },

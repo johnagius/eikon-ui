@@ -184,6 +184,78 @@
       mo = Math.floor((h + l - 7 * mm + 114) / 31), dy = ((h + l - 7 * mm + 114) % 31) + 1;
     return new Date(Date.UTC(y, mo - 1, dy - 2)).toISOString().slice(0, 10) === ymd ? "Good Friday" : "";
   };
+  // ---- rota (Team & shifts): T-C2 ----
+  // A day's opening and pharmacist cover, one rule for Who's in, Plan shifts and Today's team. Opening hours are read as
+  // the Shifts screen reads them: a one-day override, else a Malta public holiday (closed), else the weekly hours, else
+  // the default with the Saturday/Sunday flags (07:30–19:30, open Saturday, closed Sunday when nothing was saved).
+  // Cover is the classic Shifts screen's coverage check (checkCov): while open, at least settings.minPharmacists
+  // (default 1) pharmacists or locums on (designation pharmacist/locum, or a shift whose role_override is "pharmacist"),
+  // shifts clamped to the opening hours, people on approved leave that day not counted; nothing when
+  // settings.pharmacistRequired is false. Next-door gaps are joined into one.
+  // E.teamCover("YYYY-MM-DD", { hours, settings, shifts, staff (array or {id: person}), leaves })
+  //   -> { closed, holiday, open, close, gaps: [{ from, to }], words }
+  E.teamCover = function (ymd, o) {
+    o = o || {};
+    var yes = function (v) { return v === true || v === 1 || v === "1" || v === "true"; };
+    var hm = function (t) { return String(t || "").slice(0, 5); };
+    var mn = function (t) { var p = hm(t).split(":"); return Number(p[0]) * 60 + Number(p[1] || 0); };
+    var tm = function (m) { return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
+    var h = o.hours && typeof o.hours === "object" ? o.hours : {}, def = h["default"] && typeof h["default"] === "object" ? h["default"] : {};
+    var ph = E.maltaHoliday ? E.maltaHoliday(ymd) : "", ov = h.overrides && h.overrides[ymd], r;
+    if (ov && typeof ov === "object") r = { closed: yes(ov.closed), open: hm(ov.open || def.open || "07:30"), close: hm(ov.close || def.close || "19:30") };
+    else if (ph) r = { closed: true, open: "", close: "" };
+    else {
+      var wd = new Date(ymd + "T12:00:00Z").getUTCDay(), wk = h.weekly && typeof h.weekly === "object" ? (h.weekly[wd] || h.weekly[String(wd)]) : null;
+      if (wk && typeof wk === "object") r = { closed: yes(wk.closed), open: hm(wk.open || def.open || "07:30"), close: hm(wk.close || def.close || "19:30") };
+      else {
+        var sat = h.openSaturday, sun = h.openSunday;
+        if (typeof h.weekends === "boolean") { if (sat == null) sat = h.weekends; if (sun == null) sun = h.weekends; }
+        if (sat == null) sat = true; if (sun == null) sun = false;
+        r = { closed: yes(def.closed) || (wd === 6 && !yes(sat)) || (wd === 0 && !yes(sun)), open: hm(def.open || "07:30"), close: hm(def.close || "19:30") };
+      }
+    }
+    r.holiday = ph || null; r.gaps = [];
+    if (r.closed) { r.open = ""; r.close = ""; r.words = ph ? "Closed · Public holiday (" + ph + ")" : "Closed"; return r; }
+    var set = o.settings || {}, a = mn(r.open), z = mn(r.close), need = parseInt(set.minPharmacists, 10) || 1;
+    var staff = {}; (Array.isArray(o.staff) ? o.staff : Object.keys(o.staff || {}).map(function (k) { return o.staff[k]; })).forEach(function (p) { if (p) staff[String(p.id)] = p; });
+    var away = {}; (o.leaves || []).forEach(function (l) { if (String(l.status || "").toLowerCase() === "approved" && l.start_date <= ymd && l.end_date >= ymd) away[String(l.staff_id)] = 1; });
+    if (z > a && !(set.pharmacistRequired === false || set.pharmacistRequired === 0 || set.pharmacistRequired === "0" || set.pharmacistRequired === "false")) {
+      var ev = [];
+      (o.shifts || []).forEach(function (x) {
+        if (x.shift_date !== ymd || away[String(x.staff_id)]) return;
+        var d = String((staff[String(x.staff_id)] || {}).designation || "").toLowerCase();
+        if (!(d === "pharmacist" || d === "locum" || x.role_override === "pharmacist")) return;
+        var s0 = Math.max(a, mn(x.start_time)), e0 = Math.min(z, mn(x.end_time)); if (e0 > s0) ev.push([s0, 1], [e0, -1]);
+      });
+      ev.sort(function (p, q) { return p[0] - q[0] || q[1] - p[1]; });
+      var n = 0, cur = a, i = 0, g = [];
+      while (cur < z) {
+        while (i < ev.length && ev[i][0] <= cur) n += ev[i++][1];
+        var nx = i < ev.length ? Math.min(ev[i][0], z) : z;
+        if (n < need) { if (g.length && g[g.length - 1][1] === cur) g[g.length - 1][1] = nx; else g.push([cur, nx]); }
+        cur = nx;
+      }
+      r.gaps = g.map(function (x) { return { from: tm(x[0]), to: tm(x[1]) }; });
+    }
+    r.words = r.gaps.length ? "No pharmacist " + r.gaps.map(function (x) { return x.from + "–" + x.to; }).join(", ") : "Open " + r.open + "–" + r.close + (ph ? " · Public holiday (" + ph + ")" : "");
+    return r;
+  };
+  // The Shifts screen's opening hours and cover rules (two one-row reads), kept 5 minutes per pharmacy so moving between
+  // Who's in, Plan shifts and the weeks does not read them again. -> Promise of { hours, settings } (null when unread).
+  var rotaRulesC = null;
+  E.rotaRules = function (fresh) {
+    var loc = E.state && E.state.user ? E.state.user.location_id : null, c = rotaRulesC;
+    if (!fresh && c && c.loc === loc && Date.now() - c.at < 300000) return c.p;
+    var get = function (u) { return E.apiFetch(u, { method: "GET" }).catch(function () { return null; }); };
+    var p = Promise.all([get("/shifts/opening-hours"), get("/shifts/settings")]).then(function (r) {
+      var v = { hours: r[0] && r[0].ok ? r[0].hours || {} : null, settings: r[1] && r[1].ok ? r[1].settings || {} : null };
+      if (!v.hours || !v.settings) rotaRulesC = null; // a failed read is tried again next time
+      return v;
+    });
+    rotaRulesC = { loc: loc, at: Date.now(), p: p };
+    return p;
+  };
+  // ---- end rota ----
   E.openClassic = function (hash) {
     try {
       var u = new URL(window.location.href);

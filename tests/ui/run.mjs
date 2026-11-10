@@ -4999,7 +4999,7 @@ try {
   const sCard2 = await page.evaluate(() => !!document.querySelector('[data-open="teamreg"]'));
   await page.evaluate(() => { location.hash = "#teamreg"; }); await page.waitForFunction(() => document.querySelector(".tmr"), null, { timeout: 10000 });
   const sText = await page.evaluate(() => document.querySelector(".tmr").textContent);
-  const sCalls = await teamCalls((c) => c.path.startsWith("/team/"));
+  const sCalls = await teamCalls((c) => c.path.startsWith("/team/") && c.path !== "/team/today"); // team-hub: the Team hub's own Today's team read (T-C1) is not the sign-ins screen's
   report("team people: staff see no card (Team or Settings) and the screen, opened by address, says only the admin can; nothing is asked of the server",
     !sCard && !sCard2 && /Only the pharmacy's admin/.test(sText) && sCalls.length === 0, JSON.stringify({ sCard, sCard2, sText: sText.slice(0, 120), sCalls }));
   teamState.me.role = "admin";
@@ -6897,7 +6897,8 @@ try {
   const calls = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json());
   globalThis.__stk = null;
   await page.goto(base + "&ui=2#stock");
-  await page.waitForFunction(() => document.querySelector(".stk-seg [data-view=order]") && document.querySelector(".stk-head"), null, { timeout: 15000 });
+  // the background screens in too (E._lateIn, as the other fresh-page cases wait): their arrival redraws the hub
+  await page.waitForFunction(() => document.querySelector(".stk-seg [data-view=order]") && document.querySelector(".stk-head") && window.EIKON._lateIn, null, { timeout: 15000 });
   await page.click("[data-view=order]").catch(() => {});
   await page.waitForSelector('[data-act=arrived][data-ids="101"]', { timeout: 8000 });
   const f0 = await page.evaluate(() => ({ text: document.querySelector("#stk-slot").innerText, cards: document.querySelectorAll(".hub-card[data-open]").length, all: !!document.querySelector(".stk-all") }));

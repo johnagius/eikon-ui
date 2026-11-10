@@ -46,7 +46,14 @@
   var SPECIALTIES = ["Allergy & Immunology", "Anaesthesiology", "Andrology", "Cardiology", "Cardiac Surgery", "Clinical Genetics", "Clinical Pharmacology", "Colorectal Surgery", "Dentistry", "Dermatology", "Diabetology", "Emergency Medicine", "Endocrinology", "ENT", "Forensic Medicine", "Gastroenterology", "General Practice", "General Surgery", "Geriatrics", "Gynaecology", "Haematology", "Hand Surgery", "Hepatology", "Infectious Disease", "Internal Medicine", "Intensive Care", "Maxillofacial Surgery", "Microbiology", "Neonatology", "Nephrology", "Neurology", "Neurosurgery", "Nuclear Medicine", "Obstetrics", "Obs & Gynae", "Occupational Medicine", "Oncology", "Ophthalmology", "Oral Surgery", "Orthodontics", "Orthopaedics", "Paediatrics", "Paediatric Surgery", "Pain Medicine", "Palliative Care", "Pathology", "Plastic Surgery", "Podiatry", "Psychiatry", "Public Health", "Pulmonology", "Radiology", "Radiotherapy", "Rehabilitation Medicine", "Renal Medicine", "Rheumatology", "Sexual Health", "Sleep Medicine", "Spinal Surgery", "Sports Medicine", "Thoracic Surgery", "Transplant Surgery", "Trauma Surgery", "Urology", "Vascular Surgery"];
 
 
-  var S = { mount: null, rows: {}, agg: [], failed: [], loading: false, error: "", q: "", filter: "all", sel: null, form: null, saving: false, err: "", del: false, deleting: false, delErr: "" };
+  // people (Team & shifts): our team from the rota (read only here; changed in Plan shifts), with the rota's role words.
+  var DESIG = { pharmacist: "Pharmacist", locum: "Locum pharmacist", assistant: "Pharmacy assistant", dispenser: "Dispenser", cashier: "Cashier", manager: "Manager", cleaner: "Cleaner", other: "Other" };
+  function desig(d) { var k = String(d || "").toLowerCase().trim(); return DESIG[k] || String(d || "") || "On the rota"; }
+  // Starred and called recently: this device only, per person and pharmacy (E.picks keys end in :<location>); nothing is sent.
+  function picks() { return E.picks ? E.picks("conreg", 6) : null; }
+  function fold(s) { return E.people && E.people.foldMt ? E.people.foldMt(s) : String(s || "").toLowerCase(); }
+
+  var S = { mount: null, team: [], rows: {}, agg: [], failed: [], loading: false, error: "", q: "", filter: "all", sel: null, form: null, saving: false, err: "", del: false, deleting: false, delErr: "" };
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
   function low(s) { return String(s || "").toLowerCase(); }
@@ -118,12 +125,23 @@
       "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .con-ferr{color:#FF7A72}}" + // 5:1 on the tinted row being typed in
       ".con-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
       "@media (max-width:600px){.con-btn{height:44px;border-radius:22px}.con-call{height:44px;border-radius:22px;padding:0 16px}.con-q{height:44px}.con-ferr{margin-left:0}" +
-      ".con-chips{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding:0 16px 2px}.con-chips::-webkit-scrollbar{display:none}.con-chips button{height:44px;border-radius:22px;padding:0 14px;flex:none}}" +
+      "i.con-cw{font-style:normal}.con-chips{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding:0 16px 2px}.con-chips::-webkit-scrollbar{display:none}.con-chips button{height:44px;border-radius:22px;padding:0 14px;flex:none}}" +
       ".con-back{min-height:44px;padding:0 12px 0 0;margin:-8px 0 2px}.con-open{min-height:44px}" + // q5-8: the way back and every row at least 44 px tall
       // q5-10c: Delete… (the pharmacist's) sits apart from Edit; the one question replaces the buttons in place.
       ".con-acts.l{justify-content:space-between}.con-btn.d{color:var(--danger);border-color:var(--danger);background:transparent}.con-btn.dd{background:#B42318;border-color:#B42318;color:#fff}" +
       ".con-ask{margin:16px 0 0;font-size:15px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}.con-ask+.con-acts{margin-top:10px}.con-card .con-err{padding:8px 0 0}" +
       "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .con-btn.d{color:#FF7A72;border-color:#FF7A72}}";
+    // people (Team & shifts): star, one-tap call/email in the card, the emergency strip
+    st.textContent += ".con-ttl{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}" +
+      ".con-star{flex:none;font:inherit;font-size:14px;font-weight:600;min-height:36px;padding:0 12px;border-radius:18px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer}.con-star[aria-pressed=true]{color:#8A5A00;border-color:#C98A12;background:rgba(201,138,18,.10)}" +
+      ".con-quick{margin-top:12px}.con-quick .con-btn{height:44px;border-radius:22px;padding:0 18px;font-size:15px}" +
+      ".con-sos{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.con .con-sos a{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 11px;border-radius:16px;border:1px solid var(--border);font-size:13px;color:var(--text);text-decoration:none!important;font-variant-numeric:tabular-nums;white-space:nowrap}.con-sos a b{color:var(--danger)}" +
+      "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .con-star[aria-pressed=true]{color:#F5C46B}html[data-ui2]:not([data-ui2-visit]) .con-sos a b{color:#FF7A72}}" +
+      // VISUAL: the detail stays in view beside a long list; on a desktop the row shows the number (a desktop cannot ring);
+      // the type chips are one row that slides, faded at the edge so it is clear there are more
+      "@media (min-width:901px){.con-detail{position:sticky;top:16px}.con-cw{display:none}.con-call{font-variant-numeric:tabular-nums}}@media (max-width:900px){.con-cn{display:none}}" +
+      "i.con-cw{font-style:normal}.con-chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent);padding-right:28px}.con-chips::-webkit-scrollbar{display:none}.con-chips button{flex:none}" +
+      "@media (max-width:600px){.con-sos{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding:0 16px 2px}.con-sos::-webkit-scrollbar{display:none}.con .con-sos a{min-height:44px;border-radius:22px;padding:0 14px;flex:none}.con-star{min-height:44px;border-radius:22px}}";
     document.head.appendChild(st);
   }
 
@@ -137,7 +155,9 @@
     var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     try {
       var got = await Promise.all(TYPES.map(function (t) { return list(t.key).then(function (rows) { return { ok: true, rows: rows }; }, function (e) { return { ok: false, e: e }; }); })
-        .concat([E.apiFetch("/contacts/clients/aggregated", { method: "GET" }).then(function (r) { return { ok: true, rows: (r && Array.isArray(r.rows)) ? r.rows : [] }; }, function () { return { ok: true, rows: [] }; })]));
+        .concat([E.apiFetch("/contacts/clients/aggregated", { method: "GET" }).then(function (r) { return { ok: true, rows: (r && Array.isArray(r.rows)) ? r.rows : [] }; }, function () { return { ok: true, rows: [] }; })])
+        .concat([teamRows()]));
+      S.team = got[TYPES.length + 1] || [];
       var failed = [], firstErr = null;
       TYPES.forEach(function (t, i) { if (got[i].ok) S.rows[t.key] = got[i].rows; else { failed.push(t.many); firstErr = firstErr || got[i].e; if (!S.rows[t.key]) S.rows[t.key] = []; } });
       if (failed.length === TYPES.length) throw firstErr || new Error("Could not load contacts");
@@ -149,10 +169,18 @@
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
 
+  // The people on this pharmacy's rota: one read, kept 5 minutes for this pharmacy (E.getShared), never an error here.
+  function teamRows() {
+    var u = E.state && E.state.user, loc = u && u.location_id != null ? u.location_id : "";
+    var p = E.getShared ? E.getShared("/shifts/staff?for=contacts&loc=" + encodeURIComponent(loc), 300000) : E.apiFetch("/shifts/staff", { method: "GET" });
+    return Promise.resolve(p).then(function (r) { return (r && Array.isArray(r.staff) ? r.staff : []).filter(function (x) { return x && Number(x.is_active) !== 0 && String(x.full_name || "").trim(); }); }, function () { return []; });
+  }
+
   /* ---------- the one list ---------- */
   // Every contact as { t: type key, k: unique key, r: row }. Clients from the registers are k "agg:n", fixed numbers "em:n".
   function all() {
     var out = [];
+    (S.team || []).forEach(function (r) { out.push({ t: "team", k: "team:" + r.id, r: { name: r.full_name, role: desig(r.designation), phone: r.phone || "", email: r.email || "" }, team: true }); });
     TYPES.forEach(function (t) { (S.rows[t.key] || []).forEach(function (r) { out.push({ t: t.key, k: t.key + ":" + r.id, r: r }); }); });
     S.agg.forEach(function (r, i) { out.push({ t: "clients", k: "agg:" + i, r: r, agg: true }); });
     EMERGENCY.forEach(function (r, i) { out.push({ t: "emergency", k: "em:" + i, r: r, fixed: true }); });
@@ -163,12 +191,15 @@
     if (!q) return true;
     var r = c.r, vals = Object.keys(r).filter(function (f) { return f !== "id" && !/_(at|by)$/.test(f) && f !== "org_id" && f !== "location_id"; }).map(function (f) { return r[f]; });
     if (vals.some(function (v) { return low(v).indexOf(q) >= 0; })) return true;
+    var fq = fold(q).split(/\s+/).filter(Boolean), hay = fold(vals.join(" ")); // "zebbug" finds Żebbuġ, "hili" finds Ħili
+    if (fq.length && fq.every(function (w) { return hay.indexOf(w) >= 0; })) return true;
     var dq = digits(q); // "21234567" finds "2123 4567"
     return dq.length >= 3 && /^[\d\s+\-()]+$/.test(q) && vals.some(function (v) { return digits(v).indexOf(dq) >= 0; });
   }
   function sub(c) {
     var r = c.r, bits = [];
     if (c.t === "specialists" && r.specialty) bits.push(r.specialty);
+    if (c.team) bits.push(r.role);
     if (c.t === "clients" && r.id_card) bits.push(r.id_card);
     var n = c.fixed ? r.phone : callNo(c.t, r); if (n) bits.push(n);
     if (r.email) bits.push(r.email);
@@ -177,11 +208,17 @@
     if (!bits.length && (r.phone_personal)) bits.push("Personal number only");
     return bits.join(" · ") || "No number yet";
   }
+  // On a desktop the number is on the row's button, so the line under the name leaves it out (said once).
+  function subHtml(c, n) {
+    var parts = sub(c).split(" · ");
+    var hide = parts.length > 1 && n && digits(n) ? parts.indexOf(n) : -1; // the number, with the dot that joins it
+    return parts.map(function (x, i) { var t = (i ? " · " : "") + esc(x); if (i !== hide) return t; return '<i class="con-cw">' + (i ? t : esc(x) + " · ") + "</i>"; }).join("").replace(/^(<i class="con-cw">[^<]*<\/i>) · /, "$1");
+  }
   function rowHtml(c) {
     var n = c.fixed ? String(c.r.phone).split("/")[0].trim() : callNo(c.t, c.r);
     var name = String(c.r.name || "").trim() || "(no name)";
-    return '<div class="con-row' + (S.sel === c.k ? " on" : "") + '"><button type="button" class="con-open" data-open="' + esc(c.k) + '"' + (S.sel === c.k ? ' aria-current="true"' : "") + "><b>" + esc(name) + "</b><span>" + esc(sub(c)) + "</span></button>" +
-      (n && digits(n) ? '<a class="con-call" href="' + esc(telHref(n)) + '" aria-label="Call ' + esc(name) + '">Call</a>' : "") + "</div>";
+    return '<div class="con-row' + (S.sel === c.k ? " on" : "") + '"><button type="button" class="con-open" data-open="' + esc(c.k) + '"' + (S.sel === c.k ? ' aria-current="true"' : "") + "><b>" + esc(name) + "</b><span>" + subHtml(c, n) + "</span></button>" +
+      (n && digits(n) ? '<a class="con-call" href="' + esc(telHref(n)) + '" data-called="' + esc(c.k) + '" aria-label="Call ' + esc(name) + '"><span class="con-cw">Call</span><span class="con-cn">' + esc(n) + '</span></a>' : c.r.email ? '<a class="con-call" href="mailto:' + esc(c.r.email) + '" data-called="' + esc(c.k) + '" aria-label="Email ' + esc(name) + '">Email</a>' : "") + "</div>";
   }
   function listHtml() {
     if (S.loading && !Object.keys(S.rows).length) return '<div class="con-list" aria-busy="true" style="margin-top:14px"><span class="con-sr" role="status">Opening contacts</span><i class="con-skel"></i><i class="con-skel"></i><i class="con-skel"></i><i class="con-skel"></i></div>';
@@ -197,7 +234,8 @@
       return h + '<div class="con-quiet" style="margin-top:14px">' + (q ? "No contact matches “" + esc(S.q.trim()) + "”." + (f !== "all" ? " Try All." : "") : f === "all" ? "No contacts yet." : "No " + esc((TYPE[f] || {}).many || "contacts").toLowerCase() + " yet.") +
         (f !== "emergency" ? '<br><button type="button" class="con-btn" data-act="add" style="margin-top:10px">Add a contact</button>' : "") + "</div>";
     }
-    var groups = TYPES.map(function (t) { return { key: t.key, label: t.many }; }).concat([{ key: "emergency", label: "Emergency and health centres" }]);
+    var groups = [{ key: "team", label: "Our team" }].concat(TYPES.map(function (t) { return { key: t.key, label: t.many }; })).concat([{ key: "emergency", label: "Emergency and health centres" }]);
+    if (!q && f === "all") h += quickHtml();
     // q5-8: the first 30 contacts (in group order), then "Show 30 more (N left)", instead of 200 at once and "Search to find the rest".
     // The search and the group counts still cover every contact; the one open on the right stays in the list.
     var byG = groups.map(function (g) { return items.filter(function (c) { return c.t === g.key; }); }), pk = "con:" + f;
@@ -211,6 +249,23 @@
     return h;
   }
 
+  // Starred, then called recently (this device), above the groups when nothing is searched for.
+  function quickHtml() {
+    var P = picks(); if (!P) return "";
+    var seen = {}, star = P.favs().map(function (x) { return find(x.id); }).filter(function (c) { if (!c || seen[c.k]) return false; seen[c.k] = 1; return true; });
+    var rec = P.recent().map(function (x) { return find(x.id); }).filter(function (c) { if (!c || seen[c.k]) return false; seen[c.k] = 1; return true; }).slice(0, 4);
+    var h = "";
+    if (star.length) h += '<div class="con-lab">Starred <b>' + star.length + '</b></div><div class="con-list">' + star.map(rowHtml).join("") + "</div>";
+    if (rec.length) h += '<div class="con-lab">Called recently</div><div class="con-list">' + rec.map(rowHtml).join("") + "</div>";
+    return h;
+  }
+  function sosHtml() { // the numbers needed in a hurry, one tap from the top of the screen
+    return '<div class="con-sos" role="group" aria-label="Emergency numbers">' + [EMERGENCY[0], EMERGENCY[4], EMERGENCY[3]].map(function (r) {
+      var n = String(r.phone).split("/")[0].trim();
+      return '<a href="' + esc(telHref(n)) + '" aria-label="Call ' + esc(r.name + " " + n) + '"><b>' + esc(n) + "</b> " + esc(r.name === "All emergencies" ? "Emergency" : /^Urgent/.test(r.name) ? "Urgent care" : r.name.replace(/ Hospital$/, "")) + "</a>";
+    }).join("") + "</div>";
+  }
+
   /* ---------- one contact ---------- */
   function fact(label, html, cls) { return "<div><dt>" + esc(label) + "</dt><dd" + (cls ? ' class="' + cls + '"' : "") + ">" + html + "</dd></div>"; }
   function detailHtml() {
@@ -218,10 +273,18 @@
     var c = S.sel && find(S.sel);
     if (!c) return '<div class="con-quiet con-pick" style="padding:34px;text-align:center">Pick a contact to see their numbers, or search for one.</div>';
     var r = c.r, t = TYPE[c.t], h = '<button type="button" class="con-dback" data-act="close">‹ Contacts</button><div class="con-card">';
-    h += '<h2 tabindex="-1" id="con-title">' + esc(String(r.name || "").trim() || "(no name)") + '</h2><div class="con-meta"><span class="con-pill">' + esc(c.fixed ? "Emergency" : t.one) + "</span>" +
-      (c.fixed ? "" : c.agg ? "<span>Found in this pharmacy's registers</span>" : t.local ? "<span>This pharmacy only</span>" : "<span>Shared with every pharmacy in your group</span>") + "</div><dl class=\"con-facts\">";
+    var P = picks(), starred = !!(P && P.isFav(c.k)), nm0 = String(r.name || "").trim() || "(no name)";
+    h += '<div class="con-ttl"><h2 tabindex="-1" id="con-title">' + esc(nm0) + '</h2>' + (P ? '<button type="button" class="con-star" data-act="star" aria-pressed="' + starred + '" aria-label="Star ' + esc(nm0) + ' (kept at the top of Contacts on this device)">' + (starred ? "★ Starred" : "☆ Star") + "</button>" : "") + '</div><div class="con-meta"><span class="con-pill">' + esc(c.fixed ? "Emergency" : c.team ? r.role : t.one) + "</span>" +
+      (c.fixed ? "" : c.team ? "<span>On this pharmacy's rota</span>" : c.agg ? "<span>Found in this pharmacy's registers</span>" : t.local ? "<span>This pharmacy only</span>" : "<span>Shared with every pharmacy in your group</span>") + "</div>";
+    // the one-tap actions first: call the number safe to use, or write
+    var qn = c.fixed ? String(r.phone).split("/")[0].trim() : callNo(c.t, r), qa = "";
+    if (qn && digits(qn)) qa += '<a class="con-btn p" href="' + esc(telHref(qn)) + '" data-called="' + esc(c.k) + '">Call ' + esc(qn) + "</a>";
+    if (r.email) qa += '<a class="con-btn" href="mailto:' + esc(r.email) + '" data-called="' + esc(c.k) + '">Email</a>';
+    if (qa) h += '<div class="con-acts con-quick">' + qa + "</div>";
+    h += '<dl class="con-facts">';
     var none = '<span style="color:var(--muted);font-weight:400">–</span>';
     if (c.fixed) { h += fact("Phone", tel(r.phone)); if (r.note) h += fact("About", esc(r.note), "note"); }
+    else if (c.team) { h += fact("Phone", r.phone ? tel(r.phone) : none) + fact("Email", r.email ? '<a href="mailto:' + esc(r.email) + '">' + esc(r.email) + "</a>" : none) + fact("Role", esc(r.role)); }
     else {
       t.cols.forEach(function (k) {
         if (k === "name") return;
@@ -234,7 +297,8 @@
       });
     }
     h += "</dl>";
-    if (!c.fixed && !c.agg) {
+    if (c.team) h += '<p class="con-foot">Their number, e-mail and role are changed in <a href="#shfreg">Plan shifts</a>.</p>';
+    if (!c.fixed && !c.agg && !c.team) {
       var nm = String(r.name || "").trim() || "this contact";
       if (S.del) h += '<p class="con-ask" id="con-ask">' + esc("Delete " + nm + " from Contacts? This cannot be undone.") + "</p>" +
         (S.delErr ? '<div class="con-err" role="alert">' + esc(S.delErr) + "</div>" : "") +
@@ -268,11 +332,11 @@
     if (S.form && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
     var qi = m.querySelector("#con-q"); if (qi) S.q = qi.value;
     var open = !!(S.sel || S.form);
-    var chips = [["all", "All"]].concat(TYPES.map(function (t) { return [t.key, t.many]; })).concat([["emergency", "Emergency"]]);
+    var chips = [["all", "All"]].concat(S.team && S.team.length ? [["team", "Our team"]] : []).concat(TYPES.map(function (t) { return [t.key, t.many]; })).concat([["emergency", "Emergency"]]);
     var h = '<div class="con' + (open ? " has-sel" : "") + '"><div class="con-head"><button type="button" class="con-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("conreg") : "‹ Team") + "</button>" +
       '<div class="con-top"><div><h1>Contacts</h1><p class="con-sub">Suppliers, reps, doctors and everyone else the pharmacy calls.</p></div>' + (S.form && !S.form.id ? "" : '<button type="button" class="con-btn p" data-act="add">Add a contact</button>') + "</div></div>" +
       '<div class="con-grid"><div class="con-side">' +
-      '<input class="con-q" id="con-q" type="search" autocomplete="off" aria-label="Search contacts" placeholder="Name, number or email" value="' + esc(S.q) + '">' +
+      '<input class="con-q" id="con-q" type="search" autocomplete="off" aria-label="Search contacts" placeholder="Name, number or email" value="' + esc(S.q) + '">' + sosHtml() +
       '<div class="con-chips" role="group" aria-label="Show">' + chips.map(function (c) { return '<button type="button" data-filter="' + c[0] + '" aria-pressed="' + (S.filter === c[0]) + '">' + esc(c[1]) + "</button>"; }).join("") + "</div>" +
       '<div id="con-list">' + listHtml() + "</div>" +
       '<p class="con-foot">Import and export, hiding sections and the specialty filter are in the <a href="#" data-act="classic">classic screen</a>.</p>' +
@@ -293,15 +357,17 @@
         else if (act === "retry") load();
         else if (act === "q58-more") { var nx = E.listPage.more(b.getAttribute("data-key")); paintList(); if (nx != null) E.focusSoon(function () { return S.mount && S.mount.querySelector('[data-open="' + nx + '"]'); }); } // q5-8: the first new contact
         else if (act === "add") { S.del = false; S.delErr = ""; var ty = TYPE[S.filter] ? S.filter : "suppliers"; S.form = { type: ty, id: null, vals: prefill(ty) }; S.err = ""; S.fe = {}; S.sel = null; paint(true); top(); focus(); }
-        else if (act === "edit") { var c = find(S.sel); if (!c || c.fixed || c.agg) return; S.del = false; S.delErr = ""; var vals = {}; TYPE[c.t].cols.forEach(function (k) { vals[k] = String(c.r[k] == null ? "" : c.r[k]); }); S.form = { type: c.t, id: c.r.id, vals: vals, snap: Object.assign({}, vals), key: c.k }; S.err = ""; S.fe = {}; paint(true); top(); focus(); }
+        else if (act === "edit") { var c = find(S.sel); if (!c || c.fixed || c.agg || c.team) return; S.del = false; S.delErr = ""; var vals = {}; TYPE[c.t].cols.forEach(function (k) { vals[k] = String(c.r[k] == null ? "" : c.r[k]); }); S.form = { type: c.t, id: c.r.id, vals: vals, snap: Object.assign({}, vals), key: c.k }; S.err = ""; S.fe = {}; paint(true); top(); focus(); }
         else if (act === "form-cancel") cancelForm();
         else if (act === "del") { S.del = true; S.delErr = ""; paint(true); focusOn(".con-card [data-act=del-cancel]"); }
         else if (act === "del-cancel") { if (S.deleting) return; S.del = false; S.delErr = ""; paint(true); focusOn(".con-card [data-act=del]"); }
         else if (act === "del-go") remove();
+        else if (act === "star") { var sc = find(S.sel), P = picks(); if (!sc || !P) return; var on = !P.isFav(sc.k); P.fav({ id: sc.k, name: String(sc.r.name || "") }, on); b.setAttribute("aria-pressed", String(on)); b.textContent = on ? "★ Starred" : "☆ Star"; paintList(); E.toast(on ? "Starred: at the top of Contacts on this device" : "No longer starred", "success"); }
         else if (act === "close") { if (S.deleting) return; S.del = false; S.delErr = ""; var was = S.sel; S.sel = null; paint(true); var row = was && m.querySelector('[data-open="' + was + '"]'); if (row) row.focus(); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "conreg"); } catch (x) {} E.openClassic("contacts"); }
       });
     });
+    root.querySelectorAll("[data-called]").forEach(function (a) { a.addEventListener("click", function () { var P = picks(), cc = find(a.getAttribute("data-called")); if (P && cc) P.push({ id: cc.k, name: String(cc.r.name || "") }); }); }); // remembered on this device only
     root.querySelectorAll("[data-filter]").forEach(function (b) { b.addEventListener("click", function () { S.filter = b.getAttribute("data-filter"); paint(); var again = S.mount.querySelector('[data-filter="' + S.filter + '"]'); if (again) again.focus(); }); });
     root.querySelectorAll("[data-open]").forEach(function (b) { b.addEventListener("click", function () { if (S.form && !confirmLeave()) return; if (S.deleting) return; S.form = null; S.err = ""; S.del = false; S.delErr = ""; S.sel = b.getAttribute("data-open"); paint(true); top(); focusTitle(); }); });
     var qn = root.querySelector("#con-q");
@@ -330,7 +396,7 @@
   function focusOn(sel) { E.focusSoon(function () { return S.mount && S.mount.querySelector(sel); }, 0); } // never from a field the person went to meanwhile
   function top() { if (window.matchMedia && window.matchMedia("(max-width:900px)").matches) try { window.scrollTo(0, 0); } catch (e) {} }
   function focus() { E.focusSoon(function () { return S.mount && S.mount.querySelector('#con-form [name="name"]'); }, 30); }
-  function focusTitle() { setTimeout(function () { var x = S.mount && S.mount.querySelector("#con-title"); var a = document.activeElement; if (x && !(a && a.closest && a.closest("form")) && !(a && a.id === "con-q")) x.focus(); }, 30); }
+  function focusTitle() { setTimeout(function () { var x = S.mount && S.mount.querySelector("#con-title"); var a = document.activeElement; if (x && !S.del && !(a && a.closest && (a.closest("form") || (a.closest(".con-card") && a !== x))) && !(a && a.id === "con-q")) x.focus(); }, 30); } // never over a button the person already reached in the card (Delete…, Star)
 
   function keep() {
     var f = S.mount && S.mount.querySelector("#con-form"); if (!f || !S.form) return;
@@ -401,7 +467,7 @@
   // place in the list, else the one before, else Add a contact.
   async function remove() {
     var c = S.sel && find(S.sel);
-    if (S.deleting || !c || c.fixed || c.agg || !isAdmin()) return;
+    if (S.deleting || !c || c.fixed || c.agg || c.team || !isAdmin()) return;
     var rows = Array.prototype.slice.call(S.mount.querySelectorAll("#con-list [data-open]")), i = rows.findIndex(function (b) { return b.getAttribute("data-open") === c.k; });
     var nb = i >= 0 ? (rows[i + 1] || rows[i - 1] || null) : null, near = nb && find(nb.getAttribute("data-open")), name = String(c.r.name || "").trim() || "the contact";
     S.deleting = true; S.delErr = ""; paint(true);

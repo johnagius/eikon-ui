@@ -12,7 +12,7 @@
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, monday: null, staff: {}, shifts: [], leaves: [], hours: null, loading: false, error: "", leaveErr: "", form: null, saving: false, ask: null, busy: 0, lvMsg: "", last: null, who: null, lv: null, lvYears: [] };
+  var S = { mount: null, monday: null, staff: {}, shifts: [], leaves: [], hours: null, rules: null, loading: false, error: "", leaveErr: "", form: null, saving: false, ask: null, busy: 0, lvMsg: "", last: null, who: null, lv: null, lvYears: [] };
   var DAY = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   // The classic Leave tab's leave types, in its order, in the words used on this screen ("Annual leave").
@@ -39,17 +39,19 @@
   function leaveLabel(t) { var x = String(t || "leave").replace(/_/g, " ").trim(); x = x.charAt(0).toUpperCase() + x.slice(1); return /\s|leave/i.test(x) ? x : x + " leave"; }
   function approvedOn(staffId, key) { return S.leaves.filter(function (l) { return low(l.status) === "approved" && Number(l.staff_id) === Number(staffId) && l.start_date <= key && l.end_date >= key; })[0] || null; }
   function truthy(v) { return v === true || v === 1 || v === "1" || v === "true"; }
-  // Opening hours for a day, read the way the classic screen reads them: a one-day override, the weekly hours, then the old default.
-  function hoursFor(key) {
-    var oh = S.hours || {}, ov = (oh.overrides || {})[key], dw = parse(key).getDay();
-    if (ov) return { open: ov.open || "", close: ov.close || "", closed: truthy(ov.closed) };
-    var wk = oh.weekly && (oh.weekly[dw] || oh.weekly[String(dw)]);
-    var def = oh["default"] || {};
-    if (wk) return { open: wk.open || def.open || "07:30", close: wk.close || def.close || "19:30", closed: truthy(wk.closed) };
-    var sat = oh.openSaturday, sun = oh.openSunday;
-    if (typeof oh.weekends === "boolean") { if (sat == null) sat = oh.weekends; if (sun == null) sun = oh.weekends; }
-    if (sat == null) sat = true; if (sun == null) sun = false;
-    return { open: def.open || "07:30", close: def.close || "19:30", closed: truthy(def.closed) || (dw === 6 && !sat) || (dw === 0 && !sun) };
+  // A day's opening hours and pharmacist cover: the one shared rule (E.teamCover in core.js: a one-day override, a Malta
+  // public holiday closed unless an override opens it, the weekly hours; the classic coverage check for the gaps).
+  function dayCover(key) { return E.teamCover(key, { hours: S.hours, settings: S.rules, shifts: S.shifts, staff: S.staff, leaves: S.leaves }); }
+  function hoursFor(key) { return dayCover(key); }
+  // Who can cover a gap: pharmacists and locums on the team, not on approved leave that day and not already on then.
+  // Those with no shift that day come first, then locums.
+  function fillers(key, g) {
+    var a = mins(g.from), z = mins(g.to);
+    return active().filter(function (p) {
+      if (!isPharm(p) || approvedOn(p.id, key)) return false;
+      return !S.shifts.some(function (x) { return x.shift_date === key && Number(x.staff_id) === Number(p.id) && mins(x.start_time) < z && mins(x.end_time) > a; });
+    }).map(function (p) { return { p: p, k: (S.shifts.some(function (x) { return x.shift_date === key && Number(x.staff_id) === Number(p.id); }) ? 2 : 0) + (low(p.designation) === "locum" ? 1 : 0) }; })
+      .sort(function (x, y) { return x.k - y.k || String(x.p.full_name).localeCompare(String(y.p.full_name)); }).map(function (x) { return x.p; });
   }
   function overlaps(key, st, et, skipId) { // other pharmacists (or locums) already on in that time
     var a = mins(st), z = mins(et);
@@ -74,7 +76,7 @@
       ".shf-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 2px 7px;display:flex;gap:8px}.shf-lab b{color:var(--text)}" +
       ".shf-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".shf-day{background:var(--panel2);border:1px solid var(--border);border-radius:12px;margin-top:10px;overflow:hidden}.shf-day.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}" +
-      ".shf-day .h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:10px 14px 6px}.shf-day .h b{font-size:15px;font-weight:700}.shf-day .h span{font-size:12.5px;color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.shf-day.today .h b{color:var(--accent)}" +
+      ".shf-day .h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:10px 14px 6px}.shf-day .h b{font-size:15px;font-weight:700}.shf-day .h span{font-size:12.5px;color:var(--muted);min-width:0;text-align:right;line-height:1.4}.shf-day.today .h b{color:var(--accent)}" +
       ".shf-p{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:.5px solid var(--border);width:100%;box-sizing:border-box;text-align:left;font:inherit;color:var(--text);background:none;border-left:0;border-right:0;border-bottom:0}" +
       "button.shf-p{cursor:pointer;min-height:48px}button.shf-p:hover{background:rgba(118,118,128,.08)}" +
       ".shf-av{flex:0 0 30px;height:30px;border-radius:15px;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}" +
@@ -93,7 +95,7 @@
       ".shf-form input,.shf-form select{flex:1;min-width:0;width:100%;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
       ".shf-form select:focus-visible,.shf-form input:focus-visible{outline:0}" +
       ".shf-form .acts{display:flex;gap:8px;padding:10px 14px;justify-content:flex-end;align-items:center;flex-wrap:wrap;border-top:.5px solid var(--border)}" +
-      ".shf-form .acts .q{flex:1 1 100%;font-size:14px}" +
+      ".shf-form .acts .q{flex:1 1 100%;font-size:14px}.shf-form .acts label.sw{display:flex;padding:0;border:0;min-height:44px}.shf-form .acts label.sw>span{flex:0 0 auto;min-width:72px;white-space:nowrap}.shf-swq.bad{color:var(--danger)}.shf-swq b{color:var(--warn,#8A5A08)}" +
       ".shf-err{color:var(--danger);font-size:13.5px;padding:8px 14px 0}" +
       ".shf-warn{font-size:13.5px;margin:8px 14px 0;padding:10px 12px;border-radius:10px;background:rgba(201,138,18,.14);line-height:1.4}" +
       ".shf-lv{padding:10px 14px;border-top:.5px solid var(--border)}.shf-lv:first-child{border-top:0}.shf-lv .top{display:flex;align-items:center;gap:10px}" +
@@ -105,9 +107,13 @@
       ".shf-who{margin-top:14px}.shf-who h2{font-size:17px;font-weight:700;margin:0;padding:12px 14px 2px}.shf-who p{margin:0;padding:0 14px 8px;font-size:13.5px;color:var(--muted)}.shf-who .ok{color:var(--ok);font-weight:600}" +
       ".shf-form .two{display:flex;gap:8px;flex:1;min-width:0;align-items:center}.shf-form .two input{flex:1}.shf-form .two i{font-style:normal;color:var(--muted)}" +
       ".shf-form .hint{font-size:12.5px;color:var(--muted);padding:0 14px 8px 98px;margin-top:-6px}.shf-form [aria-invalid=true]{box-shadow:inset 0 -2px 0 var(--danger)}" +
+      ".shf-gap{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;text-align:left;font:inherit;font-size:14.5px;min-height:48px;padding:8px 14px;border:0;border-top:.5px solid var(--border);background:var(--warn-soft,rgba(201,138,18,.16));color:var(--text);cursor:pointer}" +
+      ".shf-gap b{flex:1;min-width:0;color:var(--warn,#8A5A08);font-weight:700}.shf-gap span:not(.chev){font-weight:600;color:var(--warn,#8A5A08);white-space:nowrap}.shf-gap .chev{flex:0 0 8px;width:7px;height:7px;border-right:2px solid var(--warn,#8A5A08);border-top:2px solid var(--warn,#8A5A08);transform:rotate(45deg)}" +
+      ".shf-day.today .shf-gap{background:var(--danger-soft,rgba(191,59,46,.12))}.shf-day.today .shf-gap b,.shf-day.today .shf-gap span:not(.chev){color:var(--danger)}.shf-day.today .shf-gap .chev{border-color:var(--danger)}.shf-fillh{padding:10px 14px 2px;font-size:14px;font-weight:600;color:var(--warn,#8A5A08)}" +
+      ".shf-hol{border-top:.5px solid var(--border);padding:10px 14px;font-size:13.5px;background:rgba(201,138,18,.12)}.shf-day.shut:not(.today) .h b{color:var(--muted)}" +
       ".shf-sk{height:150px;margin-top:10px;border-radius:12px;background:rgba(118,118,128,.1)}.shf-sk+.shf-sk{height:110px}" +
       // A wide desktop shows the week in two columns (Monday to Sunday reading across), so most of it is seen without scrolling.
-      "@media (min-width:1280px){.shf{max-width:1180px}.shf-week{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;align-items:start}}" +
+      "@media (min-width:1280px){.shf{max-width:1180px}.shf-week{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;align-items:stretch}.shf-week .shf-day{margin-top:0;display:flex;flex-direction:column}.shf-week .shf-day>.shf-add:last-child{margin-top:auto}}" +
       "@media (max-width:600px){.shf{padding:4px 16px 0}.shf h1{font-size:32px}.shf-nav button{width:44px;height:44px;flex-basis:44px;border-radius:22px}.shf-nav .now{flex:0 0 auto}.shf-btn{height:44px;border-radius:22px}.shf-note a{display:inline-block;padding:12px 0;margin:-12px 0}}";
     document.head.appendChild(st);
   }
@@ -118,14 +124,14 @@
     var from = ymd(S.monday), to = ymd(plus(S.monday, 6)), ys = years();
     try {
       var res = await Promise.all([E.apiFetch("/shifts/staff?include_inactive=1", { method: "GET" }), E.apiFetch("/shifts/assignments-range?from=" + from + "&to=" + to, { method: "GET" }),
-        E.apiFetch("/shifts/opening-hours", { method: "GET" }).catch(function () { return null; })]
+        E.rotaRules(), null]
         .concat(ys.map(function (y) { return E.apiFetch("/shifts/leaves?year=" + y, { method: "GET" }).catch(function () { return null; }); })));
       if (!res[0] || !res[0].ok || !res[1] || !res[1].ok) throw new Error((res[1] && res[1].error) || (res[0] && res[0].error) || "Could not load the rota");
       if (from !== ymd(S.monday)) return; // the week changed while this was loading: the newer load paints
       S.staff = {}; (res[0].staff || []).forEach(function (p) { S.staff[p.id] = p; });
       S.shifts = (res[1].shifts || []).slice().sort(function (a, b) { return String(a.start_time).localeCompare(String(b.start_time)); });
-      S.hours = res[2] && res[2].ok ? res[2].hours : S.hours;
-      var lv = res.slice(3), seen = {};
+      S.hours = (res[2] && res[2].hours) || S.hours; S.rules = (res[2] && res[2].settings) || S.rules; // opening hours and cover rules: E.rotaRules keeps them 5 minutes
+      var lv = res.slice(4), seen = {};
       S.leaveErr = lv.some(function (r) { return !r || !r.ok; }) ? "Leave requests could not be loaded. Try again in a moment." : "";
       S.leaves = [].concat.apply([], lv.map(function (r) { return (r && r.ok && r.leaves) || []; })).filter(function (l) { if (seen[l.id]) return false; seen[l.id] = 1; return true; });
     } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the rota"); }
@@ -137,6 +143,16 @@
     return r.shifts || [];
   }
 
+  // After a change, only that day is read again (one bounded read), so the day's cover and any gap update at once.
+  async function refreshDay(key) {
+    var wk = ymd(S.monday);
+    try {
+      var list = await dayList(key);
+      if (wk !== ymd(S.monday)) return; // the week moved meanwhile: its own load paints
+      S.shifts = S.shifts.filter(function (x) { return x.shift_date !== key; }).concat(list).sort(function (a, b) { return String(a.start_time).localeCompare(String(b.start_time)); });
+      E.whenFormIdle(S.mount, function () { paint(); });
+    } catch (e) { await load(); }
+  }
   function leaveWhen(l) {
     var t = l.start_date === l.end_date || !l.end_date ? short(l.start_date) : (parse(l.start_date).getMonth() === parse(l.end_date).getMonth() ? parse(l.start_date).getDate() + "–" + short(l.end_date) : short(l.start_date) + " – " + short(l.end_date));
     if (l.start_time || l.end_time) t += ", " + hm(l.start_time || "") + "–" + hm(l.end_time || "");
@@ -156,17 +172,35 @@
     h += '<div class="acts">';
     var dis = S.busy ? " disabled" : "";
     if (a === "refuse") h += '<span class="q">Refuse this request?</span><button class="shf-btn" data-act="lv-keep">Keep it</button><button class="shf-btn d" data-act="lv-refuse-yes" data-id="' + l.id + '"' + dis + ">Refuse</button>";
+    else if (a === "shifts") { var L2 = S.ask.shifts.map(function (x) { return short(x.shift_date) + " " + hm(x.start_time) + "–" + hm(x.end_time); }); h += '<span class="q">' + esc(p.full_name) + " has " + (L2.length === 1 ? "a shift" : L2.length + " shifts") + " on these days (" + esc(L2.join(", ")) + "). Remove " + (L2.length === 1 ? "it" : "them") + ' too?</span><button class="shf-btn" data-act="lv-keep">Not yet</button><button class="shf-btn" data-act="lv-keep-shifts" data-id="' + l.id + '"' + dis + '>Approve, keep shifts</button><button class="shf-btn p" data-act="lv-drop-shifts" data-id="' + l.id + '"' + dis + ">Approve and remove</button>"; }
     else if (a === "gap") h += '<span class="q">Approving leaves the pharmacy without a pharmacist on these days. Approve anyway?</span><button class="shf-btn" data-act="lv-keep">Not yet</button><button class="shf-btn p" data-act="lv-approve-yes" data-id="' + l.id + '"' + dis + ">Approve anyway</button>";
     else if (a === "locum") h += '<span class="q">Make sure a locum shift is planned for these days.</span><button class="shf-btn" data-act="lv-keep">Not yet</button><button class="shf-btn p" data-act="lv-approve-yes" data-id="' + l.id + '"' + dis + ">Approve</button>";
     else h += '<button class="shf-btn" data-act="lv-refuse" data-id="' + l.id + '"' + dis + ' aria-label="Refuse ' + esc(p.full_name) + "'s leave\">Refuse</button>" + '<button class="shf-btn p" data-act="lv-approve" data-id="' + l.id + '"' + dis + ' aria-label="Approve ' + esc(p.full_name) + "'s leave\">Approve</button>";
     return h + "</div></div>";
   }
 
+  // A day's shifts in time order with its gaps in their place (a gap 14:00–15:00 sits between the shift ending at 14:00
+  // and the one starting at 15:00), so the hole shows without reading.
+  function inTime(day, gapRows, row) {
+    var out = [], g = gapRows.slice();
+    day.forEach(function (x) { while (g.length && g[0].at <= hm(x.start_time)) out.push(g.shift().h); out.push(row(x)); });
+    return out.concat(g.map(function (r) { return r.h; })).join("");
+  }
+  // A gap in pharmacist cover, in words; one tap opens a new shift for those hours with a free pharmacist chosen.
+  function gapHtml(key, g, dayName) {
+    var t = g.from + "–" + g.to;
+    return '<button class="shf-gap" data-act="fill" data-date="' + key + '" data-s="' + g.from + '" data-e="' + g.to + '" aria-label="No pharmacist ' + esc(g.from) + " to " + esc(g.to) + " on " + esc(dayName) + ': fill the gap"><b>No pharmacist ' + esc(t) + '</b><span>Fill the gap</span><span class="chev" aria-hidden="true"></span></button>';
+  }
+
   function formHtml(key) {
     var f = S.form, h = '<form class="shf-form" id="shf-form" autocomplete="off">';
     if (f.mode === "add") {
       var free = active().filter(function (p) { return !approvedOn(p.id, key); });
-      h += '<label><span>Who</span><select name="staff_id"><option value="">Choose a person</option>' + free.map(function (p) { return '<option value="' + p.id + '"' + (String(f.staff_id) === String(p.id) ? " selected" : "") + ">" + esc(p.full_name) + (desig(p) ? " · " + esc(desig(p)) : "") + "</option>"; }).join("") + "</select></label>";
+      var opt = function (p) { return '<option value="' + p.id + '"' + (String(f.staff_id) === String(p.id) ? " selected" : "") + ">" + esc(p.full_name) + (desig(p) ? " · " + esc(desig(p)) : "") + "</option>"; };
+      var first = f.gap ? fillers(key, f.gap) : [], ids = first.map(function (p) { return String(p.id); });
+      h += (f.gap ? '<div class="shf-fillh">Fill the gap ' + esc(f.gap.from + "–" + f.gap.to) + (first.length ? "" : ": no pharmacist is free then. Choose a person, or add a locum to the rota.") + "</div>" : "") +
+        '<label><span>Who</span><select name="staff_id"><option value="">Choose a person</option>' +
+        (first.length ? '<optgroup label="Free to cover ' + esc(f.gap.from + "–" + f.gap.to) + '">' + first.map(opt).join("") + '</optgroup><optgroup label="Everyone else">' + free.filter(function (p) { return ids.indexOf(String(p.id)) < 0; }).map(opt).join("") + "</optgroup>" : free.map(opt).join("")) + "</select></label>";
     } else {
       var p = person(f.staff_id);
       h += '<div class="row"><span>Who</span><b>' + esc(p.full_name) + "</b></div>";
@@ -177,9 +211,10 @@
     if (f.warn) h += '<div class="shf-warn" role="status">' + esc(f.warn) + "</div>";
     if (f.err) h += '<div class="shf-err" role="alert">' + esc(f.err) + "</div>";
     h += '<div class="acts">';
-    if (f.confirmDel) h += '<span class="q">Remove this shift? It is taken off the rota.</span><button type="button" class="shf-btn" data-act="del-no">Keep it</button><button type="button" class="shf-btn d" data-act="del-yes"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Removing…" : "Remove") + "</button>";
+    if (f.swap) h += swapHtml(key);
+    else if (f.confirmDel) h += '<span class="q">Remove this shift? It is taken off the rota.</span><button type="button" class="shf-btn" data-act="del-no">Keep it</button><button type="button" class="shf-btn d" data-act="del-yes"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Removing…" : "Remove") + "</button>";
     else {
-      if (f.mode === "edit") h += '<button type="button" class="shf-btn x" data-act="del">Remove shift</button>';
+      if (f.mode === "edit") h += '<button type="button" class="shf-btn x" data-act="del">Remove shift</button>' + (swapList(f).length ? '<button type="button" class="shf-btn" data-act="swap">Swap…</button>' : "");
       h += '<button type="button" class="shf-btn" data-act="cancel">Cancel</button><button type="submit" class="shf-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : f.warnSig ? "Save anyway" : f.mode === "add" ? "Add shift" : "Save") + "</button>";
     }
     return h + "</div></form>";
@@ -213,18 +248,21 @@
         var d = plus(S.monday, i), key = ymd(d), oh = hoursFor(key);
         var day = S.shifts.filter(function (x) { return x.shift_date === key; });
         var away = S.leaves.filter(function (l) { var st = low(l.status); return (st === "approved" || st === "pending") && l.start_date <= key && l.end_date >= key; });
-        var info = d.getDate() + " " + MON[d.getMonth()] + (day.length ? " · " + day.length + (day.length === 1 ? " shift" : " shifts") : "") + (oh.closed ? " · Closed" : oh.open && oh.close && !day.length ? " · Open " + hm(oh.open) + "–" + hm(oh.close) : "");
-        h += '<section class="shf-day' + (key === today ? " today" : "") + '" aria-label="' + esc(DAY[i] + " " + d.getDate() + " " + MON[d.getMonth()]) + '"><div class="h"><b>' + (key === today ? "Today" : DAY[i]) + "</b><span>" + esc(info) + "</span></div>";
-        h += day.map(function (x) {
+        var gaps = oh.gaps;
+        var info = d.getDate() + " " + MON[d.getMonth()] + " · " + (oh.closed ? oh.words : oh.open + "–" + oh.close + (oh.holiday ? " · Public holiday (" + oh.holiday + ")" : "")) + (day.length ? " · " + day.length + (day.length === 1 ? " shift" : " shifts") : "");
+        h += '<section class="shf-day' + (key === today ? " today" : "") + (gaps.length ? " gap" : "") + (oh.closed ? " shut" : "") + '" aria-label="' + esc(DAY[i] + " " + d.getDate() + " " + MON[d.getMonth()]) + '"><div class="h"><b>' + (key === today ? "Today" : DAY[i]) + "</b><span>" + esc(info) + "</span></div>";
+        var gapRows = S.form && S.form.gap && S.form.date === key ? [] : gaps.map(function (g) { return { at: g.from, h: gapHtml(key, g, DAY[i] + " " + d.getDate() + " " + MON[d.getMonth()]) }; });
+        h += inTime(day, gapRows, function (x) {
           if (S.form && S.form.mode === "edit" && Number(S.form.id) === Number(x.id)) return formHtml(key);
-          var p = person(x.staff_id), off = approvedOn(x.staff_id, key);
+          var p = person(x.staff_id), off = approvedOn(x.staff_id, key), asked = !off && S.leaves.some(function (l) { return low(l.status) === "pending" && Number(l.staff_id) === Number(x.staff_id) && l.start_date <= key && l.end_date >= key; });
           var sub = [x.role_override ? desig({ designation: x.role_override }) : desig(p), x.notes].filter(Boolean).map(esc).join(" · ");
-          return '<button class="shf-p" data-act="edit" data-id="' + x.id + '" aria-label="Change ' + esc(p.full_name) + "'s shift, " + esc(hm(x.start_time)) + " to " + esc(hm(x.end_time)) + '">' + av(p.full_name) + '<span class="t"><b>' + esc(p.full_name) + "</b><span>" + (off ? '<span class="tag">On leave</span>' + (sub ? " · " : "") : "") + sub + "</span></span><em>" + esc(hm(x.start_time)) + "–" + esc(hm(x.end_time)) + '</em><span class="chev" aria-hidden="true"></span></button>';
-        }).join("");
+          return '<button class="shf-p" data-act="edit" data-id="' + x.id + '" aria-label="Change ' + esc(p.full_name) + "'s shift, " + esc(hm(x.start_time)) + " to " + esc(hm(x.end_time)) + '">' + av(p.full_name) + '<span class="t"><b>' + esc(p.full_name) + "</b><span>" + (off ? '<span class="tag">On leave</span>' + (sub ? " · " : "") : asked ? '<span class="tag">Asked for leave this day</span>' + (sub ? " · " : "") : "") + sub + "</span></span><em>" + esc(hm(x.start_time)) + "–" + esc(hm(x.end_time)) + '</em><span class="chev" aria-hidden="true"></span></button>';
+        });
         h += away.map(function (l) {
           var p = person(l.staff_id);
           return '<div class="shf-p off">' + av(p.full_name, true) + '<div class="t"><b>' + esc(p.full_name) + "</b><span>" + esc(leaveLabel(l.leave_type)) + "</span></div><em>" + (low(l.status) === "pending" ? "Asked for leave" : "Away") + (l.start_time && l.start_date === key ? " from " + esc(hm(l.start_time)) : "") + "</em></div>";
         }).join("");
+        if (oh.closed && oh.holiday && day.length) h += '<div class="shf-hol">' + esc(oh.holiday) + " is a public holiday: the pharmacy is closed unless its opening hours say it opens.</div>";
         if (S.form && S.form.mode === "add" && S.form.date === key) h += formHtml(key);
         else if (active().length) h += '<button class="shf-add" data-act="add" data-date="' + key + '" aria-label="Add a shift on ' + esc(DAY[i] + " " + d.getDate() + " " + MON[d.getMonth()]) + '">+ Add shift</button>';
         h += "</section>";
@@ -246,9 +284,14 @@
         else if (a === "cancel") closeForm();
         else if (a === "del") { keep(); S.form.confirmDel = true; S.form.err = ""; paint(true); var y = m.querySelector('[data-act="del-no"]'); if (y) y.focus(); }
         else if (a === "del-no") { S.form.confirmDel = false; paint(true); }
+        else if (a === "swap") { keep(); S.form.swap = { with: swapList(S.form).length === 1 ? String(swapList(S.form)[0].id) : "" }; S.form.err = ""; paint(true); var sw = m.querySelector("#shf-form [name=swap_with]"); if (sw) sw.focus(); }
+        else if (a === "swap-no") { S.form.swap = null; paint(true); var sb2 = m.querySelector('#shf-form [data-act="swap"]'); if (sb2) sb2.focus(); }
+        else if (a === "swap-yes") swap();
         else if (a === "del-yes") remove();
-        else if (a === "lv-approve") { var l = S.leaves.filter(function (z) { return Number(z.id) === id; })[0], c = l && cover(l); if (c && !c.alts) { S.ask = { id: id, kind: c.locum ? "locum" : "gap" }; paint(); } else answer(id, "approve"); }
-        else if (a === "lv-approve-yes") answer(id, "approve");
+        else if (a === "lv-approve") approveAsk(id);
+        else if (a === "lv-keep-shifts") approveAsk(id, []);
+        else if (a === "lv-drop-shifts") approveAsk(id, S.ask && S.ask.shifts || []);
+        else if (a === "lv-approve-yes") answer(id, "approve", S.ask && S.ask.drop);
         else if (a === "lv-refuse") { S.ask = { id: id, kind: "refuse" }; paint(); var k = m.querySelector('[data-act="lv-keep"]'); if (k) k.focus(); }
         else if (a === "lv-refuse-yes") answer(id, "reject");
         else if (a === "lv-keep") { S.ask = null; paint(); }
@@ -256,6 +299,7 @@
         else if (a === "who") { S.who = newWho(); paint(true); var n = m.querySelector('#shf-who [name="full_name"]'); if (n) n.focus(); }
         else if (a === "who-done") closeWho();
         else if (a === "lv-new") openLeave();
+        else if (a === "fill") { if (S.saving) return; openGap(b.getAttribute("data-date"), { from: b.getAttribute("data-s"), to: b.getAttribute("data-e") }); }
         else if (a === "lv-cancel") closeLeave();
       });
     });
@@ -276,8 +320,9 @@
       lf.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !(S.lv && S.lv.saving)) { ev.preventDefault(); ev.stopPropagation(); closeLeave(); } });
     }
     var f = m.querySelector("#shf-form"); if (f) {
-      f.addEventListener("submit", function (ev) { ev.preventDefault(); save(); });
-      f.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !S.saving) { ev.preventDefault(); ev.stopPropagation(); if (S.form && S.form.confirmDel) { S.form.confirmDel = false; paint(true); } else closeForm(); } }); // Escape closes, as everywhere
+      f.addEventListener("submit", function (ev) { ev.preventDefault(); if (S.form && S.form.swap) swap(); else save(); });
+      f.addEventListener("change", function (ev) { if (ev.target && ev.target.name === "swap_with" && S.form && S.form.swap) { keep(); S.form.swap.with = ev.target.value; paint(true); var w2 = m.querySelector("#shf-form [name=swap_with]"); if (w2) w2.focus(); } });
+      f.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !S.saving) { ev.preventDefault(); ev.stopPropagation(); if (S.form && S.form.swap) { S.form.swap = null; paint(true); } else if (S.form && S.form.confirmDel) { S.form.confirmDel = false; paint(true); } else closeForm(); } }); // Escape closes, as everywhere
     }
   }
   // ---- Add a person to the rota: the classic "Add Employee" with what it sends for a name and a role ----
@@ -392,6 +437,62 @@
     }
     return f;
   }
+  // ---- Swap two shifts on the same day: each person takes the other's hours ----
+  // Two changes as Plan shifts (and the classic change) send them, each the shift's whole record with only start and end
+  // swapped (role and note stay with the person). The server keeps a shift's person and day, so a swap is between two
+  // shifts of the same day. If the second change fails, the first is put back.
+  function swapList(f) { return S.shifts.filter(function (x) { return x.shift_date === f.date && Number(x.id) !== Number(f.id) && Number(x.staff_id) !== Number(f.staff_id); }); }
+  function swapCheck(f, other) {
+    var mine = S.shifts.filter(function (x) { return Number(x.id) === Number(f.id); })[0]; if (!mine || !other) return { err: "Choose the shift to swap with." };
+    var A = person(mine.staff_id), B = person(other.staff_id);
+    if (approvedOn(mine.staff_id, f.date)) return { err: A.full_name + " is on approved leave that day." };
+    if (approvedOn(other.staff_id, f.date)) return { err: B.full_name + " is on approved leave that day." };
+    var clash = function (sid, skip, st, et) { return S.shifts.filter(function (x) { return x.shift_date === f.date && Number(x.staff_id) === Number(sid) && Number(x.id) !== Number(skip) && Number(x.id) !== Number(mine.id) && Number(x.id) !== Number(other.id) && mins(x.start_time) < mins(et) && mins(x.end_time) > mins(st); })[0]; };
+    var ca = clash(mine.staff_id, mine.id, other.start_time, other.end_time), cb = clash(other.staff_id, other.id, mine.start_time, mine.end_time);
+    if (ca) return { err: A.full_name + " already works " + hm(ca.start_time) + "–" + hm(ca.end_time) + " that day." };
+    if (cb) return { err: B.full_name + " already works " + hm(cb.start_time) + "–" + hm(cb.end_time) + " that day." };
+    var after = S.shifts.map(function (x) { return Number(x.id) === Number(mine.id) ? Object.assign({}, x, { start_time: other.start_time, end_time: other.end_time }) : Number(x.id) === Number(other.id) ? Object.assign({}, x, { start_time: mine.start_time, end_time: mine.end_time }) : x; });
+    var was = dayCover(f.date).gaps.map(function (g) { return g.from + g.to; }).join(), now = E.teamCover(f.date, { hours: S.hours, settings: S.rules, shifts: after, staff: S.staff, leaves: S.leaves });
+    return { mine: mine, other: other, A: A, B: B, gap: now.gaps.length && now.gaps.map(function (g) { return g.from + g.to; }).join() !== was ? now.words : "" };
+  }
+  function swapHtml(key) {
+    var f = S.form, list = swapList(f), c = f.swap.with ? swapCheck(f, list.filter(function (x) { return String(x.id) === String(f.swap.with); })[0]) : null;
+    var h = '<label class="q sw"><span>Swap with</span><select name="swap_with"' + (S.saving ? " disabled" : "") + '><option value="">Choose a shift</option>' + list.map(function (x) { return '<option value="' + x.id + '"' + (String(f.swap.with) === String(x.id) ? " selected" : "") + ">" + esc(person(x.staff_id).full_name + " " + hm(x.start_time) + "–" + hm(x.end_time)) + "</option>"; }).join("") + "</select></label>";
+    if (c && c.err) h += '<span class="q shf-swq bad" role="alert">' + esc(c.err) + "</span>";
+    else if (c) h += '<span class="q shf-swq" role="status">' + esc(c.A.full_name) + " works " + esc(hm(c.other.start_time) + "–" + hm(c.other.end_time)) + " and " + esc(c.B.full_name) + " works " + esc(hm(c.mine.start_time) + "–" + hm(c.mine.end_time)) + "." + (c.gap ? ' <b>This leaves ' + esc(c.gap.replace(/^No/, "no")) + ".</b>" : "") + "</span>";
+    h += '<button type="button" class="shf-btn" data-act="swap-no">Keep as is</button><button type="button" class="shf-btn p" data-act="swap-yes"' + (S.saving || !c || c.err ? " disabled" : "") + ">" + (S.saving ? "Swapping…" : c && c.gap ? "Swap anyway" : "Swap shifts") + "</button>";
+    return h;
+  }
+  async function swap() {
+    var f = S.form; if (S.saving || !f || !f.swap || !f.swap.with) return;
+    var key = f.date, c0 = swapCheck(f, S.shifts.filter(function (x) { return String(x.id) === String(f.swap.with); })[0]); if (!c0 || c0.err) return;
+    S.saving = true; f.err = ""; paint(true);
+    var body = function (x, from) { return { id: x.id, staff_id: x.staff_id, shift_date: x.shift_date, start_time: hm(from.start_time), end_time: hm(from.end_time), role_override: x.role_override || "", notes: x.notes || "" }; };
+    var put = async function (b) { var r = await E.apiFetch("/shifts/assignments/" + b.id, { method: "PUT", body: JSON.stringify(b) }); if (!r || !r.ok) throw new Error((r && r.error) || "Save failed"); };
+    var a = null, b = null, done1 = false;
+    try {
+      var day = await dayList(key); // as they are now, in case another till changed them
+      a = day.filter(function (x) { return Number(x.id) === Number(c0.mine.id); })[0]; b = day.filter(function (x) { return Number(x.id) === Number(c0.other.id); })[0];
+      if (!a || !b) throw new Error("one of the two shifts was removed on another till");
+      await put(body(a, b)); done1 = true;
+      await put(body(b, a));
+      S.form = null; E.toast("Shifts swapped: " + c0.A.full_name + " " + hm(b.start_time) + "–" + hm(b.end_time) + ", " + c0.B.full_name + " " + hm(a.start_time) + "–" + hm(a.end_time), "success");
+    } catch (x) {
+      var why = E.saveFailText(x).replace(/^Not saved/, "Not swapped");
+      if (done1) { try { await put(body(a, a)); why += " " + c0.A.full_name + "’s shift is back to " + hm(a.start_time) + "–" + hm(a.end_time) + "."; } catch (y) { why = "Only half of the swap went through: " + c0.A.full_name + " now works " + hm(b.start_time) + "–" + hm(b.end_time) + " and " + c0.B.full_name + "’s shift did not change. Change one of them by hand."; } }
+      f.err = why;
+    }
+    S.saving = false; await refreshDay(key);
+    if (!S.form) refocus(f);
+  }
+  // Fill a gap: a new shift on that day for the gap's hours, the first free pharmacist already chosen (Add shift saves it).
+  function openGap(key, g) {
+    S.form = addDefaults(key); var f = S.form, who = fillers(key, g)[0];
+    f.gap = g; f.start_time = g.from; f.end_time = g.to; f.staff_id = who ? String(who.id) : "";
+    paint(true); focus(who ? "start_time" : "staff_id");
+    var el = S.mount && S.mount.querySelector("#shf-form"); if (el && el.scrollIntoView) try { el.scrollIntoView({ block: "nearest" }); } catch (e) {}
+    var sb = S.mount && S.mount.querySelector('#shf-form button[type=submit]'); if (who && sb) sb.focus(); // the next tap is Add shift
+  }
   // Close the form and put focus back where it was opened from: the shift's row, or the day's "+ Add shift".
   function closeForm() {
     var f = S.form; S.form = null; paint(true); refocus(f);
@@ -444,7 +545,7 @@
       }
       S.form = null;
     } catch (x) { f.err = E.saveFailText(x); }
-    S.saving = false; await load();
+    S.saving = false; await refreshDay(key);
     if (!S.form) refocus(f); // focus lands back on the day, so the next shift is one Enter away
   }
   async function remove() {
@@ -456,10 +557,27 @@
       if (!r || !r.ok) throw new Error((r && r.error) || "Not removed");
       S.form = null; E.toast("Shift removed for " + name, "success");
     } catch (x) { f.err = E.saveFailText(x).replace(/^Not saved/, "Not removed"); f.confirmDel = false; }
-    S.saving = false; await load();
+    S.saving = false; await refreshDay(f.date);
     if (!S.form) refocus({ mode: "add", date: f.date });
   }
-  async function answer(id, what) {
+  // Approve: first, for whole days of leave, the person's shifts on those days (one bounded read): remove them too, or keep
+  // them; then the classic cover question for a pharmacist; then the classic approve call (and a DELETE per removed shift).
+  async function approveAsk(id, drop) {
+    if (S.busy) return;
+    var l = S.leaves.filter(function (z) { return Number(z.id) === id; })[0]; if (!l) return;
+    if (drop === undefined && !l.start_time && !l.end_time) {
+      S.busy = id; paint();
+      var list = [];
+      try { var r = await E.apiFetch("/shifts/assignments-range?from=" + l.start_date + "&to=" + (l.end_date || l.start_date) + "&staff_id=" + l.staff_id, { method: "GET" }); list = ((r && r.ok && r.shifts) || []).filter(function (x) { return Number(x.staff_id) === Number(l.staff_id) && x.shift_date >= l.start_date && x.shift_date <= (l.end_date || l.start_date); }); } catch (e) { list = []; }
+      S.busy = 0;
+      if (list.length) { S.ask = { id: id, kind: "shifts", shifts: list }; paint(); var k0 = S.mount.querySelector('[data-act="lv-drop-shifts"]'); if (k0) k0.focus(); return; }
+      drop = [];
+    }
+    var c = cover(l);
+    if (c && !c.alts) { S.ask = { id: id, kind: c.locum ? "locum" : "gap", drop: drop || [] }; paint(); var k1 = S.mount.querySelector('[data-act="lv-approve-yes"]'); if (k1) k1.focus(); }
+    else answer(id, "approve", drop);
+  }
+  async function answer(id, what, drop) {
     if (S.busy) return;
     var l = S.leaves.filter(function (z) { return Number(z.id) === id; })[0], name = l ? person(l.staff_id).full_name : "";
     S.busy = id; S.lvMsg = ""; paint();
@@ -467,6 +585,9 @@
       var r = await E.apiFetch("/shifts/leaves/" + id + "/" + what, { method: "POST" });
       if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
       S.ask = null; E.toast((what === "approve" ? "Leave approved for " : "Leave refused for ") + name, "success");
+      var gone = 0;
+      for (var i = 0; drop && i < drop.length; i++) { try { var d = await E.apiFetch("/shifts/assignments/" + drop[i].id, { method: "DELETE" }); if (d && d.ok) gone++; } catch (e2) {} }
+      if (drop && drop.length && gone < drop.length) S.lvMsg = "Leave approved, but " + (drop.length - gone) + " of " + name + "’s shifts could not be removed. Remove them on the week.";
     } catch (x) { S.lvMsg = E.saveFailText(x); }
     S.busy = 0; return load();
   }
@@ -483,11 +604,16 @@
   E.registerModule({
     id: "shfreg", title: "Plan shifts", order: 3, icon: "◷", ui2Only: true,
     render: function (ctx) {
-      S.mount = ctx && ctx.mount; S.monday = mondayOf(new Date()); S.shifts = []; S.form = null; S.ask = null; S.lvMsg = ""; S.busy = 0; S.saving = false; S.who = null; S.lv = null;
+      var wk = E._shfWeek, gap = E._shfGap; E._shfWeek = null; E._shfGap = null; // from Who's in: its week, and a gap to fill
+      S.mount = ctx && ctx.mount; S.monday = gap ? mondayOf(parse(gap.date)) : wk ? mondayOf(parse(wk)) : mondayOf(new Date()); S.shifts = []; S.form = null; S.ask = null; S.lvMsg = ""; S.busy = 0; S.saving = false; S.who = null; S.lv = null;
       var wantLeave = E._shfLeaveNew; E._shfLeaveNew = false; // "Ask for leave" on Who's in opens the new request
       S.loading = true; // the first paint is the skeleton (an empty rota is only offered "Who works here?" once it is known to be empty)
       css(); paint(); document.removeEventListener("keydown", onKey); document.addEventListener("keydown", onKey);
-      return load().then(function () { if (wantLeave && !S.error && leavers().length && E.state.activeModuleId === "shfreg") openLeave(); });
+      return load().then(function () {
+        if (E.state.activeModuleId !== "shfreg" || S.error) return;
+        if (wantLeave && leavers().length) openLeave();
+        else if (gap && dayCover(gap.date).gaps.some(function (g) { return g.from === gap.from && g.to === gap.to; })) openGap(gap.date, gap);
+      });
     },
     destroy: function () { document.removeEventListener("keydown", onKey); }
   });

@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-09-batch-12";
+const WORKER_VERSION = "2026-11-10-batch-13";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -15981,6 +15981,32 @@ async function handleBoardMessagesList(request, env, corsOkHeaders, authUser, ur
   return jsonResponse({ ok: true, messages: rows }, 200, corsOkHeaders);
 }
 
+// @mentions: which known location names a board message names. Each "@" takes the longest name that
+// follows it (case-insensitive, letters as stored) and is not followed by more of a word. Returns one
+// list of stored spellings per distinct name (names differing only in case are the same pharmacy name).
+function boardMentionedLocationNames(text, names) {
+  const byKey = new Map();
+  for (const n of names || []) {
+    const stored = String(n == null ? "" : n);
+    if (!stored.trim()) continue;
+    const key = stored.toLowerCase();
+    if (!byKey.has(key)) byKey.set(key, []);
+    if (!byKey.get(key).includes(stored)) byKey.get(key).push(stored);
+  }
+  const keys = [...byKey.keys()].sort((a, b) => b.length - a.length);
+  const found = new Map();
+  for (let i = text.indexOf("@"); i !== -1; i = text.indexOf("@", i + 1)) {
+    for (const key of keys) {
+      const end = i + 1 + key.length;
+      if (text.slice(i + 1, end).toLowerCase() !== key) continue;
+      if (end < text.length && /[\p{L}\p{N}_]/u.test(text[end])) continue;
+      found.set(key, byKey.get(key));
+      break;
+    }
+  }
+  return [...found.values()];
+}
+
 // --- Create message ---
 async function handleBoardMessageCreate(request, env, corsOkHeaders, authUser) {
   await ensureBoardSchema(env);
@@ -15998,24 +16024,25 @@ async function handleBoardMessageCreate(request, env, corsOkHeaders, authUser) {
 
   const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
 
-  // Parse @mentions — match @LocationName patterns, look up users by location
-  const mentionMatches = msgBody.match(/@([A-Za-z][\w .'-]{1,50})/g);
-  if (mentionMatches && newId) {
-    const seen = new Set();
-    for (const raw of mentionMatches) {
-      const name = raw.slice(1).trim().toLowerCase();
-      if (!name || seen.has(name)) continue;
-      seen.add(name);
-
+  // Parse @mentions — match @ against the known pharmacy names (longest first, case-insensitive, a word
+  // boundary after the name), so "@Birkirkara can you…" and "@Birkirkara, can you…" both reach Birkirkara
+  // and "@Birk" reaches nobody. A group-only message only considers, and only reaches, that group.
+  if (newId && msgBody.includes("@")) {
+    const locRows = await dbAll(env, `SELECT DISTINCT name FROM locations WHERE COALESCE(name,'') != ''${scope === "org" ? " AND org_id = ?" : ""}`,
+      scope === "org" ? [authUser.org_id] : []);
+    const seenUsers = new Set();
+    for (const storedNames of boardMentionedLocationNames(msgBody, locRows.map((r) => r.name))) {
       // Look up all users at the mentioned location
       // A group-only message only reaches people in that group, even when it names another group's pharmacy
       const mentionedUsers = await dbAll(env, `
         SELECT u.id FROM users u
         LEFT JOIN locations l ON l.id = u.default_location_id
-        WHERE u.is_active = 1 AND u.id != ? AND lower(COALESCE(l.name,'')) = ?
+        WHERE u.is_active = 1 AND u.id != ? AND l.name IN (${storedNames.map(() => "?").join(",")})
           ${scope === "org" ? "AND u.org_id = ?" : ""}
-      `, scope === "org" ? [authUser.user_id, name, authUser.org_id] : [authUser.user_id, name]);
+      `, scope === "org" ? [authUser.user_id, ...storedNames, authUser.org_id] : [authUser.user_id, ...storedNames]);
       for (const mu of mentionedUsers) {
+        if (seenUsers.has(mu.id)) continue;
+        seenUsers.add(mu.id);
         await dbRun(env, `INSERT INTO board_mentions (message_id, mentioned_user_id, created_at) VALUES (?, ?, datetime('now'))`, [newId, mu.id]);
       }
     }
@@ -16908,6 +16935,119 @@ async function handleServicesToday(request, env, corsOkHeaders, authUser) {
   }
 
   return jsonResponse({ ok: true, date: today, time: nowHm, timezone: PHARMACY_TZ, bookings, bookings_summary, followups, pv, screening, poct, vaccines },
+    200, { ...corsOkHeaders, "Cache-Control": "private, max-age=10", "Vary": "Origin, Authorization" });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TODAY'S TEAM  (team-hub, contract T-C1)
+// What the Team page needs, in ONE read: GET /team/today, asked when the Team hub opens (not by Today, which is re-read
+// every minute: nothing here is added to /today). Read only, this pharmacy only, admin and staff (the roles that open the
+// locum register and the handover). Plain rows; the cover rule, the words and the colours are the screen's
+// (E.teamCover in ui/core.js, ui/eikon.teamtoday.js). At most 8 statements, each bounded by the pharmacy and a date, a
+// short range or a LIMIT, on the existing indexes:
+//  1. today's shifts with the person's name, role and phone (idx_shift_assign_org_date);
+//  2. approved leave covering today (idx_shift_leaves_org: approved, started within the last year, not ended);
+//  3. the opening hours and the rota settings (one row each, one statement);
+//  4. today's locum register (idx_locum_register_org_loc_date): the pharmacist in charge;
+//  5. the handover left for today: the last day before today with points, up to four days back, as the Handover screen
+//     reads it (instructions_daily, UNIQUE (org, location, ymd));
+//  6. the board counts with the board's own SQL (handleBoardDashboard) and, for the pharmacist only, leave requests
+//     waiting for an answer (one statement);
+//  7. this person's three newest unread @mentions. Board visibility, verbatim everywhere:
+//     (m.scope = 'all' OR (m.scope = 'org' AND m.org_id = ?)) — a group's private messages never reach another group;
+//  8. only when there are handover points and the handover's "I've read it" table exists (T-C3, never made here):
+//     whether this person read them.
+// Nothing is written. No new table, column or index.
+// ═══════════════════════════════════════════════════════════════════════════
+const TEAM_HANDOVER_BACK = 4; // the Handover screen looks this many days back for the last points left
+function teamStr(v, n) { return String(v == null ? "" : v).slice(0, n || 120); }
+// Opening hours for a day as the new Plan shifts screen reads them (hoursFor in ui/modules.shfreg.js): a one-day override,
+// the weekly hours, then the old default with the Saturday/Sunday flags. A public holiday is the screen's decision
+// (E.teamCover: closed unless a one-day override opens it), so the override is flagged and the holiday named apart.
+function teamHoursFor(h, ymd) {
+  h = h && typeof h === "object" ? h : {};
+  const ov = h.overrides && typeof h.overrides === "object" ? h.overrides[ymd] : null;
+  if (ov && typeof ov === "object") return { open: teamStr(ov.open, 5), close: teamStr(ov.close, 5), closed: moneyBool(ov.closed), override: true };
+  const dow = new Date(ymd + "T12:00:00Z").getUTCDay(), def = h.default && typeof h.default === "object" ? h.default : {};
+  const wk = h.weekly && typeof h.weekly === "object" ? (h.weekly[dow] || h.weekly[String(dow)]) : null;
+  if (wk && typeof wk === "object") return { open: teamStr(wk.open || def.open || "07:30", 5), close: teamStr(wk.close || def.close || "19:30", 5), closed: moneyBool(wk.closed), override: false };
+  let sat = h.openSaturday, sun = h.openSunday;
+  if (typeof h.weekends === "boolean") { if (sat == null) sat = h.weekends; if (sun == null) sun = h.weekends; }
+  if (sat == null) sat = true; if (sun == null) sun = false;
+  return { open: teamStr(def.open || "07:30", 5), close: teamStr(def.close || "19:30", 5), closed: moneyBool(def.closed) || (dow === 6 && !moneyBool(sat)) || (dow === 0 && !moneyBool(sun)), override: false };
+}
+async function handleTeamToday(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = authUser.org_id, loc = authUser.location_id, uid = authUser.user_id, admin = authUser.role === "admin";
+  const today = tzYmd(), nowHm = tzHm(), yearAgo = ymdPlusDays(today, -366);
+  const all = async (sql, bind) => { try { return await dbAll(env, sql, bind); } catch (e) { return null; } };
+  const one = async (sql, bind) => { try { return await dbFirst(env, sql, bind); } catch (e) { return null; } };
+  await Promise.all([ensureShiftsSchema, ensureLocumRegisterSchema, ensureBoardSchema]
+    .map((fn) => Promise.resolve().then(() => fn(env)).catch(() => {})));
+  // The board's visibility clause, with unary + on its columns: the same rows, but SQLite then walks the primary key
+  // (rowid > last read) instead of a MULTI-INDEX OR over the scope indexes that reads every visible board row (D1 keeps no
+  // ANALYZE statistics, so the planner picks the OR plan otherwise). Director, Team round.
+  const VIS = "(+m.scope = 'all' OR (+m.scope = 'org' AND +m.org_id = ?))";
+  const [shifts, leaves, cfg, locum, hand, counts, ment] = await Promise.all([
+    all(`SELECT a.staff_id, a.start_time, a.end_time, a.role_override, s.full_name, s.designation, s.phone
+           FROM shift_assignments a LEFT JOIN shift_staff s ON s.id = a.staff_id
+          WHERE a.org_id = ? AND a.location_id = ? AND a.shift_date = ?
+          ORDER BY a.start_time ASC, a.id ASC LIMIT 60`, [org, loc, today]),
+    all(`SELECT l.staff_id, l.leave_type, l.start_date, l.end_date, l.start_time, l.end_time, s.full_name
+           FROM shift_leaves l LEFT JOIN shift_staff s ON s.id = l.staff_id
+          WHERE l.org_id = ? AND l.location_id = ? AND l.status = 'approved' AND l.start_date >= ? AND l.start_date <= ? AND l.end_date >= ?
+          ORDER BY l.start_date ASC, l.id ASC LIMIT 40`, [org, loc, yearAgo, today, today]),
+    one(`SELECT (SELECT hours_json FROM shift_opening_hours WHERE org_id = ? AND location_id = ?) AS hours_json,
+                (SELECT settings_json FROM shift_settings WHERE org_id = ? AND location_id = ?) AS settings_json`, [org, loc, org, loc]),
+    all(`SELECT locum_full_name, registration_number, time_in, time_out FROM locum_register_entries
+          WHERE org_id = ? AND location_id = ? AND entry_date = ? ORDER BY time_in ASC, id ASC LIMIT 10`, [org, loc, today]),
+    all(`SELECT ymd, handover_json FROM instructions_daily WHERE org_id = ? AND location_id = ? AND ymd >= ? AND ymd < ?
+          ORDER BY ymd DESC LIMIT ${TEAM_HANDOVER_BACK}`, [org, loc, ymdPlusDays(today, -TEAM_HANDOVER_BACK), today]),
+    one(`SELECT (SELECT COUNT(*) FROM board_mentions bm JOIN board_messages m ON m.id = bm.message_id
+                  WHERE bm.mentioned_user_id = ? AND bm.is_read = 0 AND ${VIS}) AS mentions,
+                (SELECT COUNT(*) FROM (SELECT 1 FROM board_messages m
+                  WHERE m.id > COALESCE((SELECT last_read_id FROM board_user_state WHERE user_id = ?), 0) AND ${VIS}
+                  ORDER BY m.id DESC LIMIT 100)) AS messages
+                ${admin ? ", (SELECT COUNT(*) FROM shift_leaves WHERE org_id = ? AND location_id = ? AND status = 'pending' AND start_date >= ?) AS pending" : ""}`,
+      admin ? [uid, org, uid, org, org, loc, yearAgo] : [uid, org, uid, org]),
+    all(`SELECT bm.message_id, m.user_name, m.location_name, m.body, m.scope, m.created_at
+           FROM board_mentions bm JOIN board_messages m ON m.id = bm.message_id
+          WHERE bm.mentioned_user_id = ? AND bm.is_read = 0 AND ${VIS}
+          ORDER BY bm.id DESC LIMIT 3`, [uid, org])
+  ]);
+
+  let hoursJson = {}, settings = null;
+  try { hoursJson = cfg && cfg.hours_json ? JSON.parse(cfg.hours_json) : {}; } catch (e) { hoursJson = {}; }
+  try { settings = cfg && cfg.settings_json ? JSON.parse(cfg.settings_json) : null; } catch (e) { settings = null; }
+  // the rota's own settings (GET /shifts/settings sends these when none were saved)
+  if (!settings || typeof settings !== "object") settings = { pharmacistRequired: true, minPharmacists: 1 };
+
+  let handover = null;
+  if (hand != null) {
+    let pts = [], from = null;
+    for (const r of hand) { const v = parseHandoverJson(r.handover_json).filter((b) => b && typeof b === "object"); if (v.length) { pts = v; from = String(r.ymd); break; } }
+    let seen = null;
+    if (from) { // T-C3's table, when the handover's "I've read it" is in: never made here; absent → null
+      try { seen = !!(await dbFirst(env, `SELECT 1 AS y FROM handover_seen WHERE org_id = ? AND location_id = ? AND ymd = ? AND user_id = ?`, [org, loc, from, uid])); }
+      catch (e) { seen = null; } // no such table yet
+    }
+    handover = { from_ymd: from, total: pts.length, critical: pts.filter((b) => b.sev === "r").length, medium: pts.filter((b) => b.sev === "y").length, seen_by_me: seen,
+      ids: pts.slice(0, 50).map((b) => teamStr(b.id, 60)) }; // the points' ids, so this device's "Got it" (Handover screen, localStorage) can be matched
+  }
+
+  return jsonResponse({ ok: true, date: today, now: nowHm, time: nowHm, timezone: PHARMACY_TZ,
+    holiday: maltaHoliday(today) || null,
+    hours: teamHoursFor(hoursJson, today),
+    settings: { pharmacistRequired: settings.pharmacistRequired, minPharmacists: settings.minPharmacists },
+    shifts: shifts == null ? null : shifts.map((r) => ({ staff_id: r.staff_id, full_name: teamStr(r.full_name, 80), designation: teamStr(r.designation, 30), role_override: teamStr(r.role_override, 30),
+      start_time: teamStr(r.start_time, 5), end_time: teamStr(r.end_time, 5), phone: teamStr(r.phone, 30) })),
+    leave: leaves == null ? null : leaves.map((l) => ({ staff_id: l.staff_id, full_name: teamStr(l.full_name, 80), leave_type: teamStr(l.leave_type || "annual", 30),
+      start_date: teamStr(l.start_date, 10), end_date: teamStr(l.end_date, 10), start_time: l.start_time == null ? null : teamStr(l.start_time, 5), end_time: l.end_time == null ? null : teamStr(l.end_time, 5) })),
+    leave_pending: admin && counts ? Number(counts.pending) || 0 : null,
+    locum_today: locum == null ? null : locum.map((r) => ({ locum_full_name: teamStr(r.locum_full_name, 80), registration_number: teamStr(r.registration_number, 30), time_in: teamStr(r.time_in, 5), time_out: teamStr(r.time_out, 5) })),
+    handover,
+    board: counts == null ? null : { unread_messages: Number(counts.messages) || 0, unread_mentions: Number(counts.mentions) || 0,
+      mentions: (ment || []).map((m) => ({ message_id: m.message_id, user_name: teamStr(m.user_name, 60), location_name: teamStr(m.location_name, 60), group_only: m.scope === "org", created_at: teamStr(m.created_at, 25), body: teamStr(m.body, 140) })) } },
     200, { ...corsOkHeaders, "Cache-Control": "private, max-age=10", "Vary": "Origin, Authorization" });
 }
 
@@ -18353,6 +18493,11 @@ const authUser = await authFromRequest(request, env);
       return await handleTeam(request, env, corsOkHeaders, authUser, url);
     }
     request = await nameCaseRequest(request, env, url, authUser); // people's names in Title Case on save
+    // Handover "Got it" (Team, T-C3): who has read what the last shift left — one row per person per day
+    if (url.pathname === "/instructions/daily/seen") {
+      if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
+      return await handleHandoverSeen(request, env, corsOkHeaders, authUser, url);
+    }
     // Register sign-offs (Registers & inspection): the month of a daily register, signed by the pharmacist
     if (url.pathname === "/registers/signoffs") {
       if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
@@ -18479,6 +18624,9 @@ const authUser = await authFromRequest(request, env);
     }
     if (url.pathname === "/services/today" && request.method === "GET") {
       return await handleServicesToday(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/team/today" && request.method === "GET") {
+      return await handleTeamToday(request, env, corsOkHeaders, authUser);
     }
     if (url.pathname === "/people" && request.method === "GET") {
       return await handlePeopleSearch(request, env, corsOkHeaders, authUser);
@@ -24556,6 +24704,48 @@ async function handleRegisterSignoffs(request, env, corsOkHeaders, authUser, url
   const row = await dbFirst(env, "SELECT register, month, signed_name, signed_at, note FROM register_signoffs WHERE org_id = ? AND location_id = ? AND month = ? AND register = ?", [org, loc, month, register]);
   await writeAudit(env, org, authUser.user_id, "REGISTER_SIGNOFF", "register_signoffs", register + ":" + month, { register, month, note }, loc);
   return jsonResponse({ ok: true, signoff: signoffRow(row) }, 200, corsOkHeaders);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   HANDOVER SEEN (Team & shifts, T-C3) — "Got it" on what the last shift left: who read a day's handover, and when.
+   POST /instructions/daily/seen {ymd}   admin + staff; ymd = the day the handover was written (not after today, Malta
+        time); once per person per day (INSERT OR IGNORE: a second press keeps the first time, 200, already: true)
+   GET  /instructions/daily/seen?ymd=    the pharmacist (admin) gets everyone who read it (≤ 30, first first); staff get
+        only their own line. This pharmacy only; one indexed read (the primary key).
+   Additive: one new table, made here only; instructions_daily and every other table, row and route are untouched.
+   ══════════════════════════════════════════════════════════════════════════════ */
+async function ensureHandoverSeenSchema__impl(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS handover_seen (org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, ymd TEXT NOT NULL,
+    user_id INTEGER NOT NULL, user_name TEXT NOT NULL DEFAULT '', seen_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (org_id, location_id, ymd, user_id))`, []);
+}
+const ensureHandoverSeenSchema = schemaOnce("ensureHandoverSeenSchema", ensureHandoverSeenSchema__impl);
+async function handleHandoverSeen(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const org = Number(authUser.org_id), loc = Number(authUser.location_id), uid = Number(authUser.user_id);
+  const line = (r) => ({ user_name: r.user_name || "", seen_at: r.seen_at || "", me: Number(r.user_id) === uid });
+  if (request.method === "GET") {
+    const ymd = String(url.searchParams.get("ymd") || "").trim();
+    if (!isValidYmd(ymd)) return jsonResponse({ ok: false, error: "Invalid ymd (YYYY-MM-DD)" }, 400, corsOkHeaders);
+    await ensureHandoverSeenSchema(env);
+    const rows = requireRole(authUser, ["admin"])
+      ? await dbAll(env, "SELECT user_id, user_name, seen_at FROM handover_seen WHERE org_id = ? AND location_id = ? AND ymd = ? ORDER BY seen_at, user_id LIMIT 30", [org, loc, ymd])
+      : await dbAll(env, "SELECT user_id, user_name, seen_at FROM handover_seen WHERE org_id = ? AND location_id = ? AND ymd = ? AND user_id = ?", [org, loc, ymd, uid]);
+    return jsonResponse({ ok: true, ymd, seen: rows.map(line) }, 200, corsOkHeaders);
+  }
+  if (request.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405, corsOkHeaders);
+  const body = await readJson(request);
+  const ymd = String((body && body.ymd) || "").trim();
+  if (!isValidYmd(ymd)) return jsonResponse({ ok: false, error: "Invalid ymd (YYYY-MM-DD)" }, 400, corsOkHeaders);
+  if (ymd > tzYmd()) return jsonResponse({ ok: false, error: "That day has not come yet" }, 400, corsOkHeaders);
+  await ensureHandoverSeenSchema(env);
+  const sel = "SELECT user_id, user_name, seen_at FROM handover_seen WHERE org_id = ? AND location_id = ? AND ymd = ? AND user_id = ?";
+  const had = await dbFirst(env, sel, [org, loc, ymd, uid]);
+  if (had) return jsonResponse({ ok: true, already: true, seen: line(had) }, 200, corsOkHeaders);
+  const me = await dbFirst(env, "SELECT full_name, email FROM users WHERE id = ?", [uid]);
+  const name = String((me && (me.full_name || me.email)) || authUser.full_name || "").trim();
+  await dbRun(env, "INSERT OR IGNORE INTO handover_seen (org_id, location_id, ymd, user_id, user_name, seen_at) VALUES (?,?,?,?,?,?)", [org, loc, ymd, uid, name, nowIso()]);
+  const row = await dbFirst(env, sel, [org, loc, ymd, uid]);
+  return jsonResponse({ ok: true, seen: line(row) }, 200, corsOkHeaders);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════

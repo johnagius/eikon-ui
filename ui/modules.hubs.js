@@ -31,7 +31,7 @@
     "dda-poyc": "Controlled drugs given under the POYC scheme.",
     dda_stocktakes: "Count each controlled drug and keep the count on file, ready to print.",
     repeatprescriptions: "Prescriptions kept on file, and when each one runs out.",
-    rotreg: "This week at a glance: who works, when, and who is away.",
+    rotreg: "This week: who works when, and any gap.",
     ssreg: "What other pharmacies are looking for, and what you asked for.",
     certificates: "Calibrations, services and licences, with what is due.",
     audit: "Every change, who made it and when.",
@@ -65,8 +65,8 @@
     deliveries: "Home deliveries, routes and proof of delivery.",
     appointments: "Clinic bookings and the waiting list.",
     loyalty: "Loyalty cards, points and campaigns.",
-    shifts: "Plan the rota: add or change shifts, answer leave requests.",
-    instructions: "What the last shift left you, and what you leave the next one.",
+    shifts: "Add or change shifts, fill a gap, answer leave requests.",
+    instructions: "What the last shift left, and what you leave.",
     messageboard: "Messages between pharmacies, kept for six months.",
     contacts: "Suppliers, reps, doctors, head office, one list.",
     teamreg: "Add a person, give a new password, switch off someone who has left."
@@ -110,11 +110,11 @@
     },
     team: {
       title: "Team", lead: "Who is in, what they need to know, and what they are owed.",
-      groups: [
-        { label: "Today", ids: ["rotreg", "shifts", "instructions", "messageboard"] },
+      groups: [ // team-hub: Today (who is in, the handover, the board) · Plan · Locums · People; no card removed
+        { label: "Today", ids: ["rotreg", "instructions", "messageboard"] },
+        { label: "Plan", ids: ["shifts"] },
         { label: "Locums", ids: ["locumregister", "locumreceipts"] },
-        { label: "People we call", ids: ["contacts"] },
-        { label: "Sign-ins", ids: ["teamreg"] } // admin only (the module says adminOnly)
+        { label: "People", ids: ["contacts", "teamreg"] } // Sign-ins: admin only (the module says adminOnly)
       ]
     },
     settings: {
@@ -163,7 +163,7 @@
       ".hub-note{font-size:13px;color:var(--muted2,#8A94A3)}" +
       ".hub-gap{height:14px}" + // a group with no label (Money: How we're doing) keeps the rhythm of the others
       // Services: group names in sentence case like its screens (the other hubs keep theirs until their owners move them)
-      ".hub[data-hub=services] .hub-lab{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none}";
+      ".hub[data-hub=services] .hub-lab,.hub[data-hub=team] .hub-lab{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none}";
     document.head.appendChild(st);
   }
 
@@ -185,6 +185,7 @@
         (id === "stock" ? '<div id="stk-slot" class="stk"></div><h2 class="hub-lab stk-all">Every stock screen</h2>' : ""); // d-stock: the day's ordering first (modules.stkflow.js), every screen under it
       if (id === "registers") html += '<div id="rgt-slot"></div><h2 class="rgt-all">Every register</h2>';
       if (id === "money") html += '<div id="mny-slot"></div><h2 class="mny-all">Everything in Money</h2>';
+      if (id === "team") html += '<div id="tmt-slot"></div><h2 class="tmt-all">Everything in Team</h2>'; // team-hub: who is in and what to read today first (eikon.teamtoday.js), every team screen under it
       if (id === "services") html += '<div id="svt-slot"></div><h2 class="svt-all">Every service</h2>'; // svc-hub: who is waiting for care today first (eikon.svctoday.js), every service under it // money-hub: what is left to close and what the till holds today first (eikon.moneytoday.js), every money screen under it // regs-hub: what is due today first (eikon.regtoday.js), every register under it; a heading like "Today" above it, not a section label
       cfg.groups.forEach(function (g, gi) {
         var cards = "";
@@ -209,6 +210,7 @@
       if (id === "stock") { var slot = m.querySelector("#stk-slot"); if (slot && E.stockFlow) E.stockFlow.render(slot); } // drawn by modules.stkflow.js when it arrives otherwise
       if (id === "registers") { var rs = m.querySelector("#rgt-slot"); if (rs && E.regToday) E.regToday.render(rs); } // drawn by eikon.regtoday.js when it arrives otherwise
       if (id === "money") { var ms = m.querySelector("#mny-slot"); if (ms && E.moneyToday) E.moneyToday.render(ms); } // drawn by eikon.moneytoday.js when it arrives otherwise
+      if (id === "team") { var ts = m.querySelector("#tmt-slot"); if (ts && E.teamToday && E.teamToday.render) E.teamToday.render(ts); } // team-hub: drawn by eikon.teamtoday.js when it arrives otherwise
       if (id === "services") { var ss = m.querySelector("#svt-slot"); if (ss && E.svcToday) E.svcToday.render(ss); } // drawn by eikon.svctoday.js when it arrives otherwise
       if (id === "settings" && E.helpSettings) E.helpSettings(m); // What's new (eikon.help.js, loaded just after the first screen)
       m.querySelectorAll("[data-action]").forEach(function (b) {
