@@ -13,7 +13,8 @@ does not: it changes only when someone runs `wrangler deploy`.
 
 | | Version | Cloudflare version id |
 |---|---|---|
-| Live now (2026-11-11) | `2026-11-11-batch-16`: safety (gpt-extractor 404, CSP report-uri, CSP_ENFORCE flag off, UI_GITHUB_REF), labels English only; UI .178 | `a88db514-f356-4d43-98db-7a2dedc55be3` |
+| Live now (2026-11-11) | `2026-11-11-batch-17` HOTFIX: End of day zero-overwrite guard (409 would_clear_figures unless confirm_zero); UI .179 | `cef7eeef-5b55-4178-b2c8-b08af4f8019f` |
+| Before that (2026-11-11) | `2026-11-11-batch-16`: safety (gpt-extractor 404, CSP report-uri, CSP_ENFORCE flag off, UI_GITHUB_REF), labels English only; UI .178 | `a88db514-f356-4d43-98db-7a2dedc55be3` |
 | Before that (2026-11-11) | `2026-11-10-batch-15`: Roster planner — POST /shifts/apply-plan (one-step), leave in ICS feed + feed caching (ETag/304), web push (/sw.js, push_subscriptions, VAPID_PRIVATE_KEY secret set); UI .177 | `ad99610c-654f-412a-8e1c-6aa507ae6441` |
 | Before that (2026-11-10) | `2026-11-10-batch-14`: Team round 2 — board queries rewritten (same answers, 2 indexes), unread 99+, pins per group; UI .176 | `5434019e-d750-4cfb-a03b-2318547c3d95` |
 | Before that (2026-11-10 12:01 UTC) | `2026-11-10-batch-13`: Team & shifts — GET /team/today (read-only), handover_seen table + /instructions/daily/seen, @mention matching for names followed by more words (group isolation unchanged); UI .175 | `fa9f09aa-c0f8-4861-9376-754ee47b32b0` |
@@ -102,6 +103,7 @@ open Bookings and press "Set up bookings".
 
 ## Restore points
 
+- Before batch-17 (2026-11-11): `00001006-00000000-00005120-3cc4319bdd91503a2b1d539e11626c07`.
 - Before batch-16 (2026-11-11): `00000fcd-00000000-00005120-46dc74f64336adaf306b0b22361b46d7`.
 - Before batch-15 (2026-11-11): `00000fbc-00000000-00005120-86ff85b5db9a3ff3efb6685c1412d685`.
 - Before batch-14 (2026-11-10): `00000f64-00000000-0000511f-4bfe2dbc3d68c239b3c8f9f0879891b0`.
