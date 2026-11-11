@@ -1146,3 +1146,12 @@ VAPID_PRIVATE_KEY set (generated and piped, never printed); UI .177 on main 9294
 equivalence with BOARD_OLD_WORKER), rehearsals 19/19 + 13/13, UI 532/0, real 92/96 → green alone except solo-q61keep
 (intermittent ~1/3, also historically on live), predeploy 10/10 bar the board test needing BOARD_OLD_WORKER.
 Pending: labels English only (John), names patch, safety batch (CSP flag, gpt redirect, UI_GITHUB_REF), voice round 3.
+
+## Rounds 160–162 (2026-11-11)
+- Batch-16 `a88db514` (UI .178): safety (gpt-extractor 404, CSP report-uri + CSP_ENFORCE off, UI_GITHUB_REF), labels
+  English only (John), Mine covers two weeks from today (found by the rp-mine weekday failure), names fixed in tests.
+- Batch-17 `cef7eeef` HOTFIX (UI .179): End of day could store zeros over another till's figures; now merges, asks, and the
+  worker refuses without confirm_zero. Read-only live check: no End of day rows since 1 Oct, nothing to repair.
+- Batch-18 `ddd0ac82` (UI .180): one-click demo (pharmacy / distributor / head office), guard, nightly reset (first one
+  tonight 03:00 by the timer — needs no superuser). Before counts outside the demo recorded in DEPLOY-WORKER.md.
+- Running: Stock & Customers r2 (all READY, integrating), Finish round (roles, dayzero, portals, records READY), pilot film.
