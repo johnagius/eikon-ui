@@ -17,6 +17,12 @@
    (q5-10a) puts on the clipboard exactly what the classic "Copy Deposit to Email (Outlook)" puts there: the contact's
    address, "Dear <name>,", the day, the pharmacy and the BOV cash deposit table, as HTML and as plain text, after the
    classic's check (a bag number). The date-range report, the audit log and managing contacts stay in the classic screen. */
+/* Hotfix .179 (fresh-eyes walkthrough): saved figures are never replaced by nothing unless the person cleared them
+   here and said so ("Clear the figures", sent with confirm_zero: true; the server refuses it otherwise); a plain Save
+   whose only changes are the day's staff, shift, float, bag number, contact or notes, on a day another till saved
+   meanwhile, puts those changes on the other till's figures instead of asking (Save and lock still asks); what is typed
+   and not saved is kept in this tab (E.draft.hold) and comes back after a reload, and leaving the page with it asks
+   first; a day with nothing counted is locked only after "Nothing was counted for <day> — lock it as €0.00?". */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -228,6 +234,7 @@
   async function load(opts) {
     var keepView = E.takeSaveFailed && E.takeSaveFailed();
     var keepDraft = !!(opts && opts.keepDraft);
+    var restored = !!(opts && opts.restored);
     if (S.fix && S.fix.date !== S.date) S.fix = null; // another day opened: its correction form goes
     S.loading = true; S.error = ""; S.memo = { dates: {}, recs: {} }; paint();
     try {
@@ -242,6 +249,7 @@
       } else { S.extra = null; S.prev = await prevDay(S.date); }
       S.ovOk = !!ov;
       if (rec) S.memo.recs[S.date] = rec;
+      if (keepDraft && restored && rec && rec.locked_at) { keepDraft = false; dropDraft(); } // locked meanwhile: the kept figures cannot go anywhere
       if (!keepDraft || !S.w) { // a draft kept from a moment ago stays as typed, still measured against what it was based on
         S.base = rec; S.w = working(rec); S.dirty = false; S.conflict = null; S.ask = null;
         if (!rec) { // a new day: the person signed in, the float of the last saved day, the shift by the time (q5-6); all shown in the summary line, and Change changes them
@@ -252,6 +260,7 @@
         if (!String(S.w.staff || "").trim()) S.whoOpen = true; // nobody to name in the summary line: the fields are shown
         S.autoDep = !rec || sameDeposit(rec.deposit || rec.bov_deposit, autoDeposit(S.w));
         if (S.autoDep) S.w.deposit = autoDeposit(S.w);
+        S.w0 = clone(S.w); // the day as it opened here: what was changed since is measured against it
       }
       S.shadow = shadowCheck(S.date, rec);
     } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not open the day"); }
@@ -375,6 +384,7 @@
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "eodreg") return; // left before a reply came back: do not draw over the next screen
     if (S.w && !S.saving && !fromState) keep(); // a reply landing while someone types must not wipe the form
+    if (S.dirty) holdDraft();
     var locked = !!(S.base && S.base.locked_at), ro = locked || S.saving;
     var h = '<div class="eod"><button class="eod-back" data-act="back">' + E.escapeHtml(E.ui2BackLabel("eodreg")) + '</button>' +
       '<div class="eod-top"><div><h1>End of day</h1><p class="eod-sub">Close the till: X readings, cash, cheques and the bank bag.</p></div>' +
@@ -505,7 +515,13 @@
     h += '<div class="eod-lab"><label for="eod-notes">Notes</label></div><div class="eod-card"><textarea id="eod-notes" class="eod-notes" name="notes" rows="3" maxlength="1000" placeholder="' + (locked ? "" : "What you found, e.g. €5 short: a refund given in cash") + '"' + RO + ">" + esc(w.notes) + "</textarea></div>";
     h += "</form>";
     // questions about this day, right under its form
-    if (S.ask === "lock") {
+    if (S.ask === "lock" && !counted(c)) { // hotfix .179: nothing counted is locked only when said
+      h += '<div class="eod-note" role="alertdialog" aria-label="Lock this day as €0.00"><b>Nothing was counted for ' + esc(dayLabel(S.date) === "Today" ? "today" : dayLabel(S.date)) + " — lock it as €0.00?</b> No X reading, EPOS, cheque, paid out or cash is written for it. Once locked, only the pharmacist can unlock it." +
+        '<div class="acts"><button class="eod-btn" data-act="ask-no">Cancel</button><button class="eod-btn p" data-act="lock-yes">Lock as €0.00</button></div></div>';
+    } else if (S.ask === "clear") {
+      h += '<div class="eod-note" role="alertdialog" aria-label="Clear the saved figures"><b>Clear the figures saved for ' + esc(dayLabel(S.date) === "Today" ? "today" : dayLabel(S.date)) + "?</b> Every reading and the cash count are empty here, so saving stores the day as €0.00 in place of the figures saved." +
+        '<div class="acts"><button class="eod-btn" data-act="ask-no">Cancel</button><button class="eod-btn" data-act="clear-yes">Clear the figures</button></div></div>';
+    } else if (S.ask === "lock") {
       h += '<div class="eod-note" role="alertdialog" aria-label="Lock this day"><b>Lock ' + esc(dayLabel(S.date) === "Today" ? "today" : dayLabel(S.date)) + (counted(c) ? " — " + esc(ouText(c) === "Exact" ? "exact" : ouText(c)) : "") + "?</b> The figures are saved and the day can no longer be changed. Only the pharmacist can unlock it again." +
         '<div class="acts"><button class="eod-btn" data-act="ask-no">Cancel</button><button class="eod-btn p" data-act="lock-yes">Save and lock</button></div></div>';
     } else if (S.ask === "leave") {
@@ -515,7 +531,7 @@
     if (S.err) h += '<div class="eod-err" id="eod-err" role="alert">' + esc(S.err) + "</div>";
     // the register of past days comes after the questions about this day
     h += registerHtml();
-    if (!locked && S.ask !== "lock") {
+    if (!locked && S.ask !== "lock" && S.ask !== "clear") {
       h += '<div class="eod-acts"><div class="ou">Over / under<b data-b="ouBar">' + esc(ouText(c)) + "</b></div>" +
         '<button class="eod-btn" data-act="lock"' + (S.saving ? " disabled" : "") + ">Save and lock</button>" +
         '<button class="eod-btn p" data-act="save"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Save") + "</button></div>";
@@ -844,9 +860,10 @@
         else if (act === "who") { keep(); S.whoOpen = true; paint(true); var dy = m.querySelector("#eod-day"); if (dy) dy.focus(); }
         else if (act === "lock") { keep(); S.ask = "lock"; S.err = ""; paint(true); setTimeout(function () { var y = m.querySelector('[role=alertdialog] [data-act=ask-no]'); if (y) y.focus(); }, 30); }
         else if (act === "lock-yes") { S.ask = null; save(true); }
-        else if (act === "ask-no") { keep(); S.ask = null; S.pendingDate = ""; S.pendingClose = false; paint(true); var di = m.querySelector("#eod-day"); if (di) di.value = S.date; }
-        else if (act === "leave-yes") { var lk = S.pendingClose; S.ask = null; S.dirty = false; S.pendingClose = false; var nd = S.pendingDate || today(); S.pendingDate = ""; openDay(nd, lk); }
-        else if (act === "theirs") { S.conflict = null; S.dirty = false; S.err = ""; load(); }
+        else if (act === "clear-yes") { S.ask = null; save(!!S.clearLock, { clear: true }); }
+        else if (act === "ask-no") { keep(); var wasAsk = S.ask; S.ask = null; if (wasAsk === "lock" || wasAsk === "clear") setTimeout(function () { var lb = m.querySelector("[data-act=lock]"); if (lb) lb.focus(); }, 30); S.pendingDate = ""; S.pendingClose = false; paint(true); var di = m.querySelector("#eod-day"); if (di) di.value = S.date; }
+        else if (act === "leave-yes") { dropDraft(); var lk = S.pendingClose; S.ask = null; S.dirty = false; S.pendingClose = false; var nd = S.pendingDate || today(); S.pendingDate = ""; openDay(nd, lk); }
+        else if (act === "theirs") { dropDraft(); S.conflict = null; S.dirty = false; S.err = ""; load(); }
         else if (act === "mine") { keep(); var cf = S.conflict; S.conflict = null; if (cf && cf.locked_at) { S.err = "That day has been locked meanwhile. Nothing was saved."; return paint(true); } S.base = cf; save(false); } // measured against theirs now: a third save meanwhile is caught again
       });
     });
@@ -893,7 +910,19 @@
     }
   }
   function wire1(hint) { var b = hint && hint.querySelector("[data-act=refill]"); if (b) b.addEventListener("click", function () { keep(); S.autoDep = true; S.dirty = true; S.w.deposit = autoDeposit(S.w); paint(true); }); }
-  function markDirty() { var st = S.mount && S.mount.querySelector(".eod-st"); if (st && !st.querySelector(".eod-chip.dirty")) { var s = document.createElement("span"); s.className = "eod-chip wn dirty"; s.textContent = "Not saved"; if (!/Not saved/.test(st.textContent)) st.appendChild(s); } }
+  // Hotfix .179: what is typed and not saved is kept in this tab (core.js E.draft: this person, this Malta day), so a
+  // reload or a session ending brings it back; it goes with a save, "Show theirs" or "Leave without saving".
+  function holdDraft() {
+    if (!E.draft || !E.draft.hold || !S.dirty || !S.w || !isYmd(S.date) || (S.base && S.base.locked_at)) return;
+    E.draft.hold("eodreg", { date: S.date, w: S.w, w0: S.w0 || null, base: S.base || null, autoDep: !!S.autoDep, whoOpen: !!S.whoOpen });
+  }
+  function dropDraft() { try { if (E.draft && E.draft.clear) E.draft.clear("eodreg"); } catch (e) {} }
+  function leaving(ev) { // closing the tab, reloading, or another address with figures not saved: the browser asks first
+    if (!E.state || E.state.activeModuleId !== "eodreg" || !S.dirty || !S.w || (S.base && S.base.locked_at)) return;
+    holdDraft(); ev.preventDefault(); ev.returnValue = ""; return "";
+  }
+  window.addEventListener("beforeunload", leaving);
+  function markDirty() { holdDraft(); var st = S.mount && S.mount.querySelector(".eod-st"); if (st && !st.querySelector(".eod-chip.dirty")) { var s = document.createElement("span"); s.className = "eod-chip wn dirty"; s.textContent = "Not saved"; if (!/Not saved/.test(st.textContent)) st.appendChild(s); } }
 
   // ---- saving: the whole record, as the server replaces it
   function check(w) { // the first problem, and (S.bad) the box it is in, so the cursor goes straight to it
@@ -936,21 +965,53 @@
     if (fixing()) p.correction_reason = S.fixReason; // a day unlocked for a correction: the reason goes into the audit of each save
     return p;
   }
-  async function save(lock) {
+  // Hotfix .179: does a record (saved, on screen, or a save body) hold any counted figure: a reading, EPOS, a cheque,
+  // a paid out or cash in the till. The server's eodHasFigures says the same.
+  function hasFig(r) { return !!r && counted(calc(working(r))); }
+  // What was changed here since the day opened, when it is only the day's details (staff, shift, float, bag number,
+  // contact, notes) and no figure: those names; else null.
+  function detailEdits() {
+    var a = S.w0, b = S.w; if (!a || !b) return null;
+    var figs = function (w) { return JSON.stringify([LISTS.map(function (L) { return (w[L.k] || []).map(function (x) { return [Math.round(mnum(x.amount) * 100), String(x.remark || "").trim()]; }); }),
+      DEN.map(function (d) { return inum(w.cash["n" + d]); }), Math.round(mnum(w.cash.coins_total) * 100), S.autoDep ? null : DEN.map(function (d) { return inum(w.deposit["n" + d]); })]); };
+    if (figs(a) !== figs(b)) return null;
+    var keys = ["staff", "time_of_day", "float_amount", "bag_number", "contact_id", "notes"].filter(function (k) { return String(a[k] == null ? "" : a[k]).trim() !== String(b[k] == null ? "" : b[k]).trim(); });
+    return keys.length ? keys : null;
+  }
+  async function save(lock, opts) {
+    var clearing = !!(opts && opts.clear);
     if (S.saving || !S.w || (S.base && S.base.locked_at)) return;
     keep();
     S.err = check(S.w); if (S.err) { if (S.bad === "staff" || S.bad === "float_amount") S.whoOpen = true; paint(true); return toBad(); }
-    var body = payload(S.w, lock), mine = fullSig(body);
+    var body = payload(S.w, lock), mine;
     S.saving = true; S.conflict = null; paint(true);
     try {
       // Read the day again first: another till may have saved it since it was opened here.
       var fresh = await getDay(S.date);
       var was = S.base ? String(S.base.updated_at || S.base.saved_at || "") : "", now = fresh ? String(fresh.updated_at || fresh.saved_at || "") : "";
       var ours = fresh && S.lastSent && fullSig(fresh) === S.lastSent; // our own earlier save whose answer was lost
-      if (fresh && fresh.locked_at) { S.saving = false; S.base = fresh; S.w = working(fresh); S.dirty = false; S.err = "This day was locked on another till" + (hm(fresh.locked_at) ? " at " + hm(fresh.locked_at) : "") + ". Nothing was saved; the locked figures are shown."; S.autoDep = false; return paint(true); }
-      if ((was !== now || (!!S.base !== !!fresh)) && !ours) { S.saving = false; S.conflict = fresh; return paint(true); }
+      if (fresh && fresh.locked_at) { S.saving = false; S.base = fresh; S.w = working(fresh); S.w0 = clone(S.w); S.dirty = false; dropDraft(); S.err = "This day was locked on another till" + (hm(fresh.locked_at) ? " at " + hm(fresh.locked_at) : "") + ". Nothing was saved; the locked figures are shown."; S.autoDep = false; return paint(true); }
+      var moved = (was !== now || (!!S.base !== !!fresh)) && !ours;
+      if (moved) {
+        var det = !lock && fresh && detailEdits(), w2 = fresh ? working(fresh) : null, b0 = S.base ? working(S.base) : null;
+        var nv = function (v) { return String(v == null ? "" : v).trim(); };
+        // the same detail changed on the other till too (to something else): theirs and ours differ, the person chooses
+        if (det && b0 && det.some(function (k) { return nv(w2[k]) !== nv(b0[k]) && nv(w2[k]) !== nv(S.w[k]); })) det = null;
+        if (!det) { S.saving = false; S.conflict = fresh; return paint(true); }
+        // Only the day's details were changed here: they go on the other till's figures, which stay as they are.
+        det.forEach(function (k) { w2[k] = S.w[k]; });
+        S.autoDep = sameDeposit(fresh.deposit || fresh.bov_deposit, autoDeposit(working(fresh))); if (S.autoDep) w2.deposit = autoDeposit(w2);
+        S.w = w2; S.w0 = working(fresh); body = payload(S.w, lock);
+      }
+      // Saved figures are never replaced by nothing, unless they were cleared here and the person said so.
+      if (fresh && hasFig(fresh) && !hasFig(body) && !clearing) {
+        S.saving = false;
+        if (!moved && hasFig(S.w0)) { S.ask = "clear"; S.clearLock = !!lock; paint(true); setTimeout(function () { var y = S.mount && S.mount.querySelector("[role=alertdialog] [data-act=ask-no]"); if (y) y.focus(); }, 30); return; }
+        S.conflict = fresh; S.err = "Nothing was saved: " + (dayLabel(S.date) === "Today" ? "today" : dayLabel(S.date)) + " has figures saved on another till, and none are written here. Show theirs to see them."; return paint(true);
+      }
       if (fresh) S.base = fresh;
-      S.lastSent = mine;
+      if (clearing) body.confirm_zero = true; // the person cleared the saved figures here and said so (the server asks for it)
+      mine = fullSig(body); S.lastSent = mine;
       var r = await E.apiFetch("/endofday/record", { method: "PUT", body: JSON.stringify({ record: body }) });
       if (!r || r.ok === false) throw new Error((r && r.error) || "Save failed");
       var rec = r.record || r.eod || r.item || null;
@@ -958,15 +1019,17 @@
         rec = await getDay(S.date);
       }
       if (rec) { S.base = rec; shadowReplace(rec); if (S.month && S.monthYm === S.date.slice(0, 7)) S.month[S.date] = rec; }
-      S.dirty = false; S.err = ""; S.saving = false;
+      S.dirty = false; S.err = ""; S.saving = false; dropDraft();
       if (lock && fixing()) { S.fixReason = ""; S.fixDate = ""; } // corrected and locked again
       if (lock) S.closing = "";
       E.toast(lock ? dayLabel(S.date) + " is locked · " + ouText(calc(S.w)) : "Saved · " + ouText(calc(S.w)), "success");
       if (rec) { S.w = working(rec); S.autoDep = !rec.locked_at && sameDeposit(rec.deposit || rec.bov_deposit, autoDeposit(S.w)); if (S.autoDep) S.w.deposit = autoDeposit(S.w); }
+      S.w0 = clone(S.w);
       return paint(true);
     } catch (x) {
       S.saving = false;
-      if (x && x.status === 409) { S.err = "This day is locked on the server. Nothing was saved."; return load(); }
+      if (x && x.status === 409 && x.bodyJson && x.bodyJson.code === "would_clear_figures") { S.err = "Nothing was saved: this day already has figures saved, and none are written here. Show theirs to see them, or clear them on purpose."; try { S.conflict = await getDay(S.date); } catch (e2) {} return paint(true); }
+      if (x && x.status === 409) { S.err = "This day is locked on the server. Nothing was saved."; dropDraft(); return load(); }
       S.err = E.saveFailText(x);
       return paint(true);
     }
@@ -978,8 +1041,13 @@
       S.mount = ctx && ctx.mount; S.err = ""; S.ask = null; css();
       var draft = S.dirty && S.w && S.date; // figures typed and not saved stay, as in the classic screen
       var want = ""; try { want = sessionStorage.getItem("eikon_eodreg_day") || ""; sessionStorage.removeItem("eikon_eodreg_day"); } catch (e) {} // a day asked for by another screen (Money: "Close Sat 7 Nov")
+      var held = !draft && E.draft && E.draft.held ? E.draft.held("eodreg") : null, restored = false; // hotfix .179: after a reload or a new sign-in by the same person
+      if (held && isYmd(held.date) && held.date <= today() && held.w && typeof held.w === "object") {
+        S.date = held.date; S.w = held.w; S.w0 = held.w0 || null; S.base = held.base || null; S.autoDep = held.autoDep !== false; S.dirty = true;
+        S.month = null; S.conflict = null; S.whoOpen = !!held.whoOpen; draft = true; restored = true;
+      }
       if (!draft) { S.date = isYmd(want) && want <= today() ? want : today(); S.w = null; S.base = null; S.month = null; S.conflict = null; S.whoOpen = false; }
-      paint(); return E.takeOpenForm("eodreg", S.mount, load({ keepDraft: !!draft }), { focus: "#eod-form input.amt" });
+      paint(); return E.takeOpenForm("eodreg", S.mount, load({ keepDraft: !!draft, restored: restored }), { focus: "#eod-form input.amt" });
     }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("eodreg") < 0) E.UI2_DESTINATIONS.push("eodreg");

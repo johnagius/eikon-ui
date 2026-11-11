@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-11-batch-16";
+const WORKER_VERSION = "2026-11-11-batch-17";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -4551,6 +4551,23 @@ function eodRowToUi(row) {
   };
 }
 
+// Hotfix .179: does an End of day record (stored JSON text or a save body) hold any counted figure: an X reading,
+// EPOS, cheque or paid out line, or any cash in the till (notes or coins)?
+function eodHasFigures(r) {
+  const val = (v) => { if (typeof v === "string") { try { return JSON.parse(v); } catch (e) { return null; } } return v; };
+  const num = (v) => { const n = Number(String(v == null ? "" : v).replace(",", ".")); return Number.isFinite(n) ? n : 0; };
+  for (const k of ["x", "epos", "cheques", "paid_outs"]) {
+    const rows = val(r && r[k]);
+    if (Array.isArray(rows) && rows.some((x) => x && Math.abs(num(x.amount)) >= 0.005)) return true;
+  }
+  const c = val(r && r.cash);
+  if (c && typeof c === "object") {
+    if (["n500", "n200", "n100", "n50", "n20", "n10", "n5"].some((k) => num(c[k]) !== 0)) return true;
+    if (Math.abs(num(c.coins_total)) >= 0.005) return true;
+  }
+  return false;
+}
+
 async function handleEodGet(request, env, corsOkHeaders, authUser, url) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
   await ensureEndOfDaySchema(env);
@@ -4595,7 +4612,7 @@ async function handleEodUpsert(request, env, corsOkHeaders, authUser) {
   // Load existing early so we can allow UNLOCK without requiring staff/float validation
   const existing = await dbFirst(
     env,
-    "SELECT id, locked_at FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date = ?",
+    "SELECT id, locked_at, x_json, epos_json, cheques_json, paid_outs_json, cash_json FROM end_of_day WHERE org_id = ? AND location_id = ? AND eod_date = ?",
     [authUser.org_id, authUser.location_id, date]
   );
   const __eodBefore = existing ? await auditSnap(env, "end_of_day", existing.id, authUser) : null;
@@ -4662,6 +4679,13 @@ async function handleEodUpsert(request, env, corsOkHeaders, authUser) {
   }
 
   const timeOfDay = String(body.time_of_day || "AM").trim() || "AM";
+
+  // Hotfix .179: a save never replaces a day's counted figures with nothing by accident (a screen opened before
+  // another till filled the day, a read that failed). Saved figures (any reading or any cash) are cleared only by a
+  // save that says so: confirm_zero: true. Zeros over zeros, and every other save, are stored as before.
+  if (existing && body.confirm_zero !== true && eodHasFigures({ x: existing.x_json, epos: existing.epos_json, cheques: existing.cheques_json, paid_outs: existing.paid_outs_json, cash: existing.cash_json }) && !eodHasFigures(body)) {
+    return jsonResponse({ ok: false, code: "would_clear_figures", error: "Nothing was saved: this day already has figures saved, and this save has none. Reload the day to see them." }, 409, corsOkHeaders);
+  }
 
   const xJson = JSON.stringify(Array.isArray(body.x) ? body.x : []);
   const eposJson = JSON.stringify(Array.isArray(body.epos) ? body.epos : []);

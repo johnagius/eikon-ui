@@ -2661,7 +2661,16 @@
     function dropMine() { var s = ss(), w = who(); if (!s || !w) return; try { for (var i = s.length - 1; i >= 0; i--) { var k = s.key(i); if (k && k.indexOf(PRE + w + "|") === 0) s.removeItem(k); } } catch (e) {} }
     // q6-1: keepHere() keeps the open screen's half-typed form (before a reload, before the sign-in card); true when kept.
     function keepHere() { var c = document.getElementById("eikon-content"), m = E.state && E.state.activeModuleId; return !!(c && m && keep(m, c)); }
-    return { spec: spec, keep: keep, keepHere: keepHere, own: own, take: take, offer: offer, clear: clear, dropMine: dropMine };
+    // Hotfix .179: a screen whose form is always open (End of day) keeps what was typed as data, under the same rules
+    // (this tab, this person, this Malta day; dropped on sign-out and when anyone else signs in here):
+    //   E.draft.hold(screen, data)  keep it (true when kept); E.draft.held(screen)  the data, or null; E.draft.clear(screen).
+    function hold(screen, data) {
+      if (!on() || window.EIKON_NO_DRAFTS) return false;
+      own(); var s = ss(), k = key(screen); if (!s || !k) return false;
+      try { s.setItem(k, JSON.stringify({ v: 1, day: E.maltaYmd(), at: Date.now(), fields: [], data: data })); return true; } catch (e) { return false; }
+    }
+    function held(screen) { if (!on()) return null; var d = read(screen); return d && d.data && typeof d.data === "object" ? d.data : null; }
+    return { spec: spec, keep: keep, keepHere: keepHere, own: own, take: take, offer: offer, clear: clear, dropMine: dropMine, hold: hold, held: held };
   })();
 
   // counter: the look-up tools' shortcuts (Labels, Over the counter, Contraceptive pills, Calculators). What this person

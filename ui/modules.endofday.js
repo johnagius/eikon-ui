@@ -1292,7 +1292,7 @@
   }
 
   // ✅ PATCH: sandbox-safe confirm dialog (replaces window.confirm which is blocked without iframe allow-modals)
-  function confirmModal(title, message, okText, cancelText) {
+  function confirmModal(title, message, okText, cancelText, focusCancel) {
     return new Promise(function (resolve) {
       var doneCalled = false;
 
@@ -1348,8 +1348,8 @@
       overlay.appendChild(box);
       document.body.appendChild(overlay);
 
-      // focus OK by default (helps keyboard users)
-      try { bOk.focus(); } catch (e2) {}
+      // focus OK by default (helps keyboard users); Cancel when asked (hotfix .179: a €0 lock)
+      try { (focusCancel ? bCancel : bOk).focus(); } catch (e2) {}
     });
   }
 
@@ -1989,17 +1989,48 @@
       return { ok: true };
     }
 
+    // Hotfix .179: saved figures are never replaced by nothing. Before a save or a lock with no figure on screen, the
+    // day is read again: figures saved on another till since this screen opened it are taken in (what was typed here
+    // in staff, shift and float is kept on them); figures cleared here on purpose are cleared only after the person
+    // says so (sent with confirm_zero, which the server asks for). Returns null to stop, else { confirmZero }.
+    function hasFigures(r) { return !!r && (totalA(r) || totalB(r) || totalC(r) || totalD(r) || countedCashTill(r).total) ? true : false; }
+    async function zeroGuard(forLock) {
+      if (hasFigures(state) || !_apiMode.ok) return { confirmZero: false };
+      var cloud = null;
+      try { cloud = await apiGetRecord(state.date, state.location_name); } catch (e) { cloud = null; }
+      if (!cloud || cloud.locked_at || !hasFigures(cloud)) return { confirmZero: false };
+      var label = String(state.date || "");
+      if (_persistedDayRec && hasFigures(_persistedDayRec) && String(_persistedDayRec.date || "") === label) {
+        var ok = await confirmModal("Clear the saved figures", "Every reading and the cash count are empty here.\n\nClear the figures saved for " + label + " and store the day as €0.00?", "Clear the figures", "Cancel");
+        return ok ? { confirmZero: true } : null;
+      }
+      var merged = ensureStateShape(JSON.parse(JSON.stringify(cloud)), locationName, createdBy);
+      merged.date = state.date; if (!merged.location_name) merged.location_name = state.location_name;
+      ["staff", "time_of_day", "float_amount"].forEach(function (k) { if (String(state[k] == null ? "" : state[k]).trim() !== "") merged[k] = state[k]; });
+      if (String(state.notes || "").trim() && !String(merged.notes || "").trim()) merged.notes = state.notes;
+      if (!merged.deposit_edited) autoFillDeposit(merged, roundedDepositF(merged), paperUnitsFromCash(merged));
+      state = merged; _state = merged;
+      _persistedDayRec = JSON.parse(JSON.stringify(cloud));
+      if (forLock) { toast("Not locked", "This day was filled on another till after it was opened here. Its figures are now shown; check them, then lock."); return { confirmZero: false, merged: true }; }
+      toast("Figures kept", "This day was filled on another till after it was opened here. Its figures are kept; the staff, shift and float typed here are saved with them.");
+      return { confirmZero: false };
+    }
+
     async function doSave() {
       if (isLocked()) return toast("Locked", "This End Of Day is locked and cannot be edited.");
 
       var v = validateBeforeSave();
       if (!v.ok) return toast("Missing Information", v.msg);
 
+      var zg = await zeroGuard();
+      if (!zg) return;
+
       state.saved_at = nowIso();
 
       try {
         var payload = JSON.parse(JSON.stringify(state));
         payload.action = "SAVE";
+        if (zg.confirmZero) payload.confirm_zero = true;
         // Never send an empty locked_at on an ordinary save: the server must not read it as an unlock.
         if (!payload.locked_at) delete payload.locked_at;
         await upsertEod(payload);
@@ -2035,12 +2066,21 @@
       var v = validateBeforeSave();
       if (!v.ok) return toast("Cannot Lock", "Fix required fields first:\n\n" + v.msg);
 
+      var zg = await zeroGuard(true);
+      if (!zg) return;
+      if (zg.merged) return rerender();
+      if (!hasFigures(state) && !zg.confirmZero) { // hotfix .179: nothing counted is locked only when said
+        var okZero = await confirmModal("Lock End Of Day", "Nothing was counted for " + String(state.date || "") + " — lock it as €0.00?", "Lock as €0.00", "Cancel", true);
+        if (!okZero) return;
+      }
+
       state.saved_at = state.saved_at || nowIso();
       state.locked_at = nowIso();
 
       try {
         var payload = JSON.parse(JSON.stringify(state));
         payload.action = "LOCK";
+        if (zg.confirmZero) payload.confirm_zero = true;
         await upsertEod(payload);
       } catch (e) {
         toast(
