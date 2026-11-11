@@ -13,7 +13,8 @@ does not: it changes only when someone runs `wrangler deploy`.
 
 | | Version | Cloudflare version id |
 |---|---|---|
-| Live now (2026-11-11) | `2026-11-11-batch-19`: Stock & Customers r2 — GDPR routes + gdpr_erasures/gdpr_erasure_rows, returns schema fix; UI .181 | `5ddebdfe-4d09-491a-901e-b3f9348bed22` |
+| Live now (2026-11-11) | `2026-11-11-batch-20`: finish round — roles (is_pharmacist, plans_rota, shift_staff.user_id), day zero + pharmacy details, distributor/HQ portals, CD supply warning, partials (CD + POYC), credit_notes.cn_no + credit_note_seq, demo guard/reset extended; UI .182 | `f365827b-f706-465c-a956-238424612a7a` |
+| Before that (2026-11-11) | `2026-11-11-batch-19`: Stock & Customers r2 — GDPR routes + gdpr_erasures/gdpr_erasure_rows, returns schema fix; UI .181 | `5ddebdfe-4d09-491a-901e-b3f9348bed22` |
 | Before that (2026-11-11) | `2026-11-11-batch-18`: one-click demo (DEMO_* vars: org 2, locations 2, 399, 599, 899), guard, nightly reset; UI .180 | `ddd0ac82-2d29-417e-9234-dc1e00c84bf2` |
 | Before that (2026-11-11) | `2026-11-11-batch-17` HOTFIX: End of day zero-overwrite guard (409 would_clear_figures unless confirm_zero); UI .179 | `cef7eeef-5b55-4178-b2c8-b08af4f8019f` |
 | Before that (2026-11-11) | `2026-11-11-batch-16`: safety (gpt-extractor 404, CSP report-uri, CSP_ENFORCE flag off, UI_GITHUB_REF), labels English only; UI .178 | `a88db514-f356-4d43-98db-7a2dedc55be3` |
@@ -106,6 +107,7 @@ open Bookings and press "Set up bookings".
 ## Restore points
 
 - Before batch-19 (2026-11-11): `00001019-00000000-00005120-c00f2773519b5782ed613ba0613c48d4`.
+- Before batch-20 (2026-11-11): `0000102e-00000000-00005120-06bf9e16613da77d91ef541e27fd8161`. Checked after: /health batch-20 on 8/8; /auth/me, /team/users, /cd/partials, /hq/stock, /pharmacy/details, /gdpr/export and /demo answer 401 signed out; main 17be5a1.
 - Before batch-18 (2026-11-11): `0000100b-00000000-00005120-500e7df51411eb86b2442922b1a0f71b`. Before counts outside the demo: people 1, daily register 67, end of day 37, supplier products 200.
 - Before batch-17 (2026-11-11): `00001006-00000000-00005120-3cc4319bdd91503a2b1d539e11626c07`.
 - Before batch-16 (2026-11-11): `00000fcd-00000000-00005120-46dc74f64336adaf306b0b22361b46d7`.

@@ -1,0 +1,88 @@
+1
+00:00:00,960 --> 00:00:02,210
+Closing time…
+
+2
+00:00:02,420 --> 00:00:04,550
+and the last customer has gone.
+
+3
+00:00:05,180 --> 00:00:08,920
+In Eikon, Today's money shows what is left to do,
+
+4
+00:00:08,960 --> 00:00:10,700
+on one screen.
+
+5
+00:00:11,476 --> 00:00:13,616
+The courier is at the door.
+
+6
+00:00:13,936 --> 00:00:17,776
+Paid out: tap his name, type the amount, done.
+
+7
+00:00:18,822 --> 00:00:20,312
+Now, end of day.
+
+8
+00:00:20,352 --> 00:00:22,312
+It goes in steps.
+
+9
+00:00:23,001 --> 00:00:24,851
+Type the till's readings…
+
+10
+00:00:25,046 --> 00:00:27,351
+and the paid outs come in by themselves.
+
+11
+00:00:28,759 --> 00:00:31,289
+Count the notes, and the coins.
+
+12
+00:00:31,975 --> 00:00:33,175
+A little short?
+
+13
+00:00:33,355 --> 00:00:36,955
+It says so in words, and tells you what to check.
+
+14
+00:00:39,357 --> 00:00:42,387
+Write what you found, and lock the day.
+
+15
+00:00:44,154 --> 00:00:46,599
+If the main till ever goes down,
+
+16
+00:00:46,679 --> 00:00:48,959
+the emergency till keeps selling.
+
+17
+00:00:49,154 --> 00:00:50,879
+Even with no connection.
+
+18
+00:00:52,071 --> 00:00:55,701
+And credit notes show what each customer holds.
+
+19
+00:00:55,976 --> 00:00:57,901
+Find her name, tap use,
+
+20
+00:00:57,941 --> 00:01:00,861
+and what is left stays on her note.
+
+21
+00:01:01,879 --> 00:01:03,839
+Eikon. Every euro…
+
+22
+00:01:03,879 --> 00:01:04,939
+accounted for.
+
