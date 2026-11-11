@@ -47,13 +47,13 @@
     ], "", [["To call", "a booking whose customer has not had a reminder: no e-mail, e-mails not set up, or the e-mail did not go."], ["Walk-in", "someone served now without a booking. It is kept like any booking, marked Here."]]],
 
     ["stock", "stock", "Stock", "What to order, what is on its way, and what is short or at risk. Every stock screen is under it.", [
-      ["Order what is needed", "Open To order: everything still to order, by supplier, with the cheapest price from Price check.", "Customer orders, recalls to replace and what you are short of wait under Waiting to be put on an order: press Add to order.", "When you have phoned or e-mailed a supplier, press Mark ordered. Copy list copies the lines to paste."],
+      ["Order what is needed", "Open To order: everything still to order, by supplier, with the cheapest price from Price check.", "Customer orders, recalls to replace and what you are short of wait under Waiting to be put on an order, the most urgent first: press Add to order on one, or Add all to put every one on today's order with its own quantity and the supplier shown.", "When you have phoned or e-mailed a supplier, press Mark ordered. Copy list copies the lines to paste."],
       ["Tick what arrives", "Open On order and press Arrived on each item, or All arrived. Not in puts it back under To order.", "Customers whose item came in are listed under In for customers: call them and press Ready."],
-      ["See what is short or at risk", "Open Short or at risk: open recalls and quarantines, what expires within a month, returns waiting for a credit note and what you asked other pharmacies for. Each has its next step."],
+      ["See what is short or at risk", "Open Short or at risk: open recalls and quarantines, what expires within a month, returns waiting for a credit note and what you asked other pharmacies for. Each has its next step. A recall's Order a replacement puts it on today's order."],
       ["Watch", "Alerts, Near expiry, Shortages and Scarce stock."],
       ["Order", "Order diary and Supplier stock."],
       ["Send back or move", "Returns and Transfers."],
-      ["Price", "Price check and Credit notes."]
+      ["Prices and credit notes", "Price check and Credit notes."]
     ], "", []],
 
     ["registers", "registers", "Registers", "The books an inspector asks for: fill them in, see what is missing, and print any month.", [
@@ -147,34 +147,41 @@
       ["Add an item", "Press Add an item.", "Fill in the product, when it expires and where it is.", "Press Save item."],
       ["Send an item back", "Press Send back on the item, then Add to returns. It goes to Returns, ready for the supplier."],
       ["Offer it to other pharmacies", "Press Offer on the item and say how many.", "Press Offer in Scarce stock. Other pharmacies see it there and can ask for it."],
-      ["Check the list", "The nearest dates are at the top."]
-    ], "Supplier refused and damaged stock are in the classic screen.", []],
+      ["Change or delete an item", "Tap the item. Change what is needed and press Save changes.", "To take it off the list, press Delete…, then Delete item."],
+      ["Check the list", "The nearest dates are at the top. A supplier refusing a return, or damaged stock, is marked on the return in Returns."]
+    ], "", []],
 
     ["retreg", "stock", "Returns", "Stock going back to suppliers, step by step until the credit note.", [
       ["Send something back", "Press New return.", "Fill in the item, how many, the supplier and why.", "Press Save return. From Near expiry, Send back does the same."],
       ["Follow a return", "Each return shows its next step: Mark arranged, Mark handed over, Got the collection note, then Got the credit note."],
+      ["Change a return", "Tap the return. Change what is needed, tick Damaged item if it is, and press Save changes."],
+      ["The supplier refused it", "Tap the return, press Supplier refused…, then Mark refused."],
+      ["Delete a return", "Tap the return, press Delete…, then Delete return."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Changes, deleting and refused or damaged stock are in the classic screen.", []],
+    ], "", []],
 
     ["trfreg", "stock", "Transfers", "Stock moving between your pharmacies.", [
       ["Offer an item", "Press Offer an item.", "Fill in the item, quantity, batch and expiry.", "Press Offer to the group."],
       ["Ask for an offer", "Press Ask for it on another pharmacy's offer. Requests sent to you show at the top, with Accept."],
-      ["Follow a transfer", "Each one shows where it stands: waiting for an answer, accepted, on its way or delivered."]
-    ], "Removing an offer, sending it to Returns or to Scarce stock, and older transfers are in the classic screen.", []],
+      ["Follow a transfer", "Each one shows where it stands: waiting for an answer, accepted, on its way or delivered."],
+      ["Your own offer", "Tap it, then tap Send to Returns, Offer to every pharmacy, or Remove… to take it off."],
+      ["Withdraw a request", "Press Withdraw… on your request, then Withdraw request."]
+    ], "Finished transfers are in the classic screen.", []],
 
     ["alertreg", "stock", "Alerts", "Recalls and quarantines, with each step ticked off.", [
       ["Record an alert", "Press New alert.", "Choose Recall or Quarantine, then fill in the item, batch, expiry, quantity and why.", "Press Save alert."],
       ["Tick off the steps", "Tap each step as it is done: Team told, Supplier told, Handed over, Credit note and the rest.", "Press Close alert when every step is done."],
       ["Change an alert", "Press Change on the alert.", "Change the details, the status or the notes.", "Press Save changes."],
+      ["Delete an alert", "Press Delete… on the alert, then Delete alert.", "If it was a mistake, press Undo."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
-    ], "Deleting an alert is in the classic screen.", [["Quarantine", "stock set aside and not sold until it is cleared."]]],
+    ], "", [["Quarantine", "stock set aside and not sold until it is cleared."]]],
 
     ["ordreg", "customers", "Orders", "What customers are waiting for, by when they need it.", [
       ["Take an order", "Press New order.", "Fill in the customer, phone, items and needed by.", "Press Save order. Eikon then offers to put the items in the order diary."],
       ["When it comes in", "Press Ready on the order. Call the customer on the number shown."],
-      ["Change or delete an order", "Tap the customer's name to open the order. Change what is needed and press Save changes.", "The pharmacist can press Delete… to delete it, saying why."],
+      ["Change or delete an order", "Tap the customer's name to open the order. Change what is needed and press Save changes.", "The pharmacist can press Delete… to delete it, saying why.", "If its items are in the order diary, press Take off the diary to remove them too."],
       ["See what is waiting", "Waiting shows the open orders, Done the finished ones."]
-    ], "Taking a deleted order's items off the order diary is in the classic screen.", [["Pick up", "the day the customer will collect. Empty means the same day."]]],
+    ], "", [["Pick up", "the day the customer will collect. Empty means the same day."]]],
 
     ["tktreg", "customers", "Questions", "Customers waiting for an answer, most pressing first.", [
       ["Record a question", "Press New question.", "Fill in the customer, phone and question, and what it is about.", "Press Save question."],
@@ -297,6 +304,14 @@
       ["See who signed in today", "Those who signed in today come first, with the time (Malta time). Everyone else shows the day they last signed in.", "Admin adds people and changes settings; Staff record and read everything else."]
     ], "", []],
 
+    ["loyreg", "customers", "Loyalty", "Stamp cards, points and offers for regular customers: record what they buy, see how close they are to a reward.", [
+      ["Record a purchase", "Type the customer's ID card. Their card shows: stamps, points and how far to the reward.", "Choose the campaign. The one used last is chosen for you.", "Type what they bought and press Add (or Enter) for each item, then the total spent.", "Press Record purchase. Press Print receipt if they want one."],
+      ["Look at a customer's card", "Press Cards, then type a name or ID card.", "Tap the card to see every purchase. Press Print history for a copy.", "Press Record a purchase to add one for them."],
+      ["Start or change a campaign", "Press Campaigns, then New campaign (or Edit on one).", "Choose the kind: stamp card, points, discount, seasonal offer, buy some get one free, or spend levels.", "Fill in the name and what it gives, then press Save campaign."],
+      ["Stop a campaign for a while", "Press Campaigns, then Pause on it. Press Start to run it again."],
+      ["Delete a campaign or remove a card (the pharmacist)", "Press Delete on the campaign, then Delete the campaign.", "Open the card and press Remove card, then Remove the card. Its stamps, points and history go for good."]
+    ], "", [["Card", "a customer's loyalty record, by ID card. It is made the first time you record a purchase for them."], ["Classic Loyalty screen", "the old screen, under ⋯ at the top. It shows the same campaigns and cards."]]],
+
     ["repreg", "registers", "Repeat prescriptions", "Prescriptions on file, and when each one runs out.", [
       ["Record a prescription", "Press New prescription.", "Fill in the date written, ID card, patient, medicine, dose, prescriber and reg no.", "Press Save prescription. It is valid for six months from the day it was written."],
       ["Renew a prescription", "Press Renew on a prescription that has run out."],
@@ -329,8 +344,9 @@
       ["Add an item to order", "Press Add an item.", "Fill in the item, how many and the supplier.", "Press Add to today."],
       ["Mark what came in", "Press Received, Not received or Wrong pick on each item."],
       ["Change or delete an item", "Tap the item. Change what is needed and press Save changes.", "The pharmacist can press Delete…, then Delete item."],
-      ["Another day", "Use ‹ and › to change day. Press Carry to tomorrow for what did not come."]
-    ], "Printing the day's list is in the classic screen.", []],
+      ["Another day", "Use ‹ and › to change day. Press Carry to tomorrow for what did not come."],
+      ["Print the day", "Press Print this day."]
+    ], "", []],
 
     ["qtreg", "stock", "Price check", "Supplier quotes, cheapest first, with your margin.", [
       ["Record a quote", "Press New quote.", "Fill in the item, supplier, VAT, cost and any discount or free stock.", "Press Save quote."],
@@ -342,8 +358,10 @@
     ["ssreg", "stock", "Shortages", "What other pharmacies are looking for, and what you asked for.", [
       ["Ask for something", "Press Ask for something.", "Fill in the item, how many and when it is needed.", "Press Ask the network. When an offer comes in, press Accept."],
       ["Help another pharmacy", "Press I can help on what they need, say how many and press Offer.", "When they accept, press It is sent."],
+      ["Change or close your request", "Press Change on your request, or Close request when you no longer need it.", "Delete… removes it and its offers."],
+      ["Take back an offer", "Press Withdraw… on your offer, then Withdraw offer."],
       ["Have spare stock?", "Share it in Scarce stock."]
-    ], "Offering your own spare stock, changing or closing a request are in the classic screen.", []],
+    ], "", []],
 
     ["brdreg", "team", "Chat board", "Messages between pharmacies. Kept for six months unless pinned.", [
       ["See what is for you", "Messages that mention your pharmacy are at the top, under Mentions you. Opening the board marks them as seen."],
@@ -397,8 +415,9 @@
     ["scsreg", "stock", "Scarce stock", "Hard-to-get lines pharmacies have spare, and who asked for them.", [
       ["Share spare stock", "Press Share stock.", "Fill in the item, how many, expiry and batch.", "Press Share it. Change it later, or press None left."],
       ["Find something", "Search the list of what pharmacies have spare.", "Press Ask for some, say how many, then press Ask for it."],
+      ["Your own line", "Tap Send to Returns or Offer in Transfers on it.", "Press Delete… to take it off, with its requests."],
       ["Can't find it?", "Press Ask in Shortages."]
-    ], "Deleting a line, placing it on Transfers or Returns, closed lines and printing are in the classic screen.", []],
+    ], "Closed lines and printing are in the classic screen.", []],
 
     ["audreg", "settings", "Audit trail", "Who changed what, across the whole system. Times are Malta time.", [
       ["See recent changes", "Choose Today, 7 days, 30 days or 90 days."],
@@ -409,6 +428,9 @@
     ["expreg", "settings", "Download our records", "Your registers for the days you choose, as a spreadsheet to keep, or printed for an inspector. For the pharmacist only.", [
       ["Download a month", "Choose This month, Last month, A year or Choose days.", "Tick the registers, or press Legal registers only.", "Press Download spreadsheet."],
       ["Print for an inspector", "Choose the days, then press Print inspection pack."],
+      ["Customers, bookings, money and team", "Tick them under What to include (they are not ticked at first), or press Tick all.", "Customers, staff and sign-in accounts come whole, whatever the days."],
+      ["Everything about one person", "Under One person, type their name, ID card or phone and choose them.", "Choose Download everything: one file with their data, a spreadsheet and a summary page.", "Records with the same name only are listed apart: tick the ones that are them."],
+      ["Erase a person who asks", "Find them under One person and choose Erase this person.", "Read what will be removed and what is kept, type their name, and confirm.", "You can undo it for 24 hours. After that it cannot be undone."],
       ["Keep it safe", "The file holds patients' names and ID cards."]
     ], "", []],
 

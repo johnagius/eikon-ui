@@ -1158,3 +1158,10 @@ html[data-ui2] .eikon-demo-door.main{background:rgba(10,143,106,.10);border-colo
   html[data-ui2]:not([data-ui2-visit]) .eikon-demo-door{background:rgba(118,118,128,.24);color:#fff}
   html[data-ui2]:not([data-ui2-visit]) .eikon-demo-door.main{background:rgba(48,209,88,.16);border-color:rgba(48,209,88,.4)}
 }
+/* ---- stock-flows (round 2, sf-): the Stock flow forms (order diary, orders, returns, near expiry, alerts, shortages,
+   transfers, price check) carry .sf-form; a new-item form also .sf-new. Additive only. ---- */
+/* SF2: 44 px tall fields on a phone (inputs were 40 px). */
+@media (max-width: 600px){ html[data-ui2] .sf-form input:not([type=checkbox]):not([type=radio]),html[data-ui2] .sf-form select,html[data-ui2] .sf-form textarea{min-height:44px;box-sizing:border-box} }
+/* SF4: on a wide screen a new-item form is a card of readable width, not a 1,000 px line between label and field. */
+@media (min-width: 900px){ html[data-ui2] .sf-new{max-width:640px} }
+/* ---- end stock-flows ---- */

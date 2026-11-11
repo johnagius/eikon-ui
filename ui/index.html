@@ -79,7 +79,7 @@
       // browser and the Worker's edge cache can reuse every file (previously every load
       // used Date.now(), so 52 files were re-downloaded on every visit).
       // Bump BUILD on EVERY change to any file in ui/: browsers keep stamped files for a day.
-      var BUILD = "2026-11-11.180";
+      var BUILD = "2026-11-11.181";
       if (window.EIKON_LEAVING) return; // moving to the clean address (see the head)
 
       function log() { try { console.log.apply(console, arguments); } catch (e) {} }
@@ -173,6 +173,7 @@
         "./eikon.months.js",
         "./eikon.repeatdue.js",
         "./eikon.tell.js",
+        "./eikon.privacy.js",
         "./eikon.correct.js",
         "./eikon.dailyreg.js",
         "./help-content.js",
@@ -239,6 +240,7 @@
         "./modules.eposreg.js",
         "./modules.calreg.js",
         "./modules.dupreg.js",
+        "./modules.loyreg.js",
         "./modules.alerts.js",
         "./modules.shifts.js",
         "./modules.ocps.js",

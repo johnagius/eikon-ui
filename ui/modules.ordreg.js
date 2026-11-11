@@ -146,7 +146,8 @@
       // then the phone (a 44 px tap area), the date pill and Ready.
       ".ord-back{min-height:44px;padding:0 12px 0 0;margin:-8px 0 2px}" +
       "@media (max-width:600px){.ord-row{padding:8px 16px;row-gap:6px}.ord-row .t{display:contents}.ord-name{flex:1 1 100%;min-height:44px;display:flex;flex-direction:column;justify-content:center}" +
-      ".ord-row .t>span{flex:1 1 0;min-width:0;align-self:center;overflow-wrap:anywhere}.ord-row a[href^='tel:']{display:inline-flex;align-items:center;min-height:44px;vertical-align:middle}}";
+      ".ord-row .t>span{flex:1 1 0;min-width:0;align-self:center;overflow-wrap:anywhere}.ord-row a[href^='tel:']{display:inline-flex;align-items:center;min-height:44px;vertical-align:middle}}" +
+      "@media (min-width:601px){.ord-row a[href^='tel:']{display:inline-block;padding:14px 4px;margin:-14px -4px}}";
     document.head.appendChild(st);
   }
 
@@ -225,7 +226,7 @@
 
   function editHtml(e) {
     var a = S.edit || {}, fe = S.efe || {}, f = function (k, label, extra) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] == null ? "" : a[k]) + '"' + (extra || "") + inv(fe, k) + ">" + ferr(fe, k) + "</label>"; };
-    var h = '<div class="ord-ed"><form class="ord-form" id="ord-edit" autocomplete="off" aria-label="' + esc("Change the order for " + e.client_name) + '">' +
+    var h = '<div class="ord-ed"><form class="ord-form sf-form" id="ord-edit" autocomplete="off" aria-label="' + esc("Change the order for " + e.client_name) + '">' +
       f("client_name", "Customer", ' placeholder="Name and surname"') + f("contact", "Phone", ' type="tel" inputmode="tel" placeholder="Needed to save a change"') + f("alternate", "Other phone", ' type="tel" inputmode="tel" placeholder="Optional"') +
       f("email", "Email", ' type="email" inputmode="email" autocapitalize="off" placeholder="Optional"') + f("address", "Address", ' placeholder="Optional"') +
       '<label><span>Items</span><textarea name="items" rows="2"' + inv(fe, "items") + ">" + esc(a.items || "") + "</textarea>" + ferr(fe, "items") + "</label>" +
@@ -261,11 +262,44 @@
   // The classic screen's next question after a new order: its items into the order diary, for the order's day.
   function diaryHtml() {
     var d = S.diary, one = d.lines.length === 1;
-    return '<form class="ord-form ord-dia" id="ord-diary" autocomplete="off" aria-label="Order diary">' +
+    return '<form class="ord-form sf-form ord-dia" id="ord-diary" autocomplete="off" aria-label="Order diary">' +
       '<div class="ord-meta">Put ' + (one ? "“" + esc(d.lines[0]) + "”" : d.lines.length + " items") + " in the order diary for " + esc(d.date === today() ? "today" : dmy(d.date)) + "?</div>" +
       '<label><span>Supplier</span><input name="supplier" value="' + esc(d.supplier || "") + '" placeholder="Optional, e.g. PharmaCo"></label>' +
       (d.err ? '<div class="ord-err" role="alert">' + esc(d.err) + "</div>" : "") +
       '<div class="acts"><button type="button" class="ord-btn" data-act="diary-no">Not now</button><button type="submit" class="ord-btn p"' + (d.saving ? " disabled" : "") + ">" + (d.saving ? "Adding…" : "Add to diary") + "</button></div></form>";
+  }
+  // After a delete, the classic screen's next question (promptRemoveFromOrderDiary): the order's lines that are in the
+  // order diary for its day (one diary line per order line, matched by name, case and spaces aside), taken off on Yes.
+  function undiaryHtml() {
+    var d = S.undiary;
+    return '<form class="ord-form sf-form ord-dia" id="ord-undiary" autocomplete="off" aria-label="Order diary">' +
+      '<div class="ord-meta" id="ord-undiary-q">' + (d.matched.length === 1 ? "“" + esc(d.matched[0].item_name) + "” is" : d.matched.length + " of its items are") + " in the order diary for " + esc(d.date === today() ? "today" : dmy(d.date)) + ". Take " + (d.matched.length === 1 ? "it" : "them") + " off the order diary too?</div>" +
+      (d.matched.length > 1 ? '<ul class="ord-meta" style="margin:0;padding:0 16px 6px 34px">' + d.matched.map(function (x) { return "<li>" + esc(x.item_name) + (x.supplier ? " · " + esc(x.supplier) : "") + "</li>"; }).join("") + "</ul>" : "") +
+      (d.err ? '<div class="ord-err" role="alert">' + esc(d.err) + "</div>" : "") +
+      '<div class="acts"><button type="button" class="ord-btn" data-act="undiary-no">Keep them</button><button type="submit" class="ord-btn p" aria-describedby="ord-undiary-q"' + (d.saving ? " disabled" : "") + ">" + (d.saving ? "Taking off…" : "Take off the diary") + "</button></div></form>";
+  }
+  async function findInDiary(items, date) {
+    var lines = String(items || "").split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean); // the classic splitItemLines
+    if (!lines.length || !date) return null;
+    var r = await E.apiFetch("/order-diary/entries?date=" + encodeURIComponent(date), { method: "GET" });
+    var all = (r && r.entries) || [], low = lines.map(function (l) { return l.toLowerCase(); }), used = {}, matched = [];
+    all.forEach(function (de) { var n = String(de.item_name || "").trim().toLowerCase(); for (var j = 0; j < low.length; j++) if (n === low[j] && !used[j]) { matched.push(de); used[j] = true; break; } }); // as classic: each order line once
+    return matched.length ? { date: date, matched: matched.map(function (x) { return { id: x.id, item_name: x.item_name, supplier: x.supplier || "" }; }), saving: false, err: "" } : null;
+  }
+  // Yes: the classic calls, DELETE /order-diary/entries/:id for each, one after the other. A failure keeps the ones left.
+  async function offDiary() {
+    var d = S.undiary; if (!d || d.saving) return;
+    d.saving = true; d.err = ""; paint();
+    var n = d.matched.length;
+    try {
+      while (d.matched.length) {
+        var x = d.matched[0];
+        try { var r = await E.apiFetch("/order-diary/entries/" + encodeURIComponent(String(x.id)), { method: "DELETE" }); if (!r || !r.ok) throw new Error((r && r.error) || "Delete failed"); }
+        catch (e1) { var gone = false; if (e1 && e1.network) { try { var l = await E.apiFetch("/order-diary/entries?date=" + encodeURIComponent(d.date), { method: "GET" }); gone = !!(l && l.ok) && !(l.entries || []).some(function (y) { return y.id === x.id; }); } catch (e2) {} } if (!gone) throw e1; }
+        d.matched.shift();
+      }
+    } catch (x2) { d.saving = false; d.err = E.saveFailText(x2).replace(/^Not saved/, "Not taken off") + (n - d.matched.length ? " " + (n - d.matched.length) + " already off." : ""); paint(); return focusOn("#ord-undiary [type=submit]"); }
+    S.undiary = null; E.toast(n === 1 ? "Taken off the order diary" : n + " items taken off the order diary", "success"); paint(); focusOn(".ord-top [data-act=add]");
   }
   // Opened from a customer's page (modules.customers.js, BACKLOG4 item 1): who it is for stays in sight at the top, the
   // person is filled into the empty fields only, and focus goes to the first required field still empty.
@@ -288,7 +322,7 @@
   function addHtml() {
     var a = S.adding, fe = S.fe || {};
     var f = function (k, label, extra, after) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] || "") + '"' + (extra || "") + inv(fe, k) + ">" + (after || "") + ferr(fe, k) + "</label>"; };
-    return '<form class="ord-form" id="ord-add" autocomplete="off" aria-label="New order">' + carryLine() +
+    return '<form class="ord-form sf-form sf-new" id="ord-add" autocomplete="off" aria-label="New order">' + carryLine() +
       f("client_name", "Customer", ' placeholder="Name and surname" autocapitalize="words"') +
       // not part of the order (the orders table has no ID card): it is checked against the person and kept on their details
       f("id_card", "ID card", ' placeholder="Optional, kept on their details" autocapitalize="characters"') +
@@ -351,12 +385,13 @@
       '<div class="ord-top"><div><h1>Orders</h1><p class="ord-sub">What customers are waiting for, by when they need it.</p></div>' + (S.adding ? "" : '<button class="ord-btn p" data-act="add">New order</button>') + "</div>";
     if (S.adding) h += addHtml();
     if (S.diary) h += diaryHtml();
+    if (S.undiary) h += undiaryHtml();
     h += '<div class="ord-tabs" role="group" aria-label="Which orders"><button type="button" data-act="view-open" aria-pressed="' + (S.view === "open") + '">Waiting</button><button type="button" data-act="view-done" aria-pressed="' + (S.view === "done") + '">Done</button></div>';
     var many = S.view === "done" ? S.done.length > 8 : S.entries.length > 8;
     if (many || S.q) h += '<input class="ord-q" aria-label="Search orders" id="ord-q" type="search" autocomplete="off" placeholder="Search customer, phone or item" value="' + esc(S.q) + '">';
     h += '<div id="ord-res">' + resultsHtml() + "</div>";
     h += E.months.history("ordreg", E.months.preset("orders", { paint: function () { E.repaintKeepingFocus(S.mount, paint); }, dep: function () { return S.loading ? undefined : S.entries; } })); // every order of a month, and its printout (eikon.months.js)
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Taking a deleted order\'s items off the order diary is in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += "</div>";
     return h;
   }
 
@@ -405,6 +440,7 @@
         else if (a === "older") loadDone(true);
         else if (a === "older-toggle") { S.olderOpen = !S.olderOpen; paintResults(); focusOn("[data-act=older-toggle]"); }
         else if (a === "diary-no") { S.diary = null; paint(); focusOn(".ord-top [data-act=add]"); }
+        else if (a === "undiary-no") { S.undiary = null; paint(); focusOn(".ord-top [data-act=add]"); }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "ordreg"); } catch (e) {} E.openClassic("clientorders"); }
       });
     });
@@ -425,6 +461,11 @@
     if (fd) {
       fd.addEventListener("submit", function (ev) { ev.preventDefault(); toDiary(); });
       fd.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && S.diary && !S.diary.saving) { ev.preventDefault(); S.diary = null; paint(); focusOn(".ord-top [data-act=add]"); } });
+    }
+    var fu = root.querySelector("#ord-undiary");
+    if (fu) {
+      fu.addEventListener("submit", function (ev) { ev.preventDefault(); offDiary(); });
+      fu.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && S.undiary && !S.undiary.saving) { ev.preventDefault(); S.undiary = null; paint(); focusOn(".ord-top [data-act=add]"); } });
     }
     var fe = root.querySelector("#ord-edit");
     if (fe) {
@@ -492,13 +533,13 @@
   async function remove() {
     if (S.editSaving || !S.editing || !isAdmin()) return;
     keepEdit();
-    var id = S.editing, reason = String(S.delReason || "").trim();
+    var id = S.editing, reason = String(S.delReason || "").trim(), was = { items: (S.orig || {}).items, date: (S.orig || {}).order_date };
     if (!reason) { S.editErr = "Write why it is being deleted. Nothing was deleted."; paint(); var r0 = S.mount.querySelector("#ord-edit [name=del_reason]"); if (r0) r0.focus(); return; }
     S.editSaving = true; S.editErr = ""; paint();
     try {
       var fresh = await reread(id, (S.orig || {}).order_date);
       if (fresh) {
-        var u = uiOf(fresh), who = ((E.state.user || {}).full_name || "").trim();
+        var u = uiOf(fresh); was = { items: u.items, date: u.order_date }; var who = ((E.state.user || {}).full_name || "").trim();
         if (u.contact) { // the server refuses a change without a phone: then only the audit's copy remains, without the reason
           var line = "Deleted " + dmy(today()) + (who ? " by " + who : "") + ": " + reason;
           u.notes = u.notes ? u.notes + "\n" + line : line; if (!u.pick_up_date) u.pick_up_date = u.needed_by;
@@ -514,7 +555,9 @@
       if (gone) { E.toast("Order deleted", "success"); S.editing = null; S.edit = null; S.del = null; }
       else { S.editErr = E.saveFailText(x).replace(/^Not saved/, "Not deleted"); S.editSaving = false; return paint(); }
     }
-    S.editSaving = false; return reloadAll();
+    S.editSaving = false; S.undiary = null;
+    try { S.undiary = await findInDiary(was.items, String(was.date || "").slice(0, 10)); } catch (x3) { S.undiary = null; } // as classic: the diary unread, nothing is asked
+    await reloadAll(); if (S.undiary) focusOn("#ord-undiary [type=submit]");
   }
 
   // The classic call, line by line (POST /order-diary/entries { order_date, item_name, qty: 1, supplier, notes: "" }).
@@ -628,7 +671,7 @@
     id: "ordreg", title: "Orders", order: 3, icon: "◎", ui2Only: true,
     render: function (ctx) {
       S.mount = ctx && ctx.mount; S.busy = {}; S.adding = null; S.editing = null; S.edit = null; S.del = null; S.editErr = ""; S.editSaving = false; S.view = "open"; S.done = [];
-      S.fe = {}; S.efe = {}; S.err = ""; S.askPhone = null; S.phErr = ""; S.phDraft = ""; S.diary = null; E.listPage.reset("ord");
+      S.fe = {}; S.efe = {}; S.err = ""; S.askPhone = null; S.phErr = ""; S.phDraft = ""; S.diary = null; S.undiary = null; E.listPage.reset("ord");
       // From the search (eikon.search.js): show the order that was chosen or scanned (its code, or the customer's name).
       // That filter is for this visit only: the next visit opens on every order again.
       if (S.qFromSearch) { S.q = ""; S.qFromSearch = false; }

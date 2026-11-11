@@ -129,3 +129,19 @@ test("returns: open=1 lists every return not yet credited plus the last 60 days,
   const open = (await app.api("GET", "/returns/entries?open=1", { token })).json.entries.map((e) => e.description).sort();
   eq(open, ["Old, still waiting for credit", "Recent and credited"]);
 });
+
+test("stock transfers: place on Returns works on a database where Returns was never opened (was 500 'no such table returns_entries')", async ({ api, bootstrap, DB }) => {
+  const { token } = await bootstrap();
+  const r = await api("POST", "/stock-transfers/items", { token, body: { item_description: "Clexane 40", batch: "B7", quantity_available: 3, entry_date: "2026-10-01", expiry_date: "2027-12-31" } });
+  eq(r.status < 300, true, r.text);
+  eq(DB.q("SELECT COUNT(*) AS c FROM sqlite_master WHERE name = 'returns_entries'")[0].c, 0, "fresh database: Returns never opened");
+  const id = DB.one("SELECT id FROM stock_transfer_items WHERE item_description = 'Clexane 40'").id;
+  const p = await api("POST", "/stock-transfers/items/" + id + "/place-on-returns", { token, body: {} });
+  eq(p.status, 201, p.text);
+  const ret = DB.one("SELECT description, batch, expiry, quantity, remarks FROM returns_entries WHERE id = ?", p.json.returns_id);
+  eq(ret, { description: "Clexane 40", batch: "B7", expiry: "2027-12-31", quantity: "3", remarks: "From Stock Transfer" });
+  eq(DB.one("SELECT placed_on_returns, placed_on_returns_id FROM stock_transfer_items WHERE id = ?", id), { placed_on_returns: 1, placed_on_returns_id: p.json.returns_id });
+  const list = await api("GET", "/returns/entries", { token });
+  eq(list.status, 200, list.text); ok(list.text.includes("Clexane 40"), "shows on Returns");
+  eq((await api("POST", "/stock-transfers/items/" + id + "/place-on-returns", { token, body: {} })).status, 409, "a second press: already placed");
+});

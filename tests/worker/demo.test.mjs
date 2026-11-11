@@ -339,3 +339,57 @@ test("demo nightly: the 10-minute cron resets once per Malta day from 03:00, car
   ok(st().running === false && st().last_day === "2026-11-13" && people() === 8, "the next night, in " + most.length + " runs");
   ok(most.length > 1 && Math.max(...most) < 800, "bounded per run: " + most.join(", ") + " queries");
 });
+
+test("demo guard: privacy — a demo session never exports or erases a person, undoes an erase or downloads the records (nothing written)", async (app) => {
+  const w = await world(app);
+  const P = await door(app);
+  const mk = await app.api("POST", "/people", { token: P.token, body: { name: "Borg Maria", id_card: "0000456M", phone: "79004567", email: "maria@example.com" } });
+  eq(mk.status, 200, mk.text);
+  const pid = mk.json.person.id;
+  const person0 = JSON.stringify(app.DB.db.prepare("SELECT * FROM people WHERE id = ?").get(pid));
+  const audit0 = app.DB.db.prepare("SELECT COUNT(*) AS c FROM audit_log").get().c;
+  for (const token of [P.token, w.john.token]) { // the visitor (an admin of the demo pharmacy) and the demo group's real sign-in
+    for (const [m, p, body] of [["POST", "/people/" + pid + "/export", {}], ["GET", "/people/" + pid + "/export", undefined], ["POST", "/people/" + pid + "/erase", {}],
+      ["POST", "/people/" + pid + "/erase", { confirm: true, plan: "x" }], ["POST", "/people/erasures/gdpr_00000000-0000-0000-0000-000000000000/undo", {}],
+      ["GET", "/export/records?part=customers", undefined], ["GET", "/export/records?part=bookings&from=2026-01-01&to=2026-12-31", undefined]]) {
+      const r = await app.api(m, p, { token, body });
+      eq([m + " " + p, r.status, r.json && r.json.demo], [m + " " + p, 403, true], r.text.slice(0, 200));
+    }
+  }
+  eq(JSON.stringify(app.DB.db.prepare("SELECT * FROM people WHERE id = ?").get(pid)), person0, "the person is unchanged");
+  eq(app.DB.db.prepare("SELECT COUNT(*) AS c FROM sqlite_master WHERE name = 'gdpr_erasures'").get().c, 0, "no erasure table made, nothing erased");
+  eq(app.DB.db.prepare("SELECT COUNT(*) AS c FROM audit_log WHERE action LIKE 'PERSON_E%'").get().c, 0, "no export or erase audited");
+  ok(app.DB.db.prepare("SELECT COUNT(*) AS c FROM audit_log").get().c >= audit0, "audit untouched otherwise");
+  // live pharmacies are not affected by the guard
+  const lp = (await app.api("POST", "/people", { token: w.live, body: { name: "Live Person", id_card: "0099999M", phone: "79999999" } })).json.person;
+  eq((await app.api("POST", "/people/" + lp.id + "/export", { token: w.live, body: {} })).status, 200, "a live admin still exports");
+});
+
+test("demo reset: the privacy tables (gdpr_erasures, gdpr_erasure_rows) lose only the demo's rows; live erasures and their undo copies stay byte for byte", async (app) => {
+  const w = await world(app);
+  // a live erasure with its undo copies
+  const lp = (await app.api("POST", "/people", { token: w.live, body: { name: "Live Person", id_card: "0099999M", phone: "79999999", email: "live@example.com" } })).json.person;
+  const pre = (await app.api("POST", "/people/" + lp.id + "/erase", { token: w.live, body: {} })).json;
+  const er = await app.api("POST", "/people/" + lp.id + "/erase", { token: w.live, body: { confirm: true, plan: pre.plan } });
+  eq(er.status, 200, er.text.slice(0, 200));
+  // demo rows in both tables (as if left from before the guard)
+  app.DB.db.prepare("INSERT INTO gdpr_erasures (erasure_id, org_id, location_id, person_id, undo_until) VALUES ('gdpr_demo', 2, 2, 1, datetime('now', '+1 day'))").run();
+  app.DB.db.prepare("INSERT INTO gdpr_erasure_rows (erasure_id, org_id, location_id, table_name, row_id, column_name, old_value, new_value) VALUES ('gdpr_demo', 2, 2, 'people', 1, 'name', 'Demo Old', 'Erased person #1')").run();
+  app.DB.db.prepare("INSERT INTO gdpr_erasure_rows (erasure_id, org_id, location_id, table_name, row_id, column_name, old_value, new_value) VALUES ('gdpr_demo', 2, 399, 'people', 2, 'name', 'Demo Old 2', 'Erased person #2')").run();
+  const live = () => JSON.stringify([app.DB.db.prepare("SELECT * FROM gdpr_erasures WHERE org_id = 1 ORDER BY rowid").all(), app.DB.db.prepare("SELECT * FROM gdpr_erasure_rows WHERE org_id = 1 ORDER BY rowid").all()]);
+  const live0 = live();
+  ok(app.DB.db.prepare("SELECT COUNT(*) AS c FROM gdpr_erasure_rows WHERE org_id = 1").get().c > 0, "the live erasure keeps undo copies");
+  const before = liveSnapshot(app.DB);
+  app.env.SUPERUSER_EMAILS = "maria@live.example";
+  let r, n = 0;
+  do { r = await app.api("POST", "/su/api/demo/reset", { token: w.live, body: {} }); eq(r.status, 200, r.text); n++; } while (!r.json.done && n < 20);
+  ok(r.json.done, r.text);
+  eq(r.json.skipped.filter((t) => /^gdpr_/.test(t)), [], "both privacy tables are in the wipe plan");
+  eq(app.DB.db.prepare("SELECT COUNT(*) AS c FROM gdpr_erasures WHERE org_id = 2").get().c + app.DB.db.prepare("SELECT COUNT(*) AS c FROM gdpr_erasure_rows WHERE org_id = 2").get().c, 0, "the demo's privacy rows are gone");
+  eq(live(), live0, "live erasures and undo copies byte for byte");
+  const after = liveSnapshot(app.DB);
+  for (const t of Object.keys(before)) eq(after[t], before[t], "live rows of " + t + " unchanged");
+  const u = await app.api("POST", "/people/erasures/" + er.json.erasure_id + "/undo", { token: w.live, body: {} });
+  eq(u.status, 200, "the live undo still works: " + u.text.slice(0, 200));
+  eq(app.DB.db.prepare("SELECT name FROM people WHERE id = ?").get(lp.id).name, "Live Person");
+});

@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-11-batch-18";
+const WORKER_VERSION = "2026-11-11-batch-19";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -13232,6 +13232,7 @@ async function handleStockTransferPlaceOnReturns(request, env, corsOkHeaders, au
     return jsonResponse({ ok: false, error: "Forbidden: not your item" }, 403, corsOkHeaders);
   }
   if (item.placed_on_returns) return jsonResponse({ ok: false, error: "Already placed on Returns" }, 409, corsOkHeaders);
+  await ensureReturnsSchema(env); // a pharmacy that never opened Returns has no returns_entries yet (was a 500 "no such table")
 
   // Create returns entry
   const res = await dbRun(env, `
@@ -18975,7 +18976,8 @@ const EIKON_WORKER = {
   async scheduled(event, env, ctx) {
     ctx.waitUntil(Promise.all([
       bkRunReminders(env).catch((e) => console.log("[bookings] reminders failed", e && e.message)),
-      demoNightly(env, ctx).catch((e) => console.log("[demo] nightly reset failed", e && e.message)) // one-click demo: nothing unless DEMO_* are set
+      demoNightly(env, ctx).catch((e) => console.log("[demo] nightly reset failed", e && e.message)), // one-click demo: nothing unless DEMO_* are set
+      gdprPurgeExpired(env).catch(() => {}) // privacy: undo copies of erasures past their 24 hours (one indexed read when none)
     ]));
   },
   async fetch(request, env, ctx) {
@@ -19304,6 +19306,11 @@ const authUser = await authFromRequest(request, env);
     { const m = url.pathname.match(/^\/people\/(\d+)\/change-id-card$/); if (m && request.method === "POST") return await handlePersonChangeIdCard(request, env, corsOkHeaders, authUser, Number(m[1])); } // ID card change (block after handlePeopleBackfill)
     { const m = url.pathname.match(/^\/people\/(\d+)\/id-card-changes$/); if (m && request.method === "GET") return await handlePersonIdCardChanges(request, env, corsOkHeaders, authUser, Number(m[1])); }
     { const m = url.pathname.match(/^\/people\/id-card-changes\/(idc_[0-9a-f-]{36})\/undo$/); if (m && request.method === "POST") return await handlePersonIdCardUndo(request, env, corsOkHeaders, authUser, m[1]); }
+    // Privacy: export everything held on one person, erase one person, undo within 24 hours, Settings download (gdpr block at the end of this file)
+    { const m = url.pathname.match(/^\/people\/(\d+)\/(privacy|export|erase)$/); if (m && (request.method === "POST" || (request.method === "GET" && m[2] === "export"))) return await (m[2] === "privacy" ? handlePersonPrivacy : m[2] === "export" ? handlePersonExport : handlePersonErase)(request, env, corsOkHeaders, authUser, Number(m[1])); }
+    { const m = url.pathname.match(/^\/people\/(\d+)\/erasures$/); if (m && request.method === "GET") return await handlePersonErasures(request, env, corsOkHeaders, authUser, Number(m[1])); }
+    { const m = url.pathname.match(/^\/people\/erasures\/(gdpr_[0-9a-f-]{36})\/undo$/); if (m && request.method === "POST") return await handlePersonEraseUndo(request, env, corsOkHeaders, authUser, m[1]); }
+    if (url.pathname === "/export/records" && request.method === "GET") return await handleExportRecords(request, env, corsOkHeaders, authUser, url);
 
     if (url.pathname === "/auth/unlock" && request.method === "POST") {
       return await handleUnlock(request, env, corsOkHeaders, authUser);
@@ -26088,6 +26095,9 @@ async function demoGuard(request, env, url, authUser, cors) {
   if (p === "/auth/unlock" && m === "POST") return { response: jsonResponse({ ok: true, demo: true }, 200, cors) }; // nothing to type: the visitor has no password
   if (p.startsWith("/admin/names/") || p.startsWith("/su/")) return { response: demoNo(cors) };
   if (p === "/board/suggestions/export") return { response: demoNo(cors) };
+  // Privacy (gdpr block): a demo session never exports or erases a person, never undoes an erase and never downloads
+  // Settings › Download our records (customers, bookings, messages, money, team). "What we hold" stays readable.
+  if (/^\/people\/\d+\/(export|erase)$/.test(p) || p.startsWith("/people/erasures/") || p === "/export/records") return { response: demoNo(cors, "Exporting or erasing a person is not available in the demo") };
   // Anything that would leave the sandbox: e-mail, text, WhatsApp, push, calendar feeds, sender keys, public pages.
   if (p === "/messages" && write) return { response: demoNotSent(cors) };
   if (p.startsWith("/bookings/senders")) {
@@ -26560,3 +26570,604 @@ async function handleSuDemo(request, env, cors, parts, ctx) {
   return jsonResponse({ ok: false, error: "Not found" }, 404, cors);
 }
 // ===== end one-click public demo =====
+/* ══════════════════════════════════════════════════════════════════════════════
+   PRIVACY — everything we hold on one person (export), erase one person (anonymise in place, undo for 24 hours),
+   and Settings › Download our records for customers, bookings, messages, money and team (gdpr block).
+   Additive only: two new tables (gdpr_erasures, gdpr_erasure_rows), new routes; the router has one line per route
+   next to the /people routes, and scheduled() one guarded line that wipes the undo copies once their 24 hours are up.
+     POST /people/:id/privacy            what we hold, table by table: rows that are surely theirs, rows with the same
+                                         name only (to be ticked), what an erase would change and what it keeps (and why).
+     POST /people/:id/export { rows }    the person's rows from every table, own pharmacy only. Audited (PERSON_EXPORT).
+     POST /people/:id/erase  { rows, confirm, plan, reason }
+                                         no confirm: the exact plan (table, row, column) and its fingerprint. confirm +
+                                         the same fingerprint: one D1 batch writes the header, the old value of every
+                                         column it changes (insert-only), and the updates; then one audit row
+                                         (PERSON_ERASE, counts only: never the values). Never DELETE: rows other records
+                                         point at stay, with "Erased person #<id>" for the name and blanks for contacts.
+     POST /people/erasures/:id/undo      within GDPR_UNDO_HOURS: puts back the values where the row is still as the
+                                         erase left it, then deletes the copies. Audited (PERSON_ERASE_UNDO).
+     GET  /people/:id/erasures           the person's erasures, newest first.
+     GET  /export/records?part=&from=&to=&after=   Settings › Download our records (read only, paged by id).
+   Who: admin of this pharmacy (GDPR_ROLES). Staff get 403, also for the preview. Where: every read and write is
+   org_id = ? AND location_id = ? of the caller; table and column names come from GDPR_TABLES, never from a request.
+   What stays: GDPR_POLICY, as John decided on 2026-11-11 (legal records keep the name; bookings, loyalty and messages
+   are anonymised; do-not-email lists, credit notes and till receipts are kept; undo 24 hours).
+   ══════════════════════════════════════════════════════════════════════════════ */
+const GDPR_ROLES = ["admin"];
+const GDPR_UNDO_HOURS = 24;      // J5: 0 = no undo, and then no copy of the old values is ever written
+const GDPR_MAX_ROWS = 800;        // rows one erase may change (one D1 batch)
+const GDPR_TABLE_CAP = 2000;      // rows read per table
+// "keep": left exactly as it is (exported, listed as kept with the reason). "erase": anonymised in place.
+// John's retention answers (2026-11-11; legal records "lawyer to confirm"). A later change is one word here, or the
+// GDPR_POLICY variable (the anonymising for every key is written and tested).
+const GDPR_POLICY = {
+  cd: "keep",           // controlled-drug registers (DDA supplied, POYC) and deliveries that carried controlled drugs
+  rx: "keep",           // daily register (prescriptions) and repeat prescriptions
+  pv: "keep",           // pharmacovigilance reports (initials and ID card only)
+  vaccinations: "keep", // vaccinations given
+  poct: "keep",         // tests (POCT patient list and results) and screening
+  calculator: "keep",   // pharmacy calculator patients and calculations (not in John's list: kept, fail-closed default)
+  bookings: "erase",    // John: anonymise — bookings, doctor appointments and both waiting lists
+  loyalty: "erase",     // John: anonymise — loyalty card and visits
+  messages: "erase",    // John: anonymise — messages sent to the person (Tell the customer)
+  money: "keep",        // J9: credit notes and emergency till receipts (may be tax or accounting records)
+  labels: "keep",       // J1: medicine labels (a dispensing label is part of the supply record)
+  erase: "erase"        // the customer record, profile, contacts, orders, questions, vaccine orders
+};
+const GDPR_WHY = { // shown on the confirmation, next to each kind of record that is kept
+  cd: "Controlled-drug register",
+  rx: "Prescription register",
+  pv: "Report to the medicines authority",
+  vaccinations: "Vaccination record",
+  poct: "Test results",
+  calculator: "Dose calculations",
+  bookings: "Booking history",
+  loyalty: "Loyalty history",
+  messages: "Messages sent to them",
+  money: "Money record",
+  labels: "Medicine label",
+  optout: "So the pharmacy never e-mails this address again",
+  trail: "Who changed what, kept as the pharmacy's proof"
+};
+// The keys whose records are kept because a law may ask for them (the rest are kept only until the pharmacy decides).
+const GDPR_LEGAL_KEYS = ["cd", "rx", "pv", "vaccinations", "poct", "calculator", "money", "labels"];
+// Kinds of new value: "@name" Erased person #<id>; "@card" a unique tombstone for tables that allow one row per card;
+// "@json:<key>" the JSON with its name, ID card and contact keys blanked; anything else is stored as it is.
+const GDPR_TABLES = [
+  { t: "cust_profile", label: "How they like to be told", group: "Customer", policy: "erase", person: "person_id", date: "updated_at",
+    scrub: { prefers: "", email_ok: null, sms_ok: null, whatsapp_ok: null, lang: "", allergies: "" } },
+  { t: "contacts_clients", label: "Client contacts", group: "Customer", policy: "erase", name: "name", card: "id_card", phone: ["phone", "alt_phone"], date: "updated_at",
+    scrub: { name: "@name", id_card: "", address: "", phone: "", alt_phone: "" } },
+  { t: "client_orders_entries", label: "Orders", group: "Orders and services", policy: "erase", name: "client_name", phone: ["client_phone", "client_alt_phone"], email: "client_email", date: "order_date",
+    scrub: { client_name: "@name", client_phone: "", client_alt_phone: "", client_email: "", client_address: "", notes: "" } },
+  { t: "client_tickets_entries", label: "Questions", group: "Orders and services", policy: "erase", name: "client_name", phone: ["phone"], email: "email", date: "open_date",
+    scrub: { client_name: "@name", phone: "", email: "", notes_log: "[]" } },
+  // Deliveries carry the medicines dispensed to the person (items), so they follow the prescription register (rx);
+  // the ones with controlled drugs follow the controlled-drug registers (cd).
+  { t: "client_deliveries", label: "Deliveries", group: "Orders and services", policy: "rx", name: "client_name", phone: ["phone"], email: "email", date: "order_date",
+    rowPolicy: (r) => (Number(r.contains_controlled) ? "cd" : null),
+    scrub: { client_name: "@name", phone: "", email: "", delivery_address: "", address_notes: "", id_doc_ref: "", recipient_name: "", proof_of_delivery: "", internal_notes: "" } },
+  { t: "vaccines_orders", label: "Vaccine orders", group: "Orders and services", policy: "erase", name: "TRIM(COALESCE(client_first, '') || ' ' || COALESCE(client_last, ''))", phone: ["phone"], email: "email", date: "created_at",
+    scrub: { client_first: "@name", client_last: "", phone: "", email: "" } },
+  { t: "label_history", label: "Medicine labels", group: "Orders and services", policy: "labels", date: "updated_at",
+    json: { col: "label_json", name: "patientName", scrub: { patientName: "@name" } } },
+  { t: "credit_notes", label: "Credit notes", group: "Money", policy: "money", name: "TRIM(COALESCE(client_name, '') || ' ' || COALESCE(client_surname, ''))", phone: ["telephone"], email: "email", date: "issue_date",
+    scrub: { client_name: "@name", client_surname: "", telephone: "", email: "" } },
+  { t: "pos_sales", label: "Emergency till receipts", group: "Money", policy: "money", name: "client_name", card: "client_id", date: "sale_date",
+    scrub: { client_name: "@name", client_id: "" } },
+  { t: "loyalty_clients", label: "Loyalty card", group: "Loyalty", policy: "loyalty", name: "name", card: "id_card", date: "created_at", unique: "id_card",
+    scrub: { name: "@name", id_card: "@card" } },
+  { t: "loyalty_transactions", label: "Loyalty visits", group: "Loyalty", policy: "loyalty", name: "client_name", card: "client_id_card", date: "txn_date",
+    scrub: { client_name: "@name", client_id_card: "", notes: "" } },
+  { t: "bk_bookings", label: "Bookings", group: "Bookings", policy: "bookings", name: "person_name", card: "person_id_card", phone: ["person_phone"], email: "person_email", date: "date",
+    scrub: { person_name: "@name", person_phone: "", person_email: "", person_id_card: "", notes: "" } },
+  { t: "bk_waitlist", label: "Bookings waiting list", group: "Bookings", policy: "bookings", name: "person_name", phone: ["person_phone"], email: "person_email", date: "created_at",
+    scrub: { person_name: "@name", person_phone: "", person_email: "", note: "" } },
+  { t: "bk_messages", label: "Booking e-mails (what was sent when)", group: "Bookings", policy: "bookings", parent: { table: "bk_bookings", col: "booking_id" }, date: "created_at", scrub: {} },
+  { t: "appt_appointments", label: "Doctor appointments", group: "Bookings", policy: "bookings", name: "patient_name", card: "patient_id_card", phone: ["patient_phone"], email: "patient_email", date: "date",
+    scrub: { patient_name: "@name", patient_id_card: "", patient_phone: "", patient_email: "", notes: "" } },
+  { t: "appt_waitlist", label: "Doctor waiting list", group: "Bookings", policy: "bookings", name: "patient_name", card: "patient_id_card", phone: ["patient_phone"], email: "patient_email", date: "added_date",
+    scrub: { patient_name: "@name", patient_id_card: "", patient_phone: "", patient_email: "", notes: "" } },
+  { t: "cust_messages", label: "Messages sent to them", group: "Messages", policy: "messages", person: "person_id", name: "person_name", date: "created_at",
+    scrub: { person_name: "@name", to_addr: "", subject: "", body: "(erased)" } },
+  { t: "vaccinations", label: "Vaccinations given", group: "Health", policy: "vaccinations", name: "TRIM(COALESCE(client_first, '') || ' ' || COALESCE(client_last, ''))", card: "id_card", phone: ["phone"], email: "email", date: "given_on",
+    scrub: { client_first: "@name", client_last: "", phone: "", email: "", id_card: "", notes: "" } },
+  { t: "poct_patients", label: "Tests: patient list", group: "Health", policy: "poct", name: "name", card: "patient_id", phone: ["phone"], date: "last_seen_iso", unique: "patient_id", linkKey: "patient_id",
+    scrub: { name: "@name", phone: "", address: "", patient_id: "@card", patient_json: "@json:" } },
+  { t: "poct_records", label: "Tests: results", group: "Health", policy: "poct", name: "patient_name", card: "patient_id", phone: ["patient_phone"], date: "performed_at_iso",
+    scrub: { patient_name: "@name", patient_id: "", patient_phone: "", patient_address: "", record_json: "@json:patient" } },
+  { t: "screening_campaigns", label: "Screening", group: "Health", policy: "poct", date: "updated_at",
+    json: { col: "campaign_json", list: "participants", name: "name", card: "idCard", phone: "phone", email: "email", scrub: { name: "@name", idCard: "", phone: "", email: "", dob: "", address: "" } } },
+  { t: "pharmacy_calc_patients", label: "Calculator patients", group: "Health", policy: "calculator", name: "patient_name", card: "id_card", date: "updated_at",
+    scrub: { patient_name: "@name", id_card: "" } },
+  { t: "pharmacy_calc_records", label: "Calculations", group: "Health", policy: "calculator", name: "patient_name", card: "id_card", date: "start_date",
+    scrub: { patient_name: "@name", id_card: "" } },
+  { t: "dda_sales_entries", label: "Controlled drugs supplied (DDA)", group: "Legal registers", policy: "cd", name: "client_name", card: "client_id_card", date: "entry_date",
+    scrub: { client_name: "@name", client_id_card: "", client_address: "" } },
+  { t: "dda_poyc_entries", label: "POYC controlled drugs", group: "Legal registers", policy: "cd", name: "client_name", card: "client_id_card", date: "entry_date",
+    scrub: { client_name: "@name", client_id_card: "", client_address: "" } },
+  { t: "daily_register_entries", label: "Daily register (prescriptions)", group: "Legal registers", policy: "rx", name: "client_name", card: "client_id", date: "entry_date",
+    scrub: { client_name: "@name", client_id: "" } },
+  { t: "repeat_prescription_entries", label: "Repeat prescriptions", group: "Legal registers", policy: "rx", name: "client_name", card: "client_id", date: "entry_date",
+    scrub: { client_name: "@name", client_id: "" } },
+  { t: "pv_reports", label: "Pharmacovigilance reports", group: "Legal registers", policy: "pv", date: "updated_at",
+    json: { col: "report_json", card: "pt_id", initials: "pt_initials", scrub: { pt_id: "", pt_initials: "", pt_dob_day: "", pt_dob_month: "" } } },
+  { t: "bk_optout", label: "Stopped booking e-mails", group: "Messages", policy: "optout", fixed: true, email: "email", emailOnly: true, date: "created_at", scrub: {} },
+  { t: "cust_msg_optout", label: "Stopped customer e-mails", group: "Messages", policy: "optout", fixed: true, email: "email", emailOnly: true, date: "created_at", scrub: {} }
+];
+const GDPR_PEOPLE_SCRUB = { name: "@name", id_card: "", phone: "", alt_phone: "", email: "", address: "", doctor_name: "", date_of_birth: "", notes: "", source: "erased" };
+// "@json:<key>": the JSON's own name, ID card and contact keys (at the top, or inside <key>), nothing else.
+const GDPR_JSON_KEYS = { name: "@name", patientName: "@name", patientId: "@card", idCard: "", phone: "", email: "", address: "", dob: "" };
+
+async function ensureGdprSchema__impl(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS gdpr_erasures (
+    erasure_id TEXT PRIMARY KEY, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, person_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'done', rows_changed INTEGER NOT NULL DEFAULT 0, summary_json TEXT NOT NULL DEFAULT '{}',
+    reason TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')), created_by INTEGER,
+    undo_until TEXT NOT NULL, undone_at TEXT, undone_by INTEGER, purged_at TEXT)`, []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_gdpr_erasures_person ON gdpr_erasures (org_id, location_id, person_id, created_at)", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_gdpr_erasures_due ON gdpr_erasures (undo_until) WHERE purged_at IS NULL", []);
+  // The values an erase replaced, kept only for the undo window, then deleted (gdprPurgeExpired).
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS gdpr_erasure_rows (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, erasure_id TEXT NOT NULL, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+    table_name TEXT NOT NULL, row_id INTEGER NOT NULL, column_name TEXT NOT NULL, old_value, new_value)`, []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_gdpr_erasure_rows_e ON gdpr_erasure_rows (erasure_id, table_name, row_id)", []);
+}
+const ensureGdprSchema = schemaOnce("ensureGdprSchema", ensureGdprSchema__impl);
+
+// Wipes the old values of erasures whose undo window has passed. Never creates a table (no table: nothing to do).
+// Called from scheduled() and from every privacy route; reads one indexed row when nothing is due.
+async function gdprPurgeExpired(env) {
+  let due = [];
+  try { due = await dbAll(env, "SELECT erasure_id FROM gdpr_erasures WHERE purged_at IS NULL AND undo_until < datetime('now') LIMIT 20", []); } catch (e) { return 0; }
+  for (const d of due) {
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM gdpr_erasure_rows WHERE erasure_id = ?").bind(d.erasure_id),
+      env.DB.prepare("UPDATE gdpr_erasures SET purged_at = datetime('now'), status = CASE WHEN status = 'done' THEN 'final' ELSE status END WHERE erasure_id = ? AND purged_at IS NULL").bind(d.erasure_id)
+    ]);
+  }
+  return due.length;
+}
+
+function gdprTombstone(pid) { return "Erased person #" + pid; }
+function gdprCardKey(v) { return String(v == null ? "" : v).replace(/\s+/g, "").toUpperCase(); }
+function gdprSame(a, b) { return (a === null || a === undefined) ? (b === null || b === undefined) : (b !== null && b !== undefined && String(a) === String(b)); }
+// The policy in force: GDPR_POLICY, or John's answers set as the GDPR_POLICY variable (JSON, e.g. {"bookings":"erase"}),
+// so a decision needs no code change. Only known keys and the words keep/erase are taken; optout and trail are always kept.
+function gdprPolicy(env) {
+  const out = Object.assign({}, GDPR_POLICY);
+  let o = null; try { o = env && env.GDPR_POLICY ? JSON.parse(String(env.GDPR_POLICY)) : null; } catch (e) { o = null; }
+  if (o && typeof o === "object") for (const k of Object.keys(GDPR_POLICY)) if (o[k] === "keep" || o[k] === "erase") out[k] = o[k];
+  out.erase = "erase";
+  return out;
+}
+// The keys the GDPR_POLICY variable changed (listed on the confirmation: "set by the pharmacy's settings").
+function gdprOverridden(pol) { return Object.keys(GDPR_POLICY).filter((k) => pol[k] !== GDPR_POLICY[k]).map((k) => ({ key: k, value: pol[k], label: GDPR_WHY[k] || k })); }
+function gdprPolicyOf(pol, key) { return key === "optout" || key === "trail" ? "keep" : (pol[key] || "keep"); }
+
+// The person and every name, card, phone and e-mail they were recorded under (their own record and merged-in ones).
+async function gdprContext(env, org, loc, id) {
+  await ensurePeopleSchema(env);
+  let person = await peopleLoad(env, org, loc, id);
+  if (!person) return null;
+  if (person.merged_into) { const t = await peopleLoad(env, org, loc, person.merged_into); if (t) person = t; }
+  const aliases = await dbAll(env, "SELECT * FROM people WHERE id = ? AND org_id = ? AND location_id = ? UNION ALL SELECT * FROM people WHERE merged_into = ? AND org_id = ? AND location_id = ?", [person.id, org, loc, person.id, org, loc]);
+  const nameList = Array.from(new Set(aliases.map((a) => String(a.name || "").trim().replace(/\s+/g, " ")).filter(Boolean)));
+  const names = Array.from(new Set(nameList.map((n) => n.toLowerCase())));
+  const cards = Array.from(new Set(aliases.map((a) => normalizeMtIdCard(a.id_card)).filter(Boolean)));
+  const wasCards = aliases.map((a) => (/^Was ID card (\S+)/m.exec(String(a.notes || "")) || [])[1]).filter((c) => c && c !== "(none)").map(normalizeMtIdCard);
+  const idKeys = Array.from(new Set(cards.concat(wasCards).flatMap((c) => mtIdCardLookupKeys(c)).filter(Boolean)));
+  const phones = Array.from(new Set(aliases.flatMap((a) => [a.phone, a.alt_phone]).map(peoplePhoneDigits).filter((d) => d.length >= 6)));
+  const emails = Array.from(new Set(aliases.map((a) => String(a.email || "").trim().toLowerCase()).filter(Boolean)));
+  const personIds = aliases.map((a) => Number(a.id));
+  const erased = String(person.source || "") === "erased";
+  return { person, aliases, nameList, names, cards, idKeys, phones, emails, personIds, erased };
+}
+
+// Records linked to the person by hand (Customers › "these are one person"): "table:source_id".
+async function gdprLinked(env, org, loc, ctx) {
+  const out = new Set();
+  try {
+    const own = await dbAllChunked(env, (ph) => "SELECT link_group FROM people_links WHERE org_id = ? AND location_id = ? AND undone_at IS NULL AND source_table = 'people' AND source_id IN (" + ph + ")", ctx.personIds.map(String), [org, loc]);
+    const groups = Array.from(new Set(own.map((r) => r.link_group)));
+    for (const m of await peopleLinksLive(env, org, loc, groups)) out.add(m.source_table + ":" + m.source_id);
+  } catch (e) { /* no links table yet */ }
+  return out;
+}
+
+// Is this row theirs? "sure", "maybe" (same name only, or their phone/e-mail under another name: ticked by hand), "other", or null.
+function gdprClassify(ctx, f) {
+  if (f.person) return { cls: "sure", why: "their customer record" };
+  if (f.linked) return { cls: "sure", why: "linked to them by hand" };
+  const nm = String(f.name || "").trim().replace(/\s+/g, " ");
+  const nameHit = !!nm && ctx.names.includes(nm.toLowerCase());
+  const nameOk = !nm || ctx.nameList.some((m) => personNamesCompatible(m, nm));
+  const card = gdprCardKey(f.card);
+  const cardHit = !!card && ctx.idKeys.includes(card);
+  if (cardHit) return nameOk ? { cls: "sure", why: "same ID card" } : { cls: "other", why: "their ID card under another name" };
+  if (card && ctx.idKeys.length && nameHit) return { cls: "other", why: "same name, another ID card" };
+  const ph = (f.phones || []).map(peoplePhoneDigits).filter((d) => d.length >= 6);
+  const contactHit = ph.some((d) => ctx.phones.includes(d)) || (!!f.email && ctx.emails.includes(String(f.email).trim().toLowerCase()));
+  if (nameHit && contactHit) return { cls: "sure", why: "same name and phone or e-mail" };
+  if (f.emailOnly && contactHit) return { cls: "sure", why: "their e-mail address" };
+  if (nameHit) return { cls: "maybe", why: "same name only" };
+  if (contactHit && f.allowContactOnly) return { cls: "maybe", why: "their phone or e-mail, another name" };
+  return null;
+}
+
+// Applies a { key: kind } map to one object, shallow. Returns how many values it changed.
+function gdprScrubObj(o, map, val) {
+  let n = 0;
+  if (!o || typeof o !== "object") return 0;
+  for (const k of Object.keys(map)) {
+    if (!(k in o) || typeof o[k] !== "string" || !o[k]) continue;
+    const nv = val(map[k]);
+    if (o[k] !== nv) { o[k] = nv; n++; }
+  }
+  return n;
+}
+
+// Every table that holds the person: [{ def, rows: [{ key, rid, row, cls, why, policy, sub }] }]. Read only.
+async function gdprCollect(env, org, loc, ctx) {
+  const linked = await gdprLinked(env, org, loc, ctx);
+  const like = (s) => "%" + String(s).replace(/[%_\\]/g, "\\$&") + "%";
+  const out = [];
+  const reads = await Promise.all(GDPR_TABLES.map(async (d) => {
+    try {
+      if (d.parent) return { d, rows: [] }; // filled from the parent below
+      if (d.json) {
+        const probes = d.json.card && !d.json.name ? ctx.cards : ctx.nameList.concat(ctx.cards);
+        if (!probes.length) return { d, rows: [] };
+        const conds = probes.map(() => d.json.col + " LIKE ? ESCAPE '\\'").join(" OR ");
+        return { d, rows: await dbAll(env, "SELECT rowid AS __rid, * FROM " + d.t + " WHERE org_id = ? AND location_id = ? AND (" + conds + ") ORDER BY rowid LIMIT " + GDPR_TABLE_CAP, [org, loc, ...probes.map(like)]) };
+      }
+      const conds = [], b = [org, loc];
+      if (d.person) { conds.push(d.person + " IN (" + ctx.personIds.map(() => "?").join(",") + ")"); b.push(...ctx.personIds); }
+      if (d.name && ctx.names.length) { conds.push("LOWER(TRIM(" + d.name + ")) IN (" + ctx.names.map(() => "?").join(",") + ")"); b.push(...ctx.names); }
+      if (d.card && ctx.idKeys.length) { conds.push(idCardKeySql(d.card) + " IN (" + ctx.idKeys.map(() => "?").join(",") + ")"); b.push(...ctx.idKeys); }
+      if (d.email && ctx.emails.length) { conds.push("LOWER(TRIM(" + d.email + ")) IN (" + ctx.emails.map(() => "?").join(",") + ")"); b.push(...ctx.emails); }
+      const mine = Array.from(linked).filter((k) => k.indexOf(d.t + ":") === 0).map((k) => k.slice(d.t.length + 1)).slice(0, 60);
+      if (mine.length) { conds.push((d.linkKey || "id") + " IN (" + mine.map(() => "?").join(",") + ")"); b.push(...mine); }
+      if (!conds.length) return { d, rows: [] };
+      return { d, rows: await dbAll(env, "SELECT rowid AS __rid, " + (d.name ? d.name + " AS __n, " : "") + "* FROM " + d.t + " WHERE org_id = ? AND location_id = ? AND (" + conds.join(" OR ") + ") ORDER BY rowid LIMIT " + GDPR_TABLE_CAP, b) };
+    } catch (e) { return { d, rows: [], missing: true }; } // table not created for this pharmacy
+  }));
+  for (const { d, rows, missing } of reads) {
+    const sec = { def: d, rows: [], missing: !!missing };
+    for (const r of rows) {
+      if (d.json) {
+        let o = null; try { o = JSON.parse(String(r[d.json.col] || "")); } catch (e) { o = null; }
+        if (!o || typeof o !== "object") continue;
+        if (d.json.list) {
+          const list = Array.isArray(o[d.json.list]) ? o[d.json.list] : [];
+          list.forEach((p, i) => {
+            if (!p || typeof p !== "object") return;
+            const c = gdprClassify(ctx, { name: p[d.json.name], card: p[d.json.card], phones: [p[d.json.phone]], email: p[d.json.email],
+              linked: linked.has(d.t + ":" + r.campaign_id + "/" + p.id) });
+            if (c) sec.rows.push({ key: d.t + ":" + r.__rid + ":" + (p.id != null ? "id=" + p.id : i), rid: r.__rid, row: r, sub: { index: i, id: p.id, entry: p }, cls: c.cls, why: c.why, date: String(p.date || r.updated_at || "").slice(0, 10), name: String(p[d.json.name] || "") });
+          });
+        } else if (d.json.initials) {
+          const card = gdprCardKey(o[d.json.card]);
+          if (!card || !ctx.idKeys.includes(card)) continue;
+          const okI = ctx.nameList.some((n) => personInitialsCompatible(o[d.json.initials], n));
+          sec.rows.push({ key: d.t + ":" + r.__rid, rid: r.__rid, row: r, cls: okI ? "sure" : "other", why: okI ? "same ID card" : "their ID card, other initials", date: String(o.report_date || r.updated_at || "").slice(0, 10), name: String(o[d.json.initials] || "") });
+        } else {
+          const c = gdprClassify(ctx, { name: o[d.json.name] });
+          if (c) sec.rows.push({ key: d.t + ":" + r.__rid, rid: r.__rid, row: r, cls: c.cls, why: c.why, date: String(r[d.date] || "").slice(0, 10), name: String(o[d.json.name] || "") });
+        }
+        continue;
+      }
+      const nameV = d.name ? r.__n : "";
+      const c = gdprClassify(ctx, { person: d.person && ctx.personIds.includes(Number(r[d.person])), linked: linked.has(d.t + ":" + String(r[d.linkKey || "id"])),
+        name: nameV, card: d.card ? r[d.card] : "", phones: (d.phone || []).map((p) => r[p]), email: d.email ? r[d.email] : "", allowContactOnly: !d.person, emailOnly: !!d.emailOnly });
+      if (!c) continue;
+      sec.rows.push({ key: d.t + ":" + r.__rid, rid: r.__rid, row: r, cls: c.cls, why: c.why, date: String(r[d.date] || "").slice(0, 10), name: String(nameV || ""), rowPolicy: d.rowPolicy ? d.rowPolicy(r) : null });
+    }
+    out.push(sec);
+  }
+  // Children: the booking e-mail log of their bookings.
+  for (const sec of out) {
+    const p = sec.def.parent; if (!p) continue;
+    const parent = out.find((s) => s.def.t === p.table);
+    const ids = parent ? parent.rows.filter((x) => x.cls === "sure").map((x) => Number(x.row.id)) : [];
+    if (!ids.length) continue;
+    try {
+      const rows = await dbAllChunked(env, (ph) => "SELECT rowid AS __rid, * FROM " + sec.def.t + " WHERE org_id = ? AND location_id = ? AND " + p.col + " IN (" + ph + ") ORDER BY rowid", ids, [org, loc]);
+      for (const r of rows) sec.rows.push({ key: sec.def.t + ":" + r.__rid, rid: r.__rid, row: r, cls: "sure", why: "one of their bookings", date: String(r[sec.def.date] || "").slice(0, 10), name: "" });
+    } catch (e) {}
+  }
+  return out;
+}
+
+// What an erase does: per row, per column, old → new. picked: Set of "maybe" keys the admin ticked.
+function gdprPlan(ctx, sections, picked, pol) {
+  const pid = ctx.person.id, tomb = gdprTombstone(pid);
+  const items = [], kept = [], sum = [];
+  const newVal = (kind, rid) => kind === "@name" ? tomb : kind === "@card" ? "ERASED-" + pid + "-" + rid : kind;
+  for (const sec of sections) {
+    const d = sec.def;
+    const s = { table: d.t, label: d.label, group: d.group, policy: d.policy, legal: GDPR_LEGAL_KEYS.includes(d.policy), action: gdprPolicyOf(pol, d.policy), why: GDPR_WHY[d.policy] || "", sure: 0, maybe: [], other: 0, change: 0, keep: 0, columns: [] };
+    const cols = new Set();
+    for (const x of sec.rows) {
+      if (x.cls === "other") { s.other++; continue; }
+      if (x.cls === "maybe") s.maybe.push({ key: x.key, date: x.date, name: x.name, why: x.why, title: gdprTitle(d, x), ticked: picked.has(x.key) });
+      else s.sure++;
+      if (x.cls === "maybe" && !picked.has(x.key)) continue;
+      const act = gdprPolicyOf(pol, x.rowPolicy || d.policy);
+      if (act !== "erase" || d.fixed) { s.keep++; const kp = x.rowPolicy || d.policy; s.legal = s.legal || GDPR_LEGAL_KEYS.includes(kp); (s.whys = s.whys || []).indexOf(GDPR_WHY[kp]) < 0 && s.whys.push(GDPR_WHY[kp]); s.why = s.whys.join(" · "); kept.push({ table: d.t, rid: x.rid, why: GDPR_WHY[x.rowPolicy || d.policy] || "" }); continue; }
+      const changes = [];
+      if (d.json) {
+        let o = null; try { o = JSON.parse(String(x.row[d.json.col] || "")); } catch (e) { o = null; }
+        if (!o) continue;
+        const target = x.sub ? (o[d.json.list] || [])[x.sub.index] : o;
+        if (!target || gdprScrubObj(target, d.json.scrub, (k) => newVal(k, x.rid)) === 0) continue;
+        changes.push({ c: d.json.col, old: x.row[d.json.col], json: true, target: x.sub ? { index: x.sub.index, id: x.sub.id } : null });
+      } else {
+        for (const c of Object.keys(d.scrub || {})) {
+          if (!(c in x.row)) continue;
+          const kind = d.scrub[c];
+          let nv;
+          if (String(kind).indexOf("@json:") === 0) {
+            let o = null; try { o = JSON.parse(String(x.row[c] || "")); } catch (e) { o = null; }
+            if (!o || typeof o !== "object") continue;
+            const path = kind.slice(6), obj = path ? o[path] : o;
+            if (!gdprScrubObj(obj, GDPR_JSON_KEYS, (k) => (k === "@card" && !d.unique ? "" : newVal(k, x.rid)))) continue;
+            nv = JSON.stringify(o);
+          } else nv = newVal(kind, x.rid);
+          if (gdprSame(x.row[c], nv)) continue;
+          changes.push({ c, old: x.row[c], nv });
+        }
+      }
+      if (!changes.length) continue;
+      changes.forEach((ch) => cols.add(ch.c));
+      items.push({ table: d.t, rid: x.rid, changes, row: x.row, sub: x.sub || null, def: d });
+      s.change++;
+    }
+    s.columns = Array.from(cols);
+    if (s.sure || s.maybe.length || s.other) sum.push(s);
+  }
+  // Last, the customer record itself and any record merged into it.
+  const pc = { table: "people", label: "Customer record", group: "Customer", policy: "erase", action: "erase", why: "", sure: ctx.aliases.length, maybe: [], other: 0, change: 0, keep: 0, columns: [] };
+  const pcols = new Set();
+  for (const a of ctx.aliases) {
+    const changes = [];
+    for (const c of Object.keys(GDPR_PEOPLE_SCRUB)) { const nv = newVal(GDPR_PEOPLE_SCRUB[c], a.id); if (!gdprSame(a[c], nv)) changes.push({ c, old: a[c], nv }); }
+    if (!changes.length) continue;
+    changes.forEach((ch) => pcols.add(ch.c));
+    items.push({ table: "people", rid: Number(a.id), changes, row: a, people: true });
+    pc.change++;
+  }
+  pc.columns = Array.from(pcols);
+  sum.unshift(pc);
+  const fingerprint = idcHash("gdpr|" + pid + "|" + JSON.stringify(pol) + "|" + items.map((i) => i.table + ":" + i.rid + ":" + i.changes.map((c) => c.c + "=" + (c.old == null ? "\u0000" : String(c.old).length + "." + idcHash(String(c.old)))).join(",")).sort().join(";"));
+  return { items, kept, sections: sum, fingerprint, total: items.length };
+}
+function gdprTitle(d, x) {
+  const r = x.row || {};
+  const t = r.items_text || r.issue || r.medicine_name_dose || r.vaccine_name || r.test_label || r.receipt_number || r.receipt_no || r.ref || r.order_code || r.subject || r.notes || "";
+  return String(x.sub ? (x.sub.entry && (x.sub.entry.result || x.sub.entry.date) || "") : t).slice(0, 80);
+}
+
+async function gdprGuard(request, env, cors, authUser) {
+  if (!requireRole(authUser, GDPR_ROLES)) return jsonResponse({ ok: false, error: "Only the pharmacist in charge (an administrator) can do this" }, 403, cors);
+  await ensureGdprSchema(env);
+  try { await gdprPurgeExpired(env); } catch (e) {}
+  return null;
+}
+function gdprPicked(body) { return new Set((Array.isArray(body && body.rows) ? body.rows : []).slice(0, 2000).map(String)); }
+// POST bodies are JSON; GET /people/:id/export?rows=table:rowid,table:rowid carries the ticked rows in the address.
+async function gdprBody(request) {
+  if (request.method === "GET") { const r = new URL(request.url).searchParams.get("rows"); return { rows: r ? r.split(",").filter(Boolean) : [] }; }
+  try { return (await readJson(request)) || {}; } catch (e) { return {}; }
+}
+
+function gdprPreviewJson(ctx, plan, open, pol) {
+  return { ok: true, preview: true, person: { id: ctx.person.id, name: ctx.person.name, id_card: ctx.person.id_card, erased: ctx.erased },
+    sections: plan.sections, total_change: plan.total, total_keep: plan.kept.length, plan: plan.fingerprint,
+    undo_hours: GDPR_UNDO_HOURS, open_erasure: open || null, policy: pol, overridden: gdprOverridden(pol),
+    also_kept: [{ label: "Audit trail", why: GDPR_WHY.trail }, { label: "ID card change log", why: GDPR_WHY.trail }] };
+}
+async function gdprOpenErasure(env, org, loc, pid) {
+  const r = await dbFirst(env, "SELECT erasure_id, created_at, undo_until, rows_changed FROM gdpr_erasures WHERE org_id = ? AND location_id = ? AND person_id = ? AND status = 'done' AND purged_at IS NULL ORDER BY created_at DESC LIMIT 1", [org, loc, pid]);
+  return r ? { erasure_id: r.erasure_id, at: r.created_at, undo_until: r.undo_until, rows: r.rows_changed } : null;
+}
+
+// POST /people/:id/privacy — the summary the privacy panel opens with (same as the erase preview).
+async function handlePersonPrivacy(request, env, cors, authUser, id) {
+  const g = await gdprGuard(request, env, cors, authUser); if (g) return g;
+  const org = authUser.org_id, loc = authUser.location_id;
+  const ctx = await gdprContext(env, org, loc, id);
+  if (!ctx) return jsonResponse({ ok: false, error: "Not found" }, 404, cors);
+  const body = await gdprBody(request);
+  const pol = gdprPolicy(env);
+  const plan = gdprPlan(ctx, await gdprCollect(env, org, loc, ctx), gdprPicked(body), pol);
+  return jsonResponse(gdprPreviewJson(ctx, plan, await gdprOpenErasure(env, org, loc, ctx.person.id), pol), 200, cors);
+}
+
+function gdprRowOut(r) { const o = {}; for (const k of Object.keys(r || {})) if (k !== "__rid" && k !== "__n") o[k] = r[k]; return o; }
+
+// POST /people/:id/export { rows } — everything, own pharmacy only. Read only; audited with counts.
+async function handlePersonExport(request, env, cors, authUser, id) {
+  const g = await gdprGuard(request, env, cors, authUser); if (g) return g;
+  const org = authUser.org_id, loc = authUser.location_id;
+  const ctx = await gdprContext(env, org, loc, id);
+  if (!ctx) return jsonResponse({ ok: false, error: "Not found" }, 404, cors);
+  const picked = gdprPicked(await gdprBody(request));
+  const pol = gdprPolicy(env);
+  const sections = await gdprCollect(env, org, loc, ctx);
+  const out = [], counts = {};
+  for (const sec of sections) {
+    const d = sec.def;
+    const rows = sec.rows.filter((x) => x.cls === "sure" || (x.cls === "maybe" && picked.has(x.key)));
+    if (!rows.length) continue;
+    const act = gdprPolicyOf(pol, d.policy);
+    out.push({ table: d.t, label: d.label, group: d.group, on_erase: act === "erase" && !d.fixed ? "anonymised" : "kept", why_kept: act === "erase" && !d.fixed ? "" : (GDPR_WHY[d.policy] || ""),
+      rows: rows.map((x) => {
+        if (x.sub) return { row_id: x.rid, record: d.t === "screening_campaigns" ? { campaign_id: x.row.campaign_id, name: (() => { try { return JSON.parse(x.row.campaign_json).name || ""; } catch (e) { return ""; } })() } : {}, entry: x.sub.entry, matched: x.why };
+        const o = gdprRowOut(x.row);
+        if (d.json) { try { o[d.json.col] = JSON.parse(o[d.json.col]); } catch (e) {} }
+        return Object.assign(o, { _matched: x.why });
+      }) });
+    counts[d.t] = rows.length;
+  }
+  let profile = null, audit = [], links = [];
+  try { audit = await dbAllChunked(env, (ph) => "SELECT id, action, entity_type, entity_id, user_id, created_at, details_json FROM audit_log WHERE org_id = ? AND entity_type = 'people' AND entity_id IN (" + ph + ") AND (location_id = ? OR location_id IS NULL) ORDER BY id LIMIT 500", ctx.personIds.map(String), [org], [loc]); } catch (e) { audit = []; }
+  audit = audit.map((a) => { let det = null; try { det = JSON.parse(a.details_json || "{}"); } catch (e) { det = a.details_json; } return { id: a.id, action: a.action, at: a.created_at, by_user_id: a.user_id, details: det }; });
+  try { links = await dbAllChunked(env, (ph) => "SELECT link_group, source_kind, source_table, source_id, created_at, undone_at FROM people_links WHERE org_id = ? AND location_id = ? AND source_table = 'people' AND source_id IN (" + ph + ")", ctx.personIds.map(String), [org, loc]); } catch (e) { links = []; }
+  let pharmacy = "";
+  try { const l = await dbFirst(env, "SELECT name FROM locations WHERE id = ? AND org_id = ?", [loc, org]); pharmacy = (l && l.name) || ""; } catch (e) {}
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  await writeAudit(env, org, authUser.user_id, "PERSON_EXPORT", "people", String(ctx.person.id), { location_id: loc, tables: counts, rows: total, ticked: picked.size }, loc);
+  return jsonResponse({ ok: true, format: "eikon.person-export.v1", made_at: new Date().toISOString(), timezone: PHARMACY_TZ,
+    pharmacy: { name: pharmacy }, made_by: { user_id: authUser.user_id, name: authUser.full_name || "", email: authUser.email || "" },
+    person: gdprRowOut(ctx.aliases.find((a) => Number(a.id) === Number(ctx.person.id)) || ctx.person),
+    merged_records: ctx.aliases.filter((a) => Number(a.id) !== Number(ctx.person.id)).map(gdprRowOut),
+    sections: out, links, audit, rows: total,
+    notes: ["Only this pharmacy's records are included.", "Rows marked 'same name only' were included because a pharmacist ticked them."] }, 200, cors);
+}
+
+// POST /people/:id/erase { rows, confirm, plan, reason }
+async function handlePersonErase(request, env, cors, authUser, id) {
+  const g = await gdprGuard(request, env, cors, authUser); if (g) return g;
+  const org = authUser.org_id, loc = authUser.location_id, uid = authUser.user_id;
+  const ctx = await gdprContext(env, org, loc, id);
+  if (!ctx) return jsonResponse({ ok: false, error: "Not found" }, 404, cors);
+  const body = await gdprBody(request);
+  const open = await gdprOpenErasure(env, org, loc, ctx.person.id);
+  if (ctx.erased) return jsonResponse({ ok: false, code: "already_erased", error: "This person was already erased", open_erasure: open }, 409, cors);
+  const pol = gdprPolicy(env);
+  const plan = gdprPlan(ctx, await gdprCollect(env, org, loc, ctx), gdprPicked(body), pol);
+  if (body.confirm !== true) return jsonResponse(gdprPreviewJson(ctx, plan, open, pol), 200, cors);
+  if (String(body.plan || "") !== plan.fingerprint) return jsonResponse(Object.assign(gdprPreviewJson(ctx, plan, open, pol), { ok: false, code: "plan_changed", error: "The records changed since you looked. Check the new list." }), 409, cors);
+  if (plan.total > GDPR_MAX_ROWS) return jsonResponse({ ok: false, error: "Too many records (" + plan.total + ") to change at once. Ask Eikon support." }, 413, cors);
+  const reason = String(body.reason || "").replace(/\s+/g, " ").trim().slice(0, 300);
+  const eid = "gdpr_" + crypto.randomUUID();
+  const P = (sql, ...b) => env.DB.prepare(sql).bind(...b);
+  const counts = {}, kept = {};
+  for (const k of plan.kept) kept[k.table] = (kept[k.table] || 0) + 1;
+  const stmts = [P("INSERT INTO gdpr_erasures (erasure_id, org_id, location_id, person_id, rows_changed, summary_json, reason, created_by, undo_until) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', ?))",
+    eid, org, loc, ctx.person.id, plan.total, "{}", reason, uid, "+" + GDPR_UNDO_HOURS + " hours")];
+  const byTable = new Map();
+  const tomb = gdprTombstone(ctx.person.id);
+  for (const it of plan.items) {
+    counts[it.table] = (counts[it.table] || 0) + 1;
+    if (it.def && it.def.json) {
+      // JSON registers: the row is changed only if still as read; every person in one row (screening) in one update.
+      const k = it.table + ":" + it.rid;
+      if (!byTable.has(k)) byTable.set(k, { it, json: (() => { try { return JSON.parse(String(it.row[it.def.json.col])); } catch (e) { return null; } })() });
+      const e = byTable.get(k);
+      if (!e.json) continue;
+      const target = it.sub ? (e.json[it.def.json.list] || [])[it.sub.index] : e.json;
+      if (target) gdprScrubObj(target, it.def.json.scrub, (k) => (k === "@name" ? tomb : k));
+      continue;
+    }
+    const sets = [], vals = [];
+    for (const ch of it.changes) {
+      if (GDPR_UNDO_HOURS > 0) stmts.push(P("INSERT INTO gdpr_erasure_rows (erasure_id, org_id, location_id, table_name, row_id, column_name, old_value, new_value) SELECT ?, ?, ?, ?, rowid, ?, " + ch.c + ", ? FROM " + it.table + " WHERE rowid = ? AND org_id = ? AND location_id = ?",
+        eid, org, loc, it.table, ch.c, ch.nv, it.rid, org, loc));
+      sets.push(ch.c + " = ?"); vals.push(ch.nv);
+    }
+    if (it.people) { sets.push("version = version + 1", "updated_at = datetime('now')", "updated_by = ?"); vals.push(uid); }
+    stmts.push(P("UPDATE " + it.table + " SET " + sets.join(", ") + " WHERE rowid = ? AND org_id = ? AND location_id = ?", ...vals, it.rid, org, loc));
+  }
+  for (const { it, json } of byTable.values()) {
+    if (!json) continue;
+    const col = it.def.json.col, nv = JSON.stringify(json);
+    if (GDPR_UNDO_HOURS > 0) stmts.push(P("INSERT INTO gdpr_erasure_rows (erasure_id, org_id, location_id, table_name, row_id, column_name, old_value, new_value) SELECT ?, ?, ?, ?, rowid, ?, " + col + ", ? FROM " + it.table + " WHERE rowid = ? AND org_id = ? AND location_id = ? AND " + col + " = ?",
+      eid, org, loc, it.table, col, nv, it.rid, org, loc, String(it.row[col])));
+    stmts.push(P("UPDATE " + it.table + " SET " + col + " = ? WHERE rowid = ? AND org_id = ? AND location_id = ? AND " + col + " = ?", nv, it.rid, org, loc, String(it.row[col])));
+  }
+  const summary = { changed: counts, kept, policy: pol, maybe_ticked: gdprPicked(body).size };
+  stmts.push(P("UPDATE gdpr_erasures SET summary_json = ? WHERE erasure_id = ?", JSON.stringify(summary), eid));
+  await env.DB.batch(stmts);
+  const logged = await dbFirst(env, "SELECT COUNT(*) AS c, COUNT(DISTINCT table_name || ':' || row_id) AS r FROM gdpr_erasure_rows WHERE erasure_id = ?", [eid]);
+  await writeAudit(env, org, uid, "PERSON_ERASE", "people", String(ctx.person.id), { location_id: loc, erasure_id: eid, rows: plan.total, changed: counts, kept, reason: reason || undefined, undo_hours: GDPR_UNDO_HOURS }, loc);
+  const head = await dbFirst(env, "SELECT undo_until FROM gdpr_erasures WHERE erasure_id = ?", [eid]);
+  return jsonResponse({ ok: true, erasure_id: eid, person: await peopleLoad(env, org, loc, ctx.person.id), changed: plan.total, tables: counts, kept, logged_values: Number(logged && logged.c || 0), logged_rows: Number(logged && logged.r || 0), undo_until: head && head.undo_until }, 200, cors);
+}
+
+// POST /people/erasures/:id/undo
+async function handlePersonEraseUndo(request, env, cors, authUser, eid) {
+  const g = await gdprGuard(request, env, cors, authUser); if (g) return g;
+  const org = authUser.org_id, loc = authUser.location_id, uid = authUser.user_id;
+  const head = await dbFirst(env, "SELECT *, (undo_until >= datetime('now')) AS open FROM gdpr_erasures WHERE erasure_id = ? AND org_id = ? AND location_id = ?", [eid, org, loc]);
+  if (!head) return jsonResponse({ ok: false, error: "Not found" }, 404, cors);
+  if (head.status === "undone") return jsonResponse({ ok: false, error: "Already undone" }, 409, cors);
+  if (!Number(head.open) || head.purged_at) return jsonResponse({ ok: false, code: "too_late", error: "The " + GDPR_UNDO_HOURS + " hours to undo this are over" }, 409, cors);
+  const logs = await dbAll(env, "SELECT * FROM gdpr_erasure_rows WHERE erasure_id = ? AND org_id = ? AND location_id = ? ORDER BY id", [eid, org, loc]);
+  const allowed = new Set(["people"].concat(GDPR_TABLES.map((d) => d.t)));
+  const byRow = new Map();
+  for (const l of logs) { if (!allowed.has(l.table_name)) continue; const k = l.table_name + ":" + l.row_id; if (!byRow.has(k)) byRow.set(k, []); byRow.get(k).push(l); }
+  const P = (sql, ...b) => env.DB.prepare(sql).bind(...b);
+  const stmts = [], skipped = [];
+  let restored = 0;
+  for (const ls of byRow.values()) {
+    const t = ls[0].table_name, rid = ls[0].row_id;
+    let cur = null;
+    try { cur = await dbFirst(env, "SELECT * FROM " + t + " WHERE rowid = ? AND org_id = ? AND location_id = ?", [rid, org, loc]); } catch (e) { cur = null; }
+    if (!cur) { skipped.push({ table: t, row_id: rid, reason: "no longer there" }); continue; }
+    if (!ls.every((l) => gdprSame(cur[l.column_name], l.new_value))) { skipped.push({ table: t, row_id: rid, reason: "changed since" }); continue; }
+    const def = GDPR_TABLES.find((d) => d.t === t);
+    const uq = t === "people" ? "id_card" : def && def.unique;
+    const uqLog = uq && ls.find((l) => l.column_name === uq && l.old_value);
+    if (uqLog) {
+      const clash = await dbFirst(env, "SELECT rowid AS r FROM " + t + " WHERE org_id = ? AND location_id = ? AND " + uq + " = ? AND rowid <> ?", [org, loc, uqLog.old_value, rid]);
+      if (clash) {
+        if (t === "people") return jsonResponse({ ok: false, error: "The ID card " + uqLog.old_value + " is now on another customer, so this cannot be put back" }, 409, cors);
+        skipped.push({ table: t, row_id: rid, reason: "the old card is on another row now" }); continue;
+      }
+    }
+    const sets = ls.map((l) => l.column_name + " = ?"), vals = ls.map((l) => l.old_value);
+    if (t === "people") { sets.push("version = version + 1", "updated_at = datetime('now')", "updated_by = ?"); vals.push(uid); }
+    stmts.push(P("UPDATE " + t + " SET " + sets.join(", ") + " WHERE rowid = ? AND org_id = ? AND location_id = ?", ...vals, rid, org, loc));
+    restored++;
+  }
+  stmts.push(P("UPDATE gdpr_erasures SET status = 'undone', undone_at = datetime('now'), undone_by = ? WHERE erasure_id = ? AND status = 'done'", uid, eid));
+  stmts.push(P("DELETE FROM gdpr_erasure_rows WHERE erasure_id = ?", eid));
+  await env.DB.batch(stmts);
+  await writeAudit(env, org, uid, "PERSON_ERASE_UNDO", "people", String(head.person_id), { location_id: loc, erasure_id: eid, restored, skipped: skipped.length ? skipped.slice(0, 50) : undefined }, loc);
+  return jsonResponse({ ok: true, erasure_id: eid, restored, skipped, person: await peopleLoad(env, org, loc, head.person_id) }, 200, cors);
+}
+
+// GET /people/:id/erasures
+async function handlePersonErasures(request, env, cors, authUser, id) {
+  const g = await gdprGuard(request, env, cors, authUser); if (g) return g;
+  const org = authUser.org_id, loc = authUser.location_id;
+  const rows = await dbAll(env, "SELECT erasure_id, status, rows_changed, summary_json, reason, created_at, created_by, undo_until, undone_at, purged_at, (status = 'done' AND purged_at IS NULL AND undo_until >= datetime('now')) AS can_undo FROM gdpr_erasures WHERE org_id = ? AND location_id = ? AND person_id = ? ORDER BY created_at DESC LIMIT 20", [org, loc, id]);
+  return jsonResponse({ ok: true, erasures: rows.map((r) => { let s = {}; try { s = JSON.parse(r.summary_json || "{}"); } catch (e) {} return { erasure_id: r.erasure_id, status: r.status, rows: r.rows_changed, changed: s.changed || {}, kept: s.kept || {}, reason: r.reason, at: r.created_at, by: r.created_by, undo_until: r.undo_until, undone_at: r.undone_at, can_undo: !!Number(r.can_undo) }; }) }, 200, cors);
+}
+
+// GET /export/records?part=&from=&to=&after= — Settings › Download our records. Read only, own pharmacy, paged by id
+// (GDPR_EXPORT_PAGE rows; `next` is the id to pass as after). Dated parts read through their (org, location, date) index.
+const GDPR_EXPORT_PAGE = 1000;
+const GDPR_EXPORT_PARTS = {
+  customers:    { setup: true, sql: "SELECT p.id, p.name, p.id_card, p.phone, p.alt_phone, p.email, p.address, p.doctor_name, p.date_of_birth, p.notes, p.created_at, p.updated_at, c.prefers, c.email_ok, c.sms_ok, c.whatsapp_ok, c.lang, c.allergies FROM people p LEFT JOIN cust_profile c ON c.org_id = p.org_id AND c.location_id = p.location_id AND c.person_id = p.id WHERE p.org_id = ? AND p.location_id = ? AND p.merged_into IS NULL AND p.id > ? ORDER BY p.id LIMIT ?" },
+  bookings:     { sql: "SELECT b.id, b.ref, b.date, b.start_time, b.end_time, b.status, b.person_name, b.person_phone, b.person_email, b.person_id_card, b.price_cents, b.notes, b.cancel_reason, b.walk_in, b.confirmed_at, b.created_at, s.name AS service, v.name AS provider FROM bk_bookings b LEFT JOIN bk_services s ON s.id = b.service_id AND s.org_id = b.org_id AND s.location_id = b.location_id LEFT JOIN bk_providers v ON v.id = b.provider_id AND v.org_id = b.org_id AND v.location_id = b.location_id WHERE b.org_id = ? AND b.location_id = ? AND b.date >= ? AND b.date <= ? AND b.id > ? ORDER BY b.id LIMIT ?", dated: true },
+  appointments: { sql: "SELECT a.id, a.appt_ref, a.date, a.time, a.duration_mins, a.status, a.patient_name, a.patient_id_card, a.patient_phone, a.patient_email, a.doctor_fee, a.clinic_fee, a.notes, a.cancellation_reason, a.created_at, d.name AS doctor, c.name AS clinic FROM appt_appointments a LEFT JOIN appt_doctors d ON d.id = a.doctor_id AND d.org_id = a.org_id LEFT JOIN appt_clinics c ON c.id = a.clinic_id AND c.org_id = a.org_id WHERE a.org_id = ? AND a.location_id = ? AND a.date >= ? AND a.date <= ? AND a.id > ? ORDER BY a.id LIMIT ?", dated: true },
+  messages:     { sql: "SELECT id, created_at, person_id, person_name, channel, purpose, to_addr, subject, body, status, error, created_by_name FROM cust_messages WHERE org_id = ? AND location_id = ? AND created_at >= ? AND created_at < date(?, '+1 day') AND id > ? ORDER BY id LIMIT ?", dated: true },
+  tills:        { sql: "SELECT id, sale_date, receipt_no, total, subtotal, vat_total, discount_pct, payment_method, client_name, client_id, items_json, voided, voided_reason, notes, created_at FROM pos_sales WHERE org_id = ? AND location_id = ? AND sale_date >= ? AND sale_date <= ? AND id > ? ORDER BY id LIMIT ?", dated: true },
+  loyalty:      { sql: "SELECT t.id, t.txn_date, t.client_name, t.client_id_card, t.receipt_no, t.total, t.stamps_awarded, t.points_awarded, t.action_label, t.notes, c.name AS campaign FROM loyalty_transactions t LEFT JOIN loyalty_campaigns c ON c.id = t.campaign_id AND c.org_id = t.org_id WHERE t.org_id = ? AND t.location_id = ? AND t.txn_date >= ? AND t.txn_date <= ? AND t.id > ? ORDER BY t.id LIMIT ?", dated: true },
+  staff:        { sql: "SELECT id, full_name, designation, employment_type, contracted_hours, email, phone, registration_number, is_active, created_at, updated_at FROM shift_staff WHERE org_id = ? AND location_id = ? AND id > ? ORDER BY id LIMIT ?" },
+  shifts:       { sql: "SELECT a.id, a.shift_date, a.start_time, a.end_time, a.role_override, a.notes, s.full_name, s.designation FROM shift_assignments a LEFT JOIN shift_staff s ON s.id = a.staff_id WHERE a.org_id = ? AND a.location_id = ? AND a.shift_date >= ? AND a.shift_date <= ? AND a.id > ? ORDER BY a.id LIMIT ?", dated: true },
+  leave:        { sql: "SELECT l.id, l.leave_type, l.start_date, l.start_time, l.end_date, l.end_time, l.hours_requested, l.reason, l.status, l.reviewed_at, s.full_name FROM shift_leaves l LEFT JOIN shift_staff s ON s.id = l.staff_id WHERE l.org_id = ? AND l.location_id = ? AND l.end_date >= ? AND l.start_date <= ? AND l.id > ? ORDER BY l.id LIMIT ?", dated: true },
+  accounts:     { sql: "SELECT id, full_name, email, role, is_active, created_at FROM users WHERE org_id = ? AND default_location_id = ? AND id > ? ORDER BY id LIMIT ?" }
+};
+async function handleExportRecords(request, env, cors, authUser, url) {
+  if (!requireRole(authUser, GDPR_ROLES)) return jsonResponse({ ok: false, error: "Forbidden" }, 403, cors);
+  const part = String(url.searchParams.get("part") || "");
+  const def = GDPR_EXPORT_PARTS[part];
+  if (!def) return jsonResponse({ ok: false, error: "Unknown part" }, 400, cors);
+  const ymd = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || "")) ? String(v) : "";
+  const from = ymd(url.searchParams.get("from")), to = ymd(url.searchParams.get("to"));
+  if (def.dated && (!from || !to || to < from)) return jsonResponse({ ok: false, error: "Choose the first and the last day" }, 400, cors);
+  const after = Math.max(0, Number(url.searchParams.get("after") || 0) || 0);
+  const org = authUser.org_id, loc = authUser.location_id;
+  const b = def.dated ? [org, loc, from, to, after, GDPR_EXPORT_PAGE + 1] : [org, loc, after, GDPR_EXPORT_PAGE + 1];
+  let rows;
+  if (def.setup) { try { await ensurePeopleSchema(env); await ensureCustMsgSchema(env); } catch (e) {} } // the tables Customers makes on first use
+  try { rows = await dbAll(env, def.sql, b); } catch (e) { rows = []; } // the part was never used here: no table yet
+  const more = rows.length > GDPR_EXPORT_PAGE;
+  if (more) rows = rows.slice(0, GDPR_EXPORT_PAGE);
+  return jsonResponse({ ok: true, part, rows, next: more ? rows[rows.length - 1].id : null }, 200, { ...cors, "Cache-Control": "no-store" });
+}
+/* ══ end of the privacy (gdpr) block ══ */

@@ -169,7 +169,7 @@
   }
   function formHtml() {
     var a = S.adding, fld = function (k, label, extra) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] || "") + '"' + (extra || "") + "></label>"; };
-    return '<form class="qtr-form" id="qtr-add" autocomplete="off">' + fld("item_description", "Item", ' list="qtr-items" placeholder="e.g. Panadol 500mg x24"') + fld("supplier", "Supplier", ' list="qtr-sups"') +
+    return '<form class="qtr-form sf-form sf-new" id="qtr-add" autocomplete="off">' + fld("item_description", "Item", ' list="qtr-items" placeholder="e.g. Panadol 500mg x24"') + fld("supplier", "Supplier", ' list="qtr-sups"') +
       '<label><span>VAT</span><select name="vat_rate">' + ["18", "5", "0"].map(function (v) { return '<option value="' + v + '"' + (String(a.vat_rate) === v ? " selected" : "") + ">" + v + "%</option>"; }).join("") + "</select></label>" +
       fld("cost_excl_vat", "Cost € (no VAT)", ' inputmode="decimal" placeholder="Per unit"') + fld("discount_euro", "Discount €", ' inputmode="decimal" placeholder="Per unit, optional"') +
       fld("qty_purchased", "Buy", ' inputmode="numeric"') + fld("qty_free", "Free", ' inputmode="numeric" placeholder="e.g. 2 for a 10+2 deal"') + fld("retail_price", "Retail € each", ' inputmode="decimal" placeholder="Optional"') +
@@ -181,7 +181,7 @@
   // The open quote: the same fields as a new one, plus its date; the rest of the quote (stock code, notes) is kept.
   function editHtml(e) {
     var a = S.edit || {}, fld = function (k, label, extra) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] == null ? "" : a[k]) + '"' + (extra || "") + "></label>"; };
-    var h = '<div class="qtr-ed"><form class="qtr-form" id="qtr-edit" autocomplete="off" aria-label="' + esc("Change the " + (e.supplier || "") + " quote for " + e.item_description) + '">' +
+    var h = '<div class="qtr-ed"><form class="qtr-form sf-form" id="qtr-edit" autocomplete="off" aria-label="' + esc("Change the " + (e.supplier || "") + " quote for " + e.item_description) + '">' +
       fld("item_description", "Item", ' list="qtr-items"') + fld("supplier", "Supplier", ' list="qtr-sups"') +
       '<label><span>VAT</span><select name="vat_rate">' + ["18", "5", "0"].map(function (v) { return '<option value="' + v + '"' + (String(a.vat_rate) === v ? " selected" : "") + ">" + v + "%</option>"; }).join("") + "</select></label>" +
       fld("cost_excl_vat", "Cost € (no VAT)", ' inputmode="decimal" placeholder="Per unit"') + fld("discount_euro", "Discount €", ' inputmode="decimal" placeholder="Per unit, optional"') +

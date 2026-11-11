@@ -3,7 +3,7 @@
 //     form (or, as designed, goes to Cancel) and throws nothing: no page error, no error bar, no blocking overlay.
 //     The diary and the locum receipts have history first, so their "fill from history" blur handlers run (they
 //     threw "Cannot read properties of null" once Escape had closed the form);
-//   - the classic look never sticks: Customers > a classic-look screen, Back, then five screens: all new layout.
+//   - the classic look never sticks: Loyalty > ⋯ > the classic Loyalty screen, Back, then five screens: all new layout.
 // "solo-": it adds a diary line and a locum receipt, so it runs last, on its own.
 import { ymd } from "../lib.mjs";
 
@@ -50,13 +50,13 @@ export default {
     t.ok(!bad.length, "Escape from every field: no error bar, no overlay: " + bad.join(" | "));
     // the classic look never sticks (page errors are failed by the harness)
     // as a pharmacy opens it: no ?ui= in the address (?ui=2 itself ends a classic visit, which hid the fault)
-    await p.goto(t.base + "#customers"); await p.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "customers", null, { timeout: 20000 });
+    await p.goto(t.base + "#loyalty"); await p.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "loyreg", null, { timeout: 20000 });
     await t.idle(p);
-    // Loyalty is the one Customers register still in the classic look (appointments open Bookings since 2026-11)
-    const link = p.locator("#eikon-content a, #eikon-content button", { hasText: "Loyalty (classic look)" }).first();
-    await link.click(); await p.waitForFunction(() => /ui=classic/.test(location.search) && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "loyalty", null, { timeout: 20000 });
+    // Loyalty is rebuilt (round 2, loyreg); its classic screen is under ⋯ › Classic Loyalty screen
+    await p.click(".lyr [data-act=menu]"); await p.click(".lyr [data-act=classic]");
+    await p.waitForFunction(() => /ui=classic/.test(location.search) && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "loyalty", null, { timeout: 20000 });
     await t.idle(p);
-    await p.goBack(); await p.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "customers", null, { timeout: 20000 });
+    await p.goBack(); await p.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "loyreg", null, { timeout: 20000 });
     const seen = [];
     for (const [h, m] of [["temperature", "tempreg"], ["endofday", "eodreg"], ["registers", "registers"], ["tickets", "tktreg"], ["today", "today"]]) {
       await p.evaluate((x) => { location.hash = "#" + x; }, h);

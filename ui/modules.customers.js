@@ -97,8 +97,15 @@
       ".cus-form input,.cus-form textarea{width:100%;box-sizing:border-box;height:38px;border:1px solid var(--border);border-radius:9px;background:var(--bg);padding:0 10px;color:var(--text);font-size:14px}.cus-form textarea{height:70px;padding:8px 10px;resize:vertical}.cus-form input:focus,.cus-form textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--shadow,rgba(10,143,106,.18))}" +
       ".cus-warn{background:rgba(201,138,18,.14);border:1px solid rgba(201,138,18,.35);color:var(--warn,#A06A0E);border-radius:10px;padding:8px 12px;font-size:13px;margin-top:12px}" +
       ".cus-src{font-size:12px;color:var(--muted);margin-top:6px}" +
+      // round 2 (customers): the list's title for screen readers (CU1); Registers / Tidy up as 44 px targets on a phone (CU2);
+      // the record's ⋯ (the pharmacist's privacy actions, when ui/eikon.privacy.js is there); loyalty's way to the full card
+      ".cus-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}" +
+      ".cus-more{position:relative}.cus-more .list{position:absolute;right:0;top:46px;z-index:20;min-width:200px;background:var(--panel2);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:4px}" +
+      ".cus-more .list button{display:block;width:100%;text-align:left;font:inherit;font-size:15px;min-height:44px;padding:0 12px;border:0;background:none;color:var(--text);border-radius:8px;cursor:pointer}.cus-more .list button:hover,.cus-more .list button:focus-visible{background:rgba(127,127,127,.10)}" +
+      ".cus-loylnk{display:inline-flex;align-items:center;min-height:44px;color:var(--accent);font-weight:600;font-size:14px;text-decoration:none;margin-left:12px}" +
+      "@media (max-width:600px){.cus-regs a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px}.cus-lab [data-act=new]{display:inline-flex;align-items:center;min-height:44px;margin:-14px 0 -14px auto;padding:0 4px 0 12px}}" +
       ".cus-t span.cus-also{white-space:normal;color:var(--text);font-size:12.5px;margin-top:2px}" +
-      ".cus-regs{display:flex;gap:4px 12px;flex-wrap:wrap;align-items:center;margin-top:18px;padding-top:12px;border-top:1px solid var(--border);font-size:12.5px}.cus-regs span{color:var(--muted);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:11px;margin-right:4px}.cus-regs a{color:var(--accent);font-weight:600;cursor:pointer}" +
+      ".cus-regs{display:flex;gap:4px 12px;flex-wrap:wrap;align-items:center;margin-top:18px;padding-top:12px;border-top:1px solid var(--border);font-size:12.5px}.cus-regs span{color:var(--muted);font-weight:600;font-size:12.5px;margin-right:4px}.cus-regs a{color:var(--accent);font-weight:600;cursor:pointer}" +
       ".cus-story .t b{overflow-wrap:anywhere}.cus-counts a,.cus-regs a{text-decoration:none}.cus-counts a b+b{font-weight:500}" +
       // d-cust: the record — waiting now, allergies, how they like to hear from us, loyalty, messages in the story
       ".cus-col{display:flex;flex-direction:column;gap:16px;min-width:0}.cus-grid>.cus-col>.cus-card{margin:0}" +
@@ -185,7 +192,7 @@
   }
 
   async function open(id) {
-    state.selected = id; state.detail = null; state.detailLoading = true; state.editing = false; state.bkAsk = false; state.now = null; state.loy = null; state.loyForm = false; state.prefErr = ""; state.prefSaving = false;
+    state.selected = id; state.detail = null; state.detailLoading = true; state.editing = false; state.more = false; state.bkAsk = false; state.now = null; state.loy = null; state.loyForm = false; state.prefErr = ""; state.prefSaving = false;
     renderList(); renderDetail();
     // The person, and what they need now (open orders, questions, deliveries, repeats, bookings, how to tell them),
     // asked together. An older server without /now: the page is as before.
@@ -335,11 +342,11 @@
   var GO = { order: "ordreg", question: "tktreg", delivery: "dlvreg" };
   // The counts under "In the registers": the register, showing this person. The screens that can search take the
   // person; the others open as they are. Only Loyalty, and Appointments until Bookings is set up, stay in the classic look.
-  var FIND = { ordreg: 1, tktreg: 1, dlvreg: 1, repreg: 1 };
+  var FIND = { ordreg: 1, tktreg: 1, dlvreg: 1, repreg: 1, loyreg: 1 };
   // Bookings is the one appointment screen (2026-11): old appointments and its waiting list open there too, never the
   // classic Appointments (Bookings itself brings the old ones over, once, and leaves the old records as they are).
   function bkOn() { return !!(E.bookingsOn && E.bookingsOn()); }
-  function classicLook(kind) { return kind === "loyalty" || ((kind === "appointment" || kind === "waitlist") && !bkOn()); }
+  function classicLook(kind) { return (kind === "loyalty" && !(E.UI2_NATIVE && E.UI2_NATIVE.loyalty)) || ((kind === "appointment" || kind === "waitlist") && !bkOn()); }
   function goAction(what) {
     var p = state.detail && state.detail.person; if (!p || !GO[what]) return;
     E.customerHandoff(GO[what], "new", p, what);
@@ -364,7 +371,7 @@
   function render() {
     if (E.state.activeModuleId !== "customers") return; // left before a reply came back: do not draw over the next screen
     var m = state.mount; if (!m) return;
-    m.innerHTML = '<div class="cus"><div class="cus-side">' +
+    m.innerHTML = '<div class="cus"><div class="cus-side"><h1 class="cus-sr" tabindex="-1">Customers</h1>' +
       '<div class="cus-search"><span aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:rgba(60,60,67,.55);flex:none;display:block"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><input id="cus-q" type="search" autocomplete="off" aria-label="Find a customer by name, ID card or phone" placeholder="Name, ID card or phone" value="' + esc(state.q) + '"></div>' +
       '<div id="cus-list"></div>' +
       '<div class="cus-regs"><span>Registers</span>' + regsStrip().map(function (x) { return '<a href="#' + x[2] + '" data-reg="' + x[0] + '">' + x[1] + '</a>'; }).join("") + '</div>' +
@@ -400,7 +407,7 @@
   // The Customers registers: rebuilt ones open in the new layout; what is still only in the classic look says so.
   function regsStrip() {
     var bk = bkOn();
-    return [["clientorders", "Orders"], ["tickets", "Questions"], ["deliveries", "Deliveries"], ["appointments", bk ? "Bookings" : "Appointments (classic look)"], ["loyalty", "Loyalty (classic look)"]]
+    return [["clientorders", "Orders"], ["tickets", "Questions"], ["deliveries", "Deliveries"], ["appointments", bk ? "Bookings" : "Appointments (classic look)"], ["loyalty", E.UI2_NATIVE && E.UI2_NATIVE.loyalty ? "Loyalty" : "Loyalty (classic look)"]]
       .filter(function (x) { var nat = E.UI2_NATIVE && E.UI2_NATIVE[x[0]]; return nat || (x[0] === "appointments" && bk) || E.modules[x[0]] || (window.EIKON_LATE && !E._lateIn); })
       .map(function (x) { var nat = E.UI2_NATIVE && E.UI2_NATIVE[x[0]]; return [x[0], x[1], x[0] === "appointments" && bk ? "bookings" : nat || x[0]]; });
   }
@@ -434,7 +441,7 @@
     if (!r) { box.innerHTML = html + (state.loading ? '<div class="cus-lab">Searching…</div>' : ""); bindList(); return; }
     var people = r.people || [], hist = alsoSplit(r).hist, also = state.also;
     var qq = String(r.q || "").trim();
-    html += '<div class="cus-lab">' + (qq.length >= 2 ? 'Customers <b>' + people.length + '</b>' : 'Recent customers') + (state.loading ? ' · searching…' : '') + '<a data-act="new">+ New</a></div>';
+    html += '<div class="cus-lab">' + (qq.length >= 2 ? 'Customers <b>' + people.length + '</b>' : 'Recent customers') + (state.loading ? ' · searching…' : '') + '<a href="#" role="button" data-act="new">+ New</a></div>';
     if (people.length) {
       html += '<div class="cus-list">' + people.map(function (p) {
         var sub = [p.phone, p.id_card].filter(Boolean).join(" · ") || p.email || p.address || "No details yet";
@@ -445,7 +452,7 @@
       // The search starts at two letters (the server answers one letter with the recent list): do not say "no one" yet.
       html += '<div class="cus-quiet">Keep typing: two letters or more find a customer.</div>';
     } else if (qq && !state.loading && !hist.length) {
-      html += '<div class="cus-quiet">No one called “' + esc(qq) + '” yet.<br><a data-act="new" style="color:var(--accent);font-weight:600;cursor:pointer">Add them as a new customer ›</a></div>';
+      html += '<div class="cus-quiet">No one called “' + esc(qq) + '” yet.<br><a href="#" role="button" data-act="new" style="color:var(--accent);font-weight:600;cursor:pointer">Add them as a new customer ›</a></div>';
     } else if (!qq && !state.loading) {
       html += '<div class="cus-quiet">Type a name, an ID card or a phone number. People found only in the registers show under <b>From history</b>: tap <b>Add</b> to give them a customer card.</div>';
     }
@@ -466,7 +473,7 @@
     m.querySelectorAll("[data-adopt]").forEach(function (el) { el.addEventListener("click", function (e) { e.stopPropagation(); adopt(state.results.history[Number(el.getAttribute("data-adopt"))], el); }); });
     m.querySelectorAll("[data-hist]").forEach(function (el) { el.addEventListener("click", function () { var b = el.querySelector("[data-adopt]"); if (b && !b.disabled) adopt(state.results.history[Number(el.getAttribute("data-hist"))], b); }); });
     m.querySelectorAll('[data-act="retry"]').forEach(function (el) { el.addEventListener("click", function () { search(state.q.trim()); }); });
-    m.querySelectorAll('[data-act="new"]').forEach(function (el) { el.addEventListener("click", function () { state.creating = true; state.selected = null; state.detail = null; renderList(); renderDetail(); }); });
+    m.querySelectorAll('[data-act="new"]').forEach(function (el) { el.addEventListener("click", function (ev) { ev.preventDefault(); state.creating = true; state.selected = null; state.detail = null; renderList(); renderDetail(); }); });
   }
 
   // The right keyboard for each field on a phone: capitals for an ID card, digits for a phone, @ for an e-mail.
@@ -518,7 +525,7 @@
     html += '<div class="cus-head">' + av(p.name, "lg") + '<div style="flex:1;min-width:0"><h1>' + esc(p.name) + '</h1><div class="cus-meta">' +
       (p.phone ? '<a class="cus-tel" href="tel:' + esc(String(p.phone).replace(/\s+/g, "")) + '" aria-label="' + esc("Call " + p.name + ", " + p.phone) + '"><b>' + esc(p.phone) + '</b></a>' : '<span>No phone</span>') + (p.id_card ? '<span class="cus-pill">' + esc(p.id_card) + '</span>' : "") + (d.loyalty ? '<span class="cus-pill">Loyalty · ' + esc(Number(d.loyalty.points || 0).toLocaleString("en-GB")) + ' pts</span>' : counts.loyalty ? '<span class="cus-pill">Loyalty card</span>' : "") + (counts.repeat ? '<span class="cus-pill grn">Repeat prescription</span>' : "") + (p.merged_from ? '<span class="cus-pill amb">Merged record opened</span>' : "") +
       (pr.prefers ? '<span class="cus-pill blu">Prefers ' + esc(CHW[pr.prefers] || pr.prefers) + '</span>' : "") + (pr.lang === "mt" ? '<span class="cus-pill">Malti</span>' : "") +
-      '</div></div>' + (state.editing ? "" : '<button class="cus-btn" data-act="edit">Edit</button>') + '</div>';
+      '</div></div>' + (state.editing ? "" : '<button class="cus-btn" data-act="edit">Edit</button>' + privacyMore(p)) + '</div>';
     if (!state.editing && pr.allergies) html += '<div class="cus-allergy" role="note"><b>Allergies</b> ' + esc(pr.allergies) + '</div>';
     if (!state.editing && p.notes) html += '<div class="cus-note" role="note"><b>Note</b> ' + esc(p.notes) + '</div>';
     if (state.conflict) { html += '<div class="cus-warn">' + esc(state.conflict) + (state.conflictExisting ? ' <a data-person="' + state.conflictExisting.id + '" style="cursor:pointer;font-weight:600">Open ' + esc(state.conflictExisting.name) + ' ›</a>' : "") + '</div>'; }
@@ -543,7 +550,8 @@
     }
     html += '</div>';
 
-    html += '<div class="cus-grid"><div class="cus-col">' + waitingHtml(state.now, p) + storyHtml(Object.assign({}, d, { activity: act }), state.now, p) + '</div><div class="cus-col">' + prefHtml(state.now, p) + loyaltyHtml(d, p) + '<div class="cus-card"><div class="cus-lab" style="margin-top:0">In the registers</div>';
+    // round 2: the loyalty card (asked at the counter) comes before the preferences form; allergies already show at the top of the record
+    html += '<div class="cus-grid"><div class="cus-col">' + waitingHtml(state.now, p) + storyHtml(Object.assign({}, d, { activity: act }), state.now, p) + '</div><div class="cus-col">' + loyaltyHtml(d, p) + prefHtml(state.now, p) + '<div class="cus-card"><div class="cus-lab" style="margin-top:0">In the registers</div>';
     var ck = Object.keys(counts).filter(function (k) { return counts[k]; });
     html += ck.length ? '<div class="cus-counts">' + ck.map(function (k) { var km = kindMeta(k); return '<a href="' + km[1] + '" data-count="' + esc(k) + '">' + esc(km[0]) + ' <b>' + counts[k] + '</b>' + (classicLook(k) ? '<b>(classic look)</b>' : "") + '</a>'; }).join("") + '</div>' : '<div class="cus-src">Not in any register yet.</div>';
     var aka = state.also && (state.also[p.id] || state.also[state.selected]);
@@ -566,6 +574,7 @@
     }
     var lb = box.querySelector("#cus-loy-box"); if (lb) bindLoy(lb);
 
+    bindPrivacy(box, p);
     var eb = box.querySelector('[data-act="edit"]'); if (eb) eb.addEventListener("click", function () { state.editing = true; state.conflict = ""; state.conflictExisting = null; renderDetail(); E.focusSoon(function () { return box.querySelector("[name=name]"); }); }); // never away from a field the person went to meanwhile
     var f = box.querySelector("#cus-edit");
     if (f) {
@@ -757,7 +766,8 @@
       return '<li><b>' + esc(c.name) + (loyActive(c) ? "" : ' <span class="cus-src" style="display:inline">(ended)</span>') + '</b><span>' + esc(line) + '</span>' + (pct != null ? '<span class="cus-bar" role="img" aria-label="' + Math.round(pct * 100) + ' percent"><i style="width:' + Math.round(pct * 100) + '%"></i></span>' : "") + '</li>';
     }).join("") + '</ul>' : '<div class="cus-src">No loyalty campaign is running.</div>';
     if (state.loyForm && act.length) {
-      var cid = state.loyForm.campaign_id || (act.length === 1 ? act[0].id : ""), cc = act.filter(function (c) { return c.id === cid; })[0];
+      var lastC = ""; try { lastC = localStorage.getItem("eikon_loyreg_camp") || ""; } catch (e) {} // the campaign used last in Loyalty, on this device
+      var cid = state.loyForm.campaign_id || (act.length === 1 ? act[0].id : act.some(function (c) { return c.id === lastC; }) ? lastC : ""), cc = act.filter(function (c) { return c.id === cid; })[0];
       h += '<form id="cus-loy" class="cus-form" autocomplete="off" style="grid-template-columns:1fr 1fr"><div class="w"><label for="cus-ly-c">Campaign</label><select id="cus-ly-c" name="campaign_id"><option value="">Choose…</option>' + act.map(function (c) { return '<option value="' + esc(c.id) + '"' + (c.id === cid ? " selected" : "") + '>' + esc(c.name) + '</option>'; }).join("") + '</select></div>' +
         '<div class="w"><label for="cus-ly-d">What they bought</label><input id="cus-ly-d" name="desc" value="' + esc(state.loyForm.desc || "") + '"></div>' +
         '<div><label for="cus-ly-q">Quantity</label><input id="cus-ly-q" name="qty" inputmode="numeric" value="' + esc(state.loyForm.qty || "1") + '"></div>' +
@@ -765,7 +775,7 @@
         '<div class="w"><label for="cus-ly-r">Receipt no. (if any)</label><input id="cus-ly-r" name="receipt_no" value="' + esc(state.loyForm.receipt_no || "") + '"></div>' +
         (state.loyErr ? '<div class="w cus-warn" role="alert">' + esc(state.loyErr) + '</div>' : "") +
         '<div class="w cus-actions" style="margin-top:4px"><button type="submit" class="cus-btn p" data-act="loy-save"' + (state.loySaving ? " disabled" : "") + '>' + (state.loySaving ? "Saving…" : "Add purchase") + '</button><button type="button" class="cus-btn" data-act="loy-cancel">Cancel</button></div></form>';
-    } else if (act.length) h += '<div class="cus-actions" style="margin-top:10px"><button type="button" class="cus-btn" data-act="loy-add">Add a purchase</button></div>';
+    } else if (act.length) h += '<div class="cus-actions" style="margin-top:10px"><button type="button" class="cus-btn" data-act="loy-add">Add a purchase</button>' + (E.UI2_NATIVE && E.UI2_NATIVE.loyalty && L.txns.length ? '<a class="cus-loylnk" href="#loyreg" data-act="loy-card">Full card and history</a>' : "") + '</div>';
     return h;
   }
   async function saveLoy(f) {
@@ -790,6 +800,7 @@
     try {
       var r = await E.apiFetch("/loyalty/transactions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(txn) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Not saved");
+      try { localStorage.setItem("eikon_loyreg_camp", camp.id); } catch (e) {}
       state.loySaving = false; state.loyForm = false; E.toast(actionLabel || "Purchase added", "success");
       await loadLoyalty(); repaintLoy(); E.focusSoon(function () { return state.mount && state.mount.querySelector("#cus-loy-box [data-act=loy-add]"); });
     } catch (x) { state.loySaving = false; state.loyErr = E.saveFailText(x); repaintLoy(); }
@@ -798,12 +809,32 @@
   function bindLoy(b) {
     var a = b.querySelector("[data-act=loy-add]"); if (a) a.addEventListener("click", function () { state.loyForm = {}; state.loyErr = ""; repaintLoy(); E.focusSoon(function () { var s = b.querySelector("#cus-ly-c"); return s && !s.value ? s : b.querySelector("#cus-ly-d"); }); });
     var c = b.querySelector("[data-act=loy-cancel]"); if (c) c.addEventListener("click", function () { state.loyForm = false; state.loyErr = ""; repaintLoy(); E.focusSoon(function () { return b.querySelector("[data-act=loy-add]"); }); });
+    var lc = b.querySelector("[data-act=loy-card]"); if (lc) lc.addEventListener("click", function (ev) { ev.preventDefault(); goCount("loyalty"); });
     var rt = b.querySelector("[data-act=loy-retry]"); if (rt) rt.addEventListener("click", function (ev) { ev.preventDefault(); state.loy = null; repaintLoy(); loadLoyalty(); });
     var f = b.querySelector("#cus-loy"); if (f) {
       f.addEventListener("submit", function (ev) { ev.preventDefault(); saveLoy(f); });
       f.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { ev.preventDefault(); state.loyForm = false; repaintLoy(); E.focusSoon(function () { return b.querySelector("[data-act=loy-add]"); }); } });
       f.addEventListener("input", function () { state.loyForm = state.loyForm || {}; ["campaign_id", "desc", "qty", "total", "receipt_no"].forEach(function (k) { var el = f.querySelector("[name=" + k + "]"); if (el) state.loyForm[k] = el.value; }); });
     }
+  }
+  // ---------- GDPR hook (agreed on the round-2 BOARD with the gdpr builder) ----------
+  // The pharmacist's ⋯ on a person: one item, "Export or erase…", opening the gdpr builder's sheet (ui/eikon.privacy.js,
+  // E.privacy.open(personId, { onDone })). Not drawn for staff, nor while that file is not loaded. Nothing else here.
+  function privacyOk() { return !!(E.privacy && typeof E.privacy.open === "function" && E.state && E.state.user && E.state.user.role === "admin"); }
+  function privacyMore(p) {
+    if (!privacyOk() || !p || !p.id) return "";
+    return '<div class="cus-more"><button class="cus-btn" data-act="more" aria-haspopup="true" aria-expanded="' + !!state.more + '" aria-label="' + esc("More for " + p.name) + '" style="margin-left:8px">⋯</button>' +
+      (state.more ? '<div class="list" role="menu"><button type="button" role="menuitem" data-act="privacy">Export or erase…</button></div>' : "") + '</div>';
+  }
+  function bindPrivacy(box, p) {
+    var mb = box.querySelector('[data-act="more"]'); if (!mb) return;
+    mb.addEventListener("click", function () { state.more = !state.more; renderDetail(); E.focusSoon(function () { return box.querySelector(state.more ? '[data-act="privacy"]' : '[data-act="more"]'); }); });
+    var wrap = mb.parentNode; wrap.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && state.more) { ev.preventDefault(); state.more = false; renderDetail(); E.focusSoon(function () { return box.querySelector('[data-act="more"]'); }); } });
+    var it = box.querySelector('[data-act="privacy"]'); if (it) it.addEventListener("click", function () {
+      state.more = false; renderDetail();
+      var back = function () { return box.querySelector('[data-act="more"]'); };
+      E.privacy.open(p.id, { onDone: function (r) { if (r && r.erased) { state.selected = null; state.detail = null; search(state.q || ""); renderDetail(); } else { open(p.id); E.focusSoon(back); } }, back: back });
+    });
   }
   function loyaltyHtml(d, p) {
     var counts = d.counts || {};

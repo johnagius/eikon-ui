@@ -81,7 +81,7 @@
         { label: "Watch", ids: ["alerts", "nearexpiry", "ssreg", "scarcestock"] },
         { label: "Order", ids: ["order-diary", "supplier-inventory"] },
         { label: "Send back or move", ids: ["returns", "stocktransfers"] },
-        { label: "Price", ids: ["quotations", "creditnotes"] } // credit notes live in Money; this second door stays where staff know it
+        { label: "Prices and credit notes", ids: ["quotations", "creditnotes"] } // credit notes live in Money; this second door stays where staff know it (stock-hub: named for both, not "Price")
       ]
     },
     registers: {
@@ -162,8 +162,8 @@
       ".hub-card{border:0;border-radius:0;min-height:0;padding:12px 40px 12px 16px;border-top:.5px solid var(--border)}.hub-card:first-child{border-top:0}.hub-card b{font-size:16px;font-weight:600}.hub-card span{font-size:13px}}" +
       ".hub-note{font-size:13px;color:var(--muted2,#8A94A3)}" +
       ".hub-gap{height:14px}" + // a group with no label (Money: How we're doing) keeps the rhythm of the others
-      // Services: group names in sentence case like its screens (the other hubs keep theirs until their owners move them)
-      ".hub[data-hub=services] .hub-lab,.hub[data-hub=team] .hub-lab{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none}";
+      // Services, Team and Stock: group names in sentence case like their screens (the other hubs keep theirs until their owners move them)
+      ".hub[data-hub=services] .hub-lab,.hub[data-hub=team] .hub-lab,.hub[data-hub=stock] .hub-lab{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none}";
     document.head.appendChild(st);
   }
 
@@ -196,7 +196,7 @@
       injectCss();
       var html = '<div class="hub" data-hub="' + esc(id) + '"><h1>' + esc(cfg.title) + '</h1><p class="lead">' + esc(cfg.lead) + '</p>' +
         (id === "settings" ? '<div id="hub-wn-slot"></div>' : "") +
-        (id === "stock" ? '<div id="stk-slot" class="stk"></div><h2 class="hub-lab stk-all">Every stock screen</h2>' : ""); // d-stock: the day's ordering first (modules.stkflow.js), every screen under it
+        (id === "stock" ? '<div id="stk-slot" class="stk"></div><h2 class="stk-all">Every stock screen</h2>' : ""); // d-stock: the day's ordering first (modules.stkflow.js), every screen under it
       if (id === "registers") html += '<div id="rgt-slot"></div><h2 class="rgt-all">Every register</h2>';
       if (id === "money") html += '<div id="mny-slot"></div><h2 class="mny-all">Everything in Money</h2>';
       if (id === "team") html += '<div id="tmt-slot"></div><h2 class="tmt-all">Everything in Team</h2>'; // team-hub: who is in and what to read today first (eikon.teamtoday.js), every team screen under it

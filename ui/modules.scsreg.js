@@ -2,8 +2,9 @@
    stock with how many are left, where you ask for some with a private note; what you asked for, which you can change or
    withdraw; and what you share, with who asked for how many (only you and the asking pharmacy see who and the note — the
    server blanks it for everyone else). Sharing a line and changing or closing it are here too. What other pharmacies are
-   short of is Shortages (ssreg). Deleting a line, placing it on Transfers or Returns, closed lines and printing stay in
-   the classic screen. */
+   short of is Shortages (ssreg). Your line also has Send to Returns and Offer in Transfers (the classic Place on Returns /
+   Place on Transfer, shown when classic shows them) and Delete (DELETE /scarce-stock/offers/:id after one plain question;
+   the server also deletes its requests). Closed lines and printing stay in the classic screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -58,7 +59,13 @@
       // Stock group: a 44 px way back, a pressed state on every button, 44 px buttons on a phone, a retry under a failed load.
       ".scs-back{display:inline-flex;align-items:center;min-height:44px;padding:0 8px 0 0;margin:-8px 0 -2px}.scs-btn:active:not(:disabled){filter:brightness(.9)}" +
       ".scs-quiet .scs-btn{margin-top:12px;display:block}" +
-      "@media (max-width:600px){.scs-btn,.scs-btn.s{height:44px;border-radius:22px}.scs-q{height:44px}}";
+      "@media (max-width:600px){.scs-btn,.scs-btn.s{height:44px;border-radius:22px}.scs-q{height:44px}}" +
+      // round 2: delete, Send to Returns, Offer in Transfers on your own line.
+      ".scs-card .a.l{justify-content:space-between}.scs-card .a.l>span{display:flex;gap:8px;flex-wrap:wrap}" +
+      ".scs-btn.d{color:var(--danger);border-color:var(--danger);background:transparent}.scs-btn.dd{background:#B42318;border-color:#B42318;color:#fff}" +
+      ".scs-ask{font-size:15px;font-weight:600;margin:10px 0 0;padding-top:10px;border-top:.5px solid var(--border)}" +
+      ".scs-foot a{display:inline-block;padding:15px 0;margin:-15px 0}" + // SF5: a 44 px tall tap area, the text unmoved
+      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .scs-btn.d{color:#FF7A72;border-color:#FF7A72}}";
     document.head.appendChild(st);
   }
 
@@ -89,7 +96,7 @@
     return '<div class="s">' + esc(bits.join(" · ")) + (expired(o) ? '<span class="scs-pill bad">Expired</span>' : "") + "</div>" + (o.description ? '<div class="d">' + esc(o.description) + "</div>" : "");
   }
   function reqForm(id, label) {
-    return '<form class="scs-in" id="scs-req" autocomplete="off"><label><span>How many</span><input name="quantity_requested" inputmode="numeric" value="' + esc(S.draft.quantity_requested || "") + '" placeholder="' + esc(label) + '"></label>' +
+    return '<form class="scs-in sf-form" id="scs-req" autocomplete="off"><label><span>How many</span><input name="quantity_requested" inputmode="numeric" value="' + esc(S.draft.quantity_requested || "") + '" placeholder="' + esc(label) + '"></label>' +
       '<label><span>Note</span><input name="note" value="' + esc(S.draft.note || "") + '" placeholder="Optional, e.g. customer and phone"></label>' +
       '<div class="scs-hint">Only you and the pharmacy that has it see the note. Others see only how many.</div>' + errLine() +
       '<div class="acts"><button type="button" class="scs-btn" data-act="req-cancel">Cancel</button><button type="submit" class="scs-btn p"' + busyAttr() + ">" + (S.saving ? "Saving…" : S.changingReq ? "Save" : "Ask for it") + "</button></div></form>";
@@ -121,7 +128,7 @@
     var h = '<div class="scs-card"><div class="h"><b>' + esc(o.item_name) + "</b><em>" + left + " of " + (Number(o.quantity_available) || 0) + " left</em></div>" + facts(o, true);
     if (S.editing === o.id) {
       var d = S.draft;
-      h += '<form class="scs-in" id="scs-edit" autocomplete="off"><label><span>Item</span><input name="item_name" value="' + esc(d.item_name) + '"></label>' +
+      h += '<form class="scs-in sf-form" id="scs-edit" autocomplete="off"><label><span>Item</span><input name="item_name" value="' + esc(d.item_name) + '"></label>' +
         '<label><span>How many</span><input name="quantity_available" inputmode="numeric" value="' + esc(d.quantity_available) + '"></label>' +
         '<label><span>Expiry</span><input name="expiry_date" type="date" value="' + esc(d.expiry_date) + '"></label><label><span>Batch</span><input name="batch" value="' + esc(d.batch) + '" placeholder="Optional"></label>' +
         '<label><span>Details</span><input name="description" value="' + esc(d.description) + '" placeholder="Optional, seen by every pharmacy"></label>' + errLine() +
@@ -131,7 +138,15 @@
         return '<div class="scs-line"><div class="t"><b>' + esc(r.quantity_requested) + "</b> · " + esc(r.is_private ? "Another pharmacy" : (r.requester_display || "Another pharmacy")) + (!r.is_private && r.note ? "<small>" + esc(r.note) + "</small>" : "") + "</div></div>";
       }).join("");
       if (!reqs.length) h += '<div class="s" style="margin-top:8px">Nobody has asked for it yet.</div>';
-      h += '<div class="a"><button class="scs-btn s" data-act="edit" data-id="' + o.id + '">Change</button></div>';
+      if (S.ask === o.id) h += '<p class="scs-ask" id="scs-ask-' + o.id + '">Delete ' + esc(o.item_name) + " from Scarce stock? Requests for it are deleted too. This cannot be undone.</p>" + (S.err ? errLine() : "") +
+        '<div class="a"><button class="scs-btn s" data-act="del-cancel" data-id="' + o.id + '">Keep it</button><button class="scs-btn s dd" data-act="del-go" data-id="' + o.id + '" aria-describedby="scs-ask-' + o.id + '"' + (S.busy["o" + o.id] ? " disabled" : "") + ">" + (S.busy["o" + o.id] ? "Deleting…" : "Delete line") + "</button></div>";
+      else {
+        var acts = []; // as classic: Place on Transfer when not expired and not already there; Place on Returns when not already there (expired too)
+        if (!o.placed_on_returns) acts.push('<button class="scs-btn s" data-act="to-returns" data-id="' + o.id + '"' + (S.busy["o" + o.id] ? " disabled" : "") + ">Send to Returns</button>");
+        if (!expired(o) && !o.transfer_item_id) acts.push('<button class="scs-btn s" data-act="to-transfer" data-id="' + o.id + '"' + (S.busy["o" + o.id] ? " disabled" : "") + ">Offer in Transfers</button>");
+        h += (o.placed_on_returns || o.transfer_item_id ? '<div class="s" style="margin-top:6px">' + esc([o.placed_on_returns ? "On Returns" : "", o.transfer_item_id ? "In Transfers" : ""].filter(Boolean).join(" · ")) + "</div>" : "") +
+          '<div class="a l"><span><button class="scs-btn s d" data-act="del" data-id="' + o.id + '" aria-label="' + esc("Delete " + o.item_name) + '">Delete…</button></span><span>' + acts.join("") + '<button class="scs-btn s" data-act="edit" data-id="' + o.id + '">Change</button></span></div>';
+      }
     }
     return h + "</div>";
   }
@@ -144,7 +159,7 @@
       '<div class="scs-top"><div><h1>Scarce stock</h1><p class="scs-sub">Hard-to-get lines pharmacies have spare, and who asked for them.</p></div>' + (S.adding ? "" : '<button class="scs-btn p" data-act="add">Share stock</button>') + "</div>";
     if (S.adding) {
       var a = S.adding;
-      h += '<form class="scs-form" id="scs-add" autocomplete="off"><label><span>Item</span><input name="item_name" value="' + esc(a.item_name || "") + '" placeholder="e.g. Shingrix vaccine"></label>' +
+      h += '<form class="scs-form sf-form sf-new" id="scs-add" autocomplete="off"><label><span>Item</span><input name="item_name" value="' + esc(a.item_name || "") + '" placeholder="e.g. Shingrix vaccine"></label>' +
         '<label><span>How many</span><input name="quantity_available" inputmode="numeric" value="' + esc(a.quantity_available || "") + '"></label>' +
         '<label><span>Expiry</span><input name="expiry_date" type="date" value="' + esc(a.expiry_date || "") + '"></label><label><span>Batch</span><input name="batch" value="' + esc(a.batch || "") + '" placeholder="Optional"></label>' +
         '<label><span>Details</span><input name="description" value="' + esc(a.description || "") + '" placeholder="Optional, e.g. pack size, fridge"></label>' +
@@ -162,7 +177,7 @@
       h += '<div class="scs-lab">Other pharmacies have <b>' + rest.length + "</b></div>" + (rest.length ? rest.map(otherCard).join("") : '<div class="scs-quiet">' + (S.q ? "Nothing matches “" + esc(S.q) + "”." : "No other pharmacy is sharing scarce stock right now.") + "</div>");
       h += '<div class="scs-lab">You share <b>' + mine.length + "</b></div>" + (mine.length ? mine.map(mineCard).join("") : '<div class="scs-quiet">' + (S.q ? "None of yours match." : "You are not sharing anything right now.") + "</div>");
     }
-    h += '<p class="scs-foot">Can\'t find it? <a href="#ssreg" data-act="shortages">Ask in Shortages</a>, where pharmacies list what they are short of. Deleting a line, placing it on Transfers or Returns, closed lines and printing are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
+    h += '<p class="scs-foot">Can\'t find it? <a href="#ssreg" data-act="shortages">Ask in Shortages</a>, where pharmacies list what they are short of. Closed lines and printing are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
     var ae = document.activeElement, sel = ae && m.contains(ae) && ae.name ? "[name=" + ae.name + "]" : (ae && ae.id === "scs-q" ? "#scs-q" : "");
     var caret = ae && ae.id === "scs-q" ? ae.selectionStart : null;
     m.innerHTML = h;
@@ -188,6 +203,10 @@
         else if (act === "edit-cancel") { var wasE = S.editing; S.editing = null; S.err = ""; paint(true); focusSoon('[data-act="edit"][data-id="' + wasE + '"]'); }
         else if (act === "close-line") saveLine(true);
         else if (act === "shortages") { ev.preventDefault(); window.location.hash = "#ssreg"; }
+        else if (act === "del") { S.ask = id; S.err = ""; S.editing = null; paint(true); focusSoon('[data-act="del-cancel"][data-id="' + id + '"]'); }
+        else if (act === "del-cancel") { S.ask = null; S.err = ""; paint(true); focusSoon('[data-act="del"][data-id="' + id + '"]'); }
+        else if (act === "del-go") delLine(id);
+        else if (act === "to-returns" || act === "to-transfer") place(id, act);
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "scsreg"); } catch (x) {} E.openClassic("scarcestock"); }
       });
     });
@@ -198,7 +217,30 @@
     var fe = m.querySelector("#scs-edit"); if (fe) fe.addEventListener("submit", function (ev) { ev.preventDefault(); saveLine(false); });
     var fa = m.querySelector("#scs-add"); if (fa) fa.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
   }
-  function reset() { S.adding = null; S.asking = null; S.changingReq = null; S.editing = null; S.draft = {}; S.err = ""; }
+  // Delete your line: the classic DELETE (no body). A lost answer reads the lines again before saying it failed.
+  async function delLine(id) {
+    var o = S.offers.find(function (x) { return x.id === id; }); if (!o || S.busy["o" + id]) return;
+    S.busy["o" + id] = true; S.err = ""; paint(true);
+    try {
+      try { var r = await E.apiFetch("/scarce-stock/offers/" + encodeURIComponent(String(id)), { method: "DELETE" }); if (!r || !r.ok) throw new Error((r && r.error) || "Delete failed"); }
+      catch (x) { var gone = false; if (x && x.network) { try { gone = !(await fetchOffers(true)).some(function (y) { return y.id === id; }); } catch (y) {} } if (!gone) throw x; }
+    } catch (x2) { S.busy["o" + id] = false; S.err = E.saveFailText(x2).replace(/^Not saved/, "Not deleted"); paint(true); return focusSoon('[data-act="del-go"][data-id="' + id + '"]'); }
+    S.busy["o" + id] = false; S.ask = null; E.toast("Deleted · " + o.item_name, "success");
+    await load(); focusSoon('[data-act="add"]');
+  }
+  // Place on Returns / Place on Transfer: the classic POST, no body; never sent twice (a lost answer reads the line again).
+  async function place(id, what) {
+    var o = S.offers.find(function (x) { return x.id === id; }); if (!o || S.busy["o" + id]) return;
+    var key = what === "to-returns" ? "placed_on_returns" : "transfer_item_id";
+    S.busy["o" + id] = true; S.err = ""; paint(true);
+    try {
+      try { var r = await E.apiFetch("/scarce-stock/offers/" + encodeURIComponent(String(id)) + (what === "to-returns" ? "/place-on-returns" : "/place-on-transfer"), { method: "POST" }); if (!r || !r.ok) throw new Error((r && r.error) || "Failed"); }
+      catch (x) { var ok = false; if (x && x.network) { try { ok = (await fetchOffers(true)).some(function (y) { return y.id === id && y[key]; }); } catch (y) {} } if (!ok) throw x; }
+    } catch (x2) { S.busy["o" + id] = false; E.toast(E.saveFailText(x2), "error"); paint(true); return focusSoon('[data-act="' + what + '"][data-id="' + id + '"]'); }
+    S.busy["o" + id] = false; E.toast((what === "to-returns" ? "Sent to Returns · " : "Offered in Transfers · ") + o.item_name, "success");
+    await load(); focusSoon('[data-act="edit"][data-id="' + id + '"]');
+  }
+  function reset() { S.adding = null; S.asking = null; S.changingReq = null; S.editing = null; S.draft = {}; S.err = ""; S.ask = null; }
   function focusSoon(sel) { var m = S.mount; setTimeout(function () { var f = m && m.querySelector(sel); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form") && document.activeElement !== f)) f.focus(); }, 30); }
   function keep() {
     var m = S.mount; if (!m) return;

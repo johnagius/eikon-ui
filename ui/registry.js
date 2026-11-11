@@ -76,6 +76,7 @@
     ["modules.eposreg.js", "eposreg", "Emergency POS", "€", 3, true, "new", ["pharmacy"]],
     ["modules.calreg.js", "calreg", "Pharmacy calculators", "🧮", 3, true, "new", ["pharmacy"]],
     ["modules.dupreg.js", "dupreg", "Possible duplicates", "◯", 2, true, "new", ["pharmacy"]],
+    ["modules.loyreg.js", "loyreg", "Loyalty", "✦", 3, true, "new", ["pharmacy"]],
     ["modules.alerts.js", "alerts", "Alerts", "⚠️", 110, false, "classic", ["pharmacy"]],
     ["modules.shifts.js", "shifts", "Shifts", "🕐", 190, false, "classic", ["pharmacy"]],
     ["modules.ocps.js", "ocps", "OCP Finder", "💊", 390, false, "classic", ["pharmacy"]],

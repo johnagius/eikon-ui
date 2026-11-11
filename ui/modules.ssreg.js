@@ -1,13 +1,19 @@
 /* Shortages, new layout: the pharmacy network's "who has this?". Other pharmacies' open requests, where you offer a
    quantity and, once they accept, confirm it is sent; your own requests, where offers come in and you accept one; and
-   one form to ask for something. Who offered is shown only as the server allows (it hides it otherwise). Surplus stock
-   offered to the network, editing and closing requests stay in the classic screen. */
+   one form to ask for something. Who offered is shown only as the server allows (it hides it otherwise).
+   Your own request: Change (the classic Edit request body: entry_date, item_name, description, needed_by or null,
+   quantity_needed, is_closed), Close request (the same body with is_closed 1, as the classic Edit with Status Closed) and
+   Delete (DELETE /scarce-stock/needs/:id); your offer not yet sent: Withdraw (DELETE /scarce-stock/need-offers/:id).
+   Each for whoever classic shows it to (the pharmacy that made it, any role), the closing and removing after one plain
+   question. Spare stock you share with every pharmacy is Scarce stock (scsreg). */
 (function () {
   "use strict";
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, needs: [], loading: false, error: "", busy: {}, offering: null, draft: {}, adding: null, saving: false, err: "" };
+  var S = { mount: null, needs: [], loading: false, error: "", busy: {}, offering: null, draft: {}, adding: null, saving: false, err: "", editing: null, edit: null, editErr: "", ask: "", askErr: "" };
+  function cut(v, max) { var x = String(v == null ? "" : v).trim(); return x.length > max ? x.slice(0, max) : x; } // the classic trimMax
+  function int0(v) { var n = Number(v); if (!isFinite(n)) return 0; n = Math.floor(n); return n < 0 ? 0 : n; } // the classic intOrZero
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s); }
@@ -42,7 +48,13 @@
       // Stock group: a 44 px way back, a pressed state on every button, 44 px buttons on a phone, a retry under a failed load.
       ".ssr-back{display:inline-flex;align-items:center;min-height:44px;padding:0 8px 0 0;margin:-8px 0 -2px}.ssr-btn:active:not(:disabled){filter:brightness(.9)}" +
       ".ssr-quiet .ssr-btn{margin-top:12px;display:block}" +
-      "@media (max-width:600px){.ssr-btn,.ssr-btn.s{height:44px;border-radius:22px}}";
+      ".ssr-foot{font-size:12.5px;color:var(--muted);margin-top:12px}.ssr-foot a{color:var(--accent);display:inline-block;padding:15px 0;margin:-15px 0}" +
+      "@media (max-width:600px){.ssr-btn,.ssr-btn.s{height:44px;border-radius:22px}}" +
+      // round 2: change, close and delete your request; withdraw your offer.
+      ".ssr-card .a.l{justify-content:space-between;flex-wrap:wrap}.ssr-card .a.l>span{display:flex;gap:8px;flex-wrap:wrap}" +
+      ".ssr-btn.d{color:var(--danger);border-color:var(--danger);background:transparent}.ssr-btn.dd{background:#B42318;border-color:#B42318;color:#fff}" +
+      ".ssr-ask{font-size:15px;font-weight:600;margin:10px 0 0;padding-top:10px;border-top:.5px solid var(--border)}" +
+      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .ssr-btn.d{color:#FF7A72;border-color:#FF7A72}}";
     document.head.appendChild(st);
   }
 
@@ -59,7 +71,12 @@
     var act = "";
     if (ownerView && !o.accepted) act = '<button class="ssr-btn s p" data-act="accept" data-id="' + o.id + '"' + (S.busy[o.id] ? " disabled" : "") + ">Accept</button>";
     if (!ownerView && o.mine && o.accepted && !o.confirmed) act = '<button class="ssr-btn s p" data-act="confirm" data-id="' + o.id + '"' + (S.busy[o.id] ? " disabled" : "") + ">It is sent</button>";
-    return '<div class="ssr-off"><div class="t"><b>' + esc(o.quantity_offered) + "</b> · " + esc(who) + (o.note ? "<small>" + esc(o.note) + "</small>" : "") + "</div>" + state + act + "</div>";
+    var wd = !ownerView && o.mine && !o.confirmed, asking = S.ask === "wd:" + o.id;
+    if (wd && !asking) act += '<button class="ssr-btn s d" data-act="wd" data-id="' + o.id + '"' + (S.busy[o.id] ? " disabled" : "") + ' aria-label="Withdraw your offer of ' + esc(o.quantity_offered) + '">Withdraw…</button>';
+    var h = '<div class="ssr-off"><div class="t"><b>' + esc(o.quantity_offered) + "</b> · " + esc(who) + (o.note ? "<small>" + esc(o.note) + "</small>" : "") + "</div>" + state + act + "</div>";
+    if (asking) h += '<p class="ssr-ask" id="ssr-ask-o' + o.id + '">Withdraw your offer of ' + esc(o.quantity_offered) + "?</p>" + (S.askErr ? '<div class="ssr-err" role="alert" style="padding:4px 0">' + esc(S.askErr) + "</div>" : "") +
+      '<div class="a"><button class="ssr-btn" data-act="ask-cancel" data-id="' + o.id + '">Keep it</button><button class="ssr-btn dd" data-act="wd-go" data-id="' + o.id + '" aria-describedby="ssr-ask-o' + o.id + '"' + (S.busy[o.id] ? " disabled" : "") + ">" + (S.busy[o.id] ? "Withdrawing…" : "Withdraw offer") + "</button></div>";
+    return h;
   }
   function needCard(n, mine) {
     var left = Math.max(0, Number(n.remaining_quantity) || 0), sub = [mine ? "Asked " + dm(n.entry_date) : (n.org_name + " — " + n.location_name)];
@@ -68,13 +85,32 @@
     var h = '<div class="ssr-card"><div class="h"><b>' + esc(n.item_name) + "</b><em>" + (left ? left + " still needed" : "All offered") + '</em></div><div class="s">' + esc(sub.join(" · ")) + " · asked for " + esc(n.quantity_needed) + "</div>" + (n.description ? '<div class="d">' + esc(n.description) + "</div>" : "");
     h += offers.map(function (o) { return offerLine(o, mine); }).join("");
     if (mine && !offers.length) h += '<div class="s" style="margin-top:8px">No offers yet.</div>';
+    if (mine) h += mineActs(n);
     if (!mine) {
-      if (S.offering === n.id) h += '<form class="ssr-in" id="ssr-offer" autocomplete="off"><label><span>I can give</span><input name="quantity_offered" inputmode="numeric" value="' + esc(S.draft.quantity_offered || "") + '" placeholder="How many"></label><label><span>Note</span><input name="note" value="' + esc(S.draft.note || "") + '" placeholder="Optional, e.g. expiry 03/27"></label>' + (S.err ? '<div class="ssr-err" role="alert">' + esc(S.err) + "</div>" : "") + '<div class="acts"><button type="button" class="ssr-btn" data-act="offer-cancel">Cancel</button><button type="submit" class="ssr-btn p"' + (S.saving ? " disabled" : "") + ">Offer</button></div></form>";
+      if (S.offering === n.id) h += '<form class="ssr-in sf-form" id="ssr-offer" autocomplete="off"><label><span>I can give</span><input name="quantity_offered" inputmode="numeric" value="' + esc(S.draft.quantity_offered || "") + '" placeholder="How many"></label><label><span>Note</span><input name="note" value="' + esc(S.draft.note || "") + '" placeholder="Optional, e.g. expiry 03/27"></label>' + (S.err ? '<div class="ssr-err" role="alert">' + esc(S.err) + "</div>" : "") + '<div class="acts"><button type="button" class="ssr-btn" data-act="offer-cancel">Cancel</button><button type="submit" class="ssr-btn p"' + (S.saving ? " disabled" : "") + ">Offer</button></div></form>";
       else if (!offers.length) h += '<div class="a"><button class="ssr-btn s" data-act="offer" data-id="' + n.id + '">I can help</button></div>';
     }
     return h + "</div>";
   }
 
+  // Your request: Change opens its form in place; Close request and Delete ask first.
+  function mineActs(n) {
+    var busy = S.busy["n" + n.id];
+    if (S.editing === n.id) {
+      var d = S.edit || {}, fld = function (k, t, extra) { return "<label><span>" + t + '</span><input name="' + k + '" value="' + esc(d[k] == null ? "" : d[k]) + '"' + (extra || "") + "></label>"; };
+      return '<form class="ssr-in sf-form" id="ssr-edit" data-id="' + n.id + '" autocomplete="off" aria-label="' + esc("Change your request for " + n.item_name) + '">' + fld("item_name", "Item") + fld("quantity_needed", "How many", ' inputmode="numeric"') +
+        fld("needed_by", "Needed by", ' type="date"') + fld("description", "Note", ' placeholder="Optional, seen by every pharmacy"') + (S.editErr ? '<div class="ssr-err" role="alert">' + esc(S.editErr) + "</div>" : "") +
+        '<div class="acts"><button type="button" class="ssr-btn" data-act="edit-cancel">Cancel</button><button type="submit" class="ssr-btn p"' + (busy ? " disabled" : "") + ">" + (busy ? "Saving…" : "Save changes") + "</button></div></form>";
+    }
+    if (S.ask === "close:" + n.id || S.ask === "del:" + n.id) {
+      var del = S.ask === "del:" + n.id;
+      return '<p class="ssr-ask" id="ssr-ask-n' + n.id + '">' + (del ? "Delete your request for " + esc(n.item_name) + "? Its offers are deleted too. This cannot be undone." : "Close your request for " + esc(n.item_name) + "? It comes off every pharmacy's list.") + "</p>" +
+        (S.askErr ? '<div class="ssr-err" role="alert" style="padding:4px 0">' + esc(S.askErr) + "</div>" : "") +
+        '<div class="a"><button class="ssr-btn" data-act="ask-cancel" data-id="' + n.id + '">Keep it</button><button class="ssr-btn ' + (del ? "dd" : "p") + '" data-act="' + (del ? "del-go" : "close-go") + '" data-id="' + n.id + '" aria-describedby="ssr-ask-n' + n.id + '"' + (busy ? " disabled" : "") + ">" + (busy ? (del ? "Deleting…" : "Closing…") : (del ? "Delete request" : "Close request")) + "</button></div>";
+    }
+    return '<div class="a l"><span><button class="ssr-btn s d" data-act="del" data-id="' + n.id + '"' + (busy ? " disabled" : "") + ' aria-label="' + esc("Delete your request for " + n.item_name) + '">Delete…</button></span>' +
+      '<span><button class="ssr-btn s" data-act="edit" data-id="' + n.id + '"' + (busy ? " disabled" : "") + ' aria-label="' + esc("Change your request for " + n.item_name) + '">Change</button><button class="ssr-btn s" data-act="close" data-id="' + n.id + '"' + (busy ? " disabled" : "") + ">Close request</button></span></div>";
+  }
   function paint(fromState) {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "ssreg") return; // left before a reply came back: do not draw over the next screen
@@ -83,7 +119,7 @@
       '<div class="ssr-top"><div><h1>Shortages</h1><p class="ssr-sub">What other pharmacies are looking for, and what you asked for.</p></div>' + (S.adding ? "" : '<button class="ssr-btn p" data-act="add">Ask for something</button>') + "</div>";
     if (S.adding) {
       var a = S.adding;
-      h += '<form class="ssr-form" id="ssr-add" autocomplete="off"><label><span>Item</span><input name="item_name" value="' + esc(a.item_name || "") + '" placeholder="e.g. Ozempic 1mg pen"></label><label><span>How many</span><input name="quantity_needed" inputmode="numeric" value="' + esc(a.quantity_needed || "") + '"></label>' +
+      h += '<form class="ssr-form sf-form sf-new" id="ssr-add" autocomplete="off"><label><span>Item</span><input name="item_name" value="' + esc(a.item_name || "") + '" placeholder="e.g. Ozempic 1mg pen"></label><label><span>How many</span><input name="quantity_needed" inputmode="numeric" value="' + esc(a.quantity_needed || "") + '"></label>' +
         '<label><span>Needed by</span><input name="needed_by" type="date" min="' + esc(today()) + '" value="' + esc(a.needed_by || "") + '"></label><label><span>Note</span><input name="description" value="' + esc(a.description || "") + '" placeholder="Optional"></label>' +
         (S.err && !S.offering ? '<div class="ssr-err" role="alert">' + esc(S.err) + "</div>" : "") + '<div class="acts"><button type="button" class="ssr-btn" data-act="add-cancel">Cancel</button><button type="submit" class="ssr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Ask the network") + "</button></div></form>";
     }
@@ -97,8 +133,8 @@
       var rest = others.filter(function (n) { return waiting.indexOf(n) < 0; });
       h += '<div class="ssr-lab">Other pharmacies need <b>' + rest.length + "</b></div>" + (rest.length ? rest.map(function (n) { return needCard(n, false); }).join("") : '<div class="ssr-quiet">No other pharmacy is short of anything right now.</div>');
     }
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">Offering your own spare stock, changing or closing a request are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
-    var ae = document.activeElement, sel = ae && m.contains(ae) && ae.name ? "[name=" + ae.name + "]" : "";
+    h += '<p class="ssr-foot">Have spare stock another pharmacy may need? Share it in <a href="#scsreg">Scarce stock</a>.</p></div>';
+    var ae = document.activeElement, fm = ae && m.contains(ae) && ae.name && ae.closest ? ae.closest("form") : null, sel = fm ? (fm.id ? "#" + fm.id + " " : "") + "[name=" + ae.name + "]" : "";
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) again.focus(); }
     m.querySelectorAll("[data-act]").forEach(function (b) {
@@ -112,6 +148,13 @@
         else if (act === "offer-cancel") { var was = S.offering; S.offering = null; S.err = ""; paint(true); setTimeout(function () { var b = m.querySelector('[data-act="offer"][data-id="' + was + '"]'); if (b) b.focus(); }, 30); }
         else if (act === "accept") step(id, "accept", "Accepted. They will send it.");
         else if (act === "confirm") step(id, "confirm", "Marked as sent.");
+        else if (act === "edit") { var n = S.needs.find(function (x) { return x.id === id; }); if (!n) return; S.editing = id; S.edit = { item_name: n.item_name || "", quantity_needed: String(n.quantity_needed == null ? 0 : n.quantity_needed), needed_by: n.needed_by || "", description: n.description || "" }; S.editErr = ""; S.ask = ""; S.adding = null; S.offering = null; paint(true); E.focusSoon(function () { return m.querySelector("#ssr-edit [name=item_name]"); }, 30); }
+        else if (act === "edit-cancel") { var w = S.editing; S.editing = null; S.edit = null; S.editErr = ""; paint(true); E.focusSoon(function () { return m.querySelector('[data-act="edit"][data-id="' + w + '"]'); }, 30); }
+        else if (act === "close" || act === "del" || act === "wd") { S.ask = act + ":" + id; S.askErr = ""; S.editing = null; paint(true); E.focusSoon(function () { return m.querySelector('[data-act="ask-cancel"][data-id="' + id + '"]'); }, 30); }
+        else if (act === "ask-cancel") { var was = S.ask.split(":")[0]; S.ask = ""; S.askErr = ""; paint(true); E.focusSoon(function () { return m.querySelector('[data-act="' + was + '"][data-id="' + id + '"]'); }, 30); }
+        else if (act === "close-go") saveNeed(id, true);
+        else if (act === "del-go") delNeed(id);
+        else if (act === "wd-go") withdraw(id);
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "ssreg"); } catch (x) {} E.openClassic("scarcestock"); }
       });
     });
@@ -119,10 +162,13 @@
     m.querySelectorAll("form").forEach(function (f) { f.addEventListener("keydown", function (ev) { if (ev.key !== "Escape") return; var c = f.querySelector('[data-act$="-cancel"]'); if (c) { ev.preventDefault(); c.click(); } }); });
     var fo = m.querySelector("#ssr-offer"); if (fo) fo.addEventListener("submit", function (ev) { ev.preventDefault(); offer(); });
     var fa = m.querySelector("#ssr-add"); if (fa) fa.addEventListener("submit", function (ev) { ev.preventDefault(); add(); });
+    var fe = m.querySelector("#ssr-edit"); if (fe) fe.addEventListener("submit", function (ev) { ev.preventDefault(); saveNeed(S.editing, false); });
+    m.querySelectorAll(".ssr-card").forEach(function (c) { c.addEventListener("keydown", function (ev) { if (ev.key !== "Escape") return; var k = c.querySelector('[data-act="ask-cancel"]'); if (k) { ev.preventDefault(); k.click(); } }); });
   }
   function keep() {
     var m = S.mount; if (!m) return;
     var fo = m.querySelector("#ssr-offer"); if (fo) ["quantity_offered", "note"].forEach(function (k) { var el = fo.querySelector("[name=" + k + "]"); if (el) S.draft[k] = String(el.value || "").trim(); });
+    var fe = m.querySelector("#ssr-edit"); if (fe && S.edit) ["item_name", "quantity_needed", "needed_by", "description"].forEach(function (k) { var el = fe.querySelector("[name=" + k + "]"); if (el) S.edit[k] = String(el.value || ""); });
     var fa = m.querySelector("#ssr-add"); if (fa && S.adding) ["item_name", "quantity_needed", "needed_by", "description"].forEach(function (k) { var el = fa.querySelector("[name=" + k + "]"); if (el) S.adding[k] = String(el.value || "").trim(); });
   }
 
@@ -135,6 +181,52 @@
       E.toast(okText, "success");
     } catch (x) { E.toast(E.saveFailText(x), "error"); }
     S.busy[id] = false; return load();
+  }
+  // Change / Close request: the classic Edit request's PUT. Close sends the request as stored with is_closed 1.
+  async function saveNeed(id, close) {
+    var n = S.needs.find(function (x) { return x.id === id; }); if (!n || S.busy["n" + id]) return;
+    if (!close) keep();
+    var d = close ? { item_name: n.item_name, quantity_needed: n.quantity_needed, needed_by: n.needed_by || "", description: n.description || "" } : S.edit;
+    var body = { entry_date: cut(/^\d{4}-\d{2}-\d{2}$/.test(String(n.entry_date || "").trim()) ? n.entry_date : today(), 40), item_name: cut(d.item_name, 220), description: cut(d.description, 2000),
+      needed_by: cut(d.needed_by, 40) || null, quantity_needed: int0(d.quantity_needed), is_closed: close ? 1 : (n.is_closed === 1 || n.is_closed === true ? 1 : 0) };
+    S.editErr = "";
+    if (!body.item_name) S.editErr = "Write the item. Nothing was saved.";
+    else if (!/^\d+$/.test(String(d.quantity_needed).trim()) || Number(d.quantity_needed) < 1) S.editErr = "Write how many you need (a whole number). Nothing was saved.";
+    else if (body.needed_by && !/^\d{4}-\d{2}-\d{2}$/.test(body.needed_by)) S.editErr = "Write the date it is needed by, or leave it empty. Nothing was saved.";
+    if (S.editErr && !close) { paint(true); return E.focusSoon(function () { return S.mount && S.mount.querySelector("#ssr-edit [name=" + (!body.item_name ? "item_name" : /^\d+$/.test(String(d.quantity_needed).trim()) && Number(d.quantity_needed) >= 1 ? "needed_by" : "quantity_needed") + "]"); }, 0); }
+    S.editErr = "";
+    S.busy["n" + id] = true; S.askErr = ""; paint(true);
+    try {
+      var r = await E.apiFetch("/scarce-stock/needs/" + encodeURIComponent(String(id)), { method: "PUT", body: JSON.stringify(body) });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+    } catch (x) {
+      S.busy["n" + id] = false; if (close) S.askErr = E.saveFailText(x); else S.editErr = E.saveFailText(x); paint(true);
+      return E.focusSoon(function () { return S.mount && S.mount.querySelector(close ? '[data-act="close-go"]' : "#ssr-edit [type=submit]"); }, 0);
+    }
+    S.busy["n" + id] = false; S.editing = null; S.edit = null; S.ask = "";
+    E.toast(close ? "Closed · " + body.item_name : "Saved · " + body.item_name, "success");
+    await load(); E.focusSoon(function () { return S.mount && S.mount.querySelector(close ? '[data-act="add"]' : '[data-act="edit"][data-id="' + id + '"]'); }, 0);
+  }
+  // A DELETE; a lost answer reads the list again before saying it failed.
+  async function gone(path, isGone) {
+    try { var r = await E.apiFetch(path, { method: "DELETE" }); if (!r || !r.ok) throw new Error((r && r.error) || "Delete failed"); }
+    catch (x) { var ok = false; if (x && x.network) { try { ok = isGone(await fetchNeeds()); } catch (y) {} } if (!ok) throw x; }
+  }
+  async function delNeed(id) {
+    var n = S.needs.find(function (x) { return x.id === id; }); if (!n || S.busy["n" + id]) return;
+    S.busy["n" + id] = true; S.askErr = ""; paint(true);
+    try { await gone("/scarce-stock/needs/" + encodeURIComponent(String(id)), function (all) { return !all.some(function (x) { return x.id === id; }); }); }
+    catch (x) { S.busy["n" + id] = false; S.askErr = E.saveFailText(x).replace(/^Not saved/, "Not deleted"); paint(true); return E.focusSoon(function () { return S.mount && S.mount.querySelector('[data-act="del-go"]'); }, 0); }
+    S.busy["n" + id] = false; S.ask = ""; E.toast("Deleted · request for " + n.item_name, "success");
+    await load(); E.focusSoon(function () { return S.mount && S.mount.querySelector('[data-act="add"]'); }, 0);
+  }
+  async function withdraw(id) {
+    if (S.busy[id]) return;
+    S.busy[id] = true; S.askErr = ""; paint(true);
+    try { await gone("/scarce-stock/need-offers/" + encodeURIComponent(String(id)), function (all) { return !all.some(function (n) { return (n.offers || []).some(function (o) { return o.id === id; }); }); }); }
+    catch (x) { S.busy[id] = false; S.askErr = E.saveFailText(x).replace(/^Not saved/, "Not withdrawn"); paint(true); return E.focusSoon(function () { return S.mount && S.mount.querySelector('[data-act="wd-go"]'); }, 0); }
+    S.busy[id] = false; S.ask = ""; E.toast("Offer withdrawn", "success");
+    await load(); E.focusSoon(function () { return S.mount && S.mount.querySelector('[data-act="add"]'); }, 0);
   }
   async function offer() {
     if (S.saving) return;
@@ -168,7 +260,7 @@
 
   E.registerModule({
     id: "ssreg", title: "Shortages", order: 3, icon: "⇄", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.offering = null; S.err = ""; S.busy = {}; css(); paint(); return E.takeOpenForm("ssreg", S.mount, load(), { btn: "[data-act=add]", form: "#ssr-add" } /* q5-2: a half-typed form comes back */, null); }
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.adding = null; S.offering = null; S.err = ""; S.busy = {}; S.editing = null; S.edit = null; S.ask = ""; S.askErr = ""; css(); paint(); return E.takeOpenForm("ssreg", S.mount, load(), { btn: "[data-act=add]", form: "#ssr-add" } /* q5-2: a half-typed form comes back */, null); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("ssreg") < 0) E.UI2_DESTINATIONS.push("ssreg");
   if (E.UI2_PARENT) E.UI2_PARENT.ssreg = "stock";

@@ -100,8 +100,30 @@
       cols: [["Ordered", function (e) { return dmy(e.order_date); }], ["Delivery", function (e) { return e.delivery_id; }], ["Customer", function (e) { return e.client_name; }], ["Phone", function (e) { return e.phone; }], ["Address", function (e) { return e.delivery_address; }], ["Due", function (e) { return dmy(e.scheduled_date); }], ["Time of day", function (e) { return e.scheduled_time_slot; }],
         ["Status", function (e) { return e.status; }], ["Delivered on", function (e) { return dmy(e.actual_delivery_date); }], ["Delivered at", function (e) { return e.actual_delivery_time; }], ["Driver", function (e) { return e.assigned_driver; }], ["Received by", function (e) { return e.recipient_name; }],
         ["Controlled drugs", function (e) { return yn(e.contains_controlled); }], ["Cold chain", function (e) { return yn(e.cold_chain_required); }], ["Attempts", function (e) { return num(e.delivery_attempts); }, "n"], ["Why not delivered", function (e) { return e.failure_reason; }]] }
-  ];
+  ].concat(MORE());
   var BY = {}; REGS.forEach(function (r) { BY[r.id] = r; });
+  // Customers, bookings, messages, money and team (GET /export/records?part=, admin only, paged by id). Not ticked until
+  // asked for ("Tick all" or a tick): the whole list of customers is a bigger file than a month of registers.
+  function MORE() {
+    var P = function (id, title, group, part, date, cols, o) { return Object.assign({ id: id, title: title, group: group, mode: "pages", part: part, date: date, cols: cols, optIn: true }, o || {}); };
+    var cents = function (v) { var n = num(v); return n == null ? null : Math.round(n) / 100; };
+    var ok3 = function (v) { return v == null || v === "" ? "" : yn(v); };
+    return [
+      P("customers", "Customers (everyone)", "Customers", "customers", "", [["Name", function (e) { return e.name; }], ["ID card", function (e) { return e.id_card; }], ["Phone", function (e) { return e.phone; }], ["Other phone", function (e) { return e.alt_phone; }], ["Email", function (e) { return e.email; }], ["Address", function (e) { return e.address; }], ["Doctor", function (e) { return e.doctor_name; }], ["Date of birth", function (e) { return dmy(e.date_of_birth); }], ["Notes", function (e) { return e.notes; }],
+        ["Likes to hear by", function (e) { return e.prefers; }], ["E-mail ok", function (e) { return ok3(e.email_ok); }], ["SMS ok", function (e) { return ok3(e.sms_ok); }], ["WhatsApp ok", function (e) { return ok3(e.whatsapp_ok); }], ["Language", function (e) { return e.lang; }], ["Allergies", function (e) { return e.allergies; }], ["Added", function (e) { return stamp(e.created_at); }]], { undated: true }),
+      P("bookings", "Bookings", "Customers", "bookings", "date", [["Date", function (e) { return dmy(e.date); }], ["From", function (e) { return e.start_time; }], ["To", function (e) { return e.end_time; }], ["Service", function (e) { return e.service; }], ["With", function (e) { return e.provider; }], ["Customer", function (e) { return e.person_name; }], ["Phone", function (e) { return e.person_phone; }], ["Email", function (e) { return e.person_email; }], ["ID card", function (e) { return e.person_id_card; }],
+        ["Status", function (e) { return e.status; }], ["Price €", function (e) { return cents(e.price_cents); }, "m"], ["Walk-in", function (e) { return yn(e.walk_in); }], ["Note", function (e) { return e.notes; }], ["Why cancelled", function (e) { return e.cancel_reason; }], ["Ref", function (e) { return e.ref; }], ["Booked at", function (e) { return stamp(e.created_at); }]]),
+      P("appointments", "Doctor appointments", "Customers", "appointments", "date", [["Date", function (e) { return dmy(e.date); }], ["Time", function (e) { return e.time; }], ["Doctor", function (e) { return e.doctor; }], ["Clinic", function (e) { return e.clinic; }], ["Patient", function (e) { return e.patient_name; }], ["ID card", function (e) { return e.patient_id_card; }], ["Phone", function (e) { return e.patient_phone; }], ["Email", function (e) { return e.patient_email; }],
+        ["Status", function (e) { return e.status; }], ["Doctor's fee €", function (e) { return money(e.doctor_fee); }, "m"], ["Clinic fee €", function (e) { return money(e.clinic_fee); }, "m"], ["Notes", function (e) { return e.notes; }], ["Ref", function (e) { return e.appt_ref; }]]),
+      P("messages", "Messages sent", "Customers", "messages", "created_at", [["Sent", function (e) { return stamp(e.created_at); }], ["To", function (e) { return e.person_name; }], ["How", function (e) { return e.channel === "email" ? "E-mail" : e.channel === "sms" ? "SMS" : e.channel === "whatsapp" ? "WhatsApp" : e.channel; }], ["Address or number", function (e) { return e.to_addr; }], ["About", function (e) { return e.purpose; }], ["Subject", function (e) { return e.subject; }], ["Message", function (e) { return e.body; }], ["Status", function (e) { return e.status; }], ["By", function (e) { return e.created_by_name; }]]),
+      P("tills", "Emergency till receipts", "Money", "tills", "sale_date", [["Date", function (e) { return dmy(e.sale_date); }], ["Receipt no", function (e) { return e.receipt_no; }], ["Total €", function (e) { return money(e.total); }, "m"], ["VAT €", function (e) { return money(e.vat_total); }, "m"], ["Discount %", function (e) { return num(e.discount_pct); }, "n"], ["Paid by", function (e) { return e.payment_method; }], ["Customer", function (e) { return e.client_name; }], ["ID card", function (e) { return e.client_id; }], ["Voided", function (e) { return yn(e.voided); }], ["Why voided", function (e) { return e.voided_reason; }], ["Notes", function (e) { return e.notes; }]]),
+      P("loyalty", "Loyalty visits", "Money", "loyalty", "txn_date", [["Date", function (e) { return dmy(e.txn_date); }], ["Customer", function (e) { return e.client_name; }], ["ID card", function (e) { return e.client_id_card; }], ["Campaign", function (e) { return e.campaign; }], ["Receipt no", function (e) { return e.receipt_no; }], ["Total €", function (e) { return money(e.total); }, "m"], ["Stamps", function (e) { return num(e.stamps_awarded); }, "n"], ["Points", function (e) { return num(e.points_awarded); }, "n"], ["What", function (e) { return e.action_label; }], ["Notes", function (e) { return e.notes; }]]),
+      P("staff", "Staff", "Team", "staff", "", [["Name", function (e) { return e.full_name; }], ["Role", function (e) { return e.designation; }], ["Employment", function (e) { return e.employment_type; }], ["Hours a week", function (e) { return num(e.contracted_hours); }, "n"], ["Email", function (e) { return e.email; }], ["Phone", function (e) { return e.phone; }], ["Reg no", function (e) { return e.registration_number; }], ["Active", function (e) { return yn(e.is_active); }]], { undated: true }),
+      P("shifts", "Shifts", "Team", "shifts", "shift_date", [["Date", function (e) { return dmy(e.shift_date); }], ["From", function (e) { return e.start_time; }], ["To", function (e) { return e.end_time; }], ["Who", function (e) { return e.full_name; }], ["Role", function (e) { return e.role_override || e.designation; }], ["Notes", function (e) { return e.notes; }]]),
+      P("leave", "Leave", "Team", "leave", "start_date", [["From", function (e) { return dmy(e.start_date); }], ["To", function (e) { return dmy(e.end_date); }], ["Who", function (e) { return e.full_name; }], ["Kind", function (e) { return e.leave_type; }], ["Hours", function (e) { return num(e.hours_requested); }, "n"], ["Status", function (e) { return e.status; }], ["Reason", function (e) { return e.reason; }]], { overlap: true }),
+      P("accounts", "Sign-in accounts", "Team", "accounts", "", [["Name", function (e) { return e.full_name; }], ["Email", function (e) { return e.email; }], ["Role", function (e) { return e.role === "admin" ? "Pharmacist in charge" : e.role === "staff" ? "Staff" : e.role; }], ["Active", function (e) { return yn(e.is_active); }], ["Since", function (e) { return stamp(e.created_at); }]], { undated: true })
+    ];
+  }
   function outside(e) { var lo = num(e.min_limit), hi = num(e.max_limit), a = num(e.min_temp), b = num(e.max_temp); return (lo != null && a != null && a < lo) || (hi != null && b != null && b > hi); }
 
   // ── The days chosen
@@ -144,6 +166,13 @@
     } else if (reg.mode === "once") {
       job.now = reg.title; var r1 = await get(job, reg.path); rows = r1[reg.key] || [];
       if (reg.cap && rows.length >= reg.cap) extra.capped = reg.cap;
+    } else if (reg.mode === "pages") {
+      var after = 0, guard = 0;
+      do {
+        job.now = reg.title + (guard ? " (" + (guard * 1000) + " so far)" : "");
+        var rp = await get(job, "/export/records?part=" + reg.part + (reg.undated ? "" : "&from=" + rg.from + "&to=" + rg.to) + (after ? "&after=" + after : ""));
+        rows = rows.concat(rp.rows || []); after = rp.next || 0;
+      } while (after && ++guard < 100);
     } else if (reg.mode === "eod") {
       var dates = [];
       var ds = await pool(monthsIn(rg.from, rg.to), 2, async function (ym) { job.now = reg.title + ": " + monthName(ym); var r = await get(job, "/endofday/dates?month=" + encodeURIComponent(ym)); return (r.dates || r.items || r.records || []).map(function (x) { return typeof x === "string" ? x : x && (x.date || x.eod_date); }); });
@@ -152,8 +181,8 @@
       rows = recs.filter(function (x) { return x && (x.eod_date || x.date); });
     }
     var seen = {};
-    rows = rows.filter(function (e) { var k = e && e.id != null ? String(e.id) : ""; if (k && seen[k]) return false; if (k) seen[k] = 1; return inRange(e[reg.date] || e.date, rg); });
-    rows.sort(function (a, b) { var x = String(a[reg.date] || a.date || ""), y = String(b[reg.date] || b.date || ""); return x < y ? -1 : x > y ? 1 : (Number(a.id) || 0) - (Number(b.id) || 0); });
+    rows = rows.filter(function (e) { var k = e && e.id != null ? String(e.id) : ""; if (k && seen[k]) return false; if (k) seen[k] = 1; return reg.undated || reg.overlap || inRange(e[reg.date] || e.date, rg); });
+    if (!reg.undated) rows.sort(function (a, b) { var x = String(a[reg.date] || a.date || ""), y = String(b[reg.date] || b.date || ""); return x < y ? -1 : x > y ? 1 : (Number(a.id) || 0) - (Number(b.id) || 0); });
     return { rows: rows, extra: extra };
   }
 
@@ -306,10 +335,37 @@
     }).join("");
   }
 
+  // ── One person: everything we hold on one customer, or erase them (E.privacy, eikon.privacy.js). The search reads
+  // GET /people?q= only while someone types (after a pause), and only the results redraw, so typing is never interrupted.
+  var who = { q: "", found: null, t: 0, seq: 0 };
+  function personHtml() {
+    if (!E.privacy) return "";
+    return '<h2 class="exp-lab" id="exp-one-h">One person</h2><div class="exp-box" role="group" aria-labelledby="exp-one-h"><p class="exp-days" style="margin:0 0 8px">Everything we hold on one customer as one file, or erase them. Find them first.</p>' +
+      '<div class="exp-f" style="margin-top:0"><label for="exp-who" style="flex:1 1 100%">Name, ID card or phone<input id="exp-who" type="search" autocomplete="off" spellcheck="false" value="' + esc(who.q) + '"></label></div><div id="exp-one-res" aria-live="polite">' + resultsHtml() + "</div></div>";
+  }
+  function resultsHtml() {
+    if (who.found == null) return "";
+    if (who.found.error) return '<p class="exp-err" role="alert">' + esc(who.found.error) + "</p>";
+    if (!who.found.length) return '<p class="exp-days">No customer found with that. Try the ID card or the phone number.</p>';
+    return '<ul class="exp-who">' + who.found.slice(0, 8).map(function (p) { return '<li><button type="button" class="exp-btn" data-person="' + p.id + '">' + esc(p.name) + (p.id_card ? " · " + esc(p.id_card) : "") + (p.phone ? " · " + esc(p.phone) : "") + "</button></li>"; }).join("") + "</ul>";
+  }
+  function bindResults(m) {
+    m.querySelectorAll("[data-person]").forEach(function (b) {
+      b.addEventListener("click", function () { var p = (who.found || []).filter(function (x) { return String(x.id) === b.getAttribute("data-person"); })[0]; E.privacy.open(Number(b.getAttribute("data-person")), { name: p && p.name, back: b, onDone: function () { who.found = null; search(); } }); });
+    });
+  }
+  function search() {
+    var m = S.mount, q = who.q.trim(), my = ++who.seq;
+    var put = function () { var box = m && m.querySelector("#exp-one-res"); if (box) { box.innerHTML = resultsHtml(); bindResults(m); } };
+    if (q.length < 2) { who.found = null; return put(); }
+    E.apiFetch("/people?q=" + encodeURIComponent(q), { method: "GET" }).then(function (r) { if (my !== who.seq) return; who.found = (r && r.people || []).filter(function (p) { return !p.merged_into; }); put(); },
+      function (e) { if (my !== who.seq) return; who.found = { error: e && e.network ? "No connection." : "Could not search: " + String((e && e.message) || e) }; put(); });
+  }
+
   // ── Screen
-  function picked() { if (!S.picked) { S.picked = {}; REGS.forEach(function (r) { S.picked[r.id] = 1; }); } return REGS.filter(function (r) { return S.picked[r.id]; }).map(function (r) { return r.id; }); }
+  function picked() { if (!S.picked) { S.picked = {}; REGS.forEach(function (r) { S.picked[r.id] = r.optIn ? 0 : 1; }); } return REGS.filter(function (r) { return S.picked[r.id]; }).map(function (r) { return r.id; }); }
   function estimate(rg) { // calls a run will make (End of day adds one per day it finds)
-    var m = monthsIn(rg.from, rg.to).length; return picked().reduce(function (a, id) { var r = BY[id]; return a + (r.mode === "once" ? 1 : m + (r.devices ? 1 : 0)); }, 0);
+    var m = monthsIn(rg.from, rg.to).length; return picked().reduce(function (a, id) { var r = BY[id]; return a + (r.mode === "once" || r.mode === "pages" ? 1 : m + (r.devices ? 1 : 0)); }, 0);
   }
   function css() {
     if (document.getElementById("eikon-expreg-css")) return;
@@ -318,7 +374,7 @@
       ".exp{max-width:880px;margin:0 auto}.exp-back{border:0;background:none;color:var(--accent);font:inherit;font-size:15px;font-weight:500;padding:0 12px 0 0;min-height:44px;margin:-8px 0 2px;cursor:pointer}" +
       ".exp h1{font-size:30px;letter-spacing:-.025em;margin:0;line-height:1.1;font-weight:800}.exp-sub{color:var(--muted);font-size:14.5px;margin:4px 0 0;line-height:1.5}" +
       ".exp-safe{margin:14px 0 0;padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:var(--panel2);font-size:14px;font-weight:600}" +
-      ".exp-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 2px 8px}" +
+      ".exp-lab{font-size:15px;font-weight:700;color:var(--text);margin:20px 2px 8px}" +
       ".exp-box{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 16px}" +
       ".exp-chips{display:flex;gap:6px;flex-wrap:wrap}.exp-chips button{font:inherit;font-size:14px;font-weight:600;min-height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer}" +
       ".exp-chips button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}" +
@@ -335,6 +391,7 @@
       ".exp-res{margin-top:16px}.exp-res table{width:100%;border-collapse:collapse;font-size:14px}.exp-res th,.exp-res td{text-align:left;padding:6px 10px;border-top:.5px solid var(--border)}.exp-res td.n{text-align:right;font-variant-numeric:tabular-nums}" +
       ".exp-err{color:var(--danger)}.exp-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".exp-foot{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.5}" +
+      ".exp-who{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}.exp-who .exp-btn{width:100%;text-align:left;min-height:44px;border-radius:12px}" +
       "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .exp-chips button[aria-pressed=true]{color:#00160E}}" + // dark accent is light: dark text on it, as the audit trail does
       "@media (max-width:600px){.exp{padding:0 16px}.exp h1{font-size:28px}.exp-f label{flex:1 1 100%}.exp-chips button,.exp-btn,.exp-link,.exp-ck label{min-height:44px}}";
     document.head.appendChild(st);
@@ -348,7 +405,7 @@
     if (!isAdmin()) {
       m.innerHTML = h + '<div class="exp-quiet">Only the pharmacist in charge (an admin account) can download the records. Ask them to sign in.</div></div>'; return bind(m);
     }
-    h += '<p class="exp-safe" role="note">This file holds patients\' names and ID cards. Keep it safe.</p>';
+    h += '<p class="exp-safe" role="note">This file holds patients\' names and ID cards' + (S.picked && ["staff", "shifts", "leave", "accounts"].some(function (k) { return S.picked[k]; }) ? ", and the team\'s details" : "") + '. Keep it safe.</p>';
     var busy = !!S.job, rg = rangeOf(), t = today(), years = [];
     for (var y = +t.slice(0, 4); y >= +t.slice(0, 4) - 6; y--) years.push(String(y));
     var chip = function (v, l) { return '<button type="button" data-range="' + v + '" aria-pressed="' + (S.range === v) + '"' + (busy ? " disabled" : "") + ">" + l + "</button>"; };
@@ -356,7 +413,7 @@
     if (S.range === "year") h += '<div class="exp-f"><label for="exp-year">Year<select id="exp-year"' + (busy ? " disabled" : "") + ">" + years.map(function (y) { return "<option" + ((S.year || years[0]) === y ? " selected" : "") + ">" + y + "</option>"; }).join("") + "</select></label></div>";
     if (S.range === "custom") h += '<div class="exp-f"><label for="exp-from">First day<input type="date" id="exp-from" value="' + esc(S.from) + '" max="' + t + '"' + (busy ? " disabled" : "") + '></label><label for="exp-to">Last day<input type="date" id="exp-to" value="' + esc(S.to) + '" max="' + t + '"' + (busy ? " disabled" : "") + "></label></div>";
     h += '<p class="exp-days" aria-live="polite">' + (rg ? esc(rangeText(rg)) + (estimate(rg) > 40 ? ". A whole year takes a minute or two; keep this page open." : "") : "Choose a first and a last day.") + "</p></div>";
-    h += '<h2 class="exp-lab">Registers</h2><div class="exp-box">';
+    h += '<h2 class="exp-lab">What to include</h2><div class="exp-box">';
     var groups = []; REGS.forEach(function (r) { if (groups.indexOf(r.group) < 0) groups.push(r.group); });
     picked();
     groups.forEach(function (g) {
@@ -380,7 +437,7 @@
         d.results.map(function (r) { return "<tr><td>" + esc(r.reg.title) + "</td><td class='n'>" + (r.error ? '<span class="exp-err">' + esc(r.error) + "</span>" : r.rows.length + (r.extra && r.extra.capped ? " (at most " + r.extra.capped + ")" : "")) + "</td></tr>"; }).join("") + "</tbody></table></div>";
     }
     h += "</div>";
-    h += '<p class="exp-foot">Dates are dd/mm/yyyy and money is in euro with two decimals. "Record no." is the number Eikon gave each line, the same number the audit trail shows. The registers are read one at a time, so the rest of Eikon stays quick while it works. Stock takes, certificates and the other screens are not in this file yet.</p></div>';
+    h += '<p class="exp-foot">Dates are dd/mm/yyyy and money is in euro with two decimals. "Record no." is the number Eikon gave each line, the same number the audit trail shows. The registers are read one at a time, so the rest of Eikon stays quick while it works. Customers, bookings, messages, the emergency till, loyalty and the team are in it when ticked; the lists of customers, staff and sign-in accounts are whole, whatever the days.</p><p class="exp-foot">Not in this file yet: stock takes, certificates, loyalty campaigns.</p>' + personHtml() + '</div>';
     var ae = document.activeElement, had = ae && m.contains(ae), sel = "";
     if (had) ["data-act", "data-range", "data-reg"].forEach(function (k) { if (!sel && ae.getAttribute(k)) sel = "[" + k + '="' + ae.getAttribute(k) + '"]'; });
     if (had && !sel && ae.id) sel = "#" + ae.id;
@@ -413,6 +470,9 @@
     on("#exp-year", function () { S.year = this.value; paint(); });
     on("#exp-from", function () { S.from = this.value; paint(); });
     on("#exp-to", function () { S.to = this.value; paint(); });
+    var wq = m.querySelector("#exp-who");
+    if (wq) wq.addEventListener("input", function () { who.q = wq.value; clearTimeout(who.t); who.t = setTimeout(search, 350); });
+    bindResults(m);
   }
 
   E.registerModule({

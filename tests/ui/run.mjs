@@ -833,12 +833,12 @@ await page.press("#tdy-q", "Enter");
 await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "ddstreg", null, { timeout: 15000 });
 const openedStock = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
 await backToToday();
-// Every register is rebuilt now; a screen that is not (Loyalty) still opens in classic.
+// Every register is rebuilt now, Loyalty too (round 2: loyreg): the search opens it in the new layout.
 await page.fill("#tdy-q", "loyalty");
 await page.press("#tdy-q", "Enter");
-await page.waitForFunction(() => location.search.indexOf("ui=classic") >= 0 && window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "loyalty", null, { timeout: 15000 });
+await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.activeModuleId === "loyreg", null, { timeout: 15000 });
 const openedModule = await page.evaluate(() => location.hash + " " + (document.documentElement.hasAttribute("data-ui2") ? "new" : "classic"));
-report("today: search opens a waiting customer's order in the new Orders screen, DDA stock takes in the new layout, and a screen not yet rebuilt in classic", openedCustomer === "#ordreg new" && openedStock === "#ddstreg new" && openedModule === "#loyalty classic", `${openedCustomer} | ${openedStock} | ${openedModule}`);
+report("today: search opens a waiting customer's order in the new Orders screen, DDA stock takes and Loyalty in the new layout", openedCustomer === "#ordreg new" && openedStock === "#ddstreg new" && openedModule === "#loyreg new", `${openedCustomer} | ${openedStock} | ${openedModule}`);
 await backToToday();
 // A register rebuilt in the new layout opens there.
 await page.fill("#tdy-q", "temperature");
@@ -994,8 +994,8 @@ const bkBtn = await page.evaluate(() => ({ exp: document.querySelector('[data-go
 const bkGo = await bkHand();
 await forgetBookings();
 report("customers: Booking opens Bookings with the person whether or not it is set up yet (no note, no classic Appointments button); the Registers strip says Bookings",
-  bkBtn0.exp === null && !bkBtn0.classicBtn && bkBtn0.strip.join() === "Orders,Questions,Deliveries,Bookings,Loyalty (classic look)" && bkSet.hash === "#bookings" && !bkSet.classic && bkSet.carry && bkSet.carry.name === "Zammit Carmel" &&
-  bkBtn.exp === null && bkBtn.strip.join() === "Orders,Questions,Deliveries,Bookings,Loyalty (classic look)" && bkGo.hash === "#bookings" && bkGo.carry && bkGo.carry.name === "Zammit Carmel", JSON.stringify({ bkBtn0, bkSet, bkBtn, bkGo }));
+  bkBtn0.exp === null && !bkBtn0.classicBtn && bkBtn0.strip.join() === "Orders,Questions,Deliveries,Bookings,Loyalty" && bkSet.hash === "#bookings" && !bkSet.classic && bkSet.carry && bkSet.carry.name === "Zammit Carmel" &&
+  bkBtn.exp === null && bkBtn.strip.join() === "Orders,Questions,Deliveries,Bookings,Loyalty" && bkGo.hash === "#bookings" && bkGo.carry && bkGo.carry.name === "Zammit Carmel", JSON.stringify({ bkBtn0, bkSet, bkBtn, bkGo }));
 // The counts and the Registers strip: rebuilt registers in the new layout (searched to the person where they can be); only Loyalty labelled classic
 await toCarmel();
 const chips = await page.evaluate(() => [...document.querySelectorAll(".cus-counts a")].map((a) => a.textContent.replace(/\s+/g, " ").trim()));
@@ -1062,8 +1062,8 @@ report("customers: a delivery in the Story shows its item names, not the stored 
   report("people link: a record whose name is a card's in another order is linked to that card (no second card); a family phone with another name still gets its own",
     JSON.stringify(lk.a) === JSON.stringify([307, false, "name-order"]) && JSON.stringify(lk.b) === JSON.stringify([30, "name-order"]) && lk.c[0] === true && lk.posts.length === 1 && lk.posts[0].name === "Claire Grech" && lk.posts[0].phone === "79555000", JSON.stringify(lk));
 }
-report("step 1: the counts and the strip open rebuilt registers in the new layout (Orders, Questions and Deliveries showing the person; Show all clears it); only Loyalty is labelled classic look, appointments go to Bookings",
-  chips.join("|") === "DDA sale 1|Loyalty 1(classic look)" && strip.join() === "Orders,Questions,Deliveries,Bookings,Loyalty (classic look)" && ddaGo.hash === "#cdsreg" && !ddaGo.classic &&
+report("step 1: the counts and the strip open rebuilt registers in the new layout (Orders, Questions and Deliveries showing the person; Show all clears it); nothing is labelled classic look (Loyalty is rebuilt), appointments go to Bookings",
+  chips.join("|") === "DDA sale 1|Loyalty 1" && strip.join() === "Orders,Questions,Deliveries,Bookings,Loyalty" && ddaGo.hash === "#cdsreg" && !ddaGo.classic &&
   finds.ordreg === "Grech Carmen" && finds.tktreg === "Farrugia Tony" && /^Deliveries for Camilleri Rita/.test(finds.dlvreg.lab) && finds.dlvreg.names.length >= 1 && finds.dlvreg.names.every((n) => /Camilleri Rita/.test(n)) && finds.dlvAll > finds.dlvreg.names.length,
   JSON.stringify({ chips, strip, ddaGo, finds }));
 
@@ -1292,10 +1292,10 @@ const nexPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()
   const nexOfPosts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST");
   const ob = (nexOfPosts[0] || {}).body || {};
   const nexFoot = await page.evaluate(() => [...document.querySelectorAll(".nex p")].map((x) => x.textContent).join(" "));
-  report("near expiry: Offer sends the classic Add to Scarce Stock body (today, item, expiry, batch, a whole number at least 1, open, the item's id); not for an expired item; the footer no longer sends offers to the classic screen",
+  report("near expiry: Offer sends the classic Add to Scarce Stock body (today, item, expiry, batch, a whole number at least 1, open, the item's id); not for an expired item; the footer no longer sends offers, refused or damaged to the classic screen",
     !nexOfferExpired && nexOf0.focus === "qty" && nexOf0.qty === "1" && /Other pharmacies see it in Scarce stock/.test(nexOf0.say) && nexOfPosts.length === 1 && nexOfPosts[0].path === "/scarce-stock/offers" &&
     JSON.stringify(Object.keys(ob)) === JSON.stringify(["entry_date", "item_name", "expiry_date", "batch", "quantity_available", "is_closed", "near_expiry_id"]) && ob.entry_date === todayYmd && ob.item_name === "Amoxil 500mg" && ob.expiry_date === maltaYmd(10) && ob.batch === "B12" && ob.quantity_available === 1 && ob.is_closed === 0 && ob.near_expiry_id === 1 &&
-    /Supplier refused and damaged stock are in the/.test(nexFoot) && !/offers/.test(nexFoot), JSON.stringify({ nexOfferExpired, nexOf0, nexOfPosts, nexFoot }));
+    /A supplier refusing a return, or damaged stock, is marked on the return in Returns/.test(nexFoot) && !/classic/.test(nexFoot) && !/offers/.test(nexFoot), JSON.stringify({ nexOfferExpired, nexOf0, nexOfPosts, nexFoot }));
 }
 report("near expiry: opens from Stock in the new layout, expired first, send back needs a supplier, one return created", nex1.hash === "#nexreg" && nex1.rail.join() === "stock" && /^Expired/.test(nex1.labs[0]) && nex1.rows[0] === "Ventolin" && /^Being sent back/.test(nex1.labs[nex1.labs.length - 1]) && /supplier/.test(nexErr) && nexPosts.length === 1 && nexPosts[0].path === "/near-expiry/entries/create-return" && nexPosts[0].body.near_expiry_id === 1 && nexPosts[0].body.supplier === "GSK", JSON.stringify({ nex1, nexErr, nexPosts }));
 
@@ -1340,11 +1340,11 @@ const ab = (alrPuts[0] || {}).body || {};
   const alEPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT");
   const eb = (alEPuts[0] || {}).body || {};
   const alFoot = await page.evaluate(() => [...document.querySelectorAll(".alr p")].map((x) => x.textContent).join(" "));
-  report("alerts: Change opens the alert's own form on the item; Save changes sends the classic Edit body (every field in its order, trimmed, steps 0 or 1); the footer keeps only deleting",
+  report("alerts: Change opens the alert's own form on the item; Save changes sends the classic Edit body (every field in its order, trimmed, steps 0 or 1); the footer no longer sends anything to the classic screen (round 2: Delete is on the card)",
     alE0.focus === "item_name" && alE0.item === "Losartan 50mg" && alE0.notes === "Shelf C" && alE0.status === "open" && alE0.store === "room" && alE0.date === maltaYmd(0) && alEPuts.length === 1 && alEPuts[0].path === "/alerts/entries/41" &&
     JSON.stringify(Object.keys(eb)) === JSON.stringify(["entry_date", "alert_type", "status", "item_name", "batch", "expiry", "quantity", "reason", "storage_location", "supplier", "notes", "team_informed", "supplier_informed", "authorities_informed", "return_arranged", "handed_over", "collection_note_received", "credit_note_received"]) &&
     eb.status === "in_progress" && eb.notes === "Moved to fridge" && eb.item_name === "Losartan 50mg" && eb.batch === "L9" && eb.team_informed === 1 && eb.supplier_informed === 0 &&
-    /Deleting an alert is in the/.test(alFoot) && !/details|notes/.test(alFoot), JSON.stringify({ alE0, alEPuts, alFoot }));
+    !/classic/.test(alFoot) && !/details|notes/.test(alFoot), JSON.stringify({ alE0, alEPuts, alFoot }));
 }
 report("alerts: open in the new layout; ticking 'supplier told' keeps every other field (notes, batch, status…)", alrPuts.length === 1 && alrPuts[0].path === "/alerts/entries/41" && ab.supplier_informed === 1 && ab.team_informed === 1 && ab.status === "open" && ab.notes === "Shelf C" && ab.batch === "L9" && ab.reason === "Manufacturer recall" && ab.supplier === "Actavis" && ab.quantity === "6" && ab.item_name === "Losartan 50mg", JSON.stringify(alrPuts));
 
@@ -1576,7 +1576,7 @@ try {
   const addOne = async (items) => { await page.click(".ord-top [data-act=add]"); await page.waitForSelector("#ord-add"); await page.fill("#ord-add [name=client_name]", "Cachia Ġorġ"); await page.fill("#ord-add [name=contact]", "79444555"); await page.fill("#ord-add [name=items]", items); await page.fill("#ord-add [name=needed_by]", todayYmd); await page.click("#ord-add button[type=submit]"); await page.waitForSelector("#ord-diary"); await page.waitForTimeout(150); };
   await addOne("Ħ-brand syrup 200ml");
   await page.waitForFunction(() => document.activeElement && document.activeElement.getAttribute("data-act") === "add", null, { timeout: 3000 }).catch(() => {}); // after the list is read again
-  const od0 = await page.evaluate(() => ({ text: document.querySelector("#ord-diary .ord-meta").textContent, focus: document.activeElement.getAttribute("data-act"), foot: document.querySelector(".ord > p:last-child").textContent }));
+  const od0 = await page.evaluate(() => ({ text: document.querySelector("#ord-diary .ord-meta").textContent, focus: document.activeElement.getAttribute("data-act"), foot: (document.querySelector(".ord > p:last-child") || {}).textContent || "" }));
   await fetch(`http://localhost:${PORT}/__reset`);
   await page.fill("#ord-diary [name=supplier]", "PharmaCo"); await page.click("#ord-diary button[type=submit]"); await page.waitForTimeout(500);
   const odC = (await C()).filter((c) => c.path.startsWith("/order-diary")), odPost = odC.filter((c) => c.method === "POST");
@@ -1587,8 +1587,8 @@ try {
   await addOne("Ventolin"); await fetch(`http://localhost:${PORT}/__reset`);
   await page.press("#ord-diary [name=supplier]", "Escape"); await page.waitForTimeout(150);
   const odEsc = { gone: !(await page.$("#ord-diary")), posts: (await C()).filter((c) => c.method === "POST" && c.path.startsWith("/order-diary")).length, focus: await page.evaluate(() => document.activeElement.getAttribute("data-act")) };
-  report("orders (b4-5): after a new order its items go into the order diary in place: the classic call, once; Not now and Escape add nothing; the footer names only what is left",
-    od0.text === "Put “Ħ-brand syrup 200ml” in the order diary for today?" && od0.focus === "add" && /^Taking a deleted order's items off the order diary is in the classic screen\.$/.test(od0.foot.trim()) &&
+  report("orders (b4-5): after a new order its items go into the order diary in place: the classic call, once; Not now and Escape add nothing; nothing is sent to the classic screen (round 2)",
+    od0.text === "Put “Ħ-brand syrup 200ml” in the order diary for today?" && od0.focus === "add" && !/classic/.test(od0.foot) &&
     odPost.length === 1 && JSON.stringify(odPost[0].body) === JSON.stringify({ order_date: todayYmd, item_name: "Ħ-brand syrup 200ml", qty: 1, supplier: "PharmaCo", notes: "" }) && odC.some((c) => c.method === "GET" && c.query === "?date=" + todayYmd) &&
     od1.gone && od1.focus === "add" && odNo.gone && odNo.posts === 0 && odEsc.gone && odEsc.posts === 0 && odEsc.focus === "add",
     JSON.stringify({ od0, odC, od1, odNo, odEsc }));
@@ -2217,7 +2217,7 @@ report("price check: opens from the old link; the 10+2 deal is Best at €2.17 a
     JSON.stringify({ rtEmpty, rtF, rtDate, rtBad, rtBadCalls, rtBadF, rtInv, rtPost }));
   await page.waitForTimeout(500);
   const rtTop = await page.evaluate(() => ({ top: !!document.querySelector(".rtn-top [data-act=add]"), foot: document.querySelector(".rtn").innerText }));
-  report("returns (b4-6a): with returns listed, New return is the heading's button; the footer no longer says new returns are in classic", rtTop.top && /Changes, deleting and refused or damaged stock/.test(rtTop.foot) && !/New returns/.test(rtTop.foot), JSON.stringify(rtTop));
+  report("returns (b4-6a): with returns listed, New return is the heading's button; the footer no longer sends anything to classic (round 2: change, refused, damaged and delete are in place)", rtTop.top && /Tap a return to change it, mark it refused or damaged/.test(rtTop.foot) && !/classic/.test(rtTop.foot) && !/New returns/.test(rtTop.foot), JSON.stringify(rtTop));
 }
 
 // Shortages: its own Stock card; your request with an offer to accept; other pharmacies' requests with "I can help".
@@ -3914,6 +3914,90 @@ try {
   await page.evaluate(() => { window.EIKON.state.user.role = "admin"; });
   await page.unroute(RX); await page.unroute(RX1);
 } catch (e) { report("export: download our records", false, String(e).slice(0, 400)); }
+// ---- Privacy (eikon.privacy.js) and Download our records' new parts (gdpr): a mocked person's summary; Download everything
+// is one zip (data, summary page, spreadsheet or CSV) with the ticked same-name rows sent; Erase sends nothing until the name
+// is typed, then the plan it was shown; the 24-hour undo line; Undo; Escape closes and focus returns. The new parts are not
+// ticked at first and are read page by page from /export/records.
+try {
+  const PV = { ok: true, preview: true, person: { id: 42, name: "Laura Borg", id_card: "0012345M", erased: false }, total_change: 3, total_keep: 3, plan: "abc.1", undo_hours: 24, open_erasure: null,
+    sections: [{ table: "people", label: "Customer record", policy: "erase", legal: false, action: "erase", why: "", sure: 1, maybe: [], other: 0, change: 1, keep: 0, columns: ["name", "id_card", "phone"] },
+      { table: "client_orders_entries", label: "Orders", policy: "erase", legal: false, action: "erase", why: "", sure: 2, maybe: [{ key: "client_orders_entries:9", date: "2026-09-01", name: "Laura Borg", why: "same name only", title: "Plasters" }], other: 0, change: 2, keep: 0, columns: ["client_name", "client_phone", "notes"] },
+      { table: "dda_sales_entries", label: "Controlled drugs supplied (DDA)", policy: "cd", legal: true, action: "keep", why: "Controlled-drug register", sure: 3, maybe: [], other: 1, change: 0, keep: 3, columns: [] },
+      { table: "bk_bookings", label: "Bookings", policy: "bookings", legal: false, action: "keep", why: "Booking history", sure: 1, maybe: [], other: 0, change: 0, keep: 1, columns: [] }] };
+  const pvSent = [];
+  const pvRoute = async (route) => {
+    const r = route.request(), u = new URL(r.url()), b = r.postData() ? JSON.parse(r.postData()) : null; pvSent.push({ path: u.pathname + u.search, body: b });
+    const reply = (o, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(o) }).catch(() => {});
+    if (/\/privacy$/.test(u.pathname)) return reply(PV);
+    if (/\/export$/.test(u.pathname)) return reply({ ok: true, format: "eikon.person-export.v1", made_at: "2026-11-11T16:00:00.000Z", pharmacy: { name: "Demo Pharmacy" }, made_by: { name: "Maria Borg" }, person: { id: 42, name: "Laura Borg", id_card: "0012345M" }, rows: 3,
+      sections: [{ table: "client_orders_entries", label: "Orders", on_erase: "anonymised", why_kept: "", rows: [{ id: 1, order_date: "2026-10-01", client_name: "Laura Borg", items_text: "Vitamin D", _matched: "same name and phone or e-mail" }, { id: 9, order_date: "2026-09-01", client_name: "Laura Borg", items_text: "Plasters", _matched: "same name only" }] },
+        { table: "screening_campaigns", label: "Screening", on_erase: "kept", why_kept: "Test results", rows: [{ row_id: 3, record: { campaign_id: "C1", name: "BP week" }, entry: { id: "p1", name: "Laura Borg", sys: 120 }, matched: "same ID card" }] }] });
+    if (/\/erase$/.test(u.pathname)) return reply(b && b.confirm ? { ok: true, erasure_id: "gdpr_11111111-2222-3333-4444-555555555555", changed: 3, person: { id: 42, name: "Erased person #42" }, undo_until: "2026-11-12 16:00:00" } : PV);
+    if (/\/undo$/.test(u.pathname)) return reply({ ok: true, restored: 3, skipped: [], person: { id: 42, name: "Laura Borg" } });
+    return route.fallback();
+  };
+  const PVRX = /localhost:\d+\/people\/(42\/(privacy|export|erase)|erasures\/gdpr_[0-9a-f-]+\/undo)$/;
+  await page.route(PVRX, pvRoute);
+  await page.goto(base + "&ui=2&pv=" + Date.now() + "#expreg");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "expreg" && document.querySelector(".exp [data-act=download]"), null, { timeout: 15000 });
+  const offAtFirst = await page.evaluate(() => ["customers", "bookings", "appointments", "messages", "tills", "loyalty", "staff", "shifts", "leave", "accounts"].map((id) => { const c = document.querySelector('[data-reg="' + id + '"]'); return c ? (c.checked ? id + ":on" : "") : id + ":missing"; }).filter(Boolean));
+  const labs = await page.$$eval(".exp-lab", (l) => l.map((x) => x.textContent + "|" + getComputedStyle(x).textTransform));
+  report("privacy: Download our records offers customers, bookings, appointments, messages, till, loyalty, staff, shifts, leave and accounts, not ticked at first; headings in sentence case; One person is there",
+    offAtFirst.length === 0 && labs.includes("Days|none") && labs.includes("What to include|none") && labs.includes("One person|none") && !!(await page.$("#exp-who")), JSON.stringify({ offAtFirst, labs }));
+  await page.focus("#exp-who");
+  await page.evaluate(() => { window.EIKON.privacy.lastFile = null; window.EIKON.privacy.open(42, { name: "Laura Borg" }); });
+  await page.waitForSelector(".prv [data-act=download]", { timeout: 10000 });
+  const hold = await page.innerText(".prv");
+  await page.check('.prv [data-key="client_orders_entries:9"]');
+  await page.click(".prv [data-act=download]");
+  await page.waitForFunction(() => window.EIKON.privacy.lastFile, null, { timeout: 20000 });
+  const lf = await page.evaluate(() => ({ name: window.EIKON.privacy.lastFile.name, files: window.EIKON.privacy.lastFile.files }));
+  const exReq = pvSent.find((x) => /\/export$/.test(x.path));
+  const zb = Buffer.from(await page.evaluate(async () => { const b = new Uint8Array(await window.EIKON.privacy.lastFile.blob.arrayBuffer()); let s = ""; for (const x of b) s += String.fromCharCode(x); return btoa(s); }), "base64");
+  const zf = {}; let zo = 0; while (zb.readUInt32LE(zo) === 0x04034b50) { const size = zb.readUInt32LE(zo + 18), nl = zb.readUInt16LE(zo + 26), name = zb.slice(zo + 30, zo + 30 + nl).toString(); zf[name] = zb.slice(zo + 30 + nl, zo + 30 + nl + size); zo += 30 + nl + size; }
+  const js = JSON.parse(zf[Object.keys(zf).find((n) => n.endsWith(".json"))].toString("utf8")), sum = zf[Object.keys(zf).find((n) => n.endsWith("-summary.html"))].toString("utf8");
+  report("privacy: what we hold lists every kind of record with its count and the same-name rows apart; Download everything sends the ticked rows and saves one zip: the data, a summary page and a spreadsheet (or CSV files)",
+    /Laura Borg: what we hold/.test(hold) && /Orders\s+2/.test(hold) && /7 records, of 4 kinds\./.test(hold) && /Same name, not sure it is them \(1\)/.test(hold) && exReq && JSON.stringify(exReq.body) === JSON.stringify({ rows: ["client_orders_entries:9"] }) &&
+    /^Everything-we-hold-Laura-Borg-\d{4}-\d\d-\d\d\.zip$/.test(lf.name) && lf.files.length >= 3 && js.sections.length === 2 && /Everything Demo Pharmacy holds on Laura Borg/.test(sum) && /Plasters/.test(sum) && /BP week|120|same ID card/.test(sum) && zb.readUInt32LE(zb.length - 22) === 0x06054b50,
+    JSON.stringify({ hold: hold.slice(0, 300), exReq, lf }));
+  pvSent.length = 0;
+  await page.click(".prv [data-act=erase]"); await page.waitForSelector("#prv-typed", { timeout: 10000 });
+  const conf = await page.innerText(".prv");
+  const focusTyped = await page.evaluate(() => document.activeElement && document.activeElement.id);
+  await page.click(".prv [data-act=go]", { force: true }); await page.waitForTimeout(150);
+  const errNoName = await page.textContent(".prv .prv-err").catch(() => "");
+  await page.fill("#prv-typed", "Laura Bor"); await page.keyboard.press("Enter"); await page.waitForTimeout(150);
+  const sentBefore = pvSent.filter((x) => x.body && x.body.confirm).length;
+  await page.fill("#prv-typed", "  laura   borg "); await page.fill("#prv-why", "Asked at the counter"); await page.keyboard.press("Enter");
+  await page.waitForSelector(".prv [data-act=undo2]", { timeout: 10000 });
+  const conf2 = pvSent.filter((x) => x.body && x.body.confirm);
+  const done = await page.innerText(".prv");
+  report("privacy: Erase shows what is removed (with the details in words), what is kept because the law may need it and what is kept as the pharmacy decided, the 24-hour line; nothing is sent until the name is typed; then the plan it showed, once",
+    /Removed: name, ID card and contacts \(3 records\)/.test(conf) && /name, ID card, phone/.test(conf) && /Kept for now, the law may need them \(3 records\)/.test(conf) && /Kept, as the pharmacy decided \(1 record\)/.test(conf) && /Erase Laura Borg/.test(conf) &&
+    /You can undo this for 24 hours\. After that it cannot be undone\./.test(conf) && /1 record with the same name or card but someone else's details are left alone/.test(conf) && focusTyped === "prv-typed" && /Type Laura Borg/.test(errNoName || "") && sentBefore === 0 &&
+    conf2.length === 1 && JSON.stringify(conf2[0].body) === JSON.stringify({ rows: ["client_orders_entries:9"], confirm: true, plan: "abc.1", reason: "Asked at the counter" }) && /3 records changed/.test(done) && /Erased person #42/.test(done),
+    JSON.stringify({ conf: conf.slice(0, 700), errNoName, sentBefore, conf2, done }));
+  await page.click(".prv [data-act=undo2]"); await page.waitForFunction(() => /Put back/.test((document.querySelector("#prv-h") || {}).textContent || ""), null, { timeout: 10000 });
+  const undoReq = pvSent.find((x) => /\/undo$/.test(x.path));
+  await page.keyboard.press("Escape"); await page.waitForTimeout(150);
+  const after = await page.evaluate(() => ({ open: !!document.querySelector(".prv"), focus: document.activeElement && document.activeElement.id }));
+  report("privacy: Undo calls the erasure's undo; Escape closes the window and focus goes back where it was", !!undoReq && /gdpr_11111111-2222-3333-4444-555555555555\/undo$/.test(undoReq.path) && !after.open && after.focus === "exp-who", JSON.stringify({ undoReq, after }));
+  await page.unroute(PVRX, pvRoute);
+  // the new parts: one page after another
+  const parts = [];
+  const exRoute = async (route) => { const u = new URL(route.request().url()); parts.push(u.search); const after = Number(u.searchParams.get("after") || 0);
+    const rows = []; const n = after ? 2 : 1000; for (let i = 1; i <= n; i++) rows.push({ id: after + i, name: "Person " + (after + i), id_card: "", allergies: i === 1 ? "Penicillin" : "" });
+    return route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, part: u.searchParams.get("part"), rows, next: after ? null : 1000 }) }); };
+  await page.route(/localhost:\d+\/export\/records\?/, exRoute);
+  await page.evaluate(() => { const st = window.EIKON.expreg.state; Object.keys(st.picked).forEach((k) => { st.picked[k] = 0; }); window.EIKON.expLast = null; window.XLSX = {}; });
+  await page.check('[data-reg="customers"]');
+  await page.click(".exp [data-act=download]");
+  await page.waitForFunction(() => window.EIKON.expLast && window.EIKON.expLast.file, null, { timeout: 20000 });
+  const got = await page.evaluate(() => ({ n: window.EIKON.expLast.results[0].rows.length, title: window.EIKON.expLast.results[0].reg.title, name: window.EIKON.expLast.file.name }));
+  report("privacy: Customers (everyone) is read page by page (after=) from /export/records, whatever the days, into the same file kinds as the registers",
+    got.n === 1002 && got.title === "Customers (everyone)" && /\.zip$/.test(got.name) && parts.length === 2 && parts[0] === "?part=customers" && parts[1] === "?part=customers&after=1000", JSON.stringify({ got, parts }));
+  await page.unroute(/localhost:\d+\/export\/records\?/, exRoute);
+} catch (e) { report("privacy: one person's data and the new parts of Download our records", false, String(e).slice(0, 400)); }
 // ---- How we're doing (ownreg): the period maths in Malta days, what needs the pharmacist, one request per period, a
 // figure opens its records (Escape closes, focus back), a week and the month before, a group's head office choosing a
 // pharmacy, staff kept out, and the three reports printed (pharmacy, page numbers, Malta time) and as spreadsheets.
@@ -4236,9 +4320,9 @@ try {
   await np.waitForTimeout(600);
   const newSnap = await np.evaluate(snap), fetchedClassic = got.filter((f) => classicFiles.includes(f.replace(/\?.*$/, "")));
   const stubs = await np.evaluate(() => Object.keys(window.EIKON.modules).filter((k) => window.EIKON.modules[k].registryStub).length);
-  // the hub card for a classic screen still hands over to the classic layout
-  await np.evaluate(() => { location.hash = "#customers"; }); await np.waitForSelector('[data-reg="loyalty"]', { timeout: 10000 });
-  await np.click('[data-reg="loyalty"]'); await np.waitForFunction(() => /ui=classic/.test(location.search) && window.EIKON && window.EIKON.state.activeModuleId === "loyalty" && document.getElementById("eikon-content") && document.getElementById("eikon-content").children.length > 0, null, { timeout: 20000 }).catch(() => {});
+  // the classic screen is still one tap away: Loyalty's ⋯ › Classic Loyalty screen hands over to the classic layout
+  await np.evaluate(() => { location.hash = "#loyreg"; }); await np.waitForSelector(".lyr .lyr-seg", { timeout: 10000 }); await np.waitForTimeout(300);
+  await np.click(".lyr [data-act=menu]"); await np.click(".lyr [data-act=classic]"); await np.waitForFunction(() => /ui=classic/.test(location.search) && window.EIKON && window.EIKON.state.activeModuleId === "loyalty" && document.getElementById("eikon-content") && document.getElementById("eikon-content").children.length > 0, null, { timeout: 20000 }).catch(() => {});
   const handOver = await np.evaluate(() => ({ s: location.search, h: location.hash, active: window.EIKON.state.activeModuleId, real: !window.EIKON.modules.loyalty.registryStub, crashed: /Module crashed/.test(document.body.innerText) }));
   // back to the new layout; then load the classic files on demand in that page
   await np.goto(`${base.replace("intro=0", "intro=0&ui=2")}#today`);
@@ -6999,14 +7083,33 @@ try {
   const f3p = (await calls()).filter((c) => c.method === "POST"), f3 = await page.evaluate(() => ({ open: !!document.querySelector("#stk-add"), item: (document.querySelector("#stk-add [name=item_name]") || {}).value, sup: (document.querySelector("#stk-add [name=supplier]") || {}).value }));
   report("stock (d-stock): Add an item keeps what is typed while the lists arrive, Enter sends the classic quick add body for today, and the form stays open for the next item with the same supplier",
     typed === "Ħ-test Panadol 500mg" && f3p.length === 1 && f3p[0].path === "/order-diary/entries" && JSON.stringify(f3p[0].body) === JSON.stringify({ order_date: d0, item_name: "Ħ-test Panadol 500mg", qty: 1, supplier: "GSK", notes: "" }) && f3.open && f3.item === "" && f3.sup === "GSK", JSON.stringify({ typed, f3p, f3 }));
+  // stock-hub (round 2): SH1 no aria-expanded but "true"/"false" (axe had 26 "null"), with a waiting line's form shut and open;
+  // SH4 a waiting line is grey, only "Late" is red; SH3 Add all asks first, Escape closes it and gives the keyboard back
+  const ax = async () => page.evaluate(() => [...document.querySelectorAll("#stk-slot [aria-expanded]")].map((e) => e.getAttribute("aria-expanded")));
+  const ax0 = await ax(); await page.click(".stk-row [data-act=sug]"); await page.waitForSelector("#stk-sug"); const ax1 = await ax(); await page.click("[data-act=sug-cancel]");
+  const sh4 = await page.evaluate(() => [...document.querySelectorAll("[data-sug] .stk-w, [data-sug] .t span.w")].map((e) => e.textContent));
+  const allBtn = await page.$("[data-act=all]"); let sh3 = { btn: !!allBtn };
+  if (allBtn) { await allBtn.click(); await page.waitForSelector("[data-act=all-go]"); sh3.ask = await page.textContent(".stk-all-box"); sh3.focus = await page.evaluate(() => document.activeElement && document.activeElement.getAttribute("data-act")); await page.keyboard.press("Escape"); await page.waitForTimeout(150); sh3.after = await page.evaluate(() => ({ box: !!document.querySelector(".stk-all-box"), focus: document.activeElement && document.activeElement.getAttribute("data-act") })); }
+  report("stock (stock-hub): aria-expanded is only true or false (shut and open); a late waiting line has only Late in red; Add all asks first and Escape closes it, keyboard back on Add all",
+    ax0.length > 0 && ax0.concat(ax1).every((v) => v === "true" || v === "false") && ax1.includes("true") && sh4.every((t) => t === "Late") &&
+    sh3.btn && /Put all \d+ on today's order/.test(sh3.ask) && sh3.focus === "all-go" && !sh3.after.box && sh3.after.focus === "all", JSON.stringify({ ax0, ax1, sh4, sh3 }));
   // Short or at risk: the open recall with its next step and Order a replacement; Open lands on that alert's next tick
   await page.click("[data-view=risk]"); await page.waitForTimeout(200);
   const r1 = await page.evaluate(() => document.querySelector("#stk-slot").innerText);
   await page.click('[data-act=land][data-to="alertreg"]');
-  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "alertreg" && document.activeElement && document.activeElement.getAttribute("data-k") === "supplier_informed", null, { timeout: 8000 }).catch(() => {});
+  // The screen is drawn again when its By month list arrives a moment later: focus falls to the page for one tick and the
+  // shell's focus keeper (core.js) puts it back on the same step. Read it once that has settled, not in the gap between
+  // (the check read it in the gap about one run in three: the base failure, stock-hub round 2).
+  const onStep = () => window.EIKON.state.activeModuleId === "alertreg" && document.activeElement && document.activeElement.getAttribute("data-k") === "supplier_informed";
+  await page.waitForFunction(onStep, null, { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(500); await page.waitForFunction(onStep, null, { timeout: 5000 }).catch(() => {});
   const r1f = await page.evaluate(() => ({ mod: window.EIKON.state.activeModuleId, k: document.activeElement && document.activeElement.getAttribute("data-k") }));
-  report("stock (d-stock): Short or at risk lists the open recall with its next step and Order a replacement; Open lands on that alert's next step",
-    /Losartan 50mg/.test(r1) && /next: tell the supplier/.test(r1) && /Order a replacement/.test(r1) && r1f.mod === "alertreg" && r1f.k === "supplier_informed", JSON.stringify({ r1: r1.slice(0, 300), r1f }));
+  // and any later redraw (another late read) gives the keyboard back to the same step, never leaves it on the page
+  await page.evaluate(() => { const m = document.querySelector(".alr").parentNode; m.innerHTML = m.innerHTML; });
+  await page.waitForFunction(() => document.activeElement && document.activeElement.getAttribute("data-k") === "supplier_informed", null, { timeout: 2000 }).catch(() => {});
+  const r1g = await page.evaluate(() => document.activeElement && document.activeElement.getAttribute("data-k"));
+  report("stock (d-stock): Short or at risk lists the open recall with its next step and Order a replacement; Open lands on that alert's next step, and keeps it there when the screen is drawn again",
+    /Losartan 50mg/.test(r1) && /next: tell the supplier/.test(r1) && /Order a replacement/.test(r1) && r1f.mod === "alertreg" && r1f.k === "supplier_informed" && r1g === "supplier_informed", JSON.stringify({ r1: r1.slice(0, 300), r1f, r1g }));
   // phone: no sideways scroll, 44 px targets
   await page.setViewportSize({ width: 360, height: 800 }); await page.goto(base + "&ui=2#stock"); await page.waitForSelector(".stk-head", { timeout: 10000 }); await page.click("[data-view=order]"); await page.waitForTimeout(300);
   const ph = await page.evaluate(() => { const h = [...document.querySelectorAll("#stk-slot button")].filter((e) => e.getClientRects().length).map((e) => Math.round(e.getBoundingClientRect().height)); return { min: Math.min(...h), n: h.length, wide: document.documentElement.scrollWidth > window.innerWidth + 1 }; });

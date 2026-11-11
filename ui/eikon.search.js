@@ -177,7 +177,7 @@
     // until Bookings is set up, when Bookings above answers "appointment") says so, and comes back to Customers.
     var bkReady = !!(E.bookingsOn && E.bookingsOn()); // Bookings answers "appointment" (2026-11): the classic Appointments is not offered
     [["clientorders", "Orders", "Items ordered in for a customer."], ["tickets", "Questions", "Questions customers are waiting on."], ["deliveries", "Deliveries", "Home deliveries, routes and proof of delivery."],
-     ["appointments", "Appointments (classic look)", "Clinic appointments and the waiting list, until Bookings is set up."], ["loyalty", "Loyalty (classic look)", "Loyalty cards, points and campaigns."]].forEach(function (x) {
+     ["appointments", "Appointments (classic look)", "Clinic appointments and the waiting list, until Bookings is set up."], ["loyalty", "Loyalty", "Loyalty cards, points and campaigns."]].forEach(function (x) {
       if (seen[x[0]] || (x[0] === "appointments" && bkReady)) return; var nat = (E.UI2_NATIVE || {})[x[0]];
       if (nat) { seen[x[0]] = 1; out.push({ key: x[0], title: (E.modules[nat] && E.modules[nat].title) || x[1], desc: x[2], hub: "Customers", go: "#" + nat }); }
       else if (E.modules[x[0]] && E.openClassic) { seen[x[0]] = 1; out.push({ key: x[0], title: x[1], old: E.modules[x[0]].title || "", desc: x[2], hub: "Customers", open: function () { try { sessionStorage.setItem("eikon_ui2_return", "customers"); } catch (e) {} E.openClassic(x[0]); } }); }

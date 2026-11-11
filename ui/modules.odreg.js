@@ -2,7 +2,8 @@
    received or Wrong pick (only the status is sent; the update keeps every other field). Add an item (names used before
    are offered with their usual supplier); carry what is still outstanding to the next day (the server skips items it
    already carried). Tap an item to change it (the classic Edit Item body: item_name, qty, supplier, notes) or, for the
-   pharmacist, delete it (the classic DELETE, after one plain question). Printing the day's list stays in the classic screen. */
+   pharmacist, delete it (the classic DELETE, after one plain question). Print this day opens the classic screen's printout of
+   the day (the same page, built the same way from the same list). */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -50,7 +51,7 @@
       "@media (max-width:600px){.odr{padding:4px 16px 0}.odr h1{font-size:32px}}" +
       // Stock group: a 44 px way back, a pressed state on every button, 44 px buttons on a phone, a retry under a failed load.
       ".odr-back{display:inline-flex;align-items:center;min-height:44px;padding:0 8px 0 0;margin:-8px 0 -2px}.odr-btn:active:not(:disabled){filter:brightness(.9)}" +
-      ".odr-quiet .odr-btn{margin-top:12px;display:block}" +
+      ".odr-quiet .odr-btn{margin-top:12px;display:block}.odr-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;flex-wrap:wrap}.odr-foot p{margin:0;font-size:12.5px;color:var(--muted)}" +
       "@media (max-width:600px){.odr-btn,.odr-btn.s{height:44px;border-radius:22px}.odr-nav button{width:44px;height:44px}.odr-nav button.now{width:auto}}" +
       // b4-6a: an item opens to be changed in place; delete asks once.
       ".odr-name{border:0;background:none;padding:4px 0;margin:-4px 0;font:inherit;color:inherit;text-align:left;cursor:pointer;min-height:44px}.odr-name:hover b,.odr-name:focus-visible b{text-decoration:underline}" +
@@ -87,7 +88,7 @@
   // The open item: the classic Edit Item's four fields; Save changes sends exactly them. Delete… is the pharmacist's.
   function editHtml(e) {
     var a = S.edit || {}, fld = function (k, label, extra) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] == null ? "" : a[k]) + '"' + (extra || "") + "></label>"; };
-    var h = '<div class="odr-ed"><form class="odr-form" id="odr-edit" autocomplete="off" aria-label="' + esc("Change " + e.item_name) + '">' +
+    var h = '<div class="odr-ed"><form class="odr-form sf-form" id="odr-edit" autocomplete="off" aria-label="' + esc("Change " + e.item_name) + '">' +
       fld("item_name", "Item", ' list="odr-items"') + fld("qty", "How many", ' inputmode="numeric"') + fld("supplier", "Supplier", ' list="odr-sups" placeholder="Optional"') + fld("notes", "Note", ' placeholder="Optional, e.g. for Mrs Borg"') +
       (S.editErr ? '<div class="odr-err" role="alert">' + esc(S.editErr) + "</div>" : "");
     if (S.del) h += '<p class="odr-ask" id="odr-ask">Delete this item from the order diary? This cannot be undone.</p>' +
@@ -107,7 +108,7 @@
       '<div class="odr-nav"><button data-act="prev" aria-label="Day before">‹</button><b>' + esc(label(S.day)) + "</b>" + (S.day === today() ? "" : '<button class="now" data-act="today">Today</button>') + '<button data-act="next" aria-label="Day after">›</button></div>';
     if (S.adding) {
       var a = S.adding, fld = function (k, label, extra) { return '<label><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k] || "") + '"' + (extra || "") + "></label>"; };
-      h += '<form class="odr-form" id="odr-add" autocomplete="off">' + fld("item_name", "Item", ' list="odr-items" placeholder="e.g. Augmentin 625 x14"') + fld("qty", "How many", ' inputmode="numeric" placeholder="1"') + fld("supplier", "Supplier", ' list="odr-sups" placeholder="Optional"') + fld("notes", "Note", ' placeholder="Optional, e.g. for Mrs Borg"') +
+      h += '<form class="odr-form sf-form sf-new" id="odr-add" autocomplete="off">' + fld("item_name", "Item", ' list="odr-items" placeholder="e.g. Augmentin 625 x14"') + fld("qty", "How many", ' inputmode="numeric" placeholder="1"') + fld("supplier", "Supplier", ' list="odr-sups" placeholder="Optional"') + fld("notes", "Note", ' placeholder="Optional, e.g. for Mrs Borg"') +
         (S.err ? '<div class="odr-err" role="alert">' + esc(S.err) + "</div>" : "") +
         '<div class="acts"><button type="button" class="odr-btn" data-act="add-cancel">Cancel</button><button type="submit" class="odr-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Add to " + esc(label(S.day).toLowerCase() === "today" ? "today" : label(S.day))) + "</button></div></form>";
     }
@@ -128,7 +129,7 @@
       });
     }
     if (S.adding || S.editing) h += '<datalist id="odr-items">' + S.items.map(function (i) { return '<option value="' + esc(i.item_name) + '">'; }).join("") + '</datalist><datalist id="odr-sups">' + supList().map(function (s) { return '<option value="' + esc(s) + '">'; }).join("") + "</datalist>"; // one copy for both forms
-    h += '<p style="font-size:12.5px;color:var(--muted);margin-top:12px">' + (S.entries.length ? "Tap an item to change it. " : "") + 'Printing the day\'s list is in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += S.entries.length ? '<div class="odr-foot"><p>Tap an item to change it.</p><button type="button" class="odr-btn" data-act="print">Print this day</button></div></div>' : "</div>";
     var ae = document.activeElement, fm = ae && m.contains(ae) && ae.name && ae.closest ? ae.closest("form") : null, sel = fm ? (fm.id ? "#" + fm.id + " " : "") + "[name=" + ae.name + "]" : "";
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) again.focus(); }
@@ -147,6 +148,7 @@
         else if (act === "add") { S.adding = { qty: "1" }; S.err = ""; paint(true); if (!S.items.length) loadItems(); setTimeout(function () { var f = m.querySelector("#odr-add [name=item_name]"); if (f && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("form"))) f.focus(); }, 30); }
         else if (act === "add-cancel") { S.adding = null; S.err = ""; paint(true); setTimeout(function () { var b = m.querySelector('[data-act="add"]'); if (b) b.focus(); }, 30); }
         else if (act === "carry") carry();
+        else if (act === "print") printDay();
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "odreg"); } catch (x) {} E.openClassic("order-diary"); }
       });
     });
@@ -230,6 +232,39 @@
     }
     E.toast("Deleted " + name, "success"); S.editing = null; S.edit = null; S.del = false; S.editSaving = false;
     await load(); focusOn(nearId ? '[data-act=open][data-id="' + nearId + '"]' : '[data-act="add"]');
+  }
+  // The classic screen's printout of the day (modules.orderdiary.js openPrintWindow), the same HTML from the same list.
+  function printDay() {
+    var ents = S.entries.slice(), u = E.state.user || {}, d = S.day;
+    var groups = Object.create(null), order = []; ents.forEach(function (e) { var k = (e.supplier || "").trim() || "__none__"; if (!groups[k]) { groups[k] = []; order.push(k); } groups[k].push(e); });
+    var st = { total: 0, received: 0, not_received: 0, wrong_pick: 0, pending: 0 }; ents.forEach(function (e) { st.total++; if (e.status === "received") st.received++; else if (e.status === "not_received") st.not_received++; else if (e.status === "wrong_pick") st.wrong_pick++; else st.pending++; });
+    var loc = u.location_name || u.org_name || "", long = d ? new Date(d + "T00:00:00").toLocaleDateString("en-IE", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : "", short = d ? d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4) : "";
+    var sections = "";
+    order.forEach(function (key) {
+      var items = groups[key], disp = key === "__none__" ? "Unassigned" : key;
+      sections += "<div class='section'><h2>" + esc(disp) + " <span class='count'>(" + items.length + " item" + (items.length === 1 ? "" : "s") + ")</span></h2>" +
+        "<table><thead><tr><th>Item</th><th style='text-align:center'>Qty</th><th>Notes</th><th>Status</th></tr></thead><tbody>";
+      items.forEach(function (e) {
+        var sx = { received: "✓ Received", not_received: "✗ Not Received", wrong_pick: "⚠ Wrong Pick", pending: "Pending" }[e.status] || "Pending";
+        sections += "<tr class='s-" + esc(e.status) + "'><td>" + esc(e.item_name) + (e.carried_from_id ? " <em class='carried'>(carried)</em>" : "") + (e.notes ? "<br><small>" + esc(e.notes) + "</small>" : "") + "</td>" +
+          "<td style='text-align:center;font-weight:700;'>" + esc(e.qty) + "</td><td></td><td><span class='badge s-" + esc(e.status) + "'>" + esc(sx) + "</span></td></tr>";
+      });
+      sections += "</tbody></table></div>";
+    });
+    var html = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Order Diary – " + esc(short) + "</title><style>" +
+      "*{box-sizing:border-box;margin:0;padding:0;}body{font-family:system-ui,Arial,sans-serif;color:#111;background:#fff;padding:20px 24px;font-size:13px;}" +
+      "h1{font-size:18px;font-weight:900;margin-bottom:2px;}.meta{font-size:12px;color:#555;margin-bottom:8px;}" +
+      ".stats{display:flex;gap:16px;font-size:12px;color:#555;padding:8px 0;border-top:1px solid #ddd;border-bottom:1px solid #ddd;margin-bottom:18px;}.stats strong{font-size:15px;color:#111;}" +
+      ".section{margin-bottom:20px;page-break-inside:avoid;}h2{font-size:13px;font-weight:800;border-bottom:2px solid #222;padding-bottom:4px;margin-bottom:7px;}.count{font-weight:400;font-size:11px;color:#555;}" +
+      "table{width:100%;border-collapse:collapse;}th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.3px;color:#777;border-bottom:1px solid #ddd;padding:3px 6px;}" +
+      "td{padding:5px 6px;border-bottom:1px solid #eee;vertical-align:middle;}tr:last-child td{border-bottom:none;}.badge{border-radius:3px;padding:1px 6px;font-size:10px;font-weight:700;}" +
+      ".badge.s-received{background:#d1fae5;color:#065f46;}.badge.s-not_received{background:#fee2e2;color:#991b1b;}.badge.s-wrong_pick{background:#fef3c7;color:#92400e;}.badge.s-pending{background:#f3f4f6;color:#6b7280;}" +
+      ".carried{font-size:10px;color:#999;}small{color:#777;}.no-print{position:fixed;top:12px;right:12px;}@media print{.no-print{display:none;}}" +
+      "</style></head><body><button class='no-print' data-eikon-print='print' style='padding:7px 14px;background:#111;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;'>🖨 Print</button>" +
+      "<h1>📦 Order Diary</h1><div class='meta'>" + esc(long) + (loc ? " &nbsp;·&nbsp; " + esc(loc) : "") + "</div><div class='stats'>" +
+      "<div><strong>" + st.total + "</strong> Total</div><div><strong>" + st.received + "</strong> Received</div><div><strong>" + st.pending + "</strong> Pending</div><div><strong>" + st.not_received + "</strong> Not Received</div>" +
+      (st.wrong_pick ? "<div><strong>" + st.wrong_pick + "</strong> Wrong Pick</div>" : "") + "</div>" + sections + "</body></html>";
+    if (!E.openPrint(html, { features: "width=860,height=700", autoPrint: true })) E.toast("Allow pop-ups to print.", "error");
   }
   async function carry() {
     if (S.saving) return;

@@ -79,8 +79,8 @@ export default {
 
     // ── Ready: the Orders screen's Ready on the twin order vs the Stock tab's ──
     const twin = linkedOid === oid1 ? oid2 : oid1;
-    await t.open(p, "2", "clientorders", "ordreg", "#ord-q");
-    await p.fill("#ord-q", "dstock"); await p.waitForSelector(`[data-act=ready][data-id="${twin}"]`); // a busy list is drawn 30 at a time: find the twin by name
+    await t.open(p, "2", "clientorders", "ordreg", `#ord-q, [data-act=ready][data-id="${twin}"]`); // the search box shows only on a busy list (run alone, the list is short: stock-hub)
+    if (await p.$("#ord-q")) await p.fill("#ord-q", "dstock"); await p.waitForSelector(`[data-act=ready][data-id="${twin}"]`); // a busy list is drawn 30 at a time: find the twin by name
     const cReady = await t.write(p, new RegExp("/client-orders/entries/" + twin + "$"), () => p.click(`[data-act=ready][data-id="${twin}"]`), "PUT");
     await t.open(p, "2", "stock", "stock", `.stk-tell [data-act=ready][data-oid="${linkedOid}"]`);
     const nReady = await t.write(p, new RegExp("/client-orders/entries/" + linkedOid + "$"), () => p.click(`.stk-tell [data-act=ready][data-oid="${linkedOid}"]`), "PUT");
