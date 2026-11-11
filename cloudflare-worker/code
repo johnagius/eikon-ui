@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-11-batch-17";
+const WORKER_VERSION = "2026-11-11-batch-18";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -668,7 +668,8 @@ async function handleSuPage(request, env) {
 
 async function suNextIds(env) {
   const orgMax = await dbFirst(env, "SELECT IFNULL(MAX(id), 0) AS m FROM orgs", []);
-  const locMax = await dbFirst(env, "SELECT IFNULL(MAX(id), 0) AS m FROM locations", []);
+  const dc = demoCfg(env), skip = dc ? dc.locs.filter((x) => x !== dc.pharmacy) : []; // the demo's own made-up locations do not move the next number
+  const locMax = await dbFirst(env, `SELECT IFNULL(MAX(id), 0) AS m FROM locations${skip.length ? " WHERE id NOT IN (" + skip.join(",") + ")" : ""}`, []);
   return { next_org_id: (orgMax?.m || 0) + 1, next_location_id: (locMax?.m || 0) + 1 };
 }
 
@@ -1248,6 +1249,7 @@ async function authFromRequest(request, env) {
     location_name: loc.name
   };
   if (Number(sess.must_change_password) === 1) out.must_change = true; // only ever set for a sign-in made or reset on /team
+  if (demoIsOrg(env, out.org_id)) out.demo = true; // a session of the one-click demo's group (never when the demo is off)
   return out;
 }
 
@@ -3246,11 +3248,11 @@ async function handleSupplierProductsInventory(request, env, corsOkHeaders, auth
   const q = (url.searchParams.get("q") || "").trim();
   const supplier = (url.searchParams.get("supplier") || "").trim();
 
-  // Supplier products are visible to ALL users regardless of org
+  // Supplier products are visible to ALL users regardless of org (the one-click demo's distributor only to the demo)
   let sql = `SELECT sp.*, l.name AS location_name
              FROM supplier_products sp
              LEFT JOIN locations l ON l.id = sp.location_id
-             WHERE 1=1`;
+             WHERE 1=1${demoOrgSql(env, authUser, "sp.org_id")}`;
   const bind = [];
 
   if (supplier) {
@@ -3279,7 +3281,7 @@ async function handleSupplierStockChangesList(request, env, corsOkHeaders, authU
   const since = (url.searchParams.get("since") || "").trim();
 
   // Stock changes visible to ALL users regardless of org
-  let sql = `SELECT * FROM supplier_stock_changes WHERE 1=1`;
+  let sql = `SELECT * FROM supplier_stock_changes WHERE 1=1${demoOrgSql(env, authUser, "org_id")}`;
   const bind = [];
 
   if (since) {
@@ -12378,7 +12380,7 @@ async function handleScarceNeedsList(request, env, corsOkHeaders, authUser, url)
     JOIN orgs org ON org.id = n.org_id
     JOIN locations loc ON loc.id = n.location_id
     LEFT JOIN scarce_stock_need_offers o ON o.need_id = n.id
-    ${openOnly ? "WHERE n.is_closed = 0" : ""}
+    WHERE 1=1${openOnly ? " AND n.is_closed = 0" : ""}${demoOrgSql(env, authUser, "n.org_id")}
     GROUP BY n.id
     ORDER BY n.is_closed ASC, n.entry_date DESC, n.id DESC
   `, []);
@@ -15100,6 +15102,7 @@ async function rpnAfter(env, cap) {
   return texts;
 }
 async function rpnNotify(env, org, loc, texts) {
+  if (demoIsOrg(env, org)) return; // the one-click demo never pushes to a device
   const keys = await rpnKeys(env);
   if (!keys) return;
   await ensureRotaPushSchema(env);
@@ -16589,13 +16592,13 @@ async function handleBoardMessagesList(request, env, corsOkHeaders, authUser, ur
     rows = await dbAll(env, `
       SELECT ${BOARD_MSG_COLS}
       FROM board_messages m
-      WHERE m.is_pinned = 1 AND (+m.scope = 'all' OR (+m.scope = 'org' AND +m.org_id = ?))${extra}
+      WHERE m.is_pinned = 1 AND (+m.scope = ${boardAllLit(authUser)} OR (+m.scope = 'org' AND +m.org_id = ?))${extra}
       ORDER BY m.id ${order}
       LIMIT ?
     `, [authUser.org_id, ...extraBind, limit]);
   } else {
     // "Our group only" (scope=org): only the group's own messages; Everything: everyone's + the group's own.
-    const q = boardVisibleSql(BOARD_MSG_COLS, extra, order, scope === "org");
+    const q = boardVisibleSql(BOARD_MSG_COLS, extra, order, scope === "org" || !!authUser.demo);
     rows = await dbAll(env, q.sql, q.bind(authUser.org_id, extraBind, limit));
   }
 
@@ -16711,7 +16714,7 @@ async function handleBoardMessageCreate(request, env, corsOkHeaders, authUser) {
 async function handleBoardMessagePin(request, env, corsOkHeaders, authUser, msgId) {
   await ensureBoardSchema(env);
   // Only a message this person can see: everyone's, or their own group's (not another group's private ones)
-  const existing = await dbFirst(env, `SELECT id, is_pinned FROM board_messages WHERE id = ? AND (scope = 'all' OR (scope = 'org' AND org_id = ?))`, [msgId, authUser.org_id]);
+  const existing = await dbFirst(env, `SELECT id, is_pinned FROM board_messages WHERE id = ? AND (scope = ${boardAllLit(authUser)} OR (scope = 'org' AND org_id = ?))`, [msgId, authUser.org_id]);
   if (!existing) return jsonResponse({ ok: false, error: "Message not found" }, 404, corsOkHeaders);
 
   const newPinned = existing.is_pinned ? 0 : 1;
@@ -16722,7 +16725,7 @@ async function handleBoardMessagePin(request, env, corsOkHeaders, authUser, msgI
     // — so one group's group-only pins never block another group. Reads only pinned rows (idx_board_msg_pinned; the
     // unary + keeps the planner off the scope indexes).
     const countRow = await dbFirst(env, `SELECT COUNT(*) as c FROM board_messages m
-      WHERE m.is_pinned = 1 AND (+m.scope = 'all' OR (+m.scope = 'org' AND +m.org_id = ?))`, [authUser.org_id]);
+      WHERE m.is_pinned = 1 AND (+m.scope = ${boardAllLit(authUser)} OR (+m.scope = 'org' AND +m.org_id = ?))`, [authUser.org_id]);
     if (countRow && countRow.c >= 30) {
       return jsonResponse({ ok: false, error: "Maximum 30 pinned messages reached. Unpin another message first." }, 400, corsOkHeaders);
     }
@@ -16758,7 +16761,7 @@ async function handleBoardMentionsList(request, env, corsOkHeaders, authUser, ur
                     m.body, m.user_name, m.location_name, m.scope, m.created_at AS msg_created_at
              FROM board_mentions bm
              JOIN board_messages m ON m.id = bm.message_id
-             WHERE bm.mentioned_user_id = ? AND (m.scope = 'all' OR (m.scope = 'org' AND m.org_id = ?))`;
+             WHERE bm.mentioned_user_id = ? AND (m.scope = ${boardAllLit(authUser)} OR (m.scope = 'org' AND m.org_id = ?))`;
   const bind = [authUser.user_id, authUser.org_id];
   if (unreadOnly) {
     sql += ` AND bm.is_read = 0`;
@@ -16791,6 +16794,7 @@ async function handleBoardSuggestionsList(request, env, corsOkHeaders, authUser)
     FROM board_suggestions s
     LEFT JOIN (SELECT suggestion_id, COUNT(*) AS cnt FROM board_suggestion_comments GROUP BY suggestion_id) c
       ON c.suggestion_id = s.id
+    WHERE 1=1${demoOrgSql(env, authUser, "s.org_id")}
     ORDER BY s.created_at DESC LIMIT 200
   `, []);
   return jsonResponse({ ok: true, suggestions: rows }, 200, corsOkHeaders);
@@ -16974,11 +16978,11 @@ async function handleBoardDashboard(request, env, corsOkHeaders, authUser) {
 
   // Unread mention count
   const countRow = await dbFirst(env, `SELECT COUNT(*) as c FROM board_mentions bm JOIN board_messages m ON m.id = bm.message_id
-    WHERE bm.mentioned_user_id = ? AND bm.is_read = 0 AND (m.scope = 'all' OR (m.scope = 'org' AND m.org_id = ?))`, [authUser.user_id, authUser.org_id]);
+    WHERE bm.mentioned_user_id = ? AND bm.is_read = 0 AND (m.scope = ${boardAllLit(authUser)} OR (m.scope = 'org' AND m.org_id = ?))`, [authUser.user_id, authUser.org_id]);
   const unreadMentions = (countRow && countRow.c) || 0;
 
   // Recent messages (org + all scope): the five newest visible, each half of the visibility clause on its own index
-  const rq = boardVisibleSql("m.id, m.user_name, m.location_name, m.body, m.scope, m.created_at", "", "DESC", false);
+  const rq = boardVisibleSql("m.id, m.user_name, m.location_name, m.body, m.scope, m.created_at", "", "DESC", !!authUser.demo);
   const recent = await dbAll(env, rq.sql, rq.bind(authUser.org_id, [], 5));
 
   // Recent mentions for this user
@@ -16986,7 +16990,7 @@ async function handleBoardDashboard(request, env, corsOkHeaders, authUser) {
     SELECT bm.id, bm.message_id, m.body, m.user_name, m.created_at
     FROM board_mentions bm
     JOIN board_messages m ON m.id = bm.message_id
-    WHERE bm.mentioned_user_id = ? AND bm.is_read = 0 AND (m.scope = 'all' OR (m.scope = 'org' AND m.org_id = ?))
+    WHERE bm.mentioned_user_id = ? AND bm.is_read = 0 AND (m.scope = ${boardAllLit(authUser)} OR (m.scope = 'org' AND m.org_id = ?))
     ORDER BY bm.created_at DESC LIMIT 5
   `, [authUser.user_id, authUser.org_id]);
 
@@ -16995,7 +16999,7 @@ async function handleBoardDashboard(request, env, corsOkHeaders, authUser) {
   // UNION ALL stops at 100, so at most ~100 unread rows are read, however long the person has been away.
   const unreadMsgRow = await dbFirst(env, `
     SELECT COUNT(*) AS c FROM (
-      SELECT 1 FROM board_messages m WHERE m.scope = 'all' AND m.id > COALESCE((SELECT last_read_id FROM board_user_state WHERE user_id = ?), 0)
+      SELECT 1 FROM board_messages m WHERE m.scope = ${boardAllLit(authUser)} AND m.id > COALESCE((SELECT last_read_id FROM board_user_state WHERE user_id = ?), 0)
       UNION ALL
       SELECT 1 FROM board_messages m WHERE m.org_id = ? AND m.scope = 'org' AND m.id > COALESCE((SELECT last_read_id FROM board_user_state WHERE user_id = ?), 0)
       LIMIT ${BOARD_UNREAD_CAP})
@@ -17629,7 +17633,7 @@ async function handleTeamToday(request, env, corsOkHeaders, authUser) {
   // The board's visibility clause, with unary + on its columns: the same rows, but SQLite then walks the primary key
   // (rowid > last read) instead of a MULTI-INDEX OR over the scope indexes that reads every visible board row (D1 keeps no
   // ANALYZE statistics, so the planner picks the OR plan otherwise). Director, Team round.
-  const VIS = "(+m.scope = 'all' OR (+m.scope = 'org' AND +m.org_id = ?))";
+  const VIS = `(+m.scope = ${boardAllLit(authUser)} OR (+m.scope = 'org' AND +m.org_id = ?))`;
   const [shifts, leaves, cfg, locum, hand, counts, ment] = await Promise.all([
     all(`SELECT a.staff_id, a.start_time, a.end_time, a.role_override, s.full_name, s.designation, s.phone
            FROM shift_assignments a LEFT JOIN shift_staff s ON s.id = a.staff_id
@@ -18966,10 +18970,13 @@ const ensureContactsSchema = schemaOnce("ensureContactsSchema", ensureContactsSc
 const ensurePeopleSchema = schemaOnce("ensurePeopleSchema", ensurePeopleSchema__impl);
 const ensureAuditSchema = schemaOnce("ensureAuditSchema", ensureAuditSchema__impl);
 
-export default {
+const EIKON_WORKER = {
   // Cloudflare cron: booking reminders (needs a cron trigger, e.g. every 10 minutes).
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(bkRunReminders(env).catch((e) => console.log("[bookings] reminders failed", e && e.message)));
+    ctx.waitUntil(Promise.all([
+      bkRunReminders(env).catch((e) => console.log("[bookings] reminders failed", e && e.message)),
+      demoNightly(env, ctx).catch((e) => console.log("[demo] nightly reset failed", e && e.message)) // one-click demo: nothing unless DEMO_* are set
+    ]));
   },
   async fetch(request, env, ctx) {
     try {
@@ -19000,7 +19007,7 @@ export default {
     if (url.pathname === "/csp-report" && request.method === "POST") return await handleCspReport(request);
 
     if (url.pathname === "/health") {
-      return jsonResponse({ ok: true, time: nowIso(), version: WORKER_VERSION }, 200, { "Cache-Control": "no-store", "X-Eikon-Worker-Version": WORKER_VERSION });
+      return jsonResponse({ ok: true, time: nowIso(), version: WORKER_VERSION, ...(demoCfg(env) ? { demo: true } : {}) }, 200, { "Cache-Control": "no-store", "X-Eikon-Worker-Version": WORKER_VERSION });
     }
 
     if (url.pathname === "/bootstrap" && request.method === "GET") return await handleBootstrapGet(request, env);
@@ -19034,6 +19041,11 @@ export default {
       if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
       return await handleLogin(request, env, corsOkHeaders);
     }
+    // One-click demo (block at the end of this file): 404 unless DEMO_ORG_ID and DEMO_LOCATION_ID are set
+    if (url.pathname === "/auth/demo") {
+      if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
+      return await handleDemoDoor(request, env, corsOkHeaders);
+    }
 
     // Superuser admin API (requires Bearer token of allowlisted superuser)
     if (url.pathname.startsWith("/su/api/")) {
@@ -19048,6 +19060,7 @@ export default {
       if (parts.length === 1 && parts[0] === "overview" && request.method === "GET") {
         return await handleSuOverview(request, env, corsOkHeaders);
       }
+      if (parts[0] === "demo" && parts.length === 2) return await handleSuDemo(request, env, corsOkHeaders, parts, ctx); // one-click demo: reset now / status
       if (parts.length === 1 && parts[0] === "account" && request.method === "POST") {
         return await handleSuCreateAccount(request, env, corsOkHeaders);
       }
@@ -19116,6 +19129,12 @@ export default {
 
 const authUser = await authFromRequest(request, env);
     if (!authUser) return jsonResponse({ ok: false, error: "Unauthorized" }, 401, corsOkHeaders);
+    if (authUser.demo) { // one-click demo: what a demo session may not do, and the board seen as its own group only
+      const g = await demoGuard(request, env, url, authUser, corsOkHeaders);
+      if (g && g.response) return g.response;
+      if (g && g.request) request = g.request;
+    }
+    { const x = await demoCrossCheck(request, env, url, authUser, corsOkHeaders); if (x) return x; } // nothing when the demo is off
     // A sign-in made or reset by the pharmacy's admin sets its own password before anything else (never an existing account).
     if (authUser.must_change && !["/auth/me", "/auth/change-password", "/auth/logout", "/client-log"].includes(url.pathname)) {
       return jsonResponse({ ok: false, error: "Set your own password first", must_change: true }, 403, corsOkHeaders);
@@ -20663,6 +20682,7 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
   }
 };
+export default EIKON_WORKER;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LOYALTY MODULE
@@ -24067,6 +24087,7 @@ function bkNextUtcMonth(iso) { const d = new Date(iso); return new Date(Date.UTC
 // onlyId sends through that one sender (the test button). Returns the sender used; throws when none could.
 async function bkSendEmail(env, settings, msg, onlyId) {
   const org = settings.org_id, loc = settings.location_id;
+  if (demoIsOrg(env, org)) throw new Error("Not sent — this is the demo"); // the one-click demo never e-mails anyone
   const list = (await bkSenders(env, org, loc, settings)).filter((r) => !onlyId || r.id === onlyId);
   const tried = [];
   for (const r of list) {
@@ -24098,6 +24119,7 @@ async function bkSendEmail(env, settings, msg, onlyId) {
 }
 async function bkCanSend(env, s) {
   if (!s || s.provider === "off" || String(env.BOOKINGS_KEY || "").length < 16) return false;
+  if (demoIsOrg(env, s.org_id)) return false; // the one-click demo never e-mails anyone
   const list = await bkSenders(env, s.org_id, s.location_id, s);
   return list.some((r) => r.enabled && r.cred_enc && (r.from_email || s.from_email));
 }
@@ -25887,3 +25909,654 @@ async function handleCustMsgLink(request, env, url) {
   }
   return bkPage("Stop e-mails", `<div class="c"><h1>Stop e-mails?</h1><div class="s">From ${e(pharmacy)} only.</div><form method="post"><button class="b r">Stop e-mails</button></form></div>`);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ONE-CLICK PUBLIC DEMO (owner, 2026-11-11)
+//   A visitor presses "Try the demo" on the sign-in screen and is signed in, with no e-mail or password, to a sandbox
+//   that lives inside one demo group (DEMO_ORG_ID) of the live database:
+//     - the demo pharmacy  DEMO_LOCATION_ID           (a real location; its own real sign-ins stay exactly as they are)
+//     - a second pharmacy  DEMO_PHARMACY2_LOCATION_ID (0-399; so head office has two pharmacies to compare)
+//     - a distributor      DEMO_SUPPLIER_LOCATION_ID  (400-599; the supplier portal)
+//     - a head office      DEMO_HQ_LOCATION_ID        (600-900; the company-admin portal)
+//   With DEMO_ORG_ID or DEMO_LOCATION_ID unset the whole feature is off: /auth/demo answers 404, no door is shown, no
+//   guard runs, every SQL statement below is the one the worker ran before. The three optional ids only add doors.
+//   Routes:
+//     GET  /auth/demo                  which doors are open (public): { ok, doors: ["pharmacy","supplier","hq"], ready }
+//     POST /auth/demo { door }         a 2-hour session as that door's demo visitor (public, rate-limited per address)
+//     POST /su/api/demo/reset          superuser: wipe and seed again now (bounded; call again until done:true)
+//     POST /su/api/demo/wipe           superuser: empty the demo group, seed nothing (before switching it off)
+//     GET  /su/api/demo/status         superuser: where the last reset got to
+//   Every session of the demo group (the visitors' and any real sign-in of it) is guarded (demoGuard): nothing leaves the
+//   sandbox (no e-mail, push or account change), and the board, supplier marketplace and scarce-stock lists keep the demo
+//   group and the live groups apart in both directions (demoCrossCheck, demoOrgSql, boardAllLit).
+//   resetDemo wipes every row of the demo group (tables discovered at run time) and seeds 2-3 believable items in every
+//   section through the worker's own routes, so screens read them exactly as real data. It runs once per Malta day
+//   between 03:00 and 06:00 from the existing 10-minute cron, a bounded number of steps per run.
+// ═══════════════════════════════════════════════════════════════════════════
+const DEMO_DOORS = ["pharmacy", "supplier", "hq"];
+const DEMO_USERS = {
+  pharmacy: { email: "visitor.pharmacy@demo.eikon.invalid", name: "Demo visitor" },
+  branch: { email: "visitor.branch@demo.eikon.invalid", name: "Sarah Vella" },
+  supplier: { email: "visitor.supplier@demo.eikon.invalid", name: "Demo visitor" },
+  hq: { email: "visitor.hq@demo.eikon.invalid", name: "Demo visitor" }
+};
+const DEMO_EMAILS = Object.values(DEMO_USERS).map((u) => u.email);
+const DEMO_LOC_NAMES = { branch: "Demo Pharmacy Sliema", supplier: "Demo Distributor", hq: "Demo Head Office" };
+const DEMO_SESSION_SECONDS = 2 * 3600;
+const DEMO_PER_IP_HOUR = 12, DEMO_ALL_HOUR = 400;
+const DEMO_BODY_MAX = 256 * 1024, DEMO_BULK_MAX = 50;
+const DEMO_SEED_ORIGIN = "https://demo-seed.invalid";
+
+function demoCfg(env) {
+  const n = (v) => { const s = String(v == null ? "" : v).trim(); if (!/^\d+$/.test(s)) return null; const x = Number(s); return x > 0 ? x : null; };
+  const org = n(env && env.DEMO_ORG_ID), loc = n(env && env.DEMO_LOCATION_ID);
+  if (!org || !loc || loc > 399) return null;
+  const sup = n(env.DEMO_SUPPLIER_LOCATION_ID), hq = n(env.DEMO_HQ_LOCATION_ID), br = n(env.DEMO_PHARMACY2_LOCATION_ID);
+  const c = { org, pharmacy: loc,
+    supplier: sup && sup >= 400 && sup <= 599 ? sup : null,
+    hq: hq && hq >= 600 && hq <= 900 ? hq : null,
+    branch: br && br <= 399 && br !== loc ? br : null };
+  c.locs = [c.pharmacy, c.branch, c.supplier, c.hq].filter(Boolean);
+  return c;
+}
+function demoIsOrg(env, orgId) { const c = demoCfg(env); return !!c && Number(orgId) === c.org; }
+function demoIsLoc(env, locId) { const c = demoCfg(env); return !!c && c.locs.includes(Number(locId)); }
+// The board's "everyone" scope as SQL: a demo session sees its own group only (the live groups' messages are not shown
+// to the public); everyone else gets the literal it always had.
+function boardAllLit(authUser) { return authUser && authUser.demo ? "'demo:none'" : "'all'"; }
+// For the few lists that read across every group (supplier marketplace, scarce-stock needs, board suggestions): a demo
+// session sees only its group's rows, every other session sees everything but them. Feature off: "" (nothing added).
+function demoOrgSql(env, authUser, col) {
+  const c = demoCfg(env);
+  if (!c) return "";
+  return authUser && authUser.demo ? ` AND ${col} = ${c.org}` : ` AND (${col} IS NULL OR ${col} != ${c.org})`;
+}
+
+async function ensureDemoSchema__impl(env) {
+  await dbRun(env, "CREATE TABLE IF NOT EXISTS demo_state (k TEXT PRIMARY KEY, v TEXT NOT NULL DEFAULT '{}', at TEXT NOT NULL DEFAULT (datetime('now')))", []);
+  await dbRun(env, "CREATE TABLE IF NOT EXISTS demo_signins (id INTEGER PRIMARY KEY AUTOINCREMENT, ip TEXT NOT NULL DEFAULT '', door TEXT NOT NULL DEFAULT '', at TEXT NOT NULL DEFAULT (datetime('now')))", []);
+  await dbRun(env, "CREATE INDEX IF NOT EXISTS idx_demo_signins_ip_at ON demo_signins (ip, at)", []);
+}
+const ensureDemoSchema = schemaOnce("ensureDemoSchema", ensureDemoSchema__impl);
+async function demoStateGet(env) { await ensureDemoSchema(env); const r = await dbFirst(env, "SELECT v FROM demo_state WHERE k = 'reset'", []); try { return r ? JSON.parse(r.v) || {} : {}; } catch (e) { return {}; } }
+async function demoStateSet(env, st) { await dbRun(env, "INSERT INTO demo_state (k, v, at) VALUES ('reset', ?, datetime('now')) ON CONFLICT(k) DO UPDATE SET v = excluded.v, at = datetime('now')", [JSON.stringify(st)]); }
+
+// Which door a session belongs to (its location), and the doors that are open.
+function demoDoorOf(c, locId) { const l = Number(locId); return l === c.pharmacy ? "pharmacy" : l === c.supplier ? "supplier" : l === c.hq ? "hq" : l === c.branch ? "branch" : null; }
+function demoLocOf(c, door) { return door === "pharmacy" ? c.pharmacy : door === "supplier" ? c.supplier : door === "hq" ? c.hq : door === "branch" ? c.branch : null; }
+function demoDoorsOpen(c) { return DEMO_DOORS.filter((d) => !!demoLocOf(c, d)); }
+
+// Locations and visitor accounts, made when missing (idempotent). A configured id that belongs to another group, or a
+// demo e-mail held by an account of another group, is never touched: that door stays shut and the problem is reported.
+async function demoPrepare(env, c) {
+  const problems = [];
+  const main = await dbFirst(env, "SELECT id, org_id FROM locations WHERE id = ?", [c.pharmacy]);
+  if (!main || Number(main.org_id) !== c.org) return { fatal: "DEMO_LOCATION_ID " + c.pharmacy + " is not a location of DEMO_ORG_ID " + c.org, problems };
+  const other = await dbAll(env, `SELECT id FROM locations WHERE org_id = ? AND id NOT IN (${c.locs.map(() => "?").join(",")})`, [c.org, ...c.locs]);
+  if (other.length) return { fatal: "The demo group " + c.org + " has other locations (" + other.map((r) => r.id).join(", ") + "): nothing is wiped", problems };
+  const shut = [];
+  for (const door of ["branch", "supplier", "hq"]) {
+    const id = demoLocOf(c, door);
+    if (!id) continue;
+    const row = await dbFirst(env, "SELECT id, org_id FROM locations WHERE id = ?", [id]);
+    if (row && Number(row.org_id) !== c.org) { problems.push(door + ": location " + id + " belongs to group " + row.org_id); shut.push(door); continue; }
+    if (!row) await dbRun(env, "INSERT INTO locations (id, org_id, name, created_at) VALUES (?, ?, ?, datetime('now'))", [id, c.org, DEMO_LOC_NAMES[door]]);
+  }
+  for (const door of ["pharmacy", "branch", "supplier", "hq"]) {
+    const loc = demoLocOf(c, door);
+    if (!loc || shut.includes(door)) continue;
+    const u = DEMO_USERS[door];
+    const row = await dbFirst(env, "SELECT id, org_id, default_location_id FROM users WHERE lower(email) = ?", [u.email]);
+    if (row && Number(row.org_id) !== c.org) { problems.push(door + ": " + u.email + " belongs to group " + row.org_id); shut.push(door); continue; }
+    if (row) { if (Number(row.default_location_id) !== loc) await dbRun(env, "UPDATE users SET default_location_id = ? WHERE id = ?", [loc, row.id]); continue; }
+    // A password nobody knows (random, thrown away): this account is only ever entered through POST /auth/demo.
+    const salt = crypto.getRandomValues(new Uint8Array(16)), hash = crypto.getRandomValues(new Uint8Array(32));
+    await dbRun(env, `INSERT INTO users (org_id, email, full_name, role, pass_salt_b64, pass_hash_b64, pass_iters, is_active, default_location_id, created_at)
+      VALUES (?, ?, ?, 'admin', ?, ?, 100000, 1, ?, datetime('now'))`, [c.org, u.email, u.name, base64FromBytes(salt), base64FromBytes(hash), loc]);
+  }
+  return { fatal: "", problems, shut };
+}
+async function demoUserId(env, c, door) {
+  const r = await dbFirst(env, "SELECT id, org_id FROM users WHERE lower(email) = ?", [DEMO_USERS[door].email]);
+  return r && Number(r.org_id) === c.org ? Number(r.id) : null;
+}
+async function demoNewSession(env, userId, seconds) {
+  const token = base64UrlFromBytes(crypto.getRandomValues(new Uint8Array(32)));
+  const exp = new Date(Date.now() + seconds * 1000).toISOString();
+  await dbRun(env, "INSERT INTO sessions (user_id, token_hash_b64, expires_at, created_at) VALUES (?, ?, ?, datetime('now'))", [userId, await sha256B64FromString(token), exp]);
+  return { token, exp };
+}
+
+// GET/POST /auth/demo
+async function handleDemoDoor(request, env, cors) {
+  const c = demoCfg(env);
+  if (!c) return jsonResponse({ ok: false, error: "Not found" }, 404, cors);
+  await ensureDemoSchema(env);
+  const st = await demoStateGet(env);
+  const busy = !!(st.running && st.phase !== "seed"); // wiping: the sandbox is empty for a few minutes
+  // No door before the first reset has finished (until then location 2 still holds what it had) or after a wipe.
+  const never = !st.last_day || !!st.wiped;
+  const doors = never ? [] : demoDoorsOpen(c).filter((d) => !(st.shut || []).includes(d));
+  if (request.method === "GET") return jsonResponse({ ok: true, doors, ready: !busy && !never }, 200, cors);
+  if (request.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405, cors);
+  let body = {}; try { body = JSON.parse(await request.text() || "{}") || {}; } catch (e) { body = {}; }
+  const door = String(body.door || "pharmacy");
+  if (never) return jsonResponse({ ok: false, error: "The demo is being prepared. Try again in a few minutes." }, 503, { ...cors, "Retry-After": "600" });
+  if (!doors.includes(door)) return jsonResponse({ ok: false, error: "That part of the demo is not open" }, 404, cors);
+  if (busy) return jsonResponse({ ok: false, error: "The demo is being refreshed. Try again in a few minutes." }, 503, { ...cors, "Retry-After": "300" });
+  const ip = clientIp(request);
+  const mine = await dbFirst(env, "SELECT COUNT(*) AS c FROM demo_signins WHERE ip = ? AND at > datetime('now', '-60 minutes')", [ip]);
+  const all = await dbFirst(env, "SELECT COUNT(*) AS c FROM demo_signins WHERE at > datetime('now', '-60 minutes')", []);
+  if (Number(mine && mine.c) >= DEMO_PER_IP_HOUR || Number(all && all.c) >= DEMO_ALL_HOUR)
+    return jsonResponse({ ok: false, error: "Too many demo visits from here. Try again in an hour." }, 429, { ...cors, "Retry-After": "3600" });
+  let uid = await demoUserId(env, c, door);
+  if (!uid) { const p = await demoPrepare(env, c); if (p.fatal) return jsonResponse({ ok: false, error: "The demo is not available" }, 503, cors); uid = await demoUserId(env, c, door); }
+  if (!uid) return jsonResponse({ ok: false, error: "The demo is not available" }, 503, cors);
+  await dbRun(env, "INSERT INTO demo_signins (ip, door) VALUES (?, ?)", [ip, door]);
+  try { await dbRun(env, "DELETE FROM demo_signins WHERE at < datetime('now', '-2 days')", []); } catch (e) {}
+  // The visitors' own expired sessions go (only theirs: a real sign-in of the demo group is never touched here).
+  try { await dbRun(env, `DELETE FROM sessions WHERE expires_at < ? AND user_id IN (SELECT id FROM users WHERE org_id = ? AND lower(email) IN (${DEMO_EMAILS.map(() => "?").join(",")}))`, [new Date().toISOString(), c.org, ...DEMO_EMAILS]); } catch (e) {}
+  const s = await demoNewSession(env, uid, DEMO_SESSION_SECONDS);
+  const u = await dbFirst(env, "SELECT u.id, u.org_id, u.email, u.full_name, u.role, u.default_location_id, l.name AS location_name, o.name AS org_name FROM users u JOIN locations l ON l.id = u.default_location_id LEFT JOIN orgs o ON o.id = u.org_id WHERE u.id = ?", [uid]);
+  await writeAudit(env, c.org, uid, "DEMO_SIGNIN", "user", String(uid), { door }, Number(u.default_location_id));
+  return jsonResponse({ ok: true, token: s.token, demo: true, expires_at: s.exp,
+    user: { id: u.id, org_id: u.org_id, email: u.email, full_name: u.full_name, role: u.role, location_id: Number(u.default_location_id), location_name: u.location_name, org_name: u.org_name || "", demo: true, demo_door: door } }, 200, cors);
+}
+
+// ── the guard ──────────────────────────────────────────────────────────────
+function demoNo(cors, error, status = 403) { return jsonResponse({ ok: false, demo: true, error: error || "This is not available in the demo" }, status, cors); }
+function demoNotSent(cors) { return jsonResponse({ ok: false, demo: true, not_sent: true, error: "Not sent — this is the demo" }, 403, cors); }
+function demoRebuild(request, url, body) {
+  const h = new Headers(request.headers); h.set("Content-Type", "application/json"); h.delete("Content-Length");
+  return new Request(url.toString(), { method: request.method, headers: h, body: JSON.stringify(body) });
+}
+const DEMO_BULK_PATHS = ["/supplier-products/bulk-import", "/cherubino/short-expiry/upload", "/emergency-pos/catalog", "/emergency-pos/sales/sync", "/bookings/import-legacy", "/people/backfill"];
+// Returns null (go on), { response } (answer this), or { request } (go on with this request instead).
+async function demoGuard(request, env, url, authUser, cors) {
+  if (!authUser || !authUser.demo) return null;
+  const p = url.pathname, m = request.method, write = m !== "GET" && m !== "HEAD" && m !== "OPTIONS";
+  // Accounts, passwords, roles: never in the demo. The sign-ins list shows the demo's own visitors only.
+  if (p === "/team/users" || p.startsWith("/team/users/")) {
+    if (write) return { response: demoNo(cors, "Sign-ins cannot be added or changed in the demo") };
+    const r = await handleTeam(request, env, cors, authUser, url);
+    let j = null; try { j = await r.clone().json(); } catch (e) {}
+    if (!j || !Array.isArray(j.users)) return { response: r };
+    j.users = j.users.filter((x) => DEMO_EMAILS.includes(String(x.email || x.login || "").toLowerCase()));
+    return { response: jsonResponse(j, r.status, cors) };
+  }
+  if (p === "/auth/change-password") return { response: demoNo(cors, "The demo has no password to change") };
+  if (p === "/auth/unlock" && m === "POST") return { response: jsonResponse({ ok: true, demo: true }, 200, cors) }; // nothing to type: the visitor has no password
+  if (p.startsWith("/admin/names/") || p.startsWith("/su/")) return { response: demoNo(cors) };
+  if (p === "/board/suggestions/export") return { response: demoNo(cors) };
+  // Anything that would leave the sandbox: e-mail, text, WhatsApp, push, calendar feeds, sender keys, public pages.
+  if (p === "/messages" && write) return { response: demoNotSent(cors) };
+  if (p.startsWith("/bookings/senders")) {
+    if (/\/test$/.test(p)) return { response: demoNotSent(cors) };
+    if (write) return { response: demoNo(cors, "E-mail senders cannot be set up in the demo") };
+  }
+  if (p.startsWith("/bookings/") && /test/.test(p) && write) return { response: demoNotSent(cors) };
+  if (p.startsWith("/rota/push/") && p !== "/rota/push/key" && write) return { response: jsonResponse({ ok: true, push: false, demo: true, error: "Not sent — this is the demo" }, 200, cors) };
+  let text = null;
+  if (write) {
+    text = await request.clone().text();
+    if (text.length > DEMO_BODY_MAX) return { response: demoNo(cors, "That is too big for the demo", 413) };
+  }
+  const json = () => { try { return JSON.parse(text || "{}") || {}; } catch (e) { return null; } };
+  if (write && DEMO_BULK_PATHS.includes(p)) {
+    const b = json();
+    const biggest = Array.isArray(b) ? b.length : b && typeof b === "object" ? Math.max(0, ...Object.values(b).map((v) => (Array.isArray(v) ? v.length : 0))) : 0;
+    if (biggest > DEMO_BULK_MAX) return { response: demoNo(cors, "The demo takes at most " + DEMO_BULK_MAX + " lines at a time") };
+  }
+  if (p === "/bookings/settings" && write) {
+    const b = json(); if (!b) return null;
+    for (const k of ["apiKey", "provider", "fromEmail", "replyTo", "smtpHost", "smtpPort", "smtpUser", "smtpSecure", "smtpPass", "smtpPassword", "publicSlug", "publicEnabled"]) delete b[k];
+    return { request: demoRebuild(request, url, b) };
+  }
+  if (p === "/shifts/settings" && write) { // the calendar feed's secret stays as it is (nothing to regenerate in the demo)
+    const b = json(); if (!b) return null;
+    const strip = (o) => { if (o && typeof o === "object") { delete o.calendarToken; delete o.calendar_token; } };
+    strip(b); strip(b.integration); strip(b.shifts); strip(b.settings);
+    return { request: demoRebuild(request, url, b) };
+  }
+  // The board: the demo group's own messages only, in both directions.
+  if (p === "/board/messages" && m === "POST") { const b = json(); if (!b) return null; b.scope = "org"; return { request: demoRebuild(request, url, b) }; }
+  if ((p === "/board/messages" || p === "/board/users/search") && m === "GET") url.searchParams.set("scope", "org");
+  return null;
+}
+
+// Rows named by id that belong to another side: a demo session never acts on a live group's row, and no live session acts
+// on a demo row (the lists already keep them apart; this covers an id typed or kept from before). Runs only when on.
+const DEMO_CROSS = [
+  [/^\/scarce-stock\/needs\/(\d+)/, "scarce_stock_needs", "org_id"],
+  [/^\/scarce-stock\/offers\/(\d+)/, "scarce_stock_offers", "org_id"],
+  [/^\/scarce-stock\/need-offers\/(\d+)/, "scarce_stock_need_offers", "offerer_org_id"],
+  [/^\/scarce-stock\/offer-requests\/(\d+)/, "scarce_stock_offer_requests", "requester_org_id"],
+  [/^\/stock-transfers\/items\/(\d+)/, "stock_transfer_items", "org_id"],
+  [/^\/stock-transfers\/requests\/(\d+)/, "stock_transfer_requests", "requester_org_id"],
+  [/^\/board\/suggestions\/(\d+)/, "board_suggestions", "org_id"],
+  [/^\/board\/messages\/(\d+)/, "board_messages", "org_id"],
+  [/^\/supplier-products\/changes\/(\d+)/, "supplier_stock_changes", "org_id"]
+];
+async function demoCrossCheck(request, env, url, authUser, cors) {
+  const c = demoCfg(env);
+  if (!c || !authUser) return null;
+  const mine = Number(authUser.org_id) === c.org, p = url.pathname;
+  const refuse = () => jsonResponse({ ok: false, error: "Not found" }, 404, cors);
+  for (const [re, table, col] of DEMO_CROSS) {
+    const mm = re.exec(p); if (!mm) continue;
+    let row = null; try { row = await dbFirst(env, `SELECT ${col} AS o FROM ${table} WHERE id = ?`, [Number(mm[1])]); } catch (e) { return null; }
+    if (row && (Number(row.o) === c.org) !== mine) return refuse();
+    return null;
+  }
+  { const mm = /^\/supplier-orders\/(\d+)/.exec(p) || /^\/supplier-orders\/items\/(\d+)/.exec(p);
+    if (mm) {
+      const items = p.startsWith("/supplier-orders/items/");
+      let row = null; try { row = await dbFirst(env, items ? "SELECT o.pharmacy_location_id AS a, o.supplier_location_id AS b FROM supplier_order_items i JOIN supplier_orders o ON o.id = i.order_id WHERE i.id = ?" : "SELECT pharmacy_location_id AS a, supplier_location_id AS b FROM supplier_orders WHERE id = ?", [Number(mm[1])]); } catch (e) { return null; }
+      if (row && (c.locs.includes(Number(row.a)) || c.locs.includes(Number(row.b))) !== mine) return refuse();
+      return null;
+    }
+  }
+  if (p === "/supplier-orders" && request.method === "POST") {
+    let b = {}; try { b = JSON.parse(await request.clone().text() || "{}") || {}; } catch (e) {}
+    const to = Number(b.supplier_location_id);
+    if (to && c.locs.includes(to) !== mine) return jsonResponse({ ok: false, error: "That supplier is not available" }, 400, cors);
+  }
+  return null;
+}
+
+// ── reset: wipe, then seed ─────────────────────────────────────────────────
+// Tables never wiped: the accounts and places themselves, sign-in throttles, schema bookkeeping, the demo's own state,
+// and the name-fix undo records (a superuser's all-groups run is stored under a group id).
+const DEMO_KEEP = ["orgs", "locations", "users", "sessions", "login_attempts", "recover_attempts", "eikon_schema", "demo_state", "demo_signins", "name_case_runs", "name_case_undo", "sqlite_sequence"];
+// Tables with no group or pharmacy column of their own: their rows go with their parent's (wiped before the parent).
+const DEMO_CHILDREN = {
+  supplier_order_items: ["order_id", "supplier_orders"],
+  board_mentions: ["message_id", "board_messages"],
+  board_suggestion_comments: ["suggestion_id", "board_suggestions"],
+  board_user_state: ["user_id", "users:demo"]
+};
+function demoOwnerCols(cols) { return cols.filter((x) => /^(org_id|location_id)$/.test(x) || /_(org_id|location_id)$/.test(x)); }
+// A row is the demo's when one of its owner columns names the demo group or a demo location, and none names anything
+// else (empty and 0 count as "none": org-wide rows keep location 0). A row shared with a live group is never deleted.
+function demoRowWhere(c, owners) {
+  const set = (x) => /org_id$/.test(x) ? String(c.org) : c.locs.join(",");
+  const any = owners.map((x) => `${x} IN (${set(x)})`).join(" OR ");
+  const all = owners.map((x) => `(${x} IS NULL OR ${x} = 0 OR ${x} IN (${set(x)}))`).join(" AND ");
+  return `(${any}) AND ${all}`;
+}
+function demoParseCols(sql) {
+  const s = String(sql || ""), i = s.indexOf("("), j = s.lastIndexOf(")");
+  if (i < 0 || j < i) return [];
+  const body = s.slice(i + 1, j), out = [];
+  let depth = 0, cur = "";
+  for (const ch of body) { if (ch === "(") depth++; if (ch === ")") depth--; if (ch === "," && depth === 0) { out.push(cur); cur = ""; } else cur += ch; }
+  out.push(cur);
+  return out.map((d) => d.trim()).filter((d) => d && !/^(CONSTRAINT|PRIMARY|UNIQUE|FOREIGN|CHECK)\b/i.test(d))
+    .map((d) => d.replace(/^["`\[]?([A-Za-z_][A-Za-z0-9_]*)["`\]]?.*$/s, "$1"));
+}
+async function demoWipePlan(env, c) {
+  const rows = await dbAll(env, "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' AND name NOT LIKE 'd1_%' ORDER BY name", []);
+  const plan = [], skipped = [];
+  for (const r of rows) {
+    const t = String(r.name);
+    if (DEMO_KEEP.includes(t) || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(t)) continue;
+    const owners = demoOwnerCols(demoParseCols(r.sql));
+    if (owners.length) plan.push({ t, w: demoRowWhere(c, owners) });
+    else if (DEMO_CHILDREN[t]) plan.unshift({ t, child: DEMO_CHILDREN[t] });
+    else skipped.push(t);
+  }
+  return { plan, skipped };
+}
+async function demoWipeOne(env, c, step, tables) {
+  if (step.child) {
+    const [col, parent] = step.child;
+    if (parent === "users:demo") {
+      await dbRun(env, `DELETE FROM ${step.t} WHERE ${col} IN (SELECT id FROM users WHERE org_id = ? AND lower(email) IN (${DEMO_EMAILS.map(() => "?").join(",")}))`, [c.org, ...DEMO_EMAILS]);
+      return;
+    }
+    const ps = tables.find((x) => x.t === parent);
+    if (ps && ps.w) await dbRun(env, `DELETE FROM ${step.t} WHERE ${col} IN (SELECT id FROM ${parent} WHERE ${ps.w})`, []);
+    return;
+  }
+  await dbRun(env, `DELETE FROM ${step.t} WHERE ${step.w}`, []);
+}
+
+// The seed: dates from the day the reset started (Malta), names spelt as on an ID card (demo/NAMES.md).
+const DEMO_PEOPLE = [
+  { name: "Camilleri Joseph", id_card: "0451287M", phone: "79001101", email: "joseph.camilleri@example.com", address: "12, Triq il-Knisja, Birkirkara", doctor: "Dr Helena Farrugia" },
+  { name: "Vella Rita", id_card: "0178934M", phone: "79001102", email: "", address: "4, Triq San Pawl, Sliema", doctor: "Dr Mark Ellul" },
+  { name: "Farrugia Carmel", id_card: "0092341M", phone: "79001103", email: "", address: "88, Triq il-Kbira, Qormi", doctor: "Dr George Micallef" },
+  { name: "Zammit Claire", id_card: "0567812M", phone: "79001104", email: "claire.zammit@example.com", address: "3, Triq il-Wied, Mosta", doctor: "Dr Helena Farrugia" },
+  { name: "Galea Ġużeppi", id_card: "0034519M", phone: "79001105", email: "", address: "21, Triq Santa Marija, Żebbuġ", doctor: "Dr Mark Ellul" },
+  { name: "Micallef Daniela", id_card: "0723456M", phone: "79001106", email: "daniela.m@example.com", address: "7, Triq il-Ġnien, Naxxar", doctor: "Dr George Micallef" },
+  { name: "Grech Paul", id_card: "0289145M", phone: "79001107", email: "", address: "15, Triq id-Duluri, Żabbar", doctor: "Dr Helena Farrugia" },
+  { name: "Attard Ċensina", id_card: "0012873M", phone: "79001108", email: "", address: "40, Triq l-Imdina, Rabat", doctor: "Dr Mark Ellul" }
+];
+const DEMO_DOCS = { "Dr Helena Farrugia": "R1310", "Dr Mark Ellul": "R1420", "Dr George Micallef": "R1555" };
+function demoSplit(name) { const [sur, ...rest] = String(name).split(" "); return { first: rest.join(" "), last: sur }; }
+// The till count for an expected amount (End of day's sums: X readings - card - paid outs + float), off by `delta`:
+// notes from 50 down to 5, the rest in coins, so the day closes within a euro, as a careful pharmacy's does.
+function demoCash(x, epos, paid, float, delta) {
+  let left = Math.round((Number(x) - Number(epos) - Number(paid) + Number(float) + (delta || 0)) * 100) / 100;
+  const out = { n500: "0", n200: "0", n100: "0" };
+  for (const v of [50, 20, 10, 5]) { const k = Math.max(0, Math.floor((left - 15) / v)); out["n" + v] = String(v === 5 ? Math.min(k, 3) : Math.min(k, v === 50 ? 12 : 10)); left = Math.round((left - v * Number(out["n" + v])) * 100) / 100; }
+  out.coins_total = left.toFixed(2);
+  return out;
+}
+
+// Each step is one small piece of the seed (a few route calls). `c.p/c.b/c.s/c.h` call a route as the pharmacy, the
+// second pharmacy, the distributor or head office; `c.v` keeps ids for later steps; `c.d(n)` is today plus n days.
+function demoSeedSteps(cfg) {
+  const P = DEMO_PEOPLE, doc = (n) => [n, DEMO_DOCS[n]];
+  const steps = [];
+  const add = (name, fn) => steps.push({ name, fn });
+  // Customers first: the registers below use the same people.
+  add("customers", async (c) => { for (const x of P) await c.p("POST", "/people", { name: x.name, id_card: x.id_card, phone: x.phone, alt_phone: "", email: x.email, address: x.address, doctor_name: x.doctor, source: "manual" }); });
+  add("temperatures", async (c) => {
+    let devs = ((await c.p("GET", "/temperature/devices")) || {}).devices || [];
+    if (!devs.some((d) => /vaccine/i.test(d.name))) await c.p("POST", "/temperature/devices", { name: "Vaccine Fridge", device_type: "fridge", min_limit: 2, max_limit: 8 });
+    devs = ((await c.p("GET", "/temperature/devices")) || {}).devices || [];
+    const R = { room: [[19.5, 23.1], [20.2, 24.0], [19.8, 23.6], [20.4, 22.9]], fridge: [[3.1, 6.8], [2.9, 7.2], [3.4, 6.5], [3.0, 7.0]] };
+    for (let i = 3; i >= 0; i--) for (const d of devs) {
+      if (i === 0 && /vaccine/i.test(d.name)) continue; // today: one fridge still to check (Today shows it)
+      const k = d.device_type === "fridge" ? "fridge" : "room", v = R[k][(i + d.id) % 4];
+      await c.p("POST", "/temperature/entries", { device_id: d.id, entry_date: c.d(-i), min_temp: v[0], max_temp: v[1], notes: i === 2 && k === "fridge" ? "Delivery put away, door closed at 10:15" : "" });
+    }
+  });
+  add("cleaning", async (c) => {
+    for (const [n, who, notes] of [[-1, "Doris", ""], [-4, "Karl", "Shelves in the back room too"], [-8, "Doris", ""]])
+      await c.p("POST", "/cleaning/entries", { entry_date: c.d(n), time_in: "07:30", time_out: "08:15", cleaner_name: who, staff_name: "Maria Borg", notes });
+  });
+  add("daily register", async (c) => {
+    const RX = [[P[0], "Augmentin 625mg", "1-0-1 x 5 days", "Dr Helena Farrugia", -2], [P[2], "Prednisolone 5mg", "2-0-0 x 5 days", "Dr George Micallef", -1], [P[6], "Ramipril 5mg", "1-0-0", "Dr Helena Farrugia", 0]];
+    for (const [x, med, pos, dn, n] of RX) await c.p("POST", "/daily-register/entries", { entry_date: c.d(n), client_id: x.id_card, client_name: x.name, medicine_name_dose: med, posology: pos, prescriber_name: dn, prescriber_reg_no: DEMO_DOCS[dn] });
+  });
+  add("controlled drugs", async (c) => {
+    await c.p("POST", "/dda-purchases/entries", { entry_date: c.d(-12), dda_name_dose: "Morphine 10mg tablets", quantity: 30, agent: "Island Pharma", invoice_number: "INV-48211" });
+    await c.p("POST", "/dda-purchases/entries", { entry_date: c.d(-6), dda_name_dose: "Fentanyl 25mcg/h patch", quantity: 10, agent: "Alliance", invoice_number: "INV-48390" });
+    const sale = (x, n, med, q, dn, serial) => ({ entry_date: c.d(n), client_name: x.name, client_id_card: x.id_card, client_address: x.address, medicine_name_dose: med, quantity: q, doctor_name: dn, doctor_reg_no: DEMO_DOCS[dn], prescription_serial_no: serial });
+    await c.p("POST", "/dda-sales/entries", sale(P[2], -5, "Morphine 10mg tablets", 2, "Dr George Micallef", "S-10231"));
+    await c.p("POST", "/dda-sales/entries", sale(P[4], -1, "Fentanyl 25mcg/h patch", 1, "Dr Mark Ellul", "S-10245"));
+    await c.p("POST", "/dda-poyc/entries", sale(P[7], -3, "Morphine 10mg tablets", 1, "Dr Mark Ellul", "P-55102"));
+    await c.p("POST", "/dda-poyc/entries", sale(P[4], -2, "Diazepam 5mg tablets", 1, "Dr Mark Ellul", "P-55118"));
+    const st = await c.p("POST", "/dda-stocktakes/stocktakes", {});
+    const sid = st && (st.stocktake_id || st.id);
+    if (sid) {
+      await c.p("POST", `/dda-stocktakes/stocktakes/${sid}/items`, { item_name: "Morphine", dosage: "10mg tablets", qty_tablets: 27 });
+      await c.p("POST", `/dda-stocktakes/stocktakes/${sid}/items`, { item_name: "Fentanyl", dosage: "25mcg/h patches", qty_tablets: 9 });
+    }
+  });
+  add("locums", async (c) => {
+    await c.p("POST", "/locumregister/entries", { entry_date: c.d(-6), time_in: "08:30", time_out: "13:00", locum_full_name: "Dr Helena Farrugia", registration_number: "P-1302" });
+    await c.p("POST", "/locumregister/entries", { entry_date: c.d(-2), time_in: "15:30", time_out: "19:30", locum_full_name: "Pharm. Kurt Zahra", registration_number: "P-1444" });
+    await c.p("POST", "/locumreceipts/receipts", { receipt_date: c.d(-6), hours: 4.5, locum_full_name: "Dr Helena Farrugia", registration_number: "P-1302", day_type: "normal", fee_per_hour: 25 });
+    await c.p("POST", "/locumreceipts/receipts", { receipt_date: c.d(-2), hours: 4, locum_full_name: "Pharm. Kurt Zahra", registration_number: "P-1444", day_type: "normal", fee_per_hour: 25 });
+  });
+  add("certificates", async (c) => {
+    const items = ((await c.p("GET", "/certificates/items")) || {}).items || [];
+    const plan = [[-300, "Maria Borg"], [-200, "Maria Borg"], [-380, "Kurt Zahra"]];
+    for (let i = 0; i < Math.min(3, items.length); i++) await c.p("PUT", "/certificates/items/" + items[i].id, { last_date: c.d(plan[i][0]), interval_months: 12, certified_person: items[i].requires_person ? plan[i][1] : undefined });
+  });
+  add("counter", async (c) => {
+    const o1 = await c.p("POST", "/client-orders/entries", { order_date: c.d(-3), client_name: P[3].name, contact: P[3].phone, client_phone: P[3].phone, items: "Omron M3 blood pressure monitor", needed_by: c.d(1), pick_up_date: c.d(1), pickup_date: c.d(1), deposit: "10", deposit_amount: "10", priority: 2, notes: "Call when it arrives" });
+    await c.p("POST", "/client-orders/entries", { order_date: c.d(-1), client_name: P[1].name, contact: P[1].phone, client_phone: P[1].phone, items: "Ensure vanilla x24", needed_by: c.d(2), pick_up_date: c.d(2), pickup_date: c.d(2), deposit: "", deposit_amount: "", priority: 1, notes: "" });
+    const ob = { order_date: c.d(-6), client_name: P[5].name, contact: P[5].phone, client_phone: P[5].phone, items: "Compression stockings size L", needed_by: c.d(-2), pick_up_date: c.d(-2), pickup_date: c.d(-2), deposit: "", deposit_amount: "", priority: 2, notes: "" };
+    const o3 = await c.p("POST", "/client-orders/entries", ob);
+    const id3 = o3 && (o3.entry_id || o3.id); if (id3) await c.p("PUT", "/client-orders/entries/" + id3, { ...ob, fulfilled: 1, fulfilled_at: new Date(Date.now() - 2 * 864e5).toISOString() });
+    await c.p("POST", "/client-tickets/entries", { ticket_id: "TKT-00001", open_date: c.d(-1), client_name: P[0].name, phone: P[0].phone, email: P[0].email, issue: "Asked if Clexane 40mg is in stock", category: "Stock Check", priority: 2, status: "Open", assigned_to: "", followup_date: null, notes_log: "[]" });
+    await c.p("POST", "/client-tickets/entries", { ticket_id: "TKT-00002", open_date: c.d(-4), client_name: P[6].name, phone: P[6].phone, email: "", issue: "Side effects of Ramipril?", category: "General Enquiry", priority: 2, status: "Resolved", assigned_to: "", followup_date: null, notes_log: "[]" });
+    for (const [i, x, st, n] of [[1, P[7], "Scheduled", 0], [2, P[4], "Delivered", -2]])
+      await c.p("POST", "/client-deliveries/entries", { delivery_id: "DEL-0000" + i, order_date: c.d(n - 1), scheduled_date: c.d(n), scheduled_time_slot: "Morning", client_name: x.name, phone: x.phone, email: "", delivery_address: x.address, address_notes: "", delivery_method: "In-house Driver", priority: 2, status: st, signature_required: 0, signature_obtained: 0, delivery_attempts: 0, contains_controlled: 0, cold_chain_required: 0, items: JSON.stringify([{ name: "Monthly blister pack", qty: 1, schedule: "POM", batch_ref: "", expiry: "" }]), delivery_log: "[]", internal_notes: "" });
+    await c.p("POST", "/repeat-prescriptions/entries", { entry_date: c.d(-25), client_id: P[2].id_card, client_name: P[2].name, medicine_name_dose: "Atorvastatin 20mg", posology: "0-0-1", prescriber_name: "Dr George Micallef", prescriber_reg_no: "R1555", expires_date: "" });
+    await c.p("POST", "/repeat-prescriptions/entries", { entry_date: c.d(-28), client_id: P[6].id_card, client_name: P[6].name, medicine_name_dose: "Metformin 500mg", posology: "1-0-1", prescriber_name: "Dr Helena Farrugia", prescriber_reg_no: "R1310", expires_date: "" });
+    if (o1) c.v.order1 = o1.entry_id || o1.id;
+  });
+  add("stock", async (c) => {
+    for (const [n, e, l] of [["Ventolin Evohaler 100mcg", c.d(20), "Shelf A3"], ["Ciprofloxacin 500mg tablets", c.d(45), "Shelf B1"], ["Zinc oxide cream", c.d(80), ""]])
+      await c.p("POST", "/near-expiry/entries", { product_name: n, expiry_date: e, location: l, notes: "" });
+    await c.p("POST", "/returns/entries", { entry_date: c.d(-5), description: "Augmentin 625mg x14 (damaged box)", expiry: c.d(200), batch: "LOT2291", quantity: "2", supplier: "Island Pharma", invoice_number: "INV-48211", remarks: "", location_stored: "Back room", return_arranged: 1, handed_over: 0, collection_note_received: 0, credit_note_received: 0, supplier_refused: 0, damaged: 1 });
+    await c.p("POST", "/returns/entries", { entry_date: c.d(-2), description: "Cetirizine 10mg (short expiry)", expiry: c.d(30), batch: "CT771", quantity: "5", supplier: "Alliance", invoice_number: "INV-48390", remarks: "", location_stored: "Back room", return_arranged: 0, handed_over: 0, collection_note_received: 0, credit_note_received: 0, supplier_refused: 0, damaged: 0 });
+    await c.p("POST", "/alerts/entries", { entry_date: c.d(-1), alert_type: "recall", status: "open", item_name: "Valsartan 80mg tablets", batch: "VX1203", expiry: c.d(300), quantity: "4", reason: "Manufacturer recall notice (batch VX1203)", storage_location: "room", supplier: "Island Pharma" });
+    for (const [item, q, sup, n] of [["Clexane 40mg x10", 2, "Island Pharma", -1], ["Accu-Chek strips x50", 3, "Alliance", 0], ["Insulin pen needles", 1, "GSK", 0]])
+      await c.p("POST", "/order-diary/entries", { order_date: c.d(n), item_name: item, qty: q, supplier: sup, notes: "" });
+    await c.p("POST", "/scarce-stock/offers", { item_name: "Ozempic 1mg pen", quantity_available: 2, entry_date: c.d(-1), expiry_date: c.d(120) });
+    await c.p("POST", "/scarce-stock/needs", { entry_date: c.d(0), item_name: "Mounjaro 5mg", quantity_needed: 1 });
+    await c.p("POST", "/stock-transfers/items", { item_description: "Clexane 40mg", batch: "CX331", expiry_date: c.d(150), quantity_available: 4, entry_date: c.d(-2) });
+    await c.p("POST", "/stock-transfers/items", { item_description: "Ventolin inhaler", batch: "VN220", expiry_date: c.d(240), quantity_available: 6, entry_date: c.d(-1) });
+  });
+  add("bookings", async (c) => {
+    const hrs = {}; for (const w of [1, 2, 3, 4, 5, 6]) hrs[w] = [["09:00", "12:30"], ["16:00", "19:00"]];
+    const pr = await c.p("POST", "/bookings/providers", { name: "Maria Borg", kind: "pharmacist", hours: hrs });
+    const pid = pr && pr.provider && pr.provider.id;
+    const s1 = await c.p("POST", "/bookings/services", { name: "Blood pressure check", durationMin: 15, bufferMin: 0, priceCents: 500, providerIds: [pid] });
+    const s2 = await c.p("POST", "/bookings/services", { name: "Flu vaccine", durationMin: 10, bufferMin: 5, priceCents: 1500, providerIds: [pid] });
+    const id1 = s1 && s1.service && s1.service.id, id2 = s2 && s2.service && s2.service.id;
+    // Today and tomorrow (Sunday is closed: then the next two open days).
+    // (today only while its evening slots are still ahead: the nightly reset runs at 03:00, a reset-now may run late)
+    const open = []; for (let n = (c.d(0) === tzYmd() && tzHm() >= "16:30") ? 1 : 0; open.length < 2 && n < 5; n++) if (new Date(c.d(n) + "T12:00:00Z").getUTCDay() !== 0) open.push(c.d(n));
+    const B = [[id1, open[0], "17:30", P[6]], [id2, open[0], "18:15", P[3]], [id1, open[1], "09:30", P[1]], [id2, open[1], "10:15", P[5]]];
+    for (const [sid, date, start, x] of B) if (sid && date) await c.p("POST", "/bookings", { serviceId: sid, date, start, personName: x.name, personPhone: x.phone });
+  });
+  add("services", async (c) => {
+    const at = (n, h) => c.d(n) + "T" + h + ":00.000Z";
+    const rec = (id, n, h, x, t, res, notes) => ({ id, testType: t, testLabel: { bp: "Blood pressure", bg: "Blood glucose", chol: "Cholesterol" }[t], performedAtIso: at(n, h), performedAtLocal: c.d(n) + "T" + h,
+      patient: { name: x.name, patientId: x.id_card, phone: x.phone, age: 64, address: x.address }, feeDue: 0, notes, intervention: "", results: res, updatedAtIso: at(n, h) });
+    const recs = [rec("demo-poct-1", -3, "09:40", P[2], "bp", { sys: 148, dia: 92, pulse: 76, arm: "Left", position: "Sitting" }, "Advised to see his GP this week"),
+      rec("demo-poct-2", -1, "10:05", P[6], "bg", { glucose: 6.1, timing: "Fasting" }, ""),
+      rec("demo-poct-3", 0, "08:50", P[1], "chol", { tc: 5.4, hdl: 1.3, ldl: 3.4, tg: 1.6, fasting: "Yes" }, "")];
+    await c.p("PUT", "/poct/state", { records: recs, patients: recs.map((r) => ({ patientId: r.patient.patientId, name: r.patient.name, phone: r.patient.phone, age: 64, address: r.patient.address, createdAtIso: r.performedAtIso, updatedAtIso: r.performedAtIso, lastSeenIso: r.performedAtIso, conflicts: [] })) });
+    const part = (id, x, sys, dia, cat) => ({ id, idCard: x.id_card, name: x.name, phone: x.phone, email: "", dob: "", type: "Walk-in", date: c.d(-2), resultNotes: "", resultCategory: cat, referral: cat === "Normal" ? "No referral needed" : "Refer to GP", referralNotes: "", poctResults: { sys, dia, pulse: 72, arm: "Left", position: "Sitting" }, followUps: [] });
+    await c.p("PUT", "/screening/state", { state: { campaigns: [{ id: "demo-camp-1", name: "Blood pressure week", type: "Blood Pressure Check", startDate: c.d(-4), endDate: c.d(3), notes: "With the local council", status: "Active", location: "In the pharmacy", targetScreenings: "40",
+      participants: [part("demo-scr-1", P[0], 128, 82, "Normal"), part("demo-scr-2", P[4], 151, 95, "Abnormal"), part("demo-scr-3", P[5], 136, 88, "Borderline")] }], deleted_ids: [] } });
+    for (const [name, qty, batch, exp] of [["Vaxigrip Tetra", 12, "VX2611", c.d(160)], ["Havrix 1440", 4, "AHAVB123", c.d(240)]]) await c.p("POST", "/vaccines/stock/rows", { vaccine_name: name, qty, batch, expiry_date: exp });
+    for (const [x, vac, n, batch, nxt] of [[P[1], "Vaxigrip Tetra", -6, "VX2611", ""], [P[7], "Vaxigrip Tetra", -2, "VX2611", ""], [P[3], "Havrix 1440", -20, "AHAVB123", c.d(160)]]) {
+      const s = demoSplit(x.name);
+      await c.p("POST", "/vaccines/given", { given_on: c.d(n), client_first: s.first, client_last: s.last, phone: x.phone, email: x.email, vaccine_name: vac, dose: "1st", batch, expiry_date: c.d(160), site: "Left upper arm", consent_by: "Patient", next_due: nxt });
+    }
+    const pv = (id, x, n, drug, reaction, outcome) => ({ id, created_at: c.d(n) + "T11:00:00.000Z", updated_at: c.d(n) + "T11:00:00.000Z", status: "draft", report_type: "initial",
+      pt_initials: demoSplit(x.name).first.charAt(0) + "." + demoSplit(x.name).last.charAt(0) + ".", pt_age: "67", pt_sex: "F", pt_weight: "", pt_height: "", pt_dob_day: "", pt_dob_month: "", pt_id: x.id_card, pt_medical_history: "",
+      reaction_description: reaction, reaction_start: c.d(n - 2), reaction_stop: "", reaction_seriousness: "non-serious", reaction_outcome: outcome, reaction_causality: "possible", reaction_meddra: "",
+      reporter_name: "Maria Borg", reporter_qualification: "Pharmacist", reporter_email: "", reporter_phone: "", reporter_institution: cfg.name || "Demo Pharmacy", reporter_address: "", report_date: c.d(n), notes: "",
+      drugs: [{ name: drug, dose: "", route: "Oral", frequency: "", start_date: c.d(n - 10), stop_date: "", indication: "", batch_no: "", mah: "" }] });
+    await c.p("PUT", "/pharmacovigilance/state", { state: { reports: [pv("demo-pv-1", P[1], -5, "Ramipril 5mg", "Dry cough since starting", "recovering"), pv("demo-pv-2", P[7], -1, "Amoxicillin 500mg", "Itchy rash on the arms", "not recovered")] } });
+    const lbl = (id, x, drug, dose, freq, n) => ({ id, patientName: x.name, drugName: drug, dose, frequency: freq, route: "Oral", customInstructions: "", selectedWarnings: [], templateId: "tpl_std", printedAt: c.d(n) + " 10:20", printedBy: "Maria Borg" });
+    await c.p("PUT", "/labels/state", { state: { labelHistory: [lbl("demo-lb-1", P[0], "Augmentin 625mg", "1 tablet", "Twice daily", -2), lbl("demo-lb-2", P[2], "Prednisolone 5mg", "2 tablets", "Once daily (morning)", -1), lbl("demo-lb-3", P[6], "Ramipril 5mg", "1 capsule", "Once daily", 0)] } });
+  });
+  add("money", async (c) => {
+    const eod = (n, x, epos, notes, lock) => ({ record: { date: c.d(n), eod_date: c.d(n), time_of_day: "PM", staff: "Maria Borg", staff_name: "Maria Borg", float_amount: "150.00", x: [{ amount: x, remark: "Main till" }], epos: [{ amount: epos, remark: "" }], cheques: [],
+      paid_outs: [{ amount: "12.50", remark: "Milk and coffee" }], cash: demoCash(x, epos, 12.5, 150, n === -2 ? -0.4 : 0), deposit: {}, bag_number: "B-" + (300 - n), notes, action: lock ? "LOCK" : "SAVE", ...(lock ? { locked_at: new Date().toISOString() } : {}) } });
+    await c.p("PUT", "/endofday/record", eod(-3, "1184.60", "402.15", "", true));
+    await c.p("PUT", "/endofday/record", eod(-2, "1046.25", "388.40", "", true));
+    await c.p("PUT", "/endofday/record", eod(-1, "1121.90", "455.70", "Card machine slow after 18:00", false));
+    for (const [n, who, fee, why] of [[-2, "Courier Ltd", "8.50", "Delivery"], [-1, "Il-Forn tar-Raħal", "6.20", "Milk"], [0, "Stamps", "4.10", "Stamps"]])
+      await c.p("POST", "/paid-out/entries", { entry_date: c.d(n), entry_time: "10:15", payee_name: who, fee, payment_method: "cash", invoice_no: "", cheque_no: "", reason: why });
+    await c.p("POST", "/emergency-pos/sales", { sale_date: c.d(-4), items: [{ name: "Panadol 500mg x24", qty: 2, price: 3.95, vat_rate: 0 }], payment_method: "cash", amount_tendered: 10 });
+    await c.p("POST", "/emergency-pos/sales", { sale_date: c.d(-4), items: [{ name: "Strepsils honey and lemon", qty: 1, price: 5.2, vat_rate: 18 }], payment_method: "card", amount_tendered: null });
+    const cn = await c.p("POST", "/creditnotes/entries", { issue_date: c.d(-7), client_name: "Rita", client_surname: "Vella", telephone: P[1].phone, email: "", receipt_number: "R-1042", amount: 24.5, expiry_date: "", no_expiry: 1 });
+    await c.p("POST", "/creditnotes/entries", { issue_date: c.d(-2), client_name: "Paul", client_surname: "Grech", telephone: P[6].phone, email: "", receipt_number: "R-1077", amount: 12, expiry_date: "", no_expiry: 1 });
+    if (cn && cn.id) await c.p("POST", `/creditnotes/entries/${cn.id}/purchases`, { amount: 10, receipt_number: "R-1081" });
+  });
+  add("team", async (c) => {
+    const day = (on, a, b) => on ? { off: false, start: a, end: b, role_override: "" } : { off: true };
+    // classic week: Sunday first
+    const wk = (sun, mon, tue, wed, thu, fri, sat) => [sun, mon, tue, wed, thu, fri, sat];
+    const pj = (name, week) => JSON.stringify({ patterns: [{ id: "demo-" + name.toLowerCase().replace(/\s+/g, "-"), name: "Usual week", week, createdAt: Date.now() }], provisionalId: "demo-" + name.toLowerCase().replace(/\s+/g, "-") });
+    const people = [
+      ["Maria Borg", "pharmacist", 40, wk(day(0), day(1, "08:00", "14:00"), day(1, "08:00", "14:00"), day(1, "13:00", "19:00"), day(1, "08:00", "14:00"), day(1, "13:00", "19:00"), day(1, "08:00", "13:00"))],
+      ["Kurt Zahra", "pharmacist", 30, wk(day(0), day(1, "13:00", "19:00"), day(1, "13:00", "19:00"), day(1, "08:00", "14:00"), day(1, "13:00", "19:00"), day(1, "08:00", "14:00"), day(0))],
+      ["Sarah Vella", "assistant", 40, wk(day(0), day(1, "08:00", "16:00"), day(1, "08:00", "16:00"), day(1, "08:00", "16:00"), day(1, "11:00", "19:00"), day(1, "11:00", "19:00"), day(0))],
+      ["Ryan Mifsud", "assistant", 20, null]
+    ];
+    const ids = [];
+    for (const [full_name, designation, hours, week] of people) {
+      const r = await c.p("POST", "/shifts/staff", { full_name, designation, employment_type: hours >= 40 ? "fulltime" : "parttime", contracted_hours: hours, email: "", phone: "", registration_number: designation === "pharmacist" ? "P-" + (1200 + ids.length) : "", is_active: 1, patterns_json: week ? pj(full_name, week) : "{}" });
+      ids.push(r && (r.staff_id || r.id));
+    }
+    c.v.staff = ids;
+    await c.p("PUT", "/shifts/opening-hours", { default: { open: "08:00", close: "19:00", closed: false }, openSaturday: true, openSunday: false, overrides: {} });
+    // This week, Monday to Saturday, from each person's usual week (the pattern above), and Ryan on two Saturdays.
+    const monday = (() => { const t = new Date(c.d(0) + "T12:00:00Z"), dow = (t.getUTCDay() + 6) % 7; return c.d(-dow); })();
+    const plus = (ymd, n) => ymdPlusDays(ymd, n);
+    for (let k = 0; k < 3; k++) {
+      const week = people[k][3], sid = ids[k]; if (!sid) continue;
+      const dates = [];
+      for (let i = 0; i < 6; i++) { const e = week[(i + 1) % 7]; if (!e.off) dates.push({ date: plus(monday, i), start_time: e.start, end_time: e.end }); }
+      await c.p("POST", "/shifts/apply-pattern", { staff_id: sid, mode: "fill", start_date: monday, end_date: plus(monday, 6), dates });
+    }
+    if (ids[3]) for (const n of [5, 12]) await c.p("POST", "/shifts/assignments", { staff_id: ids[3], shift_date: plus(monday, n), start_time: "09:00", end_time: "13:00", notes: "" });
+    if (ids[2]) await c.p("POST", "/shifts/leaves", { staff_id: ids[2], leave_type: "annual", start_date: plus(monday, 14), end_date: plus(monday, 18), hours_requested: 40, reason: "Family wedding" });
+    if (ids[1]) {
+      const l = await c.p("POST", "/shifts/leaves", { staff_id: ids[1], leave_type: "annual", start_date: plus(monday, 9), end_date: plus(monday, 9), hours_requested: 6, reason: "" });
+      if (l && l.leave_id) await c.p("POST", "/shifts/leaves/" + l.leave_id + "/approve", {});
+    }
+    await c.p("PUT", "/instructions/daily", { ymd: c.d(-1), notes: "Fridge thermometer battery changed.", handover_out: [
+      { id: "demo-h1", sev: "r", text: "Mrs Vella's insulin is in the vaccine fridge, top shelf: she collects this morning.", created_at: c.d(-1) + "T17:40:00.000Z" },
+      { id: "demo-h2", sev: "y", text: "Island Pharma delivery short by one Clexane box: they will send it today.", created_at: c.d(-1) + "T17:45:00.000Z" },
+      { id: "demo-h3", sev: "g", text: "Price labels for the new sun creams are on the counter.", created_at: c.d(-1) + "T17:50:00.000Z" }] });
+    await c.p("GET", "/board/messages?limit=1"); // the board's tables are made on first read
+    await c.p("POST", "/board/messages", { body: "Welcome to the demo pharmacy board. Post a note for the team here.", scope: "org" });
+    await c.p("POST", "/board/messages", { body: "Blood pressure week starts Monday: 40 checks booked so far.", scope: "org" });
+    await c.p("PUT", "/registers/last-inspection", { date: c.d(-90) });
+  });
+  if (cfg.branch) add("second pharmacy", async (c) => {
+    let devs = ((await c.b("GET", "/temperature/devices")) || {}).devices || [];
+    for (let i = 2; i >= 0; i--) for (const d of devs) await c.b("POST", "/temperature/entries", { device_id: d.id, entry_date: c.d(-i), min_temp: d.device_type === "fridge" ? 3.2 : 20.1, max_temp: d.device_type === "fridge" ? 6.9 : 23.4, notes: "" });
+    await c.b("POST", "/cleaning/entries", { entry_date: c.d(-2), time_in: "07:45", time_out: "08:30", cleaner_name: "Ġanni", staff_name: "Sarah Vella", notes: "" });
+    for (const [x, med, pos, dn, n] of [[P[3], "Amoxil 500mg", "1-1-1 x 7 days", "Dr Mark Ellul", -1], [P[5], "Co-codamol 30/500", "1-1-1-1 prn", "Dr George Micallef", 0]])
+      await c.b("POST", "/daily-register/entries", { entry_date: c.d(n), client_id: x.id_card, client_name: x.name, medicine_name_dose: med, posology: pos, prescriber_name: dn, prescriber_reg_no: DEMO_DOCS[dn] });
+    for (const [n, x, epos] of [[-3, "862.40", "301.10"], [-2, "917.05", "344.80"], [-1, "880.30", "296.55"]])
+      await c.b("PUT", "/endofday/record", { record: { date: c.d(n), eod_date: c.d(n), time_of_day: "PM", staff: "Sarah Vella", staff_name: "Sarah Vella", float_amount: "150.00", x: [{ amount: x, remark: "Main till" }], epos: [{ amount: epos, remark: "" }], cheques: [], paid_outs: [], cash: demoCash(x, epos, 0, 150, n === -3 ? 0.2 : 0), deposit: {}, bag_number: "S-" + (100 - n), notes: "", action: n < -1 ? "LOCK" : "SAVE" } });
+    await c.b("POST", "/paid-out/entries", { entry_date: c.d(-1), entry_time: "11:00", payee_name: "Courier Ltd", fee: "9.00", payment_method: "cash", invoice_no: "", cheque_no: "", reason: "Delivery" });
+    await c.b("GET", "/board/messages?limit=1");
+    await c.b("POST", "/board/messages", { body: "Sliema: we have spare Ventolin inhalers if anyone runs short.", scope: "org" });
+  });
+  if (cfg.supplier) add("distributor", async (c) => {
+    const prod = (stock_code, barcode, description, cost, retail, vat, extra) => ({ stock_code, barcode, description, cost_excl_vat: cost, vat_rate: vat, retail_price: retail, qty_purchased: 1, qty_free: 0, batch: "", expiry_date: "", ...(extra || {}) });
+    const list = [prod("IP-1001", "5000158062610", "Paracetamol 500mg tablets x24", 0.95, 2.4, 0), prod("IP-1002", "5012616174107", "Ibuprofen 400mg tablets x24", 1.35, 3.6, 0),
+      prod("IP-2040", "4015630982110", "Accu-Chek Instant strips x50", 14.2, 24.9, 0), prod("IP-3100", "5000347041198", "Sudocrem 125g", 3.1, 6.5, 18, { out_of_stock: 1 })];
+    const ids = [];
+    for (const x of list) { const r = await c.s("POST", "/supplier-products/entries", x); ids.push(r && r.id); }
+    const sname = DEMO_LOC_NAMES.supplier;
+    const order = (items, notes) => ({ supplier_location_id: cfg.supplier, supplier_name: sname, notes, items });
+    const o1 = await c.p("POST", "/supplier-orders", order([{ product_id: ids[0], description: list[0].description, barcode: list[0].barcode, stock_code: list[0].stock_code, qty_requested: 12, cost_excl_vat: 0.95, vat_rate: 0, retail_price: 2.4 },
+      { product_id: ids[2], description: list[2].description, barcode: list[2].barcode, stock_code: list[2].stock_code, qty_requested: 3, cost_excl_vat: 14.2, vat_rate: 0, retail_price: 24.9 }], "Before Friday please"));
+    const o2 = await c.p("POST", "/supplier-orders", order([{ product_id: ids[1], description: list[1].description, barcode: list[1].barcode, stock_code: list[1].stock_code, qty_requested: 6, cost_excl_vat: 1.35, vat_rate: 0, retail_price: 3.6 }], ""));
+    if (cfg.branch) await c.b("POST", "/supplier-orders", order([{ product_id: ids[0], description: list[0].description, barcode: list[0].barcode, stock_code: list[0].stock_code, qty_requested: 24, cost_excl_vat: 0.95, vat_rate: 0, retail_price: 2.4 }], ""));
+    if (o1 && o1.id) {
+      const det = await c.s("GET", "/supplier-orders/" + o1.id);
+      const items = (det && det.items) || [];
+      await c.s("PUT", "/supplier-orders/" + o1.id + "/confirm", { status: "shipped", supplier_notes: "On the van tomorrow morning", scheduled_delivery_date: c.d(1), items: items.map((i) => ({ id: i.id, unavailable: 0, qty_confirmed: i.qty_requested, notes: "" })) });
+      if (items[1]) await c.p("POST", "/supplier-orders/items/" + items[1].id + "/feedback", { problem_type: "short_dated", notes: "Expiry in 3 months, we asked for long dated" });
+    }
+    if (o2 && o2.id) c.v.order2 = o2.id;
+  });
+  if (cfg.hq) add("head office", async (c) => {
+    await c.h("GET", "/board/messages?limit=1");
+    await c.h("POST", "/board/messages", { body: "Head office: monthly figures are in. Thank you both for closing every day on time.", scope: "org" });
+  });
+  return steps;
+}
+
+// One reset, a bounded number of steps per call. The state row says where it is, so the next call (the next cron run, or
+// the next reset-now) carries on from there. Steps are counted before they run: a step that throws is never retried.
+// D1 answers at most 1,000 queries in one invocation (Workers Paid). Every query a reset makes goes through this count,
+// and a run stops between steps once it passes the budget (default 450; the largest step is about 160).
+function demoCountingDb(db, box) {
+  return { prepare(sql) { box.n++; return db.prepare(sql); }, batch(stmts) { box.n += (stmts && stmts.length) || 1; return db.batch(stmts); },
+    exec(sql) { box.n++; return db.exec(sql); } };
+}
+async function resetDemo(envIn, ctx, opts = {}) {
+  const box = { n: 0 }, env = { ...envIn, DB: demoCountingDb(envIn.DB, box) };
+  const qmax = Math.max(50, Number(opts.queries) || Number(env.DEMO_QUERY_BUDGET) || 450);
+  const c = demoCfg(env);
+  if (!c) return { ok: false, error: "The demo is off" };
+  await ensureDemoSchema(env);
+  const budget = Math.max(1, Number(opts.budget) || Number(env.DEMO_RESET_STEPS) || 60);
+  let st = await demoStateGet(env);
+  if (!st.running || opts.restart) {
+    const prep = await demoPrepare(env, c);
+    if (prep.fatal) { st = { ...st, running: false, error: prep.fatal, at: nowIso() }; await demoStateSet(env, st); return { ok: false, error: prep.fatal }; }
+    const { plan, skipped } = await demoWipePlan(env, c);
+    if (plan.length < 10) { st = { ...st, running: false, error: "Could not list the tables: nothing wiped or seeded", at: nowIso() }; await demoStateSet(env, st); return { ok: false, error: st.error }; }
+    st = { running: true, day: opts.day || tzYmd(), today: tzYmd(), phase: "wipe", i: 0, tables: plan, skipped, problems: prep.problems, shut: prep.shut || [], vars: {}, started_at: nowIso(), wipe_only: !!opts.wipeOnly,
+      last_day: st.last_day || "", wiped: !!opts.wipeOnly || !!st.wiped };
+    // Visitors' sessions end now (the data under them is about to go). Real sign-ins of the demo group are kept.
+    await dbRun(env, `DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE org_id = ? AND lower(email) IN (${DEMO_EMAILS.map(() => "?").join(",")}))`, [c.org, ...DEMO_EMAILS]);
+    await demoStateSet(env, st);
+  }
+  const steps = demoSeedSteps({ ...c, name: (await dbFirst(env, "SELECT name FROM locations WHERE id = ?", [c.pharmacy]) || {}).name });
+  const tokens = {};
+  const caller = (door) => async (method, path, body) => {
+    if (!tokens[door]) {
+      const uid = await demoUserId(env, c, door);
+      if (!uid) throw new Error("no demo account for " + door);
+      tokens[door] = (await demoNewSession(env, uid, 900)).token;
+    }
+    const h = new Headers({ Authorization: "Bearer " + tokens[door] });
+    if (body !== undefined) h.set("Content-Type", "application/json");
+    const res = await EIKON_WORKER.fetch(new Request(DEMO_SEED_ORIGIN + path, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) }), env, ctx || { waitUntil() {}, passThroughOnException() {} });
+    const text = await res.text();
+    let j = null; try { j = JSON.parse(text); } catch (e) {}
+    if (res.status >= 400) { st.problems = st.problems || []; if (st.problems.length < 30) st.problems.push(method + " " + path.replace(/\d+/g, ":id") + " " + res.status + " " + String((j && (j.message || j.error)) || text).slice(0, 120)); }
+    return j;
+  };
+  const cx = { p: caller("pharmacy"), b: caller("branch"), s: caller("supplier"), h: caller("hq"), v: st.vars || (st.vars = {}), d: (n) => ymdPlusDays(st.today, n) };
+  let used = 0;
+  try {
+    while (used < budget && box.n < qmax && st.running) {
+      if (st.phase === "wipe") {
+        if (st.i >= st.tables.length) {
+          if (st.wipe_only) { st.running = false; st.done_at = nowIso(); st.last_day = st.day; st.wiped = true; break; } // switching off: empty, nothing seeded
+          st.phase = "seed"; st.i = 0; continue;
+        }
+        const step = st.tables[st.i++];
+        try { await demoWipeOne(env, c, step, st.tables); } catch (e) { st.problems.push("wipe " + step.t + ": " + String(e && e.message || e).slice(0, 120)); }
+        used += 0.34; // a wipe is one statement
+        continue;
+      }
+      if (st.i >= steps.length) { st.running = false; st.done_at = nowIso(); st.last_day = st.day; st.wiped = false; break; }
+      const step = steps[st.i++];
+      await demoStateSet(env, st);
+      try { await step.fn(cx); } catch (e) { st.problems.push("seed " + step.name + ": " + String(e && e.message || e).slice(0, 120)); }
+      used += 1;
+    }
+  } finally {
+    for (const t of Object.values(tokens)) { try { await dbRun(env, "DELETE FROM sessions WHERE token_hash_b64 = ?", [await sha256B64FromString(t)]); } catch (e) {} }
+    st.at = nowIso();
+    await demoStateSet(env, st);
+  }
+  return { ok: true, queries: box.n, done: !st.running, phase: st.running ? st.phase : (st.wipe_only ? "wiped" : "done"), step: st.i, of: st.running ? (st.phase === "wipe" ? st.tables.length : steps.length) : steps.length, problems: st.problems || [], skipped: st.skipped || [] };
+}
+
+// From the 10-minute cron: once per Malta day, starting between 03:00 and 06:00, carried on by the next runs until done.
+async function demoNightly(env, ctx) {
+  const c = demoCfg(env);
+  if (!c) return null;
+  await ensureDemoSchema(env);
+  const tn = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(String(env.DEMO_TEST_NOW || "")) ? String(env.DEMO_TEST_NOW) : ""; // tests only: "YYYY-MM-DD HH:MM", Malta
+  const st = await demoStateGet(env), today = tn ? tn.slice(0, 10) : tzYmd(), hm = tn ? tn.slice(11) : tzHm();
+  if (st.running) return await resetDemo(env, ctx, {});
+  if (st.last_day === today || hm < "03:00" || hm >= "06:00") return null;
+  return await resetDemo(env, ctx, { restart: true, day: today });
+}
+
+// /su/api/demo/reset (POST) and /su/api/demo/status (GET): superusers only (the caller checked).
+async function handleSuDemo(request, env, cors, parts, ctx) {
+  const c = demoCfg(env);
+  if (!c) return jsonResponse({ ok: false, error: "The demo is off (DEMO_ORG_ID and DEMO_LOCATION_ID are not set)" }, 404, cors);
+  if (parts[1] === "status" && request.method === "GET") { const st = await demoStateGet(env); delete st.tables; return jsonResponse({ ok: true, config: c, state: st }, 200, cors); }
+  if (parts[1] === "reset" && request.method === "POST") {
+    const st = await demoStateGet(env);
+    const r = await resetDemo(env, ctx, { restart: !st.running || !!st.wipe_only, budget: 200 });
+    return jsonResponse(r, r.ok ? 200 : 409, cors);
+  }
+  // Before switching the demo off (or rolling back): empty the demo group, so nothing of it is left in the lists that
+  // read across groups (supplier products, scarce-stock needs, suggestions) once the filters are gone.
+  if (parts[1] === "wipe" && request.method === "POST") {
+    const st = await demoStateGet(env);
+    const r = await resetDemo(env, ctx, { restart: !(st.running && st.wipe_only), wipeOnly: true, budget: 400 });
+    return jsonResponse(r, r.ok ? 200 : 409, cors);
+  }
+  return jsonResponse({ ok: false, error: "Not found" }, 404, cors);
+}
+// ===== end one-click public demo =====

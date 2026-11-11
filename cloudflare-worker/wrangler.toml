@@ -23,6 +23,16 @@ database_id = "049c6f25-93b7-4513-909d-a43fb53988cc"
 UI_GITHUB_BRANCH = "main"
 # UI files carry a fixed build stamp (index.html BUILD), so they can be cached.
 UI_CACHE_SECONDS = "300"
+# One-click public demo ("Try the demo" on the sign-in screen; DEMO.md). Off when DEMO_ORG_ID or DEMO_LOCATION_ID is
+# missing. The demo group (org 2) holds the demo pharmacy (location 2, live) and, made by the first reset when free,
+# a second pharmacy (399), a distributor (599, the supplier portal) and a head office (899, the company-admin portal).
+# A configured id that belongs to another group is never touched (that door stays shut). Delete these five lines,
+# after POST /su/api/demo/wipe, to switch the demo off.
+DEMO_ORG_ID = "2"
+DEMO_LOCATION_ID = "2"
+DEMO_PHARMACY2_LOCATION_ID = "399"
+DEMO_SUPPLIER_LOCATION_ID = "599"
+DEMO_HQ_LOCATION_ID = "899"
 
 # Booking reminders (the evening before / N hours before): the worker's scheduled() runs every 10 minutes.
 [triggers]

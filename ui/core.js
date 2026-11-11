@@ -1568,6 +1568,7 @@
       "    </div>" +
       (errorText ? ('<div class="eikon-alert" role="alert">' + E.escapeHtml(errorText) + "</div>") : "") +
       "  </form>" +
+      '  <div id="eikon-demo-doors" class="eikon-demo" hidden></div>' + // one-click demo (E.demoDoors): filled only when the server has a demo
       "</div>";
 
     var form = document.getElementById("eikon-login-form");
@@ -1632,9 +1633,65 @@
     }
 
     if (form) form.addEventListener("submit", function (e) { e.preventDefault(); doLogin(); });
+    try { E.demoDoors(); } catch (eDemo) {}
 
     // Login is a "screen done" condition for the intro
     E.markIntroScreenDone();
+  };
+
+  // ---- One-click demo (owner, 2026-11-11): "Try the demo" under the sign-in form --------------------------------
+  // Shown only when the server has a demo (GET /health says demo: true, then GET /auth/demo lists the doors), so a
+  // server without one makes no extra request that could fail. A door signs the visitor in with no e-mail or password
+  // (POST /auth/demo), to a sandbox that is refreshed every night; then the app starts as after any sign-in.
+  E.DEMO_DOOR_TEXT = { pharmacy: ["Try the demo pharmacy", "Every screen, with sample patients, stock and rota"], supplier: ["Try as a distributor", "Products, orders from pharmacies, feedback"], hq: ["Try as head office", "Two pharmacies' figures side by side"] };
+  E.demoDoors = function () {
+    var box = document.getElementById("eikon-demo-doors");
+    if (!box) return;
+    var base = E.apiBase || "";
+    var info = E._demoInfo ? Promise.resolve(E._demoInfo) : fetch(base + "/health", { cache: "no-store", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (h) { return h && h.demo ? fetch(base + "/auth/demo", { cache: "no-store", credentials: "omit" }).then(function (r) { return r.ok ? r.json() : null; }) : { doors: [] }; })
+      .then(function (d) { E._demoInfo = { doors: (d && Array.isArray(d.doors)) ? d.doors : [] }; return E._demoInfo; })
+      .catch(function () { return { doors: [] }; });
+    info.then(function (d) {
+      var doors = (d.doors || []).filter(function (k) { return E.DEMO_DOOR_TEXT[k]; });
+      box = document.getElementById("eikon-demo-doors");
+      if (!box || !doors.length) return;
+      box.innerHTML =
+        '<div class="eikon-demo-hd">New to Eikon? Try it now, no sign-in needed.</div>' +
+        doors.map(function (k, i) {
+          var t = E.DEMO_DOOR_TEXT[k];
+          return '<button type="button" class="eikon-btn eikon-demo-door' + (i === 0 ? " main" : "") + '" data-demo-door="' + k + '"><span class="t">' + E.escapeHtml(t[0]) + '</span><span class="s">' + E.escapeHtml(t[1]) + "</span></button>";
+        }).join("") +
+        '<div class="eikon-demo-note">Sample data only: it goes back to the start every night. Please do not type real patients\' details.</div>' +
+        '<div class="eikon-demo-err" role="alert" hidden></div>';
+      box.hidden = false;
+      box.querySelectorAll("[data-demo-door]").forEach(function (b) { b.addEventListener("click", function () { E.demoEnter(b.getAttribute("data-demo-door"), b); }); });
+    });
+  };
+  E.demoEnter = function (door, btn) {
+    var box = document.getElementById("eikon-demo-doors"), err = box && box.querySelector(".eikon-demo-err");
+    var all = box ? box.querySelectorAll("[data-demo-door]") : [];
+    all.forEach(function (b) { b.disabled = true; });
+    var label = btn && btn.querySelector(".t"), was = label ? label.textContent : "";
+    if (label) label.textContent = "Opening the demo…";
+    if (err) { err.hidden = true; err.textContent = ""; }
+    E._loginInFlight = true;
+    fetch((E.apiBase || "") + "/auth/demo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ door: door }), cache: "no-store", credentials: "omit" })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok || !j || !j.ok || !j.token) throw new Error((j && j.error) || "The demo could not open. Try again in a minute."); return j; }); })
+      .then(function (resp) {
+        E.setToken(resp.token);
+        E.state.user = resp.user || null;
+        try { if (E.draft) E.draft.own(); } catch (eD) {}
+        try { E.idleLock.afterSignIn(true); } catch (eI) {}
+        return E.modulesReady.then(function () { return E.renderRoleSelection(E.getRolesForUser(resp.user)); });
+      })
+      .catch(function (e) {
+        all.forEach(function (b) { b.disabled = false; });
+        if (label) label.textContent = was;
+        if (err) { err.textContent = String(e && e.message || e); err.hidden = false; }
+      })
+      .finally(function () { E._loginInFlight = false; });
   };
 
   // Role Selection Screen

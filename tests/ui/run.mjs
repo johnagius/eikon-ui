@@ -627,6 +627,45 @@ const pwModal = await page.evaluate(() => {
 await page.evaluate(() => window.EIKON.modal.hide());
 report("account: a Password button opens the change-password dialog with current, new and repeat fields", pwModal.btn && pwModal.shown && pwModal.fields === 3 && pwModal.newAuto === "new-password", JSON.stringify(pwModal));
 
+// 1c. One-click demo on the sign-in screen: nothing shown (and no /auth/demo request) when the server has no demo; with
+// one, three doors under the form, the pharmacy door first; a door signs in with no e-mail or password and starts the app.
+for (const ui of ["", "&ui=2"]) try {
+  const dOff = await browser.newPage({ viewport: { width: 390, height: 844 } }), offReq = [], offErr = [];
+  dOff.on("request", (r) => { if (/\/auth\/demo/.test(r.url())) offReq.push(r.url()); });
+  dOff.on("console", (m) => { if (m.type() === "error") offErr.push(m.text().slice(0, 160)); });
+  await dOff.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: "window.XLSX={};" }));
+  await dOff.goto(base + ui);
+  await dOff.waitForSelector("#eikon-login-form", { timeout: 15000 }); await dOff.waitForTimeout(600);
+  const off = await dOff.evaluate(() => { const b = document.getElementById("eikon-demo-doors"); return { box: !!b, hidden: !b || b.hidden, doors: document.querySelectorAll("[data-demo-door]").length }; });
+  await dOff.close();
+  report("demo" + ui + ": with no demo on the server the sign-in screen shows no door and never asks for one", off.box && off.hidden && off.doors === 0 && !offReq.length && !offErr.length, JSON.stringify({ off, offReq, offErr }));
+  const dOn = await browser.newPage({ viewport: { width: 390, height: 844 } }), onErr = [], posted = [];
+  dOn.on("console", (m) => { if (m.type() === "error") onErr.push(m.text().slice(0, 160)); });
+  dOn.on("pageerror", (e) => onErr.push("pageerror: " + e.message));
+  await dOn.route("**/xlsx.full.min.js", (r) => r.fulfill({ contentType: "application/javascript", body: "window.XLSX={};" }));
+  await dOn.route("**/health", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, demo: true }) }));
+  await dOn.route("**/auth/demo", (r) => {
+    if (r.request().method() === "GET") return r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, doors: ["pharmacy", "supplier", "hq"], ready: true }) });
+    posted.push(r.request().postData());
+    return r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, demo: true, token: "x", user: { id: 1, user_id: 1, email: "visitor.pharmacy@demo.eikon.invalid", full_name: "Demo visitor", org_id: 1, location_id: 12, location_name: "Demo Pharmacy", role: "admin", demo: true, demo_door: "pharmacy" } }) });
+  });
+  await dOn.goto(base + ui);
+  await dOn.waitForSelector("[data-demo-door]", { timeout: 15000 });
+  const on = await dOn.evaluate(() => {
+    const doors = Array.from(document.querySelectorAll("[data-demo-door]")), b = document.getElementById("eikon-demo-doors"), f = document.getElementById("eikon-login-form");
+    const r = b.getBoundingClientRect(), fr = f.getBoundingClientRect();
+    return { keys: doors.map((d) => d.getAttribute("data-demo-door")), first: doors[0] && doors[0].classList.contains("main"), text: doors[0] && doors[0].textContent, under: r.top >= fr.bottom - 1,
+      inside: r.left >= 0 && r.right <= window.innerWidth + 0.5, h: doors[0] && doors[0].getBoundingClientRect().height, note: (b.querySelector(".eikon-demo-note") || {}).textContent || "", scrollX: document.documentElement.scrollWidth <= window.innerWidth };
+  });
+  await dOn.click("[data-demo-door=pharmacy]");
+  const inApp = await dOn.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && window.EIKON.state.user.demo && document.getElementById("eikon-content") && !document.querySelector(".eikon-login"), null, { timeout: 15000 }).then(() => true, () => false);
+  const tok = await dOn.evaluate(() => localStorage.getItem("eikon_token"));
+  await dOn.close();
+  report("demo" + ui + ": three doors under the form, the pharmacy door first and largest, fits a phone; one tap signs in and starts the app",
+    on.keys.join() === "pharmacy,supplier,hq" && on.first && /Try the demo pharmacy/.test(on.text) && on.under && on.inside && on.h >= 48 && /every night/.test(on.note) && on.scrollX && inApp && tok === "x" && posted.length === 1 && JSON.parse(posted[0]).door === "pharmacy" && !onErr.length,
+    JSON.stringify({ on, inApp, tok, posted, onErr }));
+} catch (e) { report("demo" + ui + ": the sign-in screen's demo doors ran to the end", false, String(e).slice(0, 300)); }
+
 // 2. No Authorization header in debug request logs
 const redacted = await page.evaluate(async () => {
   const E = window.EIKON; const seen = [];

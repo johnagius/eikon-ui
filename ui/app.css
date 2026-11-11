@@ -1137,3 +1137,24 @@ html[data-ui2] .q5-8-morebox{display:flex;justify-content:center;margin:12px 0 4
 /* q5-8: the link inside a screen's last sentence ("… in the classic screen") gets a 44 px tall tap area on a phone,
    without moving the text (the padding is taken back by the margin). */
 @media (max-width: 760px){ html[data-ui2] .eikon-content p a[data-act="classic"]{display:inline-block;padding:15px 0;margin:-15px 0} }
+/* One-click demo under the sign-in form (E.demoDoors): one calm card, the pharmacy door first and largest */
+.eikon-login{flex-direction:column}
+.eikon-demo{width:min(520px,100%);margin:14px auto 0;padding:16px;border-radius:18px;background:var(--panel2);border:1px solid var(--border);display:flex;flex-direction:column;gap:8px;box-sizing:border-box}
+.eikon-demo[hidden]{display:none}
+.eikon-demo-hd{font-weight:600;font-size:15px;margin:0 0 2px}
+.eikon-demo-door{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:48px;padding:10px 14px;text-align:left;border-radius:12px;white-space:normal}
+.eikon-demo-door .t{font-weight:600;font-size:15px}
+.eikon-demo-door .s{font-size:13px;opacity:.75;font-weight:400}
+.eikon-demo-door.main{min-height:58px}
+.eikon-demo-door.main .t{font-size:17px}
+.eikon-demo-note{font-size:12.5px;opacity:.75;line-height:1.4}
+.eikon-demo-err{font-size:14px;color:var(--danger,#b00020)}
+.eikon-demo-err[hidden]{display:none}
+html[data-ui2] .eikon-demo{max-width:380px;width:calc(100% - 32px);border:0;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04),0 12px 40px rgba(0,0,0,.08);border-radius:22px;padding:18px 20px}
+html[data-ui2] .eikon-demo-door{background:rgba(118,118,128,.10);border:1px solid transparent;color:#000}
+html[data-ui2] .eikon-demo-door.main{background:rgba(10,143,106,.10);border-color:rgba(10,143,106,.35)}
+@media (prefers-color-scheme: dark){
+  html[data-ui2]:not([data-ui2-visit]) .eikon-demo{background:#1C1C1E;box-shadow:none}
+  html[data-ui2]:not([data-ui2-visit]) .eikon-demo-door{background:rgba(118,118,128,.24);color:#fff}
+  html[data-ui2]:not([data-ui2-visit]) .eikon-demo-door.main{background:rgba(48,209,88,.16);border-color:rgba(48,209,88,.4)}
+}
