@@ -13,7 +13,8 @@ does not: it changes only when someone runs `wrangler deploy`.
 
 | | Version | Cloudflare version id |
 |---|---|---|
-| Live now (2026-11-10) | `2026-11-10-batch-14`: Team round 2 — board queries rewritten (same answers, 2 indexes), unread 99+, pins per group; UI .176 | `5434019e-d750-4cfb-a03b-2318547c3d95` |
+| Live now (2026-11-11) | `2026-11-10-batch-15`: Roster planner — POST /shifts/apply-plan (one-step), leave in ICS feed + feed caching (ETag/304), web push (/sw.js, push_subscriptions, VAPID_PRIVATE_KEY secret set); UI .177 | `ad99610c-654f-412a-8e1c-6aa507ae6441` |
+| Before that (2026-11-10) | `2026-11-10-batch-14`: Team round 2 — board queries rewritten (same answers, 2 indexes), unread 99+, pins per group; UI .176 | `5434019e-d750-4cfb-a03b-2318547c3d95` |
 | Before that (2026-11-10 12:01 UTC) | `2026-11-10-batch-13`: Team & shifts — GET /team/today (read-only), handover_seen table + /instructions/daily/seen, @mention matching for names followed by more words (group isolation unchanged); UI .175 | `fa9f09aa-c0f8-4861-9376-754ee47b32b0` |
 | Before that (2026-11-10 07:06 UTC) | `2026-11-09-batch-12`: Services — GET /services/today (read-only), vaccinations table + /vaccines/given; UI .174 | `b8ba8bc3-2582-4e10-8c46-a80faf3a998f` |
 | Before that (2026-11-09 16:17 UTC) | `2026-11-09-batch-11`: Money & end of day — GET /money/today, /endofday/overview, /emergency-pos/days (read-only), Malta holidays; UI .173 | `33a6d92a-b587-4785-b9b4-de170b06d1f4` |
@@ -40,7 +41,7 @@ Checked after: `/health` reports bookings-15; all 10 bindings and vars unchanged
 signed-out calls still answer 401; `/bookings/setup` exists (401, was 404); a made-up
 `/book/...` page and a bad `/b/...` link show their "not available" pages; UI .108 serves.
 
-**Do not change `BOOKINGS_KEY`.** Sender keys that pharmacies save are encrypted with it; a
+**Do not change `BOOKINGS_KEY`.** `VAPID_PRIVATE_KEY` (set 2026-11-11) signs shift notifications; changing it means staff re-enable notifications. Sender keys that pharmacies save are encrypted with it; a
 new key would make them unreadable (they would have to be entered again).
 
 ## What the deploy brings
@@ -100,6 +101,7 @@ open Bookings and press "Set up bookings".
 
 ## Restore points
 
+- Before batch-15 (2026-11-11): `00000fbc-00000000-00005120-86ff85b5db9a3ff3efb6685c1412d685`.
 - Before batch-14 (2026-11-10): `00000f64-00000000-0000511f-4bfe2dbc3d68c239b3c8f9f0879891b0`.
 - Before batch-13 (2026-11-10 12:01 UTC): `00000f49-00000000-0000511f-f5b141dc54fc3665823d9e66fa887a3c`.
 - Before batch-12 (2026-11-10 07:05 UTC): `00000f2b-00000000-0000511f-77c6248ca6894da0c7726b1881f3dac8`.

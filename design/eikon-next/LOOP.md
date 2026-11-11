@@ -1138,3 +1138,11 @@ messages; unread 99+; pins per group), Contacts/Handover polish, typing kept whe
 `5434019e` (restore point 00000f64-…-4bfe2dbc3d68c239b3c8f9f0879891b0); UI .176. Checks: worker 280/0, board rehearsal
 12/12, predeploy 10/10, UI 498/499 (stock fails on base), real green alone except focus (base). John then asked for
 "the perfect roster planner" — RP build running (S/agents/RP).
+
+## Round 159 — Roster planner (2026-11-11)
+Architect spec (S/agents/RP) → John's 8 decisions → B1 patterns+worker, B2 grid, B3 rules/settings, B4 mine/print/ICS,
+B5 web push, Director, Visual QA. Worker batch-15 `ad99610c` (restore point 00000fbc-…-86ff85b5db9a3ff3efb6685c1412d685),
+VAPID_PRIVATE_KEY set (generated and piped, never printed); UI .177 on main 92942c3. Checks: worker 303/303 (board
+equivalence with BOARD_OLD_WORKER), rehearsals 19/19 + 13/13, UI 532/0, real 92/96 → green alone except solo-q61keep
+(intermittent ~1/3, also historically on live), predeploy 10/10 bar the board test needing BOARD_OLD_WORKER.
+Pending: labels English only (John), names patch, safety batch (CSP flag, gpt redirect, UI_GITHUB_REF), voice round 3.
