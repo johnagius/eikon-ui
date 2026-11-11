@@ -83,7 +83,7 @@ export default {
     const attempt = async (mine, other, fail) => {
       writes.length = 0; let n = 0;
       await p.route(ROUTE, (r) => { const rq = r.request(); if (rq.method() === "GET") return r.fallback(); n++; return fail(rq, n) ? r.fulfill({ status: 200, contentType: "application/json", body: '{"ok":false,"error":"Server busy"}' }) : r.fallback(); });
-      const id = await p.evaluate(({ d, s }) => { const b = [...document.querySelectorAll(".shf-p[data-act=edit]")].find((x) => x.closest("section").getAttribute("aria-label").includes(d) && x.textContent.includes(s)); return b && b.getAttribute("data-id"); }, mine);
+      const id = await p.evaluate(({ d, s }) => { const b = [...document.querySelectorAll(".shf-p[data-act=edit]")].find((x) => x.closest("section, td.shf-c").getAttribute("aria-label").includes(d) && x.textContent.includes(s)); return b && b.getAttribute("data-id"); }, mine);
       await p.click('.shf-p[data-act=edit][data-id="' + id + '"]'); await p.click("#shf-form [data-act=swap]");
       await p.selectOption("#shf-form [name=swap_with]", String(other())); await p.waitForTimeout(80);
       await p.click("[data-act=swap-yes]");

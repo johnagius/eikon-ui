@@ -2983,7 +2983,7 @@ try {
   const rf = await page.evaluate(() => document.querySelector(".rot-foot").textContent);
   await page.click(".rot-foot [data-act=leave]");
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "shfreg" && document.querySelector("#shf-lvf"), null, { timeout: 15000 });
-  const l0 = await page.evaluate(() => ({ focus: document.activeElement.name, who: [...document.querySelectorAll("#shf-lvf [name=staff_id] option")].map((o) => o.textContent), from: document.querySelector("#shf-lvf [name=start_date]").value, until: document.querySelector("#shf-lvf [name=end_date]").value, foot: document.querySelector(".shf-note:last-of-type").textContent }));
+  const l0 = await page.evaluate(() => ({ focus: document.activeElement.name, who: [...document.querySelectorAll("#shf-lvf [name=staff_id] option")].map((o) => o.textContent), from: document.querySelector("#shf-lvf [name=start_date]").value, until: document.querySelector("#shf-lvf [name=end_date]").value, foot: (document.querySelector(".shf-note:last-of-type") || { textContent: "" }).textContent }));
   await fetch(`http://localhost:${PORT}/__reset`);
   await page.fill("#shf-lvf [name=start_date]", ""); await page.click("#shf-lvf button[type=submit]"); await page.waitForTimeout(150);
   const l1 = await page.evaluate(() => ({ err: (document.querySelector("#shf-lv-err") || {}).textContent, bad: [...document.querySelectorAll("#shf-lvf [aria-invalid=true]")].map((x) => x.name).join(), focus: document.activeElement.name, role: (document.querySelector("#shf-lv-err") || {}).getAttribute && document.querySelector("#shf-lv-err").getAttribute("role") }));
@@ -6962,8 +6962,111 @@ try {
   globalThis.__stk = null;
 } catch (e) { globalThis.__stk = null; await page.setViewportSize({ width: 1440, height: 900 }).catch(() => {}); report("stock (d-stock): ran to the end", false, String(e && e.stack || e).slice(0, 500)); }
 
+// Roster planner, rules and settings (B3: E.rotaCheck, E.rotaMeta, E.rotaHoursPut in core.js; ui/eikon.rotaset.js):
+// the warnings table-driven on one week (each kind on its case and not its neighbour), the read-fresh-merge saves with a
+// server stand-in (another device's change kept, a failed read never saves), the classic opening-hours shape, the
+// balance rule (only annual leave counts against annual, John 6a; classic's number alongside), D-7 years, and the sheets
+// opening and closing with Escape (focus returns, what was typed is kept).
+try {
+  await page.goto(base + "&ui=2#shfreg");
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "shfreg" && window.EIKON.rotaSet && window.EIKON.rotaCheck, null, { timeout: 15000 });
+  const rc = await page.evaluate(async () => {
+    const E = window.EIKON, out = {};
+    const staff = [{ id: 1, full_name: "Maria Borg", designation: "pharmacist", contracted_hours: 40 }, { id: 2, full_name: "Joe Vella", designation: "pharmacist", contracted_hours: 30 }, { id: 3, full_name: "Karl Ċamilleri", designation: "assistant", contracted_hours: 40 }, { id: 4, full_name: "Rita Żammit", designation: "assistant", contracted_hours: 20 }, { id: 5, full_name: "Lara Ħili", designation: "assistant", contracted_hours: 40 }];
+    let n = 0; const S = (id, d, s, e, x) => Object.assign({ id: ++n, staff_id: id, shift_date: d, start_time: s, end_time: e }, x || {});
+    const shifts = [S(1, "2026-11-16", "07:30", "13:30"), S(2, "2026-11-16", "13:00", "19:30"), S(1, "2026-11-17", "07:30", "13:30"), S(1, "2026-11-18", "07:30", "19:30"), S(2, "2026-11-18", "10:00", "12:00"),
+      S(4, "2026-11-19", "08:00", "14:00"), S(1, "2026-11-19", "07:30", "19:30"), ...["16", "17", "18", "19", "20"].map((d) => S(3, "2026-11-" + d, "07:00", "19:30")),
+      S(5, "2026-11-19", "09:00", "12:00"), S(5, "2026-11-19", "11:00", "13:00"), S(5, "2026-11-20", "09:00", "12:00"), S(5, "2026-11-20", "12:00", "13:00"), S(4, "2026-11-20", "08:00", "10:00"), S(1, "2026-11-20", "07:30", "19:30"), S(1, "2026-11-21", "04:30", "13:00"), S(1, "2026-12-08", "08:00", "12:00")];
+    const leaves = [{ id: 9, staff_id: 4, leave_type: "annual", start_date: "2026-11-19", end_date: "2026-11-19", status: "approved" }, { id: 10, staff_id: 4, leave_type: "sick", start_date: "2026-11-20", end_date: "2026-11-20", start_time: "09:00", end_time: "12:00", status: "pending" }];
+    const settings = { pharmacistRequired: true, minPharmacists: 1, rota: { minStaff: 2, avail: { 5: { w: { 4: "no" } } } } };
+    const r = E.rotaCheck({ from: "2026-11-16", to: "2026-11-22" }, { shifts, staff, leaves, hours: {}, settings });
+    out.words = r.map((x) => x.kind + "|" + x.date + "|" + x.words);
+    out.closed = E.rotaCheck("2026-12-08", { shifts, staff, leaves: [], hours: {}, settings }).map((x) => x.words);
+    out.off = E.rotaCheck({ from: "2026-11-16", to: "2026-11-22" }, { shifts, staff, leaves, hours: {}, settings: { pharmacistRequired: false, rota: { warn: { rest: false, wtd: false } } } }).map((x) => x.kind);
+    out.bad = E.rotaCheck({ from: "2026-11-22", to: "2026-11-16" }, { shifts }).length + E.rotaCheck("x", {}).length;
+    // read-fresh-merge with a stand-in server
+    const keep = E.apiFetch, db = { settings: { pharmacistRequired: true, minPharmacists: 1, calendarToken: "abc" }, hours: { default: { open: "08:00", close: "19:00", closed: false }, openSaturday: true, openSunday: false, overrides: {} } }, puts = [];
+    let failRead = false;
+    E.apiFetch = async (p, o) => { const k = /settings/.test(p) ? "settings" : "hours"; if (o.method === "PUT") { puts.push(p + " " + o.body); db[k] = JSON.parse(o.body); return { ok: true }; } if (failRead) { const x = new Error("offline"); x.network = true; throw x; } return { ok: true, [k]: JSON.parse(JSON.stringify(db[k])) }; };
+    try {
+      await Promise.all([E.rotaMeta.merge("plans", (v) => Object.assign(v || {}, { 1: { rid: "a" } })), E.rotaMeta.merge("rota.plans", (v) => Object.assign(v || {}, { 2: { rid: "b" } }))]);
+      db.settings.calendarToken = "fromotherdevice";
+      await E.rotaMeta.settings((s) => { s.minPharmacists = 2; });
+      failRead = true; out.failed = await E.rotaMeta.merge("minStaff", () => 3).then(() => "saved", (x) => "refused: " + x.message); failRead = false;
+      await E.rotaHoursPut((h) => { h.overrides["2026-12-27"] = { open: "09:00", close: "12:00", closed: false, note: "Duty roster" }; });
+      out.meta = await E.rotaMeta.get(); out.puts = puts; out.db = db;
+    } finally { E.apiFetch = keep; }
+    // balances (6a) and the classic figure, D-7
+    const lv = [{ staff_id: 3, leave_type: "annual", start_date: "2026-03-02", end_date: "2026-03-03", hours_requested: 16, status: "approved" }, { staff_id: 3, leave_type: "maternity", start_date: "2026-05-01", end_date: "2026-05-30", hours_requested: 40, status: "approved" },
+      { staff_id: 3, leave_type: "annual", start_date: "2026-12-01", end_date: "2026-12-01", hours_requested: 8, status: "pending" }, { staff_id: 3, leave_type: "sick", start_date: "2026-02-01", end_date: "2026-02-01", hours_requested: 8, status: "approved" }, { staff_id: 3, leave_type: "annual", start_date: "2025-12-29", end_date: "2026-01-02", hours_requested: 24, status: "approved" }];
+    const b = E.rotaSet.balance(staff[2], lv, {}, 2026), pt = E.rotaSet.balance({ id: 7, designation: "assistant", contracted_hours: 20 }, [], { maltaLaw: { annualLeaveHours: { 2026: 224 } } }, 2026), loc = E.rotaSet.balance({ id: 8, designation: "locum" }, [], {}, 2026);
+    out.bal = { annualLeft: b.annual.left, of: b.annual.of, pending: b.annual.pending, sickLeft: b.sick.left, other: b.other, classic: b.classic.annualLeft, pt: pt.annual.of, loc: loc.na };
+    out.years = [E.rotaSet.leaveYears("2027-01-04", "2027-02-01"), E.rotaSet.leaveYears("2026-11-16", "2026-11-22")];
+    return out;
+  });
+  const W = rc.words.join("\n");
+  const want = [/^cover\|2026-11-17\|No pharmacist Tue 17 Nov 13:30–19:30$/m, /^staff\|2026-11-17\|Only 1 person on Tue 17 Nov 13:30–19:30 \(at least 2 wanted\)$/m, /^leave\|2026-11-19\|Rita is on annual leave Thu 19 Nov but planned 08:00–14:00$/m,
+    /^asked\|2026-11-20\|Rita asked for sick leave Fri 20 Nov \(planned 08:00–10:00\)$/m, /^double\|2026-11-19\|Lara has two shifts at once on Thu 19 Nov \(09:00–12:00 and 11:00–13:00\)$/m, /^wtd\|2026-11-16\|Karl: 62\.5 h in the week of 16 Nov — over the 48-hour limit$/m,
+    /^rest\|2026-11-21\|Maria: 9 h rest between Fri 20 Nov 19:30 and Sat 21 Nov 04:30 \(11 h needed\)$/m, /^avail\|2026-11-19\|Lara can't work Thursdays — planned Thu 19 Nov 09:00–12:00$/m, /^twoph\|2026-11-18\|Maria and Joe are both on as pharmacist Wed 18 Nov 10:00–12:00$/m];
+  const notWant = [/^cover\|2026-11-16/m, /^double\|2026-11-20/m, /^asked\|2026-11-19/m, /^leave\|2026-11-20/m, /^twoph\|2026-11-16/m, /^hours\|.*Joe/m, /^avail\|2026-11-20/m];
+  report("rotaCheck: each kind in plain words on its case and not its neighbour (cover, staff, leave, asked, double, wtd, rest, avail, twoph); a 30-minute handover is not two pharmacists; closed day; kinds switched off stay off; a bad range gives nothing",
+    want.every((re) => re.test(W)) && !notWant.some((re) => re.test(W)) && rc.closed.join() === "Tue 8 Dec: Closed · Public holiday (Immaculate Conception) — 1 shift planned" && !rc.off.some((k) => k === "cover" || k === "rest" || k === "wtd") && rc.off.includes("hours") && rc.bad === 0,
+    JSON.stringify({ miss: want.filter((re) => !re.test(W)).map(String), extra: notWant.filter((re) => re.test(W)).map(String), closed: rc.closed, off: rc.off, W: W.slice(0, 900) }));
+  report("rotaMeta / rotaHoursPut: read fresh, merge one key, PUT the whole object (two quick saves both kept, another device's change kept, a failed read saves nothing); hours put in the classic shape",
+    rc.puts.length === 4 && rc.failed.startsWith("refused") && JSON.stringify(rc.db.settings) === JSON.stringify({ pharmacistRequired: true, minPharmacists: 2, calendarToken: "fromotherdevice", rota: { plans: { 1: { rid: "a" }, 2: { rid: "b" } } } }) &&
+    Object.keys(rc.db.hours).join() === "default,openSaturday,openSunday,overrides,weekly,weekends" && rc.db.hours.weekly[0].closed === true && rc.db.hours.overrides["2026-12-27"].note === "Duty roster" && rc.meta.plans[2].rid === "b",
+    JSON.stringify({ puts: rc.puts.map((x) => x.slice(0, 120)), failed: rc.failed, db: rc.db }).slice(0, 900));
+  report("leave balance: only annual leave counts against annual (maternity listed apart), asked-for counted, classic's figure alongside; part time in proportion; locums none; a January range also reads December's leave",
+    rc.bal.annualLeft === 192 && rc.bal.of === 216 && rc.bal.pending === 8 && rc.bal.sickLeft === 72 && rc.bal.other.length === 1 && rc.bal.other[0].type === "maternity" && rc.bal.other[0].hours === 40 && rc.bal.classic === 152 && rc.bal.pt === 112 && rc.bal.loc === true &&
+    JSON.stringify(rc.years) === "[[2026,2027],[2026]]", JSON.stringify(rc.bal) + " " + JSON.stringify(rc.years));
+  // the sheets: open, Escape closes, focus returns, typing kept
+  const sh = await page.evaluate(async () => {
+    const E = window.EIKON, keep = E.apiFetch, out = [];
+    E.apiFetch = async (p) => /settings/.test(p) ? { ok: true, settings: { pharmacistRequired: true, minPharmacists: 1 } } : /opening-hours/.test(p) ? { ok: true, hours: { default: { open: "07:30", close: "19:30", closed: false }, openSaturday: true, openSunday: false, overrides: {} } } : /leaves/.test(p) ? { ok: true, leaves: [] } : /staff/.test(p) ? { ok: true, staff: [{ id: 3, full_name: "Karl Ċamilleri", designation: "assistant", contracted_hours: 40, is_active: 1 }] } : { ok: true };
+    E.rotaRules && E.rotaRules(true);
+    const wait = (sel) => new Promise((ok) => { let i = 0; const t = setInterval(() => { if (document.querySelector(sel) || ++i > 60) { clearInterval(t); ok(!!document.querySelector(sel)); } }, 50); });
+    const btn = document.querySelector("#eikon-content button"); btn.focus();
+    try {
+      for (const [k, a, sel] of [["hours", null, ".rps [data-f=week]"], ["rules", null, ".rps [data-f=rules]"], ["availability", { id: 3, full_name: "Karl Ċamilleri" }, ".rps [data-f=avail]"], ["leave", { id: 3, full_name: "Karl Ċamilleri", designation: "assistant", contracted_hours: 40 }, ".rps-bal"], ["details", { id: 3, full_name: "Karl Ċamilleri", designation: "assistant", contracted_hours: 40, is_active: 1 }, ".rps [data-f=person]"], ["hours", null, ".rps [data-f=week]"]]) {
+        E.rotaSet.open(k, a); const ok = await wait(sel);
+        const dlg = document.querySelector(".rps-ov [role=dialog]"), title = document.querySelector("#rps-h").textContent;
+        if (k === "details") { const f = document.querySelector(".rps [name=phone]"); f.value = "79 111 222"; }
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        out.push({ k, ok, modal: dlg && dlg.getAttribute("aria-modal"), title, gone: !document.querySelector(".rps-ov"), back: document.activeElement === btn });
+      }
+      E.rotaSet.open("details", { id: 3, full_name: "Karl Ċamilleri", designation: "assistant", contracted_hours: 40, is_active: 1 }); await wait(".rps [data-f=person]"); await new Promise((ok) => setTimeout(ok, 50));
+      out.push({ kept: document.querySelector(".rps [name=phone]").value });
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    } finally { E.apiFetch = keep; }
+    return out;
+  });
+  report("rotaset sheets: Opening hours, Rules, When can't they work?, Leave, Edit details open as a dialog; Escape closes and focus returns; what was typed comes back when it opens again",
+    sh.length === 7 && sh.slice(0, 6).every((x) => x.ok && x.modal === "true" && x.gone && x.back) && sh[2].title === "When can't Karl work?" && sh[6].kept === "79 111 222", JSON.stringify(sh));
+} catch (e) { report("roster planner rules and settings (rotaCheck, rotaMeta, rotaset): ran to the end", false, String(e && e.stack || e).slice(0, 500)); }
+
 await browser.close();
 server.close();
+
+// ---- Roster planner (RP, B1): the patterns / fill / apply engine, ui/eikon.rotaplan.js (no browser; tests/ui/rotaplan.unit.mjs)
+try {
+  await (await import("./rotaplan.unit.mjs")).run(report);
+} catch (e) { report("rotaplan engine: ran", false, String(e && e.stack || e).slice(0, 400)); }
+// ---- Roster planner (RP, B5): rota notices — /sw.js (served by the worker) and ui/eikon.rotapush.js, static checks (no browser)
+try {
+  const wsrc = fs.readFileSync(path.join(root, "..", "cloudflare-worker", "code"), "utf8");
+  const i0 = wsrc.indexOf("const RPN_SW = `"), sw = i0 < 0 ? "" : wsrc.slice(i0 + 16, wsrc.indexOf("`;", i0));
+  const listeners = [...sw.matchAll(/addEventListener\(\s*["'](\w+)["']/g)].map((m) => m[1]).sort();
+  report("rotapush: /sw.js listens only to install, push and notificationclick", JSON.stringify(listeners) === JSON.stringify(["install", "notificationclick", "push"]), JSON.stringify(listeners));
+  report("rotapush: /sw.js has no fetch handler, no Cache API, no importScripts, no respondWith", !!sw && !/["']fetch["']|\bonfetch\b|respondWith|\bcaches\b|importScripts|onmessage|setInterval/.test(sw), sw.slice(0, 80));
+  report("rotapush: /sw.js always shows a notification on a push (a plain line when the words cannot be read)", /showNotification\(/.test(sw) && /Open Eikon to see your shifts\./.test(sw));
+  report("rotapush: /sw.js is served no-cache as JavaScript at the site root", /url\.pathname === "\/sw\.js"/.test(wsrc) && /"Content-Type": "application\/javascript; charset=utf-8", "Cache-Control": "no-cache"/.test(wsrc));
+  const ui = fs.readFileSync(path.join(root, "eikon.rotapush.js"), "utf8");
+  const onBody = ui.slice(ui.indexOf("async function on("), ui.indexOf("async function off("));
+  report("rotapush: permission is asked and /sw.js registered only when turning on", (ui.match(/requestPermission\(/g) || []).length === 1 && /requestPermission\(/.test(onBody) && (ui.match(/serviceWorker\.register\(/g) || []).length === 1 && /serviceWorker\.register\(SW, \{ scope: "\/", updateViaCache: "none" \}\)/.test(onBody));
+  report("rotapush: no timers and no request when the row opens (state() reads only this device)", !/setInterval|setTimeout/.test(ui) && !/apiFetch/.test(ui.slice(ui.indexOf("async function state("), ui.indexOf("async function on("))));
+  report("rotapush: the iPhone words", /On iPhone this works once Eikon is added to the Home Screen \(iOS 16\.4\+\)/.test(ui));
+  report("rotapush: loaded after eikon.rotaprint.js and before modules.rotreg.js", (() => { const h = fs.readFileSync(path.join(root, "index.html"), "utf8"); const a = h.indexOf('"./eikon.rotaprint.js"'), b = h.indexOf('"./eikon.rotapush.js"'), c = h.indexOf('"./modules.rotreg.js"'); return a > 0 && b > a && c > b; })());
+} catch (e) { report("rotapush: static checks ran", false, String(e && e.stack || e).slice(0, 300)); }
 
 // Source-level check for the escape fix (no DOM needed)
 for (const f of ["modules.ddasales.js", "modules.ddapoyc.js"]) {

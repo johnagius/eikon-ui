@@ -255,6 +255,294 @@
     rotaRulesC = { loc: loc, at: Date.now(), p: p };
     return p;
   };
+  // ---- rota rules and settings (roster planner, B3) ----
+  // E.rotaCheck(range, data) -> [{ id, kind, level, date, staff_id, words, fix, more }] — the "Things to look at" list.
+  //   range: "YYYY-MM-DD" or { from, to } (days inclusive). data: { shifts, staff (array or {id: person}), leaves, hours,
+  //   settings } as loaded by the screens (shifts may reach a day either side of the range: rest and hours use them).
+  // Computed in the browser, no request. One list feeds the grid outlines, the warnings strip, the apply preview's
+  // "afterwards" and Today's team. Kinds and levels (problem > warn > info):
+  //   cover  (problem) E.teamCover's gaps                       "No pharmacist Tue 17 Nov 13:30–19:30"
+  //   staff  (warn)    fewer than settings.rota.minStaff on     "Only 1 person on Sat 21 Nov 14:00–19:30" (off when unset)
+  //   leave  (problem) a shift on approved leave (part-day: overlapping)
+  //   asked  (info)    a shift on a day of a pending leave request
+  //   double (problem) one person, two shifts at the same time
+  //   hours  (warn)    week planned > contracted hours (not locums)
+  //   wtd    (problem) week planned > maltaLaw.maxWeeklyHours (48)
+  //   rest   (warn)    under 11 h between one day's end and the next day's start
+  //   closed (warn)    shifts on a closed day or a public holiday
+  //   avail  (warn)    a shift when the person said they can't work (settings.rota.avail)
+  //   twoph  (info)    more pharmacists on at once than needed, for an hour or more (a handover is not listed)
+  // settings.rota.warn = { kind: false } turns a kind off (⋯ Rules). Nothing here blocks a save.
+  // fix = the one-tap fix { label, act, date, staff_id, shift_id, leave_id, from, to }; more = other fixes. Acts:
+  //   "fill" (a gap: date, from, to) · "locum" (date, from, to) · "add" (date, from, to) · "remove" (shift_id) ·
+  //   "answer" (leave_id) · "day" (date, staff_id) · "week" (date, staff_id) · "open" (date: override that opens it) ·
+  //   "avail" (staff_id: their "When can't they work?").
+  (function () {
+    var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    var WDS = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
+    var LEVEL = { problem: 0, warn: 1, info: 2 };
+    var hm = function (t) { return String(t || "").slice(0, 5); };
+    var mn = function (t) { var p = hm(t).split(":"); return Number(p[0]) * 60 + Number(p[1] || 0); };
+    var tm = function (m) { return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
+    var low = function (s) { return String(s == null ? "" : s).toLowerCase().trim(); };
+    var dt = function (ymd) { return new Date(ymd + "T12:00:00Z"); };
+    var add = function (ymd, n) { var d = dt(ymd); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+    var days = function (a, b) { return Math.round((dt(b) - dt(a)) / 864e5); };
+    var monday = function (ymd) { return add(ymd, -((dt(ymd).getUTCDay() + 6) % 7)); };
+    var dayW = function (ymd) { var d = dt(ymd); return WD[d.getUTCDay()] + " " + d.getUTCDate() + " " + MON[d.getUTCMonth()]; };
+    var hrs = function (m) { var h = Math.round(m / 6) / 10; return (Number.isInteger(h) ? String(h) : h.toFixed(1)) + " h"; };
+    var first = function (n) { return String(n || "").trim().split(/\s+/)[0] || "Someone"; };
+    var isPh = function (p, x) { var d = low(p && p.designation); return d === "pharmacist" || d === "locum" || (x && x.role_override === "pharmacist"); };
+    var span = function (x) { var a = mn(x.start_time), z = mn(x.end_time); return z > a ? [a, z] : null; };
+    var LT = { annual: "annual leave", sick: "sick leave", urgent_family: "urgent family leave", maternity: "maternity leave", paternity: "paternity leave", parental: "parental leave", miscarriage: "miscarriage leave", other: "leave" };
+    var leaveW = function (t) { return LT[low(t)] || (low(t) ? low(t).replace(/_/g, " ") + (/leave/.test(low(t)) ? "" : " leave") : "leave"); };
+    // The part of a day a leave covers, in minutes [from, to], or null when it does not touch the day.
+    function leaveSpan(l, ymd) {
+      if (!l || !(l.start_date <= ymd && (l.end_date || l.start_date) >= ymd)) return null;
+      var a = l.start_time && l.start_date === ymd ? mn(l.start_time) : 0, z = l.end_time && (l.end_date || l.start_date) === ymd ? mn(l.end_time) : 1440;
+      return z > a ? [a, z] : [0, 1440];
+    }
+    // A person's availability on a day: null (free), "no", or { from, to } (the hours they can work). Dates beat weekdays.
+    function availOn(avail, sid, ymd) {
+      var a = avail && avail[String(sid)]; if (!a || typeof a !== "object") return null;
+      var d = a.d && a.d[ymd], w = a.w && a.w[String(dt(ymd).getUTCDay())];
+      var v = d != null ? d : w; if (v == null || v === "" || v === "yes") return null;
+      if (v === "no") return "no";
+      return v && typeof v === "object" && v.from && v.to ? { from: hm(v.from), to: hm(v.to), date: d != null } : null;
+    }
+    // "" when a shift fits, else the words ("Lara can't work Thursdays").
+    function availWords(avail, p, ymd, st, et) {
+      var sid = p && p.id, v = availOn(avail, sid, ymd); if (!v) return "";
+      var a = avail[String(sid)], byDate = a.d && a.d[ymd] != null, n = first(p && p.full_name), wd = WDS[dt(ymd).getUTCDay()];
+      if (v === "no") return byDate ? n + " can't work on " + dayW(ymd) : n + " can't work " + wd;
+      if (st != null && mn(st) >= mn(v.from) && mn(et) <= mn(v.to)) return "";
+      return n + " can only work " + v.from + "–" + v.to + (byDate ? " on " + dayW(ymd) : " on " + wd);
+    }
+    function asList(staff) { return Array.isArray(staff) ? staff : Object.keys(staff || {}).map(function (k) { return staff[k]; }); }
+
+    E.rotaCheck = function (range, data) {
+      data = data || {};
+      var from = typeof range === "string" ? range : (range && range.from) || "", to = typeof range === "string" ? range : (range && range.to) || from;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || to < from) return [];
+      var set = data.settings || {}, rota = set.rota && typeof set.rota === "object" ? set.rota : {}, off = rota.warn && typeof rota.warn === "object" ? rota.warn : {};
+      var on = function (k) { return off[k] !== false; };
+      var staff = {}; asList(data.staff).forEach(function (p) { if (p) staff[String(p.id)] = p; });
+      var who = function (sid) { return staff[String(sid)] || { id: sid, full_name: "Staff #" + sid }; };
+      var shifts = (data.shifts || []).filter(function (x) { return x && /^\d{4}-\d{2}-\d{2}$/.test(String(x.shift_date || "")) && span(x); });
+      var leaves = data.leaves || [], out = [];
+      var inR = function (d) { return d >= from && d <= to; };
+      var push = function (o) { o.id = [o.kind, o.date, o.staff_id == null ? "" : o.staff_id, o.key || ""].join("|"); delete o.key; if (!o.more) o.more = []; out.push(o); };
+      var byDay = {}; shifts.forEach(function (x) { (byDay[x.shift_date] = byDay[x.shift_date] || []).push(x); });
+      var o = { hours: data.hours, settings: set, shifts: shifts, staff: staff, leaves: leaves };
+      var awayAll = function (sid, d) { return leaves.some(function (l) { return low(l.status) === "approved" && String(l.staff_id) === String(sid) && l.start_date <= d && (l.end_date || l.start_date) >= d; }); };
+      var shW = function (x) { return hm(x.start_time) + "–" + hm(x.end_time); };
+
+      // Day by day: cover, closed, minimum people, two pharmacists.
+      for (var d = from, guard = 0; d <= to && guard < 400; d = add(d, 1), guard++) {
+        var c = E.teamCover(d, o), list = byDay[d] || [];
+        if (c.closed) {
+          if (list.length && on("closed")) push({ kind: "closed", level: "warn", date: d, staff_id: null, words: dayW(d) + ": " + c.words + " — " + (list.length === 1 ? "1 shift" : list.length + " shifts") + " planned",
+            fix: { label: "Open that day", act: "open", date: d }, more: [{ label: "Look at the day", act: "day", date: d }], shift_ids: list.map(function (x) { return x.id; }) });
+          continue;
+        }
+        if (on("cover")) c.gaps.forEach(function (g) {
+          push({ kind: "cover", level: "problem", date: d, staff_id: null, from: g.from, to: g.to, key: g.from, words: "No pharmacist " + dayW(d) + " " + g.from + "–" + g.to,
+            fix: { label: "Fill the gap", act: "fill", date: d, from: g.from, to: g.to }, more: [{ label: "+ Locum", act: "locum", date: d, from: g.from, to: g.to }] });
+        });
+        var a0 = mn(c.open), z0 = mn(c.close), ms = parseInt(rota.minStaff, 10) || 0;
+        var sweep = function (rows, need, fn, any) { // runs of [from, to] inside the opening hours where fewer than need are on
+          var ev = []; rows.forEach(function (x) { var s0 = Math.max(a0, mn(x.start_time)), e0 = Math.min(z0, mn(x.end_time)); if (e0 > s0) ev.push([s0, 1], [e0, -1]); });
+          ev.sort(function (p, q) { return p[0] - q[0] || q[1] - p[1]; });
+          var n = 0, cur = a0, i = 0, runs = [];
+          while (cur < z0) {
+            while (i < ev.length && ev[i][0] <= cur) n += ev[i++][1];
+            var nx = i < ev.length ? Math.min(ev[i][0], z0) : z0;
+            if (fn(n, need)) { if (runs.length && runs[runs.length - 1][1] === cur && (any || runs[runs.length - 1][2] === n)) runs[runs.length - 1][1] = nx; else runs.push([cur, nx, n]); }
+            cur = nx;
+          }
+          return runs;
+        };
+        if (ms > 0 && z0 > a0 && on("staff")) {
+          var people = {}; list.forEach(function (x) { if (!awayAll(x.staff_id, d)) people[x.id] = x; });
+          sweep(Object.keys(people).map(function (k) { return people[k]; }), ms, function (n, need) { return n < need; }).forEach(function (r) {
+            push({ kind: "staff", level: "warn", date: d, staff_id: null, from: tm(r[0]), to: tm(r[1]), key: tm(r[0]), words: (r[2] === 0 ? "Nobody" : r[2] === 1 ? "Only 1 person" : "Only " + r[2] + " people") + " on " + dayW(d) + " " + tm(r[0]) + "–" + tm(r[1]) + " (at least " + ms + " wanted)",
+              fix: { label: "Add shift", act: "add", date: d, from: tm(r[0]), to: tm(r[1]) } });
+          });
+        }
+        if (z0 > a0 && on("twoph")) {
+          var need2 = parseInt(set.minPharmacists, 10) || 1, ph = list.filter(function (x) { return isPh(who(x.staff_id), x) && !awayAll(x.staff_id, d); });
+          if (ph.length > need2) sweep(ph, need2, function (n, need) { return n > need; }, true).filter(function (r) { return r[1] - r[0] >= 60; }).forEach(function (r) { // a handover shorter than an hour is normal
+            var names = ph.filter(function (x) { return Math.max(a0, mn(x.start_time)) < r[1] && Math.min(z0, mn(x.end_time)) > r[0]; }).map(function (x) { return first(who(x.staff_id).full_name); });
+            names = names.filter(function (n, i) { return names.indexOf(n) === i; });
+            if (names.length > 1) push({ kind: "twoph", level: "info", date: d, staff_id: null, from: tm(r[0]), to: tm(r[1]), key: tm(r[0]), words: names.slice(0, -1).join(", ") + " and " + names[names.length - 1] + " are both on as pharmacist " + dayW(d) + " " + tm(r[0]) + "–" + tm(r[1]),
+              fix: { label: "Look at the day", act: "day", date: d } });
+          });
+        }
+      }
+
+      // Shift by shift: leave, asked, availability, two at once.
+      var avail = data.avail && typeof data.avail === "object" && Object.keys(data.avail).length ? data.avail : rota.avail && typeof rota.avail === "object" ? rota.avail : {};
+      shifts.forEach(function (x) {
+        var d = x.shift_date; if (!inR(d)) return;
+        var p = who(x.staff_id), s = span(x), n = first(p.full_name);
+        leaves.forEach(function (l) {
+          if (String(l.staff_id) !== String(x.staff_id)) return;
+          var st = low(l.status), ls = leaveSpan(l, d); if (!ls || !(ls[0] < s[1] && ls[1] > s[0])) return;
+          if (st === "approved" && on("leave")) push({ kind: "leave", level: "problem", date: d, staff_id: x.staff_id, shift_id: x.id, key: x.id, words: n + " is on " + leaveW(l.leave_type) + " " + dayW(d) + " but planned " + shW(x),
+            fix: { label: "Remove shift", act: "remove", shift_id: x.id, date: d, staff_id: x.staff_id }, more: [{ label: "Look at the day", act: "day", date: d, staff_id: x.staff_id }] });
+          if (st === "pending" && on("asked")) push({ kind: "asked", level: "info", date: d, staff_id: x.staff_id, shift_id: x.id, leave_id: l.id, key: x.id, words: n + " asked for " + leaveW(l.leave_type) + " " + dayW(d) + " (planned " + shW(x) + ")",
+            fix: { label: "Answer request", act: "answer", leave_id: l.id, date: d, staff_id: x.staff_id } });
+        });
+        var aw = on("avail") ? availWords(avail, p, d, x.start_time, x.end_time) : "";
+        if (aw) push({ kind: "avail", level: "warn", date: d, staff_id: x.staff_id, shift_id: x.id, key: x.id, words: aw + " — planned " + dayW(d) + " " + shW(x),
+          fix: { label: "Change", act: "day", date: d, staff_id: x.staff_id }, more: [{ label: "Their availability", act: "avail", staff_id: x.staff_id }] });
+      });
+      var mine = {}; shifts.forEach(function (x) { (mine[String(x.staff_id)] = mine[String(x.staff_id)] || []).push(x); });
+      var maxW = parseFloat(set.maltaLaw && set.maltaLaw.maxWeeklyHours) || 48;
+      Object.keys(mine).forEach(function (sid) {
+        var rows = mine[sid].slice().sort(function (a, b) { return a.shift_date < b.shift_date ? -1 : a.shift_date > b.shift_date ? 1 : mn(a.start_time) - mn(b.start_time); });
+        var p = who(sid), n = first(p.full_name), seen = {};
+        // two at once (same day)
+        if (on("double")) for (var i = 0; i < rows.length; i++) for (var j = i + 1; j < rows.length && rows[j].shift_date === rows[i].shift_date; j++) {
+          var A = span(rows[i]), B = span(rows[j]), d = rows[i].shift_date;
+          if (inR(d) && A[0] < B[1] && B[0] < A[1] && !seen[d]) { seen[d] = 1; push({ kind: "double", level: "problem", date: d, staff_id: rows[i].staff_id, key: rows[i].id, words: n + " has two shifts at once on " + dayW(d) + " (" + shW(rows[i]) + " and " + shW(rows[j]) + ")", shift_ids: [rows[i].id, rows[j].id],
+            fix: { label: "Look at the day", act: "day", date: d, staff_id: rows[i].staff_id } }); }
+        }
+        // rest between one day's last end and the next day's first start
+        if (on("rest")) {
+          var lastEnd = {}, firstStart = {};
+          rows.forEach(function (x) { var s = span(x); if (lastEnd[x.shift_date] == null || s[1] > lastEnd[x.shift_date][0]) lastEnd[x.shift_date] = [s[1], x]; if (firstStart[x.shift_date] == null) firstStart[x.shift_date] = [s[0], x]; });
+          Object.keys(firstStart).forEach(function (d) {
+            var prev = add(d, -1); if (!inR(d) || !lastEnd[prev]) return;
+            var gap = 1440 - lastEnd[prev][0] + firstStart[d][0];
+            if (gap < 660) push({ kind: "rest", level: "warn", date: d, staff_id: rows[0].staff_id, words: n + ": " + hrs(gap) + " rest between " + dayW(prev) + " " + tm(lastEnd[prev][0]) + " and " + dayW(d) + " " + tm(firstStart[d][0]) + " (11 h needed)",
+              fix: { label: "Look at the day", act: "day", date: d, staff_id: rows[0].staff_id } });
+          });
+        }
+        // hours in each week that touches the range (shifts outside what was loaded can only add to it)
+        var wk = {}; rows.forEach(function (x) { var m = monday(x.shift_date), s = span(x); wk[m] = (wk[m] || 0) + s[1] - s[0]; });
+        var ext = low(p.designation) === "locum" || low(p.employment_type) === "external", ch = parseFloat(p.contracted_hours);
+        Object.keys(wk).forEach(function (m) {
+          if (!(add(m, 6) >= from && m <= to) || ext) return;
+          var at = m < from ? from : m, of = "the week of " + dayW(m).slice(4);
+          if (wk[m] > maxW * 60 && on("wtd")) push({ kind: "wtd", level: "problem", date: at, staff_id: p.id, words: n + ": " + hrs(wk[m]) + " in " + of + " — over the " + hrs(maxW * 60).replace(" h", "-hour") + " limit", fix: { label: "Show week", act: "week", date: m, staff_id: p.id } });
+          else if (isFinite(ch) && ch > 0 && wk[m] > ch * 60 && on("hours")) push({ kind: "hours", level: "warn", date: at, staff_id: p.id, words: n + ": " + hrs(wk[m]) + " in " + of + " (contract " + hrs(ch * 60) + ")", fix: { label: "Show week", act: "week", date: m, staff_id: p.id } });
+        });
+      });
+      return out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : LEVEL[a.level] - LEVEL[b.level] || (a.from || "").localeCompare(b.from || "") || a.words.localeCompare(b.words); });
+    };
+    // The kinds, in the words ⋯ Rules shows next to each switch.
+    E.rotaCheck.KINDS = [["cover", "No pharmacist while open"], ["staff", "Fewer people on than the minimum"], ["leave", "Planned while on approved leave"], ["asked", "Planned on a day they asked for leave"],
+      ["double", "Two shifts at once for one person"], ["hours", "More hours than their contract"], ["wtd", "Over the weekly limit (48 h)"], ["rest", "Less than 11 hours' rest between days"],
+      ["closed", "Shifts on a closed day or public holiday"], ["avail", "Planned when they said they can't work"], ["twoph", "More pharmacists on at once than needed"]];
+    E.rotaCheck.availOn = availOn;
+    // "" when the shift fits the person's availability, else the words. settings or the avail map.
+    E.rotaCheck.availWords = function (setOrAvail, p, ymd, st, et) { var a = setOrAvail && setOrAvail.rota ? setOrAvail.rota.avail : setOrAvail && !setOrAvail.avail ? setOrAvail : setOrAvail && setOrAvail.avail; return availWords(a || {}, p, ymd, st, et); };
+    E.rotaCheck.leaveSpan = leaveSpan;
+    E.rotaCheck.dayWords = dayW;
+  })();
+
+  // E.rotaMeta: the planner's own settings, kept in the Shifts settings row under the additive key "rota"
+  // ({ plans, avail, minStaff, warn }). The classic screen saves the whole object it loaded, so these keys survive it.
+  //   get(fresh) -> Promise of the rota object (a copy; {} when none)
+  //   merge(key, fn) -> Promise of the new value: reads the settings fresh, sets rota[key] = fn(copy of its value)
+  //     (undefined removes it) and saves the whole object (PUT /shifts/settings, the classic body with this key added).
+  //   settings(fn) -> the same for the classic keys (pharmacistRequired, minPharmacists, maltaLaw, calendarToken):
+  //     fn(settings) changes the freshly read object in place, exactly as the classic screen changes its own copy.
+  // E.rotaHoursPut(fn): the opening hours the same way: read fresh, put in the classic screen's shape
+  //   (normalizeOpeningHours), fn(hours) changes it as the classic Settings tab does, PUT the whole object.
+  // Saves run one after another; a failed read never saves (no defaults written over real data). E.rotaRules' copy is
+  // updated after each save so every screen sees the change at once.
+  (function () {
+    var queue = Promise.resolve();
+    var clone = function (v) { return v == null ? v : JSON.parse(JSON.stringify(v)); };
+    var one = function (job) { var p = queue.then(job, job); queue = p.catch(function () {}); return p; };
+    async function read(path, key) {
+      var r = await E.apiFetch(path, { method: "GET", retry: true });
+      if (!r || !r.ok || !r[key] || typeof r[key] !== "object") throw new Error((r && r.error) || "Could not read the rota settings");
+      return r[key];
+    }
+    async function save(path, body) {
+      var r = await E.apiFetch(path, { method: "PUT", body: JSON.stringify(body) });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Not saved");
+      return r;
+    }
+    function remember(part, v) { // the cached rules see the saved object at once
+      var loc = E.state && E.state.user ? E.state.user.location_id : null;
+      var prev = rotaRulesC && rotaRulesC.loc === loc ? rotaRulesC.p : Promise.resolve({ hours: null, settings: null });
+      var p = prev.then(function (o) { var n = { hours: o && o.hours, settings: o && o.settings }; n[part] = clone(v); return n; }, function () { var n = { hours: null, settings: null }; n[part] = clone(v); return n; });
+      rotaRulesC = { loc: loc, at: Date.now(), p: p };
+      if (part === "settings") last = clone(v);
+    }
+    var last = null;
+    E.rotaMeta = {
+      get: async function (fresh) {
+        if (!fresh && last && rotaRulesC) return clone(last.rota && typeof last.rota === "object" ? last.rota : {});
+        var s = fresh ? await read("/shifts/settings", "settings") : ((await E.rotaRules()) || {}).settings;
+        if (!s) s = await read("/shifts/settings", "settings");
+        last = clone(s);
+        return clone(s.rota && typeof s.rota === "object" ? s.rota : {});
+      },
+      merge: function (key, fn) {
+        key = String(key || "").replace(/^rota\./, "");
+        return one(async function () {
+          var s = await read("/shifts/settings", "settings");
+          if (!s.rota || typeof s.rota !== "object") s.rota = {};
+          var v = fn(clone(s.rota[key]));
+          if (v === undefined) delete s.rota[key]; else s.rota[key] = v;
+          await save("/shifts/settings", s);
+          remember("settings", s);
+          return clone(v);
+        });
+      },
+      settings: function (fn) {
+        return one(async function () {
+          var s = await read("/shifts/settings", "settings");
+          var r = fn(s); if (r && typeof r === "object") s = r;
+          await save("/shifts/settings", s);
+          remember("settings", s);
+          return clone(s);
+        });
+      },
+      // The classic screen's shape for opening hours (its normalizeOpeningHours, in place, so the saved JSON has the
+      // same keys in the same order as a save from the classic Settings tab).
+      normalizeHours: function (oh) {
+        var pb = function (v) { if (v === true || v === 1) return true; if (v === false || v === 0 || v == null) return false; if (typeof v === "string") { var s = v.trim().toLowerCase(); if (!s) return false; if (/^(true|1|yes|y|on)$/.test(s)) return true; if (/^(false|0|no|n|off)$/.test(s)) return false; } return !!v; };
+        oh = oh || {};
+        if (!oh["default"]) oh["default"] = { open: "07:30", close: "19:30", closed: false };
+        if (!oh.overrides) oh.overrides = {};
+        if (typeof oh.weekends === "boolean") { if (oh.openSaturday == null) oh.openSaturday = oh.weekends; if (oh.openSunday == null) oh.openSunday = oh.weekends; }
+        if (oh.openSaturday == null) oh.openSaturday = true;
+        if (oh.openSunday == null) oh.openSunday = false;
+        var def = oh["default"] || { open: "07:30", close: "19:30", closed: false }, d;
+        if (!oh.weekly || typeof oh.weekly !== "object") {
+          oh.weekly = {};
+          for (d = 0; d < 7; d++) oh.weekly[d] = { open: (def.open || "07:30"), close: (def.close || "19:30"), closed: !!def.closed };
+          if (!oh.openSaturday) oh.weekly[6].closed = true;
+          if (!oh.openSunday) oh.weekly[0].closed = true;
+        } else {
+          var wk = {};
+          for (d = 0; d < 7; d++) { var e = oh.weekly[d] || oh.weekly[String(d)] || {}; wk[d] = { open: String(e.open || def.open || "07:30"), close: String(e.close || def.close || "19:30"), closed: pb(e.closed) }; }
+          oh.weekly = wk;
+        }
+        oh.openSaturday = !oh.weekly[6].closed;
+        oh.openSunday = !oh.weekly[0].closed;
+        if (oh.weekends == null) oh.weekends = (oh.openSaturday && oh.openSunday);
+        oh["default"] = Object.assign({}, oh.weekly[1] || def);
+        return oh;
+      }
+    };
+    E.rotaHoursPut = function (fn) {
+      return one(async function () {
+        var h = E.rotaMeta.normalizeHours(await read("/shifts/opening-hours", "hours"));
+        E.rotaMeta.normalizeHours(h); // the classic screen normalises on load and again when its Settings tab opens
+        var r = fn(h); if (r && typeof r === "object") h = r;
+        await save("/shifts/opening-hours", h);
+        remember("hours", h);
+        return clone(h);
+      });
+    };
+  })();
   // ---- end rota ----
   E.openClassic = function (hash) {
     try {

@@ -46,7 +46,7 @@ export function pressPhrases(g) {
 export function staticCheck(root) {
   const G = loadGuides(root), screens = newScreens(root), problems = [];
   const read = (f) => { try { return plain(fs.readFileSync(path.join(root, f), "utf8")); } catch (e) { return ""; } };
-  const shared = ["eikon.months.js", "eikon.correct.js", "eikon.dailyreg.js", "modules.today.js"].map(read).join("\n");
+  const shared = ["eikon.months.js", "eikon.correct.js", "eikon.dailyreg.js", "modules.today.js", "eikon.rotaset.js"].map(read).join("\n");
   const jargon = /\b(worker|deploy(ed)?|UI|API|CSP|commit|endpoint|localStorage|D1|wrangler|bug|debounce|JSON|cache|server|sync(ed|s)?|upsert|IndexedDB|token|module|hash|null|undefined)\b/i;
   for (const { id, file } of screens) {
     const g = G[id]; if (!g) { problems.push(id + ": no guide"); continue; }

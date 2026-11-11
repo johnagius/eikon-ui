@@ -2,13 +2,17 @@
    (a Malta public holiday is closed unless a one-day override opens it) and any gap in pharmacist cover (E.teamCover,
    the classic coverage rule). On a wide screen the week is one table, a person to a row; on a phone, today comes first.
    Below it, hours per person for the month, read only when opened. Read only: shifts are planned, swapped, gaps filled
-   and leave asked for in Plan shifts (a tapped shift opens there, ready to swap); patterns and the calendar link stay in the classic Shifts screen. */
+   and leave asked for in Plan shifts (a tapped shift opens there, ready to swap).
+   Mine: on this week, the signed-in person's next shifts come first (E.rotaMe: their name on the rota, or the name they
+   chose once on this device), with their leave and "Add to my calendar" (the live calendar link, E.rotaCal). This week's
+   read covers the next two weeks so that block needs no extra request. Print: the week or month as a wall rota, a list
+   by day, or a spreadsheet (E.rotaPrint, eikon.rotaprint.js). */
 (function () {
   "use strict";
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, monday: null, staff: {}, shifts: [], leaves: [], allLeaves: [], hours: null, rules: null, loading: false, error: "", past: false, month: null };
+  var S = { mount: null, monday: null, staff: {}, shifts: [], ahead: [], leaves: [], allLeaves: [], hours: null, rules: null, loading: false, error: "", past: false, month: null, panel: null, choose: false };
   var ORDER = ["pharmacist", "locum", "manager", "assistant", "dispenser", "cashier", "cleaner", "other"];
   var DAY = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -76,28 +80,43 @@
       "#rot-month-b{background:var(--panel2);border:1px solid var(--border);border-top:0;border-radius:0 0 12px 12px;padding:4px 0 6px}.rot-msub{margin:6px 14px 8px;font-size:12.5px;color:var(--muted)}.rot-msk{height:120px;margin:10px 14px;border-radius:8px;background:rgba(118,118,128,.1)}" +
       ".rot-mt{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}.rot-mt th,.rot-mt td{text-align:left;padding:8px 14px;border-top:.5px solid var(--border);font-size:14px;vertical-align:top}.rot-mt thead th{font-size:12.5px;color:var(--muted);font-weight:600}.rot-mt .n{text-align:right;white-space:nowrap}" +
       ".rot-mt tbody th b{display:block;font-weight:600}.rot-mt tbody th span{display:block;font-size:12px;color:var(--muted);font-weight:400}.rot-mt .m{color:var(--muted)}.rot-mt td:last-child{white-space:nowrap}.rot-mt .over{display:block;font-size:12px;color:var(--warn,#8A5A08);font-weight:600}" +
+      // Mine: the signed-in person's next shifts, first on this week.
+      ".rot-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.rot-top .rot-btn{margin-top:4px;flex:0 0 auto}" +
+      ".rot-mine{background:var(--panel2);border:1px solid var(--border);border-radius:12px;margin-top:14px;overflow:hidden}.rot-mine .hd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px 6px;flex-wrap:wrap}.rot-mine h2{margin:0;font-size:17px;font-weight:700}" +
+      ".rot-mine .rot-btn{margin:0}.rot-mine ul{list-style:none;margin:0;padding:0}.rot-mine li{border-top:.5px solid var(--border)}" +
+      ".rot-mine li>button,.rot-mine li>div{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;min-height:48px;padding:8px 14px;font:inherit;color:var(--text);background:none;border:0;text-align:left}.rot-mine li>button{cursor:pointer}.rot-mine li>button:hover{background:rgba(118,118,128,.08)}" +
+      ".rot-mine .d{flex:0 0 116px;font-weight:600;font-size:14.5px}.rot-mine .w{flex:1;min-width:0;font-size:12.5px;color:var(--muted)}.rot-mine em{flex:0 0 112px;font-style:normal;font-weight:700;font-variant-numeric:tabular-nums;font-size:14.5px;white-space:nowrap}" +
+      ".rot-mine li.lv .w{color:var(--warn,#8A5A08);font-weight:600}.rot-mine li.now>button{background:var(--ok-soft,rgba(28,138,91,.1))}" +
+      ".rot-mine .none{padding:10px 14px 14px;color:var(--muted);font-size:14px;border-top:.5px solid var(--border)}.rot-mine .who{margin:0;padding:8px 14px 10px;font-size:12.5px;color:var(--muted);border-top:.5px solid var(--border)}" +
+      ".rot-link{font:inherit;font-size:12.5px;color:var(--accent);background:none;border:0;padding:0 4px;min-height:32px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}" +
+      ".rot-mine .rpo-panel{margin:0;border:0;border-top:.5px solid var(--border);border-radius:0}.rot-mine .rpo-panel li{border:0}" +
+      ".rot-ask{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 10px;padding:4px 14px 14px}.rot-ask label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--muted);flex:1 1 220px;min-width:0}.rot-ask select{width:100%;box-sizing:border-box;font:inherit;font-size:16px;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:10px;min-height:44px;padding:0 10px}.rot-ask .rot-btn{margin:0}" +
+      ".rot-look{margin-top:12px;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:10px 14px}.rot-look h2{margin:0 0 4px;font-size:14.5px;font-weight:700}.rot-look ul{margin:0;padding:0;list-style:none;font-size:13.5px;line-height:1.5}.rot-look li+li{margin-top:2px}.rot-look button{font:inherit;color:var(--accent);background:none;border:0;padding:0;cursor:pointer;text-align:left;text-decoration:underline;text-underline-offset:2px;min-height:28px}" +
       "@media (min-width:1100px){.rot{max-width:1180px}.rot-grid-wrap{display:block;margin-top:12px}.rot-week{display:none}}" +
-      "@media (max-width:600px){.rot-mt thead th:nth-child(4),.rot-mt td:nth-child(4){display:none}.rot-mt th,.rot-mt td{padding:8px 10px}}" +
+      "@media (max-width:600px){.rot-mt thead th:nth-child(4),.rot-mt td:nth-child(4){display:none}.rot-mt th,.rot-mt td{padding:8px 10px}.rot-mine .d{flex-basis:92px}.rot-mine li>button,.rot-mine li>div{flex-wrap:wrap;row-gap:0}.rot-mine .w{flex-basis:100%;padding-left:102px}.rot-mine em{flex-basis:auto}.rot-link{min-height:44px}}" +
       "@media (max-width:600px){.rot{padding:4px 16px 0}.rot h1{font-size:32px}.rot-nav button{width:44px;height:44px;border-radius:22px;flex:0 0 44px}.rot-nav .now{flex:0 0 auto}.rot-btn{height:44px;border-radius:22px}.rot-foot a{display:inline-block;padding:12px 0;margin:-12px 0}}";
     document.head.appendChild(st);
   }
 
   async function load() {
     var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
-    var from = ymd(S.monday), to = ymd(plus(S.monday, 6)), years = [S.monday.getFullYear(), plus(S.monday, 6).getFullYear()].filter(function (y, i, a) { return a.indexOf(y) === i; });
+    var thisWk = ymd(mondayOf(new Date())) === ymd(S.monday);
+    var from = ymd(S.monday), to = ymd(plus(S.monday, 6)), upto = thisWk ? ymd(plus(S.monday, 13)) : to, years = [S.monday.getFullYear(), plus(S.monday, 6).getFullYear()].filter(function (y, i, a) { return a.indexOf(y) === i; });
     try {
       var rules = E.rotaRules ? E.rotaRules() : Promise.resolve({});
-      var res = await Promise.all([E.apiFetch("/shifts/staff?include_inactive=1", { method: "GET" }), E.apiFetch("/shifts/assignments-range?from=" + from + "&to=" + to, { method: "GET" }), rules]
+      var res = await Promise.all([E.apiFetch("/shifts/staff?include_inactive=1", { method: "GET" }), E.apiFetch("/shifts/assignments-range?from=" + from + "&to=" + upto, { method: "GET" }), rules]
         .concat(years.map(function (y) { return E.apiFetch("/shifts/leaves?year=" + y, { method: "GET" }).catch(function () { return null; }); })));
       if (!res[0] || !res[0].ok || !res[1] || !res[1].ok) throw new Error((res[1] && res[1].error) || (res[0] && res[0].error) || "Could not load the rota");
       if (from !== ymd(S.monday)) return; // the week changed while this was loading: the newer load paints
       S.staff = {}; (res[0].staff || []).forEach(function (p) { S.staff[p.id] = p; });
-      S.shifts = (res[1].shifts || []).slice().sort(function (a, b) { return String(a.start_time).localeCompare(String(b.start_time)); });
+      S.ahead = (res[1].shifts || []).slice().sort(function (a, b) { return String(a.shift_date).localeCompare(String(b.shift_date)) || String(a.start_time).localeCompare(String(b.start_time)); }); // this week and, on this week, the next (for Mine)
+      S.shifts = S.ahead.filter(function (x) { return x.shift_date <= to; }).sort(function (a, b) { return String(a.start_time).localeCompare(String(b.start_time)); });
       S.hours = res[2] && res[2].hours; S.rules = res[2] && res[2].settings;
       S.allLeaves = [].concat.apply([], res.slice(3).map(function (r) { return (r && r.ok && r.leaves) || []; }));
       S.leaves = S.allLeaves.filter(function (l) { var st = String(l.status || "").toLowerCase(); return (st === "approved" || st === "pending") && l.end_date >= from && l.start_date <= to; }); // approved and still-asked leave; refused leave is not shown
     } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the rota"); }
-    S.loading = false; E.whenFormIdle(S.mount, paint);
+    S.loading = false; S.prHost = null; // an open print chooser is drawn again with what was just read
+    E.whenFormIdle(S.mount, paint);
   }
 
   function weekHas() {
@@ -191,14 +210,94 @@
     return h + "</div></section>";
   }
 
+  // ---- Mine: the signed-in person's next shifts and leave (this week's read covers the next two weeks), with the
+  // calendar link one tap away. Who they are: E.rotaMe (their name on the rota, or the one chosen on this device).
+  function meState() { return E.rotaMeState ? E.rotaMeState(S.staff) : { me: null, how: "none", options: [] }; }
+  function firstName(p) { var w = String((p && p.full_name) || "").trim().split(/\s+/); while (w.length > 1 && /^(dr|pharm|mr|mrs|ms|miss|fr|prof|sr)\.?$/i.test(w[0])) w.shift(); return w[0] || ""; }
+  function dayName(key, t) { if (key === t) return "Today"; if (key === ymd(plus(parse(t), 1))) return "Tomorrow"; var d = parse(key); return DAY[(d.getDay() + 6) % 7].slice(0, 3) + " " + d.getDate() + " " + MON[d.getMonth()]; }
+  function shortDate(key) { var d = parse(key); return d.getDate() + " " + MON[d.getMonth()]; }
+  function onApprovedLeave(sid, key) { return S.allLeaves.some(function (l) { return low(l.status) === "approved" && Number(l.staff_id) === Number(sid) && l.start_date <= key && l.end_date >= key && !(l.start_time || l.end_time); }); }
+  function mineHtml() {
+    var st = meState(), t = E.maltaYmd ? E.maltaYmd(new Date()) : ymd(new Date()), nowHm = E.maltaHm ? E.maltaHm(new Date()) : "";
+    if (!st.options.length || (st.how === "none" && !S.choose)) return "";
+    if (!st.me || S.choose) {
+      var pick = st.me ? String(st.me.id) : st.matches && st.matches[0] ? String(st.matches[0].id) : "";
+      return '<section class="rot-mine" aria-labelledby="rot-mine-h"><div class="hd"><h2 id="rot-mine-h">See your own shifts first</h2></div>' +
+        '<div class="rot-ask"><label>Which one is you on the rota?<select data-x="me-pick">' + (pick ? "" : '<option value="">Choose your name</option>') +
+        st.options.map(function (p) { return '<option value="' + esc(p.id) + '"' + (String(p.id) === pick ? " selected" : "") + ">" + esc(p.full_name) + " · " + esc(desig(p.designation)) + "</option>"; }).join("") +
+        '</select></label><button class="rot-btn p" data-act="me-set">That\u2019s me</button><button class="rot-btn" data-act="me-none">I\u2019m not on the rota</button></div>' +
+        '<p class="who">Asked once on this device. Nothing is sent.</p></section>';
+    }
+    var me = st.me, until = ymd(plus(parse(t), 13));
+    var mine = S.ahead.filter(function (x) { return Number(x.staff_id) === Number(me.id) && (x.shift_date > t || (x.shift_date === t && (!nowHm || hm(x.end_time) > nowHm))); }).slice(0, 7);
+    var away = S.allLeaves.filter(function (l) { var s0 = low(l.status); return Number(l.staff_id) === Number(me.id) && (s0 === "approved" || s0 === "pending") && l.end_date >= t && l.start_date <= until; })
+      .sort(function (a, b) { return String(a.start_date).localeCompare(String(b.start_date)); });
+    var rows = mine.map(function (x) { return { at: x.shift_date + " " + hm(x.start_time), x: x }; }).concat(away.map(function (l) { return { at: (l.start_date < t ? t : l.start_date) + " 00", l: l }; }))
+      .sort(function (a, b) { return a.at < b.at ? -1 : a.at > b.at ? 1 : 0; });
+    var h = '<section class="rot-mine" aria-labelledby="rot-mine-h"><div class="hd"><h2 id="rot-mine-h">Your next shifts</h2>' +
+      '<button class="rot-btn" data-act="cal" aria-expanded="' + (S.panel === "cal") + '" aria-controls="rot-cal-slot">' + (S.panel === "cal" ? "Hide calendar link" : "Add to my calendar") + "</button></div>";
+    if (rows.length) {
+      h += "<ul>" + rows.map(function (r) {
+        if (r.l) {
+          var l = r.l, pend = low(l.status) === "pending", span = l.start_date === l.end_date ? shortDate(l.start_date) : shortDate(l.start_date) + " – " + shortDate(l.end_date);
+          return '<li class="lv"><div><span class="d">' + esc(l.start_date <= t ? "From today" : dayName(l.start_date, t)) + "</span><em></em><span class=\"w\">" + esc((pend ? "Asked for " + leaveLabel(l.leave_type).toLowerCase() : leaveLabel(l.leave_type)) + " · " + span) + "</span></div></li>";
+        }
+        var x = r.x, now = onNow(x), others = [];
+        S.ahead.forEach(function (y) { if (y.shift_date === x.shift_date && Number(y.staff_id) !== Number(me.id) && hm(y.start_time) < hm(x.end_time) && hm(y.end_time) > hm(x.start_time) && !onApprovedLeave(y.staff_id, y.shift_date)) { var n = firstName(person(y.staff_id)); if (n && others.indexOf(n) < 0) others.push(n); } });
+        var w = others.length ? "with " + (others.length > 3 ? others.slice(0, 3).join(", ") + " and " + (others.length - 3) + " more" : others.length === 1 ? others[0] : others.slice(0, -1).join(", ") + " and " + others[others.length - 1]) : "on your own";
+        var lbl = "Swap your shift, " + dayName(x.shift_date, t) + ", " + hm(x.start_time) + " to " + hm(x.end_time) + ", " + w + (now ? " (on now)" : "");
+        return '<li' + (now ? ' class="now"' : "") + '><button data-act="swap" data-id="' + esc(x.id) + '" data-date="' + esc(x.shift_date) + '" aria-label="' + esc(lbl) + '"><span class="d">' + esc(dayName(x.shift_date, t)) + "</span><em>" + (now ? '<span class="rot-sr">On now, </span>' : "") + esc(hm(x.start_time) + "–" + hm(x.end_time)) + '</em><span class="w">' + esc(w + (x.role_override === "pharmacist" && low(me.designation) !== "pharmacist" && low(me.designation) !== "locum" ? " · as pharmacist" : "") + (x.notes ? " · " + x.notes : "")) + "</span></button></li>";
+      }).join("") + "</ul>";
+    } else h += '<p class="none">Nothing planned for you in the next two weeks.</p>';
+    h += '<div id="rot-cal-slot"></div>';
+    h += '<div id="rot-push-slot"></div>'; // B5: "Tell me when my shifts change" (E.rotaPush.ui.toggle)
+    return h + '<p class="who">Shown for ' + esc(me.full_name) + '. <button class="rot-link" data-act="me-change">Not you?</button></p></section>';
+  }
+  // Problems and warnings other than cover (cover is in the grid already), in E.rotaCheck's words.
+  function lookHtml() {
+    if (typeof E.rotaCheck !== "function") return "";
+    var items = [];
+    try { items = (E.rotaCheck({ from: ymd(S.monday), to: ymd(plus(S.monday, 6)) }, { shifts: S.shifts, staff: S.staff, leaves: S.leaves, hours: S.hours, settings: S.rules }) || []).filter(function (i) { return i && i.kind !== "cover" && (i.level === "problem" || i.level === "warn"); }); } catch (e) { return ""; }
+    if (!items.length) return "";
+    return '<section class="rot-look" aria-labelledby="rot-look-h"><h2 id="rot-look-h">Things to look at this week (' + items.length + ")</h2><ul>" +
+      items.slice(0, 5).map(function (i) { return '<li><button data-act="look" data-date="' + esc(i.date || "") + '">' + esc(i.words) + "</button></li>"; }).join("") +
+      (items.length > 5 ? '<li><button data-act="plan">' + (items.length - 5) + " more in Plan shifts</button></li>" : "") + "</ul></section>";
+  }
+  // The print chooser and the calendar link keep their own state across this screen's redraws: one element each,
+  // put back in its slot after every paint.
+  function mountPanels() {
+    var m = S.mount;
+    var ps = m.querySelector("#rot-print-slot");
+    if (ps && S.panel === "print" && !S.loading) {
+      if (!S.prHost) {
+        S.prHost = document.createElement("div"); ps.appendChild(S.prHost);
+        var wkData = { staff: S.staff, shifts: S.shifts, leaves: S.allLeaves, hours: S.hours, settings: S.rules };
+        S.prPanel = E.rotaPrint && E.rotaPrint.ui ? E.rotaPrint.ui.panel(S.prHost, { monday: ymd(S.monday), staff: S.staff, data: { week: wkData, month: { staff: S.staff, leaves: S.allLeaves, hours: S.hours, settings: S.rules }, list: { staff: S.staff } }, onClose: function () { S.panel = null; paint(); var b = S.mount && S.mount.querySelector('[data-act="print"]'); if (b) b.focus(); } }) : null;
+      } else { ps.appendChild(S.prHost); if (S.prPanel) S.prPanel.redraw(); }
+    }
+    var cs = m.querySelector("#rot-cal-slot"), st = cs ? meState() : null;
+    if (cs && S.panel === "cal" && st && st.me) {
+      if (!S.calHost || S.calFor !== st.me.id) {
+        S.calHost = document.createElement("div"); S.calFor = st.me.id; cs.appendChild(S.calHost);
+        S.calPanel = E.rotaCal && E.rotaCal.ui ? E.rotaCal.ui.panel(S.calHost, { staff: S.staff, me: st.me, manage: true, focus: true, monthOf: ymd(plus(S.monday, 3)), onClose: function () { S.panel = null; paint(); var b = S.mount && S.mount.querySelector('[data-act="cal"]'); if (b) b.focus(); } }) : null;
+      } else { cs.appendChild(S.calHost); if (S.calPanel) S.calPanel.redraw(); }
+    }
+    var qs = m.querySelector("#rot-push-slot"), qst = qs ? meState() : null; // B5: one element, kept across redraws
+    if (qs && qst && qst.me && E.rotaPush && E.rotaPush.ui) {
+      if (!S.pushHost) { S.pushHost = document.createElement("div"); S.pushRow = E.rotaPush.ui.toggle(S.pushHost, { me: qst.me, staff: S.staff }); }
+      qs.appendChild(S.pushHost); S.pushRow.redraw({ me: qst.me, staff: S.staff });
+    }
+  }
+
   function paint() {
     var m = S.mount; if (!m) return;
     if (E.state.activeModuleId !== "rotreg") return; // left before a reply came back: do not draw over the next screen
     var ae = document.activeElement, keepAct = ae && m.contains(ae) ? ae.getAttribute("data-act") : null; // the week arrows keep focus across the redraw
     var sun = plus(S.monday, 6), thisWeek = ymd(mondayOf(new Date())) === ymd(S.monday);
     var label = S.monday.getDate() + " " + MON[S.monday.getMonth()] + " – " + sun.getDate() + " " + MON[sun.getMonth()];
-    var h = '<div class="rot"><button class="rot-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("rotreg") : "‹ Team") + '</button><h1>Who\'s in</h1><p class="rot-sub">The week\'s rota: who works, when, and who is away.</p>' +
-      '<div class="rot-nav"><button data-act="prev" aria-label="Previous week" title="Previous week (←)">‹</button><b>' + esc(label) + "</b>" + (thisWeek ? "" : '<button class="now" data-act="now">This week</button>') + '<button data-act="next" aria-label="Next week" title="Next week (→)">›</button></div>';
+    var h = '<div class="rot"><button class="rot-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("rotreg") : "‹ Team") + '</button><div class="rot-top"><h1>Who\'s in</h1><button class="rot-btn" data-act="print" aria-expanded="' + (S.panel === "print") + '" aria-controls="rot-print-slot">Print</button></div><p class="rot-sub">The week\'s rota: who works, when, and who is away.</p>' +
+      '<div class="rot-nav"><button data-act="prev" aria-label="Previous week" title="Previous week (←)">‹</button><b>' + esc(label) + "</b>" + (thisWeek ? "" : '<button class="now" data-act="now">This week</button>') + '<button data-act="next" aria-label="Next week" title="Next week (→)">›</button></div><div id="rot-print-slot"></div>';
+    if (!S.error && !(S.loading && !S.shifts.length) && thisWeek) h += mineHtml();
     if (S.loading && !S.shifts.length) h += '<div role="status" aria-label="Opening the rota"><div class="rot-sk"></div><div class="rot-sk"></div></div>'; // the shape of the week, not a spinner
     else if (S.error) h += '<div class="rot-quiet" role="alert">' + esc(S.error) + '<button class="rot-btn" data-act="retry">Try again</button></div>';
     else if (!weekHas()) {
@@ -208,6 +307,7 @@
     }
     else {
       var today = ymd(new Date()), ti = thisWeek ? (new Date().getDay() + 6) % 7 : 0;
+      h += lookHtml();
       if (S.shifts.length) h += '<p class="rot-hint">Tap a shift to swap it with someone else’s, on any day of the week.</p>';
       h += gridHtml(today);
       // Phone and narrow screens: day by day, today first (the days already gone this week one tap away).
@@ -236,17 +336,20 @@
       h += "</div>";
       h += monthHtml();
     }
-    h += '<p class="rot-foot">Plan the week in <a href="#" data-act="plan">Plan shifts</a>, or <a href="#" data-act="leave">ask for leave</a>. Patterns and the calendar link are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
+    h += '<p class="rot-foot">Plan the week in <a href="#" data-act="plan">Plan shifts</a>, or <a href="#" data-act="leave">ask for leave</a>.' +
+      (thisWeek && !S.choose && meState().how === "none" && meState().options.length ? ' On the rota yourself? <a href="#" data-act="me-change">Show your shifts first</a>.' : "") + "</p></div>";
     m.innerHTML = h;
     if (keepAct && keepAct !== "swap") { var back = m.querySelector('[data-act="' + keepAct + '"]') || (keepAct === "now" ? m.querySelector('[data-act="next"]') : null); if (back) back.focus(); }
+    mountPanels(); // after the focus is put back: a panel that opens takes it
     m.querySelectorAll("[data-act]").forEach(function (b) {
+      if (S.prHost && S.prHost.contains(b) || S.calHost && S.calHost.contains(b)) return; // the panels wire their own
       b.addEventListener("click", function (ev) {
         var a = b.getAttribute("data-act");
         if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("rotreg") : "#team";
         else if (a === "retry") load();
-        else if (a === "prev") { S.monday = plus(S.monday, -7); S.shifts = []; load(); }
-        else if (a === "next") { S.monday = plus(S.monday, 7); S.shifts = []; load(); }
-        else if (a === "now") { S.monday = mondayOf(new Date()); S.shifts = []; load(); }
+        else if (a === "prev") { S.monday = plus(S.monday, -7); S.shifts = []; S.prHost = null; load(); }
+        else if (a === "next") { S.monday = plus(S.monday, 7); S.shifts = []; S.prHost = null; load(); }
+        else if (a === "now") { S.monday = mondayOf(new Date()); S.shifts = []; S.prHost = null; load(); }
         else if (a === "past") { S.past = !S.past; paint(); }
         else if (a === "month") { if (S.month && S.month.key === monthOf().y + "-" + pad(monthOf().m + 1) && S.month.open) { S.month.open = false; paint(); } else if (S.month && S.month.rows && S.month.key === monthOf().y + "-" + pad(monthOf().m + 1)) { S.month.open = true; paint(); } else loadMonth(); }
         else if (a === "month-retry") { S.month = null; loadMonth(); }
@@ -254,6 +357,17 @@
         else if (a === "swap") { E._shfSwap = { id: Number(b.getAttribute("data-id")), date: b.getAttribute("data-date") }; location.hash = "#shfreg"; }
         else if (a === "plan") { ev.preventDefault(); E._shfWeek = ymd(S.monday); location.hash = "#shfreg"; }
         else if (a === "leave") { ev.preventDefault(); E._shfLeaveNew = true; location.hash = "#shfreg"; } // Plan shifts opens with a new leave request
+        else if (a === "print") { S.panel = S.panel === "print" ? null : "print"; paint(); var pb = S.mount.querySelector('[data-act="print"]'); if (pb && S.panel !== "print") pb.focus(); }
+        else if (a === "cal") { S.panel = S.panel === "cal" ? null : "cal"; paint(); var f = S.panel === "cal" ? S.calHost && S.calHost.querySelector("select, [data-x=on]") : S.mount.querySelector('[data-act="cal"]'); if (f) f.focus(); }
+        else if (a === "me-set" || a === "me-none") {
+          var sel = S.mount.querySelector('[data-x="me-pick"]'), v = a === "me-none" ? "none" : sel && sel.value;
+          if (!v) { if (sel) sel.focus(); return; }
+          if (E.rotaMeSet) E.rotaMeSet(v); S.choose = false; S.calHost = null; paint();
+          var nb = S.mount.querySelector(a === "me-none" ? '[data-act="print"]' : '[data-act="cal"]'); if (nb) nb.focus();
+          if (a === "me-none") E.toast && E.toast("Fine. Who\u2019s in will not ask again on this device.", "info");
+        }
+        else if (a === "me-change") { ev.preventDefault(); S.choose = true; S.panel = S.panel === "cal" ? null : S.panel; paint(); var ps = S.mount.querySelector('[data-x="me-pick"]'); if (ps) ps.focus(); }
+        else if (a === "look") { E._shfWeek = ymd(S.monday); location.hash = "#shfreg"; }
         else if (a === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "rotreg"); } catch (x) {} E.openClassic("shifts"); }
       });
     });
@@ -266,11 +380,11 @@
     var a = document.activeElement; if (a && a !== document.body && !S.mount.contains(a)) return;
     if (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return;
     if (document.querySelector(".eikon-modal-overlay[style*='flex'], .eks")) return;
-    ev.preventDefault(); S.monday = plus(S.monday, ev.key === "ArrowLeft" ? -7 : 7); S.shifts = []; load();
+    ev.preventDefault(); S.monday = plus(S.monday, ev.key === "ArrowLeft" ? -7 : 7); S.shifts = []; S.prHost = null; load();
   }
   E.registerModule({
     id: "rotreg", title: "Who's in", order: 3, icon: "◷", ui2Only: true,
-    render: function (ctx) { var wk = E._rotWeek; E._rotWeek = null; S.mount = ctx && ctx.mount; S.monday = wk ? mondayOf(parse(wk)) : mondayOf(new Date()); S.month = null; S.past = false; S.shifts = []; css(); paint(); document.removeEventListener("keydown", onKey); document.addEventListener("keydown", onKey); return load(); },
+    render: function (ctx) { var wk = E._rotWeek; E._rotWeek = null; S.mount = ctx && ctx.mount; S.monday = wk ? mondayOf(parse(wk)) : mondayOf(new Date()); S.month = null; S.past = false; S.shifts = []; S.ahead = []; S.panel = null; S.choose = false; S.prHost = null; S.calHost = null; css(); paint(); document.removeEventListener("keydown", onKey); document.addEventListener("keydown", onKey); return load(); },
     destroy: function () { document.removeEventListener("keydown", onKey); }
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("rotreg") < 0) E.UI2_DESTINATIONS.push("rotreg");

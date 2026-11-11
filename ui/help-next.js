@@ -259,17 +259,36 @@
       ["Swap two shifts", "Tap a shift. Plan shifts opens with Swap with ready.", "Choose the other person's shift, on any day of the week. The screen says who will work when; then swap them there."],
       ["Change the rota", "Press Plan shifts."],
       ["Ask for leave", "Press ask for leave. The request is made in Plan shifts."],
-      ["See who is away", "Leave shows on each person's day."]
-    ], "Patterns and the calendar link are in the classic screen.", []],
+      ["See who is away", "Leave shows on each person's day."],
+      ["See your own shifts", "On this week, Your next shifts comes first: your next shifts for two weeks, who works with you, and your leave.", "The first time, choose your name under Which one is you on the rota, and press That's me. It is kept on this device only. Not you? changes it."],
+      ["Put your shifts in your phone's calendar", "Press Add to my calendar. If the link is off, turn it on there.", "Choose your calendar: iPhone, Mac or Outlook app (then Subscribe), Google Calendar, or Outlook.com. It updates by itself: changes show within a few hours, Google Calendar can take up to a day.", "Only your own shifts and approved leave are in your link. A one-time file for the month is there too."],
+      ["Print the rota", "Press Print.", "Choose this week as a wall rota, this month as a grid, or a list by day for any day, month, year or dates, for everyone or one person.", "Press Print, or Download as a spreadsheet."],
+      ["Get a notification when your shifts change", "Under Your next shifts, turn on Tell me when my shifts change.", "Allow notifications when the browser asks. A notification then comes the moment your shifts or leave change; tap it to open Who's in.", "It works on the device where you turned it on: do it on each phone you use. On an iPhone, first add Eikon to the Home Screen (Share, then Add to Home Screen) and open it from there."]
+    ], "", []],
 
-    ["shfreg", "team", "Plan shifts", "Who works when: add, change or remove a shift, and answer leave requests.", [
-      ["Add a shift", "Press + Add shift on the day.", "Choose the person and set the times.", "Press Add shift."],
-      ["Change or remove a shift", "Tap the shift and change the times, then press Save, or press Remove shift."],
+    ["shfreg", "team", "Plan shifts", "Who works when, for a week or a month: add, change or remove a shift, fill weeks and months at once, and answer leave requests.", [
+      ["Add a shift", "On a computer, click the person's day on the rota. On a phone, press + Add shift on the day.", "Choose the person and set the times.", "Press Add shift."],
+      ["Change or remove a shift", "Tap the shift and change the times, the note or Works as, then press Save, or press Remove shift."],
+      ["Fill many days at once", "Press Fill…, then choose how: the same days every week, a usual week or rotation, days you pick, copy or repeat, fill the gaps, same as last week, or everyone's usual pattern.", "Answer the few questions (who, which days, the hours, from and until), then press Show what it will do.", "Read what it adds, keeps, removes and skips, and why. Days that already have a shift are kept unless you press Replace them.", "Press Add to save. Undo in the message, or later in ⋯ Recent changes, takes the whole fill off again in one step."],
+      ["Set someone's usual week or rotation", "Tap the person's name, or press Fill…, then choose A usual week or rotation.", "Give each working day its hours, and add a week for weeks that take turns (for example Saturdays every other week).", "Save the usual week, then put it on the rota: the next screen shows what it will do.", "Until changed plans 12 months ahead; 8 weeks before it runs out, Plan shifts offers Extend."],
+      ["Choose days on the rota", "On a computer, drag across the days, Shift-click, or tick a person or a day. On a phone, press Select, choose whose days and tick them.", "Press Set hours… (or Usual pattern, Copy, Paste, Clear) on the bar at the bottom."],
+      ["Use the keyboard", "Arrows move on the rota, Shift and the arrows select, Enter opens, Delete clears, Ctrl+C and Ctrl+V copy and paste.", "F opens Fill…, W and M show the week or the month, T goes back to today."],
+      ["See the month", "Press Month. Each day shows who works, and a mark where there is no pharmacist."],
+      ["Move a shift", "Drag it to another day or person on a computer, or tap it and press Move to…."],
+      ["Add a locum who is not on the rota", "Press + Add shift (or Fill the gap) and choose + A new locum… under Who.", "Write the name, and the phone and registration number if you have them. Press Add shift: the locum and the shift are saved together."],
+      ["Print the rota", "Press Print, then choose this week, this month, or a list by day."],
       ["Fill a gap", "A day with no pharmacist for some hours says so in amber. Press Fill the gap.", "The hours are filled in and a free pharmacist is chosen. Press Add shift."],
       ["Swap two shifts", "Tap one of the shifts, then press Swap….", "Choose the other person's shift: the same day or any day of the week. The screen says who will work when, and any hours left without a pharmacist. Each person keeps their own note.", "Press Swap shifts. If something goes wrong half way, it is put back and the screen says so."],
       ["Ask for leave", "Press + New leave request.", "Fill in who, the type, from and until, and the reason.", "Press Save leave request."],
-      ["Answer a leave request", "Press Approve or Refuse on the request. You are warned if no one would cover."]
-    ], "Patterns, opening hours, changing a person's details, leave balances and history, and the calendar link are in the classic screen.", []],
+      ["Answer a leave request", "Press Approve or Refuse on the request. You are warned if no one would cover."],
+      // roster planner, rules and settings (B3, ui/eikon.rotaset.js)
+      ["Change the opening hours", "Open ⋯ and choose Opening hours.", "Set each day's hours, or tick off Open for a day you are closed. Press Monday's hours for Tue–Fri to copy them.", "Press Save hours."],
+      ["Open on a holiday, close a day, or a duty Sunday", "Tap the day's hours at the top of the week, or open ⋯ Opening hours.", "Choose Open or Closed, the hours and a note. Press Duty Sunday to open the next Sunday as the duty pharmacy.", "Press Save this day. Press Remove on a day to go back to the usual hours."],
+      ["Choose what to warn about", "Open ⋯ and choose Rules.", "Set whether a pharmacist must be on, how many pharmacists and how many people are needed at once, and which things to look at are shown.", "Press Save rules. Nothing is ever stopped: the warnings only point things out."],
+      ["Say when someone can't work", "Tap the person's name and open When can't they work?", "For each weekday choose Any time, Can't work or Only between, and add particular days.", "Press Save. Filling the rota skips those times; it is not leave."],
+      ["See leave left and leave taken", "Tap the person's name and open Leave. Annual leave left counts only annual leave; sick and urgent family leave have their own; other kinds are listed separately.", "The Malta reference (hours of leave a year) is in ⋯ Rules: press Change the reference."],
+      ["Change a person's details, or take them off the rota", "Tap the person's name and open Edit details.", "Change what is needed and press Save details.", "Press Deactivate when someone leaves: their shifts and leave stay in the history. Delete… removes everything and says how many shifts go first."]
+    ], "", []],
 
     ["teamreg", "team", "People who sign in", "Everyone at the pharmacy signs in as themselves, so the registers show who did what. For the pharmacist only.", [
       ["Add a person", "Press Add a person.", "Fill in the name and e-mail, and choose the role.", "Press Add. Give them the password shown."],

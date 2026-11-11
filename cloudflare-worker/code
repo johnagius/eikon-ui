@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-10-batch-14";
+const WORKER_VERSION = "2026-11-10-batch-15";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -14258,6 +14258,141 @@ async function handleShiftApplyPattern(request, env, corsOkHeaders, authUser) {
   return jsonResponse({ ok:true, inserted }, 200, corsOkHeaders);
 }
 
+// ── Roster planner: one-step apply (W1, John 2026-11-10 decision 4a) ─────────────────────────────
+// POST /shifts/apply-plan {items:[{staff_id, from, to, add:[{date,start_time,end_time,role_override,notes}],
+//   remove:[shift ids], seen?:[shift ids], fill?:bool}]}
+// All or nothing: every item is checked first (person in this pharmacy, dates inside its range, times HH:MM, each
+// removed shift is that person's and inside the range, and — when `seen` is sent — the person's shifts in the range are
+// still exactly the ones the screen previewed); then every DELETE and INSERT runs in ONE env.DB.batch (one transaction):
+// a failure leaves the rota as it was. A row added here is stored as POST /shifts/assignments stores it (same columns,
+// same text, created_by = the user); a row removed is removed as DELETE /shifts/assignments/:id removes it. Rights as
+// every /shifts route (anyone signed in to this pharmacy). Bounded: <= 12 people, <= 3,660 shifts added per person and
+// 8,000 in all, one SELECT for the shifts in range, <= 30 statements in the batch (dates/times/ids are written as
+// checked SQL literals, so a statement holds hundreds of rows), one audit entry per person. `fill` adds only on days
+// the person has no shift left (as apply-pattern "fill").
+const SHP_MAX_ITEMS = 12, SHP_MAX_ADD_PER = 3660, SHP_MAX_ADD = 8000, SHP_MAX_REMOVE = 8000, SHP_MAX_STMTS = 30;
+const SHP_TEXT_MAX = 2000;
+function shpYmdOk(s) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [Y, M, D] = s.split("-").map((n) => parseInt(n, 10));
+  const dt = new Date(Date.UTC(Y, M - 1, D));
+  return dt.getUTCFullYear() === Y && dt.getUTCMonth() === M - 1 && dt.getUTCDate() === D;
+}
+function shpAddDays(ymd, n) {
+  const [Y, M, D] = ymd.split("-").map((x) => parseInt(x, 10));
+  return new Date(Date.UTC(Y, M - 1, D + n)).toISOString().slice(0, 10);
+}
+function shpTimeOk(s) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(s); }
+// INSERT statements for one person: consts ?1 org, ?2 location, ?3 staff, ?4 user; date and times are checked literals.
+function shpInsertStatements(env, consts, rows) {
+  const head = `INSERT INTO shift_assignments (org_id, location_id, staff_id, shift_date, start_time, end_time, role_override, notes, created_at, updated_at, created_by) VALUES `;
+  const out = [];
+  let parts = [], params = [], sqlLen = head.length, bytes = 0;
+  const flush = () => { if (parts.length) out.push({ stmt: env.DB.prepare(head + parts.join(", ")).bind(...consts, ...params), bytes: bytes + wsaveBytes(consts) }); parts = []; params = []; sqlLen = head.length; bytes = 0; };
+  for (const r of rows) {
+    const vals = [];
+    const slot = (v) => { if (v === "") return "''"; vals.push(v); return null; };
+    const a = slot(r.role_override), b = slot(r.notes);
+    const render = (n) => "(?1,?2,?3,'" + r.date + "','" + r.start_time + "','" + r.end_time + "'," + (a === null ? "?" + (++n) : a) + "," + (b === null ? "?" + (++n) : b) + ",datetime('now'),datetime('now'),?4)";
+    let part = render(consts.length + params.length);
+    const vb = wsaveBytes(vals);
+    if (parts.length && (consts.length + params.length + vals.length > WSAVE_MAX_PARAMS || bytes + vb > WSAVE_STMT_BYTES || sqlLen + part.length + 2 > BIMP_SQL_BYTES)) { flush(); part = render(consts.length); }
+    parts.push(part); for (const v of vals) params.push(v); sqlLen += part.length + 2; bytes += vb;
+  }
+  flush();
+  return out;
+}
+async function handleShiftApplyPlan(request, env, corsOkHeaders, authUser) {
+  await ensureShiftsSchema(env);
+  const body = await readJson(request);
+  const bad = (error, extra) => jsonResponse(Object.assign({ ok: false, error }, extra || {}), 400, corsOkHeaders);
+  const raw = body && Array.isArray(body.items) ? body.items : null;
+  if (!raw || !raw.length) return bad("items[] required");
+  if (raw.length > SHP_MAX_ITEMS) return bad("At most " + SHP_MAX_ITEMS + " people at a time", { code: "split" });
+  const items = [];
+  let addTotal = 0, removeTotal = 0;
+  const seenStaff = new Set();
+  for (const it of raw) {
+    const staffId = parseInt(it && it.staff_id, 10);
+    if (!staffId || staffId < 1) return bad("staff_id required");
+    if (seenStaff.has(staffId)) return bad("Each person once per request");
+    seenStaff.add(staffId);
+    const from = String(it.from || "").trim(), to = String(it.to || "").trim();
+    if (!shpYmdOk(from) || !shpYmdOk(to)) return bad("from and to required (YYYY-MM-DD)");
+    if (to < from) return bad("to must be >= from");
+    { const ms = (d) => { const [Y, M, D] = d.split("-").map((n) => parseInt(n, 10)); return Date.UTC(Y, M - 1, D); };
+      if ((ms(to) - ms(from)) / 864e5 >= BIMP_SHIFT_MAX_DAYS) return bad("A plan can cover at most 10 years (3,660 days) at a time"); }
+    const add = [];
+    for (const a of (Array.isArray(it.add) ? it.add : [])) {
+      const date = String(a && (a.date || a.shift_date) || "").trim();
+      const st = String(a && a.start_time || "").trim(), et = String(a && a.end_time || "").trim();
+      if (!shpYmdOk(date) || date < from || date > to) return bad("Every added shift needs a date inside its range (" + (date || "no date") + ")");
+      if (!shpTimeOk(st) || !shpTimeOk(et)) return bad("Every added shift needs a start and end time (HH:MM) on " + date);
+      const ro = String(a.role_override == null ? "" : a.role_override), no = String(a.notes == null ? "" : a.notes);
+      if (ro.length > SHP_TEXT_MAX || no.length > SHP_TEXT_MAX) return bad("A note is too long on " + date);
+      add.push({ date, start_time: st, end_time: et, role_override: ro, notes: no });
+    }
+    if (add.length > SHP_MAX_ADD_PER) return bad("At most 3,660 shifts can be applied at a time", { code: "split" });
+    const ids = (x) => { const o = []; for (const v of (Array.isArray(x) ? x : [])) { const n = Number(v); if (!Number.isSafeInteger(n) || n < 1) return null; o.push(n); } return o; };
+    const remove = ids(it.remove);
+    if (!remove) return bad("remove[] must be shift ids");
+    const seen = it.seen === undefined || it.seen === null ? null : ids(it.seen);
+    if (it.seen !== undefined && it.seen !== null && !seen) return bad("seen[] must be shift ids");
+    addTotal += add.length; removeTotal += remove.length;
+    items.push({ staffId, from, to, add, remove: [...new Set(remove)], seen: seen ? new Set(seen) : null, fill: !!it.fill });
+  }
+  if (addTotal > SHP_MAX_ADD || removeTotal > SHP_MAX_REMOVE) return bad("Too many shifts for one step", { code: "split" });
+
+  const org = authUser.org_id, loc = authUser.location_id;
+  const staffIds = items.map((x) => x.staffId);
+  const found = await dbAll(env, `SELECT id FROM shift_staff WHERE org_id=? AND location_id=? AND id IN (${staffIds.map(() => "?").join(",")})`, [org, loc, ...staffIds]);
+  const have = new Set((found || []).map((r) => Number(r.id)));
+  const missing = staffIds.filter((id) => !have.has(id));
+  if (missing.length) return jsonResponse({ ok: false, error: "Staff not found", staff_ids: missing }, 404, corsOkHeaders);
+
+  // The people's shifts in the whole span, once (the (org, location, shift_date) index bounds it).
+  let lo = items[0].from, hi = items[0].to;
+  for (const x of items) { if (x.from < lo) lo = x.from; if (x.to > hi) hi = x.to; }
+  const rows = await dbAll(env,
+    `SELECT id, staff_id, shift_date FROM shift_assignments WHERE org_id=? AND location_id=? AND shift_date>=? AND shift_date<=? AND staff_id IN (${staffIds.map(() => "?").join(",")})`,
+    [org, loc, lo, hi, ...staffIds]);
+  const changed = [];
+  const plans = [];
+  for (const x of items) {
+    const mine = (rows || []).filter((r) => Number(r.staff_id) === x.staffId && r.shift_date >= x.from && r.shift_date <= x.to);
+    const byId = new Map(mine.map((r) => [Number(r.id), r]));
+    let ok = x.remove.every((id) => byId.has(id));
+    if (ok && x.seen) ok = x.seen.size === byId.size && [...byId.keys()].every((id) => x.seen.has(id));
+    if (!ok) { changed.push(x.staffId); continue; }
+    const gone = new Set(x.remove);
+    const taken = new Set(mine.filter((r) => !gone.has(Number(r.id))).map((r) => r.shift_date));
+    const add = x.fill ? x.add.filter((a) => !taken.has(a.date)) : x.add;
+    plans.push({ x, add, skipped: x.add.length - add.length });
+  }
+  if (changed.length) return jsonResponse({ ok: false, code: "changed", error: "Someone changed these shifts meanwhile. Nothing was saved.", staff_ids: changed }, 409, corsOkHeaders);
+
+  const stmts = [];
+  for (const p of plans) {
+    for (let i = 0; i < p.x.remove.length; i += 900) {
+      const chunk = p.x.remove.slice(i, i + 900);
+      stmts.push({ stmt: env.DB.prepare(`DELETE FROM shift_assignments WHERE org_id=? AND location_id=? AND staff_id=? AND id IN (${chunk.join(",")})`).bind(org, loc, p.x.staffId), bytes: 64 });
+    }
+    for (const s of shpInsertStatements(env, [org, loc, p.x.staffId, authUser.user_id], p.add)) stmts.push(s);
+  }
+  if (stmts.length > SHP_MAX_STMTS) return bad("Too many shifts for one step", { code: "split" });
+  if (stmts.length) {
+    let bytes = 0; for (const s of stmts) bytes += s.bytes;
+    if (bytes > WSAVE_BATCH_BYTES) return bad("Too many shifts for one step", { code: "split" });
+    await env.DB.batch(stmts.map((s) => s.stmt)); // one transaction: all of it or none of it
+  }
+  const results = plans.map((p) => ({ staff_id: p.x.staffId, added: p.add.length, removed: p.x.remove.length, skipped: p.skipped }));
+  for (const p of plans) {
+    await writeAudit(env, org, authUser.user_id, "SHIFT_APPLY_PLAN", "shift_assignments", String(p.x.staffId),
+      { from: p.x.from, to: p.x.to, added: p.add.length, removed: p.x.remove.length, removed_ids: p.x.remove.slice(0, 500), skipped: p.skipped }, loc);
+  }
+  return jsonResponse({ ok: true, results, added: results.reduce((n, r) => n + r.added, 0), removed: results.reduce((n, r) => n + r.removed, 0) }, 200, corsOkHeaders);
+}
+
 // ── Leaves ────────────────────────────────────────────────────────
 
 async function handleShiftLeavesList(request, env, corsOkHeaders, authUser, url) {
@@ -14446,6 +14581,7 @@ async function handleShiftIcalPublic(request, env, corsOkHeaders, url) {
   console.log("[shifts][ical] request", url.pathname, "token=", token.slice(0,6)+"…", "debug=", debug);
 
   let map = await dbFirst(env, `SELECT org_id, location_id FROM shift_calendar_tokens WHERE token=?`, [token]);
+  const fromTokenTable = !!map; // only a live token from the token table is served from the cache (a regenerated one is gone from it)
   // If not found in token table, try a fast LIKE scan of shift_settings (handles legacy storage / missing token table sync).
   if (!map) {
     try {
@@ -14517,8 +14653,28 @@ async function handleShiftIcalPublic(request, env, corsOkHeaders, url) {
 
   console.log("[shifts][ical] token ok org", map.org_id, "loc", map.location_id, "from", from, "to", to, "staff", staffId||"ALL");
 
+  // Calendar apps poll this feed (Google every few hours, Apple/Outlook more often). Each answer carries an ETag and a
+  // Last-Modified; a poll that sends them back gets 304 with no body. The answer is also kept 15 minutes in the Cache API
+  // under a key made of the (secret) token, the person filter, the window and the day, so a repeat poll costs the one
+  // token lookup above and no rota read; a key never matches another token, person or window. A regenerated token is
+  // gone from the token table, so its polls get 404 before the cache is looked at.
+  const icsSame = (inm, et) => !!et && String(inm || "").split(",").some((x) => x.trim().replace(/^W\//, "") === et.replace(/^W\//, ""));
+  const icsHeaders = (et, lm) => { const h = { "Content-Type": "text/calendar; charset=utf-8", "Cache-Control": "private, max-age=900", "X-Eikon-Worker-Version": WORKER_VERSION }; if (et) h["ETag"] = et; if (lm) h["Last-Modified"] = lm; return h; };
+  const icsAnswer = (body, et, lm) => {
+    const inm = request.headers.get("If-None-Match"), ims = request.headers.get("If-Modified-Since");
+    if (inm ? icsSame(inm, et) : (ims && lm && Date.parse(ims) >= Date.parse(lm))) return new Response(null, { status: 304, headers: icsHeaders(et, lm) });
+    return new Response(body, { status: 200, headers: icsHeaders(et, lm) });
+  };
+  const cacheKey = fromTokenTable ? new Request("https://ical-cache.eikon.invalid/" + encodeURIComponent(token) + "?o=" + map.org_id + "&l=" + map.location_id + "&s=" + (staffId || "") + "&p=" + past + "&f=" + future + "&d=" + from) : null;
+  if (cacheKey) {
+    try {
+      const hit = await caches.default.match(cacheKey);
+      if (hit) return icsAnswer(await hit.text(), hit.headers.get("ETag"), hit.headers.get("Last-Modified"));
+    } catch (e) { /* no cache here (workers.dev, tests): read the rota */ }
+  }
+
   const params = [map.org_id, map.location_id, from, to];
-  let sql = `SELECT a.id, a.staff_id, a.shift_date, a.start_time, a.end_time, a.role_override, a.notes,
+  let sql = `SELECT a.id, a.staff_id, a.shift_date, a.start_time, a.end_time, a.role_override, a.notes, a.updated_at,
                     s.full_name AS staff_name, s.designation AS staff_designation
              FROM shift_assignments a
              LEFT JOIN shift_staff s ON s.id=a.staff_id AND s.org_id=a.org_id AND s.location_id=a.location_id
@@ -14530,6 +14686,10 @@ async function handleShiftIcalPublic(request, env, corsOkHeaders, url) {
 
   const now = new Date();
   const dtstamp = now.toISOString().replace(/[-:]/g,"").replace(/\.\d+Z$/,"Z");
+  // A row's own stamp (its updated_at, UTC) as DTSTAMP / LAST-MODIFIED: the same row gives the same event on every poll
+  // (same UID, same text), and an edited row gives a newer stamp, so calendar apps update it instead of duplicating it.
+  let newest = "";
+  const rowStamp = (u) => { const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/.exec(String(u || "")); if (!m) return null; const v = m[1] + m[2] + m[3] + "T" + m[4] + m[5] + m[6] + "Z"; if (v > newest) newest = v; return v; };
 
   const lines = [];
   lines.push("BEGIN:VCALENDAR");
@@ -14568,8 +14728,10 @@ async function handleShiftIcalPublic(request, env, corsOkHeaders, url) {
     const dtEnd   = icsDtLocal(r.shift_date, r.end_time);
 
     lines.push("BEGIN:VEVENT");
+    const rs = rowStamp(r.updated_at);
     lines.push("UID:"+icsEscape(uid));
-    lines.push("DTSTAMP:"+dtstamp);
+    lines.push("DTSTAMP:"+(rs || dtstamp));
+    if (rs) lines.push("LAST-MODIFIED:"+rs);
     lines.push("DTSTART;TZID=Europe/Malta:"+dtStart);
     lines.push("DTEND;TZID=Europe/Malta:"+dtEnd);
     lines.push("SUMMARY:"+icsEscape(summary));
@@ -14577,18 +14739,407 @@ async function handleShiftIcalPublic(request, env, corsOkHeaders, url) {
     lines.push("END:VEVENT");
   }
 
+  // Approved leave as all-day events (W3, John 2026-11-10 decision 5a). Same window and person filter as the shifts;
+  // bounded by the (org, location, status, start_date) index: a leave that started up to a year before the window.
+  // The kind is said only for annual leave ("Annual leave"); every other kind reads "Leave" (the feed can be shared,
+  // and sick or miscarriage leave is nobody else's business). No reason is sent. Part-day leave keeps its hours in words.
+  try {
+    const lparams = [map.org_id, map.location_id, shpAddDays(from, -366), to, from];
+    let lsql = `SELECT l.id, l.staff_id, l.leave_type, l.start_date, l.start_time, l.end_date, l.end_time, l.updated_at, s.full_name AS staff_name
+                FROM shift_leaves l
+                LEFT JOIN shift_staff s ON s.id=l.staff_id AND s.org_id=l.org_id AND s.location_id=l.location_id
+                WHERE l.org_id=? AND l.location_id=? AND l.status='approved' AND l.start_date>=? AND l.start_date<=? AND l.end_date>=?`;
+    if (staffId) { lsql += ` AND l.staff_id=?`; lparams.push(staffId); }
+    lsql += ` ORDER BY l.start_date ASC, l.id ASC LIMIT 2000`;
+    const leaves = await dbAll(env, lsql, lparams);
+    for (const l of (leaves || [])) {
+      const sd = String(l.start_date || ""), ed = String(l.end_date || l.start_date || "");
+      if (!isValidYmd(sd) || !isValidYmd(ed) || ed < sd) continue;
+      const kind = String(l.leave_type || "") === "annual" ? "Annual leave" : "Leave";
+      const part = l.start_time && l.end_time ? " " + String(l.start_time).slice(0, 5) + "–" + String(l.end_time).slice(0, 5) : "";
+      lines.push("BEGIN:VEVENT");
+      const ls = rowStamp(l.updated_at);
+      lines.push("UID:" + icsEscape("leave-" + l.id + "@eikon"));
+      lines.push("DTSTAMP:" + (ls || dtstamp));
+      if (ls) lines.push("LAST-MODIFIED:" + ls);
+      lines.push("DTSTART;VALUE=DATE:" + sd.replace(/-/g, ""));
+      lines.push("DTEND;VALUE=DATE:" + shpAddDays(ed, 1).replace(/-/g, ""));
+      lines.push("SUMMARY:" + icsEscape((l.staff_name || ("Staff #" + l.staff_id)) + " — " + kind + part));
+      lines.push("TRANSP:TRANSPARENT");
+      lines.push("END:VEVENT");
+    }
+  } catch (e) {
+    console.log("[shifts][ical] leave events skipped", e && (e.stack || e));
+  }
+
   lines.push("END:VCALENDAR");
 
   const ics = lines.join("\r\n") + "\r\n";
-  const headers = {
-    "Content-Type": "text/calendar; charset=utf-8",
-    "Cache-Control": "public, max-age=300",
-    "Pragma": "no-cache",
-    "X-Eikon-Worker-Version": WORKER_VERSION
-  };
-  return new Response(ics, { status: 200, headers });
+  let etag = null;
+  try { const dg = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ics))); etag = '"' + [...dg.slice(0, 16)].map((b) => b.toString(16).padStart(2, "0")).join("") + '"'; } catch (e) {}
+  const lastMod = newest ? new Date(Date.UTC(+newest.slice(0, 4), +newest.slice(4, 6) - 1, +newest.slice(6, 8), +newest.slice(9, 11), +newest.slice(11, 13), +newest.slice(13, 15))).toUTCString() : null;
+  if (cacheKey) {
+    try {
+      const h = { "Content-Type": "text/calendar; charset=utf-8", "Cache-Control": "public, max-age=900" }; if (etag) h["ETag"] = etag; if (lastMod) h["Last-Modified"] = lastMod;
+      await caches.default.put(cacheKey, new Response(ics, { status: 200, headers: h }));
+    } catch (e) { /* no cache: fine */ }
+  }
+  return icsAnswer(ics, etag, lastMod);
 }
 // ── END SHIFTS MODULE FUNCTIONS ────────────────────────────────
+
+// ── Rota notices: a free, instant "your shift changed" on the person's phone (Web Push, B5, John 2026-11-10) ─────
+// The calendar link refreshes only every 8–24 h (Google), so a changed shift also reaches the person's own devices at
+// once through the browsers' free push services (Web Push with VAPID; no paid service, no payload, no encryption):
+//   - /sw.js (public): a minimal service worker with ONLY a push and a notificationclick handler. No fetch handler and
+//     no caching, so registering it never changes how the app loads (every page and file still comes from the network).
+//   - POST /rota/push/subscribe {staff_id, subscription:{endpoint, keys:{p256dh, auth}}} (signed in, own pharmacy;
+//     the person is the one chosen on that device, E.rotaMe) → {ok, id, k}: one row per device (endpoint), a random
+//     secret k kept only on the device (its SHA-256 here). POST /rota/push/unsubscribe {endpoint}. GET /rota/push/key.
+//   - When a person's shifts or leave change (POST/PUT/DELETE /shifts/assignments, /shifts/apply-pattern,
+//     /shifts/apply-plan, leave asked/approved/not approved), rotaNotifyRoute reads that person's rows on the touched days before,
+//     runs the route's own handler unchanged, and after a 2xx compares after with before inside ctx.waitUntil (the save
+//     is not slowed): one notice line per person per save ("Your Tue 12 Nov shift changed to 13:30–19:30") and one
+//     empty VAPID-signed push per device of that person. A push service answering 404/410 drops the device.
+//   - GET /rota/notices?sub=<id>&k=<secret> (public, authenticated by the device's own secret): the service worker
+//     reads the text to show, newest first; what it read is marked seen.
+// Off unless the secret VAPID_PRIVATE_KEY is set (PKCS#8 base64/PEM, a JWK, or web-push's raw 32-byte key with
+// VAPID_PUBLIC_KEY): without it the write routes run exactly as before (no read, no push, no error) and the toggle hides.
+// Cost: nobody subscribed in the pharmacy → 1 indexed read per shift write; a subscribed person → + their rows on the
+// touched days before and after, 1 notice insert, 1 push per device; the device then makes 1 small GET. No cron, no poll.
+const RPN_SUB_MAX_PER_LOC = 300, RPN_ENDPOINT_MAX = 1024, RPN_ROWS_MAX = 5000;
+const RPN_MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const RPN_DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const RPN_SW = `// Eikon: shift-change notices. Only push and notificationclick: no fetch handler and no caching, so the app
+// loads exactly as it does without this file (every page and file still comes from the network).
+self.addEventListener("install", function () { self.skipWaiting(); });
+function rpnKey() {
+  return new Promise(function (ok) {
+    try {
+      var rq = indexedDB.open("eikon-rota-notify", 1);
+      rq.onupgradeneeded = function () { rq.result.createObjectStore("kv"); };
+      rq.onerror = function () { ok(null); };
+      rq.onsuccess = function () {
+        try { var g = rq.result.transaction("kv", "readonly").objectStore("kv").get("sub"); g.onsuccess = function () { ok(g.result || null); }; g.onerror = function () { ok(null); }; }
+        catch (e) { ok(null); }
+      };
+    } catch (e) { ok(null); }
+  });
+}
+self.addEventListener("push", function (ev) {
+  ev.waitUntil(rpnKey().then(function (s) {
+    if (!s || !s.id || !s.k) return null;
+    return fetch("/rota/notices?sub=" + encodeURIComponent(s.id) + "&k=" + encodeURIComponent(s.k), { cache: "no-store", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+  }).then(function (n) {
+    n = n && n.ok && n.body ? n : { title: "Your shifts changed", body: "Open Eikon to see your shifts.", url: "/ui/index.html#rotreg" };
+    return self.registration.showNotification(n.title, { body: n.body, tag: "eikon-rota", renotify: true, icon: "/ui/assets/icon-192.png", data: { url: n.url || "/ui/index.html#rotreg" } });
+  }));
+});
+self.addEventListener("notificationclick", function (ev) {
+  ev.notification.close();
+  var url = new URL((ev.notification.data && ev.notification.data.url) || "/ui/index.html#rotreg", self.location.origin).href;
+  ev.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (list) {
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      if (c.url.indexOf(self.location.origin) === 0 && "focus" in c) { c.postMessage({ eikon: "rota-open" }); return c.focus(); }
+    }
+    return self.clients.openWindow(url);
+  }));
+});
+`;
+
+function rpnB64u(bytes) { let s = ""; const u = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes); for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+function rpnUnB64(s) { const b = String(s || "").replace(/-/g, "+").replace(/_/g, "/").replace(/\s+/g, ""); const bin = atob(b + "===".slice((b.length + 3) % 4)); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
+async function rpnSha(s) { const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(s)))); return [...d].map((b) => b.toString(16).padStart(2, "0")).join(""); }
+
+// The VAPID key pair, read once per isolate from the secret (null = push is off: everything below does nothing).
+let RPN_KEYS = { src: null, v: null };
+async function rpnKeys(env) {
+  const raw = String((env && env.VAPID_PRIVATE_KEY) || "").trim();
+  if (!raw) return null;
+  const src = raw + "|" + String(env.VAPID_PUBLIC_KEY || "");
+  if (RPN_KEYS.src === src) return RPN_KEYS.v;
+  let v = null;
+  try {
+    const alg = { name: "ECDSA", namedCurve: "P-256" };
+    let jwk;
+    if (/^[A-Za-z0-9_-]{43}$/.test(raw)) { // web-push's format: the raw private number, with the public key beside it
+      const pub = rpnUnB64(env.VAPID_PUBLIC_KEY);
+      if (pub.length !== 65 || pub[0] !== 4) throw new Error("VAPID_PUBLIC_KEY must be the 65-byte public key");
+      jwk = { kty: "EC", crv: "P-256", d: raw, x: rpnB64u(pub.slice(1, 33)), y: rpnB64u(pub.slice(33)) };
+    } else if (raw.charAt(0) === "{") {
+      jwk = JSON.parse(raw);
+    } else { // PKCS#8, base64 DER or PEM (openssl / node; the public key is derived from it)
+      const der = rpnUnB64(raw.replace(/-----[^-]+-----/g, ""));
+      const k = await crypto.subtle.importKey("pkcs8", der, alg, true, ["sign"]);
+      jwk = await crypto.subtle.exportKey("jwk", k);
+    }
+    const priv = await crypto.subtle.importKey("jwk", { kty: "EC", crv: "P-256", d: jwk.d, x: jwk.x, y: jwk.y, ext: true }, alg, false, ["sign"]);
+    const x = rpnUnB64(jwk.x), y = rpnUnB64(jwk.y), pub = new Uint8Array(65); pub[0] = 4; pub.set(x, 1); pub.set(y, 33);
+    v = { priv, pub: rpnB64u(pub), jwt: new Map() };
+  } catch (e) { console.log("[rota push] VAPID_PRIVATE_KEY could not be read: push stays off", e && e.message); v = null; }
+  RPN_KEYS = { src, v };
+  return v;
+}
+// ES256 JWT for one push service (aud = its origin), kept 6 h per isolate (valid 12 h).
+async function rpnJwt(env, keys, endpoint) {
+  const aud = new URL(endpoint).origin, now = Math.floor(Date.now() / 1000);
+  const hit = keys.jwt.get(aud);
+  if (hit && hit.at > now - 6 * 3600) return hit.t;
+  const enc = (o) => rpnB64u(new TextEncoder().encode(JSON.stringify(o)));
+  const head = enc({ typ: "JWT", alg: "ES256" }) + "." + enc({ aud, exp: now + 12 * 3600, sub: String(env.VAPID_SUBJECT || "https://eikonhq.com") });
+  const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, keys.priv, new TextEncoder().encode(head));
+  const t = head + "." + rpnB64u(sig);
+  keys.jwt.set(aud, { t, at: now });
+  return t;
+}
+// Only the browsers' push services (never any other address: the endpoint comes from the device).
+function rpnEndpointOk(e) {
+  let u; try { u = new URL(String(e || "")); } catch (x) { return false; }
+  if (u.protocol !== "https:" || u.port || u.username || String(e).length > RPN_ENDPOINT_MAX) return false;
+  const h = u.hostname.toLowerCase();
+  return h === "fcm.googleapis.com" || h === "android.googleapis.com" || h === "updates.push.services.mozilla.com" || h.endsWith(".push.services.mozilla.com") ||
+    h === "web.push.apple.com" || h.endsWith(".push.apple.com") || h.endsWith(".notify.windows.com");
+}
+
+async function ensureRotaPushSchema__impl(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, staff_id INTEGER NOT NULL,
+    user_id INTEGER, endpoint TEXT NOT NULL, p256dh TEXT NOT NULL DEFAULT '', auth TEXT NOT NULL DEFAULT '',
+    secret_hash TEXT NOT NULL, seen_notice_id INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')), last_push_at TEXT)`);
+  await dbRun(env, `CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subs_endpoint ON push_subscriptions(endpoint)`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_push_subs_staff ON push_subscriptions(org_id, location_id, staff_id)`);
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS rota_notices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, staff_id INTEGER NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'shift', text TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')))`);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_rota_notices_staff ON rota_notices(org_id, location_id, staff_id, id)`);
+}
+let RPN_SCHEMA = null;
+function ensureRotaPushSchema(env) { if (!RPN_SCHEMA) RPN_SCHEMA = schemaOnce("ensureRotaPushSchema", ensureRotaPushSchema__impl); return RPN_SCHEMA(env); }
+
+// ---- words (SPEC §1.4: "Tue 12 Nov", 24 h "13:30–19:30")
+function rpnParts(ymd) { const [Y, M, D] = String(ymd).split("-").map((n) => parseInt(n, 10)); return { Y, M, D, w: new Date(Date.UTC(Y, M - 1, D)).getUTCDay() }; }
+function rpnDay(ymd) { const p = rpnParts(ymd); return RPN_DAY[p.w] + " " + p.D + " " + RPN_MON[p.M - 1]; }
+function rpnShort(ymd) { const p = rpnParts(ymd); return p.D + " " + RPN_MON[p.M - 1]; }
+function rpnSpan(a, b) {
+  if (!b || a === b) return "on " + rpnDay(a);
+  const p = rpnParts(a), q = rpnParts(b);
+  return p.M === q.M && p.Y === q.Y ? p.D + "–" + q.D + " " + RPN_MON[q.M - 1] : rpnShort(a) + " – " + rpnShort(b);
+}
+const rpnHm = (t) => String(t || "").slice(0, 5);
+const rpnTimes = (rows) => rows.map((r) => rpnHm(r.start_time) + "–" + rpnHm(r.end_time)).join(" and ");
+const rpnSort = (rows) => rows.slice().sort((a, b) => (rpnHm(a.start_time) + rpnHm(a.end_time)).localeCompare(rpnHm(b.start_time) + rpnHm(b.end_time)));
+// One sentence for one person's changes in one save, from their rows before and after (by day; ids do not matter, so
+// a Replace that puts back the same shifts says nothing). null = nothing they would notice changed.
+function rpnShiftWords(before, after) {
+  const by = (rows) => { const m = new Map(); for (const r of rows) { const k = r.shift_date; if (!m.has(k)) m.set(k, []); m.get(k).push(r); } return m; };
+  const b = by(before), a = by(after), sig = (rows) => rpnSort(rows || []).map((r) => [rpnHm(r.start_time), rpnHm(r.end_time), r.role_override || "", r.notes || ""].join("|")).join("~");
+  const days = [...new Set([...b.keys(), ...a.keys()])].filter((d) => sig(b.get(d)) !== sig(a.get(d))).sort();
+  if (!days.length) return null;
+  const one = (d) => {
+    const was = rpnSort(b.get(d) || []), now = rpnSort(a.get(d) || []);
+    if (!was.length) return (now.length > 1 ? "New shifts: " : "New shift: ") + rpnDay(d) + " " + rpnTimes(now);
+    if (!now.length) return "Your " + rpnDay(d) + (was.length > 1 ? " shifts (" + rpnTimes(was) + ") were removed" : " shift (" + rpnTimes(was) + ") was removed");
+    if (rpnTimes(was) === rpnTimes(now)) return "Your " + rpnDay(d) + " shift " + rpnTimes(now) + " was updated";
+    return "Your " + rpnDay(d) + (was.length > 1 ? " shifts changed to " : " shift changed to ") + rpnTimes(now);
+  };
+  if (days.length === 1) return one(days[0]);
+  if (days.length === 2) { // one shift moved to another day (Move to…, or a copy and a clear in one step)
+    const key = (r) => [rpnHm(r.start_time), rpnHm(r.end_time), r.role_override || "", r.notes || ""].join("|");
+    const n = (m, d) => (m.get(d) || []).length;
+    const from = days.find((d) => n(a, d) < n(b, d)), to = days.find((d) => n(a, d) > n(b, d));
+    const moved = to ? (a.get(to) || []).filter((r) => !(b.get(to) || []).some((x) => key(x) === key(r))) : [];
+    if (from && to && moved.length === 1 && n(a, from) === n(b, from) - 1) return "Your " + rpnDay(from) + " shift moved to " + rpnDay(to) + " " + rpnTimes(moved);
+  }
+  if (days.length === 2) return "Your shifts changed on " + rpnDay(days[0]) + " and " + rpnDay(days[1]);
+  return "Your shifts changed on " + days.length + " days, " + rpnDay(days[0]) + " – " + rpnDay(days[days.length - 1]);
+}
+function rpnLeaveWords(l, status) {
+  const span = rpnSpan(l.start_date, l.end_date || l.start_date), part = l.start_time && l.end_time && (!l.end_date || l.end_date === l.start_date) ? " " + rpnHm(l.start_time) + "–" + rpnHm(l.end_time) : "";
+  if (status === "pending") return "Your leave request for " + span.replace(/^on /, "") + part + " is waiting for approval";
+  return status === "approved" ? "Your leave " + span + part + " was approved" : "Your leave request for " + span.replace(/^on /, "") + part + " was not approved";
+}
+
+// ---- the people this pharmacy has devices for (one indexed read; empty = nothing else is done)
+async function rpnSubscribed(env, org, loc) {
+  await ensureRotaPushSchema(env);
+  const rows = await dbAll(env, `SELECT DISTINCT staff_id FROM push_subscriptions WHERE org_id=? AND location_id=? LIMIT ${RPN_SUB_MAX_PER_LOC}`, [org, loc]);
+  return new Set(rows.map((r) => Number(r.staff_id)));
+}
+async function rpnRows(env, org, loc, sc) {
+  const sel = `SELECT id, shift_date, start_time, end_time, role_override, notes FROM shift_assignments WHERE org_id=? AND location_id=? AND staff_id=? AND `;
+  if (sc.dates) return dbAll(env, sel + `shift_date IN (${sc.dates.map(() => "?").join(",")}) LIMIT ${RPN_ROWS_MAX}`, [org, loc, sc.staff, ...sc.dates]);
+  return dbAll(env, sel + `shift_date>=? AND shift_date<=? LIMIT ${RPN_ROWS_MAX}`, [org, loc, sc.staff, sc.from, sc.to]);
+}
+// Before the write: which subscribed people it touches and their rows there now. null = no one to tell.
+async function rpnBefore(request, env, kind, id, authUser) {
+  const org = authUser.org_id, loc = authUser.location_id;
+  const subs = await rpnSubscribed(env, org, loc);
+  if (!subs.size) return null;
+  await ensureShiftsSchema(env);
+  let body = {};
+  if (kind === "create" || kind === "update" || kind === "pattern" || kind === "plan" || kind === "leave") { try { body = JSON.parse(await request.clone().text() || "{}") || {}; } catch (e) { return null; } }
+  const ymd = (s) => { s = String(s || "").trim(); return isValidYmd(s) ? s : ""; };
+  const scopes = [];
+  const add = (staff, sc) => { staff = Number(staff); if (staff && subs.has(staff) && !scopes.some((x) => x.staff === staff)) scopes.push(Object.assign({ staff }, sc)); };
+  if (kind === "approve" || kind === "reject") {
+    const l = await dbFirst(env, `SELECT id, staff_id, status, start_date, start_time, end_date, end_time FROM shift_leaves WHERE id=? AND org_id=? AND location_id=?`, [id, org, loc]);
+    const to = kind === "approve" ? "approved" : "rejected";
+    if (!l || !subs.has(Number(l.staff_id)) || String(l.status) === to) return null;
+    return { org, loc, kind, leave: l, status: to };
+  }
+  if (kind === "leave") { // a new request (always pending): tell the person it is waiting
+    const staff = Number(body.staff_id), sd = ymd(body.start_date), ed = ymd(body.end_date) || sd;
+    if (!staff || !subs.has(staff) || !sd) return null;
+    const mx = await dbFirst(env, `SELECT COALESCE(MAX(id), 0) AS m FROM shift_leaves WHERE org_id=? AND location_id=?`, [org, loc]);
+    return { org, loc, kind, after: Number(mx && mx.m) || 0, leave: { staff_id: staff, start_date: sd, end_date: ed, start_time: body.start_time || null, end_time: body.end_time || null }, status: "pending" };
+  }
+  if (kind === "create") { const d = ymd(body.shift_date); if (!d) return null; add(body.staff_id, { dates: [d] }); }
+  if (kind === "update" || kind === "delete") { // PUT changes only the times, role and note of that shift
+    const r = await dbFirst(env, `SELECT staff_id, shift_date FROM shift_assignments WHERE id=? AND org_id=? AND location_id=?`, [id, org, loc]);
+    if (!r) return null;
+    add(r.staff_id, { dates: [r.shift_date] });
+  }
+  if (kind === "pattern") { const f = ymd(body.start_date || body.startDate), t = ymd(body.end_date || body.endDate); if (!f || !t || t < f) return null; add(body.staff_id || body.staffId, { from: f, to: t }); }
+  if (kind === "plan") for (const it of (Array.isArray(body.items) ? body.items.slice(0, 50) : [])) { const f = ymd(it && it.from), t = ymd(it && it.to); if (f && t && t >= f) add(it.staff_id, { from: f, to: t }); }
+  if (!scopes.length) return null;
+  for (const sc of scopes) sc.before = await rpnRows(env, org, loc, sc);
+  return { org, loc, kind, scopes };
+}
+// After a 2xx (inside ctx.waitUntil): the words per person, one notice each, one push per device.
+async function rpnAfter(env, cap) {
+  const texts = [];
+  if (cap.leave) {
+    const l = cap.kind === "leave"
+      ? await dbFirst(env, `SELECT status FROM shift_leaves WHERE org_id=? AND location_id=? AND staff_id=? AND id>? ORDER BY id DESC LIMIT 1`, [cap.org, cap.loc, cap.leave.staff_id, cap.after])
+      : await dbFirst(env, `SELECT status FROM shift_leaves WHERE id=? AND org_id=? AND location_id=?`, [cap.leave.id, cap.org, cap.loc]);
+    if (l && String(l.status) === cap.status) texts.push({ staff: Number(cap.leave.staff_id), kind: "leave", text: rpnLeaveWords(cap.leave, cap.status) });
+  } else {
+    for (const sc of cap.scopes) {
+      const w = rpnShiftWords(sc.before, await rpnRows(env, cap.org, cap.loc, sc));
+      if (w) texts.push({ staff: sc.staff, kind: "shift", text: w });
+    }
+  }
+  if (texts.length) await rpnNotify(env, cap.org, cap.loc, texts);
+  return texts;
+}
+async function rpnNotify(env, org, loc, texts) {
+  const keys = await rpnKeys(env);
+  if (!keys) return;
+  await ensureRotaPushSchema(env);
+  const staffIds = [];
+  for (const t of texts) {
+    await dbRun(env, `INSERT INTO rota_notices (org_id, location_id, staff_id, kind, text) VALUES (?, ?, ?, ?, ?)`, [org, loc, t.staff, t.kind, t.text.slice(0, 300)]);
+    staffIds.push(t.staff);
+  }
+  // Old lines go (30 days), on the same index.
+  try { await dbRun(env, `DELETE FROM rota_notices WHERE org_id=? AND location_id=? AND staff_id IN (${staffIds.map(() => "?").join(",")}) AND created_at < datetime('now', '-30 days')`, [org, loc, ...staffIds]); } catch (e) {}
+  const subs = await dbAll(env, `SELECT id, endpoint FROM push_subscriptions WHERE org_id=? AND location_id=? AND staff_id IN (${staffIds.map(() => "?").join(",")}) LIMIT ${RPN_SUB_MAX_PER_LOC}`, [org, loc, ...staffIds]);
+  const gone = [];
+  await Promise.all(subs.map(async (s) => {
+    if (!rpnEndpointOk(s.endpoint)) { gone.push(s.id); return; }
+    try {
+      const jwt = await rpnJwt(env, keys, s.endpoint);
+      const r = await fetch(s.endpoint, { method: "POST", headers: { "Authorization": "vapid t=" + jwt + ", k=" + keys.pub, "TTL": "172800", "Urgency": "normal", "Topic": "eikon-rota", "Content-Length": "0" } });
+      if (r.status === 404 || r.status === 410) gone.push(s.id);
+      else if (r.status >= 400) console.log("[rota push] push service answered", r.status, "for device", s.id);
+    } catch (e) { console.log("[rota push] push failed for device", s.id, e && e.message); }
+  }));
+  if (gone.length) await dbRun(env, `DELETE FROM push_subscriptions WHERE id IN (${gone.map(() => "?").join(",")})`, gone);
+}
+
+// Public: /sw.js and the notice feed the service worker reads. null = not ours.
+async function rotaPushPublic(request, env, url) {
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+  if (url.pathname === "/sw.js") {
+    return new Response(request.method === "HEAD" ? null : RPN_SW, { status: 200, headers: { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-cache", "Service-Worker-Allowed": "/", "X-Content-Type-Options": "nosniff" } });
+  }
+  if (url.pathname !== "/rota/notices") return null;
+  const no = (s) => jsonResponse({ ok: false, error: "Not found" }, s || 404);
+  const id = parseInt(url.searchParams.get("sub") || "", 10), k = String(url.searchParams.get("k") || "");
+  if (!id || id < 1 || !/^[A-Za-z0-9_-]{20,100}$/.test(k)) return no();
+  await ensureRotaPushSchema(env);
+  const s = await dbFirst(env, `SELECT id, org_id, location_id, staff_id, secret_hash, seen_notice_id FROM push_subscriptions WHERE id=?`, [id]);
+  if (!s || s.secret_hash !== await rpnSha(k)) return no();
+  const rows = await dbAll(env, `SELECT id, text FROM rota_notices WHERE org_id=? AND location_id=? AND staff_id=? AND id>? AND created_at >= datetime('now', '-7 days') ORDER BY id DESC LIMIT 5`,
+    [s.org_id, s.location_id, s.staff_id, Number(s.seen_notice_id) || 0]);
+  const url2 = "/ui/index.html#rotreg";
+  if (!rows.length) return jsonResponse({ ok: true, count: 0, title: "Your shifts", body: "Open Eikon to see your shifts.", url: url2 });
+  await dbRun(env, `UPDATE push_subscriptions SET seen_notice_id=?, last_push_at=datetime('now') WHERE id=?`, [Number(rows[0].id), s.id]);
+  const body = rows.length === 1 ? rows[0].text : rows.slice(0, 3).map((r) => r.text).join("\n") + (rows.length > 3 ? "\nand more" : "");
+  return jsonResponse({ ok: true, count: rows.length, title: rows.length === 1 ? "Your shifts" : rows.length + " changes to your shifts", body, url: url2 });
+}
+
+// Signed in: the device routes, and the shift/leave writes (each runs its own handler unchanged). null = not ours, or
+// nothing to tell: the dispatch below runs as before.
+async function rotaNotifyRoute(request, env, ctx, url, authUser, cors) {
+  const p = url.pathname, m = request.method;
+  if (p.startsWith("/rota/push/")) return await rpnDeviceRoute(request, env, url, authUser, cors);
+  if (m === "GET" || !p.startsWith("/shifts/")) return null;
+  let kind = null, id = 0, call = null;
+  if (p === "/shifts/assignments" && m === "POST") { kind = "create"; call = () => handleShiftAssignmentCreate(request, env, cors, authUser); }
+  else if (p === "/shifts/apply-pattern" && m === "POST") { kind = "pattern"; call = () => handleShiftApplyPattern(request, env, cors, authUser); }
+  else if (p === "/shifts/apply-plan" && m === "POST") { kind = "plan"; call = () => handleShiftApplyPlan(request, env, cors, authUser); }
+  else if (p.startsWith("/shifts/assignments/") && (m === "PUT" || m === "DELETE")) {
+    id = parseInt(p.split("/")[3]); if (!id) return null;
+    kind = m === "PUT" ? "update" : "delete";
+    call = m === "PUT" ? () => handleShiftAssignmentUpdate(request, env, cors, authUser, id) : () => handleShiftAssignmentDelete(request, env, cors, authUser, id);
+  } else if (p === "/shifts/leaves" && m === "POST") { kind = "leave"; call = () => handleShiftLeaveCreate(request, env, cors, authUser); }
+  else if (p.startsWith("/shifts/leaves/") && m === "POST") {
+    const parts = p.split("/"); id = parseInt(parts[3]);
+    if (!id || (parts[4] !== "approve" && parts[4] !== "reject")) return null;
+    kind = parts[4];
+    call = kind === "approve" ? () => handleShiftLeaveApprove(request, env, cors, authUser, id) : () => handleShiftLeaveReject(request, env, cors, authUser, id);
+  } else return null;
+  let cap = null;
+  try { if (!(await rpnKeys(env))) return null; cap = await rpnBefore(request, env, kind, id, authUser); }
+  catch (e) { console.log("[rota push] skipped", e && e.message); return null; } // never in the way of a save
+  if (!cap) return null;
+  const res = await call();
+  if (res && res.status >= 200 && res.status < 300) {
+    const job = rpnAfter(env, cap).catch((e) => console.log("[rota push] notice failed", e && (e.stack || e)));
+    if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(job);
+  }
+  return res;
+}
+async function rpnDeviceRoute(request, env, url, authUser, cors) {
+  const p = url.pathname, m = request.method, org = authUser.org_id, loc = authUser.location_id;
+  const keys = await rpnKeys(env);
+  if (p === "/rota/push/key" && m === "GET") return jsonResponse({ ok: true, push: !!keys, publicKey: keys ? keys.pub : null }, 200, cors);
+  if (p !== "/rota/push/subscribe" && p !== "/rota/push/unsubscribe") return null;
+  if (m !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405, cors);
+  await ensureRotaPushSchema(env);
+  let body = {}; try { body = JSON.parse(await request.text() || "{}") || {}; } catch (e) { return jsonResponse({ ok: false, error: "Bad JSON" }, 400, cors); }
+  const sub = body.subscription || {}, endpoint = String(sub.endpoint || body.endpoint || "");
+  if (p === "/rota/push/unsubscribe") {
+    if (!endpoint) return jsonResponse({ ok: false, error: "endpoint required" }, 400, cors);
+    const r = await dbRun(env, `DELETE FROM push_subscriptions WHERE endpoint=? AND org_id=? AND location_id=?`, [endpoint, org, loc]);
+    return jsonResponse({ ok: true, removed: Number((r && r.meta && r.meta.changes) || 0) }, 200, cors);
+  }
+  if (!keys) return jsonResponse({ ok: true, push: false }, 200, cors); // not set up here: nothing stored, the screen says so
+  if (!rpnEndpointOk(endpoint)) return jsonResponse({ ok: false, error: "This browser's push address is not one we can use" }, 400, cors);
+  const staffId = parseInt(body.staff_id, 10);
+  if (!staffId) return jsonResponse({ ok: false, error: "staff_id required" }, 400, cors);
+  await ensureShiftsSchema(env);
+  const st = await dbFirst(env, `SELECT id FROM shift_staff WHERE id=? AND org_id=? AND location_id=?`, [staffId, org, loc]);
+  if (!st) return jsonResponse({ ok: false, error: "Staff not found" }, 404, cors);
+  const n = await dbFirst(env, `SELECT COUNT(*) AS n FROM push_subscriptions WHERE org_id=? AND location_id=?`, [org, loc]);
+  if (Number(n && n.n) >= RPN_SUB_MAX_PER_LOC) return jsonResponse({ ok: false, error: "Too many devices for this pharmacy" }, 400, cors);
+  const keysIn = sub.keys || {}, p256 = String(keysIn.p256dh || "").slice(0, 200), auth = String(keysIn.auth || "").slice(0, 100);
+  const k = rpnB64u(crypto.getRandomValues(new Uint8Array(32)));
+  const last = await dbFirst(env, `SELECT COALESCE(MAX(id), 0) AS m FROM rota_notices WHERE org_id=? AND location_id=? AND staff_id=?`, [org, loc, staffId]);
+  // One row per device: the same browser signing up again (another person, another pharmacy) replaces its row.
+  await env.DB.batch([
+    env.DB.prepare(`DELETE FROM push_subscriptions WHERE endpoint=?`).bind(endpoint),
+    env.DB.prepare(`INSERT INTO push_subscriptions (org_id, location_id, staff_id, user_id, endpoint, p256dh, auth, secret_hash, seen_notice_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(org, loc, staffId, authUser.user_id || null, endpoint, p256, auth, await rpnSha(k), Number(last && last.m) || 0)
+  ]);
+  const row = await dbFirst(env, `SELECT id FROM push_subscriptions WHERE endpoint=?`, [endpoint]);
+  return jsonResponse({ ok: true, push: true, id: row && row.id, k, staff_id: staffId }, 200, cors);
+}
+// ── END ROTA NOTICES ──────────────────────────────────────────
 
 // ============================================================================
 //  EIKON — Appointments Module — Cloudflare Worker Addition
@@ -18489,6 +19040,8 @@ export default {
     if ((url.pathname === "/shifts/ical" || url.pathname === "/shifts/ical.ics" || url.pathname.startsWith("/shifts/ical/")) && request.method === "GET") {
       return await handleShiftIcalPublic(request, env, corsOkHeaders, url);
     }
+    // Rota notices (B5): /sw.js and the notice feed its push handler reads (public; the feed checks the device's secret)
+    { const rp = await rotaPushPublic(request, env, url); if (rp) return rp; }
 
 
 
@@ -19690,6 +20243,7 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
 
     // ── Shifts Module ──────────────────────────────────────────────
 // ── Shifts Module ──────────────────────────────────────────────
+    { const rn = await rotaNotifyRoute(request, env, ctx, url, authUser, corsOkHeaders); if (rn) return rn; } // B5: /rota/push/*, and shift/leave writes tell the person's devices
     if (url.pathname === "/shifts/staff" && request.method === "GET") {
       return await handleShiftStaffList(request, env, corsOkHeaders, authUser, url);
     }
@@ -19717,6 +20271,9 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
     if (url.pathname === "/shifts/apply-pattern" && request.method === "POST") {
       return await handleShiftApplyPattern(request, env, corsOkHeaders, authUser);
+    }
+    if (url.pathname === "/shifts/apply-plan" && request.method === "POST") {
+      return await handleShiftApplyPlan(request, env, corsOkHeaders, authUser);
     }
     if (url.pathname.startsWith("/shifts/assignments/") && request.method === "PUT") {
       const id = parseInt(url.pathname.split("/")[3]);

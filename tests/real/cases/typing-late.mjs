@@ -6,8 +6,9 @@
 // Registers (today's temperature readings), then let through while they keep typing: every letter stays, focus stays
 // where it was, nothing is sent, and the late cards (and the Registers status chips) still appear.
 const LATE = /\/registry\.js(\?|$)/;
-async function fresh(t, hub) {
+async function fresh(t, hub, token) {
   const p = await t.page();
+  if (token) await p.context().addInitScript((tok) => { try { localStorage.setItem("eikon_token", tok); } catch (e) {} }, token);
   let release; const held = new Promise((r) => { release = r; });
   await p.route(LATE, async (r) => { await held; await r.continue(); });
   const writes = []; p.on("request", (r) => { if (r.method() !== "GET") writes.push(r.method() + " " + new URL(r.url()).pathname); });
@@ -24,6 +25,19 @@ async function arrive(p, release, more) { // let the late screens in while the p
 }
 const shot = (p, n) => process.env.REAL_SHOTS ? p.screenshot({ path: process.env.REAL_SHOTS + "/typing-late-" + n + ".png" }).catch(() => {}) : null;
 const focusDesc = (p) => p.evaluate(() => { const a = document.activeElement; return a ? (a.tagName + (a.name ? "[name=" + a.name + "]" : "") + (a.id ? "#" + a.id : "") + " " + (a.closest("form[id]") ? "in #" + a.closest("form[id]").id : "") + " " + a.textContent.trim().slice(0, 30)).trim() : "none"; });
+
+// Registers runs in a pharmacy of its own: its rows need a device not logged today, and tempreg, tempnote and focus log
+// today's readings in the suite's pharmacy at the same time (in the full suite typing-late found them all logged).
+async function ownPharmacy(t) {
+  const db = t.db, org = db.prepare("SELECT org_id FROM users WHERE email = 'maria@demo.mt'").get().org_id;
+  // a pharmacy's id is under 400 (E.getRolesForUser: 400 and up are supplier and company portals, which other cases add)
+  const loc = Number(db.prepare("SELECT COALESCE(MAX(id), 0) + 1 AS n FROM locations WHERE id < 400").get().n);
+  db.prepare("INSERT INTO locations (id, org_id, name) VALUES (?, ?, ?)").run(loc, org, "Typing Late Pharmacy");
+  const u = await t.stack.app.addUser({ orgId: org, locationId: loc, email: "typing-late@demo.mt", role: "admin", name: "Rita Camilleri" });
+  const r = await t.stack.app.api("GET", "/temperature/devices", { token: u.token }); // its devices, as on a first visit
+  if (!(r.json && (r.json.devices || []).length)) throw new Error("typing-late: no temperature devices in its pharmacy: " + String(r.text).slice(0, 160));
+  return u.token;
+}
 
 export default {
   title: "Typing and focus survive the late screens arriving after a fresh load (Stock, Customers, Team, Registers)",
@@ -79,8 +93,9 @@ export default {
       t.ok(!writes.length, `team: nothing was sent: ${writes.join(", ")}`);
     }
     // ---- Registers: today's temperature reading typed while the late screens arrive
+    const regTok = await ownPharmacy(t);
     {
-      const { p, writes, release } = await fresh(t, "registers");
+      const { p, writes, release } = await fresh(t, "registers", regTok);
       const form = "#rgt-slot form[data-rgt-log]";
       await p.waitForSelector(form + " [name=min]"); await t.idle(p);
       await p.locator(form + " [name=min]").first().click(); await p.keyboard.type("3.5");
@@ -102,7 +117,7 @@ export default {
     }
     // ---- Registers again: an unsaved reading, the keyboard on a button outside its form as the late screens arrive
     {
-      const { p, writes, release } = await fresh(t, "registers");
+      const { p, writes, release } = await fresh(t, "registers", regTok);
       const form = "#rgt-slot form[data-rgt-log]";
       await p.waitForSelector(form + " [name=min]"); await t.idle(p);
       await p.locator(form + " [name=min]").first().click(); await p.keyboard.type("4.1");

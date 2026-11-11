@@ -6,11 +6,13 @@
 // screen" brings the order back. Solo: it adds rows to tables other cases read "the newest row" from.
 import { ymd } from "../lib.mjs";
 const KEY = "eikon_draft_v1|", PASS = "Demo-Pass-2026";
+// The controlled drug sale's patient is a name no other case uses: E.people.confirmPerson asks before saving when the
+// name fits exactly one card-less customer (focus.mjs adds "Żammit Ġorġ" by a delivery), and this case would wait on it.
 const FORMS = [
   { id: "ordreg", btn: ".ord-top [data-act=add]", form: "#ord-add", table: "client_orders_entries", path: /\/client-orders\/entries$/, gen: ["order_code"], noun: "order",
     fill: { client_name: "Keep Ċensina Borg", contact: "79001133", items: "Augmentin 625 x14 ċġħż", notes: "Ring first", needed_by: ymd(2) } },
   { id: "cdsreg", btn: "[data-act=add]", form: "#cds-add", table: "dda_sales_entries", path: /\/dda-sales\/entries$/, gen: [], noun: "controlled drug sale",
-    fill: { entry_date: ymd(0), client_id_card: "0778811M", client_name: "Keep Ġorġ Żammit", client_address: "9 Triq il-Ħġejjeġ, Żebbuġ", doctor_name: "Dr Ħabela", doctor_reg_no: "R7711", prescription_serial_no: "RX-KEEP-1", '#cds-add [data-i="0"][data-k=medicine_name_dose]': "Morphine 10mg tablets", '#cds-add [data-i="0"][data-k=quantity]': "12" } },
+    fill: { entry_date: ymd(0), client_id_card: "0778811M", client_name: "Keep Ċikku Żerafa", client_address: "9 Triq il-Ħġejjeġ, Żebbuġ", doctor_name: "Dr Ħabela", doctor_reg_no: "R7711", prescription_serial_no: "RX-KEEP-1", '#cds-add [data-i="0"][data-k=medicine_name_dose]': "Morphine 10mg tablets", '#cds-add [data-i="0"][data-k=quantity]': "12" } },
   { id: "poreg", btn: "[data-act=add]", form: "#por-add", table: "paid_out_entries", path: /\/paid-out\/entries$/, gen: [], noun: "payment",
     fill: { payee_name: "Għawdex Couriers Ltd", fee: "12.50", invoice_no: "GC-KEEP-1", reason: "Delivery to Żebbuġ", entry_date: ymd(-1), entry_time: "10:45" } },
   { id: "drreg", btn: "[data-act=new]", form: "#drr-form", table: "daily_register_entries", path: /\/daily-register\/entries$/, gen: [], noun: "register line",
