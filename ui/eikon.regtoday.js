@@ -39,6 +39,9 @@
     if (!D) return [];
     var today = D.date, out = [];
     var add = function (o) { out.push(o); };
+    // FIN-dayzero: nothing is asked of a month that ended before the pharmacy started (its stock take, its sign-off)
+    var start = /^\d{4}-\d{2}-\d{2}$/.test(String(D.since || "")) ? D.since : (E.startYmd ? E.startYmd() : "");
+    var beforeStart = function (ym) { return !!(start && ym && String(ym) < start.slice(0, 7)); };
 
     // D9: the device named as on Today and Temperature (E.tempDeviceName: the seeded room sensor reads "Room"), its type
     // under it unless the name says it; H6: the register named first.
@@ -76,7 +79,7 @@
       else add({ key: "daily", title: "Daily register", status: owed ? "todo" : "info", text: owed ? "No line today. Add the prescription medicines supplied; a day with none needs no line." : "No line yet today. Add each prescription medicine as it is supplied.", act: owed ? "Add" : "Open", go: dgo });
     }
 
-    if (D.stocktake) {
+    if (D.stocktake && !(beforeStart(D.stocktake.last_month) && !D.stocktake.open && !D.stocktake.last_month_counted)) {
       var st = D.stocktake, sgo = { mod: "ddstreg" }, lastM = monthName(st.last_month), dueBy = st.this_month + "-" + ("0" + (st.grace_days || 7)).slice(-2);
       if (st.open) add({ key: "cd", title: "Controlled drug stock take", status: "todo", text: "The stock take started on " + dayText(st.open.day) + " is not closed yet.", act: "Finish", go: sgo });
       else if (st.last_month_counted) add({ key: "cd", title: "Controlled drug stock take", status: "done", text: lastM + " counted on " + dayText(st.last_month_counted) + ".", act: "Open", go: sgo });
@@ -98,7 +101,7 @@
     // Month sign-off (the Daily registers' sign-off): last month, shown until every register is signed off, whatever
     // the date (owner, 9 Nov); once all are signed, the "done" line stays for the first week only. An older server
     // sends null: no line.
-    if (Array.isArray(D.signoffs) && D.stocktake && D.stocktake.last_month) {
+    if (Array.isArray(D.signoffs) && D.stocktake && D.stocktake.last_month && !beforeStart(D.stocktake.last_month)) {
       var lm = D.stocktake.last_month, signed = {}, byName = "";
       D.signoffs.forEach(function (s) { if (s.month === lm) { signed[s.register] = s; byName = byName || s.signed_by; } });
       var left = SIGN_KEYS.filter(function (r) { return !signed[r[0]]; });
@@ -131,6 +134,7 @@
     S.job = E.apiFetch("/registers/today", { method: "GET", timeoutMs: 12000 }).then(function (r) {
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not check today's registers");
       S.data = r; S.at = asked; S.loc = loc; S.error = ""; S.errorKind = "";
+      if (E.noteStart && r.since) E.noteStart(r.since); // FIN-dayzero
       return r;
     }, function (e) { throw e; }).catch(function (e) {
       S.errorKind = e && e.status === 401 ? "auth" : e && e.network ? "network" : "other";

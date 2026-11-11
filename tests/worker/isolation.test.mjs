@@ -273,11 +273,14 @@ test("isolation, group sharing kept: quotations 'All our pharmacies' shows every
   eq(DB.q("SELECT notes FROM quotation_entries WHERE id=?", q.json.id)[0].notes, "edited by branch");
 });
 
+// portals (FIN): /cherubino/* answers only the Cherubino group (org 12); these checks run as that group.
+function asCherubino(DB) { for (const t of ["orgs SET id = 12 WHERE id = 1", "locations SET org_id = 12 WHERE org_id = 1", "users SET org_id = 12 WHERE org_id = 1"]) DB.db.prepare("UPDATE " + t).run(); }
 test("isolation, group sharing kept: Cherubino orders, OOS list, price checks and short expiry work across the group", async (app) => {
   const { api, DB } = app;
   const T = await world(app);
-  app.DB.db.prepare("INSERT INTO locations (id, org_id, name) VALUES (600, 1, 'Head Office')").run();
-  const ho = (await app.addUser({ orgId: 1, locationId: 600, email: "ho@example.com", name: "Head Office" })).token;
+  asCherubino(DB);
+  app.DB.db.prepare("INSERT INTO locations (id, org_id, name) VALUES (600, 12, 'Head Office')").run();
+  const ho = (await app.addUser({ orgId: 12, locationId: 600, email: "ho@example.com", name: "Head Office" })).token;
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Malta" }).format(new Date());
   const o = await api("POST", "/cherubino/orders", { token: T.A, body: { description: "Aerius", quantity: 3, order_date: today } });
   eq(o.status, 200, o.text);

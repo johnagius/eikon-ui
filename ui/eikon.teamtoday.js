@@ -94,25 +94,39 @@
   }
   function handoverRead(H) { return H.seen_by_me === true || !!readHere(H); } // the server's "I've read it" (T-C3), else this device's "Got it"
 
+  // FIN-dayzero: a pharmacy in its first two days (started today or yesterday, E.startYmd / the server's `since`) with
+  // nobody on the rota yet is getting ready, not failing: no red "Needs you now", one calm "to do" per step instead.
+  function addDay(ymd, k) { var d = new Date(ymd + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + k); return d.toISOString().slice(0, 10); }
+  function startOf(D) { var s = D && /^\d{4}-\d{2}-\d{2}$/.test(String(D.since || "")) ? D.since : (E.startYmd ? E.startYmd() : ""); return s || ""; }
+  function gettingReady(D) { var s = startOf(D); return !!(s && D && D.date && s >= addDay(D.date, -1) && !(D.shifts || []).length); }
+
   // Each item: { key, title, status: problem | todo | info | done, text, hot?, act, aria?, go: "#screen" | { tel } }
   function items(D, opts) {
     if (!D) return [];
     opts = opts || {};
-    var out = [], add = function (o) { out.push(o); }, now = opts.now || nowHm(D), n = mins(now), c = cover(D);
+    var out = [], add = function (o) { out.push(o); }, now = opts.now || nowHm(D), n = mins(now), c = cover(D), ready = gettingReady(D);
     var open = !c.closed && isFinite(mins(c.open)) && isFinite(mins(c.close)), openNow = open && n >= mins(c.open) && n < mins(c.close), before = open && n < mins(c.open);
 
-    // The pharmacist in charge (the locum register): nobody signed in while open is the one red row
+    // A new pharmacy getting ready: what to set up, in order (FIN-dayzero)
+    if (ready && opts.admin) { // the admin's to set up; staff are not asked for what they cannot do
+      if (D.hours_saved === false) add({ key: "setup:hours", title: "Set your opening hours", status: "todo", text: "Then the rota and the registers know when you are open.", act: "Set hours", aria: "Set your opening hours", go: { sheet: "hours" } });
+      add({ key: "setup:rota", title: "Plan who works here", status: "todo", text: "Add the people on the rota and their shifts. Until then nobody is on today.", act: "Plan shifts", aria: "Plan shifts", go: "#shfreg" });
+    }
+
+    // The pharmacist in charge (the locum register): nobody recorded while open is the one red row (W13: say what to do)
     if (D.locum_today) {
-      var P = inCharge(D, now), e0 = P.on[0];
+      var P = inCharge(D, now), e0 = P.on[0], was = P.last ? P.last.locum_full_name + " signed out at " + P.last.time_out + ". " : "";
       if (e0) add({ key: "pic", title: "Pharmacist in charge", status: "done", text: e0.locum_full_name + (e0.registration_number ? " (reg no " + e0.registration_number + ")" : "") + ", since " + e0.time_in + (e0.time_out && mins(e0.time_out) > mins(e0.time_in) ? ", until " + e0.time_out : "") + (P.on.length > 1 ? ", and " + plural(P.on.length - 1, "more") : "") + ".", act: "Open", aria: "Open the locum register", go: "#locreg" });
-      else if (openNow) add(opts.admin ? { key: "pic", title: "No pharmacist signed in", status: "problem", text: (P.last ? P.last.locum_full_name + " signed out at " + P.last.time_out + ". " : "") + "The locum register needs the pharmacist in charge now.", act: "Sign in", aria: "Sign in as the pharmacist in charge in the locum register", go: "#locreg" }
-        : { key: "pic", title: "No pharmacist signed in", status: "problem", text: (P.last ? P.last.locum_full_name + " signed out at " + P.last.time_out + ". " : "") + "Tell the pharmacist in charge to sign in.", act: "Open", quiet: true, aria: "Open the locum register", go: "#locreg" }); // staff: not theirs to sign (VISUAL TH3)
+      else if (openNow && ready) add({ key: "pic", title: "Pharmacist in charge not recorded", status: "todo", text: "When the pharmacist is in, record them in the locum register: one tap.", act: opts.admin ? "Record" : "Open", quiet: !opts.admin, aria: "Record the pharmacist in charge in the locum register", go: "#locreg" });
+      else if (openNow) add(opts.admin ? { key: "pic", title: "Pharmacist in charge not recorded", status: "problem", text: was + "Record who is in charge now in the locum register.", act: "Record", aria: "Record the pharmacist in charge in the locum register", go: "#locreg" }
+        : { key: "pic", title: "Pharmacist in charge not recorded", status: "problem", text: was + "Ask the pharmacist in charge to record themselves.", act: "Open", quiet: true, aria: "Open the locum register", go: "#locreg" }); // staff: not theirs to sign (VISUAL TH3)
       else if (before) add({ key: "pic", title: "Pharmacist in charge", status: "info", text: "Nobody signed in yet. We open at " + c.open + ".", act: opts.admin ? "Sign in" : "Open", aria: "Sign in as the pharmacist in charge in the locum register", go: "#locreg" });
       else if (P.all.length) add({ key: "pic", title: "Pharmacist in charge", status: "done", text: P.all.map(function (e) { return e.locum_full_name + " " + e.time_in + "–" + e.time_out; }).join(", ") + ".", act: "Open", aria: "Open the locum register", go: "#locreg" });
     }
 
-    // Gaps in today's pharmacist cover still to come (E.teamCover): "No pharmacist 13:00–16:00", one row each
-    (c.gaps || []).forEach(function (g) {
+    // Gaps in today's pharmacist cover still to come (E.teamCover): "No pharmacist 13:00–16:00", one row each.
+    // Not while getting ready: "Plan who works here" says it once, calmly.
+    (ready ? [] : (c.gaps || [])).forEach(function (g) {
       var a = g.from || g.start, z = g.to || g.end; if (!(mins(z) > n)) return; // a gap already over is past
       var nowIn = mins(a) <= n;
       add({ key: "gap:" + a, title: "No pharmacist " + a + "\u2013" + z, status: "problem", text: nowIn ? "Right now, until " + z + ". Ask a pharmacist to come in, then add the shift." : "Today: nobody on the rota covers it yet.", hot: nowIn ? "Right now" : "", act: "Fill the gap", aria: "Fill the gap " + a + " to " + z + " in Plan shifts", go: "#shfreg", gap: { date: D.date, from: a, to: z } });
@@ -153,7 +167,7 @@
     var bits = [];
     if (c.open && c.close) bits.push("Open " + c.open + "–" + c.close);
     var on = (D.shifts || []).length - (people(D, now).away.filter(function (p) { return p.from; }).length);
-    bits.push(on ? plural(on, "person", "people") + " on today" : "Nobody on the rota today");
+    bits.push(on ? plural(on, "person", "people") + " on today" : gettingReady(D) ? "Getting ready: no rota yet" : "Nobody on the rota today");
     var n = mins(now), ph = (D.shifts || []).filter(function (s) { return isPharm(s) && !(D.leave || []).some(function (l) { return l.staff_id === s.staff_id; }) && mins(s.end_time) > n && !(mins(s.start_time) >= mins(c.close)); }) // not a shift after closing
       .sort(function (a, b) { return mins(a.start_time) - mins(b.start_time); });
     if (ph.length) bits.push("Pharmacist: " + ph.slice(0, 2).map(function (s, i) { return (i ? "then " : "") + s.full_name + (mins(s.start_time) > n ? " from " + s.start_time : " until " + s.end_time); }).join(", "));
@@ -172,6 +186,7 @@
     S.job = E.apiFetch("/team/today", { method: "GET", timeoutMs: 12000 }).then(function (r) {
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not check today's team");
       S.data = r; S.at = asked; S.loc = loc; S.error = ""; S.hidden = false;
+      if (E.noteStart && r.since) E.noteStart(r.since); // FIN-dayzero
       API.data = r; API.at = asked; // T-C4
       return r;
     }).catch(function (e) {
@@ -186,6 +201,7 @@
   function isAdmin() { return !!(E.state && E.state.user && E.state.user.role === "admin"); }
   function go(g) {
     if (!g) return;
+    if (g.sheet && E.openHours) { E.openHours(); return; } // FIN-dayzero: the opening hours sheet, not the rota
     var id = String(g).replace(/^#/, "");
     if (E.modules && E.modules[id]) { window.location.hash = "#" + id; return; }
     var classic = { locreg: "locumregister", shfreg: "shifts", hndreg: "instructions", brdreg: "messageboard" }[id]; // not in this build: the classic screen
@@ -261,6 +277,7 @@
     var P = people(D, now), h = "";
     var group = function (label, list, kind) { if (list.length) h += "<h3>" + esc(label) + '</h3><ul class="tmt-list solo">' + list.map(function (p) { return personHtml(p, kind); }).join("") + "</ul>"; };
     group("On now", P.now, "now"); group("Later today", P.later, "later"); group("Finished", P.done, "done"); group("Away today", P.away, "away");
+    if (!h && gettingReady(D)) return "";
     if (!h) return '<div class="tmt-who"><ul class="tmt-list solo"><li class="tmt-row info"><span class="tmt-ic"></span><div class="tmt-t"><b>Nobody on the rota today</b><span>Add today\'s shifts in Plan shifts.</span></div><button type="button" class="tmt-btn q" data-tmt-plan aria-label="Plan shifts">Plan shifts ›</button></li></ul></div>';
     return '<div class="tmt-who" aria-label="Who is on today">' + h + "</div>";
   }
@@ -278,7 +295,7 @@
     } else if (!D) {
       h += '<ul class="tmt-list solo" aria-busy="true" aria-label="Checking today\'s team"><li class="tmt-sk"></li><li class="tmt-sk"></li><li class="tmt-sk"></li></ul>';
     } else {
-      var list = sorted(items(D, { now: now, admin: isAdmin() }));
+      var list = sorted(items(D, { now: now, admin: isAdmin() || !!(E.isPic && E.isPic()) })); // roles round: a pharmacist is told to sign in as the pharmacist in charge too
       h += '<div aria-live="polite"><div class="tmt-sum' + (list.length ? "" : " solo") + '">' + esc(headText(D, now)) + "</div></div>";
       var lead = -1; list.some(function (x, i) { if ((x.status === "problem" || x.status === "todo") && !x.quiet) { lead = i; return true; } return false; });
       h += list.length ? '<ul class="tmt-list">' + list.map(function (x, i) { return rowHtml(x, i, lead); }).join("") + "</ul>" : "";
@@ -315,8 +332,10 @@
     now = now || nowHm(D);
     var c = cover(D), P = people(D, now), on = P.now.length + P.later.length + P.done.length;
     out.rotreg = c.closed ? { status: "info", text: c.words || "Closed" } : on ? { status: "info", text: (P.now.length ? P.now.length + " on now · " : "") + plural(on, "person", "people") + " today" } : { status: "info", text: "Nobody on the rota today" };
-    var gaps = (c.gaps || []).filter(function (g) { return mins(g.to || g.end) > mins(now); });
-    if (gaps.length) out.shifts = { status: mins(gaps[0].from || gaps[0].start) <= mins(now) ? "problem" : "todo", text: "No pharmacist " + (gaps[0].from || gaps[0].start) + "–" + (gaps[0].to || gaps[0].end) + (gaps.length > 1 ? " and " + (gaps.length - 1) + " more" : "") };
+    var ready = gettingReady(D), gaps = ready ? [] : (c.gaps || []).filter(function (g) { return mins(g.to || g.end) > mins(now); });
+    if (ready) out.rotreg = { status: "info", text: "No rota yet" };
+    if (ready) out.shifts = { status: "todo", text: "Plan who works here" };
+    else if (gaps.length) out.shifts = { status: mins(gaps[0].from || gaps[0].start) <= mins(now) ? "problem" : "todo", text: "No pharmacist " + (gaps[0].from || gaps[0].start) + "–" + (gaps[0].to || gaps[0].end) + (gaps.length > 1 ? " and " + (gaps.length - 1) + " more" : "") };
     else if (D.leave_pending) out.shifts = { status: "todo", text: plural(D.leave_pending, "leave request") };
     var H = D.handover;
     if (H && H.total) out.instructions = handoverRead(H) ? { status: "done", text: "Read" } : { status: "todo", text: H.critical ? H.critical + " critical · not read" : plural(H.total, "point") + " · not read" };
@@ -325,7 +344,7 @@
     if (D.locum_today) {
       var I = inCharge(D, now), open = !c.closed && mins(now) >= mins(c.open) && mins(now) < mins(c.close);
       if (I.on[0]) out.locumregister = { status: "done", text: "In charge: " + I.on[0].locum_full_name };
-      else if (open) out.locumregister = { status: "problem", text: "No pharmacist signed in" };
+      else if (open) out.locumregister = ready ? { status: "todo", text: "Record who is in charge" } : { status: "problem", text: "Pharmacist in charge not recorded" };
     }
     return out;
   }

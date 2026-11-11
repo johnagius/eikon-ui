@@ -61,13 +61,16 @@ test("logout purges expired sessions", async ({ api, bootstrap, DB }) => {
   eq(DB.q("SELECT COUNT(*) AS c FROM sessions")[0].c, 0);
 });
 
+// portals (FIN): /cherubino/* answers only the Cherubino group (org 12); these checks run as that group.
+function asCherubino(DB) { for (const t of ["orgs SET id = 12 WHERE id = 1", "locations SET org_id = 12 WHERE org_id = 1", "users SET org_id = 12 WHERE org_id = 1"]) DB.db.prepare("UPDATE " + t).run(); }
 test("warehouse short-expiry upload is refused for a pharmacy login and allowed for the warehouse", async ({ api, bootstrap, addUser, DB }) => {
   const { token } = await bootstrap();
+  asCherubino(DB);
   const items = [{ stk_code: "A1", stk_desc: "Paracetamol 500", batch: "B1", expiry: "2026/12", qty: 10, loc_code: "WSL" }];
   const r = await api("POST", "/cherubino/short-expiry/upload", { token, body: { items, wipe: true } });
   eq(r.status, 403, r.text);
-  DB.db.prepare("INSERT INTO locations (id, org_id, name) VALUES (600, 1, 'Warehouse')").run();
-  const wh = await addUser({ locationId: 600, email: "wh@example.com", name: "Warehouse" });
+  DB.db.prepare("INSERT INTO locations (id, org_id, name) VALUES (600, 12, 'Warehouse')").run();
+  const wh = await addUser({ orgId: 12, locationId: 600, email: "wh@example.com", name: "Warehouse" });
   const r2 = await api("POST", "/cherubino/short-expiry/upload", { token: wh.token, body: { items, wipe: true } });
   eq(r2.status, 200, r2.text);
   eq(r2.json.inserted, 1);
@@ -75,8 +78,9 @@ test("warehouse short-expiry upload is refused for a pharmacy login and allowed 
 
 test("Cherubino OOS: Keep keeps, Reject only removes a pending proposal", async ({ api, bootstrap, addUser, DB }) => {
   const { token: pharmacy } = await bootstrap();
-  DB.db.prepare("INSERT INTO locations (id, org_id, name) VALUES (600, 1, 'Head office')").run();
-  const admin = await addUser({ locationId: 600, email: "ho@example.com", name: "Head office" });
+  asCherubino(DB);
+  DB.db.prepare("INSERT INTO locations (id, org_id, name) VALUES (600, 12, 'Head office')").run();
+  const admin = await addUser({ orgId: 12, locationId: 600, email: "ho@example.com", name: "Head office" });
   // Branch proposes an item -> pending
   const add = await api("POST", "/cherubino/oos", { token: pharmacy, body: { description: "Enalapril 20mg" } });
   eq(add.status, 200, add.text);

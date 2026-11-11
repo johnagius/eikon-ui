@@ -378,6 +378,8 @@
     return !(yes(def.closed) || (wd === 6 && !yes(sat)) || (wd === 0 && !yes(sun)));
   };
   function openOn(d) { return E.eodOpenOn(S.hours, d); }
+  // Days before the pharmacy started (dayzero's E.startYmd; absent: as before) are never "not closed".
+  function beforeStart(d) { return !!(E.beforeStart && E.beforeStart(d)); }
   function shown(v, int) { var s = String(v == null ? "" : v); return (int ? inum(s) === 0 && /^\s*0*\s*$/.test(s) : /^\s*0*(\.0*)?\s*$/.test(s)) ? "" : s; } // a zero shows as an empty box with 0 behind it
 
   function paint(fromState) {
@@ -743,7 +745,7 @@
     if (S.date !== today() || !S.prev) return null;
     var y = addDays(S.date, -1), p = S.prev, pd = p.date || p.eod_date, last = null;
     if (!isYmd(pd) || pd >= S.date) return null;
-    for (var i = 1; i <= 7; i++) { var d = addDays(S.date, -i); if (openOn(d)) { last = d; break; } }
+    for (var i = 1; i <= 7; i++) { var d = addDays(S.date, -i); if (beforeStart(d)) break; if (openOn(d)) { last = d; break; } }
     var name = function (d) { return d === y ? "Yesterday, " + dayLabel(d) + "," : dayLabel(d); }, btn = function (d) { return d === y ? "Close yesterday" : "Close " + shortDay(d); };
     if (!p.locked_at) return { d: pd, t: name(pd) + " was saved but not locked.", b: btn(pd) };
     if (last && pd < last) return { d: last, t: "Nothing was saved for " + (last === y ? "yesterday, " + dayLabel(last) : dayLabel(last)) + ".", b: btn(last) };
@@ -775,14 +777,14 @@
       if (row.cur) { row.c = (rec || S.dirty) ? curC : null; row.st = S.base && S.base.locked_at ? "locked" : S.dirty ? "dirty" : rec ? "saved" : "none"; }
       else if (rec) { row.c = calc(working(rec)); row.st = rec.locked_at ? "locked" : "saved"; }
       else { row.c = null; row.st = "none"; }
-      if (row.st === "locked") t.locked++; else if (row.st === "saved" || row.st === "dirty") t.open++; else if (d < today() && openOn(d)) t.missing++;
+      if (row.st === "locked") t.locked++; else if (row.st === "saved" || row.st === "dirty") t.open++; else if (d < today() && openOn(d) && !beforeStart(d)) t.missing++;
       t.rows.push(row);
     }
     return t;
   }
   function coinWords(v) { v = Math.round(v * 100) / 100; return v < 0 ? eurG(-v) + " taken from the coin box" : eurG(v); }
   function rowParts(r) {
-    var chip = r.st === "locked" ? ["ok", "Locked"] : r.st === "saved" ? ["wn", "Not locked"] : r.st === "dirty" ? ["wn", "Not saved"] : r.d >= today() ? ["", "Not started"] : !openOn(r.d) ? ["", E.maltaHoliday && E.maltaHoliday(r.d) ? "Public holiday" : "Closed"] : ["wn", "Not closed"];
+    var chip = r.st === "locked" ? ["ok", "Locked"] : r.st === "saved" ? ["wn", "Not locked"] : r.st === "dirty" ? ["wn", "Not saved"] : r.d >= today() ? ["", "Not started"] : beforeStart(r.d) ? ["", "Before the start"] : !openOn(r.d) ? ["", E.maltaHoliday && E.maltaHoliday(r.d) ? "Public holiday" : "Closed"] : ["wn", "Not closed"];
     var has = r.c && counted(r.c), v = has ? Math.round(r.c.OU * 100) / 100 : 0;
     return { chip: chip, cash: has ? eurG(r.c.E) : "", ou: has ? diffWords(v) : "", cls: has ? (v === 0 ? "ok" : "wn") : "" };
   }

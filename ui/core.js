@@ -145,7 +145,7 @@
   E.isUi2 = function () {
     try { if (window.sessionStorage.getItem("eikon_ui2_pause") === "1") return false; } catch (e) {}
     try { if (window.localStorage.getItem("eikon_ui2") === "0") return false; } catch (e) { return false; }
-    try { var r = window.localStorage.getItem("eikon_active_role"); if (r && r !== "pharmacy") return false; } catch (e) {}
+    try { var r = window.localStorage.getItem("eikon_active_role"); if (r && r !== "pharmacy" && r !== "supplier" && r !== "company_admin") return false; } catch (e) {} // portals (FIN): the distributor and head office have the new layout too
     return true;
   };
   // Light look from the very first screen (sign-in, portal picker), not only after sign-in.
@@ -175,7 +175,7 @@
   E.maltaHoliday = function (ymd) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || "")); if (!m) return "";
     var y = +m[1], fixed = { "01-01": "New Year's Day", "02-10": "St Paul's Shipwreck", "03-19": "St Joseph", "03-31": "Freedom Day",
-      "05-01": "Worker's Day", "06-07": "Sette Giugno", "06-29": "St Peter and St Paul", "08-15": "Santa Marija",
+      "05-01": "Workers' Day", "06-07": "Sette Giugno", "06-29": "St Peter and St Paul", "08-15": "Santa Marija",
       "09-08": "Victory Day", "09-21": "Independence Day", "12-08": "Immaculate Conception", "12-13": "Republic Day", "12-25": "Christmas Day" };
     if (fixed[m[2] + "-" + m[3]]) return fixed[m[2] + "-" + m[3]];
     var a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25),
@@ -184,6 +184,48 @@
       mo = Math.floor((h + l - 7 * mm + 114) / 31), dy = ((h + l - 7 * mm + 114) % 31) + 1;
     return new Date(Date.UTC(y, mo - 1, dy - 2)).toISOString().slice(0, 10) === ymd ? "Good Friday" : "";
   };
+  // ---- FIN-dayzero: the day this pharmacy started, and download file names ----
+  // E.startYmd(user?) "YYYY-MM-DD": the earlier of the day the pharmacy was created and its first saved register day
+  // (the worker's location_since on /auth/login and /auth/me; the day screens also send it as `since`, noted with
+  // E.noteStart). "" when unknown: then nothing is clipped, as before. No screen blames a day, a month or a sign-off
+  // from before it: E.beforeStart(ymd) / E.beforeStartMonth("YYYY-MM") say so. E.startingOut(): the pharmacy started
+  // today or yesterday (its first days: "Getting ready" words instead of alarms).
+  E._dzStart = E._dzStart || {};
+  E.startYmd = function (u) {
+    u = u || (E.state && E.state.user) || {};
+    var s = String(u.location_since || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) s = E._dzStart[String(u.location_id || "")] || "";
+    return s;
+  };
+  E.noteStart = function (since) {
+    var u = (E.state && E.state.user) || {}, s = String(since || "");
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s) && u.location_id != null) { E._dzStart[String(u.location_id)] = s; u.location_since = s; } // the newest answer wins
+    return s;
+  };
+  E.beforeStart = function (ymd) { var s = E.startYmd(); return !!(s && ymd && String(ymd).slice(0, 10) < s); };
+  E.beforeStartMonth = function (ym) { var s = E.startYmd(); return !!(s && ym && String(ym).slice(0, 7) < s.slice(0, 7)); };
+  E.startingOut = function (today) {
+    var s = E.startYmd(); if (!s) return false;
+    var t = String(today || (E.maltaYmd ? E.maltaYmd() : "")); if (!t) return false;
+    var y = new Date(t + "T12:00:00Z"); y.setUTCDate(y.getUTCDate() - 1);
+    return s >= y.toISOString().slice(0, 10);
+  };
+  // A download's file name: keeps every letter (Ħamrun, Żebbuġ, Għargħur) and digit, drops only what a file system
+  // refuses (/ \ : * ? " < > | and control characters), spaces become "-".
+  E.fileName = function (s) {
+    return String(s == null ? "" : s).normalize("NFC").replace(/[\/\\:*?"<>|\u0000-\u001f\u007f]+/g, " ").trim().replace(/\s+/g, "-").replace(/-{2,}/g, "-").replace(/^[-.]+|[-.]+$/g, "");
+  };
+
+  // W11: "Set hours" anywhere opens the opening hours (E.rotaSet's sheet), not the rota. eikon.rotaset.js loads after
+  // Today: a tap before it arrives waits for it. opts.onSaved(kind) runs after a save.
+  E.openHours = function (opts) {
+    opts = opts || {};
+    var run = function () { if (E.rotaSet && E.rotaSet.open) return E.rotaSet.open("hours", null, { onSaved: opts.onSaved }); window.location.hash = "#shfreg"; return null; };
+    if (E.rotaSet && E.rotaSet.open) return run();
+    var late = window.EIKON_LATE; if (late && late.then) { late.then(run, run); return null; }
+    return run();
+  };
+
   // ---- rota (Team & shifts): T-C2 ----
   // A day's opening and pharmacist cover, one rule for Who's in, Plan shifts and Today's team. Opening hours are read as
   // the Shifts screen reads them: a one-day override, else a Malta public holiday (closed), else the weekly hours, else
@@ -1052,6 +1094,36 @@
     return p;
   };
 
+  // FIN-roles: the signed-in person's rights. Stored roles stay admin | staff (| user); a pharmacist is a staff sign-in
+  // the admin marked as pharmacist, and "plans the rota" is a per-person right (GET /team/me, read once per sign-in and
+  // only for a non-admin: an admin can do everything). E.rights is null until known, or on a server without the route.
+  E.rights = null; E._rightsFor = null;
+  E.loadRights = function () {
+    var u = E.state && E.state.user; if (!u) return Promise.resolve(null);
+    var key = String(u.user_id || u.id || u.email || "") + "|" + String(u.location_id || "");
+    if (u.role === "admin") { E.rights = { role: "admin", is_pharmacist: false, role_word: "Admin", pic: true, plans_rota: true }; E._rightsFor = key; return Promise.resolve(E.rights); }
+    if (E._rightsFor === key && E._rightsP) return E._rightsP;
+    E._rightsFor = key; E.rights = null;
+    E._rightsP = E.apiFetch("/team/me", { method: "GET" }).then(function (r) {
+      if (E._rightsFor !== key) return null;
+      E.rights = r && r.ok ? r : null;
+      try { var w = document.querySelector(".eikon-rail-who [data-role-word]"); if (w && E.rights) w.textContent = E.roleWord(E.state.user) + " \u00B7 signed in " + (w.getAttribute("data-hm") || ""); } catch (e) {}
+      return E.rights;
+    }, function () { return null; });
+    return E._rightsP;
+  };
+  // One word for the role everywhere (sidebar, People who sign in): Admin, Pharmacist, Staff.
+  E.roleWord = function (u) {
+    u = u || (E.state && E.state.user) || {};
+    if (u.role === "admin") return "Admin";
+    if (u.role_word) return u.role_word;
+    var me = E.state && E.state.user, r = E.rights;
+    if (r && me && (u === me || String(u.id || u.user_id) === String(me.id || me.user_id)) && r.role_word) return r.role_word;
+    return u.is_pharmacist ? "Pharmacist" : u.role === "staff" ? "Staff" : "Limited";
+  };
+  // The pharmacist in charge's actions (month sign-off): an admin, or a pharmacist.
+  E.isPic = function () { var u = E.state && E.state.user; return !!u && (u.role === "admin" || !!(E.rights && E.rights.pic)); };
+
   // Fetch wrapper with heavy debugging
   E.apiFetch = async function (path, options) {
     var opts = options || {};
@@ -1246,6 +1318,32 @@
   E.COMPANY_ADMIN_CATEGORIES = [
     { label: "Overview", icon: "\uD83D\uDCCA", moduleIds: ["ownreg", "admin-overview"] } // How we're doing: the group's figures, each pharmacy and combined
   ];
+
+  // portals (FIN): the distributor's and the head office's new layout (modules.portals.js draws the screens). rail: the
+  // tabs; ids: what opens in the new layout; classic: the old screens this portal may still open (one classic visit,
+  // "Classic screen" on each new screen); native: an old screen's new one, for links and the classic menu; home: first screen.
+  E.PORTALS = {
+    supplier: { home: "suphome",
+      rail: [{ id: "suphome", title: "Today", icon: "today" }, { id: "suporders", title: "Orders", icon: "orders" }, { id: "supproblems", title: "Problems", icon: "problems" }, { id: "supproducts", title: "Products", icon: "stock" }],
+      foot: [{ id: "ptlacct", title: "Account", icon: "team" }],
+      ids: ["suphome", "suporders", "supproblems", "supproducts", "ptlacct"],
+      classic: ["supplier-dashboard", "supplier-products", "supplier-received-orders", "supplier-order-feedback"],
+      native: { "supplier-dashboard": "suphome", "supplier-received-orders": "suporders", "supplier-order-feedback": "supproblems", "supplier-products": "supproducts" } },
+    company_admin: { home: "hqhome",
+      rail: [{ id: "hqhome", title: "Today", icon: "today" }, { id: "ownreg", title: "How we're doing", icon: "money", admin: true }, { id: "hqregs", title: "Registers", icon: "registers" }, { id: "hqclient", title: "Cherubino", icon: "services", org: 12 }],
+      foot: [{ id: "ptlacct", title: "Account", icon: "team" }],
+      ids: ["hqhome", "ownreg", "hqregs", "hqclient", "ptlacct"],
+      classic: ["company-dashboard", "admin-overview", "ownreg", "cherubino-admin", "cherubino-prices", "cherubino-shortexpiry", "cherubino-oos"],
+      native: { "company-dashboard": "hqhome", "admin-overview": "hqregs", "cherubino-admin": "hqclient", "cherubino-prices": "hqclient", "cherubino-shortexpiry": "hqclient", "cherubino-oos": "hqclient" } }
+  };
+  // The Cherubino screens were made for one client (org 12, worker /cherubino/* likewise): nobody else is shown them,
+  // in either layout, by menu, search or address.
+  E.orgOnly = function (id) {
+    if (!/^(cherubino-|hqclient$)/.test(String(id || ""))) return true;
+    return !!(E.state.user && Number(E.state.user.org_id) === 12);
+  };
+  // The open portal in the new layout ("supplier" / "company_admin"), or "" (pharmacy, or a classic visit).
+  E.portalNow = function () { var r = E.state.activeRole; return E.isUi2() && E.PORTALS[r] ? r : ""; };
 
   // UI mounts
   E.state = { user: null, activeModuleId: "", activeRole: "", sidebarCollapsed: false, expandedCategory: null, started: false };
@@ -1805,6 +1903,23 @@
 
   // Boot a non-pharmacy section
   E.bootSection = async function (section) {
+    // (18:05) a one-visit classic screen in a portal only for the Cherubino screens (org 12, from its Cherubino tab); any
+    // other ?ui=classic address goes back to the new layout. The classic layout itself is Account › Classic layout.
+    if (E.isUi2Paused() && E.PORTALS[section]) {
+      var askedV = String(E.routeHash() || "").replace(/^#/, "").trim();
+      if (!(/^cherubino-/.test(askedV) && E.orgOnly(askedV))) { E.returnToNew(E.PORTALS[section].native[askedV] || E.PORTALS[section].home); return; }
+    }
+    // portals (FIN): the new layout, unless this browser chose the classic one or this is a one-visit classic screen.
+    if (E.isUi2() && E.PORTALS[section]) {
+      try { document.documentElement.setAttribute("data-ui2", ""); document.documentElement.removeAttribute("data-ui2-visit"); } catch (e) {}
+      E._activeSidebarCategories = null;
+      E._sectionDashboardId = E.PORTALS[section].home;
+      var askedP = String(E.routeHash() || "").replace(/^#/, "").trim();
+      E.setRoute(askedP && askedP !== "today" && askedP !== "dashboard" ? askedP : E._sectionDashboardId); // a link to a screen opens it
+      E.renderShell();
+      try { await E.renderActiveModule(); } finally { E.markIntroScreenDone(); }
+      return;
+    }
     try { document.documentElement.removeAttribute("data-ui2"); document.documentElement.removeAttribute("data-ui2-visit"); } catch (e) {} // portals keep the classic look
     // Portals are classic screens: a page that opened in the new layout fetches them now (once).
     try { await E.loadClassic(); } catch (eL) { E.warn("[boot] classic screens did not load:", eL); }
@@ -1821,7 +1936,10 @@
       E._sectionDashboardId = "company-dashboard";
     }
 
-    E.setRoute(E._sectionDashboardId);
+    // portals (FIN): a link to one of this portal's classic screens (a new screen's "Classic screen") opens that screen.
+    var askedC = String(E.routeHash() || "").replace(/^#/, "").trim(), pc = E.PORTALS[section];
+    if (askedC && pc && pc.classic.indexOf(askedC) >= 0 && E.orgOnly(askedC) && E.modules[askedC]) E.setRoute(askedC);
+    else E.setRoute(E._sectionDashboardId);
     E.renderShell();
 
     try {
@@ -1927,7 +2045,7 @@
       var chose = false;
       try {
         var role = window.localStorage.getItem("eikon_active_role");
-        chose = window.localStorage.getItem("eikon_ui2") === "0" && (!role || role === E.ROLE_PHARMACY) && !E.isUi2Paused();
+        chose = window.localStorage.getItem("eikon_ui2") === "0" && (!role || role === E.ROLE_PHARMACY || !!E.PORTALS[role]) && !E.isUi2Paused(); // portals (FIN) too
       } catch (e) {}
       if (chose) {
         newBtn.style.display = "";
@@ -2023,6 +2141,8 @@
       // ends the visit and opens that screen in the new layout. Only the menu: an address that says ?ui=classic
       // (a link, a bookmark, a rebuilt screen's "classic screen" link) always gets the classic screen it names.
       var to = E.isUi2Paused() ? ((E.UI2_NATIVE && E.UI2_NATIVE[m.id]) || ((E.UI2_PARENT && E.UI2_PARENT[m.id]) || (E.UI2_DESTINATIONS || []).indexOf(m.id) >= 0 ? m.id : "")) : "";
+      var pv = E.isUi2Paused() && E.PORTALS[E.state.activeRole]; // portals (FIN): an old screen rebuilt for the portal opens in the new layout
+      if (pv) to = pv.native[m.id] || (pv.ids.indexOf(m.id) >= 0 ? m.id : "");
       if (to) { try { window.sessionStorage.removeItem("eikon_ui2_pause"); } catch (e) {} E.returnToNew(to); return; }
       window.location.hash = "#" + m.id;
     });
@@ -2077,6 +2197,7 @@
     allMods.forEach(function (m) { modById[m.id] = m; });
 
     if (E.isUi2() && (E._sectionDashboardId === "today") && modById.today) { E.renderNavUi2(nav, modById); return; }
+    if (E.portalNow()) { E.renderNavUi2(nav, modById, E.PORTALS[E.portalNow()]); return; } // portals (FIN): the same rail, with the portal's tabs
 
     // --- Search input ---
     var searchWrap = document.createElement("div");
@@ -2182,7 +2303,7 @@
         searchResults.innerHTML = "";
 
         var matches = allMods.filter(function (m) {
-          return !m.ui2Only && (m.title || m.id).toLowerCase().indexOf(q) !== -1;
+          return !m.ui2Only && E.orgOnly(m.id) && (m.title || m.id).toLowerCase().indexOf(q) !== -1;
         });
 
         if (matches.length === 0) {
@@ -2232,12 +2353,13 @@
   E.UI2_RAIL_FOOT = [{ id: "team", title: "Team" }, { id: "settings", title: "Settings" }];
   E.UI2_DESTINATIONS = ["today", "customers", "stock", "registers", "team", "settings", "services", "money"];
   // Screens inside a tab keep that tab lit in the rail.
-  E.UI2_PARENT = { teamreg: "team", tempreg: "registers", cleanreg: "registers", drreg: "registers", locreg: "registers", certreg: "registers", nexreg: "stock", retreg: "stock", trfreg: "stock", alertreg: "stock", ordreg: "customers", tktreg: "customers", dlvreg: "customers", cdpreg: "registers", cdsreg: "registers", poyreg: "registers", poreg: "money", hndreg: "team", rotreg: "team", shfreg: "team", repreg: "registers", cnreg: "money", lrcreg: "money", odreg: "stock", qtreg: "stock", ssreg: "stock", brdreg: "team", conreg: "team", vaxreg: "services", eodreg: "money", pocreg: "services", scsreg: "stock", audreg: "settings", expreg: "settings", pvreg: "services", scrreg: "services", ocpreg: "services", lblreg: "services", sinreg: "stock", otcreg: "services", eposreg: "money", calreg: "services", ownreg: "money", loyreg: "customers" };
+  E.UI2_PARENT = { phdreg: "settings", teamreg: "team", tempreg: "registers", cleanreg: "registers", drreg: "registers", locreg: "registers", certreg: "registers", nexreg: "stock", retreg: "stock", trfreg: "stock", alertreg: "stock", ordreg: "customers", tktreg: "customers", dlvreg: "customers", cdpreg: "registers", cdsreg: "registers", poyreg: "registers", poreg: "money", hndreg: "team", rotreg: "team", shfreg: "team", repreg: "registers", cnreg: "money", lrcreg: "money", odreg: "stock", qtreg: "stock", ssreg: "stock", brdreg: "team", conreg: "team", vaxreg: "services", eodreg: "money", pocreg: "services", scsreg: "stock", audreg: "settings", expreg: "settings", pvreg: "services", scrreg: "services", ocpreg: "services", lblreg: "services", sinreg: "stock", otcreg: "services", eposreg: "money", calreg: "services", ownreg: "money", loyreg: "customers" };
   // Old registers rebuilt for the new layout: any way of reaching the old id (Today, search, a hub, a link) lands on the new screen.
   E.UI2_NATIVE = { temperature: "tempreg", cleaning: "cleanreg", dailyregister: "drreg", locumregister: "locreg", certificates: "certreg", nearexpiry: "nexreg", returns: "retreg", stocktransfers: "trfreg", alerts: "alertreg", clientorders: "ordreg", tickets: "tktreg", deliveries: "dlvreg", "dda-purchases": "cdpreg", "dda-sales": "cdsreg", "dda-poyc": "poyreg", paidout: "poreg", instructions: "hndreg", repeatprescriptions: "repreg", creditnotes: "cnreg", locumreceipts: "lrcreg", "order-diary": "odreg", quotations: "qtreg", messageboard: "brdreg", contacts: "conreg", vaccines: "vaxreg", endofday: "eodreg", shifts: "shfreg", poct: "pocreg", scarcestock: "scsreg", audit: "audreg", pharmacovigilance: "pvreg", screening: "scrreg", ocps: "ocpreg", labels: "lblreg", "supplier-inventory": "sinreg", otcmindmap: "otcreg", "emergency-pos": "eposreg", pharmacycalc: "calreg", dda_stocktakes: "ddstreg", loyalty: "loyreg" };
   // The tab a rebuilt screen belongs to, for its "‹ Tab" back button: one place decides, so moving a screen moves its way back too.
   // Whatever UI2_PARENT says wins (a screen that still says "registers" goes back to Registers); an unknown or missing tab goes to Today.
   E.ui2BackTab = function (id) {
+    if (E.portalNow && E.portalNow()) return E.PORTALS[E.portalNow()].home; // portals (FIN): back to the portal's Today
     var p = (E.UI2_PARENT || {})[id];
     return p && (E.UI2_DESTINATIONS || []).indexOf(p) >= 0 ? p : "today";
   };
@@ -2305,11 +2427,15 @@
       services: sv('<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M12 8v8M8 12h8"/>'),
       money: sv('<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>'),
       settings: sv('<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/>'),
-      _: sv('<circle cx="12" cy="12" r="8"/>')
+      orders: sv('<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4V3h6v1M8.5 10h7M8.5 14h7M8.5 18h4"/>'), // portals (FIN): a distributor's orders
+      problems: sv('<path d="M12 3.5 21 19.5H3z"/><path d="M12 10v4.5M12 17.2v.3"/>'), // portals (FIN): what pharmacies reported
+      _: sv('<circle cx="12" cy="12" r="8"/>'),
+      // FIN-dayzero (W42): on a phone the last tab reads "More": three dots, not the sun-like wheel next to Today's sun
+      more: sv('<circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/>')
     };
   })();
 
-  E.renderNavUi2 = function (nav, modById) {
+  E.renderNavUi2 = function (nav, modById, portal) {
     var u = E.state.user || {};
     var side = nav.parentNode;
     var header = side ? side.querySelector(".eikon-sidebar-header") : null;
@@ -2319,26 +2445,28 @@
     }
     function btn(item) {
       var m = modById[item.id];
-      if (!m) return null;
+      if (!m && !portal) return null; // a portal's tabs are drawn before its screens have loaded (modules.portals.js comes in the background)
       var b = document.createElement("button");
       b.className = "eikon-nav-btn eikon-rail-btn";
       b.setAttribute("data-mod", item.id);
       var n = E._railBadges[item.id];
-      b.innerHTML = '<span class="eikon-rail-ico">' + (E.RAIL_ICONS[item.id] || E.RAIL_ICONS._) + '</span><span class="eikon-nav-label">' + E.escapeHtml(item.title) + '</span>' +
+      b.innerHTML = '<span class="eikon-rail-ico">' + (E.RAIL_ICONS[item.id] || E.RAIL_ICONS[item.icon] || E.RAIL_ICONS._) + (item.id === "settings" && E.RAIL_ICONS.more ? '<span class="eikon-rail-more-ico" aria-hidden="true">' + E.RAIL_ICONS.more + "</span>" : "") + '</span><span class="eikon-nav-label">' + E.escapeHtml(item.title) + '</span>' +
         (item.id === "settings" ? '<span class="eikon-rail-more">More</span>' : "") +
         '<span class="eikon-rail-badge' + (n ? "" : " empty") + '" data-badge="' + item.id + '">' + (n || "") + '</span>';
       b.addEventListener("click", function () { E._ui2Back = null; window.location.hash = "#" + item.id; });
       return b;
     }
     var top = document.createElement("div"); top.className = "eikon-rail-top";
-    E.UI2_RAIL.forEach(function (it) { var b = btn(it); if (b) top.appendChild(b); });
+    var mine = function (it) { return (!it.org || Number(u.org_id) === it.org) && !(it.admin && u.role && u.role !== "admin"); }; // portals: a client's own tab for that client only; the admin's own tools for admins
+    (portal ? portal.rail : E.UI2_RAIL).filter(mine).forEach(function (it) { var b = btn(it); if (b) top.appendChild(b); });
     nav.appendChild(top);
     var foot = document.createElement("div"); foot.className = "eikon-rail-foot";
-    E.UI2_RAIL_FOOT.forEach(function (it) { var b = btn(it); if (b) foot.appendChild(b); });
+    (portal ? portal.foot : E.UI2_RAIL_FOOT).forEach(function (it) { var b = btn(it); if (b) foot.appendChild(b); });
     var who = document.createElement("div"); who.className = "eikon-rail-who";
     var since = E.state.signedInAt || (E.state.signedInAt = new Date());
     var hm = E.maltaHm(since); // Malta time, like the header and Today
-    who.innerHTML = '<b>' + E.escapeHtml(String(u.full_name || u.email || "")) + '</b><span>' + E.escapeHtml(u.role === "admin" ? "Pharmacist" : "Staff") + ' · signed in ' + hm + '</span>';
+    who.innerHTML = '<b>' + E.escapeHtml(String(u.full_name || u.email || "")) + '</b><span>' + E.escapeHtml(portal ? (E.portalNow() === "supplier" ? "Distributor" : "Head office") : E.roleWord(u)) + ' · signed in ' + hm + '</span>'; // FIN-roles: the same word as People who sign in
+    try { var rw = who.querySelector("span"); if (rw) { rw.setAttribute("data-role-word", ""); rw.setAttribute("data-hm", hm); } if (!portal && u.role !== "admin") E.loadRights(); } catch (eR) {}
     foot.appendChild(who);
     nav.appendChild(foot);
     // "Skip to content" (WCAG 2.4.1): the first Tab shows it, Enter jumps past the rail to the screen.
@@ -3579,6 +3707,19 @@
       E.setRoute(fallbackDash);
     }
 
+    if (!E.orgOnly(id)) { id = fallbackDash; E.setRoute(fallbackDash); } // another client's screen: never for this org
+    // portals (FIN): the portal's new screens open here, its old ones as a classic visit, anything else is its home.
+    var portalP = E.portalNow() && E.PORTALS[E.portalNow()];
+    // portals (FIN): a classic visit in a portal opens only that portal's own classic screens (a pharmacy address, e.g. #today, is its dashboard)
+    var portalC = !E.isUi2() && E.PORTALS[E.state.activeRole];
+    if (portalC && portalC.classic.indexOf(id) < 0 && id !== fallbackDash) { id = fallbackDash; E.setRoute(fallbackDash); }
+    if (!portalP && E.state.activeRole !== E.ROLE_SUPPLIER && E.state.activeRole !== E.ROLE_COMPANY_ADMIN && /^(sup(home|orders|problems|products)|hq(home|regs|client)|ptlacct)$/.test(id)) { id = fallbackDash; E.setRoute(fallbackDash); } // a portal's own screens are not a pharmacy's
+    if (portalP) {
+      var natP = portalP.native[id];
+      if (natP && E.modules[natP]) { window.location.replace("#" + natP); return; }
+      // (18:05) never into the classic layout by an address: anything that is not one of the portal's screens is its Today
+      if (portalP.ids.indexOf(id) < 0 || !E.orgOnly(id)) { id = portalP.home; window.location.replace("#" + id); return; }
+    }
     if (E.isUi2() && E._sectionDashboardId === "today" && E.UI2_NATIVE[id] && E.modules[E.UI2_NATIVE[id]]) {
       window.location.replace("#" + E.UI2_NATIVE[id]); return; // the hashchange renders the new screen
     }

@@ -125,6 +125,8 @@
       return "";
     },
     paint: function () { paint(true); }, idle: function () { E.whenFormIdle(S.mount, function () { paint(); }); }, done: function () { return load(); } };
+  // W6: the pharmacy's own number (from 1 in a new pharmacy); a note made before it keeps the number it always showed
+  function cnNo(cn) { return cn && cn.cn_no != null && cn.cn_no !== "" ? cn.cn_no : cn && cn.id; }
   async function fetchAll() {
     var r = await E.apiFetch("/creditnotes/list", { method: "GET" });
     if (!r || !r.ok) throw new Error((r && r.error) || "Could not load credit notes");
@@ -200,7 +202,7 @@
     for (i = 0; i < notes.length; i++) { var n = notes[i]; nHtml += "<div style='border-bottom:1px solid #eee;padding:6px 0;font-size:12px'><span style='opacity:.6'>" + safe(cDateTime(n.timestamp)) + "</span> — " + safe(n.text) + "</div>"; }
     var expiry = cn.no_expiry ? "Does not expire" : (cn.expiry_date ? cDmy(cn.expiry_date) : "—");
     var status = isOpen ? "OPEN" : "CLOSED", statusColor = isOpen ? "#067647" : "#b42318";
-    return "<!doctype html><html><head><meta charset='utf-8'/><title>Credit Note #" + safe(cn.id) + "</title>" +
+    return "<!doctype html><html><head><meta charset='utf-8'/><title>Credit Note #" + safe(cnNo(cn)) + "</title>" +
       "<style>" +
         "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:18mm 18mm 18mm 18mm;color:#111;}" +
         "h1{font-size:22px;font-weight:900;margin:0 0 2px 0;}" +
@@ -221,7 +223,7 @@
         "@media print{body{margin:10mm;} .no-print{display:none!important;}}" +
       "</style></head><body>" +
       "<div style='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;'>" +
-        "<div><h1>Credit Note</h1><div class='meta'>#" + safe(cn.id) + " • Issued: " + safe(cDmy(cn.issue_date)) + " • Printed: " + safe(new Date().toLocaleString()) + "</div></div>" +
+        "<div><h1>Credit Note</h1><div class='meta'>#" + safe(cnNo(cn)) + " • Issued: " + safe(cDmy(cn.issue_date)) + " • Printed: " + safe(new Date().toLocaleString()) + "</div></div>" +
         "<div class='status-badge'>" + safe(status) + "</div>" +
       "</div>" +
       "<div class='grid'>" +
@@ -262,7 +264,7 @@
       '<span class="t"><b>' + esc(who) + "</b><small>" + line + "</small></span><em>" + show(rem) + ' <small>left</small></em></button>' + E.correct.mark("cnreg", cn);
     if (!opened) return h + "</div>";
     var sub = [];
-    sub.push(show(cn.amount) + " given " + esc(dm(cn.issue_date))); sub.push("No. " + esc(cn.id)); // the number on its printed page
+    sub.push(show(cn.amount) + " given " + esc(dm(cn.issue_date))); sub.push("No. " + esc(cnNo(cn))); // the number on its printed page (the pharmacy's own: W6)
     if (!cn.no_expiry && cn.expiry_date) sub.push(esc(endWords(cn)));
     h += '<div class="s">' + (cn.telephone ? '<a class="cnr-tel" href="tel:' + esc(String(cn.telephone).replace(/\s+/g, "")) + '" aria-label="' + esc("Call " + who + ", " + cn.telephone) + '">Call ' + esc(cn.telephone) + "</a>" : "") + "<span>" + sub.join(" · ") + "</span></div>" + usesHtml(cn) + notesHtml(cn);
     if (String(S.using) === String(cn.id)) {
@@ -294,7 +296,7 @@
     var words = q.split(/\s+/), digits = q.replace(/[\s#]/g, ""), onlyNo = /^#\d+$/.test(q), isNum = /^\d+$/.test(digits);
     var id = S.id && S.id.q === String(raw).trim() ? S.id.hits : null;
     return function (cn) {
-      if (isNum && String(cn.id) === digits) return true;
+      if (isNum && String(cnNo(cn)) === digits) return true;
       if (onlyNo) return false;
       var name = fold(cn.client_name + " " + cn.client_surname);
       if (words.every(function (w) { return name.indexOf(w) >= 0; })) return true;

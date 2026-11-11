@@ -222,7 +222,10 @@
     css(); ctx = ctx || {}; loading(mount);
     var R; try { R = await rules(); } catch (e) { return cantRead(mount, function () { dayUi(mount, ymd, ctx); }); }
     var h = R.hours, ov = h.overrides[ymd], c = E.teamCover(ymd, { hours: h, settings: R.settings }), w = h.weekly[wd(ymd)] && !h.weekly[wd(ymd)].closed ? h.weekly[wd(ymd)] : h["default"];
-    var openIt = c.closed || !!(ov && !(ov.closed === true || ov.closed === 1 || ov.closed === "1" || ov.closed === "true")), ph = E.maltaHoliday(ymd);
+    // W11: the choice shows the day as it is (an open day: Open, with its hours), except a day closed by default, where
+    // opening it is why the dialog was opened (a duty Sunday, a holiday). A day closed on purpose (its own entry) shows Closed.
+    var ovClosed = !!(ov && (ov.closed === true || ov.closed === 1 || ov.closed === "1" || ov.closed === "true"));
+    var openIt = !ovClosed, ph = E.maltaHoliday(ymd);
     mount.innerHTML = '<div class="rps"><p class="sub" style="font-size:15px;color:var(--text)"><b>' + esc(dayW(ymd, true)) + "</b> · " + esc(c.closed ? c.words : "Open " + c.open + "–" + c.close + (ph ? " · Public holiday (" + ph + ")" : "")) + (ov && ov.note ? " · " + esc(ov.note) : "") + "</p>" +
       '<form data-f="day" novalidate><div class="rps-card">' +
       '<div class="rps-row"><span class="n" id="rps-dk">The pharmacy is</span><span role="radiogroup" aria-labelledby="rps-dk" style="display:flex;gap:14px"><label class="ck"><input type="radio" name="kind" value="open"' + (openIt ? " checked" : "") + '> Open</label><label class="ck"><input type="radio" name="kind" value="closed"' + (openIt ? "" : " checked") + '> Closed</label></span></div>' +
@@ -414,7 +417,7 @@
     var pend = mine.filter(function (l) { return low(l.status) === "pending"; }), hist = mine.filter(function (l) { return low(l.status) !== "pending"; })
       .sort(function (a, b) { return a.start_date < b.start_date ? 1 : a.start_date > b.start_date ? -1 : (b.id || 0) - (a.id || 0); }).slice(0, 50);
     var row = function (l) { var st = low(l.status); return '<div class="rps-row"><span class="n">' + (p ? "" : "<b>" + esc(name(l.staff_id)) + "</b> · ") + esc(leaveName(l.leave_type)) + "<small>" + esc(when(l)) + (l.hours_requested ? " · " + hrs(l.hours_requested) : "") + (l.reason ? " · " + esc(l.reason) : "") + '</small></span><span class="v"' + (st === "rejected" ? ' style="color:var(--muted)"' : "") + ">" + (st === "approved" ? "Approved" : st === "rejected" ? "Refused" : st === "pending" ? "Waiting for an answer" : esc(l.status || "")) + "</span>" +
-      (st === "pending" && ctx.open ? '<button type="button" class="rps-btn l" data-act="answer" data-id="' + l.id + '">Answer</button>' : "") + "</div>"; };
+      (st === "pending" && ctx.open && ctx.canPlan !== false && (ctx.isAdmin || ctx.meId == null || String(ctx.meId) !== String(l.staff_id)) ? '<button type="button" class="rps-btn l" data-act="answer" data-id="' + l.id + '">Answer</button>' : "") + "</div>"; }; // roles round: who may answer (the worker refuses the rest)
     var h = '<div class="rps">';
     if (p) h += "<h3>This year</h3>" + balHtml(p, balance(p, D.leaves, D.settings));
     else {
@@ -559,7 +562,7 @@
     document.body.appendChild(ov);
     var box = ov.querySelector(".rps-sheet"), mount = ov.querySelector(".rps-body"), dk = draftKey(kind, arg), closed = false;
     function keep() { var d = {}, any = false; Array.prototype.forEach.call(mount.querySelectorAll("input[name],select[name]"), function (el) { if (el.type === "radio" || el.type === "checkbox" ? el.checked !== el.defaultChecked : el.tagName === "SELECT" ? !el.options[el.selectedIndex] || !el.options[el.selectedIndex].defaultSelected : el.value !== el.defaultValue) any = true; d[el.name + (el.type === "radio" ? "=" + el.value : "")] = el.type === "radio" || el.type === "checkbox" ? el.checked : el.value; }); if (any) drafts[dk] = d; else delete drafts[dk]; }
-    function close() { if (closed) return; closed = true; keep(); document.removeEventListener("keydown", onKey, true); ov.remove(); try { if (back && back.isConnected) back.focus(); } catch (e) {} if (ctx.onClose) try { ctx.onClose(); } catch (e) {} }
+    function close() { if (closed) return; closed = true; keep(); document.removeEventListener("keydown", onKey, true); window.removeEventListener("hashchange", onRoute); ov.remove(); try { if (back && back.isConnected) back.focus(); } catch (e) {} if (ctx.onClose) try { ctx.onClose(); } catch (e) {} }
     function onKey(ev) {
       if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); close(); return; }
       if (ev.key === "Tab") {
@@ -569,6 +572,12 @@
       }
     }
     document.addEventListener("keydown", onKey, true);
+    // W12: a sheet never outlives its screen: when another screen opens (a route change comes as a hashchange; the
+    // router sets the screen just after) it closes, keeping what was typed as when Done is pressed. A hashchange that
+    // stays on the same screen leaves it open.
+    var screen0 = E.state && E.state.activeModuleId;
+    function onRoute() { [0, 300].forEach(function (ms) { setTimeout(function () { if (!closed && E.state && E.state.activeModuleId !== screen0) close(); }, ms); }); }
+    window.addEventListener("hashchange", onRoute);
     ov.addEventListener("mousedown", function (ev) { if (ev.target === ov) close(); });
     ov.querySelector("[data-act=close]").onclick = close;
     var saved = ctx.onSaved; ctx.onSaved = function (k, v) { delete drafts[dk]; if (saved) try { saved(k, v); } catch (e) {} };

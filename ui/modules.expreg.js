@@ -230,7 +230,8 @@
     rows.push(["", ""], ["Keep this file safe", "It holds patients' names and ID cards."]);
     return rows;
   }
-  function fileBase(out) { var u = user(), n = String(u.location_name || "pharmacy").replace(/[^A-Za-z0-9]+/g, " ").trim().replace(/ /g, "-") || "pharmacy"; return "Eikon-records-" + n + "-" + out.range.from + "-to-" + out.range.to; }
+  // The file name keeps Maltese letters (Ħamrun, not -amrun): E.fileName (core.js, dayzero W20) drops only what a file name cannot hold.
+  function fileBase(out) { var u = user(), raw = String(u.location_name || "pharmacy"), n = (E.fileName ? E.fileName(raw) : raw.replace(/[^A-Za-z0-9]+/g, " ").trim().replace(/ /g, "-")) || "pharmacy"; return "Eikon-records-" + n + "-" + out.range.from + "-to-" + out.range.to; }
   function sheetName(t, used) { var s = String(t).replace(/[\[\]\*\?\/\\:]/g, " ").slice(0, 31), n = s, i = 2; while (used[n.toLowerCase()]) n = s.slice(0, 28) + " " + i++; used[n.toLowerCase()] = 1; return n; }
 
   function save(out) {

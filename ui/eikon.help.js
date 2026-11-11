@@ -55,8 +55,8 @@
     },
     unreadIds: function () {
       if (!WN.list || WN.readHere) return [];
-      var seen = wnSeen();
-      return WN.list.filter(function (e) { return seen.indexOf(e.id) < 0; }).map(function (e) { return e.id; });
+      var seen = wnSeen(), start = E.startYmd ? E.startYmd() : ""; // FIN-dayzero (W10): what changed before this pharmacy started is not news to it
+      return WN.list.filter(function (e) { return seen.indexOf(e.id) < 0 && !(start && String(e.date) < start); }).map(function (e) { return e.id; });
     },
     unread: function () { return E.whatsNew.unreadIds().length; },
     markRead: function () {

@@ -1,5 +1,6 @@
 /* Roster planner, "mine & out" (B4): who am I on the rota, the calendar link, and the rota on paper.
-   - E.rotaMe(staff) -> the signed-in person's row on the rota, or null. A name match (case, spaces, word order and the
+   - E.rotaMe(staff) -> the signed-in person's row on the rota, or null. The row the admin linked to this sign-in
+     (People who sign in › On the rota; shift_staff.user_id) first; else a name match (case, spaces, word order and the
      Maltese letters ċ ġ ħ ż folded) picks the one person with that name; otherwise the person chosen once on this device
      (E.rotaMeSet, localStorage eikon_rota_me:<location>:<user>). Nothing is sent and nothing is stored on the server.
    - E.rotaCal: the live calendar feed (GET /shifts/ical?token=…, the classic Integration tab's link) for one person or
@@ -65,8 +66,14 @@
     try { if (id == null || id === "") localStorage.removeItem(meKey()); else localStorage.setItem(meKey(), String(id)); } catch (e) {}
     return id;
   };
+  // The row the pharmacy's admin linked to this sign-in (roles round: shift_staff.user_id) wins over a guess.
+  E.rotaMeLinked = function (list) {
+    var u = userOf(), id = String(u.user_id || u.id || ""); if (!id) return null;
+    return active(list).filter(function (p) { return p.user_id != null && String(p.user_id) === id; })[0] || null;
+  };
   E.rotaMe = function (list) {
-    var ch = E.rotaMeChoice(), act = active(list);
+    var ch = E.rotaMeChoice(), act = active(list), lk = E.rotaMeLinked(list);
+    if (lk) return lk;
     if (ch === "none") return null;
     if (ch) { var p = act.filter(function (x) { return String(x.id) === ch; })[0]; if (p) return p; }
     var m = E.rotaMeMatches(act);
@@ -76,7 +83,7 @@
   // name matches first when the name fits several).
   E.rotaMeState = function (list) {
     var ch = E.rotaMeChoice(), act = active(list), me = E.rotaMe(list);
-    if (me) return { me: me, how: ch && String(me.id) === ch ? "chosen" : "name", options: act };
+    if (me) return { me: me, how: ch && String(me.id) === ch && !E.rotaMeLinked(list) ? "chosen" : "name", options: act }; // linked: as sure as a name match
     if (ch === "none") return { me: null, how: "none", options: act };
     var m = E.rotaMeMatches(act);
     return { me: null, how: "ask", options: m.concat(act.filter(function (p) { return m.indexOf(p) < 0; })), matches: m };

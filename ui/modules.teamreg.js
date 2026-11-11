@@ -8,7 +8,12 @@
      POST /team/users {email,full_name,role} {user, temporary_password}
      POST /team/users/:id/password           {temporary_password}
      POST /team/users/:id/active {active}
-     POST /team/users/:id/role {role}        only when admins_manage_admins
+     POST /team/users/:id/role {role}        staff | pharmacist | admin (an existing admin: only when admins_manage_admins)
+     POST /team/users/:id/rights {plans_rota} a staff or pharmacist sign-in may plan the rota (roles round)
+     GET  /shifts/staff                      the rota people, each with user_id: "On the rota as …"
+     POST /shifts/staff/:id/link {user_id}   this rota person is this sign-in (link only: nothing merged or deleted)
+   Roles: Admin (everything), Pharmacist (staff + the pharmacist in charge's month sign-off + Correct on register lines), Staff. "Plans the rota" is
+   on for every sign-in that existed before the roles release, off for new ones until the admin switches it on.
    The temporary password lives only in this screen's memory until Done (or leaving the screen); never stored. */
 (function () {
   "use strict";
@@ -17,7 +22,7 @@
 
   var ID = "teamreg";
   var S = { mount: null, list: null, me: null, manageAdmins: false, loading: false, error: "", missing: false,
-    q: "", adding: false, add: { name: "", email: "", role: "staff" }, addErr: "", fieldErr: {}, addSaving: false, shown: null, rowBusy: {}, rowErr: {} };
+    q: "", adding: false, add: { name: "", email: "", role: "staff" }, addErr: "", fieldErr: {}, addSaving: false, shown: null, rowBusy: {}, rowErr: {}, rota: null };
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   function esc(s) { return E.escapeHtml(String(s == null ? "" : s)); }
@@ -32,7 +37,12 @@
   function when(s) { var d = utc(s); if (!d) return ""; var w = dayWord(E.maltaYmd(d)); return w === "today" || w === "yesterday" ? w + " at " + E.maltaHm(d) : w; }
   function signedToday(u) { var d = utc(u.last_sign_in_at); return !!d && E.maltaYmd(d) === E.maltaYmd(); }
   function fold(s) { return E.people && E.people.foldMt ? E.people.foldMt(s) : String(s || "").toLowerCase(); }
-  function roleWord(r) { return r === "admin" ? "Admin" : r === "staff" ? "Staff" : "Limited"; }
+  function roleWord(u) { return E.roleWord ? E.roleWord(u) : u.role === "admin" ? "Admin" : u.is_pharmacist ? "Pharmacist" : u.role === "staff" ? "Staff" : "Limited"; }
+  function roleKey(u) { return u.role === "admin" ? "admin" : u.is_pharmacist ? "pharmacist" : "staff"; }
+  // The rota person this sign-in is (linked on the server), or one that carries their e-mail (offered as a link).
+  function rotaOf(u) { var l = S.rota || []; return l.filter(function (p) { return String(p.user_id) === String(u.id); })[0] || null; }
+  function rotaByEmail(u) { var e = String(u.email || "").toLowerCase(); if (!e) return null; return (S.rota || []).filter(function (p) { return p.user_id == null && Number(p.is_active) !== 0 && String(p.email || "").toLowerCase() === e; })[0] || null; }
+  function rotaByName(u) { var f = E.rotaFold ? E.rotaFold(u.full_name) : fold(u.full_name); if (!f) return []; return (S.rota || []).filter(function (p) { return p.user_id == null && Number(p.is_active) !== 0 && (E.rotaFold ? E.rotaFold(p.full_name) : fold(p.full_name)) === f; }); }
   var SEARCH_FROM = 9; // a search box once the list no longer fits on one screen
 
   function css() {
@@ -68,6 +78,12 @@
       ".tmr-pw{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.tmr-pw code{font-size:24px;font-weight:700;letter-spacing:.06em;font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--bg);padding:6px 12px;border-radius:8px;color:var(--text)}" +
       ".tmr-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".tmr-foot{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5}" +
+      ".tmr-who span.tmr-rota{margin-top:2px}.tmr-link{border:0;background:none;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;padding:0 4px;min-height:28px;text-decoration:underline;text-underline-offset:2px}.tmr-link:disabled{opacity:.55}" +
+      ".tmr-roles{border:0;margin:0;padding:0}.tmr-roles legend{font-weight:600;margin-bottom:6px;padding:0}.tmr-r{display:flex;gap:10px;align-items:flex-start;padding:8px 0;min-height:44px;cursor:pointer}.tmr-r input{margin-top:3px;width:18px;height:18px;flex:0 0 auto}" +
+      ".tmr-r span b{display:block;font-weight:600}.tmr-r span i{display:block;font-style:normal;font-size:13px;color:var(--muted);line-height:1.4}.tmr-plan{border-top:.5px solid var(--border);margin-top:4px;padding-top:12px}" +
+      ".tmr-field{display:block}.tmr-field span{display:block;font-weight:600;margin-bottom:6px}.tmr-field select{width:100%;min-height:44px;font:inherit;font-size:16px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);color:var(--text);padding:0 10px}" +
+      "@media (max-width:600px){.tmr-link{min-height:44px}}" +
+      "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .fin-r-modal .eikon-btn.primary{color:#00160E}}" +
       "@media (max-width:600px){.tmr{padding:4px 16px 0}.tmr h1{font-size:28px}.tmr-form label>span{flex-basis:70px}.tmr-ferr{padding-left:96px}.tmr-btn{min-height:44px;border-radius:22px}}";
     document.head.appendChild(st);
   }
@@ -80,8 +96,11 @@
   async function load() {
     S.loading = true; S.error = ""; idle();
     try {
-      var r = await E.apiFetch("/team/users", { method: "GET" });
+      var both = await Promise.all([E.apiFetch("/team/users", { method: "GET" }), E.apiFetch("/shifts/staff?include_inactive=1", { method: "GET" }).catch(function () { return null; })]);
+      var r = both[0], st = both[1];
       S.list = (r && r.users) || []; S.me = r.me; S.manageAdmins = !!r.admins_manage_admins; S.missing = false;
+      // The rota people with who they sign in as (an older server sends no user_id: no rota line is shown).
+      S.rota = st && st.ok && Array.isArray(st.staff) && ("can_plan" in st) ? st.staff : null;
     } catch (e) { S.error = loadErr(e); }
     S.loading = false; idle();
   }
@@ -109,16 +128,24 @@
       meta.push(u.last_sign_in_at ? (signedToday(u) ? '<b class="tmr-today">Signed in ' + esc(when(u.last_sign_in_at)) + "</b>" : "Last signed in " + esc(when(u.last_sign_in_at))) : "Never signed in");
       if (u.signed_in_devices) meta.push("open on " + u.signed_in_devices + (u.signed_in_devices === 1 ? " device" : " devices"));
     }
-    var pills = '<span class="tmr-pill' + (u.role === "admin" ? " a" : "") + '">' + roleWord(u.role) + '</span>' +
+    var pills = '<span class="tmr-pill' + (u.role === "admin" || u.is_pharmacist ? " a" : "") + '">' + esc(roleWord(u)) + '</span>' +
+      (u.role !== "admin" && u.plans_rota && u.is_active ? '<span class="tmr-pill">Plans the rota</span>' : "") +
       (u.must_change_password && u.is_active ? '<span class="tmr-pill w">Has not chosen a password yet</span>' : "");
+    // Where they are on the rota (one list of people: the rota row is linked to the sign-in, nothing is merged).
+    var rotaLine = "";
+    if (S.rota && u.is_active && !u.protected) {
+      var rp = rotaOf(u), cand = rp ? null : (rotaByEmail(u) || (rotaByName(u).length === 1 ? rotaByName(u)[0] : null));
+      rotaLine = '<span class="tmr-rota">' + (rp ? "On the rota as " + esc(rp.full_name) + (Number(rp.is_active) === 0 ? " (not working here now)" : "") : cand ? "On the rota as " + esc(cand.full_name) + "? Not linked yet." : "Not on the rota") +
+        ' <button class="tmr-link" data-act="rota" data-id="' + u.id + '"' + (busy ? " disabled" : "") + ' aria-label="' + (rp ? "Change the rota link for " : "Link to the rota: ") + esc(u.full_name || u.email) + '">' + (rp ? "Change" : cand ? "Link" : "Link or add") + "</button></span>";
+    }
     var acts = "";
     if (canChange(u)) {
       if (u.is_active) acts += '<button class="tmr-btn" data-act="reset" data-id="' + u.id + '"' + (busy ? " disabled" : "") + ' aria-label="New temporary password for ' + esc(u.full_name) + '">New password</button>' +
         '<button class="tmr-btn red" data-act="off" data-id="' + u.id + '"' + (busy ? " disabled" : "") + ' aria-label="Switch off ' + esc(u.full_name) + '">Switch off</button>';
       else acts += '<button class="tmr-btn" data-act="on" data-id="' + u.id + '"' + (busy ? " disabled" : "") + ' aria-label="Switch on ' + esc(u.full_name) + '">Switch on</button>';
-      if (S.manageAdmins && u.is_active) acts += '<button class="tmr-btn" data-act="role" data-id="' + u.id + '"' + (busy ? " disabled" : "") + '>' + (u.role === "admin" ? "Make staff" : "Make admin") + '</button>';
+      if (u.is_active) acts += '<button class="tmr-btn" data-act="role" data-id="' + u.id + '"' + (busy ? " disabled" : "") + ' aria-label="Role of ' + esc(u.full_name || u.email) + '">Role…</button>';
     } else acts = '<span class="tmr-note">' + esc(whyNot(u)) + '</span>';
-    return '<div class="tmr-row' + (u.is_active ? "" : " off") + '" data-user="' + u.id + '"><div class="tmr-who"><b>' + esc(u.full_name || u.email) + pills + '</b><span>' + meta.join(" · ") + '</span>' +
+    return '<div class="tmr-row' + (u.is_active ? "" : " off") + '" data-user="' + u.id + '"><div class="tmr-who"><b>' + esc(u.full_name || u.email) + pills + '</b><span>' + meta.join(" · ") + '</span>' + rotaLine +
       (err ? '<span style="color:var(--danger)" role="alert">' + esc(err) + '</span>' : "") + '</div><div class="tmr-acts">' + acts + '</div></div>';
   }
 
@@ -159,8 +186,13 @@
     var h = '<div class="tmr"><button class="tmr-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel(ID) : "‹ Team") + '</button><div class="tmr-top"><div><h1>People who sign in</h1>' +
       '<p class="tmr-sub">Everyone at ' + esc((E.state.user && E.state.user.location_name) || "this pharmacy") + ' signs in as themselves, so the registers show who did what.</p></div>';
     if (!isAdmin()) {
-      m.innerHTML = h + '</div><div class="tmr-quiet">Only the pharmacy\'s admin can add people or change sign-ins. Ask your pharmacist.</div></div>';
-      bind(); return;
+      // Who to ask, by name (GET /team/me: this pharmacy's admins, read once per sign-in) — roles round
+      var ad = (E.rights && Array.isArray(E.rights.admins) && E.rights.admins) || [];
+      var ask = ad.length ? "Ask " + (ad.length === 1 ? ad[0] + ", the admin." : ad.slice(0, -1).join(", ") + " or " + ad[ad.length - 1] + ", the admins.") : "Ask the pharmacy\'s admin.";
+      m.innerHTML = h + '</div><div class="tmr-quiet">Only the pharmacy\'s admin can add people or change sign-ins. ' + esc(ask) + '</div></div>';
+      bind();
+      if (!E.rights && E.loadRights && !S.rightsAsked) { S.rightsAsked = true; E.loadRights().then(function () { if (here()) paint(); }); }
+      return;
     }
     if (!S.missing && !S.adding && !S.shown) h += '<button class="tmr-btn p" data-act="add">Add a person</button>';
     h += '</div>';
@@ -179,8 +211,7 @@
       h += '<form class="tmr-form" id="tmr-add" novalidate><div class="t">Add a person</div>' +
         '<label><span>Name</span><input id="tmr-name" autocomplete="off" autocapitalize="words" value="' + esc(S.add.name) + '" placeholder="Their full name"' + ferr("name") + '></label>' + ferrText("name") +
         '<label><span>E-mail</span><input id="tmr-email" type="email" autocomplete="off" autocapitalize="none" spellcheck="false" inputmode="email" value="' + esc(S.add.email) + '" placeholder="They sign in with this"' + ferr("email") + '></label>' + ferrText("email") +
-        '<label><span>Role</span><select id="tmr-role"><option value="staff"' + (S.add.role !== "admin" ? " selected" : "") + '>Staff</option>' +
-        (S.manageAdmins ? '<option value="admin"' + (S.add.role === "admin" ? " selected" : "") + '>Admin (can manage sign-ins)</option>' : "") + '</select></label>' +
+        '<label><span>Role</span><select id="tmr-role">' + [["staff", "Staff"], ["pharmacist", "Pharmacist"], ["admin", "Admin (adds people, changes settings)"]].map(function (o) { return '<option value="' + o[0] + '"' + (S.add.role === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + '</select></label>' +
         (S.addErr ? '<div class="tmr-err" role="alert">' + esc(S.addErr) + '</div>' : "") +
         '<div class="acts"><button type="button" class="tmr-btn" data-act="add-cancel">Cancel</button><button type="submit" class="tmr-btn p"' + (S.addSaving ? " disabled" : "") + '>' + (S.addSaving ? "Adding…" : "Add") + '</button></div></form>';
     }
@@ -188,7 +219,8 @@
     if (S.list) {
       if (S.list.length >= SEARCH_FROM) h += '<input class="tmr-q" id="tmr-q" type="search" autocomplete="off" spellcheck="false" aria-label="Find a person by name or e-mail" aria-controls="tmr-people" placeholder="Find a person" value="' + esc(S.q) + '">';
       h += '<div id="tmr-people">' + peopleHtml() + '</div>';
-      h += '<p class="tmr-foot"><b>Admin</b> adds people, changes sign-ins and the pharmacy\'s settings. <b>Staff</b> record and read everything else. ' +
+      h += '<p class="tmr-foot"><b>Admin</b> adds people, changes sign-ins and the pharmacy\'s settings, and plans the rota. <b>Pharmacist</b> does what staff do, signs off the registers each month and corrects a wrong register line (saying why); ' +
+        '“the pharmacist” on other screens means an admin or a pharmacist. <b>Staff</b> record and read everything else and ask for leave; with <b>Plans the rota</b> they also change shifts and answer other people\'s leave. ' +
         'Every change is in the Audit trail.</p>'; // what Switch off and New password do is said in their own question
     } else if (S.loading && !S.error) h += '<div class="tmr-list" role="status" aria-label="Loading the sign-ins" style="margin-top:20px">' + '<div class="tmr-sk"><i></i><i></i></div>'.repeat(3) + '</div>'; // the shape of the list, not a spinner
     h += '</div>';
@@ -232,14 +264,19 @@
     if (a === "reset") confirmThen("Give " + (u.full_name || u.email) + " a new password?", "They are signed out of every device now and sign in again with a temporary password you will see once.", "New password", false, function () { reset(u); });
     if (a === "off") confirmThen("Switch off " + (u.full_name || u.email) + "?", "They are signed out of every device now and cannot sign in until you switch them on again. What they recorded stays, with their name.", "Switch off", true, function () { setActive(u, false); });
     if (a === "on") setActive(u, true);
-    if (a === "role") confirmThen((u.role === "admin" ? "Make " : "Make ") + (u.full_name || u.email) + (u.role === "admin" ? " staff?" : " an admin?"), u.role === "admin" ? "They will no longer manage sign-ins or admin settings." : "Admins add people, change sign-ins and change the pharmacy's settings.", "Change", false, function () { setRole(u, u.role === "admin" ? "staff" : "admin"); });
+    if (a === "role") roleDialog(u);
+    if (a === "rota") rotaDialog(u);
   }
 
+  // The shared dialog's primary button in dark mode: dark text on the green, as every primary button in the content
+  // (app.css 1072 covers .eikon-content only, not the dialog). Marked on the dialog element itself (fin-r-).
+  function darkSafe() { try { var d = document.querySelector(".eikon-modal"); if (d) d.classList.add("fin-r-modal"); } catch (e) {} } // called right after E.modal.show
   function confirmThen(title, text, label, danger, fn) {
     E.modal.show(title, '<p style="margin:0;line-height:1.5">' + esc(text) + '</p>', [
       { label: "Cancel", onClick: function () { E.modal.hide(); } },
       { label: label, primary: !danger, danger: !!danger, onClick: function () { E.modal.hide(); fn(); } }
     ]);
+    darkSafe();
     try { var bs = document.querySelectorAll("#eikon-modal-actions button"); if (bs[0]) bs[0].focus(); } catch (e) {}
   }
 
@@ -260,7 +297,7 @@
     if (S.addSaving) return;
     S.addSaving = true; S.addErr = ""; paint();
     try {
-      var r = await E.apiFetch("/team/users", { method: "POST", body: JSON.stringify({ email: email, full_name: name, role: S.add.role === "admin" ? "admin" : "staff" }) });
+      var r = await E.apiFetch("/team/users", { method: "POST", body: JSON.stringify({ email: email, full_name: name, role: S.add.role === "admin" || S.add.role === "pharmacist" ? S.add.role : "staff" }) });
       if (!r || !r.ok || !r.temporary_password) throw new Error((r && r.error) || "Not added");
       S.shown = { title: name + " can sign in", name: name, email: email, password: r.temporary_password };
       S.adding = false; S.add = { name: "", email: "", role: "staff" }; S.addSaving = false; S.fieldErr = {};
@@ -296,12 +333,88 @@
     } catch (x) { S.rowErr[u.id] = failText(x); delete S.rowBusy[u.id]; paint(); }
   }
 
-  async function setRole(u, role) {
+  // Role…: Staff / Pharmacist / Admin, and "Plans the rota" for a staff or pharmacist sign-in. Only what changed is sent.
+  var ROLE_TEXT = { staff: "Records and reads the registers, asks for leave.", pharmacist: "What staff do, plus the month sign-off and correcting a wrong register line.", admin: "Everything: adds people, changes sign-ins and settings, plans the rota." };
+  function roleDialog(u) {
+    var cur = roleKey(u), name = u.full_name || u.email;
+    var body = '<fieldset class="tmr-roles"><legend>Role</legend>' + ["staff", "pharmacist", "admin"].map(function (k) {
+      return '<label class="tmr-r"><input type="radio" name="tmr-role-pick" value="' + k + '"' + (k === cur ? " checked" : "") + "><span><b>" + { staff: "Staff", pharmacist: "Pharmacist", admin: "Admin" }[k] + "</b><i>" + esc(ROLE_TEXT[k]) + "</i></span></label>";
+    }).join("") + "</fieldset>" +
+      '<label class="tmr-r tmr-plan"><input type="checkbox" id="tmr-plan"' + (u.plans_rota ? " checked" : "") + '><span><b>Plans the rota</b><i>Changes shifts and answers other people\'s leave. Nobody but an admin answers their own.</i></span></label>' +
+      (cur !== "admin" ? '<p class="tmr-note" style="margin:10px 0 0">Once someone is an admin, only Eikon support can change their sign-in.</p>' : "");
+    E.modal.show(name, body, [
+      { label: "Cancel", onClick: function () { E.modal.hide(); } },
+      { label: "Save", primary: true, onClick: function () {
+        var pick = document.querySelector('input[name="tmr-role-pick"]:checked'), pl = document.getElementById("tmr-plan");
+        var role = pick ? pick.value : cur, plan = !!(pl && pl.checked);
+        E.modal.hide(); saveRole(u, role, plan);
+      } }
+    ]);
+    darkSafe();
+    // the rota right only means something for staff and pharmacists
+    var sync = function () { var pick = document.querySelector('input[name="tmr-role-pick"]:checked'), pl = document.querySelector(".tmr-plan"); if (pl) pl.style.display = pick && pick.value === "admin" ? "none" : ""; };
+    document.querySelectorAll('input[name="tmr-role-pick"]').forEach(function (r) { r.addEventListener("change", sync); }); sync();
+    try { var f = document.querySelector('input[name="tmr-role-pick"]:checked'); if (f) f.focus(); } catch (e) {}
+  }
+  async function saveRole(u, role, plan) {
+    var cur = roleKey(u);
     S.rowBusy[u.id] = true; S.rowErr[u.id] = ""; paint();
     try {
-      var r = await E.apiFetch("/team/users/" + encodeURIComponent(u.id) + "/role", { method: "POST", body: JSON.stringify({ role: role }) });
-      if (!r || !r.ok) throw new Error((r && r.error) || "Not done");
-      E.toast((u.full_name || u.email) + (role === "admin" ? " is now an admin." : " is now staff."), "success");
+      if (role !== cur) {
+        var body = role === "staff" ? { role: "staff", is_pharmacist: false } : { role: role };
+        var r = await E.apiFetch("/team/users/" + encodeURIComponent(u.id) + "/role", { method: "POST", body: JSON.stringify(body) });
+        if (!r || !r.ok) throw new Error((r && r.error) || "Not done");
+      }
+      if (role !== "admin" && plan !== !!u.plans_rota) {
+        var r2 = await E.apiFetch("/team/users/" + encodeURIComponent(u.id) + "/rights", { method: "POST", body: JSON.stringify({ plans_rota: plan }) });
+        if (!r2 || !r2.ok) throw new Error((r2 && r2.error) || "Not done");
+      }
+      var word = { staff: "staff", pharmacist: "a pharmacist", admin: "an admin" }[role];
+      E.toast((u.full_name || u.email) + " is " + word + (role !== "admin" ? (plan ? " and plans the rota." : ".") : "."), "success");
+      delete S.rowBusy[u.id];
+      await load();
+    } catch (x) { S.rowErr[u.id] = failText(x); delete S.rowBusy[u.id]; paint(); }
+  }
+
+  // The rota link: choose the rota person this sign-in is, or add them to the rota (the classic Add Employee body).
+  function rotaDialog(u) {
+    var name = u.full_name || u.email, cur = rotaOf(u), byE = rotaByEmail(u), byN = rotaByName(u);
+    var free = (S.rota || []).filter(function (p) { return Number(p.is_active) !== 0 && (p.user_id == null || (cur && String(p.id) === String(cur.id))); });
+    var first = [cur, byE].concat(byN).filter(Boolean), seen = {};
+    var opts = first.concat(free).filter(function (p) { if (seen[p.id]) return false; seen[p.id] = true; return true; });
+    var sel = cur ? String(cur.id) : byE ? String(byE.id) : byN.length === 1 ? String(byN[0].id) : opts.length ? "" : "new";
+    var body = '<label class="tmr-field"><span>' + esc(name) + ' on the rota</span><select id="tmr-rota-pick">' +
+      (sel === "" ? '<option value="" selected>Choose…</option>' : "") +
+      opts.map(function (p) { return '<option value="' + p.id + '"' + (String(p.id) === sel ? " selected" : "") + ">" + esc(p.full_name) + (p.email ? " (" + esc(p.email) + ")" : "") + "</option>"; }).join("") +
+      '<option value="new"' + (sel === "new" ? " selected" : "") + ">Add " + esc(name) + " to the rota</option>" +
+      (cur ? '<option value="none">Not on the rota</option>' : "") + "</select></label>" +
+      '<p class="tmr-note" style="margin:10px 0 0">This only links the two: names, shifts and leave stay as they are. ' + esc(name) + " then sees their own shifts and asks for leave as themselves.</p>";
+    E.modal.show("On the rota", body, [
+      { label: "Cancel", onClick: function () { E.modal.hide(); } },
+      { label: "Save", primary: true, onClick: function () { var v = (document.getElementById("tmr-rota-pick") || {}).value || ""; if (!v) return; E.modal.hide(); saveRota(u, v, cur); } }
+    ]);
+    darkSafe();
+    try { var f = document.getElementById("tmr-rota-pick"); if (f) f.focus(); } catch (e) {}
+  }
+  async function saveRota(u, v, cur) {
+    S.rowBusy[u.id] = true; S.rowErr[u.id] = ""; paint();
+    try {
+      var sid = v, name = u.full_name || u.email;
+      if (v === "none") sid = cur && cur.id;
+      if (v === "new") {
+        // The body Plan shifts › Who works here? sends (the classic Add Employee shape), with their sign-in e-mail.
+        var nb = { full_name: name, designation: u.is_pharmacist ? "pharmacist" : "assistant", employment_type: "fulltime", contracted_hours: 40,
+          email: u.email || "", phone: "", registration_number: "", is_active: 1, patterns_json: JSON.stringify({ patterns: [], provisionalId: null }) };
+        var listP = async function () { var g = await E.apiFetch("/shifts/staff?include_inactive=1", { method: "GET" }); return (g && g.staff) || []; };
+        var same = function (x) { return String(x.full_name) === name && String(x.email || "") === String(u.email || "") && x.user_id == null; };
+        var c = await E.postOnce("/shifts/staff", nb, { list: listP, same: same });
+        sid = c && c.staff_id;
+        if (!sid) { var found = (await listP()).filter(same).pop(); sid = found && found.id; } // a retry after a lost answer
+        if (!sid) throw new Error((c && c.error) || "Not added to the rota");
+      }
+      var r = await E.apiFetch("/shifts/staff/" + encodeURIComponent(sid) + "/link", { method: "POST", body: JSON.stringify({ user_id: v === "none" ? null : u.id }) });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Not linked");
+      E.toast(v === "none" ? name + " is no longer linked to the rota." : v === "new" ? name + " is on the rota." : name + " is linked to the rota.", "success");
       delete S.rowBusy[u.id];
       await load();
     } catch (x) { S.rowErr[u.id] = failText(x); delete S.rowBusy[u.id]; paint(); }

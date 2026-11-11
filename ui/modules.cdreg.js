@@ -55,7 +55,8 @@
     var map = {};
     var add = function (name, kind, cnt, last, qty) {
       var k = key(name); if (!k) return;
-      var m = map[k] || (map[k] = { key: k, names: {}, received: 0, supplied: 0, poyc: 0, counted: 0, qIn: 0, qOut: 0, lastMove: "", lastCount: "" });
+      var m = map[k] || (map[k] = { key: k, names: {}, received: 0, supplied: 0, poyc: 0, counted: 0, warned: 0, qIn: 0, qOut: 0, lastMove: "", lastCount: "" });
+      if (kind === "warned") { m.warned += n(cnt); return; } // supplies saved below what the registers showed (warned at entry)
       m.names[String(name).trim()] = (m.names[String(name).trim()] || 0) + n(cnt);
       m[kind] += n(cnt);
       if (kind === "received") m.qIn += n(qty); else if (kind !== "counted") m.qOut += n(qty);
@@ -65,6 +66,7 @@
     (r.supplied || []).forEach(function (x) { add(x.name, "supplied", x.n, x.last, x.qty); });
     (r.poyc || []).forEach(function (x) { add(x.name, "poyc", x.n, x.last, x.qty); });
     (r.counted || []).forEach(function (x) { add(countName(x), "counted", x.n, maltaDay(x.last)); });
+    (r.warned || []).forEach(function (x) { add(x.name, "warned", x.n, x.last); });
     var list = Object.keys(map).map(function (k) { var m = map[k]; m.name = best(m.names); return m; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
     cache.meds = { at: Date.now(), w: E.lastWriteAt, loc: loc(), v: list, from: String(r.from || "") };
     return list;
@@ -152,46 +154,105 @@
     var over = !counted ? moved.outQ - moved.inQ : 0;
     if (over > 0) issues.unshift({ tone: "warn", over: over, what: (best(names) || "This medicine") + ": " + over + " more supplied than received — count it now.", next: "No stock take has counted it since " + dm(from) + ", and more has gone out than came in. Count it now, and look for a delivery not written in Controlled drugs received.", act: "count" });
     else if (!counted) issues.push({ tone: "warn", what: "No stock take has counted it since " + dm(from) + ", so there is no balance to check against.", next: "Count it in the next stock take: the balance starts from that count.", act: "count" });
+    // supplies saved below what the registers showed (the warning seen at entry, kept by the server): each on its line
+    var warned = (led.warnings || []).filter(function (w) { return useKey(key(w.medicine)); });
+    warned.forEach(function (w) { var kind = w.register === "poyc" ? "poyc" : "supplied"; rows.forEach(function (r) { if (r.kind === kind && String(r.id) === String(w.entry_id)) r.warned = w; }); });
+    if (warned.length) { // one note: the C9 figure (never counted, more out than in) goes into it rather than beside it
+      var c9 = issues[0] && issues[0].over ? issues.shift().over : 0;
+      issues.unshift({ tone: "warn", warned: warned, what: "Check: " + plural(warned.length, "supply was", "supplies were") + " saved below what the registers showed.",
+        next: warned.map(function (w) { return dm(w.entry_date) + ": " + (w.register === "poyc" ? "POYC " : "supplied ") + n(w.quantity) + " when the registers showed " + n(w.balance) + " (" + (-n(w.after)) + " below)" + (w.created_name ? ", saved by " + w.created_name : ""); }).join("; ") +
+          "." + (c9 ? " Not counted since " + dm(from) + ": " + c9 + " more supplied than received in all." : "") + " Count it, and look for a delivery not written in Controlled drugs received.", act: "count" }); }
     var variants = Object.keys(others).filter(function (x) { return x; }).map(function (x) { return { key: x, name: best(others[x].names), lines: others[x].lines, on: inc.indexOf(x) >= 0 }; })
       .sort(function (a, b) { return (termOf(a.key) === termOf(k) ? 0 : 1) - (termOf(b.key) === termOf(k) ? 0 : 1) || b.lines - a.lines || a.name.localeCompare(b.name); });
-    return { name: best(names) || "", key: k, inc: inc.slice(), rows: rows, balance: bal, counted: counted, since: since, moved: moved, issues: issues, variants: variants, from: from, to: String(led.to || ""), auto: !!led.auto_from };
+    return { name: best(names) || "", key: k, inc: inc.slice(), rows: rows, warned: warned, balance: bal, counted: counted, since: since, moved: moved, issues: issues, variants: variants, from: from, to: String(led.to || ""), auto: !!led.auto_from };
   }
   E.cdLedger = { key: key, term: termOf, build: build };
 
-  // What the register holds now for a medicine typed in a form (null: never counted, or not known). Cached with the ledger.
+  // What the register holds now for a medicine typed in a form (null: not known). Cached with the ledger.
+  // shown: what the registers show now: the balance from the latest count, or, never counted, received minus supplied
+  // and POYC since the start of the period read (null when the registers have no line of it at all); since: that day.
   E.cdBalance = async function (name) {
     var k = key(name); if (k.length < 3) return null;
-    try { var b = build(await getLedger(termOf(k), ""), k, incOf(k)); return { key: k, name: b.name || String(name).trim(), balance: b.balance, counted: b.counted ? { qty: b.counted.qty, date: b.counted.date } : null, lines: b.rows.length }; }
-    catch (e) { return null; }
+    try {
+      var b = build(await getLedger(termOf(k), ""), k, incOf(k));
+      var shown = b.counted ? b.balance : b.rows.length ? b.moved.inQ - b.moved.outQ : null;
+      return { key: k, name: b.name || String(name).trim(), balance: b.balance, counted: b.counted ? { qty: b.counted.qty, date: b.counted.date } : null, lines: b.rows.length,
+        moved: b.moved, from: b.from, shown: shown, since: b.counted ? b.counted.date : b.from };
+    } catch (e) { return null; }
   };
-  // The balance check at entry, for the registers' own forms: under each medicine line, what the register holds and
-  // what it will hold after this line. Only words: it never blocks a save and nothing is sent but the ledger read.
-  // form: the form; dir: -1 supplied / POYC, +1 received. Call after each paint of the form.
+  // The words under a medicine line (pure: tests call E.cdBalanceWords). b: E.cdBalance's answer; q: this line's
+  // quantity; dir: -1 supplied / POYC, +1 received; prior: what earlier lines of the same form take of it (supplied).
+  // Returns { text, warn } where warn (supplied / POYC only, when the line takes it below what the registers show) is
+  // { balance, after, since, counted } — the key the save sends with the line (balance_warning).
+  E.cdBalanceWords = function (b, q, dir, prior) {
+    if (!b || b.shown == null) return { text: b && !b.lines && dir < 0 ? "Nothing of it is in the registers since " + dmy(b.since) + ". Count it in the next stock take so it can be checked." : "", warn: null };
+    var st = typeof E.startYmd === "function" ? String(E.startYmd() || "") : "", began = !b.counted && /^\d{4}-\d{2}-\d{2}$/.test(st) && st > b.since; // a pharmacy newer than the 3 months read: "since it started"
+    var mn = function (x) { return String(x).replace("-", "−"); };
+    var start = b.shown - (prior || 0), where = b.counted ? "In the registers since the count on " + dm(b.since) : began ? "In the registers since it started on " + dm(st) + " (not counted yet)" : "In the registers since " + dm(b.since) + " (not counted yet)";
+    if (!q) return { text: where + ": " + mn(start) + ".", warn: null };
+    var after = start + dir * q;
+    if (dir < 0 && after < 0) {
+      var nm = b.name || "this medicine";
+      return { warn: { balance: start, after: after, since: b.since, counted: b.counted ? 1 : 0 },
+        text: "This takes " + nm + " " + (-after) + " below what the registers show " + (b.counted ? "since the last count (" + dm(b.since) + ")" : began ? "since it started on " + dm(st) + " (not counted in a stock take yet)" : "since " + dm(b.since) + " (not counted in a stock take yet)") +
+          " — check the count or a delivery not written in Received. You can still save it as it really happened." };
+    }
+    return { text: where + ": " + mn(start) + " · after this " + (dir > 0 ? "delivery" : "line") + ": " + mn(after) + ".", warn: null };
+  };
+  // The balance check at entry, for the registers' own forms: under each medicine line, what the registers show and what
+  // they will show after this line; a supply that takes it below that is warned in amber and still saves. Nothing is
+  // sent but the ledger read (one bounded read per medicine typed, cached). form: the form; dir: -1 supplied / POYC,
+  // +1 received. Call after each paint of the form. form.cdBal.shown() (as Save is pressed) and form.cdBal.atSave(shown):
+  // waits for the words to be up to date and answers { warns: { lineIndex: warn }, unseen: true when a warning was not
+  // on screen as Save was pressed }.
   E.cdBalanceWire = function (form, dir) {
     if (!form) return;
     if (!document.getElementById("eikon-cdbal-css")) { var st = document.createElement("style"); st.id = "eikon-cdbal-css";
-      st.textContent = ".cd-balhint{font-size:13px;color:var(--muted);padding:0 14px 8px;font-variant-numeric:tabular-nums}.cd-balhint:empty{display:none}"; document.head.appendChild(st); }
+      st.textContent = ".cd-balhint{font-size:13px;color:var(--muted);padding:0 14px 8px;font-variant-numeric:tabular-nums}.cd-balhint:empty{display:none}" +
+        ".cd-balhint.warn{color:var(--text);font-size:14px;background:rgba(201,138,18,.12);border:1px solid rgba(201,138,18,.45);border-left-width:4px;border-radius:10px;padding:8px 12px;margin:0 0 8px}" +
+        ".cd-balhint.warn b{color:var(--warn,#8A5A08);font-weight:700}"; document.head.appendChild(st); }
+    var rows = [];
     form.querySelectorAll(".row").forEach(function (row) {
       var nm = row.querySelector("input.n"), qt = row.querySelector("input.q"); if (!nm || nm.disabled || !qt) return;
       var hint = row.nextElementSibling && row.nextElementSibling.classList.contains("cd-balhint") ? row.nextElementSibling : null;
       if (!hint) { hint = document.createElement("div"); hint.className = "cd-balhint"; hint.setAttribute("aria-live", "polite"); row.parentNode.insertBefore(hint, row.nextSibling); }
-      var t = 0, seq = 0;
-      var upd = async function () {
-        var my = ++seq, name = String(nm.value || "").trim(), q = /^\d+$/.test(String(qt.value || "").trim()) ? Number(qt.value) : 0;
-        if (key(name).length < 3) { hint.textContent = ""; return; }
-        var b = await E.cdBalance(name); if (my !== seq || !hint.isConnected) return;
-        var txt = "", warn = false;
-        if (!b || (!b.counted && !b.lines)) txt = "";
-        else if (b.balance == null) txt = "Not counted in a stock take yet, so there is no balance to check.";
-        else if (!q) txt = "In the register: " + b.balance + ".";
-        else { var after = b.balance + dir * q; warn = after < 0;
-          txt = "In the register: " + b.balance + " · after this " + (dir > 0 ? "delivery" : "line") + ": " + after + "." + (warn ? " Check: that is below zero." : ""); }
-        hint.textContent = txt;
-      };
-      var soon = function () { clearTimeout(t); t = setTimeout(upd, 350); };
-      nm.addEventListener("change", upd); nm.addEventListener("blur", soon); qt.addEventListener("input", soon);
-      if (String(nm.value || "").trim()) upd();
+      rows.push({ i: nm.getAttribute("data-i"), nm: nm, qt: qt, hint: hint });
     });
+    var t = 0, seq = 0, warns = {}, running = null;
+    var qty = function (r) { return /^\d+$/.test(String(r.qt.value || "").trim()) ? Number(r.qt.value) : 0; };
+    var upd = function () {
+      var my = ++seq;
+      running = (async function () {
+        var taken = {}, next = {};
+        for (var j = 0; j < rows.length; j++) {
+          var r = rows[j], name = String(r.nm.value || "").trim(), k = key(name), q = qty(r);
+          if (k.length < 3) { if (my === seq) { r.hint.textContent = ""; r.hint.classList.remove("warn"); } continue; }
+          var b = await E.cdBalance(name); if (my !== seq) return;
+          var w = E.cdBalanceWords(b, q, dir, taken[k] || 0);
+          if (dir < 0 && q) taken[k] = (taken[k] || 0) + q;
+          if (!r.hint.isConnected) continue;
+          if (w.warn) { r.hint.innerHTML = "<b>Check:</b> " + esc(w.text); r.hint.classList.add("warn"); next[r.i] = w.warn; }
+          else { r.hint.textContent = w.text; r.hint.classList.remove("warn"); }
+        }
+        if (my === seq) warns = next;
+      })();
+      return running;
+    };
+    var soon = function () { clearTimeout(t); t = setTimeout(upd, 350); };
+    rows.forEach(function (r) { r.nm.addEventListener("change", upd); r.nm.addEventListener("blur", soon); r.qt.addEventListener("input", soon); });
+    if (rows.some(function (r) { return String(r.nm.value || "").trim(); })) upd();
+    var shown = function () { var o = {}; rows.forEach(function (r) { o[r.i] = r.hint.classList.contains("warn") ? r.hint.textContent : ""; }); return o; };
+    form.cdBal = {
+      shown: shown, // the warnings on screen now (take it as Save is pressed, before anything repaints the form)
+      atSave: async function (seen) {
+        var before = seen || shown();
+        clearTimeout(t);
+        var done = upd(), late = false;
+        await Promise.race([done, new Promise(function (res) { setTimeout(function () { late = true; res(); }, 2500); })]);
+        var unseen = Object.keys(warns).some(function (i) { var r = rows.filter(function (x) { return x.i === i; })[0]; return !r || !before[i]; }); // a warning for that line was on screen as Save was pressed (its figure may have moved with the quantity)
+        return { warns: warns, unseen: unseen, late: late };
+      }
+    };
   };
   // "Received" / "Supplied" / "POYC" from here: the register's own form opens with the medicine in its first line;
   // after Save (or Cancel) it comes back here. Taken once, within two minutes.
@@ -292,7 +353,7 @@
       E.ddaDrugs.suggest(q, [], "/dda-sales").forEach(function (r) { (r.ds || []).forEach(function (d) { var g = key(d.g); if (gens.indexOf(g) < 0) gens.push(g); }); });
     } catch (e) {}
     var list = q ? all.filter(function (x) { return x.key.indexOf(q) >= 0 || gens.some(function (g) { return x.key.indexOf(g) >= 0; }) || Object.keys(x.names).some(function (y) { return key(y).indexOf(q) >= 0; }); }) : all;
-    var overOf = function (x) { return !x.lastCount && x.qOut - x.qIn > 0 ? 1 : 0; }; // C9 rows first, otherwise the order stays
+    var overOf = function (x) { return (!x.lastCount && x.qOut - x.qIn > 0) || x.warned ? 1 : 0; }; // C9 and warned rows first, otherwise the order stays
     list = list.map(function (x, i) { return { x: x, i: i }; }).sort(function (a, b) { return overOf(b.x) - overOf(a.x) || a.i - b.i; }).map(function (o) { return o.x; });
     h += '<div class="cdr-lab">' + (q ? "Found" : "Written or counted in the last 3 months") + " <b>" + list.length + "</b></div>";
     if (!list.length) {
@@ -308,7 +369,8 @@
       if (x.supplied + x.poyc) bits.push(x.qOut + " supplied");
       var cnt = x.lastCount ? "Counted " + dm(x.lastCount) : "", over = !x.lastCount ? x.qOut - x.qIn : 0; // C9: from the list already read
       var flag = over > 0 ? '<span class="cdr-over"><b>Check:</b> ' + esc(over + " more supplied than received — count it now") + "</span>" : "";
-      return '<button class="cdr-med' + (over > 0 ? " over" : "") + '" data-open="' + esc(x.key) + '"><span style="min-width:0"><b>' + esc(x.name) + "</b><span>" + esc(bits.join(" · ") || "Counted only") + (cnt ? " · " + esc(cnt) : "") + "</span>" + flag + "</span>" +
+      if (x.warned) flag += '<span class="cdr-over cdr-warned"><b>Check:</b> ' + esc(plural(x.warned, "supply", "supplies") + " saved below what the registers showed") + "</span>";
+      return '<button class="cdr-med' + (over > 0 || x.warned ? " over" : "") + '" data-open="' + esc(x.key) + '"><span style="min-width:0"><b>' + esc(x.name) + "</b><span>" + esc(bits.join(" · ") || "Counted only") + (cnt ? " · " + esc(cnt) : "") + "</span>" + flag + "</span>" +
         (x.lastCount || none ? '<em aria-hidden="true">›</em>' : '<i>Not counted</i>') + "</button>";
     }).join("") + "</div>";
     return h;
@@ -320,6 +382,7 @@
     var also = r.spelling && key(r.spelling) !== S.key ? '<span>Written “' + esc(r.spelling) + "”</span>" : "", same = r.sameDay ? '<span class="flag">Same day as the count: check whether before or after</span>' : "";
     if (r.kind === "received") return "<b>Received</b>" + also + same + "<span>" + esc([e.agent, e.invoice_number ? "invoice " + e.invoice_number : ""].filter(Boolean).join(" · ")) + "</span>";
     if (r.kind === "supplied" || r.kind === "poyc") return "<b>" + (r.kind === "poyc" ? "POYC" : "Supplied") + "</b>" + (Number(e.urgent) ? '<i class="cdr-pill" style="font-style:normal">Urgent</i>' : "") + also + same +
+      (r.warned ? '<span class="flag">Saved ' + esc(-n(r.warned.after)) + " below what the registers showed (warned at entry)</span>" : "") +
       "<span>" + esc([who(e), e.doctor_name, e.prescription_serial_no ? "Prescription " + e.prescription_serial_no : ""].filter(Boolean).join(" · ")) + "</span>";
     var t = "<b>Stock take</b><span>" + (r.opening ? "Counted " + r.qty + ": the balance starts here" : r.diff ? "Counted " + r.qty + ", the registers give " + r.expected : "Counted " + r.qty + ": the same as the registers") + "</span>";
     if (r.diff) t += '<span class="flag">Check: ' + Math.abs(r.diff) + (r.diff < 0 ? " fewer" : " more") + "</span>";
@@ -351,6 +414,9 @@
       return '<div class="cdr-note ' + x.tone + '" role="status"><b>' + esc(x.what) + "</b><p>" + esc(x.next) + "</p>" + (a ? '<button class="cdr-btn" data-nav="' + a[0] + '">' + esc(a[1]) + "</button>" : "") + "</div>";
     }).join("");
     else if (L.rows.some(function (r) { return r.kind === "count" && !r.opening; })) h += '<div class="cdr-note ok" role="status"><b>The counts are the same as the registers.</b><p>Nothing to check.</p></div>';
+    var parts = (S.led && S.led.partials || []).filter(function (x) { var kk = key(x.medicine_name_dose); return kk === S.key || incOf(S.key).indexOf(kk) >= 0; });
+    if (parts.length) h += '<div class="cdr-note"><b>Partials — still to give ' + parts.length + "</b><p>" + parts.map(function (x) { var f = x.parts && x.parts[0]; return esc(x.client_name + ": " + x.left + " left of " + x.prescribed + " (" + (x.register === "poyc" ? "POYC" : "supplied") + ", Rx " + x.prescription_serial_no + (f ? ", first given " + dm(f.entry_date) : "") + ")"); }).join("<br>") +
+      '</p><button class="cdr-btn" data-nav="' + (parts[0].register === "poyc" ? "poyreg" : "cdsreg") + '">Open ' + (parts[0].register === "poyc" ? "POYC controlled drugs" : "Controlled drugs supplied") + "</button></div>";
     if (L.variants.length) h += '<div class="cdr-note"><b>Also found</b><p>Other spellings that contain “' + esc(S.term) + '”. They are not in this balance unless you tick them; tick only the same medicine and strength.</p><div class="cdr-vars">' +
       L.variants.slice(0, 12).map(function (v) { return '<label><input type="checkbox" data-inc="' + esc(v.key) + '"' + (v.on ? " checked" : "") + "><span>" + esc(v.name) + " · " + esc(plural(v.lines, "line", "lines")) + "</span></label>"; }).join("") + "</div></div>";
     // every movement, oldest first
@@ -359,7 +425,7 @@
     else h += '<table class="cdr-tbl"><thead><tr><th scope="col">Date</th><th scope="col">What</th><th scope="col" class="n">In / out</th>' + (L.counted ? '<th scope="col" class="n">Balance</th>' : "") + "</tr></thead><tbody>" +
       L.rows.map(function (r) {
         var qty = r.kind === "count" ? "=" + r.qty : r.inQ ? "+" + r.inQ : "−" + r.outQ;
-        return '<tr class="' + (r.kind === "count" ? "cnt" + (r.diff ? " chk" : "") : r.sameDay ? "chk" : "") + '"><td class="d">' + esc(dm(r.date)) + '</td><td class="w">' + rowWhat(r) + '</td><td class="n">' + esc(qty) + '</td>' + (L.counted ? '<td class="n">' + (r.balance == null ? '<span aria-label="no balance yet">–</span>' : esc(r.balance)) + "</td>" : "") + "</tr>";
+        return '<tr class="' + (r.kind === "count" ? "cnt" + (r.diff ? " chk" : "") : r.sameDay || r.warned ? "chk" : "") + '"><td class="d">' + esc(dm(r.date)) + '</td><td class="w">' + rowWhat(r) + '</td><td class="n">' + esc(qty) + '</td>' + (L.counted ? '<td class="n">' + (r.balance == null ? '<span aria-label="no balance yet">–</span>' : esc(r.balance)) + "</td>" : "") + "</tr>";
       }).join("") + "</tbody></table>";
     h += '<div class="cdr-more"><span>From ' + esc(dmy(L.from)) + " to " + esc(dmy(L.to)) + ".</span>" + (L.from > shift(L.to, -395) ? '<button class="cdr-btn t" data-act="earlier">Show 3 months earlier</button>' : "") + "</div>";
     return h;

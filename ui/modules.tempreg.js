@@ -50,6 +50,7 @@
   // The name on screen, the same rule as Today and Today's registers (b4-9, round 2 D9): the room sensor stored as
   // "Pharmacy" (or the pharmacy's own name) reads "Room"; any other fridge or room by its stored name. Display only.
   function shown(dv) {
+    if (E.tempDeviceName) return E.tempDeviceName({ name: (dv && dv.name) || "" }); // W32: one rule for every screen (modules.today.js)
     var n = String((dv && dv.name) || "").trim(), k = n.toLowerCase(), here = String((E.state.user || {}).location_name || "").trim().toLowerCase();
     return k === "pharmacy" || (here && k === here) ? "Room" : n;
   }

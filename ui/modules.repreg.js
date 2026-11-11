@@ -236,7 +236,7 @@
         el.removeAttribute("aria-invalid"); var lb = el.closest("label"); if (lb) lb.classList.remove("miss"); if (S.bad) delete S.bad[el.name];
       });
       var idIn = f.querySelector("[name=client_id]"); if (idIn) idIn.addEventListener("blur", function () { fillPatient(); });
-      var dn = f.querySelector("[name=prescriber_name]"); if (dn) dn.addEventListener("blur", function () { fillPrescriber(); });
+      var dn = f.querySelector("[name=prescriber_name]"); if (dn) dn.addEventListener("blur", function (ev) { fillPrescriber(ev.relatedTarget); });
       if (E.personPick) E.personPick.attach({ key: "repreg", form: f, fields: { id: "client_id", name: "client_name" }, idValue: function (v) { return String(v || "").replace(/\s+/g, "").toUpperCase(); },
         local: function () { return S.entries.map(function (e) { return { name: e.client_name, id_card: e.client_id, date: e.entry_date, from: "prescription" }; }); },
         onFill: function () { keep(); } });
@@ -282,10 +282,19 @@
       keep(); if (!S.adding.client_name && fillIn({ client_name: p.name })) markKnown();
     });
   }
-  function fillPrescriber() {
+  function fillPrescriber(next) {
     keep(); var n = low(S.adding && S.adding.prescriber_name).trim(); if (!n || S.adding.prescriber_reg_no) return;
     var regs = uniq(S.entries.filter(function (e) { return low(e.prescriber_name).trim() === n; }).map(function (e) { return e.prescriber_reg_no; }));
-    if (regs.length === 1) fillIn({ prescriber_reg_no: regs[0] }); // two doctors with one name: let the person type it
+    if (regs.length !== 1) return; // two doctors with one name: let the person type it
+    // W44: never into the field the cursor is going to (what is typed next would follow the number): a hint there instead,
+    // taken only if the field is left empty
+    var rf = S.mount && S.mount.querySelector("#rep-add [name=prescriber_reg_no]");
+    if (rf && !rf.value && (rf === next || rf === document.activeElement)) {
+      rf.placeholder = regs[0];
+      rf.addEventListener("blur", function once() { rf.removeEventListener("blur", once); rf.placeholder = ""; if (!String(rf.value || "").trim() && S.adding) fillIn({ prescriber_reg_no: regs[0] }); });
+      return;
+    }
+    fillIn({ prescriber_reg_no: regs[0] });
   }
   // A lookup fills the form in place, only fields still empty and never the one with focus. It used to redraw the form
   // (paint(true)) as the field was left; the field focus was moving to was replaced and what was typed next was lost.

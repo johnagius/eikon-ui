@@ -16,7 +16,8 @@
   // flag, in how the ID card is stored (sales pads it like the server does; POYC keeps it as typed) and in where
   // earlier patients and prescribers are looked up (sales has lookup routes; POYC searches its own recent months).
   function make(C) {
-  var S = { mount: null, month: "", entries: [], doctors: [], loading: false, error: "", adding: null, saving: false, err: "", bad: {}, dup: null, dupOk: "" };
+  var S = { mount: null, month: "", entries: [], doctors: [], loading: false, error: "", adding: null, saving: false, err: "", bad: {}, dup: null, dupOk: "", partials: [], giveFrom: null, closing: 0, partMode: false };
+  var REG = C.id === "poyreg" ? "poyc" : "sales"; // the register's name for /dda-partials
   var MON = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var TEXT = ["entry_date", "client_id_card", "client_name", "client_address", "doctor_name", "doctor_reg_no", "prescription_serial_no"];
   // Correcting a line: the fields of the classic edit form, the classic's PUT body.
@@ -90,6 +91,11 @@
       ".cds-dup{margin:6px 14px;padding:10px 12px;border-radius:10px;background:rgba(201,138,18,.12);font-size:13.5px}.cds-dup b{display:block;margin-bottom:4px}.cds-dup div{color:var(--muted);font-size:12.5px}" +
       ".cds-hacts{display:flex;flex-direction:row-reverse;gap:8px;align-items:center}.cds-hacts .cds-btn{min-height:44px;display:inline-flex;align-items:center;text-decoration:none;border-radius:22px}.cds " + ".ecr-btn{border:0;background:none;min-height:44px;padding:0 8px;border-radius:8px}" +
       ".cds-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
+      ".cds-part h2{font-size:11px}.cds-prow{flex-wrap:wrap}.cds-prow details{margin-top:4px;font-size:13px}.cds-prow summary{cursor:pointer;color:var(--accent);font-weight:600;min-height:32px;display:inline-flex;align-items:center}.cds-prow ul{margin:2px 0 0;padding-left:18px;color:var(--muted)}" +
+      ".cds-pacts{display:flex;gap:8px;flex-wrap:wrap}.cds-pacts .cds-btn{min-height:44px;border-radius:22px}" +
+      ".cds-pclose{display:flex;flex-direction:column;gap:6px;padding:10px 16px 12px;border-top:.5px solid var(--border);background:rgba(201,138,18,.06)}.cds-pclose label{font-size:14px;font-weight:600}.cds-pclose input{font:inherit;font-size:16px;min-height:44px;border:1px solid var(--border);border-radius:10px;padding:0 10px;background:var(--panel2);color:var(--text)}.cds-pclose span{display:flex;gap:8px;justify-content:flex-end}.cds-pclose .cds-btn{min-height:44px;border-radius:22px}" +
+      ".cds-form .row.pres{min-height:44px}.cds-form .row.pres span{flex:1;font-size:14px;color:var(--muted)}.cds-form .row.pres input.pq{flex:0 0 96px;text-align:right;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:inherit;padding:10px 0}" +
+      ".cds-give{margin:4px 14px 6px;padding:10px 12px;border-radius:10px;background:rgba(10,143,106,.08);font-size:14px}" +
       "@media (max-width:600px){.cds{padding:4px 16px 0}.cds h1{font-size:32px}.cds-form label>span{flex-basis:92px}}";
     document.head.appendChild(st);
   }
@@ -101,6 +107,7 @@
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load the register");
       S.entries = r.entries || [];
       E.correct.loadMarks(C.id, FIX, S.month + "-01"); // which lines were corrected, by whom and why
+      loadPartials();
     } catch (e) { if (!keepView) S.error = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not load the register"); }
     S.loading = false; E.whenFormIdle(S.mount, paint);
   }
@@ -118,6 +125,59 @@
       empty: "No entries for the selected date range." }] };
   };
   function printMonth() { E.months.print(E.printDocs[C.id](S.month, S.entries)); }
+  // Partials — still to give (part-supplies): one read per screen open; an older worker without the route shows nothing.
+  async function loadPartials() {
+    var was = JSON.stringify(S.partials), next = [];
+    try { var r = await E.apiFetch("/dda-partials?register=" + REG, { method: "GET" }); next = (r && r.ok && r.partials) || []; } catch (e) { next = []; }
+    S.partials = next;
+    if (JSON.stringify(next) !== was) E.whenFormIdle(S.mount, paint); // redraw only when the list changed (a redraw mid-typing loses nothing, but is not needed)
+  }
+  function partialsHtml() {
+    if (!S.partials.length) return "";
+    return '<section class="cds-part" aria-labelledby="cds-part-h"><h2 id="cds-part-h" class="cds-lab"><span>Partials — still to give <b>' + S.partials.length + "</b></span></h2><div class=\"cds-list\">" + S.partials.map(function (x) {
+      var last = x.parts.length ? x.parts[x.parts.length - 1] : null, first = x.parts.length ? x.parts[0] : null;
+      var ago = first ? Math.round((Date.parse(today() + "T12:00:00Z") - Date.parse(first.entry_date + "T12:00:00Z")) / 864e5) : 0;
+      var h = '<div class="cds-row cds-prow" data-pid="' + x.id + '"><div class="t"><b>' + esc(x.medicine_name_dose) + "</b><span>" + esc(x.client_name + " · Rx " + x.prescription_serial_no + (first ? " of " + dmy(first.entry_date) + " (" + (ago === 0 ? "today" : ago === 1 ? "1 day ago" : ago + " days ago") + ")" : "") + " · given " + x.given + " of " + x.prescribed + (last ? " · last " + dmy(last.entry_date) : "")) + "</span>" +
+        '<details><summary>History (' + x.parts.length + ")</summary><ul>" + x.parts.map(function (pt) { return "<li>" + esc(dmy(pt.entry_date) + " · " + pt.quantity + (pt.by ? " · " + pt.by : "")) + "</li>"; }).join("") + "</ul></details></div>" +
+        "<em>" + esc(x.left + " left") + '</em><span class="cds-pacts"><button type="button" class="cds-btn p" data-pgive="' + x.id + '">Give the rest</button><button type="button" class="cds-btn" data-pclose="' + x.id + '">Close without giving the rest</button></span></div>';
+      if (S.closing === x.id) h += '<form class="cds-pclose" data-pcform="' + x.id + '"><label for="cds-pr-' + x.id + '">Why is it closed? (nothing more will be given)</label><input id="cds-pr-' + x.id + '" name="reason" maxlength="300" placeholder="e.g. Patient no longer needs it" value="' + esc(S.closeReason || "") + '">' +
+        '<div class="cds-err" role="alert">' + esc(S.closeErr || "") + '</div><span><button type="button" class="cds-btn" data-pcancel>Cancel</button><button type="submit" class="cds-btn p">Close it</button></span></form>';
+      return h;
+    }).join("") + "</div></section>";
+  }
+  function wirePartials(m) {
+    m.querySelectorAll("[data-pgive]").forEach(function (b) { b.addEventListener("click", function () {
+      var x = S.partials.filter(function (y) { return String(y.id) === b.getAttribute("data-pgive"); })[0]; if (!x) return;
+      var a = blank(); ["client_id_card", "client_name", "client_address", "doctor_name", "doctor_reg_no", "prescription_serial_no"].forEach(function (k) { a[k] = String(x[k] || ""); });
+      a.lines = [{ medicine_name_dose: x.medicine_name_dose, quantity: String(x.left) }];
+      S.adding = a; S.giveFrom = x; S.partMode = false; S.err = ""; S.bad = {}; S.dup = null; S.dupOk = a.prescription_serial_no; S.balAsk = ""; S.balOk = ""; S.closing = 0;
+      paint(true); E.focusSoon(function () { return S.mount && S.mount.querySelector('#cds-add [data-i="0"][data-k=quantity]'); }, 30);
+    }); });
+    m.querySelectorAll("[data-pclose]").forEach(function (b) { b.addEventListener("click", function () { S.closing = Number(b.getAttribute("data-pclose")); S.closeReason = ""; S.closeErr = ""; paint(); E.focusSoon(function () { return S.mount && S.mount.querySelector("#cds-pr-" + S.closing); }, 30); }); });
+    var cf = m.querySelector("[data-pcform]");
+    if (cf) {
+      cf.querySelector("[data-pcancel]").addEventListener("click", function () { var id = S.closing; S.closing = 0; paint(); var bb = S.mount && S.mount.querySelector('[data-pclose="' + id + '"]'); if (bb) bb.focus(); });
+      cf.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { ev.preventDefault(); cf.querySelector("[data-pcancel]").click(); } });
+      cf.addEventListener("submit", async function (ev) {
+        ev.preventDefault(); var id = Number(cf.getAttribute("data-pcform")), reason = String(cf.querySelector("[name=reason]").value || "").trim(); S.closeReason = reason;
+        if (!reason) { S.closeErr = "Write why it is closed."; paint(); var r0 = S.mount.querySelector("#cds-pr-" + id); if (r0) r0.focus(); return; }
+        try { var r = await E.apiFetch("/dda-partials/" + id + "/close", { method: "POST", body: JSON.stringify({ reason: reason }) }); if (!r || !r.ok) throw new Error((r && r.error) || "Not closed"); }
+        catch (e) { S.closeErr = (e && e.network ? E.saveFailText(e) : String((e && (e.message || e)) || "Not closed")) + ". Nothing was changed."; paint(); return; }
+        S.closing = 0; S.partials = S.partials.filter(function (x) { return x.id !== id; }); paint(); E.toast("Closed · " + reason, "success");
+        var nb = S.mount && (S.mount.querySelector("[data-pgive]") || S.mount.querySelector("[data-act=add]")); if (nb) nb.focus(); // focus to what is next
+        loadPartials();
+      });
+    }
+  }
+  // after a line is saved: start a part-supply (prescribed more than given) or add the line to the one being continued
+  async function keepPartial(l, entryId, giveFrom) {
+    try {
+      var r = giveFrom ? await E.apiFetch("/dda-partials/" + giveFrom.id + "/give", { method: "POST", body: JSON.stringify({ entry_id: entryId }) })
+        : await E.apiFetch("/dda-partials", { method: "POST", body: JSON.stringify({ register: REG, entry_id: entryId, prescribed: Number(l.prescribed) }) });
+      if (!r || !r.ok) throw new Error((r && r.error) || "not kept");
+      return r.partial || null;
+    } catch (e) { E.toast("The line is saved, but the part still to give was not kept (" + String((e && (e.message || e)) || "error").replace(/\.$/, "") + "). Write the quantity still to give on the prescription.", "warning"); return null; }
+  }
   async function loadDoctors() { // the prescribers this pharmacy sees most, for the name list
     try { S.doctors = await C.doctors(""); } catch (e) { S.doctors = []; }
     // only the suggestion list changes: redrawing the form here could swallow a tap that lands at the same moment
@@ -135,7 +195,7 @@
       var a = S.adding, saved = a.lines.some(function (l) { return l.saved; }), lock = saved ? " disabled" : "";
       var bad = S.bad || {}, inv = function (k) { return bad[k] ? ' aria-invalid="true"' : ""; };
       var fld = function (k, label, extra, hint) { return '<label' + (bad[k] ? ' class="miss"' : "") + '><span>' + label + '</span><input name="' + k + '" value="' + esc(a[k]) + '"' + (extra || "") + inv(k) + lock + ">" + (hint || "") + "</label>"; };
-      h += '<form class="cds-form" id="cds-add" autocomplete="off">' +
+      h += '<form class="cds-form" id="cds-add" autocomplete="off">' + (S.giveFrom ? '<div class="cds-give" role="status">The rest of a prescription given in parts (give less if it is again a part): ' + esc(S.giveFrom.given + " of " + S.giveFrom.prescribed + " given, " + S.giveFrom.left + " left.") + "</div>" : "") +
         fld("entry_date", "Supplied", ' type="date" max="' + esc(today()) + '"') +
         fld("client_id_card", "ID card", ' placeholder="e.g. 123456M" autocapitalize="characters"', a.found ? "<small>Known</small>" : "") +
         fld("client_name", "Patient", ' placeholder="Name and surname"') +
@@ -148,15 +208,18 @@
         a.lines.map(function (l, i) {
           var ln = a.lines.length > 1 ? ", line " + (i + 1) : "";
           return '<div class="row' + (l.saved ? " ok" : "") + (bad["n" + i] ? " miss" : "") + '"><input class="n" data-i="' + i + '" data-k="medicine_name_dose" list="cds-meds" value="' + esc(l.medicine_name_dose) + '" placeholder="e.g. Morphine 10mg tablets" aria-label="Medicine, strength and form' + ln + '"' + inv("n" + i) + (l.saved ? " disabled" : "") + ">" +
-            (l.saved ? "<small>Saved</small>" : '<input class="q" data-i="' + i + '" data-k="quantity" inputmode="numeric" value="' + esc(l.quantity) + '" placeholder="0" aria-label="Quantity' + ln + '"' + inv("q" + i) + ">") + "</div>";
+            (l.saved ? "<small>Saved</small>" : '<input class="q" data-i="' + i + '" data-k="quantity" inputmode="numeric" value="' + esc(l.quantity) + '" placeholder="0" aria-label="Quantity' + ln + '"' + inv("q" + i) + ">") + "</div>" +
+            (S.partMode && !l.saved && !S.giveFrom ? '<div class="row pres' + (bad["p" + i] ? " miss" : "") + '"><span id="cds-pl-' + i + '">Prescribed in total' + esc(ln) + ' (leave empty if all is given now)</span><input class="pq" data-i="' + i + '" data-k="prescribed" inputmode="numeric" value="' + esc(l.prescribed || "") + '" placeholder="0" aria-labelledby="cds-pl-' + i + '"' + inv("p" + i) + "></div>" : "");
         }).join("");
       if (S.dup) h += '<div class="cds-dup"><b>Serial ' + esc(a.prescription_serial_no) + " already has " + S.dup.entries.length + (S.dup.entries.length === 1 ? " entry" : " entries") + " (" + esc(S.dup.total_qty) + " given). If this is the rest of the prescription, press Yes, record.</b>" +
         S.dup.entries.slice(0, 4).map(function (e) { return "<div>" + esc(dmy(e.entry_date)) + " · " + esc(e.client_name) + " · " + esc(e.medicine_name_dose) + " × " + esc(e.quantity) + "</div>"; }).join("") + "</div>";
+      if (S.balAsk) h += '<div class="cds-dup" role="status"><b>' + esc(S.balAsk) + "</b></div>"; // a warning that came up only as Save was pressed: seen once, then saved
       h += '<div class="cds-err" role="alert">' + esc(S.err) + "</div>" +
-        '<div class="acts"><button type="button" class="cds-btn t" data-act="line">Add a medicine</button><span style="display:flex;gap:8px"><button type="button" class="cds-btn" data-act="add-cancel">' + (saved ? "Close" : "Cancel") + '</button><button type="submit" class="cds-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : S.dup ? "Yes, save it" : "Save prescription") + "</button></span></div>" +
+        '<div class="acts"><span><button type="button" class="cds-btn t" data-act="line">Add a medicine</button>' + (S.giveFrom ? "" : '<button type="button" class="cds-btn t" data-act="partmode" aria-pressed="' + (S.partMode ? "true" : "false") + '">Giving part now</button>') + '</span><span style="display:flex;gap:8px"><button type="button" class="cds-btn" data-act="add-cancel">' + (saved ? "Close" : "Cancel") + '</button><button type="submit" class="cds-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : S.dup || S.balAsk ? "Yes, save it" : "Save prescription") + "</button></span></div>" +
         '<datalist id="cds-docs">' + uniq(S.doctors.map(function (d) { return d.doctor_name; })).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist>" +
         '<datalist id="cds-meds">' + uniq(S.entries.map(function (e) { return e.medicine_name_dose; })).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></form>";
     }
+    h += partialsHtml();
     h += E.months.bar(S.month, { label: C.title });
     if (S.loading && !S.entries.length) h += '<div class="cds-quiet">Opening the register…</div>';
     else if (S.error) h += '<div class="cds-quiet">' + esc(S.error) + "</div>";
@@ -177,9 +240,10 @@
       b.addEventListener("click", function (ev) {
         var act = b.getAttribute("data-act");
         if (act === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash(C.id) : "#registers";
-        else if (act === "add") { S.adding = blank(); S.err = ""; S.bad = {}; S.dup = null; S.dupOk = ""; paint(); if (!S.doctors.length) loadDoctors(); var f = m.querySelector("[name=client_id_card]"); if (f) f.focus(); }
+        else if (act === "add") { S.adding = blank(); S.err = ""; S.bad = {}; S.dup = null; S.dupOk = ""; S.balAsk = ""; S.balOk = ""; S.giveFrom = null; S.partMode = false; paint(); if (!S.doctors.length) loadDoctors(); var f = m.querySelector("[name=client_id_card]"); if (f) f.focus(); }
         else if (act === "add-cancel" && S.fromCd && E.cdHand) { S.adding = null; S.dup = null; S.fromCd = ""; E.cdHand.back(); }
-        else if (act === "add-cancel") { S.adding = null; S.err = ""; S.bad = {}; S.dup = null; paint(); var ab = m.querySelector("[data-act=add]"); if (ab) ab.focus(); }
+        else if (act === "add-cancel") { S.adding = null; S.err = ""; S.bad = {}; S.dup = null; S.balAsk = ""; S.balOk = ""; S.giveFrom = null; S.partMode = false; paint(); var ab = m.querySelector("[data-act=add]"); if (ab) ab.focus(); }
+        else if (act === "partmode") { keep(); S.partMode = !S.partMode; paint(); var pq = S.partMode && m.querySelector("#cds-add input.pq"); if (pq) pq.focus(); else { var tg = m.querySelector("[data-act=partmode]"); if (tg) tg.focus(); } }
         else if (act === "line") { keep(); S.adding.lines.push({ medicine_name_dose: "", quantity: "" }); paint(); var ins = m.querySelectorAll(".cds-form .row input.n"); if (ins.length) ins[ins.length - 1].focus(); }
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", C.id); } catch (x) {} E.openClassic(C.classic); }
       });
@@ -187,6 +251,7 @@
     E.months.wire(m, { month: function () { return S.month; }, go: function (ym) { S.month = ym; S.entries = []; E.correct.reset(C.id); load(); }, paint: function () { paint(); }, print: printMonth });
     E.correct.wire(m, C.id, FIX);
     if (E.cdMonthWire) E.cdMonthWire(m);
+    wirePartials(m);
     var f = m.querySelector("#cds-add");
     if (f && E.cdBalanceWire) E.cdBalanceWire(f, -1); // the balance check at entry (words only)
     if (f) {
@@ -195,7 +260,7 @@
       if (E.ddaMedSuggest) f.querySelectorAll("input.n").forEach(function (el) { E.ddaMedSuggest(el, { path: C.path, field: "medicine_name_dose", known: function () { return S.entries.map(function (e) { return e.medicine_name_dose; }); } }); }); // generic or brand, and what was written before
       // lookups run as the ID card is completed and when the prescriber field is left (a repaint can swallow a "change" event)
       var idIn = f.querySelector("[name=client_id_card]"); if (idIn) { idIn.addEventListener("input", function () { clearTimeout(S.idT); S.idT = setTimeout(function () { lookupPatient(idIn.value); }, 300); }); idIn.addEventListener("blur", function () { lookupPatient(idIn.value); }); }
-      var dn = f.querySelector("[name=doctor_name]"); if (dn) dn.addEventListener("blur", function () { lookupDoctor(dn.value); });
+      var dn = f.querySelector("[name=doctor_name]"); if (dn) dn.addEventListener("blur", function (ev) { lookupDoctor(dn.value, ev.relatedTarget); });
       // people known here, offered as the ID card or the name is typed; choosing one fills only empty fields
       if (E.personPick) E.personPick.attach({ key: C.id, form: f, fields: { id: "client_id_card", name: "client_name", address: "client_address" }, sources: C.pad ? ["dda", "people"] : ["people"], idValue: idCard,
         local: function () { return S.entries.map(function (e) { return { name: e.client_name, id_card: e.client_id_card, address: e.client_address, date: e.entry_date, from: C.pad ? "DDA sale" : "POYC" }; }); },
@@ -236,14 +301,23 @@
       }
     } catch (e) {}
   }
-  async function lookupDoctor(name) {
+  async function lookupDoctor(name, next) {
     name = String(name || "").trim(); if (!name || !S.adding || S.adding.lookedDoc === name) return;
     S.adding.lookedDoc = name;
     var hit = S.doctors.filter(function (d) { return d.doctor_name.toLowerCase() === name.toLowerCase(); });
     if (!hit.length) { try { hit = (await C.doctors(name)).filter(function (d) { return d.doctor_name.toLowerCase() === name.toLowerCase(); }); } catch (e) { return; } }
     var regs = uniq(hit.map(function (d) { return d.doctor_reg_no; }));
     if (regs.length !== 1 || !S.adding) return; // two doctors with one name: let the person type it
-    keep(); fillIn({ doctor_reg_no: regs[0] });
+    keep();
+    // W44: never write into the field the cursor is going to (Tab from Prescriber lands in Reg no.: what is typed next would
+    // follow the filled number, "R1202" + "1234"). That field shows it as a hint and takes it only if left empty.
+    var rf = addForm() && addForm().querySelector("[name=doctor_reg_no]");
+    if (rf && !rf.value && (rf === next || rf === document.activeElement)) {
+      rf.placeholder = regs[0];
+      rf.addEventListener("blur", function once() { rf.removeEventListener("blur", once); rf.placeholder = ""; if (!String(rf.value || "").trim() && S.adding) fillIn({ doctor_reg_no: regs[0] }); });
+      return;
+    }
+    fillIn({ doctor_reg_no: regs[0] });
   }
   // A lookup fills the form in place, only fields still empty and never the one with focus. It used to redraw the form
   // (paint(true)) while focus was moving to the next field; that field was replaced and what was typed next was lost.
@@ -266,6 +340,7 @@
 
   async function add() {
     if (S.saving) return;
+    var f0 = S.mount && S.mount.querySelector("#cds-add"), seenWarn = f0 && f0.cdBal ? f0.cdBal.shown() : null; // the warnings on screen as Save was pressed
     keep();
     var a = S.adding; S.err = "";
     a.client_id_card = idCard(a.client_id_card);
@@ -282,6 +357,7 @@
       var i = a.lines.indexOf(l);
       if (!l.medicine_name_dose) { bad["n" + i] = 1; if (!first) first = '[data-i="' + i + '"][data-k=medicine_name_dose]'; lineSay.push("the medicine for quantity " + l.quantity); }
       else if (!/^\d+$/.test(l.quantity) || Number(l.quantity) < 1) { bad["q" + i] = 1; if (!first) first = '[data-i="' + i + '"][data-k=quantity]'; lineSay.push("how many of " + l.medicine_name_dose + " (a whole number)"); }
+      else if (S.partMode && !S.giveFrom && l.prescribed && (!/^\d+$/.test(l.prescribed) || Number(l.prescribed) <= Number(l.quantity))) { bad["p" + i] = 1; if (!first) first = '[data-i="' + i + '"][data-k=prescribed]'; lineSay.push("how many of " + l.medicine_name_dose + " were prescribed in total (more than " + l.quantity + ")"); }
     });
     say = say.concat(lineSay);
     S.bad = bad;
@@ -293,6 +369,14 @@
       var dup = null; try { var c = await E.apiFetch(C.path + "/check-serial?serial=" + encodeURIComponent(a.prescription_serial_no), { method: "GET" }); if (c && c.ok && c.found) dup = c; } catch (e) {}
       S.saving = false;
       if (dup) { S.dup = dup; S.dupOk = a.prescription_serial_no; return paint(); }
+    }
+    // the balance check: a line that takes a medicine below what the registers show is saved as written, with the
+    // warning seen (balance_warning, kept for the inspection check). One that was not on screen yet is shown first.
+    var balWarns = {}, fm = S.mount && S.mount.querySelector("#cds-add"); S.balAsk = "";
+    if (fm && fm.cdBal) {
+      var chk = await fm.cdBal.atSave(seenWarn); balWarns = chk.warns || {};
+      var sig = JSON.stringify(balWarns);
+      if (chk.unseen && S.balOk !== sig) { S.balOk = sig; S.balAsk = "Check the warning under " + (Object.keys(balWarns).length === 1 ? "the medicine" : "the medicines") + " above. If the prescription is right, press Yes, save it: it is saved as written and the warning is kept for the inspection check."; return paint(true); }
     }
     // the ID card and the person: add it to them, stop on someone else's card, or change theirs (E.people.confirmPerson)
     var asked = null;
@@ -307,7 +391,7 @@
       }
     }
     S.saving = true; paint();
-    var done = 0, failed = "", lost = null;
+    var done = 0, failed = "", lost = null, warnedN = 0, giveFrom = S.giveFrom, partsKept = [];
     // count what the register already holds for these lines, so a save whose answer is lost can be checked afterwards
     var monthList = async function () { var r0 = await E.apiFetch(C.path + "/entries?month=" + a.entry_date.slice(0, 7), { method: "GET" }); return (r0 && r0.ok && r0.entries) || []; };
     var same = function (e, l) { return e.entry_date === a.entry_date && String(e.medicine_name_dose).trim().toLowerCase() === String(l.medicine_name_dose).trim().toLowerCase() && Number(e.quantity) === Number(l.quantity) && String(e.prescription_serial_no).trim() === a.prescription_serial_no && String(e.client_id_card).replace(/\s+/g, "").toUpperCase().replace(/^0+/, "") === String(a.client_id_card).replace(/\s+/g, "").toUpperCase().replace(/^0+/, ""); };
@@ -315,10 +399,13 @@
     for (var i = 0; i < todo.length; i++) {
       var l = todo[i];
       try {
-        var r = await E.apiFetch(C.path + "/entries", { method: "POST", body: JSON.stringify({ entry_date: a.entry_date, client_name: a.client_name, client_id_card: a.client_id_card, client_address: a.client_address,
-          medicine_name_dose: l.medicine_name_dose, quantity: Number(l.quantity), doctor_name: a.doctor_name, doctor_reg_no: a.doctor_reg_no, prescription_serial_no: a.prescription_serial_no, urgent: a.urgent ? 1 : 0 }) }); // the POYC server ignores urgent
+        var bodyObj = { entry_date: a.entry_date, client_name: a.client_name, client_id_card: a.client_id_card, client_address: a.client_address,
+          medicine_name_dose: l.medicine_name_dose, quantity: Number(l.quantity), doctor_name: a.doctor_name, doctor_reg_no: a.doctor_reg_no, prescription_serial_no: a.prescription_serial_no, urgent: a.urgent ? 1 : 0 }; // the POYC server ignores urgent
+        var bw = balWarns[String(a.lines.indexOf(l))]; if (bw) { bodyObj.balance_warning = bw; warnedN++; } // the classic body plus the warning seen (only when there was one)
+        var r = await E.apiFetch(C.path + "/entries", { method: "POST", body: JSON.stringify(bodyObj) });
         if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
         l.saved = true; done++;
+        if (r.entry_id && (giveFrom && i === 0 || (S.partMode && !giveFrom && Number(l.prescribed) > Number(l.quantity)))) { var pk = await keepPartial(l, r.entry_id, giveFrom && i === 0 ? giveFrom : null); if (pk) partsKept.push(pk); }
       } catch (x) { failed = x && x.network ? E.saveFailText(x) : String((x && (x.message || x)) || "error"); lost = x && x.network ? l : null; break; } // stop: the rest stay in the form
     }
     if (lost && before) { // the answer was lost: look in the register before anything is sent again
@@ -331,7 +418,8 @@
     S.saving = false;
     if (done && E.linkPerson) E.linkPerson({ name: a.client_name, id_card: a.client_id_card, address: a.client_address, doctor_name: a.doctor_name }, C.id === "poyreg" ? "register:poyc" : "register:dda-sales", asked); // one person in Customers, found or added
     var backCd = !failed && S.fromCd && E.cdHand; if (backCd) S.fromCd = ""; // opened from the medicine's register: back to it after the save
-    if (!failed) { S.adding = null; S.bad = {}; S.dup = null; S.dupOk = ""; E.toast("Saved · " + (done === 1 ? ((a.lines.filter(function (l) { return l.saved; })[0] || a.lines[0] || {}).medicine_name_dose || "1 medicine") : done + " medicines") + " for " + a.client_name, "success"); if (a.entry_date.slice(0, 7) !== S.month) S.month = a.entry_date.slice(0, 7); }
+    if (partsKept.length) loadPartials();
+    if (!failed) { S.adding = null; S.bad = {}; S.dup = null; S.dupOk = ""; S.balAsk = ""; S.balOk = ""; S.giveFrom = null; S.partMode = false; E.toast("Saved · " + (done === 1 ? ((a.lines.filter(function (l) { return l.saved; })[0] || a.lines[0] || {}).medicine_name_dose || "1 medicine") : done + " medicines") + " for " + a.client_name + (partsKept.length ? ". " + partsKept.map(function (x) { return x.status === "done" ? x.medicine_name_dose + ": all given" : x.medicine_name_dose + ": " + x.left + " left to give"; }).join("; ") : "") + (warnedN ? ". The shortfall is noted for the inspection check." : ""), warnedN ? "warning" : "success"); if (a.entry_date.slice(0, 7) !== S.month) S.month = a.entry_date.slice(0, 7); }
     else S.err = (done ? done + " saved. " : "") + "Not saved from " + (todo[done] || {}).medicine_name_dose + ": " + String(failed).replace(/\.$/, "") + ". Press Save prescription to try the rest again.";
     if (backCd) { E.cdHand.back(); return; }
     return load();
@@ -339,7 +427,7 @@
 
   E.registerModule({
     id: C.id, title: C.title, order: 3, icon: "℞", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = E.months.take(C.id) || today().slice(0, 7); S.entries = []; E.months.reset(); E.correct.reset(C.id); S.adding = null; S.err = ""; S.bad = {}; S.dup = null; S.dupOk = ""; S.fromCd = ""; css();
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.month = E.months.take(C.id) || today().slice(0, 7); S.entries = []; E.months.reset(); E.correct.reset(C.id); S.adding = null; S.err = ""; S.bad = {}; S.dup = null; S.dupOk = ""; S.fromCd = ""; S.partials = []; S.giveFrom = null; S.closing = 0; S.partMode = false; S.balAsk = ""; S.balOk = ""; css();
       var hand = E.cdHand && E.cdHand.take(C.id); // "Supplied" / "POYC" on a medicine's running register: the form opens with it written in
       if (hand) { S.fromCd = hand.name; S.adding = blank(); S.adding.lines[0].medicine_name_dose = String(hand.name || ""); paint(true); loadDoctors(); if (E.onReconnect) E.onReconnect(load); E.focusSoon(function () { return S.mount && S.mount.querySelector("#cds-add [name=client_id_card]"); }, 30); return load(); }
       paint(); if (E.onReconnect) E.onReconnect(load); return E.takeOpenForm(C.id, S.mount, load(), { btn: "[data-act=add]", form: "#cds-add", fill: { id_card: "client_id_card", name: "client_name", address: "client_address" } }); }

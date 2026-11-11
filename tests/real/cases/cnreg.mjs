@@ -20,6 +20,6 @@ export default {
     const fresh = (await t.mine(T, m, { receipt_number: IN.receipt }))[0];
     t.has("creditnote(new)", fresh, { client_name: IN.name, client_surname: IN.surname, telephone: IN.phone, receipt_number: IN.receipt, issue_date: IN.issued, expiry_date: IN.expires });
     t.ok(fresh && Number(fresh.amount) === 25.4, "creditnote(new): amount 25.40 stored: " + (fresh && fresh.amount));
-    t.same("creditnote", classic, fresh);
+    t.same("creditnote", classic, fresh, { cn_no: "the pharmacy's own credit-note number (W6): the next one, as the row id was" });
   },
 };

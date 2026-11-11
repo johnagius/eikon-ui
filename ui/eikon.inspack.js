@@ -252,6 +252,10 @@
         found = c.reasons.slice();
       } else if (R.path && !builder(R.doc)) { mark = "elsewhere"; found.push({ level: "info", text: "Print it from its own screen (" + R.title + " › Print), month by month, and put it here." }); }
       else if (R.path) found.push({ level: "info", text: lines ? plural(lines, "line", "lines") + " in these days." : "Nothing recorded in these days." });
+      if (R.cd && byCheck.dda && !pack.err[R.id]) { // a medicine going below zero: listed on the registers its lines are in too
+        var wr = (byCheck.dda.reasons || []).filter(function (x) { return x.regs && x.regs.indexOf(R.id === "ddapoyc" ? "poyc" : R.id === "ddasales" ? "sales" : "-") >= 0; });
+        if (wr.length) { if (wr.some(function (x) { return x.level === "missing"; })) mark = "gap"; else if (wr.some(function (x) { return x.level === "look"; }) && mark !== "gap") mark = "look"; found = wr.concat(found); }
+      }
       if (R.takes) {
         var bad = pack.takes.filter(function (s) { return s.error; });
         if (bad.length && mark === "ok") mark = "look";
@@ -387,7 +391,7 @@
   }
   function isClosed(w) { try { return !!w.closed; } catch (e) { return true; } }
   // About how many requests a pack makes (the check's, plus four registers a month, plus stock takes and the details).
-  function estimate(rg) { var m = monthsIn(rg.from, rg.to).length; return 3 + 4 * m + 4 * m + m + 1; }
+  function estimate(rg) { var m = monthsIn(rg.from, rg.to).length; return 4 + 4 * m + 4 * m + m + 1; } // 4: the check's three, plus its controlled-drug read (balances, days, warnings)
 
   var api = { build: build, open: open, estimate: estimate, contents: contents, html: html, bodyOf: bodyOf, takeBody: takeBody, docFor: docFor, DOCS: DOCS, REGS: REGS,
     lastInspection: lastInspection, lastInspectionBy: lastInspectionBy, loadLast: loadLast, setLastInspection: setLastInspection, last: null };

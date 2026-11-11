@@ -98,7 +98,10 @@ export default {
     const C = await p.evaluate(() => window.EIKON.inspack.last.contents.map((c) => c.id + ":" + c.mark).join());
     const cdShared = await p.evaluate(() => ["cdpreg", "cdsreg", "poyreg"].map((k) => !!(window.EIKON.printDocs && window.EIKON.printDocs[k])));
     const cdMark = (i) => cdShared[i] ? "ok" : "elsewhere";
-    t.ok(C === `temperature:gap,cleaning:ok,dailyregister:ok,locum:look,ddapurchases:${cdMark(0)},ddasales:${cdMark(1)},ddapoyc:${cdMark(2)},stocktakes:look,repeat:ok,certificates:ok`, "contents marks: " + C);
+    // Finish round: "Morphine 10mg/ml" supplied with deliveries written "Morphine 10mg/ml amp", and POYC methylphenidate before its
+    // count, go below zero in the registers: Missing on both registers and under the stock takes
+    t.ok(C === `temperature:gap,cleaning:ok,dailyregister:ok,locum:look,ddapurchases:${cdMark(0)},ddasales:look,ddapoyc:look,stocktakes:look,repeat:ok,certificates:ok`, "contents marks (below zero is Look at this, Q11; no new Missing): " + C);
+    t.ok(/Morphine 10mg\/ml: the registers go below zero on [^<]* Or the same medicine is written two ways — Morphine 10mg\/ml amp\./.test(html), "the pack lists the medicine below zero and the other spelling");
     t.ok(/<td class='pk-m gap'>Missing<\/td>/.test(html) && /<td class='pk-m ok'>✓ In order<\/td>/.test(html) && /<td class='pk-m look'>Look at this<\/td>/.test(html) && html.includes("<td>Sign-off</td>"), "contents uses the screen's words: ✓ In order, Missing, Look at this; and the sign-off");
     t.ok(!/text-transform:uppercase/.test(html) && html.includes("<dt>Responsible pharmacist</dt><dd><span class=\"pk-blank\"></span>"), "cover: no capitals; the responsible pharmacist is a line to fill, not a guess");
     // gaps listed in full (the screen stops at five days; the pack lists every one)
@@ -158,7 +161,7 @@ export default {
     await p.click('[data-range="this"]'); await p.waitForFunction(() => !window.EIKON.inspect.state.job && window.EIKON.inspect.state.result, null, { timeout: 20000 });
     reqs.length = 0; await p.click('[data-act="again"]'); await p.waitForFunction(() => !window.EIKON.inspect.state.job && window.EIKON.inspect.state.result, null, { timeout: 20000 });
     t.note("Check again, this month: " + reqs.length + " requests: " + reqs.join(" "));
-    t.ok(reqs.length <= 7 && reqs.every((q) => !q.includes("month=" + L)), "Check again reads only this month and the lists that change today: " + reqs.join(" "));
+    t.ok(reqs.length <= 9 && reqs.every((q) => !q.includes("month=" + L) && !q.includes("from=" + L)), "Check again reads only this month and the lists that change today (with the controlled-drug days and warnings, one read each): " + reqs.join(" "));
     // staff: anyone signed in may print the pack (owner, 9 Nov)
     const st = await t.stack.app.addUser({ orgId: org, locationId: loc, email: "inspack-staff@demo.mt", role: "staff", name: "Karl Vella" });
     const sp = await t.page(); await sp.context().addInitScript((tok) => { try { localStorage.setItem("eikon_token", tok); } catch (e) {} }, st.token);

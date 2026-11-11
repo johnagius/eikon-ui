@@ -61,7 +61,7 @@ export default {
     t.ok(B.reqs.filter((x) => x === "/team/today").length === 1, "Team asked /team/today once: " + JSON.stringify(B.reqs));
     t.ok(!B.reqs.some((x) => /^\/(shifts|instructions|board|locumregister)\//.test(x)), "no screen's own read on opening: " + JSON.stringify(B.reqs));
     const by = (r, k) => r.rows.find((x) => x.key === k) || {};
-    t.ok(r1.rows[0] && r1.rows[0].key === "pic" && r1.rows[0].cls === "problem" && r1.rows[0].title === "No pharmacist signed in" && r1.rows[0].btn === "Sign in", "no pharmacist signed in: red, first, Sign in: " + JSON.stringify(r1.rows[0]));
+    t.ok(r1.rows[0] && r1.rows[0].key === "pic" && r1.rows[0].cls === "problem" && r1.rows[0].title === "Pharmacist in charge not recorded" && r1.rows[0].btn === "Record", "no pharmacist in charge recorded (W13 words): red, first, Record: " + JSON.stringify(r1.rows[0]));
     t.ok(/^Open 00:00–23:59 · 2 people on today · Pharmacist: Dr Helena Farrugia until 23:59\.$/.test(r1.head), "the headline in words: " + r1.head);
     t.ok(by(r1, "hnd").cls === "todo" && by(r1, "hnd").title === "Handover from yesterday" && by(r1, "hnd").text === "1 critical point and 1 other. Not read by you yet." && by(r1, "hnd").btn === "Read ›", "handover not read (a quiet button: only the first thing to do is solid): " + JSON.stringify(by(r1, "hnd")));
     t.ok(by(r1, "men").cls === "todo" && by(r1, "men").title === "Mentioned you: Ħamrun Other" && /Ozempic 1mg/.test(by(r1, "men").text) && !/And \d/.test(by(r1, "men").text), "one mention of you (the public one): " + JSON.stringify(by(r1, "men")));
@@ -69,7 +69,7 @@ export default {
     t.ok(!/SECRET/.test(r1.page), "another group's private message is nowhere on the page");
     t.ok(by(r1, "lv").cls === "todo" && by(r1, "lv").text === "2 requests waiting for your answer." && by(r1, "lv").btn === "Answer ›", "leave requests for the pharmacist: " + JSON.stringify(by(r1, "lv")));
     t.ok(r1.who.join(" | ") === "On now: Dr Helena Farrugia | Later today: Ċensina Zammit | Away today: Marija Pace" && r1.tel.join() === "tel:79123456", "who is on, later and away, Call by phone: " + JSON.stringify([r1.who, r1.tel]));
-    t.ok(r1.chips.locumregister === "No pharmacist signed in" && r1.chips.instructions === "1 critical · not read" && /1 mention of you/.test(r1.chips.messageboard) && r1.chips.shifts === "2 leave requests" && /2 people today/.test(r1.chips.rotreg), "status under the cards: " + JSON.stringify(r1.chips));
+    t.ok(r1.chips.locumregister === "Pharmacist in charge not recorded" && r1.chips.instructions === "1 critical · not read" && /1 mention of you/.test(r1.chips.messageboard) && r1.chips.shifts === "2 leave requests" && /2 people today/.test(r1.chips.rotreg), "status under the cards: " + JSON.stringify(r1.chips));
     if (r1.cover) {
       t.ok(!r1.rows.some((x) => /^gap:/.test(x.key)), "E.teamCover in the build: covered all day, no gap line");
       // the hub's gap words are E.teamCover's on the same day: a weekly-hours day, a public holiday, a holiday the hours open

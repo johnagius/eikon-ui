@@ -220,6 +220,11 @@ for (const t of fillTables) {
 const totalRows = already();
 info(`filled ${fillTables.length} tables, ${totalRows} rows in all over 21 pharmacies (20 in one group)` + (fillErr.length ? `; not filled: ${fillErr.join("; ")}` : ""));
 
+// --save-old <file>: keep a copy of the database as the OLD worker left it (filled), for other rehearsals
+// (tests/rehearsal/roles-upgrade.mjs); --stop-after-fill ends here. Additive: without the flags nothing changes.
+if (arg("save-old")) { DB.db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); fs.copyFileSync(DBFILE, path.resolve(arg("save-old"))); info("saved the old worker's database to " + arg("save-old")); }
+if (flag("stop-after-fill")) { out("stopped after the fill (--stop-after-fill)"); process.exit(0); }
+
 // ---------------------------------------------------------------- snapshot
 const hash = (o) => createHash("sha1").update(JSON.stringify(o)).digest("base64");
 function snapshot() {

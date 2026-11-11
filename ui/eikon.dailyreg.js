@@ -49,7 +49,8 @@
     var y = isFinite(d) && E.maltaYmd ? E.maltaYmd(d) : m[0];
     var q = y.split("-"); return Number(q[2]) + " " + SHORT[Number(q[1]) - 1] + " " + q[0];
   }
-  function isAdmin() { var u = E.state && E.state.user; return !!(u && u.role === "admin"); }
+  // Who signs off: the pharmacist in charge = an admin or a pharmacist (roles round: E.isPic, rights read once per sign-in).
+  function isAdmin() { var u = E.state && E.state.user; return !!(u && (u.role === "admin" || (E.isPic && E.isPic()))); }
   var D = E.dailyReg = {};
 
   D.css = function () {
@@ -157,7 +158,8 @@
     var c = C[month];
     if (c && (c.rows || c.loading) && !c.err) { if (repaint && c.loading) c.waiters.push(repaint); return c.promise; }
     c = C[month] = { rows: null, loading: true, err: "", waiters: repaint ? [repaint] : [] };
-    c.promise = E.apiFetch("/registers/signoffs?month=" + encodeURIComponent(month), { method: "GET" }).then(function (r) {
+    var rights = E.loadRights && E.state && E.state.user && E.state.user.role !== "admin" ? E.loadRights().catch(function () { return null; }) : null; // a pharmacist signs off too
+    c.promise = Promise.all([E.apiFetch("/registers/signoffs?month=" + encodeURIComponent(month), { method: "GET" }), rights]).then(function (rr) { var r = rr[0];
       var rows = {}; ((r && r.ok && r.signoffs) || []).forEach(function (s) { rows[s.register] = s; });
       c.rows = rows;
     }).catch(function (e) { c.err = (e && e.network) ? "offline" : "error"; c.rows = null; }).then(function () {

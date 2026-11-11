@@ -88,6 +88,9 @@ export default {
         const B = await open(door, false);
         t.ok(await enter(B.p, door), "Try as " + door + " signs in");
         await settle(B.p);
+        // portals (FIN): the demo doors land on the new distributor / head-office Today, in the new layout
+        const home = await B.p.evaluate(() => ({ m: window.EIKON.state.activeModuleId, ui2: document.documentElement.hasAttribute("data-ui2") }));
+        t.ok(home.m === (door === "supplier" ? "suphome" : "hqhome") && home.ui2, "Try as " + door + " lands on its new Today: " + JSON.stringify(home));
         await shot(B.p, door + "-home");
         for (const m of PORTALS[door]) {
           await B.p.evaluate((id) => { window.location.hash = "#" + id; }, m);

@@ -105,19 +105,22 @@ function teamMock(req, res, p, body) {
   if (p === "/auth/change-password" && req.method === "POST") { if (!body || body.current_password !== "temp-pass-1") return J({ ok: false, error: "The current password is not right" }, 403); teamState.me.must_change = false; return J({ ok: true }); }
   if (p === "/auth/unlock" && req.method === "POST") return body && body.password === "maria-pass" ? J({ ok: true }) : J({ ok: false, error: "That password is not right" }, 403);
   if (p === "/auth/login" && req.method === "POST" && body && body.email === "karl@x.com") return body.password === "karl-pass" ? J({ ok: true, token: "karl-token", user: { id: 2, email: "karl@x.com", full_name: "Karl Vella", role: "staff", location_id: 12, location_name: "Demo Pharmacy" } }) : J({ ok: false, error: "Invalid credentials" }, 401);
+  if (p === "/team/me" && req.method === "GET") { const ph = !!teamState.me.is_pharmacist, ad = teamState.me.role === "admin"; return J({ ok: true, role: teamState.me.role, is_pharmacist: ph, role_word: ad ? "Admin" : ph ? "Pharmacist" : "Staff", pic: ad || ph, plans_rota: ad || teamState.me.plans_rota !== false }); } // roles round
   if (!p.startsWith("/team/users")) return false;
   if (teamState.me.role !== "admin") return J({ ok: false, error: "Forbidden" }, 403);
   const m = p.split("/").filter(Boolean);
   if (m.length === 2 && req.method === "GET") return J({ ok: true, users: teamState.users, me: 1, admins_manage_admins: false });
   if (m.length === 2 && req.method === "POST") {
     if (teamState.users.some((u) => u.email === body.email)) return J({ ok: false, error: "That e-mail already has a sign-in" }, 409);
-    const u = { id: teamState.next++, email: body.email, full_name: body.full_name, role: body.role, is_active: true, must_change_password: true, last_sign_in_at: null, signed_in_devices: 0, protected: false };
+    const u = { id: teamState.next++, email: body.email, full_name: body.full_name, role: body.role === "pharmacist" ? "staff" : body.role, is_pharmacist: body.role === "pharmacist", plans_rota: body.role === "admin", is_active: true, must_change_password: true, last_sign_in_at: null, signed_in_devices: 0, protected: false };
     teamState.users.push(u); return J({ ok: true, user: u, temporary_password: "k7mp-q4xa-9rtd" });
   }
   const u = teamState.users.find((x) => x.id === Number(m[2]));
   if (!u) return J({ ok: false, error: "Not found" }, 404);
   if (m[3] === "password") { u.must_change_password = true; u.signed_in_devices = 0; return J({ ok: true, temporary_password: "w2hn-8cxe-pt3v" }); }
   if (m[3] === "active") { u.is_active = !!body.active; if (!u.is_active) u.signed_in_devices = 0; return J({ ok: true }); }
+  if (m[3] === "role") { if (u.role === "admin") return J({ ok: false, error: "Another admin's sign-in is changed by Eikon support" }, 403); u.role = body.role === "pharmacist" ? "staff" : body.role; if (body.role === "pharmacist") u.is_pharmacist = true; if (body.is_pharmacist === false) u.is_pharmacist = false; return J({ ok: true }); }
+  if (m[3] === "rights") { if (typeof body.plans_rota === "boolean") u.plans_rota = body.plans_rota; return J({ ok: true }); }
   return J({ ok: false, error: "Not found" }, 404);
 }
 // Backlog 4 item 7 (a first day that never dead-ends): a brand-new pharmacy, on while globalThis.__b47 is set.
@@ -190,10 +193,57 @@ function ownerMock(req, res, p, url) {
   });
   return J({ ok: true, today: todayYmd, from, to, cmp: { from: url.searchParams.get("cmp_from"), to: url.searchParams.get("cmp_to") }, group, scope: group ? (loc === "all" ? "all" : "one") : "own", pharmacies_allowed: all, pharmacies: ph, unread: [] });
 }
+// Roles round: Plan shifts as Karl (staff) sees it, on while globalThis.__finRoles = { can_plan, me } is set.
+function finRolesMock(req, res, p) {
+  const R = globalThis.__finRoles; if (!R) return false;
+  const J = (o, st) => { res.writeHead(st || 200, { "content-type": "application/json" }); res.end(JSON.stringify(o)); return true; };
+  if (p === "/auth/me") return J({ ok: true, user: { id: 2, user_id: 2, email: "karl@x.com", full_name: "Karl Vella", org_id: 1, location_id: 12, location_name: "Demo Pharmacy", role: "staff" } });
+  if (p === "/team/me") return J({ ok: true, role: "staff", is_pharmacist: !!R.pharmacist, role_word: R.pharmacist ? "Pharmacist" : "Staff", pic: !!R.pharmacist, plans_rota: !!R.can_plan, admins: ["Maria Borg"] });
+  if (p === "/team/users") return J({ ok: false, error: "Forbidden" }, 403);
+  if (p === "/shifts/staff" && req.method === "GET") return J({ ok: true, can_plan: !!R.can_plan, can_answer_leave: !!R.can_plan, me_staff_id: R.me, staff: [{ id: 1, full_name: "Maria Borg", designation: "pharmacist", is_active: 1, user_id: 1, patterns_json: "{}" }, { id: 2, full_name: "Karl Vella", designation: "assistant", is_active: 1, user_id: 2, patterns_json: "{}" }] });
+  if (p === "/shifts/assignments-range") return J({ ok: true, shifts: [{ id: 1, staff_id: 1, shift_date: todayYmd, start_time: "08:00", end_time: "14:00", role_override: "", notes: "" }, { id: 2, staff_id: 2, shift_date: todayYmd, start_time: "13:00", end_time: "19:00", role_override: "", notes: "" }] });
+  if (p === "/shifts/leaves" && req.method === "GET") return J({ ok: true, leaves: [{ id: 31, staff_id: 2, leave_type: "annual", start_date: maltaYmd(3), end_date: maltaYmd(3), hours_requested: 8, reason: "", status: "pending" }, { id: 32, staff_id: 1, leave_type: "annual", start_date: maltaYmd(4), end_date: maltaYmd(4), hours_requested: 8, reason: "", status: "pending" }] });
+  if (p === "/shifts/leaves" && req.method === "POST") return J({ ok: true, leave_id: 33 });
+  if (/^\/shifts\/(assignments|apply-|staff)/.test(p) && req.method !== "GET" && !R.can_plan) return J({ ok: false, error: "Only the pharmacy's admin changes shifts. Ask them, or ask for leave.", code: "rights" }, 403);
+  return false;
+}
+// portals (FIN): a distributor (location 450) or a head office (650, org 1 or the Cherubino org 12) signed in, with the
+// worker's answers for its screens: two orders to send, a problem waiting, three products (one out of stock, one short-dated).
+let portalState = { me: null };
+function portalMock(req, res, p, body, url) {
+  if (!portalState.me) return false;
+  const J = (o, st) => { res.writeHead(st || 200, { "content-type": "application/json" }); res.end(JSON.stringify(o)); return true; };
+  const d = (n) => maltaYmd(n);
+  if (p === "/auth/me") return J({ ok: true, user: portalState.me });
+  if (p === "/supplier-orders/received") return J({ ok: true, entries: [
+    { id: 31, pharmacy_name: "Mosta Pharmacy", status: "pending", item_count: 2, notes: "Before Friday", created_at: "2026-11-10 08:00:00", updated_at: "2026-11-10 08:00:00", scheduled_delivery_date: "" },
+    { id: 32, pharmacy_name: "Żebbuġ Pharmacy", status: "pending", item_count: 1, notes: "", created_at: "2026-11-10 09:00:00", updated_at: "2026-11-10 09:00:00", scheduled_delivery_date: "" },
+    { id: 30, pharmacy_name: "Mosta Pharmacy", status: "shipped", item_count: 1, notes: "", created_at: "2026-11-01 09:00:00", updated_at: "2026-11-02 09:00:00", scheduled_delivery_date: "2026-11-03" }] });
+  if (p === "/supplier-orders/31" && req.method === "GET") return J({ ok: true, order: { id: 31, pharmacy_name: "Mosta Pharmacy", status: "pending", notes: "Before Friday", supplier_notes: "", scheduled_delivery_date: "", created_at: "2026-11-10 08:00:00" },
+    items: [{ id: 311, product_id: 901, description: "Augmentin 625mg x14", stock_code: "AUG", barcode: "", qty_requested: 2, qty_free: 0, cost_excl_vat: 8.2, vat_rate: 0, unavailable: portalState.off ? 1 : 0, notes: "" },
+      { id: 312, product_id: 902, description: "Ventolin inhaler", stock_code: "VEN", barcode: "", qty_requested: 3, qty_free: 1, cost_excl_vat: 3.5, vat_rate: 0, unavailable: 0, notes: "" }], feedbacks: [] });
+  if (p === "/supplier-orders/items/311/unavailable" && req.method === "PUT") { portalState.off = !!body.unavailable; return J({ ok: true }); }
+  if (/^\/supplier-orders\/\d+\/confirm$/.test(p)) return J({ ok: true });
+  if (p === "/supplier-orders/feedback") return J({ ok: true, entries: [{ id: 51, order_id: 30, pharmacy_name: "Mosta Pharmacy", item_description: "Ventolin inhaler", problem_type: "Damaged", notes: "Box crushed", item_qty: "1", created_at: "2026-11-09 10:00:00", resolution_status: null }] });
+  if (/^\/supplier-orders\/feedback\/\d+\/resolve$/.test(p)) return J({ ok: true });
+  if (p === "/supplier-products/entries" && req.method === "GET") return J({ ok: true, entries: [
+    { id: 901, description: "Augmentin 625mg x14", stock_code: "AUG", barcode: "", cost_excl_vat: 8.2, vat_rate: 0, qty_purchased: 1, qty_free: 0, batch: "B1", expiry_date: d(12), retail_price: 12.5, out_of_stock: 0 },
+    { id: 902, description: "Ventolin inhaler", stock_code: "VEN", barcode: "", cost_excl_vat: 3.5, vat_rate: 0, qty_purchased: 1, qty_free: 0, batch: "", expiry_date: "", retail_price: 6.2, out_of_stock: 0 },
+    { id: 903, description: "Ozempic 1mg pen", stock_code: "OZE", barcode: "", cost_excl_vat: 92, vat_rate: 0, qty_purchased: 1, qty_free: 0, batch: "", expiry_date: "", retail_price: 118, out_of_stock: 1 }] });
+  if (/^\/supplier-products\/entries/.test(p)) return J({ ok: true, id: 904 });
+  if (p === "/hq/stock") return J({ ok: true, today: d(0), pharmacies: [{ id: 1, name: "Mosta Pharmacy", alerts: { open: 1, recalls: 1, quarantines: 0, items: [{ id: 1, type: "recall", item: "Valsartan 80mg", batch: "VX1", date: d(-1), status: "open" }] }, near_expiry: { within_30: 2, expired: 0, first: d(5) } },
+    { id: 2, name: "Żebbuġ Pharmacy", alerts: { open: 0, recalls: 0, quarantines: 0, items: [] }, near_expiry: { within_30: 0, expired: 0, first: null } }] });
+  if (p === "/admin/pharmacy-overview") return J({ ok: true, month: (url.searchParams.get("month") || d(0).slice(0, 7)), today: d(0), working_days: 9, pharmacies: [{ id: 1, name: "Mosta Pharmacy" }, { id: 2, name: "Żebbuġ Pharmacy" }],
+    temperature: { 1: { days_with_entries: 10, device_count: 2, last_created_at: "2026-11-10 08:00:00" } }, cleaning: { 1: { days_with_entries: 2, last_created_at: "2026-11-09 08:00:00" } }, daily_register: {}, dda_sales: {}, dda_poyc: {}, dda_purchases: {}, dda_stocktakes: {}, certificates: {}, locum_register: {}, repeat_prescriptions: {} });
+  if (p === "/owner/summary" && portalState.ownerForbidden) return J({ ok: false, error: "Only the pharmacist in charge can see how the pharmacy is doing" }, 403);
+  return false;
+}
 function mockApi(req, res, body) {
   const url = new URL(req.url, "http://x");
   const p = url.pathname;
   calls.push({ method: req.method, path: p, query: url.search, body });
+  if (finRolesMock(req, res, p)) return;
+  if (portalMock(req, res, p, body, url)) return;
   if (ownerMock(req, res, p, url)) return;
   if (p === "/__test401") { res.writeHead(401, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "Unauthorized" })); }
   if (teamMock(req, res, p, body)) return;
@@ -3031,7 +3081,7 @@ try {
   const rf = await page.evaluate(() => document.querySelector(".rot-foot").textContent);
   await page.click(".rot-foot [data-act=leave]");
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "shfreg" && document.querySelector("#shf-lvf"), null, { timeout: 15000 });
-  const l0 = await page.evaluate(() => ({ focus: document.activeElement.name, who: [...document.querySelectorAll("#shf-lvf [name=staff_id] option")].map((o) => o.textContent), from: document.querySelector("#shf-lvf [name=start_date]").value, until: document.querySelector("#shf-lvf [name=end_date]").value, foot: (document.querySelector(".shf-note:last-of-type") || { textContent: "" }).textContent }));
+  const l0 = await page.evaluate(() => ({ focus: document.activeElement.name, whoVal: document.querySelector("#shf-lvf [name=staff_id]").value, who: [...document.querySelectorAll("#shf-lvf [name=staff_id] option")].map((o) => o.textContent), from: document.querySelector("#shf-lvf [name=start_date]").value, until: document.querySelector("#shf-lvf [name=end_date]").value, foot: (document.querySelector(".shf-note:last-of-type") || { textContent: "" }).textContent }));
   await fetch(`http://localhost:${PORT}/__reset`);
   await page.fill("#shf-lvf [name=start_date]", ""); await page.click("#shf-lvf button[type=submit]"); await page.waitForTimeout(150);
   const l1 = await page.evaluate(() => ({ err: (document.querySelector("#shf-lv-err") || {}).textContent, bad: [...document.querySelectorAll("#shf-lvf [aria-invalid=true]")].map((x) => x.name).join(), focus: document.activeElement.name, role: (document.querySelector("#shf-lv-err") || {}).getAttribute && document.querySelector("#shf-lv-err").getAttribute("role") }));
@@ -3050,8 +3100,8 @@ try {
   const lw = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "POST" && c.path === "/shifts/leaves");
   const b1 = JSON.stringify(lw[0] && lw[0].body), b2 = JSON.stringify(lw[1] && lw[1].body);
   report("plan shifts: a new leave request (from Who's in's 'ask for leave'): problems said at once with nothing sent; one day unless the last is chosen; the classic body and hours (3 weekdays = 24 h; 14:00–17:30 = 3.5 h); focus back on New leave request; footers shrink",
-    /ask for leave/.test(rf) && !/new leave requests/.test(rf) && !/new leave requests/.test(l0.foot) && l0.focus === "staff_id" && l0.who.join() === "Choose a person,Karl Vella,Maria Borg" && /^\d{4}-\d{2}-\d{2}$/.test(l0.from) && l0.until === l0.from &&
-    /Choose who is asking for leave\. Choose the first day of leave\. Nothing was saved\./.test(l1.err || "") && l1.bad === "staff_id,start_date" && l1.focus === "staff_id" && l1.role === "alert" && l2 === "2026-11-13" &&
+    /ask for leave/.test(rf) && !/new leave requests/.test(rf) && !/new leave requests/.test(l0.foot) && l0.focus === "leave_type" && l0.who.join() === "Choose a person,Karl Vella,Maria Borg" && l0.whoVal === "1" && /^\d{4}-\d{2}-\d{2}$/.test(l0.from) && l0.until === l0.from && // roles round: Who is the signed-in person (Maria Borg on the rota)
+    /^Choose the first day of leave\. Nothing was saved\./.test(l1.err || "") && l1.bad === "start_date" && l1.focus === "start_date" && l1.role === "alert" && l2 === "2026-11-13" &&
     lw.length === 2 && b1 === JSON.stringify({ staff_id: 2, leave_type: "sick", start_date: "2026-11-13", start_time: null, end_date: "2026-11-17", end_time: null, hours_requested: 24, reason: "Flu", status: "pending" }) &&
     b2 === JSON.stringify({ staff_id: 1, leave_type: "annual", start_date: "2026-11-20", start_time: "14:00", end_date: "2026-11-20", end_time: "17:30", hours_requested: 3.5, reason: "", status: "pending" }) && l3 === "lv-new",
     JSON.stringify({ rf, l0, l1, l2, l3, b1, b2 }));
@@ -3265,8 +3315,9 @@ try {
   const lblPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT" && c.path === "/labels/state").map((c) => c.body.state);
   const e0 = ((lblPuts[0] || {}).labelHistory || [])[0] || {};
   report("dispensing labels: #labels opens it under Services; no language choice (English only); a known medicine fills its dose; Print opens the classic print page; one PUT with only the new entry and the settings unchanged",
-    lblRail === "services" && lblNoMt && lblDose === "1 capsule" && /Rx: Amoxicillin 500mg/.test(lblPrev) && /Dose\/Freq: 1 capsule \| Three times daily/.test(lblPrev) &&
-    /<b>Rx:<\/b> Amoxicillin 500mg/.test(lblHtml) && /@page\{margin:0;\}/.test(lblHtml) && /T:21234567/.test(lblHtml) && !/<script|\son[a-z]+=/i.test(lblHtml) &&
+    // FIN-dayzero (W18): the medicine on its own line, plain directions, the pharmacy's phone as "Tel" (no Rx:, no Dose/Freq: … | …)
+    lblRail === "services" && lblNoMt && lblDose === "1 capsule" && /Amoxicillin 500mg/.test(lblPrev) && /1 capsule, Three times daily \(oral\)/.test(lblPrev) && !/Rx:|Dose\/Freq/.test(lblPrev) &&
+    /font-weight:700;">Amoxicillin 500mg/.test(lblHtml) && /@page\{margin:0;\}/.test(lblHtml) && /Tel 21234567/.test(lblHtml) && !/Rx:|Dose\/Freq/.test(lblHtml) && !/<script|\son[a-z]+=/i.test(lblHtml) &&
     lblPuts.length === 1 && lblPuts[0].labelHistory.length === 1 && e0.drugName === "Amoxicillin 500mg" && e0.dose === "1 capsule" && e0.templateId === "tpl_std" && /^lb_\d+_/.test(e0.id) &&
     JSON.stringify(Object.keys(e0)) === JSON.stringify(["patientName", "drugName", "dose", "frequency", "route", "customInstructions", "selectedWarnings", "templateId", "id", "printedAt", "printedBy"]) &&
     lblPuts[0].templates.length === 1 && lblPuts[0].templates[0].id === "tpl_std" && lblPuts[0].pharmacyDetails.phone === "21234567",
@@ -3886,7 +3937,7 @@ try {
   }
   // Without SheetJS: one CSV per register in a zip (store only), read back here
   await openExp();
-  await page.evaluate(() => { window.XLSX = {}; window.EIKON.expLast = null; });
+  await page.evaluate(() => { window.XLSX = {}; window.EIKON.expLast = null; window.__expLoc = window.EIKON.state.user.location_name; window.EIKON.state.user.location_name = "Ħamrun Pharmacy"; }); // W20: the file name keeps Maltese letters
   await page.click('[data-act="download"]');
   await page.waitForFunction(() => window.EIKON.expLast && window.EIKON.expLast.file, null, { timeout: 30000 });
   const zb = Buffer.from(await page.evaluate(async () => { const b = new Uint8Array(await window.EIKON.expLast.file.blob.arrayBuffer()); let s = ""; for (const x of b) s += String.fromCharCode(x); return btoa(s); }), "base64");
@@ -3895,7 +3946,8 @@ try {
   const csvRows = (t) => { let n = 0, q = false; for (let i = 0; i < t.length; i++) { const c = t[i]; if (c === '"') q = !q; else if (c === "\n" && !q) n++; } return n - 1; };
   const zc = {}; for (const [n, t] of Object.entries(files)) zc[n] = csvRows(t);
   const zipOk = /\.zip$/.test(await page.evaluate(() => window.EIKON.expLast.file.name)) && files["Summary.csv"] && Object.entries(expected).every(([k, v]) => zc[k.replace(/ /g, "-") + ".csv"] === v) && files["Paid-out.csv"].charCodeAt(0) === 0xfeff && /,12\.50,/.test(files["Paid-out.csv"]) && files["Orders.csv"].includes('"Zammit, ""Carmel"""') && zb.readUInt32LE(zb.length - 22) === 0x06054b50;
-  report("export: without the spreadsheet library the same year is a zip of CSV files (BOM, quoted commas, 2-decimal money), same row counts", zipOk, JSON.stringify({ zc, names: Object.keys(files) }));
+  const zipName = await page.evaluate(() => { const n = window.EIKON.expLast.file.name; window.EIKON.state.user.location_name = window.__expLoc; return n; });
+  report("export: without the spreadsheet library the same year is a zip of CSV files (BOM, quoted commas, 2-decimal money), same row counts; the file name keeps Maltese letters (Eikon-records-Ħamrun-Pharmacy-…)", zipOk && /^Eikon-records-Ħamrun-Pharmacy-.*\.zip$/.test(zipName), JSON.stringify({ zipName, zc, names: Object.keys(files) }));
   // Cancel: stops at the next request and saves nothing
   await page.evaluate(() => { window.EIKON.expLast = null; }); delay = 120; seen = [];
   await page.click('[data-act="download"]'); await page.waitForTimeout(400);
@@ -4152,11 +4204,56 @@ try {
     return { a: { calls: Da.calls, max: a.max(), dda: a.seen.filter((p) => /dda-(sales|poyc|purchases)/.test(p)), cleanBefore: a.seen.filter((p) => /cleaning/.test(p)) },
       b: { calls: Db.calls, dda: b2.seen.filter((p) => /dda-(sales|poyc|purchases)/.test(p)), got: Db.dda }, c: { calls: Dc.calls, extra: c.seen.filter((p) => /cleaning/.test(p)) } };
   });
-  report("inspect: the last 3 months take 15 requests (3 + a month each for temperature, cleaning, daily and locum registers), never more than 3 in flight; months with their stock-take read no DDA lines",
-    reads.a.calls === 15 && reads.a.max <= 3 && reads.a.dda.length === 0, JSON.stringify(reads.a));
+  report("inspect: the last 3 months take 16 requests (3 + a month each for temperature, cleaning, daily and locum registers + one controlled-drug read for the period: balances, days, warnings), never more than 3 in flight; months with their stock-take read no DDA lines",
+    reads.a.calls === 16 && reads.a.max <= 3 && reads.a.dda.length === 0, JSON.stringify(reads.a));
   report("inspect: a month without a stock-take is read for lines until some are found (August: supplied = 1; September: supplied, POYC, received = 3); this month reads October's cleaning too when the last week starts before it",
     reads.b.dda.join() === "/dda-sales/entries?month=2026-08,/dda-sales/entries?month=2026-09,/dda-poyc/entries?month=2026-09,/dda-purchases/entries?month=2026-09" && reads.b.got["2026-09"].where === "cdpreg" && reads.b.got["2026-08"].lines === 1 &&
-    reads.c.calls === 8 && reads.c.extra.join() === "/cleaning/entries?month=2026-11,/cleaning/entries?month=2026-10", JSON.stringify({ b: reads.b, c: reads.c }));
+    reads.c.calls === 9 && reads.c.extra.join() === "/cleaning/entries?month=2026-11,/cleaning/entries?month=2026-10", JSON.stringify({ b: reads.b, c: reads.c }));
+  // Records (Finish round): the locum register on a day with controlled drugs and nobody in charge, today included; nobody
+  // recorded is never "In order"; the over-supply warnings and the period's "more supplied than received"; a fridge added
+  // in the period says where its check starts.
+  const rec = await page.evaluate(() => {
+    const I = window.EIKON.inspect, today = "2026-11-11", rg = I.periodOf("this", today);
+    const base = { months: ["2026-11"], devices: [], temp: [], clean: [], daily: [], locum: [], certs: [{ title: "Pest Control", next_due: "2027-05-01" }], stocktakes: [{ id: 1, created_at: "2026-11-02 08:00:00", closed_at: "2026-11-02 09:00:00" }], dda: {}, err: {} };
+    const by = (D) => { const o = {}; I.checks(D, rg, today).forEach((r) => { o[r.id] = { s: r.status, t: r.reasons.map((x) => x.level + ": " + x.text).join(" | "), go: (r.reasons[0] || {}).go }; }); return o; };
+    const none = by(base);
+    const cd = by(Object.assign({}, base, { cdDays: { supplied: ["2026-11-11"], received: ["2026-11-10"] }, locum: [{ entry_date: "2026-11-10", locum_full_name: "A", registration_number: "1" }],
+      cdWarnings: [{ register: "sales", entry_id: 7, entry_date: "2026-11-11", medicine: "Oxycodone 10mg tablets", quantity: 40, balance: 28, after: -12, created_name: "Rita Camilleri" },
+        { register: "poyc", entry_id: 8, entry_date: "2026-11-05", medicine: "Diazepam 5mg", quantity: 10, balance: 4, after: -6, created_name: "Karl Vella" }],
+      cdShort: [{ name: "Oxycodone 10mg tablets", key: "oxycodone 10mg tablets", first_below: "2026-11-11", lowest: -12, counted: false, since: "2026-08-11", regs: ["sales"], warned: 1, warned_by: ["Rita Camilleri"] },
+        { name: "Morphine 10mg", key: "morphine 10mg", first_below: "2026-11-06", lowest: -4, counted: true, since: "2026-11-02", regs: ["poyc", "sales"], warned: 0, warned_by: [] }] }));
+    const work = by(Object.assign({}, base, { temp: [{ device_id: 1, entry_date: "2026-11-11", min_temp: 3, max_temp: 6 }] }));
+    const late = by(Object.assign({}, base, { devices: [{ id: 1, name: "Vaccine fridge", active: 1, created_at: "2026-11-10 08:00:00" }, { id: 2, name: "Pharmacy", active: 1, created_at: "2026-11-10 09:00:00" }], temp: [{ device_id: 1, device_name: "Vaccine fridge", entry_date: "2026-11-10", min_temp: 3, max_temp: 6 }, { device_id: 2, device_name: "Pharmacy", entry_date: "2026-11-10", min_temp: 20, max_temp: 22 }], locum: [{ entry_date: "2026-11-10" }, { entry_date: "2026-11-11" }] }));
+    return { none, cd, work, late };
+  });
+  report("records: locum — nobody recorded in the days chosen is Not on file (never In order); work today with nobody is a look and says today is included",
+    rec.none.locum.s === "nofile" && /No pharmacist in charge is recorded in these days/.test(rec.none.locum.t) && rec.work.locum.s === "look" && /1 day with work recorded .*\(11 Nov\)\. Today is included/.test(rec.work.locum.t), JSON.stringify({ n: rec.none.locum, w: rec.work.locum }));
+  report("records: locum — a day with controlled drugs and nobody in charge is Missing (11 Nov); a day with a pharmacist is not listed",
+    rec.cd.locum.s === "missing" && /missing: 1 day with controlled drugs supplied or received but no pharmacist in charge in the locum register \(11 Nov\)/.test(rec.cd.locum.t) && !/10 Nov/.test(rec.cd.locum.t.split("|")[0]), JSON.stringify(rec.cd.locum));
+  report("records: controlled drugs — each medicine going below zero is Look at this (Q11) (from the registers, warned or not), with who was warned at entry, and opens its medicine; a warning whose medicine is back above zero is for information",
+    rec.cd.dda.s === "look" && /look: Oxycodone 10mg tablets: the registers go below zero on 11 Nov \(lowest −12\): more supplied than received, and no stock take has counted it since 11 Aug\. A warning was shown at entry to Rita Camilleri \(1 line\)\./.test(rec.cd.dda.t) &&
+    /look: Morphine 10mg: the registers go below zero on 6 Nov \(lowest −4\) since the count on 2 Nov\. Count it/.test(rec.cd.dda.t) && /info: Diazepam 5mg: POYC 10 on 5 Nov was saved below what the registers showed then \(6 below\), warned at entry to Karl Vella; the registers no longer go below zero\./.test(rec.cd.dda.t) &&
+    (rec.cd.dda.t.match(/Oxycodone/g) || []).length === 1 && rec.cd.dda.go && rec.cd.dda.go.mod === "cdreg", JSON.stringify(rec.cd.dda));
+  report("records: temperature — a fridge added in the days chosen is checked from that day ('added on'), the room named Room as on Temperature, and the check says the month's page lists the days before it",
+    rec.late.temperature.s === "ok" && /info: Checked from the day each was added \(Vaccine fridge added on 10 Nov, Room added on 10 Nov\)\. The month's page also lists the days before that as not logged\./.test(rec.late.temperature.t), JSON.stringify(rec.late.temperature));
+  // dayzero's E.startYmd (when it is in): nothing is asked of the days before the pharmacy started
+  const startC = await page.evaluate(() => { const E = window.EIKON, I = E.inspect, keep = E.startYmd; E.startYmd = () => "2026-11-09";
+    try { const today = "2026-11-11", rg = I.periodOf("this", today), o = {};
+      I.checks({ months: ["2026-11"], devices: [{ id: 1, name: "Fridge", active: 1, created_at: "2026-01-01 08:00:00" }], temp: [{ device_id: 1, entry_date: "2026-11-09" }, { device_id: 1, entry_date: "2026-11-10" }], clean: [], daily: [], locum: [{ entry_date: "2026-11-09" }, { entry_date: "2026-11-10" }, { entry_date: "2026-11-11" }], certs: [], stocktakes: [], dda: {}, err: {} }, rg, today)
+        .forEach((r) => { o[r.id] = r.status + " " + r.reasons.map((x) => x.text).join(" | "); }); return o; } finally { if (keep) E.startYmd = keep; else delete E.startYmd; } });
+  report("records: with a start day (9 Nov) the check asks nothing of 1–8 Nov — temperature in order from 9 Nov, cleaning not overdue in its first week",
+    /^ok /.test(startC.temperature) && !/Overdue/.test(startC.cleaning), JSON.stringify(startC));
+  // The words under a medicine line (E.cdBalanceWords): counted / not counted, the earlier lines of the same form, received
+  const words = await page.evaluate(() => { const W = window.EIKON.cdBalanceWords; if (!W) return null;
+    const nc = { name: "Oxycodone 10mg tablets", shown: 28, since: "2026-08-11", counted: null, lines: 1 }, c = { name: "Morphine 10mg", shown: 10, since: "2026-11-02", counted: { qty: 12, date: "2026-11-02" }, lines: 3 };
+    const keep = window.EIKON.startYmd; window.EIKON.startYmd = () => "2026-11-11"; const g = W(nc, 40, -1, 0); if (keep) window.EIKON.startYmd = keep; else delete window.EIKON.startYmd;
+    return { a: W(nc, 40, -1, 0), b: W(c, 4, -1, 0), c: W(c, 4, -1, 8), d: W(c, 50, 1, 0), e: W({ name: "X", shown: null, since: "2026-08-11", lines: 0 }, 5, -1, 0), f: W(nc, 0, -1, 0), g, h: W(Object.assign({}, c, { shown: -3 }), 0, -1, 0) }; });
+  report("records: the words at entry — 40 of 28 not counted: 'This takes Oxycodone 10mg tablets 12 below what the registers show since 11 Aug (not counted in a stock take yet) — check the count or a delivery not written in Received', with what is sent; counted: since the last count; the form's earlier lines are taken first; received never warns; nothing in the registers says so without a warning",
+    !!words && words.a.text === "This takes Oxycodone 10mg tablets 12 below what the registers show since 11 Aug (not counted in a stock take yet) — check the count or a delivery not written in Received. You can still save it as it really happened." &&
+    JSON.stringify(words.a.warn) === JSON.stringify({ balance: 28, after: -12, since: "2026-08-11", counted: 0 }) && words.b.warn === null && /after this line: 6\./.test(words.b.text) &&
+    /This takes Morphine 10mg 2 below what the registers show since the last count \(2 Nov\)/.test(words.c.text) && words.c.warn.balance === 2 && words.c.warn.counted === 1 && words.d.warn === null && /after this delivery: 60/.test(words.d.text) &&
+    words.e.warn === null && /^Nothing of it is in the registers since 11 Aug 2026\./.test(words.e.text) && /^In the registers since 11 Aug \(not counted yet\): 28\.$/.test(words.f.text) &&
+    /since it started on 11 Nov \(not counted in a stock take yet\)/.test(words.g.text) && /: −3\.$/.test(words.h.text), JSON.stringify(words));
   // The screen: from Registers › Proof, read on opening, rail on Registers, rows with pills, links to the exact month
   await page.click('[data-open="insreg"]');
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "insreg" && document.querySelector(".ins-list"), null, { timeout: 15000 });
@@ -5097,7 +5194,7 @@ try {
   });
   report("team people: Team › People who sign in lists this pharmacy's sign-ins; you, Eikon support and switched-off people are told apart, and only staff can be changed",
     t1.hash === "#teamreg" && t1.h1 === "People who sign in" && t1.self.length === 0 && /Change your password in Settings/.test(t1.selfNote) && t1.john.length === 0 && /Eikon support/.test(t1.johnNote) &&
-    t1.karl.join() === "New password,Switch off" && t1.leaver.join() === "Switch on" && t1.offLab && /Team/.test(t1.back), JSON.stringify(t1));
+    t1.karl.join() === "New password,Switch off,Role…" && t1.leaver.join() === "Switch on" && t1.offLab && /Team/.test(t1.back), JSON.stringify(t1));
   await fetch(`http://localhost:${PORT}/__reset`);
   await page.click('[data-act="add"]');
   await page.fill("#tmr-name", "Rita Camilleri"); await page.fill("#tmr-email", "Rita@X.com");
@@ -5136,7 +5233,7 @@ try {
   const sCard2 = await page.evaluate(() => !!document.querySelector('[data-open="teamreg"]'));
   await page.evaluate(() => { location.hash = "#teamreg"; }); await page.waitForFunction(() => document.querySelector(".tmr"), null, { timeout: 10000 });
   const sText = await page.evaluate(() => document.querySelector(".tmr").textContent);
-  const sCalls = await teamCalls((c) => c.path.startsWith("/team/") && c.path !== "/team/today"); // team-hub: the Team hub's own Today's team read (T-C1) is not the sign-ins screen's
+  const sCalls = await teamCalls((c) => c.path.startsWith("/team/") && c.path !== "/team/today" && c.path !== "/team/me"); // team-hub: the Team hub's own Today's team read (T-C1) is not the sign-ins screen's; /team/me = the person's own role word (roles round, once per sign-in)
   report("team people: staff see no card (Team or Settings) and the screen, opened by address, says only the admin can; nothing is asked of the server",
     !sCard && !sCard2 && /Only the pharmacy's admin/.test(sText) && sCalls.length === 0, JSON.stringify({ sCard, sCard2, sText: sText.slice(0, 120), sCalls }));
   teamState.me.role = "admin";
@@ -5147,6 +5244,82 @@ try {
   await page.unroute("**/team/users");
   report("team people: on a server without the Team routes the screen says it needs the next server update (no error)", /next Eikon server update/.test(miss), miss.slice(0, 200));
 } catch (e) { report("team people: ran to the end", false, String(e).slice(0, 400)); }
+// Roles round (W3/W4/W30): Add a person offers Staff / Pharmacist / Admin; Role… changes the role and the rota right;
+// staff without the rota right see the rota and ask for leave (Who = them) but are offered no change; nobody but an
+// admin is offered Approve on their own leave; the sidebar uses the same role word as People who sign in.
+try {
+  teamState = teamFresh();
+  await page.evaluate(() => { localStorage.setItem("eikon_ui2", "1"); localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); });
+  await page.goto(base + "&ui=2#teamreg"); await page.reload(); // a fresh page: the blocks before may leave this screen in another state
+  await page.waitForFunction(() => document.querySelectorAll(".tmr-row[data-user]").length === 4, null, { timeout: 15000 });
+  await page.click('[data-act="add"]');
+  const roles1 = await page.evaluate(() => [...document.querySelectorAll("#tmr-role option")].map((o) => o.value).join());
+  await page.fill("#tmr-name", "Ġanni Pace"); await page.fill("#tmr-email", "ganni@x.com"); await page.selectOption("#tmr-role", "pharmacist");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('#tmr-add button[type="submit"]');
+  await page.waitForFunction(() => document.querySelector(".tmr-once code"), null, { timeout: 10000 });
+  const addP = await teamCalls((c) => c.method === "POST" && c.path === "/team/users");
+  await page.click('[data-act="done"]');
+  await page.waitForFunction(() => document.querySelector('.tmr-row[data-user="5"]'), null, { timeout: 10000 });
+  const pill = await page.evaluate(() => document.querySelector('.tmr-row[data-user="5"] .tmr-pill').textContent);
+  report("roles: Add a person offers Staff, Pharmacist and Admin; Pharmacist sends role pharmacist and the person shows as Pharmacist",
+    roles1 === "staff,pharmacist,admin" && addP.length === 1 && addP[0].body.role === "pharmacist" && pill === "Pharmacist", JSON.stringify({ roles1, addP, pill }));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await page.click('[data-act="role"][data-id="2"]');
+  await page.waitForSelector('input[name="tmr-role-pick"]');
+  const dlg = await page.evaluate(() => ({ title: document.querySelector("#eikon-modal-title").textContent, picks: [...document.querySelectorAll('input[name="tmr-role-pick"]')].map((r) => r.value + (r.checked ? "*" : "")).join(), focus: document.activeElement && document.activeElement.value, plan: !!document.querySelector("#tmr-plan") }));
+  await page.check('input[name="tmr-role-pick"][value="pharmacist"]'); await page.check("#tmr-plan");
+  await modalClick(page, "Save");
+  await page.waitForFunction(() => /Pharmacist/.test((document.querySelector('.tmr-row[data-user="2"] .tmr-pill') || {}).textContent || ""), null, { timeout: 10000 });
+  const rw = await teamCalls((c) => c.method === "POST" && /^\/team\/users\/2\//.test(c.path));
+  const karlRow = await page.evaluate(() => document.querySelector('.tmr-row[data-user="2"]').textContent);
+  report("roles: Role… offers Staff, Pharmacist, Admin with the current one chosen and focused, and Plans the rota; Save sends only what changed (role, then rights)",
+    dlg.title === "Karl Vella" && dlg.picks === "staff*,pharmacist,admin" && dlg.focus === "staff" && dlg.plan && rw.map((c) => c.path + " " + JSON.stringify(c.body)).join(" | ") === '/team/users/2/role {"role":"pharmacist"} | /team/users/2/rights {"plans_rota":true}' && /Plans the rota/.test(karlRow),
+    JSON.stringify({ dlg, rw, karlRow: karlRow.slice(0, 160) }));
+  const side = await page.evaluate(() => (document.querySelector(".eikon-rail-who span") || {}).textContent || "");
+  report("roles: the admin's sidebar says Admin (the People who sign in word), not Pharmacist", /^Admin · signed in/.test(side), side);
+} catch (e) { report("roles: team ran to the end", false, String(e && e.stack || e).slice(0, 500)); }
+try {
+  globalThis.__finRoles = { can_plan: false, me: 2 };
+  await page.goto(base + "&ui=2#shfreg"); await page.reload();
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "shfreg" && document.querySelector(".shf-sub") && document.querySelector(".shf-lv, .shf-lvline"), null, { timeout: 15000 });
+  if (await page.$('[data-act="lv-open"]')) { await page.click('[data-act="lv-open"]'); await page.waitForTimeout(150); }
+  const ro = await page.evaluate(() => ({ fill: !!document.querySelector('[data-act="fill-open"]'), pick: !!document.querySelector('[data-act="pick"]'), add: document.querySelectorAll('[data-act="add"]').length, who: !!document.querySelector('[data-act="who"]'),
+    sub: document.querySelector(".shf-sub").textContent, ask: [...document.querySelectorAll('[data-act="lv-new"]')].map((b) => b.textContent).join(), approve: document.querySelectorAll("[data-act=lv-approve]").length,
+    waits: [...document.querySelectorAll(".shf-lv .q")].map((x) => x.textContent), side: (document.querySelector(".eikon-rail-who span") || {}).textContent || "" }));
+  await fetch(`http://localhost:${PORT}/__reset`);
+  const cell = await page.$(".shf-grid td.shf-c") || await page.$(".shf-p");
+  if (cell) { await cell.click(); await page.waitForTimeout(120); }
+  const msg = await page.evaluate(() => ({ msg: (document.querySelector(".shf-msg") || {}).textContent || "", form: !!document.querySelector("#shf-form") }));
+  await page.click('[data-act="lv-new"]'); await page.waitForSelector("#shf-lvf");
+  const who = await page.evaluate(() => ({ v: document.querySelector("#shf-lvf [name=staff_id]").value, focus: document.activeElement && document.activeElement.name }));
+  await page.click("#shf-lvf button[type=submit]"); await page.waitForTimeout(400);
+  const writes = await teamCalls((c) => c.method !== "GET");
+  report("roles: staff without the rota right — Plan shifts offers no Fill…, Select, Add or Approve; says the admin changes shifts; + Ask for leave with Who = them; a cell opens no shift form; only the leave request is sent",
+    !ro.fill && !ro.pick && !ro.add && !ro.who && /Only the pharmacy's admin changes shifts/.test(ro.sub) && /Ask for leave/.test(ro.ask) && ro.approve === 0 &&
+    ro.waits.some((x) => /Waiting for an answer from the pharmacy's admin/.test(x)) && ro.waits.some((x) => /The pharmacy's admin answers it/.test(x)) &&
+    (!cell || (!msg.form && /Only the pharmacy's admin changes shifts/.test(msg.msg))) && who.v === "2" && who.focus === "leave_type" &&
+    writes.map((c) => c.method + " " + c.path).join() === "POST /shifts/leaves" && writes[0].body.staff_id === 2 && /^Staff · signed in/.test(ro.side),
+    JSON.stringify({ ro, cell: !!cell, msg, who, writes: writes.map((c) => c.method + " " + c.path) }));
+  globalThis.__finRoles = { can_plan: true, me: 2 };
+  await page.reload();
+  await page.waitForFunction(() => window.EIKON.state.activeModuleId === "shfreg" && document.querySelector(".shf-sub") && document.querySelector(".shf-lv, .shf-lvline"), null, { timeout: 15000 });
+  if (await page.$('[data-act="lv-open"]')) { await page.click('[data-act="lv-open"]'); await page.waitForTimeout(150); }
+  const pl = await page.evaluate(() => ({ fill: !!document.querySelector('[data-act="fill-open"]'), own: !!document.querySelector('[data-act=lv-approve][data-id="31"]'), other: !!document.querySelector('[data-act=lv-approve][data-id="32"]') }));
+  report("roles: with the rota right, Fill… is back and they answer Maria's leave, never their own (no Approve on it)", pl.fill && !pl.own && pl.other, JSON.stringify(pl));
+  globalThis.__finRoles = { can_plan: false, me: 2, pharmacist: true };
+  await page.reload();
+  await page.waitForFunction(() => /signed in/.test((document.querySelector(".eikon-rail-who span") || {}).textContent || ""), null, { timeout: 15000 });
+  await page.waitForFunction(() => /^Pharmacist/.test((document.querySelector(".eikon-rail-who span") || {}).textContent || ""), null, { timeout: 5000 }).catch(() => {});
+  const phSide = await page.evaluate(() => document.querySelector(".eikon-rail-who span").textContent);
+  report("roles: a pharmacist's sidebar says Pharmacist", /^Pharmacist · signed in/.test(phSide), phSide);
+  await page.evaluate(() => { location.hash = "#teamreg"; });
+  await page.waitForFunction(() => /Ask Maria Borg, the admin\./.test((document.querySelector(".tmr-quiet") || {}).textContent || ""), null, { timeout: 8000 }).catch(() => {});
+  const askTxt = await page.evaluate(() => (document.querySelector(".tmr-quiet") || {}).textContent || "");
+  report("roles: People who sign in, opened by a pharmacist, names who to ask (the admin by name)", /Only the pharmacy's admin can add people or change sign-ins\. Ask Maria Borg, the admin\./.test(askTxt), askTxt);
+} catch (e) { report("roles: plan shifts ran to the end", false, String(e && e.stack || e).slice(0, 500)); }
+globalThis.__finRoles = null; teamState = teamFresh();
+try { await page.goto(base + "&ui=2#today"); await page.reload(); await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user && window.EIKON.state.user.role === "admin", null, { timeout: 15000 }); } catch (e) {} // the next blocks start as the admin again
 
 // First-run list on Today (admin only, only while something is missing; the counts come with GET /today)
 try {
@@ -5154,7 +5327,7 @@ try {
   teamState = teamFresh(); teamState.setup = { sign_ins: 1, opening_hours_saved: false }; todayState.noFridge = true;
   await fetch(`http://localhost:${PORT}/__reset`);
   await todayFresh();
-  const f1 = await page.evaluate(() => [...document.querySelectorAll(".tdy-setup li")].map((li) => li.getAttribute("data-setup") + ">" + li.querySelector("button").getAttribute("data-open")));
+  const f1 = await page.evaluate(() => [...document.querySelectorAll(".tdy-setup li")].map((li) => li.getAttribute("data-setup") + ">" + li.querySelector("button").getAttribute("data-open") + (li.querySelector("button").getAttribute("data-sheet") ? "+" + li.querySelector("button").getAttribute("data-sheet") : "")));
   const fGets = (await teamCalls((c) => c.method === "GET" && !/^\/(ui|vendor)\//.test(c.path))).map((c) => c.path);
   await page.click('.tdy-setup [data-setup="people"] button'); await page.waitForTimeout(400);
   const fOpen = await page.evaluate(() => location.hash);
@@ -5171,7 +5344,7 @@ try {
   await todayFresh();
   const f5 = await page.evaluate(() => !!document.querySelector(".tdy-setup"));
   report("today first run: the admin sees fridge, people and opening hours while each is missing (still one request; links to the screens), each line goes when done and the list with the last; staff never; an older server shows nothing",
-    f1.join() === "fridge>#tempreg,people>#teamreg,hours>#shifts" && fGets.filter((x) => x !== "/auth/me" && x !== "/today").length === 0 && fOpen === "#teamreg" && f2.join() === "hours" && !f3 && !f4 && !f5, JSON.stringify({ f1, fGets, fOpen, f2, f3, f4, f5 }));
+    f1.join() === "fridge>#tempreg,people>#teamreg,hours>#shifts+hours" && fGets.filter((x) => x !== "/auth/me" && x !== "/today").length === 0 && fOpen === "#teamreg" && f2.join() === "hours" && !f3 && !f4 && !f5, JSON.stringify({ f1, fGets, fOpen, f2, f3, f4, f5 }));
 } catch (e) { report("today first run: ran to the end", false, String(e).slice(0, 400)); }
 todayState.noFridge = false; teamState = teamFresh();
 
@@ -5323,7 +5496,7 @@ try {
   report("today at any hour: 09:12 says Before opening; 14:05 and 20:12 say Today's checks",
     /^Before opening/.test(m.lab) && /^Today's checks/.test(pm.lab) && /^Today's checks/.test(ev.lab) && /before the doors open/.test(m.h1) && /still to do today/.test(ev.h1), JSON.stringify({ m: m.lab, pm: pm.lab, ev: ev.lab, mh: m.h1, eh: ev.h1 }));
   report("today at any hour: the Daily register is one line with no pill, not owed before closing (2 checks, badge 2, not amber), owed at 20:12 or once End of day is started (3, amber, never red)",
-    /No entry yet today/.test(m.drText) && !/No entry yet(?! today)/.test(m.drText) && m.drPill === 0 && !m.drAmb && m.lab.replace(/\s+/g, " ").trim() === "Before opening 3All registers ›" && /2 checks/.test(pm.h1) && pm.badge === "2" && !pm.drAmb &&
+    /No entry yet today/.test(m.drText) && !/No entry yet(?! today)/.test(m.drText) && m.drPill === 0 && !m.drAmb && m.lab.replace(/\s+/g, " ").trim() === "Before opening 3 of 4 to doAll registers ›" /* FIN-dayzero W31: the count says it is 3 of the 4 rows */ && /2 checks/.test(pm.h1) && pm.badge === "2" && !pm.drAmb &&
     /3 checks/.test(ev.h1) && ev.badge === "3" && ev.drAmb && !ev.drRed && ev.drPill === 0 && /3 checks/.test(ed.h1) && ed.drAmb,
     JSON.stringify({ m, pm: [pm.h1, pm.badge, pm.drAmb], ev: [ev.h1, ev.badge, ev.drAmb, ev.drRed], ed: [ed.h1, ed.drAmb] }));
   report("today at any hour: the room sensor named after the pharmacy reads Room, the fridge keeps its name; no Old dashboard link on Today",
@@ -5940,6 +6113,39 @@ try {
     await page.unroute(RS);
   }
   report("correct a line: a staff sign-in sees no Correct and is told the pharmacist corrects", staffSeen.every((x) => /:0:true$/.test(x)), staffSeen.join(" "));
+  // a pharmacist (staff sign-in marked Pharmacist; John 2026-11-11, roles Q3): Correct on every line, with the reason;
+  // the PUT is the same as the admin's (the worker has always taken a staff sign-in's register update).
+  const phSeen = [];
+  for (const C of SCREENS) {
+    let row = { ...C.row }; const puts = [];
+    const RP = new RegExp("(" + C.path.replace(/[-/]/g, "\\$&") + "(/\\d+)?" + (C.get ? "|" + C.get.replace(/[-/]/g, "\\$&") : "") + ")(\\?.*)?$");
+    await page.route(RP, (r) => {
+      const u = new URL(r.request().url()), m = r.request().method();
+      if (m === "GET" && u.pathname === (C.get || C.path)) return r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: [row], [C.list || "entries"]: [row] }) });
+      if (m === "PUT" && u.pathname === C.path + "/" + row.id) { const b = r.request().postDataJSON(); puts.push(b); row = { ...row, ...b, updated_at: T0 + " 09:00:00" }; delete row.correction_reason; return r.fulfill({ contentType: "application/json", body: '{"ok":true}' }); }
+      return r.continue();
+    });
+    await page.goto(base + "&ui=2#today"); await page.waitForFunction(() => window.EIKON && window.EIKON.state && window.EIKON.state.user, null, { timeout: 15000 });
+    await page.evaluate((h) => { const E = window.EIKON, u = E.state.user; u.role = "staff"; const R = { ok: true, role: "staff", is_pharmacist: true, role_word: "Pharmacist", pic: true, plans_rota: false };
+      E.rights = R; E._rightsFor = String(u.user_id || u.id || u.email || "") + "|" + String(u.location_id || ""); E._rightsP = Promise.resolve(R); location.hash = "#" + h; }, C.hash);
+    await page.waitForFunction((m) => window.EIKON.state.activeModuleId === m, C.mod, { timeout: 15000 });
+    await page.waitForSelector(`[data-ecr=open][data-ecr-id="${row.id}"]`, { timeout: 8000 }).catch(() => {});
+    const n = await page.locator("[data-ecr=open]").count();
+    let sent = 0, reasonOk = false;
+    if (n) {
+      await page.click(`[data-ecr=open][data-ecr-id="${row.id}"]`);
+      await page.waitForSelector("[data-ecr-form] [name=ecr__reason]");
+      await page.fill(`[data-ecr-form] [name=ecr_${C.field}]`, C.value);
+      if (C.pass) await page.fill("[data-ecr-form] [name=ecr__pass]", C.pass);
+      await page.fill("[data-ecr-form] [name=ecr__reason]", "Typed wrong (pharmacist)");
+      await page.click("[data-ecr-form] button[type=submit]");
+      await page.waitForFunction(() => !document.querySelector("[data-ecr-form]"), null, { timeout: 8000 }).catch(() => {});
+      sent = puts.length; reasonOk = !!puts[0] && puts[0].correction_reason === "Typed wrong (pharmacist)" && puts[0][C.field] === C.want;
+    }
+    phSeen.push(C.mod + ":" + n + ":" + sent + ":" + reasonOk);
+    await page.unroute(RP);
+  }
+  report("correct a line: a pharmacist (staff marked Pharmacist) sees Correct on every screen and saves with the reason, same body as the admin", phSeen.every((x) => /:[1-9]\d*:1:true$/.test(x)), phSeen.join(" "));
 } catch (e) { report("correct a line (new layout): ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
 
 
@@ -5986,7 +6192,8 @@ try {
   const HM = await import("../helpmatch.mjs");
   const stat = HM.staticCheck(root);
   report("help matches the screen: every “Press …” in a guide is a button that screen draws; no technical words", !stat.length, stat.slice(0, 6).join(" | "));
-  const G = HM.loadGuides(root), list = HM.newScreens(root);
+  const portalOnly = /^(sup(home|orders|problems|products)|hq(home|regs|client)|ptlacct)$/; // portals (FIN): a pharmacy sign-in cannot open them; checked as their own users (as tests/real/cases/helpmatch.mjs)
+  const G = HM.loadGuides(root), list = HM.newScreens(root).filter((x) => !portalOnly.test(x.id));
   const mp = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   const mErr = []; mp.on("pageerror", (e) => mErr.push(e.message));
   await mp.goto(base + "&ui=2#today");
@@ -6932,6 +7139,20 @@ try {
   await page.keyboard.press("Shift"); await page.keyboard.press("Tab"); await page.keyboard.press("Shift+Tab");
   const key = await page.evaluate(() => ({ tag: document.activeElement.tagName, o: getComputedStyle(document.activeElement).outlineStyle, ptr: document.documentElement.hasAttribute("data-q58-ptr") }));
   const badge = await page.evaluate(() => { const b = document.querySelector('.eikon-rail-badge[data-badge="customers"]'); if (!b) return null; const c = getComputedStyle(b); return c.backgroundColor + " " + c.color; });
+  // FIN-dayzero W29: after a key (no tap), a screen's title focused by the app has no green box either (it is not a
+  // control); the first control reached with Tab shows the keyboard ring.
+  await page.keyboard.press("Tab"); await page.evaluate(() => { location.hash = "#settings"; });
+  await page.waitForFunction(() => document.activeElement && document.activeElement.tagName === "H1" && window.EIKON.state.activeModuleId === "settings", null, { timeout: 8000 });
+  const kTitle = await page.evaluate(() => ({ o: getComputedStyle(document.activeElement).outlineStyle, ptr: document.documentElement.hasAttribute("data-q58-ptr") }));
+  await page.keyboard.press("Tab");
+  const kNext = await page.evaluate(() => ({ tag: document.activeElement.tagName, o: getComputedStyle(document.activeElement).outlineStyle }));
+  const dz = await page.evaluate(() => { const E = window.EIKON, u = E.state.user, keep = u.location_since; u.location_since = "2026-11-11";
+    const r = { f: E.fileName("Eikon records Ħamrun Pharmacy: 2026/11 *Żebbuġ*"), b1: E.beforeStart("2026-11-10"), b2: E.beforeStart("2026-11-11"), m1: E.beforeStartMonth("2026-10"), m2: E.beforeStartMonth("2026-11"), so: E.startingOut("2026-11-12"), so2: E.startingOut("2026-11-14") };
+    u.location_since = ""; r.none = E.beforeStart("2000-01-01"); u.location_since = keep; return r; });
+  report("FIN-dayzero: E.fileName keeps Maltese letters and drops only what a file name refuses; E.beforeStart/E.beforeStartMonth/E.startingOut from the pharmacy's start; no start, nothing clipped",
+    dz.f === "Eikon-records-Ħamrun-Pharmacy-2026-11-Żebbuġ" && dz.b1 && !dz.b2 && dz.m1 && !dz.m2 && dz.so && !dz.so2 && !dz.none, JSON.stringify(dz));
+  report("focus (FIN-dayzero W29): a title the app focuses never has the green box, after a tap or a key; Tab to the first control shows the ring",
+    tap === "none" && kTitle.o === "none" && !kTitle.ptr && kNext.tag !== "H1" && kNext.tag !== "BODY" && kNext.o === "solid", JSON.stringify({ tap, kTitle, kNext }));
   await page.setViewportSize({ width: 1440, height: 900 });
   report("busy lists (q5-8): on a phone every Orders target is at least 44 px tall; the title the app focuses after a tap has no ring, the keyboard keeps its ring; the red badge sits on an opaque tint (5.6:1)",
     tg.n > 60 && tg.min >= 44 && tap === "none" && key.o === "solid" && !key.ptr && (badge === null || badge === "rgb(251, 227, 225) rgb(176, 30, 23)"), JSON.stringify({ tg, tap, key, badge }));
@@ -7200,6 +7421,83 @@ try {
     sh.length === 7 && sh.slice(0, 6).every((x) => x.ok && x.modal === "true" && x.gone && x.back) && sh[2].title === "When can't Karl work?" && sh[6].kept === "79 111 222", JSON.stringify(sh));
 } catch (e) { report("roster planner rules and settings (rotaCheck, rotaMeta, rotaset): ran to the end", false, String(e && e.stack || e).slice(0, 500)); }
 
+
+// ---- portals (FIN): ui/modules.portals.js (suphome, suporders, supproblems, supproducts, hqhome, hqregs, hqclient, ptlacct)
+// and core.js E.PORTALS: the distributor and the head office in the new layout; the classic bodies; Cherubino for org 12 only.
+try {
+  const sup = { id: 5, user_id: 5, email: "sup@x.com", full_name: "Ramona Ellul", org_id: 1, location_id: 450, location_name: "Island Pharma Distributors", role: "admin" };
+  const ptl = async (me, role, vp) => {
+    portalState.me = me;
+    const pg = await browser.newPage({ viewport: vp || { width: 1440, height: 900 } }); const pe = []; pg.on("pageerror", (e) => pe.push(e.message));
+    await pg.goto(base + "#" + (role === "supplier" ? "suphome" : "hqhome"));
+    await pg.evaluate((r) => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", r); localStorage.removeItem("eikon_ui2"); sessionStorage.removeItem("eikon_ui2_pause"); }, role);
+    await pg.reload();
+    await pg.waitForFunction(() => window.EIKON && window.EIKON.state.activeModuleId && document.querySelector("#eikon-content .ptl h1"), null, { timeout: 20000 });
+    await pg.waitForTimeout(400); pg.__pe = pe; return pg;
+  };
+  const rail = (pg) => pg.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn")].filter((b) => b.offsetParent).map((b) => b.querySelector(".eikon-nav-label").textContent));
+  // distributor, phone
+  let pg = await ptl(sup, "supplier", { width: 390, height: 844 });
+  const s1 = await pg.evaluate(() => ({ mod: window.EIKON.state.activeModuleId, ui2: document.documentElement.hasAttribute("data-ui2"), sx: document.documentElement.scrollWidth, cw: document.getElementById("eikon-content").getBoundingClientRect().width,
+    text: document.getElementById("eikon-content").innerText, badge: (document.querySelector('[data-badge="suporders"]') || {}).textContent }));
+  report("portals (suphome): a distributor opens on Today in the new layout, bottom tabs, no sideways scroll at 390, orders to send and the badge",
+    s1.mod === "suphome" && s1.ui2 && s1.sx <= 390 && s1.cw >= 380 && /To send\s*2/.test(s1.text) && /Mosta Pharmacy/.test(s1.text) && /Ozempic/.test(s1.text) && /Expires in 12 days/.test(s1.text) && s1.badge === "2" && JSON.stringify(await rail(pg)) === JSON.stringify(["Today", "Orders", "Problems", "Products", "Account"]),
+    JSON.stringify({ ...s1, text: s1.text.slice(0, 160), rail: await rail(pg) }));
+  await pg.close();
+  // distributor, desktop: send an order
+  pg = await ptl(sup, "supplier");
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await pg.click('[data-order="31"]'); await pg.waitForSelector("#ptl-ship");
+  await pg.click('[data-item="311"]'); await pg.waitForSelector('[data-act="oos-yes"]'); await pg.click('[data-act="oos-yes"]'); await pg.waitForTimeout(300);
+  await pg.fill("#ptl-ship [name=scheduled_delivery_date]", "2026-11-20"); await pg.fill("#ptl-ship [name=supplier_notes]", "Van Thursday");
+  await pg.click("#ptl-ship button[type=submit]"); await pg.waitForSelector("#ptl-ship .ptl-ask"); await pg.click("#ptl-ship button[type=submit]"); await pg.waitForTimeout(500);
+  let cl = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT");
+  const sb = (cl.find((c) => c.path === "/supplier-orders/31/confirm") || {}).body;
+  report("portals (suporders): not available + out of stock + mark as sent send the classic Received Orders bodies",
+    JSON.stringify(cl.find((c) => /unavailable$/.test(c.path)).body) === JSON.stringify({ unavailable: true, notes: "" }) && JSON.stringify(cl.find((c) => c.path === "/supplier-products/entries/901/stock-status").body) === JSON.stringify({ out_of_stock: 1 }) &&
+    JSON.stringify(sb) === JSON.stringify({ status: "shipped", items: [{ id: 311, unavailable: 1, qty_confirmed: 0, notes: "" }, { id: 312, unavailable: 0, qty_confirmed: 3, notes: "" }], supplier_notes: "Van Thursday", scheduled_delivery_date: "2026-11-20" }), JSON.stringify(cl));
+  // problems: answer
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await pg.evaluate(() => { location.hash = "#supproblems"; }); await pg.waitForSelector("form[data-fbform]");
+  await pg.selectOption("form[data-fbform] select", "Replacement Sent"); await pg.fill("form[data-fbform] [name=supplier_notes]", "New box Monday");
+  await pg.click("form[data-fbform] button[type=submit]"); await pg.waitForTimeout(400);
+  cl = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT");
+  report("portals (supproblems): the answer is the classic Order Feedback body", cl.length === 1 && cl[0].path === "/supplier-orders/feedback/51/resolve" && JSON.stringify(cl[0].body) === JSON.stringify({ resolution_status: "Replacement Sent", supplier_notes: "New box Monday" }), JSON.stringify(cl));
+  // products: the classic Add Product body (0% VAT stays 0)
+  await fetch(`http://localhost:${PORT}/__reset`);
+  await pg.evaluate(() => { location.hash = "#supproducts"; }); await pg.waitForSelector('[data-act="add"]'); await pg.click('[data-act="add"]');
+  await pg.click("#ptl-pf button[type=submit]"); await pg.waitForTimeout(200);
+  const perr = await pg.evaluate(() => ({ t: document.querySelector("#ptl-pf .ptl-err").textContent, f: document.activeElement.name, inv: [...document.querySelectorAll("#ptl-pf [aria-invalid=true]")].map((x) => x.name) }));
+  await pg.fill("#ptl-pf [name=description]", "Brufen Syrup 100ml"); await pg.fill("#ptl-pf [name=cost_excl_vat]", "3"); await pg.selectOption("#ptl-pf [name=vat_rate]", "0"); await pg.fill("#ptl-pf [name=retail_price]", "5.5"); await pg.fill("#ptl-pf [name=expiry_date]", "2027-01-31");
+  await pg.click("#ptl-pf button[type=submit]"); await pg.waitForTimeout(500);
+  const pb = ((await (await fetch(`http://localhost:${PORT}/__calls`)).json()).find((c) => c.method === "POST" && c.path === "/supplier-products/entries") || {}).body;
+  report("portals (supproducts): every missing field said at once; Add product sends the classic body, field for field, with 0% VAT kept",
+    perr.inv.join() === "description,cost_excl_vat,retail_price" && perr.f === "description" && /Write the product's name/.test(perr.t) &&
+    JSON.stringify(pb) === JSON.stringify({ description: "Brufen Syrup 100ml", stock_code: "", barcode: "", cost_excl_vat: 3, cost_incl_vat: 0, vat_rate: 0, discount_pct: 0, discount_euro: 0, qty_purchased: 1, qty_free: 0, batch: "", expiry_date: "2027-01-31", retail_price: 5.5 }), JSON.stringify({ perr, pb }));
+  report("portals: no page error on the distributor's screens", pg.__pe.length === 0, pg.__pe.join(" | "));
+  await pg.close();
+  // head office, org 1: Today across the pharmacies, Registers in words, no Cherubino
+  const ho = { id: 6, user_id: 6, email: "ho@x.com", full_name: "Kurt Muscat", org_id: 1, org_name: "Demo Group", location_id: 650, location_name: "Head Office", role: "admin" };
+  pg = await ptl(ho, "company_admin");
+  await pg.waitForSelector(".ptl-card");
+  const h1 = await pg.evaluate(() => document.getElementById("eikon-content").innerText);
+  await pg.evaluate(() => { location.hash = "#cherubino-oos"; }); await pg.waitForTimeout(600);
+  const noCh = await pg.evaluate(() => window.EIKON.state.activeModuleId + " " + location.search);
+  await pg.evaluate(() => { location.hash = "#hqregs"; }); await pg.waitForSelector(".ptl-grid");
+  const g = await pg.evaluate(() => document.querySelector(".ptl-grid").innerText);
+  report("portals (hqhome, hqregs): head office Today has its pharmacies, the recall and the near expiry; registers in words (no '10/9 days'); no Cherubino tab or screen outside org 12",
+    /Mosta Pharmacy: 1 recall is still open \(Valsartan 80mg\)/.test(h1) && /2 items expire within 30 days/.test(h1) && /Żebbuġ Pharmacy/.test(h1) && JSON.stringify(await rail(pg)) === JSON.stringify(["Today", "How we're doing", "Registers", "Account"]) &&
+    /^hqhome/.test(noCh) && !/classic/.test(noCh) && /Every working day \(10 days in all\)/.test(g) && !/\d+\/\d+ days/.test(g), JSON.stringify({ h1: h1.slice(0, 300), noCh, g: g.slice(0, 200) }));
+  await pg.close();
+  // head office of the Cherubino group: its tab and its screens; a pharmacy never opens a portal's screen
+  pg = await ptl({ ...ho, org_id: 12 }, "company_admin");
+  const r12 = await rail(pg);
+  await pg.evaluate(() => { location.hash = "#hqclient"; }); await pg.waitForSelector('[data-open="cherubino-admin"]');
+  const cards = await pg.evaluate(() => [...document.querySelectorAll("[data-open]")].map((b) => b.getAttribute("data-open")));
+  report("portals (hqclient): org 12's head office keeps the Cherubino tab and its four screens", r12.includes("Cherubino") && cards.join() === "cherubino-admin,cherubino-prices,cherubino-shortexpiry,cherubino-oos", JSON.stringify({ r12, cards }));
+  await pg.close();
+} catch (e) { report("portals: ran to the end", false, String(e && e.stack || e).slice(0, 500)); }
+portalState = { me: null };
 await browser.close();
 server.close();
 

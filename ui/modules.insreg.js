@@ -77,7 +77,7 @@
   function niceRange(rg) { var w = rg.from.slice(0, 4) !== rg.to.slice(0, 4); var span = rg.from === rg.to ? dayText(rg.from, true) : dayText(rg.from, w) + " to " + dayText(rg.to, true); return rg.kind === "custom" ? span : rg.kind === "since" ? "Since the last inspection · " + span : rg.label + " · " + span; }
   function rangeText(rg) { return rg.kind === "custom" ? rg.label : rg.kind === "since" ? rg.label + " (to " + dmy(rg.to) + ")" : rg.label + " (" + dmy(rg.from) + " to " + dmy(rg.to) + ")"; }
   function inRange(v, rg) { var d = String(v || "").slice(0, 10); return isYmd(d) && d >= rg.from && d <= rg.to; }
-  function estimate(rg) { return 3 + 4 * monthsIn(rg.from, rg.to).length; } // devices, certificates, stock-takes; 4 registers a month
+  function estimate(rg) { return 4 + 4 * monthsIn(rg.from, rg.to).length; } // devices, certificates, stock-takes; 4 registers a month
 
   // ── Reading. fetch(path) gives the server's answer (or throws). Registers are read a month at a time, three calls at
   // most in flight. A register whose read fails is reported as "Not checked", never as in order.
@@ -130,6 +130,12 @@
         }
         D.dda[ym] = found;
       }
+      // Finish round: one bounded read for the whole period, from the registers themselves (whatever screen wrote the
+      // lines): every medicine whose running balance goes below zero in the days, the days with a controlled-drug line
+      // (for the locum register) and the warnings seen at entry. An older worker without the route answers 404: the
+      // check then says nothing more, as before.
+      try { var ck = await call("/dda-register/check?from=" + rg.from + "&to=" + rg.to); D.cdDays = ck.days || null; D.cdShort = ck.shortfalls || []; D.cdWarnings = ck.warnings || []; D.cdPartials = ck.partials || []; }
+      catch (e) { if (e && e.cancelled) throw e; if (!(e && (e.status === 404 || e.status === 405))) D.cdCheckErr = errText(e); }
       if (typeof E.ddaBalance === "function") { // item 8 (running balance), when it is in: differences between count and expected
         try { D.balance = await E.ddaBalance({ from: rg.from, to: rg.to, fetch: call }); } catch (e) { if (e && e.cancelled) throw e; D.balanceErr = errText(e); }
       }
@@ -148,6 +154,9 @@
   function worst(reasons) { var s = "ok"; reasons.forEach(function (r) { if ((RANK[r.level] || 0) > RANK[s]) s = r.level; }); return s; }
   function checks(D, rg, today) {
     var yest = addDays(today, -1), withYear = rg.from.slice(0, 4) !== rg.to.slice(0, 4) || rg.to.slice(0, 4) !== today.slice(0, 4);
+    // nothing is asked of the pharmacy before it started (dayzero's E.startYmd: its first day; "" when unknown)
+    var dn = function (n) { return (E.tempDeviceName ? E.tempDeviceName({ name: n }) : String(n || "").trim()) || String(n || ""); }; // as Today and Temperature name it ("Room")
+    var st = typeof E.startYmd === "function" ? String(E.startYmd() || "") : "", from0 = isYmd(st) && st > rg.from ? st : rg.from;
     var out = [];
     var add = function (id, title, reasons, err, status) {
       if (err) return out.push({ id: id, title: title, status: "unread", reasons: [{ level: "look", text: "Not checked: " + err + ". Try again." }] });
@@ -159,26 +168,27 @@
     (function () {
       var R = [], entries = D.temp.filter(function (e) { return inRange(e.entry_date, rg); }), last = upTo(yest);
       if (!D.devices.length && !entries.length) { add("temperature", "Temperature", [{ level: "look", text: "No fridge or room is set up, so nothing is being logged.", go: { mod: "tempreg" } }], D.err.temperature); return; }
-      var missTotal = 0;
+      var missTotal = 0, late = [];
       D.devices.filter(function (d) { return Number(d.active) !== 0; }).forEach(function (dv) {
-        var first = rg.from, made = maltaDay(dv.created_at); if (made && made > first) first = made;
+        var first = from0, made = maltaDay(dv.created_at); if (made && made > first) { first = made; if (made <= rg.to) late.push(dn(dv.name) + " added on " + dayText(made, withYear)); }
         var at = {}; entries.forEach(function (e) { if (String(e.device_id) === String(dv.id)) at[e.entry_date] = 1; });
         var miss = []; for (var d = first; d <= last && miss.length < 400; d = addDays(d, 1)) if (!at[d]) miss.push(d);
         missTotal += miss.length;
-        if (miss.length) R.push({ level: "missing", text: dv.name + ": " + plural(miss.length, "day", "days") + " without a reading (" + listDays(miss, withYear) + ").", all: dv.name + ": " + plural(miss.length, "day", "days") + " without a reading: " + listDays(miss, withYear, ALL) + ".", go: { mod: "tempreg", day: miss[0], device: dv.id } });
+        if (miss.length) R.push({ level: "missing", text: dn(dv.name) + ": " + plural(miss.length, "day", "days") + " without a reading (" + listDays(miss, withYear) + ").", all: dn(dv.name) + ": " + plural(miss.length, "day", "days") + " without a reading: " + listDays(miss, withYear, ALL) + ".", go: { mod: "tempreg", day: miss[0], device: dv.id } });
       });
       var outs = entries.filter(function (e) {
         var lo = num(e.min_limit), hi = num(e.max_limit), a = num(e.min_temp), b = num(e.max_temp);
         return (lo != null && a != null && a < lo) || (hi != null && b != null && b > hi);
       }).sort(function (a, b) { return a.entry_date < b.entry_date ? -1 : a.entry_date > b.entry_date ? 1 : 0; });
       var bare = outs.filter(function (e) { return !String(e.notes || "").trim(); }), noted = outs.length - bare.length;
-      var byDev = {}; bare.forEach(function (e) { (byDev[e.device_name || ("Device " + e.device_id)] = byDev[e.device_name || ("Device " + e.device_id)] || []).push(e); });
+      var byDev = {}; bare.forEach(function (e) { var nm0 = e.device_name ? dn(e.device_name) : "Device " + e.device_id; (byDev[nm0] = byDev[nm0] || []).push(e); });
       Object.keys(byDev).forEach(function (name) {
         var l = byDev[name], e0 = l[0], lim = (num(e0.min_limit) != null ? num(e0.min_limit) : "–") + " to " + (num(e0.max_limit) != null ? num(e0.max_limit) : "–") + " °C";
         var each = function (e) { return dayText(e.entry_date, withYear) + " " + num(e.min_temp) + " to " + num(e.max_temp) + " °C"; };
         R.push({ level: "missing", text: name + ": " + plural(l.length, "reading", "readings") + " outside " + lim + " without a note (" + l.slice(0, 4).map(each).join(", ") + (l.length > 4 ? " and " + (l.length - 4) + " more" : "") + ").", all: name + ": " + plural(l.length, "reading", "readings") + " outside " + lim + " without a note: " + l.map(each).join(", ") + ".", go: { mod: "tempreg", day: e0.entry_date, device: e0.device_id } });
       });
       if (noted) R.push({ level: "info", text: plural(noted, "reading", "readings") + " outside the limits, with a note." });
+      if (late.length) R.push({ level: "info", text: "Checked from the day each was added (" + late.join(", ") + "). The month's page also lists the days before that as not logged." });
       if (!R.some(function (r) { return r.level !== "info"; })) R.unshift({ level: "ok", text: "Every day logged for " + plural(D.devices.length, "fridge or room", "fridges and rooms") + (last < rg.from ? " (no full day yet)" : "") + "; no reading outside the limits without a note." });
       add("temperature", "Temperature", R, D.err.temperature);
     })();
@@ -187,7 +197,7 @@
     (function () {
       var R = [], all = D.clean.slice().sort(function (a, b) { return a.entry_date < b.entry_date ? 1 : -1; }), days = {};
       all.forEach(function (e) { days[e.entry_date] = 1; });
-      var mon = rg.from; while (weekday(mon) !== 1) mon = addDays(mon, 1);
+      var mon = from0; while (weekday(mon) !== 1) mon = addDays(mon, 1);
       var empty = [];
       for (; addDays(mon, 6) <= rg.to && addDays(mon, 6) < today; mon = addDays(mon, 7)) {
         var any = false; for (var i = 0; i < 7; i++) if (days[addDays(mon, i)]) { any = true; break; }
@@ -196,7 +206,8 @@
       if (empty.length) R.push({ level: "missing", text: "No cleaning recorded in " + plural(empty.length, "week", "weeks") + ": " + empty.slice(0, 5).map(function (m) { return "week of " + dayText(m, withYear); }).join(", ") + (empty.length > 5 ? " and " + (empty.length - 5) + " more" : "") + ".", all: "No cleaning recorded in " + plural(empty.length, "week", "weeks") + ": " + empty.map(function (m) { return "week of " + dayText(m, withYear); }).join(", ") + ".", go: { mod: "cleanreg", ym: empty[0].slice(0, 7) } });
       if (inRange(today, rg)) {
         var lastC = all.filter(function (e) { return e.entry_date <= today; })[0];
-        if (!lastC) R.push({ level: "missing", text: "Overdue: no cleaning recorded since " + dayText(D.cleanSince || (rg.from.slice(0, 7) + "-01"), true) + ". It is due once a week.", go: { mod: "cleanreg", ym: today.slice(0, 7) } });
+        if (!lastC && from0 !== rg.from && diffDays(from0, today) <= CLEAN_DAYS) {} // started less than a week ago: not due yet
+        else if (!lastC) R.push({ level: "missing", text: "Overdue: no cleaning recorded since " + dayText([D.cleanSince || (rg.from.slice(0, 7) + "-01"), from0].sort()[1], true) + ". It is due once a week.", go: { mod: "cleanreg", ym: today.slice(0, 7) } });
         else { var n = diffDays(lastC.entry_date, today); if (n > CLEAN_DAYS) R.push({ level: "missing", text: "Overdue: last cleaned " + n + " days ago (" + dayText(lastC.entry_date, withYear) + "). It is due once a week.", go: { mod: "cleanreg", ym: lastC.entry_date.slice(0, 7) } }); }
       }
       var inP = all.filter(function (e) { return inRange(e.entry_date, rg); }).length;
@@ -208,22 +219,28 @@
     (function () {
       var lines = D.daily.filter(function (e) { return inRange(e.entry_date, rg); }), at = {}, none = [];
       lines.forEach(function (e) { at[e.entry_date] = 1; });
-      for (var d = rg.from; d <= upTo(yest); d = addDays(d, 1)) if (!at[d]) none.push(d);
+      for (var d = from0; d <= upTo(yest); d = addDays(d, 1)) if (!at[d]) none.push(d);
       var lead = lines.length ? plural(lines.length, "line", "lines") + " on " + plural(Object.keys(at).length, "day", "days") + "." : "No line in these days.";
       var R = [{ level: "info", text: lead + (none.length && lines.length ? " No line on " + plural(none.length, "day", "days") + " (" + listDays(none, withYear, 3) + "); a day with nothing supplied on prescription needs none." : ""), all: lead + (none.length && lines.length ? " No line on " + plural(none.length, "day", "days") + ": " + listDays(none, withYear, ALL) + ". A day with nothing supplied on prescription needs none." : ""), go: none.length ? { mod: "drreg", ym: none[0].slice(0, 7) } : null }];
       add("dailyregister", "Daily register", R, D.err.dailyregister, "info");
     })();
 
-    // Locum register: a pharmacist in charge on each day the pharmacy was working (a reading, a cleaning or a daily-register line).
+    // Locum register: a pharmacist in charge on each day the pharmacy was working (a reading, a cleaning, a daily-register
+    // line or a controlled-drug line), today included once work is recorded today. A day with controlled drugs supplied,
+    // POYC or received and nobody in charge is Missing; nobody recorded at all in the days chosen is never "In order".
     (function () {
-      var R = [], lines = D.locum.filter(function (e) { return inRange(e.entry_date, rg); }), signed = {}, work = {};
+      var R = [], lines = D.locum.filter(function (e) { return inRange(e.entry_date, rg); }), signed = {}, work = {}, cd = {};
       lines.forEach(function (e) { signed[e.entry_date] = 1; });
-      [D.err.temperature ? [] : D.temp, D.err.cleaning ? [] : D.clean, D.err.dailyregister ? [] : D.daily].forEach(function (l) { l.forEach(function (e) { if (inRange(e.entry_date, rg) && e.entry_date < today) work[e.entry_date] = 1; }); });
+      [D.err.temperature ? [] : D.temp, D.err.cleaning ? [] : D.clean, D.err.dailyregister ? [] : D.daily].forEach(function (l) { l.forEach(function (e) { if (inRange(e.entry_date, rg) && e.entry_date <= today) work[e.entry_date] = 1; }); });
+      var cdd = D.cdDays || {}; (cdd.supplied || []).concat(cdd.received || []).forEach(function (d) { if (inRange(d, rg) && d <= today) { work[d] = 1; cd[d] = 1; } });
       var gaps = Object.keys(work).filter(function (d) { return !signed[d]; }).sort();
-      if (gaps.length) R.push({ level: "look", text: plural(gaps.length, "day", "days") + " with work recorded but no pharmacist in charge in the locum register (" + listDays(gaps, withYear) + ").", all: plural(gaps.length, "day", "days") + " with work recorded but no pharmacist in charge in the locum register: " + listDays(gaps, withYear, ALL) + ".", go: { mod: "locreg", ym: gaps[0].slice(0, 7) } });
+      var cdGaps = gaps.filter(function (d) { return cd[d]; }), other = gaps.filter(function (d) { return !cd[d]; });
+      var todayNote = function (l) { return l.indexOf(today) >= 0 ? " Today is included: record who is in charge today." : ""; };
+      if (cdGaps.length) R.push({ level: "missing", text: plural(cdGaps.length, "day", "days") + " with controlled drugs supplied or received but no pharmacist in charge in the locum register (" + listDays(cdGaps, withYear) + ")." + todayNote(cdGaps), all: plural(cdGaps.length, "day", "days") + " with controlled drugs supplied or received but no pharmacist in charge in the locum register: " + listDays(cdGaps, withYear, ALL) + "." + todayNote(cdGaps), go: { mod: "locreg", ym: cdGaps[0].slice(0, 7) } });
+      if (other.length) R.push({ level: "look", text: plural(other.length, "day", "days") + " with work recorded but no pharmacist in charge in the locum register (" + listDays(other, withYear) + ")." + todayNote(other), all: plural(other.length, "day", "days") + " with work recorded but no pharmacist in charge in the locum register: " + listDays(other, withYear, ALL) + "." + todayNote(other), go: { mod: "locreg", ym: other[0].slice(0, 7) } });
       var lastL = lines.slice().sort(function (a, b) { return (a.entry_date + (a.time_in || "")) < (b.entry_date + (b.time_in || "")) ? 1 : -1; })[0];
-      R.push(lastL ? { level: gaps.length ? "info" : "ok", text: "Last signed " + dayText(lastL.entry_date, withYear) + (lastL.locum_full_name ? " by " + lastL.locum_full_name : "") + (lastL.registration_number ? " (reg no " + lastL.registration_number + ")" : "") + "." + (gaps.length ? "" : " A pharmacist is recorded for every day with work."), go: { mod: "locreg", ym: lastL.entry_date.slice(0, 7) } }
-        : { level: gaps.length ? "info" : "ok", text: "No pharmacist recorded in these days." + (gaps.length ? "" : " No day with work to match.") });
+      if (lastL) R.push({ level: gaps.length ? "info" : "ok", text: "Last signed " + dayText(lastL.entry_date, withYear) + (lastL.locum_full_name ? " by " + lastL.locum_full_name : "") + (lastL.registration_number ? " (reg no " + lastL.registration_number + ")" : "") + "." + (gaps.length ? "" : " A pharmacist is recorded for every day with work."), go: { mod: "locreg", ym: lastL.entry_date.slice(0, 7) } });
+      else if (!gaps.length) R.push({ level: "nofile", text: "No pharmacist in charge is recorded in these days.", go: { mod: "locreg", ym: rg.to.slice(0, 7) } }); // nobody recorded: not "in order"
       add("locum", "Locum register", R, D.err.locum || (D.err.temperature && D.err.cleaning && D.err.dailyregister ? "the days with work could not be read" : ""));
     })();
 
@@ -259,6 +276,22 @@
         if (d) R.push({ level: "missing", text: (b.name || "A controlled drug") + ": counted " + num(b.counted) + ", expected " + num(b.expected) + " (" + (d > 0 ? "+" : "") + d + ").", go: { mod: "ddstreg" } });
       });
       if (D.balanceErr) R.push({ level: "look", text: "The running balance could not be read (" + D.balanceErr + ")." });
+      // the registers going below zero (from the lines themselves, classic ones included), one line per medicine, with
+      // who was warned at entry; a warning whose medicine no longer goes below zero is kept for information
+      var kf = (E.cdLedger && E.cdLedger.key) || function (x) { return String(x || "").toLowerCase().replace(/\s+/g, " ").trim(); }, shortKeys = {};
+      (D.cdShort || []).forEach(function (x) {
+        shortKeys[x.key || kf(x.name)] = 1;
+        R.push({ level: "look", regs: x.regs || [], text: x.name + ": the registers go below zero on " + dayText(x.first_below, withYear) + " (lowest " + String(num(x.lowest)).replace("-", "−") + ")" +
+          (x.counted ? " since the count on " + dayText(x.since, withYear) + "." : ": more supplied than received, and no stock take has counted it since " + dayText(x.since, withYear) + ".") +
+          (x.warned ? " A warning was shown at entry" + (x.warned_by && x.warned_by.length ? " to " + x.warned_by.join(" and ") : "") + " (" + plural(x.warned, "line", "lines") + ")." : "") +
+          (x.also && x.also.length ? " Or the same medicine is written two ways — " + x.also.join(", ") + "." : "") +
+          " Count it, and look for a delivery not written in Controlled drugs received.", go: { mod: "cdreg", med: x.name } });
+      });
+      (D.cdWarnings || []).forEach(function (w) { if (shortKeys[kf(w.medicine)]) return;
+        R.push({ level: "info", text: w.medicine + ": " + (w.register === "poyc" ? "POYC " : "supplied ") + num(w.quantity) + " on " + dayText(w.entry_date, withYear) + " was saved below what the registers showed then (" + (-num(w.after)) + " below)" + (w.created_name ? ", warned at entry to " + w.created_name : "") + "; the registers no longer go below zero.", go: { mod: "cdreg", med: w.medicine } }); });
+      (D.cdPartials || []).forEach(function (x) { var ago = x.first ? diffDays(x.first, today) : 0;
+        R.push({ level: "info", regs: [x.register], text: "Still to give (a prescription given in parts): " + x.medicine_name_dose + " for " + x.client_name + ", Rx " + x.prescription_serial_no + ": " + x.left + " left of " + x.prescribed + (x.first ? ", first given " + dayText(x.first, withYear) + " (" + plural(ago, "day", "days") + " ago)" : "") + (x.last && x.last !== x.first ? ", last " + dayText(x.last, withYear) : "") + ".", go: { mod: x.register === "poyc" ? "poyreg" : "cdsreg" } }); });
+      if (D.cdCheckErr) R.push({ level: "look", text: "The controlled-drug balances could not be read (" + D.cdCheckErr + ")." });
       if (!takes.length) R.push({ level: "nofile", text: "No controlled-drug stock take is on file yet.", go: { mod: "ddstreg" } }); // none ever: not "in order"
       var finished = D.months.filter(function (ym) { return addDays(lastDay(ym), COUNT_GRACE) < today; });
       if (!R.some(function (r) { return r.level !== "info"; })) R.unshift({ level: "ok", text: inP.length ? plural(inP.length, "stock-take", "stock-takes") + " in these days (last on " + dayText(inP[0].day, withYear) + "); every finished month with lines has one." : finished.length ? "No finished month in these days had controlled-drug lines, so no stock-take was needed." : "No stock-take is due yet for these days." });
@@ -280,7 +313,7 @@
     return { level: miss ? "missing" : "look", text: (fix === 1 ? "1 thing" : fix + " things") + " to put right before an inspector comes: " + bits.join(", ") + "." };
   }
   var URGENT = { missing: 0, unread: 1, look: 2, nofile: 3, info: 4, ok: 4 }; // in order and for information keep their usual order
-  var GO_NAME = { tempreg: "temperature", cleanreg: "cleaning", drreg: "daily register", locreg: "locum register", certreg: "certificates", cdsreg: "controlled drugs supplied", poyreg: "POYC controlled drugs", cdpreg: "controlled drugs received", ddstreg: "stock takes" };
+  var GO_NAME = { cdreg: "controlled drugs by medicine", tempreg: "temperature", cleanreg: "cleaning", drreg: "daily register", locreg: "locum register", certreg: "certificates", cdsreg: "controlled drugs supplied", poyreg: "POYC controlled drugs", cdpreg: "controlled drugs received", ddstreg: "stock takes" };
   var WORD = { nofile: "Not on file", ok: "In order", look: "Look at this", missing: "Missing", info: "For information", unread: "Not checked" };
 
   // A whole run: read, check, keep the result. fetch is optional (Download our records passes its own, so a register month
@@ -327,6 +360,7 @@
   // ── Opening the place a reason is about
   function go(g) {
     if (!g || !g.mod) return;
+    if (g.mod === "cdreg" && g.med && E.cdOpen) return E.cdOpen(g.med);
     if (g.mod === "tempreg" && g.day) { try { sessionStorage.setItem("eikon_tempreg_day", JSON.stringify({ day: g.day, device: g.device })); } catch (e) {} }
     else if (g.ym && E.months && E.months.openAt) E.months.openAt(g.mod, g.ym);
     window.location.hash = "#" + g.mod;

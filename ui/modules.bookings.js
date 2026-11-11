@@ -370,7 +370,9 @@ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,san
     var H = (hi - lo) * PXM, y = function (m) { return (m - lo) * PXM; };
     var head = '<div class="bkx-calh"><div class="bkx-axh"></div>' + cols.map(function (c) {
       var n = c.books.length, f = past ? 0 : freeMin([c], d);
-      var sub = c.away ? "Away" + (c.away.note ? " · " + c.away.note : "") : (n ? n + " booked" : "Nothing booked") + (past || !c.wins.length ? "" : " · " + (f ? dur(f) + " free" : "full"));
+      // W33: today after the last hours have ended is over, not "full" (FIN-dayzero)
+      var over = d === t && c.wins.length && c.wins.every(function (w) { return w.b <= minOf(nowHM()); });
+      var sub = c.away ? "Away" + (c.away.note ? " · " + c.away.note : "") : (n ? n + " booked" : "Nothing booked") + (past || !c.wins.length ? "" : over ? " · finished for today" : " · " + (f ? dur(f) + " free" : "full"));
       return '<div class="bkx-ch"><b>' + esc(c.label) + "</b><span>" + esc(sub) + "</span></div>";
     }).join("") + "</div>";
     var axis = '<div class="bkx-ax" aria-hidden="true">';

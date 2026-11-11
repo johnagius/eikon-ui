@@ -1,7 +1,8 @@
 /* ============================================================
    EIKON — correct a register line in the new layout  (eikon.correct.js)
-   Shared by the rebuilt registers. A line is never deleted here: it is corrected, by the pharmacist (role admin)
-   only, with a reason, and the line stays where it is.
+   Shared by the rebuilt registers. A line is never deleted here: it is corrected, by the pharmacist (an admin, or a
+   staff sign-in marked Pharmacist — John, 2026-11-11, roles Q3) only, with a reason, and the line stays where it is.
+   The "Corrected … by … : reason" marks come from the audit, which only an admin reads.
 
    Each screen keeps its own list and calls:
      E.correct.button(key, row, what)  "Correct" on the line (nothing for staff): what = the line in words, for screen readers
@@ -41,6 +42,9 @@
   function st(key) { return ST[key] || (ST[key] = { open: null, orig: null, vals: {}, reason: "", pass: "", err: "", saving: false, loading: false, stale: null, marks: {}, focus: null, caret: null }); }
   function esc(s) { return E.escapeHtml ? E.escapeHtml(String(s == null ? "" : s)) : String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function isAdmin() { var u = E.state && E.state.user; return !!(u && u.role === "admin"); }
+  // Who may correct: an admin, or a pharmacist (a staff sign-in marked Pharmacist; GET /team/me, read once per sign-in).
+  // The register PUT routes take a staff sign-in as they always have; the reason goes to the audit either way.
+  function canFix() { var u = E.state && E.state.user, r = E.rights; return isAdmin() || !!(u && u.role === "staff" && r && r.role === "staff" && r.is_pharmacist === true); }
   function str(v) { return v == null ? "" : String(v).trim(); }
   function me() { var u = (E.state && E.state.user) || {}; return String(u.full_name || u.email || "").trim(); }
   // A value as the form shows it, and as it is compared: numbers as numbers, ticks as 0/1, money to the cent.
@@ -97,7 +101,7 @@
   }
 
   var C = E.correct = {};
-  C.can = isAdmin;
+  C.can = canFix;
   C.reset = function (key) { var m = ST[key] && ST[key].marks; ST[key] = null; st(key).marks = m || {}; };
   C.isOpen = function (key) { return !!(ST[key] && ST[key].open != null); };
   C.openId = function (key) { return ST[key] ? ST[key].open : null; };
@@ -107,11 +111,12 @@
   C.foot = function (extra, del) {
     return '<p class="ecr-foot" style="font-size:12.5px;color:var(--muted);margin-top:12px">' + (isAdmin()
       ? "A wrong line is put right with Correct, saying what was wrong; the audit keeps what it said before. " + (del || "Deleting a line is") + ' in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.'
+      : canFix() ? "A wrong line is put right with Correct, saying what was wrong; the audit keeps what it said before."
       : "A wrong line is corrected by the pharmacist (Correct, with the reason).") + (extra ? " " + extra : "") + "</p>";
   };
 
   C.button = function (key, row, what) {
-    if (!isAdmin() || !row || row.id == null) return "";
+    if (!canFix() || !row || row.id == null) return "";
     css();
     var open = String(st(key).open) === String(row.id);
     return '<button type="button" class="ecr-btn" data-ecr="open" data-ecr-key="' + esc(key) + '" data-ecr-id="' + esc(row.id) + '" aria-expanded="' + open + '" aria-label="' + esc("Correct " + (what || "this line")) + '">Correct</button>';
@@ -192,7 +197,7 @@
   async function open(key, cfg, id, root) {
     var s = st(key);
     if (String(s.open) === String(id)) return close(key, cfg, true);
-    if (!isAdmin()) return;
+    if (!canFix()) return;
     var row = (cfg.rows ? cfg.rows() : []).filter(function (r) { return String(r.id) === String(id); })[0];
     if (!row) return;
     s.open = row.id; s.orig = null; s.vals = {}; s.reason = ""; s.pass = ""; s.err = ""; s.stale = null; s.saving = false; s.loading = true; s.focus = null;
@@ -211,7 +216,7 @@
   async function save(key, cfg) {
     var s = st(key);
     if (s.saving || s.open == null || !s.orig) return;
-    if (!isAdmin()) { s.err = "Only the pharmacist can correct a register line. Nothing was saved."; return cfg.paint(); }
+    if (!canFix()) { s.err = "Only the pharmacist can correct a register line. Nothing was saved."; return cfg.paint(); }
     var orig = s.orig, reason = str(s.reason).replace(/\s+/g, " ");
     var changed = cfg.fields.filter(function (f) { return !same(f, s.vals[f.k], orig[f.k]); });
     var rec0 = Object.assign({}, orig); changed.forEach(function (f) { rec0[f.k] = cast(f, s.vals[f.k]); });

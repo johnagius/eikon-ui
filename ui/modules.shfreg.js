@@ -14,7 +14,10 @@
    The day-level writes are the classic Shifts screen's, with its bodies: + Add shift POST /shifts/assignments
    {staff_id, shift_date, start_time, end_time, notes}; a change PUT /shifts/assignments/:id with the whole record (so a
    role set elsewhere is kept; "Works as" sets role_override the same way); Remove DELETE; Move = Add there, then Remove
-   (the swap's machinery); leave POST /shifts/leaves and approve/reject; a person or a new locum POST /shifts/staff. */
+   (the swap's machinery); leave POST /shifts/leaves and approve/reject; a person or a new locum POST /shifts/staff.
+   Rights (roles round): GET /shifts/staff says can_plan and me_staff_id. Without the rota right a person sees the whole
+   rota and asks for leave (Who = them); nothing that writes a shift, a fill, a rota person or the rules is offered, and
+   the worker refuses it too. Nobody but an admin is offered Approve/Refuse on their own leave. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -57,6 +60,21 @@
   function byOrder(a, b) { var x = ORDER.indexOf(low(a.designation)), y = ORDER.indexOf(low(b.designation)); return (x < 0 ? 99 : x) - (y < 0 ? 99 : y) || String(a.full_name).localeCompare(String(b.full_name)); }
   function roleOk(p, r) { r = r == null ? S.role : r; if (!r) return true; var d = low(p.designation); return r === "pharm" ? d === "pharmacist" || d === "locum" : d === r; }
   function leaveLabel(t) { var x = String(t || "leave").replace(/_/g, " ").trim(); x = x.charAt(0).toUpperCase() + x.slice(1); return /\s|leave/i.test(x) ? x : x + " leave"; }
+  // ---- rights (roles round): the server's answer on GET /shifts/staff; an older server sends none: as today ----
+  function canPlan() { return S.canPlan !== false; }
+  function meId() { if (S.meId != null) return Number(S.meId); var me = E.rotaMe ? E.rotaMe(active()) : null; return me ? Number(me.id) : null; }
+  function isAdminU() { var u = E.state.user; return !!(u && u.role === "admin"); }
+  function canAnswer(l) { return canPlan() && (isAdminU() || meId() == null || Number(l.staff_id) !== meId()); }
+  var RO_WORDS = "Only the pharmacy's admin changes shifts. To be away, ask for leave.";
+  function roMsg() { S.msg = RO_WORDS; paint(true); var mb = S.mount && S.mount.querySelector(".shf-msg"); if (mb) mb.focus(); }
+  // What a person without the rota right is not offered (the worker refuses each of these for them).
+  var RO_ACTS = { add: 1, edit: 1, del: 1, "del-yes": 1, swap: 1, "swap-yes": 1, move: 1, "mv-yes": 1, "fill-open": 1, fill: 1, pick: 1, pickrow: 1, "sel-hours": 1, "sel-usual": 1, "sel-copy": 1, "sel-paste": 1, "sel-clear": 1,
+    who: 1, "who-done": 1, "who-acc": 1, undo: 1, "m-rules": 1, "lv-approve": 1, "lv-keep-shifts": 1, "lv-drop-shifts": 1, "lv-trim": 1, "lv-approve-yes": 1, "lv-refuse": 1, "lv-refuse-yes": 1 };
+  function roPrune(m) {
+    if (canPlan()) return;
+    m.querySelectorAll('[data-act="fill-open"],[data-act="pick"],[data-act="who"],[data-act="add"],[data-act="fill"],[data-act="m-rules"],[data-act="sel-hours"],#shf-barhost').forEach(function (el) { el.remove(); });
+    m.querySelectorAll(".shf-grid .shf-p[draggable]").forEach(function (el) { el.removeAttribute("draggable"); });
+  }
   function approvedOn(staffId, key) { return S.leaves.filter(function (l) { return low(l.status) === "approved" && Number(l.staff_id) === Number(staffId) && l.start_date <= key && l.end_date >= key; })[0] || null; }
   function pendingOn(staffId, key) { return S.leaves.filter(function (l) { return low(l.status) === "pending" && Number(l.staff_id) === Number(staffId) && l.start_date <= key && l.end_date >= key; })[0] || null; }
   function truthy(v) { return v === true || v === 1 || v === "1" || v === "true"; }
@@ -152,7 +170,7 @@
       ".shf-lv .acts{display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:8px}.shf-lv .acts .q{flex:1 1 100%;font-size:14px}" +
       ".shf-quiet{background:var(--panel2);border:1px dashed var(--border);border-radius:14px;padding:22px;color:var(--muted);margin-top:14px}" +
       ".shf-note{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.6}.shf-note a{color:var(--accent)}.shf-quiet .shf-btn{display:block;margin-top:12px}" +
-      ".shf-who{margin-top:14px}.shf-who h2{font-size:17px;font-weight:700;margin:0;padding:12px 14px 2px}.shf-who p{margin:0;padding:0 14px 8px;font-size:13.5px;color:var(--muted)}.shf-who .ok{color:var(--ok);font-weight:600}" +
+      ".shf-acc{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:0 14px 10px;font-size:13.5px;color:var(--muted)}.shf-acc span{width:100%}.shf-chip{font:inherit;font-size:14px;font-weight:600;min-height:36px;padding:0 12px;border-radius:18px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer}.shf-chip[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}.shf-sub .shf-mine{color:var(--accent);font-weight:600;white-space:nowrap}@media (max-width:600px){.shf-chip{min-height:44px}}.shf-who{margin-top:14px}.shf-who h2{font-size:17px;font-weight:700;margin:0;padding:12px 14px 2px}.shf-who p{margin:0;padding:0 14px 8px;font-size:13.5px;color:var(--muted)}.shf-who .ok{color:var(--ok);font-weight:600}" +
       ".shf-form .two{display:flex;gap:8px;flex:1;min-width:0;align-items:center}.shf-form .two input{flex:1}.shf-form .two i{font-style:normal;color:var(--muted)}" +
       ".shf-form .hint{font-size:12.5px;color:var(--muted);padding:0 14px 8px 98px;margin-top:-6px}.shf-form [aria-invalid=true]{box-shadow:inset 0 -2px 0 var(--danger)}" +
       ".shf-gap{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;text-align:left;font:inherit;font-size:14.5px;min-height:48px;padding:8px 14px;border:0;border-top:.5px solid var(--border);background:var(--warn-soft,rgba(201,138,18,.16));color:var(--text);cursor:pointer}" +
@@ -236,6 +254,7 @@
       if (!res[0] || !res[0].ok || !res[1] || !res[1].ok) throw new Error((res[1] && res[1].error) || (res[0] && res[0].error) || "Could not load the rota");
       if (sig !== rangeSig()) return; // the range changed while this was loading: the newer load paints
       S.staff = {}; (res[0].staff || []).forEach(function (p) { S.staff[p.id] = p; });
+      S.canPlan = "can_plan" in res[0] ? !!res[0].can_plan : undefined; S.meId = res[0].me_staff_id != null ? res[0].me_staff_id : null; // roles round
       S.shifts = sortShifts(res[1].shifts || []);
       S.hours = (res[2] && res[2].hours) || S.hours; S.rules = (res[2] && res[2].settings) || S.rules; // opening hours and cover rules: E.rotaRules keeps them 5 minutes
       var lv = res.slice(4), seen = {};
@@ -297,6 +316,7 @@
     else if (a === "trim") h += '<span class="q">' + esc(p.full_name) + " is on the rota then: " + esc(S.ask.plan.words) + '. Change ' + (S.ask.plan.changes.length === 1 ? "it" : "them") + ' too?</span><button class="shf-btn" data-act="lv-keep">Not yet</button><button class="shf-btn" data-act="lv-keep-shifts" data-id="' + l.id + '"' + dis + '>Approve, keep shifts</button><button class="shf-btn p" data-act="lv-trim" data-id="' + l.id + '"' + dis + ">Approve and change them</button>";
     else if (a === "gap") h += '<span class="q">Approving leaves the pharmacy without a pharmacist on these days. Approve anyway?</span><button class="shf-btn" data-act="lv-keep">Not yet</button><button class="shf-btn p" data-act="lv-approve-yes" data-id="' + l.id + '"' + dis + ">Approve anyway</button>";
     else if (a === "locum") h += '<span class="q">Make sure a locum shift is planned for these days.</span><button class="shf-btn" data-act="lv-keep">Not yet</button><button class="shf-btn p" data-act="lv-approve-yes" data-id="' + l.id + '"' + dis + ">Approve</button>";
+    else if (!canAnswer(l)) h += '<span class="q">' + (meId() != null && Number(l.staff_id) === meId() ? "Waiting for an answer from the pharmacy's admin." : "The pharmacy's admin answers it.") + "</span>"; // roles round: never your own
     else h += '<button class="shf-btn" data-act="lv-refuse" data-id="' + l.id + '"' + dis + ' aria-label="Refuse ' + esc(p.full_name) + "'s leave\">Refuse</button>" + '<button class="shf-btn p" data-act="lv-approve" data-id="' + l.id + '"' + dis + ' aria-label="Approve ' + esc(p.full_name) + "'s leave\">Approve</button>";
     return h + "</div></div>";
   }
@@ -309,7 +329,9 @@
     return out.concat(g.map(function (r) { return r.h; })).join("");
   }
   // A gap in pharmacist cover, in words; one tap opens a new shift for those hours with a free pharmacist chosen.
+  function beforeStart(k) { return !!(E.beforeStart && E.beforeStart(k)); } // dayzero's E.startYmd contract; absent: as before
   function gapHtml(key, g, dayName) {
+    if (beforeStart(key)) return ""; // before the pharmacy existed: no gap to fill
     var t = g.from + "–" + g.to;
     return '<button class="shf-gap" data-act="fill" data-date="' + key + '" data-s="' + g.from + '" data-e="' + g.to + '" aria-label="No pharmacist ' + esc(g.from) + " to " + esc(g.to) + " on " + esc(dayName) + ': fill the gap"><b>No pharmacist ' + esc(t) + '</b><span>Fill the gap</span><span class="chev" aria-hidden="true"></span></button>';
   }
@@ -364,7 +386,9 @@
 
   // ---- the header: back, title, leave requests, people, range bar, tools ----
   function headHtml() {
-    var h = '<button class="shf-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("shfreg") : "‹ Team") + '</button><h1>Plan shifts</h1><p class="shf-sub">Who works when: add, change or remove a shift, fill weeks and months at once, and answer leave requests.</p>';
+    var h = '<button class="shf-back" data-act="back">' + esc(E.ui2BackLabel ? E.ui2BackLabel("shfreg") : "‹ Team") + '</button><h1>Plan shifts</h1>' + (canPlan()
+      ? '<p class="shf-sub">Who works when: add, change or remove a shift, fill weeks and months at once, and answer leave requests.</p>'
+      : '<p class="shf-sub">Who works when, and your leave requests. Only the pharmacy\'s admin changes shifts. <a href="#rotreg" class="shf-mine">Your next shifts</a></p>'); // roles round
     return h;
   }
   function leaveBlock() {
@@ -373,12 +397,12 @@
       var soon = addDays(todayK(), 14), open = S.lvOpen || S.lv || S.ask || S.lvMsg || S.busy || pending.some(function (l) { return l.start_date <= soon && (l.end_date || l.start_date) >= todayK(); });
       if (!open && pending.length) { // calm: one line that opens them
         var who = pending.slice(0, 3).map(function (l) { return first(person(l.staff_id)) + " (" + leaveLabel(l.leave_type).replace(/ leave$/i, "").toLowerCase() + " " + leaveWhen(l) + ")"; }).join(", ") + (pending.length > 3 ? " and " + (pending.length - 3) + " more" : "");
-        return '<div class="shf-card shf-lvline"><button class="shf-add" style="border-top:0" data-act="lv-open" aria-expanded="false">' + esc(plural(pending.length, "leave request") + ": " + who) + ' ›</button>' + (leavers().length ? '<button class="shf-add" data-act="lv-new" data-k="lv-new">+ New leave request</button>' : "") + "</div>" + (S.leaveErr ? '<p class="shf-note">' + esc(S.leaveErr) + "</p>" : "");
+        return '<div class="shf-card shf-lvline"><button class="shf-add" style="border-top:0" data-act="lv-open" aria-expanded="false">' + esc(plural(pending.length, "leave request") + ": " + who) + ' ›</button>' + (leavers().length ? '<button class="shf-add" data-act="lv-new" data-k="lv-new">' + (canPlan() ? "+ New leave request" : "+ Ask for leave") + "</button>" : "") + "</div>" + (S.leaveErr ? '<p class="shf-note">' + esc(S.leaveErr) + "</p>" : "");
       }
       h += '<div class="shf-lab">Leave requests <b>' + pending.length + "</b></div>";
       if (S.lvMsg) h += '<div class="shf-err" role="alert" style="padding:0 2px 6px">' + esc(S.lvMsg) + "</div>";
       h += '<div class="shf-card">' + pending.map(leaveHtml).join("") +
-        (S.lv ? lvFormHtml() : leavers().length ? '<button class="shf-add"' + (pending.length ? "" : ' style="border-top:0"') + ' data-act="lv-new" data-k="lv-new">+ New leave request</button>' : "") + "</div>";
+        (S.lv ? lvFormHtml() : leavers().length ? '<button class="shf-add"' + (pending.length ? "" : ' style="border-top:0"') + ' data-act="lv-new" data-k="lv-new">' + (canPlan() ? "+ New leave request" : "+ Ask for leave") + "</button>" : "") + "</div>";
     }
     if (S.leaveErr) h += '<p class="shf-note">' + esc(S.leaveErr) + "</p>";
     return h;
@@ -498,11 +522,12 @@
         });
       });
     }
-    lookList = out.filter(function (w) { return w && w.date >= lo && w.date <= hi; });
+    lookList = out.filter(function (w) { return w && w.date >= lo && w.date <= hi && !beforeStart(w.date); }); // nothing is flagged before the pharmacy existed (W9, E.startYmd)
     looks = {}; lookList.forEach(function (w) { if (w.staff_id != null) { var k = w.staff_id + "|" + w.date; if (looks[k] !== "bad") looks[k] = w.level === "problem" ? "bad" : "warn"; } });
   }
   function lookHtml() {
     var l = lookList.filter(function (w) { return w.level !== "info"; });
+    if (!canPlan()) return l.length ? '<p class="shf-note" id="shf-look">The pharmacy\'s admin sees the gaps in the rota and plans them.</p>' : ""; // roles round: one grey line, not the planner's red list
     if (!l.length) return '<div class="shf-look" id="shf-look" role="status">' + (S.shifts.length ? "<b>Nothing to look at " + rangeWord() + ".</b>" : "") + "</div>";
     return '<div class="shf-look" id="shf-look" role="status"><b>Things to look at ' + rangeWord() + " (" + l.length + "):</b>" + l.slice(0, 12).map(function (w) { return '<button class="' + esc(w.level || "") + '" data-act="jump" data-date="' + esc(w.date) + '" data-sid="' + esc(w.staff_id == null ? "" : w.staff_id) + '">' + esc(w.words) + " ›</button>"; }).join("") + (l.length > 12 ? "<span>and " + (l.length - 12) + " more</span>" : "") + "</div>";
   }
@@ -623,6 +648,7 @@
     h += '<div id="shf-dlghost">' + dlgHtml() + "</div>";
     var oldDlg = S.dlg ? m.querySelector("#shf-dlghost") : null; // an open sheet (and any part mounted in it) stays as it is
     m.innerHTML = h;
+    roPrune(m);
     if (oldDlg) { var nd = m.querySelector("#shf-dlghost"); if (nd) nd.replaceWith(oldDlg); }
     mountExt();
     S.selShown = {}; selKeys().forEach(function (k) { S.selShown[k] = 1; });
@@ -684,6 +710,9 @@
     var m = S.mount, a = b.getAttribute("data-act"), id = Number(b.getAttribute("data-id"));
     if (b.closest(".shf-grid") && (ev.shiftKey || ev.ctrlKey || ev.metaKey) && b.closest("td.shf-c")) return; // a selection click, handled on mousedown
     if (b.closest(".shf-grid") && ((S.drag && S.drag.moved) || Date.now() - (S.dragEnd || 0) < 350)) return; // the end of a drag is not a click
+    if (!canPlan() && RO_ACTS[a]) { ev.preventDefault(); roMsg(); return; } // roles round: the worker refuses these too
+    if (/^lv-(approve|refuse|keep-shifts|drop-shifts|trim|approve-yes|refuse-yes)$/.test(a)) { var lq = S.leaves.filter(function (l) { return Number(l.id) === id; })[0]; if (lq && !canAnswer(lq)) { S.lvMsg = "Nobody but an admin answers their own leave request."; paint(); return; } }
+    if (a === "person" && !canPlan() && Number(b.getAttribute("data-sid")) !== meId()) { roMsg(); return; } // their own details only
     if (a === "back") window.location.hash = E.ui2BackHash ? E.ui2BackHash("shfreg") : "#team";
     else if (a === "retry") load();
     else if (a === "prev" || a === "next" || a === "now") { if (S.saving) return; step(a === "now" ? 0 : a === "prev" ? -1 : 1); }
@@ -711,6 +740,7 @@
     else if (a === "classic" || a === "to-classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "shfreg"); } catch (x2) {} E.openClassic("shifts"); }
     else if (a === "who") { S.who = newWho(); paint(true); var n = m.querySelector('#shf-who [name="full_name"]'); if (n) n.focus(); }
     else if (a === "who-done") closeWho();
+    else if (a === "who-acc" && S.who) { var ac = (S.accounts || []).filter(function (u) { return String(u.id) === b.getAttribute("data-id"); })[0]; if (ac) { S.who.full_name = ac.full_name || ac.email; S.who.uid = ac.id; S.who.designation = ac.is_pharmacist ? "pharmacist" : (S.who.designation === "pharmacist" && active().some(isPharm) ? "assistant" : S.who.designation); paint(true); var sb = S.mount.querySelector('[data-k="who-add"]'); if (sb) sb.focus(); } }
     else if (a === "lv-new") { S.lvOpen = true; openLeave(); }
     else if (a === "lv-open") { S.lvOpen = true; paint(true); var la = S.mount.querySelector(".shf-lv [data-act=lv-approve]"); if (la) la.focus(); }
     else if (a === "fill") { if (S.saving) return; openGap(b.getAttribute("data-date"), { from: b.getAttribute("data-s"), to: b.getAttribute("data-e") }); }
@@ -756,6 +786,7 @@
   function onDown(ev) {
     if (ev.button !== 0) return;
     var c = cellOf(ev.target); if (!c) return;
+    if (!canPlan()) { ev.preventDefault(); roMsg(); return; } // roles round: a cell opens nothing to change
     var onChip = ev.target.closest && ev.target.closest(".shf-p");
     if (ev.shiftKey && S.anchor) { ev.preventDefault(); setSel(rect(S.anchor, c)); focusCell(c); return; }
     if (ev.ctrlKey || ev.metaKey) { ev.preventDefault(); var ns = Object.assign({}, S.sel), kk = c.sid + "|" + c.date; if (ns[kk]) delete ns[kk]; else ns[kk] = true; S.anchor = { sid: c.sid, date: c.date }; setSel(ns); focusCell(c); return; }
@@ -789,6 +820,7 @@
   }
   function onDragStart(ev) {
     var b = ev.target && ev.target.closest && ev.target.closest(".shf-grid .shf-p"); if (!b) return;
+    if (!canPlan()) { ev.preventDefault(); return; }
     S.dragId = Number(b.getAttribute("data-id")); try { ev.dataTransfer.setData("text/plain", "shift:" + S.dragId); ev.dataTransfer.effectAllowed = "move"; } catch (e) {}
   }
   function onDragOver(ev) { if (S.dragId == null) return; var c = cellOf(ev.target); if (!c) return; ev.preventDefault(); c.td.classList.add("drop"); }
@@ -813,6 +845,7 @@
       focusCell(to); return;
     }
     if (k === "Home" || k === "End") { ev.preventDefault(); focusCell({ sid: c.sid, date: ks[k === "Home" ? 0 : ks.length - 1] }); return; }
+    if (!canPlan() && (k === " " || k === "Enter" || k === "Delete" || k === "Backspace" || (mod && /^[cva]$/i.test(k)) || (!mod && low(k) === "f"))) { ev.preventDefault(); if (k === "Enter" || k === "Delete" || k === "Backspace") roMsg(); return; } // roles round
     if (k === " ") { ev.preventDefault(); var ns = Object.assign({}, S.sel), kk = c.sid + "|" + c.date; if (ns[kk]) delete ns[kk]; else ns[kk] = true; S.anchor = { sid: c.sid, date: c.date }; setSel(ns); return; }
     if (k === "Enter") { ev.preventDefault(); if (t.classList && t.classList.contains("shf-p")) { var x = shiftById(t.getAttribute("data-id")); if (x) { S.form = editForm(x); paint(true); focus("start_time"); } } else cellClick(c); return; }
     if (k === "Escape" && selKeys().length) { ev.preventDefault(); setSel({}); return; }
@@ -831,7 +864,7 @@
     if (document.querySelector(".eikon-modal-overlay[style*='flex'], .eks")) return;
     var k = ev.key;
     if (k === "ArrowLeft" || k === "ArrowRight") { ev.preventDefault(); S.ask = null; step(k === "ArrowLeft" ? -1 : 1); }
-    else if (low(k) === "f" && active().length) { ev.preventDefault(); openFill("menu"); }
+    else if (low(k) === "f" && active().length && canPlan()) { ev.preventDefault(); openFill("menu"); }
     else if (low(k) === "w" || low(k) === "m") { ev.preventDefault(); setView(low(k) === "m" ? "month" : "week"); }
     else if (low(k) === "t") { ev.preventDefault(); step(0); }
   }
@@ -857,7 +890,7 @@
 
   // ---- parts from the other files: opening hours and rules sheets (E.rotaSet), print and calendar link (E.rotaPrint,
   // E.rotaCal), the "until changed" extend line (E.rotaPlan.ui.extendLine). Each keeps its own state across redraws. ----
-  function setCtx() { return { staff: S.staff, leaves: S.leaves, onSaved: function () { changed(); }, onGone: function () { changed(); } }; }
+  function setCtx() { return { staff: S.staff, leaves: S.leaves, canPlan: canPlan(), meId: meId(), isAdmin: isAdminU(), onSaved: function () { changed(); }, onGone: function () { changed(); } }; } // canPlan/meId/isAdmin: roles round
   function changed() { clearTimeout(S.chT); S.chT = setTimeout(function () { if (E.state.activeModuleId === "shfreg" && S.mount && document.body.contains(S.mount)) E.whenFormIdle(S.mount, load); }, 60); } // once, however many parts say so
   function mountExt() {
     var slot = S.mount.querySelector("#shf-ext"); if (!slot || !RP() || !RP().ui || !RP().ui.extendLine) return;
@@ -879,14 +912,40 @@
   // ---- Add a person to the rota: the classic "Add Employee" with what it sends for a name and a role ----
   // POST /shifts/staff {full_name, designation, employment_type, contracted_hours, email, phone, registration_number,
   // is_active, patterns_json}: full time 40 h (a locum is external, as the classic sets it), the rest empty.
-  function newWho() { return { full_name: "", designation: active().some(isPharm) ? "assistant" : "pharmacist", err: "", saving: false, added: [] }; }
+  function newWho() { loadAccounts(); return { full_name: "", designation: active().some(isPharm) ? "assistant" : "pharmacist", err: "", saving: false, added: [], uid: null }; }
+  // One list of people (W15): the admin picks the people who sign in here; the new rota person is linked to that sign-in
+  // (POST /shifts/staff/:id/link) — nothing is merged or copied. Read once per visit, admins only (the route is theirs).
+  function loadAccounts() {
+    if (!isAdminU() || S.accounts || S.accountsP) return;
+    S.accountsP = E.apiFetch("/team/users", { method: "GET" }).then(function (r) { S.accounts = (r && r.ok && r.users) || []; }, function () { S.accounts = []; })
+      .then(function () { S.accountsP = null; fillAccounts(); });
+  }
+  // The list arrives while the name may be being typed: only its own slot is drawn (the form is not redrawn).
+  function accountsHtml() {
+    var w = S.who, l = freeAccounts(); if (!w || !l.length) return "";
+    return '<div class="shf-acc" role="group" aria-label="People who sign in, not on the rota yet"><span>Sign in here, not on the rota yet:</span>' + l.map(function (u) { return '<button type="button" class="shf-chip" data-act="who-acc" data-id="' + u.id + '"' + (w.saving ? " disabled" : "") + ' aria-pressed="' + (String(w.uid) === String(u.id)) + '">' + esc(u.full_name || u.email) + "</button>"; }).join("") + "</div>" +
+      '<datalist id="shf-acc-list">' + l.map(function (u) { return '<option value="' + esc(u.full_name) + '"></option>'; }).join("") + "</datalist>";
+  }
+  function fillAccounts() {
+    var slot = S.mount && E.state.activeModuleId === "shfreg" ? S.mount.querySelector("#shf-acc-slot") : null; if (!slot) return;
+    slot.innerHTML = accountsHtml();
+    var n = S.mount.querySelector('#shf-who [name="full_name"]'); if (n) { if (freeAccounts().length) n.setAttribute("list", "shf-acc-list"); else n.removeAttribute("list"); }
+  }
+  function fold(n) { return E.rotaFold ? E.rotaFold(n) : low(n); }
+  function freeAccounts() { // signs in here, switched on, not Eikon support, and not on the rota yet (by link or by name)
+    var linked = {}, names = {}; Object.keys(S.staff).forEach(function (k) { var p = S.staff[k]; if (p.user_id != null) linked[p.user_id] = 1; names[fold(p.full_name)] = 1; });
+    return (S.accounts || []).filter(function (u) { return u.is_active && !u.protected && !linked[u.id] && !names[fold(u.full_name)]; });
+  }
+  function accountFor(name) { var f = fold(name); if (!f) return null; var hit = freeAccounts().filter(function (u) { return fold(u.full_name) === f; }); return hit.length === 1 ? hit[0] : null; }
   function whoHtml() {
     var w = S.who, firstOne = !active().length;
     return '<div class="shf-card shf-who"><h2 id="shf-who-t">' + (firstOne ? "Who works here?" : "Add a person to the rota") + "</h2>" +
       "<p>" + (firstOne ? "Add each person once. Then plan their shifts on the week below." : "They can then be given shifts on any day.") + "</p>" +
       (w.added.length ? '<p class="ok" role="status">' + esc(w.added.join(", ")) + (w.added.length === 1 ? " is" : " are") + " on the rota. Add the next person, or press Done.</p>" : "") +
+      '<div id="shf-acc-slot">' + accountsHtml() + "</div>" +
       '<form class="shf-form" id="shf-who" novalidate aria-labelledby="shf-who-t">' +
-      '<label><span>Name</span><input name="full_name" value="' + esc(w.full_name) + '" autocomplete="off" enterkeyhint="done"' + (w.err ? ' aria-invalid="true" aria-describedby="shf-who-err"' : "") + (w.saving ? " disabled" : "") + "></label>" +
+      '<label><span>Name</span><input name="full_name" value="' + esc(w.full_name) + '" autocomplete="off" enterkeyhint="done"' + (freeAccounts().length ? ' list="shf-acc-list"' : "") + (w.err ? ' aria-invalid="true" aria-describedby="shf-who-err"' : "") + (w.saving ? " disabled" : "") + "></label>" +
+
       '<label><span>Role</span><select name="designation"' + (w.saving ? " disabled" : "") + ">" + Object.keys(DESIG).map(function (k) { return '<option value="' + k + '"' + (w.designation === k ? " selected" : "") + ">" + DESIG[k] + "</option>"; }).join("") + "</select></label>" +
       (w.err ? '<div class="shf-err" role="alert" id="shf-who-err">' + esc(w.err) + "</div>" : "") +
       '<div class="acts">' + (w.added.length || !firstOne ? '<button type="button" class="shf-btn" data-act="who-done" data-k="who-done">Done</button>' : "") +
@@ -901,10 +960,20 @@
     if (!name) { w.err = "Write the person’s name, as it should show on the rota."; paint(true); var n0 = S.mount.querySelector('#shf-who [name="full_name"]'); if (n0) n0.focus(); return; }
     var body = { full_name: name, designation: w.designation, employment_type: w.designation === "locum" ? "external" : "fulltime", contracted_hours: 40,
       email: "", phone: "", registration_number: "", is_active: 1, patterns_json: JSON.stringify({ patterns: [], provisionalId: null }) };
+    var acc = (w.uid && (S.accounts || []).filter(function (u) { return String(u.id) === String(w.uid) && fold(u.full_name) === fold(name); })[0]) || accountFor(name); // the sign-in this person is
     w.err = ""; w.saving = true; paint(true);
     try {
-      await E.postOnce("/shifts/staff", body, { list: async function () { var r = await E.apiFetch("/shifts/staff?include_inactive=1", { method: "GET" }); return (r && r.staff) || []; },
+      var listP = async function () { var r = await E.apiFetch("/shifts/staff?include_inactive=1", { method: "GET" }); return (r && r.staff) || []; };
+      var made = await E.postOnce("/shifts/staff", body, { list: listP,
         same: function (p) { return String(p.full_name) === name; } });
+      if (acc) { // link it (the same body as before was saved; the link is its own call)
+        try {
+          var sid = made && made.staff_id; if (!sid) { var f0 = (await listP()).filter(function (p) { return String(p.full_name) === name && p.user_id == null; }).pop(); sid = f0 && f0.id; }
+          var lk = sid ? await E.apiFetch("/shifts/staff/" + encodeURIComponent(sid) + "/link", { method: "POST", body: JSON.stringify({ user_id: acc.id }) }) : null;
+          if (!lk || !lk.ok) throw new Error((lk && lk.error) || "not linked");
+        } catch (eL) { E.toast(name + " is on the rota, but not linked to their sign-in. Link them in People who sign in.", "warn"); }
+      }
+      w.uid = null;
       w.saving = false; w.added.push(name); w.full_name = ""; w.designation = isPharm({ designation: w.designation }) ? "assistant" : w.designation;
       E.toast(name + " added to the rota", "success");
       await reloadStaff(); // just the people: the week stays as it is
@@ -930,7 +999,7 @@
     return { staff_id: sid, leave_type: v.leave_type, start_date: sd, start_time: st || null, end_date: ed, end_time: et || null, hours_requested: Math.max(0, +h0.toFixed(1)), reason: String(v.reason || "").trim(), status: "pending" };
   }
   function openLeave() {
-    var one = leavers().length === 1 ? String(leavers()[0].id) : "";
+    var mine = meId(), one = leavers().length === 1 ? String(leavers()[0].id) : mine != null && leavers().some(function (p) { return Number(p.id) === mine; }) ? String(mine) : ""; // Who = you (roles round)
     S.lv = { staff_id: one, leave_type: "annual", start_date: ymd(new Date()), end_date: ymd(new Date()), endSet: false, start_time: "", end_time: "", reason: "", err: "", bad: [], saving: false };
     S.lvMsg = ""; paint(true);
     var el = S.mount && S.mount.querySelector("#shf-lvf [name=" + (one ? "leave_type" : "staff_id") + "]"); if (el) { el.focus(); if (el.scrollIntoView) try { el.scrollIntoView({ block: "center" }); } catch (e) {} }
@@ -1724,6 +1793,8 @@
         if (E.state.activeModuleId !== "shfreg" || S.error) return;
         if (S.jumpTo) { var j = S.jumpTo; S.jumpTo = null; jump(j); }
         if (wantLeave && leavers().length) openLeave();
+        else if ((gap || sw) && !canPlan()) roMsg(); // roles round: Who's in offered a change this person cannot make
+        else if (!canPlan() && !S.wide && !wk && E.modules && E.modules.rotreg && !S.roMine) { S.roMine = true; location.replace("#rotreg"); } // a phone without the rota right lands on their own two weeks (Who's in › Your next shifts), once per visit
         else if (gap && dayCover(gap.date).gaps.some(function (g) { return g.from === gap.from && g.to === gap.to; })) openGap(gap.date, gap);
         else if (sw) { var x = shiftById(sw.id); if (x) { S.form = editForm(x); openSwap(); } } // the shift tapped on Who's in, ready to swap
       });

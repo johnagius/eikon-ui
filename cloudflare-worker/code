@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-11-batch-19";
+const WORKER_VERSION = "2026-11-11-batch-20";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -1670,6 +1670,7 @@ async function handleLogin(request, env, corsOkHeaders) {
         location_id: loc.id,
         location_name: loc.name,
         org_name: (await dbFirst(env, "SELECT name FROM orgs WHERE id = ?", [user.org_id]))?.name || "",
+        location_since: await locationSince(env, { org_id: user.org_id, location_id: loc.id }), // FIN-dayzero hook
         ...(mustChange ? { must_change: true } : {})
       },
       ...(mustChange ? { must_change: true } : {})
@@ -1680,7 +1681,7 @@ async function handleLogin(request, env, corsOkHeaders) {
 }
 
 async function handleMe(env, corsOkHeaders, authUser) {
-  return jsonResponse({ ok: true, user: authUser }, 200, corsOkHeaders);
+  return jsonResponse({ ok: true, user: { ...authUser, location_since: await locationSince(env, authUser) } }, 200, corsOkHeaders); // FIN-dayzero hook
 }
 
 function isValidYmd(s) {
@@ -8129,6 +8130,13 @@ async function ensureCreditNotesSchema__impl(env) {
     )
   `);
   await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_credit_notes_org_loc ON credit_notes(org_id, location_id)`);
+  // dayzero: each pharmacy numbers its own credit notes (cn_no), from 1 in a new pharmacy, and after its highest number
+  // so far (the row id it always showed) in one that has notes. Added when missing; rows already stored keep cn_no NULL
+  // and are still shown by their id, so no number anyone has printed or written down changes.
+  try { await dbRun(env, `ALTER TABLE credit_notes ADD COLUMN cn_no INTEGER`); } catch (e) { /* already there */ }
+  await dbRun(env, `CREATE UNIQUE INDEX IF NOT EXISTS idx_credit_notes_org_loc_no ON credit_notes(org_id, location_id, cn_no) WHERE cn_no IS NOT NULL`);
+  // records (W6): the highest number each pharmacy has given, so a deleted note's number is never given again
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS credit_note_seq (org_id INTEGER NOT NULL, location_id INTEGER NOT NULL, last_no INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (org_id, location_id))`);
 
   await dbRun(env, `
     CREATE TABLE IF NOT EXISTS credit_note_purchases (
@@ -8164,7 +8172,7 @@ async function handleCreditNotesList(request, env, corsOkHeaders, authUser, url)
 
   const rows = await dbAll(env, `
     SELECT id, issue_date, client_name, client_surname, telephone, email,
-           receipt_number, amount, expiry_date, no_expiry
+           receipt_number, amount, expiry_date, no_expiry, cn_no
     FROM credit_notes
     WHERE org_id=? AND location_id=?
     ORDER BY issue_date DESC, id DESC
@@ -8215,14 +8223,38 @@ async function handleCreditNoteCreate(request, env, corsOkHeaders, authUser) {
   if (amount <= 0) return jsonResponse({ ok: false, error: "Amount must be > 0" }, 400, corsOkHeaders);
   if (!no_expiry && expiry_date && !/^\d{4}-\d{2}-\d{2}$/.test(expiry_date)) return jsonResponse({ ok: false, error: "Invalid expiry date" }, 400, corsOkHeaders);
 
-  const res = await dbRun(env, `
-    INSERT INTO credit_notes (org_id, location_id, issue_date, client_name, client_surname, telephone, email, receipt_number, amount, expiry_date, no_expiry, created_at, updated_at, created_by, updated_by)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'),?,?)
-  `, [authUser.org_id, authUser.location_id, issue_date, client_name, client_surname, telephone, email||null, receipt_number||null, amount, (no_expiry ? null : expiry_date||null), no_expiry, authUser.user_id, authUser.user_id]);
+  // dayzero: the pharmacy's next number, taken in the same statement; two saves at the same instant meet the unique
+  // index and the second simply takes the next one.
+  let res = null, cnNo = null;
+  // records (W6): the first time a pharmacy that already has notes (or ever made one) gets a number, it starts after
+  // every credit-note number this database ever showed (the row ids, deleted ones included, from the audit), so no
+  // number on a printed note is given twice; a new pharmacy starts at 1. One time per pharmacy.
+  try {
+    const seq = await dbFirst(env, `SELECT last_no FROM credit_note_seq WHERE org_id = ? AND location_id = ?`, [authUser.org_id, authUser.location_id]);
+    if (!seq) {
+      const old = await dbFirst(env, `SELECT 1 AS x FROM credit_notes WHERE org_id = ? AND location_id = ? LIMIT 1`, [authUser.org_id, authUser.location_id]);
+      const aud = await dbFirst(env, `SELECT MAX(CAST(entity_id AS INTEGER)) AS m FROM audit_log WHERE entity_type = 'credit_notes' AND action = 'CREDITNOTE_CREATE' AND org_id = ? AND location_id = ?`, [authUser.org_id, authUser.location_id]);
+      let start = 0;
+      if (old || (aud && aud.m)) { const g = await dbFirst(env, `SELECT MAX(id) AS m FROM credit_notes`, []); start = Math.max(Number(g && g.m) || 0, Number(aud && aud.m) || 0); }
+      await dbRun(env, `INSERT OR IGNORE INTO credit_note_seq (org_id, location_id, last_no) VALUES (?,?,?)`, [authUser.org_id, authUser.location_id, start]);
+    }
+  } catch (e) {}
+  for (let attempt = 0; attempt < 4 && !res; attempt++) {
+    try {
+      res = await dbRun(env, `
+        INSERT INTO credit_notes (org_id, location_id, issue_date, client_name, client_surname, telephone, email, receipt_number, amount, expiry_date, no_expiry, created_at, updated_at, created_by, updated_by, cn_no)
+        VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,datetime('now'),datetime('now'),?12,?13,
+          MAX((SELECT COALESCE(MAX(COALESCE(cn_no, id)), 0) FROM credit_notes WHERE org_id = ?1 AND location_id = ?2),
+              COALESCE((SELECT last_no FROM credit_note_seq WHERE org_id = ?1 AND location_id = ?2), 0)) + 1)
+      `, [authUser.org_id, authUser.location_id, issue_date, client_name, client_surname, telephone, email||null, receipt_number||null, amount, (no_expiry ? null : expiry_date||null), no_expiry, authUser.user_id, authUser.user_id]);
+    } catch (e) { if (!/UNIQUE/i.test(String(e && e.message || e)) || attempt === 3) throw e; }
+  }
 
   const newId = (res && res.meta && res.meta.last_row_id) ? Number(res.meta.last_row_id) : null;
-  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_CREATE", "credit_notes", String(newId||""), { issue_date, client_name, client_surname }, authUser.location_id);
-  return jsonResponse({ ok: true, id: newId }, 200, corsOkHeaders);
+  if (newId) { try { const r = await dbFirst(env, `SELECT cn_no FROM credit_notes WHERE id = ?`, [newId]); cnNo = r && r.cn_no != null ? Number(r.cn_no) : null; } catch (e) { cnNo = null; } }
+  if (cnNo != null) { try { await dbRun(env, `INSERT INTO credit_note_seq (org_id, location_id, last_no) VALUES (?,?,?) ON CONFLICT(org_id, location_id) DO UPDATE SET last_no = MAX(last_no, excluded.last_no)`, [authUser.org_id, authUser.location_id, cnNo]); } catch (e) {} }
+  await writeAudit(env, authUser.org_id, authUser.user_id, "CREDITNOTE_CREATE", "credit_notes", String(newId||""), { issue_date, client_name, client_surname, ...(cnNo != null ? { cn_no: cnNo } : {}) }, authUser.location_id);
+  return jsonResponse({ ok: true, id: newId, ...(cnNo != null ? { cn_no: cnNo } : {}) }, 200, corsOkHeaders);
 }
 
 async function handleCreditNoteUpdate(request, env, corsOkHeaders, authUser, id) {
@@ -8748,15 +8780,19 @@ async function handleDdaSalesEntryCreate(request, env, corsOkHeaders, authUser) 
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_CREATE", "dda_sales_entries", String(row.id), {
+  const warned = ddaBalanceWarning(body, quantity); // the over-supply warning seen at entry (new layout only)
+  const kept = warned ? await ddaKeepWarning(env, authUser, "sales", row.id, entryDate, medicineNameDose, warned) : false;
+  const details = {
     entry_date: entryDate,
     client_id_card: clientIdCardNorm,
     prescription_serial_no: prescriptionSerialNo,
     quantity: quantity,
     urgent: urgent
-  }, authUser.location_id);
+  };
+  if (warned) details.balance_warning = { balance: warned.balance, after: warned.after, since: warned.since, counted: warned.counted };
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_SALES_ENTRY_CREATE", "dda_sales_entries", String(row.id), details, authUser.location_id);
 
-  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+  return jsonResponse(warned ? { ok: true, entry_id: row.id, balance_warning_kept: kept } : { ok: true, entry_id: row.id }, 200, corsOkHeaders);
 }
 
 async function handleDdaSalesEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
@@ -9196,14 +9232,18 @@ async function handleDdaPoycEntryCreate(request, env, corsOkHeaders, authUser) {
     ]
   );
 
-  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_POYC_ENTRY_CREATE", "dda_poyc_entries", String(row.id), {
+  const warned = ddaBalanceWarning(body, quantity); // the over-supply warning seen at entry (new layout only)
+  const kept = warned ? await ddaKeepWarning(env, authUser, "poyc", row.id, entryDate, medicineNameDose, warned) : false;
+  const details = {
     entry_date: entryDate,
     client_id_card: clientIdCard,
     prescription_serial_no: prescriptionSerialNo,
     quantity: quantity
-  }, authUser.location_id);
+  };
+  if (warned) details.balance_warning = { balance: warned.balance, after: warned.after, since: warned.since, counted: warned.counted };
+  await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_POYC_ENTRY_CREATE", "dda_poyc_entries", String(row.id), details, authUser.location_id);
 
-  return jsonResponse({ ok: true, entry_id: row.id }, 200, corsOkHeaders);
+  return jsonResponse(warned ? { ok: true, entry_id: row.id, balance_warning_kept: kept } : { ok: true, entry_id: row.id }, 200, corsOkHeaders);
 }
 
 async function handleDdaPoycEntryUpdate(request, env, corsOkHeaders, authUser, entryId) {
@@ -9935,6 +9975,7 @@ async function handleDdaStockTakeItemDelete(request, env, corsOkHeaders, authUse
 // and the stock takes' (org_id, location_id, created_at) index; at most 400 days per request.
 //   GET /dda-register/medicines?from&to   the medicines written in received / supplied / POYC and counted in stock
 //                                         takes in the period (default the last 92 days), one row per spelling.
+//                                         `warned` (Finish round): over-supply warnings seen at entry, per spelling.
 //   GET /dda-register/ledger?term&from&to every line whose medicine contains `term` (received, supplied, POYC) and every
 //                                         stock-take count of it. Without `from`, the period starts at the count before
 //                                         the latest (a balance needs every line since a count, and the latest count is
@@ -9974,7 +10015,13 @@ async function handleDdaRegisterMedicines(request, env, corsOkHeaders, authUser,
       WHERE s.org_id = ? AND s.location_id = ? AND s.created_at >= ? AND s.created_at < ?
       GROUP BY i.item_name, i.dosage`, [o, l, p.from, ddaRegYmdShift(p.to, 1)])
   ]);
-  return jsonResponse({ ok: true, from: p.from, to: p.to, received, supplied, poyc, counted }, 200, corsOkHeaders);
+  const out = { ok: true, from: p.from, to: p.to, received, supplied, poyc, counted };
+  try { // over-supply warnings seen at entry, per spelling (the key only when there are some); read only, as above
+    const warned = await dbAll(env, `SELECT medicine AS name, COUNT(*) AS n, MAX(entry_date) AS last FROM dda_balance_warnings
+      WHERE org_id = ? AND location_id = ? AND entry_date >= ? AND entry_date <= ? GROUP BY medicine`, [o, l, p.from, p.to]);
+    if (warned.length) out.warned = warned;
+  } catch (e) {}
+  return jsonResponse(out, 200, corsOkHeaders);
 }
 
 async function handleDdaRegisterLedger(request, env, corsOkHeaders, authUser, url) {
@@ -10009,8 +10056,243 @@ async function handleDdaRegisterLedger(request, env, corsOkHeaders, authUser, ur
     rows(`SELECT id, entry_date, medicine_name_dose, quantity, client_name, client_id_card, doctor_name, doctor_reg_no, prescription_serial_no, created_at FROM dda_poyc_entries
       WHERE org_id = ? AND location_id = ? AND entry_date >= ? AND entry_date <= ? AND lower(medicine_name_dose) LIKE ? ESCAPE '\\' ORDER BY entry_date ASC, id ASC`)
   ]);
-  return jsonResponse({ ok: true, term, from, to: p.to, auto_from: auto, received, supplied, poyc, counts }, 200, corsOkHeaders);
+  const out = { ok: true, term, from, to: p.to, auto_from: auto, received, supplied, poyc, counts };
+  try { // the warnings seen at entry for it in the same days (the key only when there are some: the answer is otherwise as before).
+    // Read only: the tables are not made here (a database without them simply has none: the error is caught)
+    const warnings = await dbAll(env, `SELECT id, register, entry_id, entry_date, medicine, quantity, balance, after, since, counted, created_name, created_at FROM dda_balance_warnings
+      WHERE org_id = ? AND location_id = ? AND entry_date >= ? AND entry_date <= ? AND lower(medicine) LIKE ? ESCAPE '\\' ORDER BY entry_date ASC, id ASC LIMIT 200`, [o, l, from, p.to, like]);
+    if (warnings.length) out.warnings = warnings;
+  } catch (e) {}
+  try { // open part-supplies of it (the key only when there are some)
+    const partials = (await ddaPartialRead(env, authUser, "status = 'open' AND lower(medicine_name_dose) LIKE ? ESCAPE '\\'", [like]));
+    if (partials.length) out.partials = partials;
+  } catch (e) {}
+  return jsonResponse(out, 200, corsOkHeaders);
 }
+
+// ===== Controlled drugs: the over-supply warning seen at entry (Finish round, records; owner decision 2026-11-11) =====
+// When a Supplied or POYC line takes a medicine below what the registers show, the new layout warns under the line
+// and still saves (the register must say what really happened). The POST body then carries one more key,
+// balance_warning { balance, after, since, counted }: what the registers showed before the line, what they show
+// after it (below zero), the day the balance starts from and whether that was a stock-take count. The register line
+// itself is saved exactly as before (same columns, same values); the warning goes into a new table and into the
+// line's audit entry. Classic bodies (no key) save and audit exactly as before. A warning that cannot be kept never
+// fails the save. Additive: one new table with its own index; no existing table, row or column changes.
+async function ensureDdaWarningsSchema__impl(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS dda_balance_warnings (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+    register TEXT NOT NULL, entry_id INTEGER NOT NULL, entry_date TEXT NOT NULL, medicine TEXT NOT NULL, quantity INTEGER NOT NULL,
+    balance INTEGER NOT NULL, after INTEGER NOT NULL, since TEXT NOT NULL DEFAULT '', counted INTEGER NOT NULL DEFAULT 0,
+    created_by INTEGER, created_name TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')))`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_dda_balance_warnings_day ON dda_balance_warnings (org_id, location_id, entry_date)`, []);
+}
+// The body's balance_warning, checked: null when absent or not a real below-zero warning.
+function ddaBalanceWarning(body, quantity) {
+  const w = body && typeof body === "object" ? body.balance_warning : null;
+  if (!w || typeof w !== "object" || Array.isArray(w)) return null;
+  const int = (v) => { const n = Number(v); return Number.isFinite(n) && Math.abs(n) < 1e9 ? Math.round(n) : null; };
+  const balance = int(w.balance), after = int(w.after);
+  if (balance === null || after === null || after >= 0) return null;
+  const since = isValidYmd(String(w.since || "")) ? String(w.since) : "";
+  return { balance, after, since, counted: w.counted ? 1 : 0, quantity };
+}
+async function ddaKeepWarning(env, authUser, register, entryId, entryDate, medicine, w) {
+  try {
+    await ensureDdaWarningsSchema(env);
+    const me = await dbFirst(env, "SELECT full_name, email FROM users WHERE id = ?", [authUser.user_id]);
+    await dbRun(env, `INSERT INTO dda_balance_warnings (org_id, location_id, register, entry_id, entry_date, medicine, quantity, balance, after, since, counted, created_by, created_name, created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))`, [authUser.org_id, authUser.location_id, register, entryId, entryDate, medicine, w.quantity, w.balance, w.after, w.since, w.counted,
+      authUser.user_id, String((me && (me.full_name || me.email)) || "").trim()]);
+    return true;
+  } catch (e) { return false; }
+}
+// GET /dda-register/warnings?from&to  the warnings seen at entry in the period (default the last 92 days, at most 400
+// days), oldest first. One indexed read. Signed-in staff and admins of the pharmacy, as the registers.
+async function handleDdaRegisterWarnings(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const p = ddaRegPeriod(url, true);
+  if (p.error) return jsonResponse({ ok: false, error: p.error }, 400, corsOkHeaders);
+  await ensureDdaWarningsSchema(env);
+  const warnings = await dbAll(env, `SELECT id, register, entry_id, entry_date, medicine, quantity, balance, after, since, counted, created_name, created_at FROM dda_balance_warnings
+    WHERE org_id = ? AND location_id = ? AND entry_date >= ? AND entry_date <= ? ORDER BY entry_date ASC, id ASC LIMIT 500`, [authUser.org_id, authUser.location_id, p.from, p.to]);
+  return jsonResponse({ ok: true, from: p.from, to: p.to, warnings }, 200, corsOkHeaders);
+}
+// GET /dda-register/check?from&to  (Inspection check, Finish round): one read for the controlled-drug part of the check,
+// from the registers themselves, whatever screen wrote them and whether or not a warning was sent:
+//   shortfalls  every medicine whose running balance goes below zero on a day in the period: { name, key, first_below,
+//               lowest, counted (a stock-take count started the balance), since (that count's day, or the start read),
+//               regs (the registers its outgoing lines in the period are in), warned (lines saved with the warning),
+//               warned_by (who saw it) }. The balance per medicine, as Controlled drugs by medicine works it out: it
+//               starts at its latest stock-take count on or before `from` (or at 0 at the start of what is read: 92 days
+//               before `from`, or that count, whichever is earlier, never more than 400 days before `to`); received adds,
+//               supplied and POYC take away; a count resets it (a count is placed before the lines of its own day).
+//               Spellings are one medicine when they differ only by case, spaces or "10 mg" / "10mg".
+//   days        { supplied, received }: the days in the period with a line (the locum register check).
+//   warnings    the warnings seen at entry in the period (as /dda-register/warnings).
+// Read only; three date-index range reads, one stock-take read, one warnings read.
+function ddaMedKey(s) { return String(s || "").toLowerCase().replace(/\s+/g, " ").trim().replace(/(\d)\s+(mg|mcg|µg|g|ml|%)(?=\b|$|\s|\/)/g, "$1$2"); }
+async function handleDdaRegisterCheck(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  const p = ddaRegPeriod(url, true);
+  if (p.error) return jsonResponse({ ok: false, error: p.error }, 400, corsOkHeaders);
+  await ensureDdaPurchasesSchema(env); await ensureDdaSalesSchema(env); await ensureDdaPoycSchema(env); await ensureDdaStockTakesSchema(env); await ensureDdaWarningsSchema(env);
+  const o = authUser.org_id, l = authUser.location_id, from = p.from, to = p.to;
+  if (url.searchParams.get("days_only") === "1") { // the locum register's month: only the days with a line (three indexed reads of the period)
+    const dd = (t) => dbAll(env, `SELECT DISTINCT entry_date AS d FROM ${t} WHERE org_id = ? AND location_id = ? AND entry_date >= ? AND entry_date <= ?`, [o, l, from, to]);
+    const [a, b, c] = await Promise.all([dd("dda_sales_entries"), dd("dda_poyc_entries"), dd("dda_purchases_entries")]);
+    return jsonResponse({ ok: true, from, to, days: { supplied: Array.from(new Set(a.concat(b).map((x) => x.d))).sort(), received: c.map((x) => x.d).sort() } }, 200, corsOkHeaders);
+  }
+  const counts = await dbAll(env, `SELECT i.item_name, i.dosage, i.qty_tablets, s.created_at AS at
+    FROM dda_stocktakes s JOIN dda_stocktake_items i ON i.org_id = s.org_id AND i.location_id = s.location_id AND i.stocktake_id = s.id
+    WHERE s.org_id = ? AND s.location_id = ? AND s.created_at >= ? AND s.created_at < ? ORDER BY s.created_at ASC, i.id ASC`, [o, l, p.floor, ddaRegYmdShift(to, 1)]);
+  const malta = (at) => { const d = new Date(String(at || "").replace(" ", "T") + (/[zZ]|[+-]\d\d:?\d\d$/.test(String(at || "")) ? "" : "Z")); return isNaN(d.getTime()) ? String(at || "").slice(0, 10) : tzYmd(d); };
+  const cnt = counts.map((c) => ({ day: malta(c.at), key: ddaMedKey(String(c.item_name || "").trim() + (String(c.dosage || "").trim() ? " " + String(c.dosage).trim() : "")), qty: Number(c.qty_tablets) || 0 }));
+  // where to start reading: 92 days before `from`, or the earliest "latest count on or before from" of a medicine
+  let start = ddaRegYmdShift(from, -92);
+  const lastBefore = {}; cnt.forEach((c) => { if (c.day <= from) lastBefore[c.key] = c.day; });
+  Object.values(lastBefore).forEach((d) => { if (d < start) start = d; });
+  if (start < p.floor) start = p.floor;
+  const rows = (t, col, extra) => dbAll(env, `SELECT entry_date, ${col} AS name, quantity${extra || ""} FROM ${t} WHERE org_id = ? AND location_id = ? AND entry_date >= ? AND entry_date <= ?`, [o, l, start, to]);
+  const [rec, sup, poy, warnings] = await Promise.all([
+    rows("dda_purchases_entries", "dda_name_dose"), rows("dda_sales_entries", "medicine_name_dose"), rows("dda_poyc_entries", "medicine_name_dose"),
+    dbAll(env, `SELECT id, register, entry_id, entry_date, medicine, quantity, balance, after, since, counted, created_name, created_at FROM dda_balance_warnings
+      WHERE org_id = ? AND location_id = ? AND entry_date >= ? AND entry_date <= ? ORDER BY entry_date ASC, id ASC LIMIT 500`, [o, l, from, to])
+  ]);
+  const meds = {};
+  const med = (k, name) => meds[k] || (meds[k] = { key: k, names: {}, ev: [], regs: {} });
+  const ev = (list, kind) => list.forEach((e) => { const k = ddaMedKey(e.name); if (!k) return; const m = med(k); m.names[String(e.name).trim()] = (m.names[String(e.name).trim()] || 0) + 1;
+    m.ev.push({ day: String(e.entry_date), kind, q: Number(e.quantity) || 0 }); if (kind !== "in" && e.entry_date >= from) m.regs[kind === "sales" ? "sales" : "poyc"] = 1; });
+  ev(rec, "in"); ev(sup, "sales"); ev(poy, "poyc");
+  cnt.forEach((c) => { if (c.day < start || !meds[c.key]) return; meds[c.key].ev.push({ day: c.day, kind: "count", q: c.qty }); });
+  const shortfalls = [];
+  Object.values(meds).forEach((m) => {
+    const ORDER = { count: 0, in: 1, sales: 1, poyc: 1 };
+    m.ev.sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : ORDER[a.kind] - ORDER[b.kind]));
+    let bal = 0, counted = false, since = start, first = "", lowest = 0, lastCountDay = "";
+    m.ev.forEach((x) => {
+      if (x.kind === "count") { if (x.day === lastCountDay) bal += x.q; else bal = x.q; counted = true; since = x.day; lastCountDay = x.day; return; }
+      bal += x.kind === "in" ? x.q : -x.q;
+      if (bal < 0 && x.day >= from) { if (!first) first = x.day; if (bal < lowest) lowest = bal; }
+    });
+    if (!first) return;
+    const name = Object.keys(m.names).sort((a, b) => m.names[b] - m.names[a] || (a < b ? -1 : 1))[0];
+    const w = warnings.filter((x) => ddaMedKey(x.medicine) === m.key);
+    shortfalls.push({ name, key: m.key, first_below: first, lowest, counted, since, regs: Object.keys(m.regs).sort(), warned: w.length, warned_by: Array.from(new Set(w.map((x) => x.created_name).filter(Boolean))) });
+  });
+  // the same medicine written two ways? other spellings with the same first word and the same strength (Q11)
+  const sig = (k) => { const w = (k.match(/[a-z\u00c0-\u017e]{3,}/) || [""])[0], st = (k.match(/\d+(?:[.,]\d+)?(?:mg|mcg|µg|g|ml|%)(?:\/\d*(?:ml|g))?/) || [""])[0]; return w && st ? w + "|" + st : ""; };
+  shortfalls.forEach((x) => { const s0 = sig(x.key); if (!s0) return; const also = Object.values(meds).filter((m) => m.key !== x.key && sig(m.key) === s0).map((m) => Object.keys(m.names).sort((a, b) => m.names[b] - m.names[a])[0]); if (also.length) x.also = also.sort(); });
+  shortfalls.sort((a, b) => (a.first_below < b.first_below ? -1 : a.first_below > b.first_below ? 1 : a.name < b.name ? -1 : 1));
+  const inP = (list) => Array.from(new Set(list.filter((e) => e.entry_date >= from).map((e) => String(e.entry_date)))).sort();
+  await ensureDdaPartialsSchema(env);
+  const partials = (await ddaPartialRead(env, authUser, "status = 'open'", [])).map((x) => ({ id: x.id, register: x.register, medicine_name_dose: x.medicine_name_dose, client_name: x.client_name, prescription_serial_no: x.prescription_serial_no, prescribed: x.prescribed, given: x.given, left: x.left, first: x.parts.length ? x.parts[0].entry_date : "", last: x.parts.length ? x.parts[x.parts.length - 1].entry_date : "" }));
+  return jsonResponse({ ok: true, from, to, read_from: start, shortfalls, days: { supplied: inP(sup.concat(poy)), received: inP(rec) }, warnings, partials }, 200, corsOkHeaders);
+}
+// ===== end over-supply warning =====
+
+// ===== Partial dispensing (Finish round, records; John 2026-11-11) =====
+// A prescription given in parts on Controlled drugs supplied or POYC. Every part is an ordinary register line, saved
+// with the register's own route and body exactly as before; this only remembers which lines belong to one prescription
+// and how much was prescribed, so the screen can show "still to give" until it reaches 0 or is closed with a reason.
+// Validity (how long a part may still be given) is a decision for John (DEC Q9): nothing expires here.
+//   GET  /dda-partials?register=sales|poyc[&status=open|all]   the pharmacy's partials (open: still to give), each with
+//                                                              its parts (date, quantity, who) and given / left
+//   POST /dda-partials {register, entry_id, prescribed}        start one from the first part (a line just saved)
+//   POST /dda-partials/:id/give {entry_id}                     a further part (a line just saved, same medicine)
+//   POST /dda-partials/:id/close {reason}                      close it with a reason (nothing more will be given)
+// Signed-in staff and admins of the pharmacy, as the registers. org_id/location_id from the session, never the body.
+// Additive: two new tables with their indexes; no register table, row or route changes. Every change is in the audit.
+async function ensureDdaPartialsSchema__impl(env) {
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS dda_partials (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+    register TEXT NOT NULL, prescription_serial_no TEXT NOT NULL, client_name TEXT NOT NULL, client_id_card TEXT NOT NULL, client_address TEXT NOT NULL DEFAULT '',
+    doctor_name TEXT NOT NULL DEFAULT '', doctor_reg_no TEXT NOT NULL DEFAULT '', medicine_name_dose TEXT NOT NULL, prescribed INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open', close_reason TEXT NOT NULL DEFAULT '', closed_name TEXT NOT NULL DEFAULT '', closed_at TEXT,
+    created_by INTEGER, created_name TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`, []);
+  await dbRun(env, `CREATE INDEX IF NOT EXISTS idx_dda_partials_open ON dda_partials (org_id, location_id, register, status)`, []);
+  await dbRun(env, `CREATE TABLE IF NOT EXISTS dda_partial_parts (id INTEGER PRIMARY KEY AUTOINCREMENT, partial_id INTEGER NOT NULL, org_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+    entry_id INTEGER NOT NULL, created_by INTEGER, created_name TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')))`, []);
+  await dbRun(env, `CREATE UNIQUE INDEX IF NOT EXISTS idx_dda_partial_parts_entry ON dda_partial_parts (org_id, location_id, partial_id, entry_id)`, []);
+}
+function ddaPartialTable(reg) { return reg === "sales" ? "dda_sales_entries" : reg === "poyc" ? "dda_poyc_entries" : ""; }
+async function ddaPartialRead(env, authUser, where, bind) {
+  const o = authUser.org_id, l = authUser.location_id;
+  const list = await dbAll(env, `SELECT * FROM dda_partials WHERE org_id = ? AND location_id = ? AND ${where} ORDER BY id DESC LIMIT 200`, [o, l, ...bind]);
+  if (!list.length) return [];
+  const parts = await dbAllChunked(env, (ph) => `SELECT partial_id, entry_id, created_name, created_at FROM dda_partial_parts WHERE org_id = ? AND location_id = ? AND partial_id IN (${ph}) ORDER BY id`, list.map((x) => x.id), [o, l]);
+  const byReg = {}; list.forEach((x) => { (byReg[x.register] = byReg[x.register] || []); });
+  const lines = {};
+  for (const reg of Object.keys(byReg)) {
+    const ids = parts.filter((pt) => list.some((x) => x.id === pt.partial_id && x.register === reg)).map((pt) => pt.entry_id);
+    if (!ids.length) continue;
+    const rows = await dbAllChunked(env, (ph) => `SELECT id, entry_date, quantity, medicine_name_dose FROM ${ddaPartialTable(reg)} WHERE org_id = ? AND location_id = ? AND id IN (${ph})`, ids, [o, l]);
+    rows.forEach((r) => { lines[reg + ":" + r.id] = r; });
+  }
+  return list.map((x) => {
+    const ps = parts.filter((pt) => pt.partial_id === x.id).map((pt) => { const r = lines[x.register + ":" + pt.entry_id]; return r ? { entry_id: r.id, entry_date: r.entry_date, quantity: Number(r.quantity) || 0, by: pt.created_name } : null; }).filter(Boolean)
+      .sort((a, b) => (a.entry_date < b.entry_date ? -1 : a.entry_date > b.entry_date ? 1 : a.entry_id - b.entry_id));
+    const given = ps.reduce((n, pt) => n + pt.quantity, 0);
+    return { ...x, parts: ps, given, left: Math.max(0, Number(x.prescribed) - given) };
+  });
+}
+async function ddaPartialEntry(env, authUser, reg, entryId) {
+  const t = ddaPartialTable(reg); if (!t || !entryId) return null;
+  return await dbFirst(env, `SELECT * FROM ${t} WHERE id = ? AND org_id = ? AND location_id = ?`, [entryId, authUser.org_id, authUser.location_id]);
+}
+async function handleDdaPartials(request, env, corsOkHeaders, authUser, url) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureDdaSalesSchema(env); await ensureDdaPoycSchema(env); await ensureDdaPartialsSchema(env);
+  const parts = url.pathname.split("/").filter(Boolean); // ["dda-partials", id?, action?]
+  const me = async () => { const u = await dbFirst(env, "SELECT full_name, email FROM users WHERE id = ?", [authUser.user_id]); return String((u && (u.full_name || u.email)) || "").trim(); };
+  const bad = (msg, code) => jsonResponse({ ok: false, error: msg }, code || 400, corsOkHeaders);
+  if (parts.length === 1 && request.method === "GET") {
+    const reg = url.searchParams.get("register") || "";
+    if (!ddaPartialTable(reg)) return bad("register must be sales or poyc");
+    const all = url.searchParams.get("status") === "all";
+    const list = await ddaPartialRead(env, authUser, all ? "register = ?" : "register = ? AND status = 'open'", [reg]);
+    return jsonResponse({ ok: true, partials: list }, 200, corsOkHeaders);
+  }
+  if (parts.length === 1 && request.method === "POST") {
+    const body = await readJson(request);
+    const reg = String((body && body.register) || ""), entryId = Number(body && body.entry_id), prescribed = normalizeIntPositive(body && body.prescribed);
+    if (!ddaPartialTable(reg)) return bad("register must be sales or poyc");
+    const e = await ddaPartialEntry(env, authUser, reg, entryId);
+    if (!e) return bad("That line is not in this pharmacy's register", 404);
+    if (!prescribed || prescribed <= Number(e.quantity)) return bad("Write how many were prescribed in total (more than given now)");
+    const had = await dbFirst(env, "SELECT partial_id FROM dda_partial_parts WHERE org_id = ? AND location_id = ? AND entry_id = ? AND partial_id IN (SELECT id FROM dda_partials WHERE register = ?)", [authUser.org_id, authUser.location_id, entryId, reg]);
+    if (had) return bad("That line already belongs to a part-supply", 409);
+    const name = await me();
+    const row = await dbFirst(env, `INSERT INTO dda_partials (org_id, location_id, register, prescription_serial_no, client_name, client_id_card, client_address, doctor_name, doctor_reg_no, medicine_name_dose, prescribed, created_by, created_name)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`, [authUser.org_id, authUser.location_id, reg, e.prescription_serial_no, e.client_name, e.client_id_card, e.client_address || "", e.doctor_name || "", e.doctor_reg_no || "", e.medicine_name_dose, prescribed, authUser.user_id, name]);
+    await dbRun(env, "INSERT INTO dda_partial_parts (partial_id, org_id, location_id, entry_id, created_by, created_name) VALUES (?,?,?,?,?,?)", [row.id, authUser.org_id, authUser.location_id, entryId, authUser.user_id, name]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_PARTIAL_START", "dda_partials", String(row.id), { register: reg, entry_id: entryId, prescribed, given: Number(e.quantity) }, authUser.location_id);
+    return jsonResponse({ ok: true, partial: (await ddaPartialRead(env, authUser, "id = ?", [row.id]))[0] }, 200, corsOkHeaders);
+  }
+  const id = Number(parts[1]);
+  if (parts.length === 3 && id && request.method === "POST" && (parts[2] === "give" || parts[2] === "close")) {
+    const cur = (await ddaPartialRead(env, authUser, "id = ?", [id]))[0];
+    if (!cur) return bad("Not found", 404);
+    if (cur.status !== "open") return bad("This part-supply is already " + (cur.status === "closed" ? "closed" : "complete"), 409);
+    const body = await readJson(request), name = await me();
+    if (parts[2] === "close") {
+      const reason = String((body && body.reason) || "").replace(/\s+/g, " ").trim().slice(0, 300);
+      if (!reason) return bad("Write why it is closed");
+      await dbRun(env, "UPDATE dda_partials SET status = 'closed', close_reason = ?, closed_name = ?, closed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND org_id = ? AND location_id = ?", [reason, name, id, authUser.org_id, authUser.location_id]);
+      await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_PARTIAL_CLOSE", "dda_partials", String(id), { reason, given: cur.given, left: cur.left }, authUser.location_id);
+    } else {
+      const entryId = Number(body && body.entry_id), e = await ddaPartialEntry(env, authUser, cur.register, entryId);
+      if (!e) return bad("That line is not in this pharmacy's register", 404);
+      if (ddaMedKey(e.medicine_name_dose) !== ddaMedKey(cur.medicine_name_dose)) return bad("That line is another medicine");
+      if (cur.parts.some((pt) => pt.entry_id === entryId)) return jsonResponse({ ok: true, already: true, partial: cur }, 200, corsOkHeaders);
+      await dbRun(env, "INSERT INTO dda_partial_parts (partial_id, org_id, location_id, entry_id, created_by, created_name) VALUES (?,?,?,?,?,?)", [id, authUser.org_id, authUser.location_id, entryId, authUser.user_id, name]);
+      const left = cur.left - (Number(e.quantity) || 0);
+      if (left <= 0) await dbRun(env, "UPDATE dda_partials SET status = 'done', updated_at = datetime('now') WHERE id = ? AND org_id = ? AND location_id = ?", [id, authUser.org_id, authUser.location_id]);
+      else await dbRun(env, "UPDATE dda_partials SET updated_at = datetime('now') WHERE id = ? AND org_id = ? AND location_id = ?", [id, authUser.org_id, authUser.location_id]);
+      await writeAudit(env, authUser.org_id, authUser.user_id, "DDA_PARTIAL_GIVE", "dda_partials", String(id), { entry_id: entryId, quantity: Number(e.quantity), left: Math.max(0, left) }, authUser.location_id);
+    }
+    return jsonResponse({ ok: true, partial: (await ddaPartialRead(env, authUser, "id = ?", [id]))[0] }, 200, corsOkHeaders);
+  }
+  return bad("Not found", 404);
+}
+// ===== end partial dispensing =====
 
 async function handleDdaStockTakeReportHtml(request, env, corsOkHeaders, authUser, stocktakeId) {
   if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
@@ -17012,6 +17294,110 @@ async function handleBoardDashboard(request, env, corsOkHeaders, authUser) {
 
 
 
+// FIN-dayzero begin ═════════════════════════════════════════════════════════════════════════════════════════════
+// (1) The day this pharmacy started, so no screen blames a day, a month or a sign-off from before it existed.
+//     E.startYmd(user) contract: the earlier of the Malta day of locations.created_at and the first saved day in the
+//     registers that are judged day by day (end of day, daily register, locum register, controlled drugs supplied,
+//     paid out, temperature) — never later than any of those rows. "" when nothing can be read (then nothing is
+//     clipped, as before). Read on the sign-in and /auth/me only (each page load): the day screens add no statement.
+//     Each read is one index probe (MIN on an (org, location, date) index; temperature: one per
+//     device). The answer is kept per database for the isolate's life only once it is DZ_SINCE_KEEP_DAYS or more before
+//     today: no screen looks that far back, so a row typed later with an older date cannot change what any screen says.
+//     A younger pharmacy is asked each time (a backfilled day or an import moves its start back at once; the
+//     probes read a handful of index rows). Sent as user.location_since on /auth/me and the sign-in (and
+//     `since` on /pharmacy/details); the day screens add no statement for it (/team/today only says hours_saved).
+// (2) GET/PUT /pharmacy/details: the pharmacy's name, address, phone and registration no. for labels and prints,
+//     stored where the label screens keep them (label_settings.settings_json.pharmacyDetails).
+const __dzSince = new WeakMap();
+const DZ_SINCE_KEEP_DAYS = 70; // longer than any look-back that uses it (last month's sign-off and stock take: at most 62 days)
+function dzMaltaDay(s) { // a UTC "YYYY-MM-DD HH:MM:SS" stamp as the Malta day it fell on; "" if not a stamp
+  const t = String(s || "").trim(); if (!/^\d{4}-\d{2}-\d{2}/.test(t)) return "";
+  if (t.length <= 10) return t;
+  const ms = Date.parse(t.replace(" ", "T") + (/[zZ]$|[+-]\d\d:?\d\d$/.test(t) ? "" : "Z"));
+  return Number.isFinite(ms) ? tzYmd(new Date(ms)) : t.slice(0, 10);
+}
+async function locationSince(env, authUser) {
+  const loc = Number(authUser && authUser.location_id) || 0, org = Number(authUser && authUser.org_id) || 0;
+  if (!loc || !env || !env.DB) return "";
+  let m = __dzSince.get(env.DB); if (!m) { m = new Map(); __dzSince.set(env.DB, m); }
+  if (m.has(loc)) return m.get(loc);
+  const one = async (sql) => { try { const r = await dbFirst(env, sql, [org, loc]); return r && r.d ? dzMaltaDay(r.d) : ""; } catch (e) { return ""; } };
+  const days = await Promise.all([
+    one("SELECT created_at AS d FROM locations WHERE org_id = ? AND id = ?"),
+    one("SELECT MIN(eod_date) AS d FROM end_of_day WHERE org_id = ? AND location_id = ?"),
+    one("SELECT MIN(entry_date) AS d FROM daily_register_entries WHERE org_id = ? AND location_id = ?"),
+    one("SELECT MIN(entry_date) AS d FROM locum_register_entries WHERE org_id = ? AND location_id = ?"),
+    one("SELECT MIN(entry_date) AS d FROM dda_sales_entries WHERE org_id = ? AND location_id = ?"),
+    one("SELECT MIN(entry_date) AS d FROM paid_out_entries WHERE org_id = ? AND location_id = ?"),
+    one(`SELECT MIN((SELECT MIN(t.entry_date) FROM temperature_entries t WHERE t.org_id = d.org_id AND t.location_id = d.location_id AND t.device_id = d.id)) AS d
+           FROM temperature_devices d WHERE d.org_id = ? AND d.location_id = ?`)
+  ]);
+  if (!days[0]) return ""; // no creation stamp: say nothing (not kept: an older row stays as it always was)
+  const since = days.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort()[0] || "";
+  if (since && since <= ymdPlusDays(tzYmd(), -DZ_SINCE_KEEP_DAYS)) m.set(loc, since);
+  return since;
+}
+
+const PHARMACY_DETAIL_KEYS = ["name", "address", "phone", "licence"];
+// For Today's "Getting ready" list (admin only): has this pharmacy saved an address or phone for its labels? One row;
+// null when the label table is not there yet (then the line is not shown rather than guessed).
+async function dzDetailsSaved(env, org, loc) {
+  try {
+    await ensureLabelsSchema(env); // once per isolate
+    const r = await dbFirst(env, "SELECT settings_json FROM label_settings WHERE org_id = ? AND location_id = ?", [org, loc]);
+    let st = {}; try { st = r ? JSON.parse(String(r.settings_json || "{}")) || {} : {}; } catch (e) { st = {}; }
+    const d = pharmacyDetailsOf(st); return !!(d.address || d.phone);
+  } catch (e) { return null; }
+}
+const PHARMACY_DETAIL_MAX = { name: 120, address: 300, phone: 60, licence: 60 };
+function pharmacyDetailsOf(st) {
+  const d = st && st.pharmacyDetails && typeof st.pharmacyDetails === "object" ? st.pharmacyDetails : {};
+  const out = {}; for (const k of PHARMACY_DETAIL_KEYS) out[k] = String(d[k] == null ? "" : d[k]); return out;
+}
+//   GET /pharmacy/details  (admin, staff)  { details: {name,address,phone,licence}, saved, since, location_name }  — ONE row
+async function handlePharmacyDetailsGet(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin", "staff"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, corsOkHeaders);
+  await ensureLabelsSchema(env);
+  const [row, since] = await Promise.all([
+    dbFirst(env, `SELECT settings_json FROM label_settings WHERE org_id = ? AND location_id = ?`, [authUser.org_id, authUser.location_id]),
+    locationSince(env, authUser)]);
+  let st = {}; try { st = row ? JSON.parse(String(row.settings_json || "{}")) || {} : {}; } catch (e) { st = {}; }
+  const details = pharmacyDetailsOf(st);
+  return jsonResponse({ ok: true, details, saved: !!(details.address || details.phone || details.licence), since, location_name: authUser.location_name || "" },
+    200, { ...corsOkHeaders, "Cache-Control": "private, no-store" });
+}
+//   PUT /pharmacy/details  (admin only)  { name, address, phone, licence } → { details }. Only pharmacyDetails changes:
+//   the templates and any other key in the row stay exactly as stored. Audited with before and after.
+async function handlePharmacyDetailsPut(request, env, corsOkHeaders, authUser) {
+  if (!requireRole(authUser, ["admin"])) return jsonResponse({ ok: false, error: "Only the pharmacy's admin can change its details." }, 403, corsOkHeaders);
+  await ensureLabelsSchema(env);
+  let body; try { body = await readJson(request); } catch (e) { body = null; }
+  if (!body || typeof body !== "object") return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400, corsOkHeaders);
+  const next = {}, bad = [];
+  for (const k of PHARMACY_DETAIL_KEYS) {
+    const v = String(body[k] == null ? "" : body[k]).replace(/\s+/g, " ").trim();
+    if (v.length > PHARMACY_DETAIL_MAX[k]) bad.push(k);
+    next[k] = v;
+  }
+  if (!next.name) return jsonResponse({ ok: false, error: "Write the pharmacy's name.", fields: ["name"] }, 400, corsOkHeaders);
+  if (bad.length) return jsonResponse({ ok: false, error: "Too long: " + bad.join(", ") + ".", fields: bad }, 400, corsOkHeaders);
+  const orgId = authUser.org_id, locId = authUser.location_id;
+  const row = await dbFirst(env, `SELECT settings_json FROM label_settings WHERE org_id = ? AND location_id = ?`, [orgId, locId]);
+  let st = {}; try { st = row ? JSON.parse(String(row.settings_json || "{}")) || {} : {}; } catch (e) { st = {}; }
+  if (!st || typeof st !== "object" || Array.isArray(st)) st = {};
+  const before = pharmacyDetailsOf(st);
+  const merged = Object.assign({}, st.pharmacyDetails && typeof st.pharmacyDetails === "object" ? st.pharmacyDetails : {}, next);
+  // a first save makes the row the labels PUT would make: { templates: [], pharmacyDetails }
+  const out = row ? Object.assign({}, st, { pharmacyDetails: merged }) : { templates: [], pharmacyDetails: merged };
+  await dbRun(env, `INSERT INTO label_settings (org_id, location_id, settings_json, updated_by, updated_at)
+    VALUES (?,?,?,?, datetime('now'))
+    ON CONFLICT(org_id, location_id) DO UPDATE SET settings_json = excluded.settings_json, updated_by = excluded.updated_by, updated_at = datetime('now')`,
+    [orgId, locId, JSON.stringify(out), authUser.user_id]);
+  await writeAudit(env, orgId, authUser.user_id, "PHARMACY_DETAILS_PUT", "label_settings", String(locId), { before, after: pharmacyDetailsOf(out) }, locId);
+  return jsonResponse({ ok: true, details: pharmacyDetailsOf(out) }, 200, corsOkHeaders);
+}
+// FIN-dayzero end ═══════════════════════════════════════════════════════════════════════════════════════════════
+
 // ═══════════════════════════════════════════════════════════════════════════
 // TODAY  (one call: what needs this pharmacy now)
 // Read-only. Built on the existing tables; every section is guarded so a
@@ -17226,10 +17612,11 @@ async function handleToday(request, env, corsOkHeaders, authUser) {
   // opening hours were ever saved. Two small reads; left out (not guessed) if either cannot be read.
   let setup;
   if (authUser.role === "admin") {
-    const [su, sh] = await Promise.all([
+    const [su, sh, pd] = await Promise.all([
       one("SELECT COUNT(*) AS c FROM users WHERE org_id = ? AND default_location_id = ? AND is_active = 1", [org, loc]),
-      one("SELECT COUNT(*) AS c FROM shift_opening_hours WHERE org_id = ? AND location_id = ?", [org, loc])]);
-    if (su && sh) setup = { sign_ins: Number(su.c) || 0, opening_hours_saved: Number(sh.c) > 0 };
+      one("SELECT COUNT(*) AS c FROM shift_opening_hours WHERE org_id = ? AND location_id = ?", [org, loc]),
+      dzDetailsSaved(env, org, loc)]); // FIN-dayzero hook
+    if (su && sh) setup = { sign_ins: Number(su.c) || 0, opening_hours_saved: Number(sh.c) > 0, ...(pd == null ? {} : { details_saved: pd }) };
   }
   const repRows = await __p_rep;
   const repeats = { entries: repRows.slice(0, REPEATS_MAX_ROWS), lookahead_days: REPEATS_LOOKAHEAD_DAYS, truncated: repRows.length > REPEATS_MAX_ROWS,
@@ -17379,7 +17766,7 @@ function maltaHoliday(ymd) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || "")); if (!m) return "";
   const y = +m[1], md = m[2] + "-" + m[3];
   const fixed = { "01-01": "New Year's Day", "02-10": "St Paul's Shipwreck", "03-19": "St Joseph", "03-31": "Freedom Day",
-    "05-01": "Worker's Day", "06-07": "Sette Giugno", "06-29": "St Peter and St Paul", "08-15": "Santa Marija",
+    "05-01": "Workers' Day", "06-07": "Sette Giugno", "06-29": "St Peter and St Paul", "08-15": "Santa Marija",
     "09-08": "Victory Day", "09-21": "Independence Day", "12-08": "Immaculate Conception", "12-13": "Republic Day", "12-25": "Christmas Day" };
   if (fixed[md]) return fixed[md];
   const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25),
@@ -17682,7 +18069,7 @@ async function handleTeamToday(request, env, corsOkHeaders, authUser) {
       ids: pts.slice(0, 50).map((b) => teamStr(b.id, 60)) }; // the points' ids, so this device's "Got it" (Handover screen, localStorage) can be matched
   }
 
-  return jsonResponse({ ok: true, date: today, now: nowHm, time: nowHm, timezone: PHARMACY_TZ,
+  return jsonResponse({ ok: true, date: today, now: nowHm, time: nowHm, timezone: PHARMACY_TZ, hours_saved: !!(cfg && cfg.hours_json), // FIN-dayzero hook: hours_saved
     holiday: maltaHoliday(today) || null,
     hours: teamHoursFor(hoursJson, today),
     settings: { pharmacistRequired: settings.pharmacistRequired, minPharmacists: settings.minPharmacists },
@@ -18946,6 +19333,8 @@ const ensureReturnsSchema = schemaOnce("ensureReturnsSchema", ensureReturnsSchem
 const ensureDeliveriesSchema = schemaOnce("ensureDeliveriesSchema", ensureDeliveriesSchema__impl);
 const ensureCreditNotesSchema = schemaOnce("ensureCreditNotesSchema", ensureCreditNotesSchema__impl);
 const ensureDdaSalesSchema = schemaOnce("ensureDdaSalesSchema", ensureDdaSalesSchema__impl);
+const ensureDdaWarningsSchema = schemaOnce("ensureDdaWarningsSchema", ensureDdaWarningsSchema__impl);
+const ensureDdaPartialsSchema = schemaOnce("ensureDdaPartialsSchema", ensureDdaPartialsSchema__impl);
 const ensureDdaPoycSchema = schemaOnce("ensureDdaPoycSchema", ensureDdaPoycSchema__impl);
 const ensureDdaPurchasesSchema = schemaOnce("ensureDdaPurchasesSchema", ensureDdaPurchasesSchema__impl);
 const ensureDdaStockTakesSchema = schemaOnce("ensureDdaStockTakesSchema", ensureDdaStockTakesSchema__impl);
@@ -19141,6 +19530,7 @@ const authUser = await authFromRequest(request, env);
     if (authUser.must_change && !["/auth/me", "/auth/change-password", "/auth/logout", "/client-log"].includes(url.pathname)) {
       return jsonResponse({ ok: false, error: "Set your own password first", must_change: true }, 403, corsOkHeaders);
     }
+    { const fr = await finRolesRoute(request, env, url, authUser, corsOkHeaders, cors.ok); if (fr) return fr; } // FIN-roles: /team/me, rota link, rota gate, pharmacist actions
     // Team sign-ins (backlog 2 item 4): the pharmacy's admin, own pharmacy only
     if (url.pathname === "/team/users" || url.pathname.startsWith("/team/users/")) {
       if (!cors.ok) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, corsOkHeaders);
@@ -20174,6 +20564,12 @@ if (url.pathname === "/dda-register/medicines" && request.method === "GET")
   return await handleDdaRegisterMedicines(request, env, corsOkHeaders, authUser, url);
 if (url.pathname === "/dda-register/ledger" && request.method === "GET")
   return await handleDdaRegisterLedger(request, env, corsOkHeaders, authUser, url);
+if (url.pathname === "/dda-partials" || url.pathname.startsWith("/dda-partials/"))
+  return await handleDdaPartials(request, env, corsOkHeaders, authUser, url);
+if (url.pathname === "/dda-register/check" && request.method === "GET")
+  return await handleDdaRegisterCheck(request, env, corsOkHeaders, authUser, url);
+if (url.pathname === "/dda-register/warnings" && request.method === "GET")
+  return await handleDdaRegisterWarnings(request, env, corsOkHeaders, authUser, url);
 
 if (url.pathname.startsWith("/dda-stocktakes/items/")) {
   const parts = url.pathname.split("/").filter(Boolean); // ["dda-stocktakes","items",":itemId"]
@@ -20518,6 +20914,10 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     if (url.pathname === "/labels/state" && request.method === "PUT") {
       return await handleLabelsStatePut(request, env, corsOkHeaders, authUser);
     }
+    if (url.pathname === "/pharmacy/details") { // FIN-dayzero hook
+      if (request.method === "GET") return await handlePharmacyDetailsGet(request, env, corsOkHeaders, authUser);
+      if (request.method === "PUT") return await handlePharmacyDetailsPut(request, env, corsOkHeaders, authUser);
+    }
     // ── End Smart Labels ────────────────────────────────────────────────
 
     // ── Contacts ────────────────────────────────────────────────────────
@@ -20588,6 +20988,9 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
     }
     // ── End Contacts ────────────────────────────────────────────────────
 
+    // portals (FIN): the Cherubino screens are bespoke to one client (org 12). Every other org gets "Not found" for
+    // every /cherubino/ address, as for an address that does not exist (their tables only ever held that org's rows).
+    if (url.pathname.startsWith("/cherubino/") && Number(authUser.org_id) !== 12) return jsonResponse({ ok: false, error: "Not found" }, 404, corsOkHeaders);
     // ── Cherubino Orders ──────────────────────────────────────────────────
     if (url.pathname === "/cherubino/orders" && request.method === "GET") {
       return await handleCherubinoOrdersList(request, env, corsOkHeaders, authUser, url);
@@ -20661,6 +21064,8 @@ if (url.pathname.startsWith("/dda-stocktakes/items/")) {
       return await handleAdminPharmacyOverview(request, env, corsOkHeaders, authUser, url);
     }
     // ── End Admin Pharmacy Overview ──────────────────────────────────────
+    // ── Head office: stock alerts across the group's pharmacies (portals, FIN; read only, head office 600-900) ──
+    if (url.pathname === "/hq/stock" && request.method === "GET") return await handleHqStock(request, env, corsOkHeaders, authUser);
     // ── How we are doing (owner's view and reports; read only, admins, own pharmacy or own group) ──
     if (url.pathname === "/owner/summary" && request.method === "GET") return await handleOwnerSummary(request, env, corsOkHeaders, authUser, url);
     if (url.pathname === "/owner/records" && request.method === "GET") return await handleOwnerRecords(request, env, corsOkHeaders, authUser, url);
@@ -22895,6 +23300,35 @@ async function handleOwnerRecords(request, env, cors, authUser, url) {
 // ═══════════════════════════════════════════════════════════════════════════
 // ADMIN PHARMACY OVERVIEW
 // ═══════════════════════════════════════════════════════════════════════════
+
+// portals (FIN): the head office's home shows, for each pharmacy of its own org, the recalls and quarantines still
+// open and what expires within 30 days (or has expired and is still listed). Two bounded reads, both on the existing
+// (org_id, location_id, …) indexes: open alerts (status not closed, newest 200 per chunk) and near-expiry lines up to 30
+// days ahead, counted per pharmacy. Nothing about patients. A table never created reads as nothing.
+async function handleHqStock(request, env, cors, authUser) {
+  const own = Number(authUser && authUser.location_id);
+  if (!(own >= 600 && own <= 900)) return jsonResponse({ ok: false, error: "Only a head office can see its pharmacies' stock alerts" }, 403, cors);
+  const org = authUser.org_id, today = tzYmd(), soon = ymdPlusDays(today, 30);
+  let locs = [];
+  try { locs = await dbAll(env, "SELECT id, name FROM locations WHERE org_id = ? AND id < 400 ORDER BY name ASC, id ASC", [org]); } catch (e) { locs = []; }
+  const ids = locs.map((l) => Number(l.id));
+  const none = (e) => { if (/no such table/i.test(String(e && e.message))) return []; throw e; };
+  const [alerts, nex] = ids.length ? await Promise.all([
+    dbAllChunked(env, (ph) => `SELECT id, location_id, alert_type, status, item_name, batch, entry_date FROM alerts_entries WHERE org_id = ? AND location_id IN (${ph}) AND status != 'closed' ORDER BY entry_date DESC, id DESC LIMIT 200`, ids, [org]).catch(none),
+    dbAllChunked(env, (ph) => `SELECT location_id, SUM(CASE WHEN expiry_date < ? THEN 1 ELSE 0 END) AS expired, SUM(CASE WHEN expiry_date >= ? THEN 1 ELSE 0 END) AS soon, MIN(CASE WHEN expiry_date >= ? THEN expiry_date END) AS first FROM near_expiry_entries WHERE org_id = ? AND location_id IN (${ph}) AND expiry_date <= ? GROUP BY location_id`, ids, [today, today, today, org], [soon]).catch(none)
+  ]) : [[], []];
+  // Each pharmacy's start day (FIN-dayzero's locationSince, when that block is in the build: a few index probes each,
+  // kept for older pharmacies), so the head office never blames a day before a pharmacy existed. "" when unknown.
+  const since = await Promise.all(locs.map((l) => (typeof locationSince === "function" ? locationSince(env, { org_id: org, location_id: Number(l.id) }) : Promise.resolve("")).catch(() => "")));
+  const out = locs.map((l, k) => {
+    const id = Number(l.id), a = alerts.filter((x) => Number(x.location_id) === id), n = nex.find((x) => Number(x.location_id) === id) || {};
+    return { id, name: String(l.name || ""), since: since[k] || "",
+      alerts: { open: a.length, recalls: a.filter((x) => x.alert_type !== "quarantine").length, quarantines: a.filter((x) => x.alert_type === "quarantine").length,
+        items: a.slice(0, 5).map((x) => ({ id: x.id, type: x.alert_type === "quarantine" ? "quarantine" : "recall", item: String(x.item_name || ""), batch: String(x.batch || ""), date: String(x.entry_date || ""), status: String(x.status || "") })) },
+      near_expiry: { within_30: Number(n.soon) || 0, expired: Number(n.expired) || 0, first: n.first || null } };
+  });
+  return jsonResponse({ ok: true, today, pharmacies: out }, 200, cors);
+}
 
 async function handleAdminPharmacyOverview(request, env, corsOkHeaders, authUser, url) {
   // Company admin guard (location_id 600-900)
@@ -25507,7 +25941,7 @@ async function teamCountAction(env, authUser) {
 // The person, only if they belong to the admin's own pharmacy (org AND location).
 async function teamTarget(env, authUser, id) {
   if (!Number.isInteger(id) || id <= 0) return null;
-  return await dbFirst(env, "SELECT id, org_id, email, full_name, role, is_active, default_location_id, COALESCE(must_change_password, 0) AS must_change_password FROM users WHERE id = ? AND org_id = ? AND default_location_id = ?",
+  return await dbFirst(env, "SELECT id, org_id, email, full_name, role, is_active, default_location_id, COALESCE(must_change_password, 0) AS must_change_password, is_pharmacist, plans_rota FROM users WHERE id = ? AND org_id = ? AND default_location_id = ?", // FIN-roles: + is_pharmacist, plans_rota
     [id, authUser.org_id, authUser.location_id]);
 }
 async function teamActiveAdmins(env, authUser) {
@@ -25516,6 +25950,8 @@ async function teamActiveAdmins(env, authUser) {
 }
 function teamPublic(env, u, lastAt, openSessions) {
   return { id: u.id, email: u.email, full_name: u.full_name || "", role: u.role, is_active: Number(u.is_active) === 1,
+    is_pharmacist: Number(u.is_pharmacist) === 1, plans_rota: u.role === "admin" || u.plans_rota === null || u.plans_rota === undefined || Number(u.plans_rota) !== 0, // FIN-roles
+    role_word: finRoleWord(u.role, Number(u.is_pharmacist) === 1), // FIN-roles
     must_change_password: Number(u.must_change_password) === 1, created_at: u.created_at || null,
     last_sign_in_at: lastAt || null, signed_in_devices: Number(openSessions) || 0, protected: teamIsSuperuserEmail(env, u.email) };
 }
@@ -25531,11 +25967,12 @@ function teamMayChange(env, authUser, target, cors) {
 async function handleTeam(request, env, cors, authUser, url) {
   if (!requireRole(authUser, ["admin"])) return jsonResponse({ ok: false, error: "Forbidden" }, 403, cors);
   await ensureTeamSchema(env);
+  await finRolesSchema(env); // FIN-roles: is_pharmacist, plans_rota
   const parts = url.pathname.split("/").filter(Boolean); // team, users, :id, action
   if (parts[1] !== "users") return jsonResponse({ ok: false, error: "Not found" }, 404, cors);
 
   if (parts.length === 2 && request.method === "GET") {
-    const rows = await dbAll(env, `SELECT u.id, u.email, u.full_name, u.role, u.is_active, u.created_at, COALESCE(u.must_change_password, 0) AS must_change_password,
+    const rows = await dbAll(env, `SELECT u.id, u.email, u.full_name, u.role, u.is_active, u.created_at, COALESCE(u.must_change_password, 0) AS must_change_password, u.is_pharmacist, u.plans_rota,
         (SELECT MAX(s.created_at) FROM sessions s WHERE s.user_id = u.id) AS last_at,
         (SELECT COUNT(*) FROM sessions s WHERE s.user_id = u.id AND s.expires_at > ?) AS open_sessions
       FROM users u WHERE u.org_id = ? AND u.default_location_id = ? ORDER BY u.is_active DESC, lower(u.full_name), u.id`,
@@ -25548,11 +25985,12 @@ async function handleTeam(request, env, cors, authUser, url) {
     const body = await readJson(request);
     const email = String(body.email || "").trim().toLowerCase();
     const fullName = String(body.full_name || "").trim().replace(/\s+/g, " ").slice(0, 120);
-    const role = String(body.role || "staff").trim().toLowerCase();
+    const asked = String(body.role || "staff").trim().toLowerCase();
+    const role = asked === "pharmacist" ? "staff" : asked; // FIN-roles: a pharmacist is a staff sign-in marked is_pharmacist
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || email.length > 200) return jsonResponse({ ok: false, error: "Enter a valid e-mail address" }, 400, cors);
     if (!fullName) return jsonResponse({ ok: false, error: "Enter the person's name" }, 400, cors);
-    if (role !== "staff" && role !== "admin") return jsonResponse({ ok: false, error: "Role must be staff or admin" }, 400, cors);
-    if (role === "admin" && !teamAdminsManageAdmins(env)) return jsonResponse({ ok: false, error: "Only Eikon support can add another admin" }, 403, cors);
+    if (role !== "staff" && role !== "admin") return jsonResponse({ ok: false, error: "Role must be staff, pharmacist or admin" }, 400, cors);
+    // FIN-roles: the pharmacy's admin may add a second admin (owner decision, W3); changing an existing admin still needs TEAM_ADMINS_MANAGE_ADMINS.
     if (teamIsSuperuserEmail(env, email)) return jsonResponse({ ok: false, error: "This e-mail cannot be added here" }, 403, cors);
     if (await teamRateLimited(env, authUser)) return jsonResponse({ ok: false, error: "Too many sign-ins added or reset in the last hour. Try again later." }, 429, { ...cors, "Retry-After": "3600" });
     const dupe = await dbFirst(env, "SELECT id FROM users WHERE lower(email) = lower(?)", [email]);
@@ -25560,17 +25998,18 @@ async function handleTeam(request, env, cors, authUser, url) {
     const temp = teamTempPassword();
     const h = await teamHash(temp);
     await teamCountAction(env, authUser);
-    const row = await dbFirst(env, `INSERT INTO users (org_id, email, full_name, role, pass_salt_b64, pass_hash_b64, pass_iters, is_active, default_location_id, created_at, must_change_password)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'), 1) RETURNING id`, [authUser.org_id, email, fullName, role, h.salt, h.hash, h.iters, authUser.location_id]);
+    const isPh = asked === "pharmacist" || (role === "admin" && body.is_pharmacist === true) ? 1 : 0; // FIN-roles
+    const row = await dbFirst(env, `INSERT INTO users (org_id, email, full_name, role, pass_salt_b64, pass_hash_b64, pass_iters, is_active, default_location_id, created_at, must_change_password, is_pharmacist, plans_rota)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'), 1, ?, ?) RETURNING id`, [authUser.org_id, email, fullName, role, h.salt, h.hash, h.iters, authUser.location_id, isPh, role === "admin" ? null : 0]);
     const id = row && row.id;
-    await writeAudit(env, authUser.org_id, authUser.user_id, "TEAM_USER_CREATE", "user", String(id || ""), { after: { id, email, full_name: fullName, role, is_active: 1, must_change_password: 1 } }, authUser.location_id);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "TEAM_USER_CREATE", "user", String(id || ""), { after: { id, email, full_name: fullName, role, is_active: 1, must_change_password: 1, is_pharmacist: isPh, plans_rota: role === "admin" ? null : 0 } }, authUser.location_id);
     const u = await teamTarget(env, authUser, Number(id));
     return jsonResponse({ ok: true, user: u ? teamPublic(env, u, null, 0) : { id, email }, temporary_password: temp }, 200, { ...cors, "Cache-Control": "no-store" });
   }
 
   const id = Number(parts[2]);
   const action = parts[3] || "";
-  if (parts.length !== 4 || request.method !== "POST" || !["password", "active", "role"].includes(action)) return jsonResponse({ ok: false, error: "Not found" }, 404, cors);
+  if (parts.length !== 4 || request.method !== "POST" || !["password", "active", "role", "rights"].includes(action)) return jsonResponse({ ok: false, error: "Not found" }, 404, cors); // FIN-roles: + rights
   const target = await teamTarget(env, authUser, id);
   const refused = teamMayChange(env, authUser, target, cors);
   if (refused) return refused;
@@ -25599,15 +26038,193 @@ async function handleTeam(request, env, cors, authUser, url) {
     return jsonResponse({ ok: true }, 200, cors);
   }
 
+  // FIN-roles: POST /team/users/:id/rights {is_pharmacist?: bool, plans_rota?: bool} — a staff sign-in's two rights.
+  if (action === "rights") {
+    const ch = {};
+    if (body.is_pharmacist !== undefined) { if (typeof body.is_pharmacist !== "boolean") return jsonResponse({ ok: false, error: "is_pharmacist must be true or false" }, 400, cors); ch.is_pharmacist = body.is_pharmacist ? 1 : 0; }
+    if (body.plans_rota !== undefined) { if (typeof body.plans_rota !== "boolean") return jsonResponse({ ok: false, error: "plans_rota must be true or false" }, 400, cors); ch.plans_rota = body.plans_rota ? 1 : 0; }
+    if (!Object.keys(ch).length) return jsonResponse({ ok: false, error: "Nothing to change" }, 400, cors);
+    if (ch.plans_rota !== undefined && target.role === "admin") return jsonResponse({ ok: false, error: "An admin always plans the rota" }, 400, cors);
+    const b4 = { ...before, is_pharmacist: Number(target.is_pharmacist) === 1 ? 1 : 0, plans_rota: target.plans_rota == null ? null : Number(target.plans_rota) };
+    const cols = Object.keys(ch);
+    await dbRun(env, "UPDATE users SET " + cols.map((c) => c + " = ?").join(", ") + " WHERE id = ? AND org_id = ? AND default_location_id = ?", [...cols.map((c) => ch[c]), target.id, authUser.org_id, authUser.location_id]);
+    await writeAudit(env, authUser.org_id, authUser.user_id, "TEAM_USER_RIGHTS", "user", String(target.id), { before: b4, after: { ...b4, ...ch } }, authUser.location_id);
+    return jsonResponse({ ok: true }, 200, cors);
+  }
+
   // role
-  const role = String(body.role || "").trim().toLowerCase();
-  if (role !== "staff" && role !== "admin") return jsonResponse({ ok: false, error: "Role must be staff or admin" }, 400, cors);
-  if (role === "admin" && !teamAdminsManageAdmins(env)) return jsonResponse({ ok: false, error: "Only Eikon support can make someone an admin" }, 403, cors);
+  const askedRole = String(body.role || "").trim().toLowerCase();
+  const role = askedRole === "pharmacist" ? "staff" : askedRole; // FIN-roles: pharmacist = staff + is_pharmacist
+  if (role !== "staff" && role !== "admin") return jsonResponse({ ok: false, error: "Role must be staff, pharmacist or admin" }, 400, cors);
+  // FIN-roles: making someone an admin is the pharmacy admin's call (W3); an existing admin is still changed only with the flag (teamMayChange).
   if (target.role === "admin" && role !== "admin" && Number(target.is_active) === 1 && (await teamActiveAdmins(env, authUser)) <= 1) return jsonResponse({ ok: false, error: "The pharmacy needs at least one admin" }, 409, cors);
+  if (askedRole === "pharmacist" || (askedRole === "staff" && body.is_pharmacist === false)) { // FIN-roles: the pharmacist mark travels with the role choice
+    await dbRun(env, "UPDATE users SET role = ?, is_pharmacist = ? WHERE id = ? AND org_id = ? AND default_location_id = ?", [role, askedRole === "pharmacist" ? 1 : 0, target.id, authUser.org_id, authUser.location_id]);
+  } else
   await dbRun(env, "UPDATE users SET role = ? WHERE id = ? AND org_id = ? AND default_location_id = ?", [role, target.id, authUser.org_id, authUser.location_id]);
-  await writeAudit(env, authUser.org_id, authUser.user_id, "TEAM_USER_ROLE", "user", String(target.id), { before, after: { ...before, role } }, authUser.location_id);
+  await writeAudit(env, authUser.org_id, authUser.user_id, "TEAM_USER_ROLE", "user", String(target.id), { before, after: { ...before, role }, ...(askedRole === "pharmacist" ? { is_pharmacist: 1 } : {}) }, authUser.location_id);
   return jsonResponse({ ok: true }, 200, cors);
 }
+
+// FIN-roles begin ==================================================================================================
+// Roles (finish round, W3/W4/W15/W30). The stored role stays admin | staff | user (no new role string). Two additive
+// columns on users: is_pharmacist (0/1, default 0: "Pharmacist" on Add a person = staff + 1) and plans_rota (NULL =
+// the account existed before this release and keeps today's access: may plan the rota; /team/users writes 0 for a new
+// staff or pharmacist sign-in; the admin switches it per person). One additive column on shift_staff: user_id, the
+// sign-in a rota person is (NULL for every existing row; set only by an admin on POST /shifts/staff/:id/link).
+// Rights read here only (authFromRequest and the session are untouched): one primary-key read of users, made only for
+// a non-admin's rota write, a pharmacist action or GET /team/me.
+//   pic  (pharmacist in charge: month sign-off, who read the handover) = admin, or is_pharmacist = 1
+//   plan (others' shifts, fills, rota people, rota rules, answering leave)  = admin, or plans_rota is not 0
+// Nobody answers their own leave except an admin (own = the rota row linked to me, else the request I made, else a
+// rota row with my e-mail). Anyone may ask for leave and change their OWN shifts, as today.
+async function finRolesSchema__impl(env) {
+  for (const sql of ["ALTER TABLE users ADD COLUMN is_pharmacist INTEGER NOT NULL DEFAULT 0", "ALTER TABLE users ADD COLUMN plans_rota INTEGER"]) {
+    try { await dbRun(env, sql, []); } catch (e) { /* column already there */ }
+  }
+  await ensureShiftsSchema(env);
+  try { await dbRun(env, "ALTER TABLE shift_staff ADD COLUMN user_id INTEGER", []); } catch (e) { /* already there */ }
+}
+const finRolesSchema = schemaOnce("finRolesSchema", finRolesSchema__impl);
+function finRoleWord(role, isPh) { return role === "admin" ? "Admin" : isPh ? "Pharmacist" : role === "staff" ? "Staff" : "Limited"; }
+async function finRights(env, u) {
+  if (!u) return { admin: false, pharmacist: false, pic: false, plan: false };
+  const admin = u.role === "admin";
+  let row = null;
+  try { await finRolesSchema(env); row = await dbFirst(env, "SELECT is_pharmacist, plans_rota FROM users WHERE id = ?", [u.user_id]); } catch (e) { row = null; }
+  const pharmacist = !!row && Number(row.is_pharmacist) === 1;
+  const pr = row ? row.plans_rota : null;
+  // Unreadable (never seen): today's access, so nobody is locked out by a failed read.
+  return { admin, pharmacist, pic: admin || pharmacist, plan: admin || pr === null || pr === undefined || Number(pr) !== 0 };
+}
+// The rota rows that are this person: linked to them, else (not linked to anyone) carrying their e-mail.
+async function finOwnStaffIds(env, u) {
+  try {
+    await finRolesSchema(env);
+    const rows = await dbAll(env, "SELECT id FROM shift_staff WHERE org_id = ? AND location_id = ? AND (user_id = ? OR (user_id IS NULL AND email <> '' AND lower(email) = lower(?)))",
+      [u.org_id, u.location_id, u.user_id, String(u.email || "")]);
+    return new Set((rows || []).map((r) => Number(r.id)));
+  } catch (e) { return new Set(); }
+}
+function finStable(v) { // key order does not matter when two settings objects are compared
+  if (Array.isArray(v)) return "[" + v.map(finStable).join(",") + "]";
+  if (v && typeof v === "object") return "{" + Object.keys(v).sort().map((k) => JSON.stringify(k) + ":" + finStable(v[k])).join(",") + "}";
+  return JSON.stringify(v === undefined ? null : v);
+}
+async function finJson(request) { try { return JSON.parse((await request.clone().text()) || "{}") || {}; } catch (e) { return {}; } }
+
+// A pharmacist (a staff sign-in with is_pharmacist = 1) does the two pharmacist-in-charge actions that are admin-only
+// today, through their unchanged handlers. Used for EXACTLY these two method + path pairs; the role the handler reads is
+// set for that one call; user_id, org and pharmacy stay the person's own (signed_by / audit name the pharmacist).
+const FIN_PIC_CALLS = { "POST /registers/signoffs": handleRegisterSignoffs, "GET /instructions/daily/seen": handleHandoverSeen };
+async function finPharmacistCall(request, env, url, authUser, cors, corsOk) {
+  const fn = FIN_PIC_CALLS[request.method + " " + url.pathname];
+  if (!fn || authUser.role !== "staff") return null;
+  if (!(await finRights(env, authUser)).pharmacist) return null; // the handler answers as today
+  if (!corsOk) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, cors);
+  return await fn(request, env, cors, Object.freeze(Object.assign({}, authUser, { role: "admin" })), url);
+}
+
+async function finRolesRoute(request, env, url, authUser, cors, corsOk) {
+  const p = url.pathname, m = request.method;
+  const no = (error, status) => jsonResponse({ ok: false, error, code: "rights" }, status || 403, cors);
+
+  if (p === "/team/me" && m === "GET") {
+    const r = await finRights(env, authUser);
+    // Who to ask: this pharmacy's active admins by name (never Eikon support's sign-ins), at most 3.
+    let admins = [];
+    try { admins = ((await dbAll(env, "SELECT full_name, email FROM users WHERE org_id = ? AND default_location_id = ? AND role = 'admin' AND is_active = 1 ORDER BY id LIMIT 6", [authUser.org_id, authUser.location_id])) || [])
+      .filter((u) => !teamIsSuperuserEmail(env, u.email)).map((u) => String(u.full_name || "").trim()).filter(Boolean).slice(0, 3); } catch (e) { admins = []; }
+    return jsonResponse({ ok: true, role: authUser.role, is_pharmacist: r.pharmacist, role_word: finRoleWord(authUser.role, r.pharmacist), pic: r.pic, plans_rota: r.plan, admins }, 200, { ...cors, "Cache-Control": "no-store" });
+  }
+
+  { const pic = await finPharmacistCall(request, env, url, authUser, cors, corsOk); if (pic) return pic; }
+
+  if (!p.startsWith("/shifts/")) return null;
+  try { await finRolesSchema(env); } catch (e) {} // the new columns exist before any rota row is written or read
+
+  // GET /shifts/staff: the unchanged list, plus who each person signs in as and which row is me.
+  if (p === "/shifts/staff" && m === "GET") {
+    await finRolesSchema(env);
+    const res = await handleShiftStaffList(request, env, cors, authUser, url);
+    if (!res || res.status !== 200) return res;
+    let j = null; try { j = await res.clone().json(); } catch (e) { return res; }
+    if (!j || !Array.isArray(j.staff)) return res;
+    let links = [];
+    try { links = await dbAll(env, "SELECT id, user_id FROM shift_staff WHERE org_id = ? AND location_id = ? AND user_id IS NOT NULL", [authUser.org_id, authUser.location_id]); } catch (e) {}
+    const by = new Map((links || []).map((r) => [Number(r.id), Number(r.user_id)]));
+    const own = await finOwnStaffIds(env, authUser);
+    const r = await finRights(env, authUser);
+    j.staff = j.staff.map((s) => Object.assign({}, s, { user_id: by.has(Number(s.id)) ? by.get(Number(s.id)) : null }));
+    const mine = j.staff.filter((s) => own.has(Number(s.id))).sort((a, b) => (Number(b.is_active) - Number(a.is_active)) || ((by.get(Number(b.id)) === Number(authUser.user_id)) - (by.get(Number(a.id)) === Number(authUser.user_id))))[0];
+    j.me_staff_id = mine ? Number(mine.id) : null;
+    j.can_plan = r.plan;
+    j.can_answer_leave = r.plan;
+    return jsonResponse(j, 200, cors);
+  }
+
+  // POST /shifts/staff/:id/link {user_id | null}: this rota person is this sign-in (admin; same pharmacy only).
+  { const lk = p.match(/^\/shifts\/staff\/(\d+)\/link$/);
+    if (lk) {
+      if (m !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405, cors);
+      if (!corsOk) return jsonResponse({ ok: false, error: "CORS blocked" }, 403, cors);
+      if (authUser.role !== "admin") return no("Only the pharmacy's admin links the rota to sign-ins");
+      await finRolesSchema(env);
+      const sid = Number(lk[1]);
+      const st = await dbFirst(env, "SELECT id, full_name, user_id FROM shift_staff WHERE id = ? AND org_id = ? AND location_id = ?", [sid, authUser.org_id, authUser.location_id]);
+      if (!st) return jsonResponse({ ok: false, error: "Not found" }, 404, cors);
+      const body = await finJson(request);
+      let uid = body.user_id === null || body.user_id === "" ? null : Number(body.user_id);
+      if (uid !== null) {
+        if (!Number.isInteger(uid) || uid <= 0) return jsonResponse({ ok: false, error: "Choose a person who signs in here" }, 400, cors);
+        const u = await dbFirst(env, "SELECT id FROM users WHERE id = ? AND org_id = ? AND default_location_id = ?", [uid, authUser.org_id, authUser.location_id]);
+        if (!u) return jsonResponse({ ok: false, error: "That person does not sign in at this pharmacy" }, 404, cors);
+        await dbRun(env, "UPDATE shift_staff SET user_id = NULL WHERE org_id = ? AND location_id = ? AND user_id = ? AND id <> ?", [authUser.org_id, authUser.location_id, uid, sid]); // one rota row per sign-in
+      }
+      await dbRun(env, "UPDATE shift_staff SET user_id = ? WHERE id = ? AND org_id = ? AND location_id = ?", [uid, sid, authUser.org_id, authUser.location_id]);
+      await writeAudit(env, authUser.org_id, authUser.user_id, "SHIFT_STAFF_LINK", "shift_staff", String(sid), { before: { user_id: st.user_id == null ? null : Number(st.user_id) }, after: { user_id: uid } }, authUser.location_id);
+      return jsonResponse({ ok: true, staff_id: sid, user_id: uid }, 200, cors);
+    }
+  }
+
+  // The rota gate: only writes, only non-admins. Anything not named here passes to the handlers as today.
+  if (m === "GET" || authUser.role === "admin" || p.startsWith("/shifts/ical")) return null;
+  const org = authUser.org_id, loc = authUser.location_id;
+  const OTHERS = "Only the pharmacy's admin changes other people's details on the rota.";
+  const OWN = "Only the pharmacy's admin changes shifts. Ask them, or ask for leave.";
+  const lv = p.match(/^\/shifts\/leaves\/(\d+)\/(approve|reject)$/);
+  const asg = p.match(/^\/shifts\/assignments\/(\d+)$/);
+  const stf = p.match(/^\/shifts\/staff\/(\d+)$/);
+  const named = lv || asg || stf || ["/shifts/assignments", "/shifts/apply-pattern", "/shifts/apply-plan", "/shifts/staff", "/shifts/settings"].includes(p);
+  if (!named) return null;
+  const r = await finRights(env, authUser);
+  if (lv && m === "POST") {
+    if (!r.plan) return no("Only the pharmacy's admin answers leave requests");
+    const l = await dbFirst(env, "SELECT staff_id, created_by FROM shift_leaves WHERE id = ? AND org_id = ? AND location_id = ?", [Number(lv[1]), org, loc]);
+    if (l) {
+      const own = await finOwnStaffIds(env, authUser);
+      if (own.has(Number(l.staff_id)) || Number(l.created_by) === Number(authUser.user_id)) return no("You cannot answer your own leave request. The pharmacy's admin answers it.");
+    }
+    return null;
+  }
+  if (r.plan) return null; // today's access
+  if (p === "/shifts/settings" && m === "PUT") {
+    // Without the rota right: only the calendar link may be turned on (every other setting exactly as saved).
+    const body = await finJson(request);
+    let cur = null; try { const row = await dbFirst(env, "SELECT settings_json FROM shift_settings WHERE org_id = ? AND location_id = ?", [org, loc]); cur = row ? JSON.parse(row.settings_json || "{}") : { pharmacistRequired: true, minPharmacists: 1 }; } catch (e) { cur = null; }
+    const strip = (o) => { const c = Object.assign({}, o || {}); delete c.calendarToken; return c; };
+    if (cur && finStable(strip(cur)) === finStable(strip(body))) return null;
+    return no("Only the pharmacy's admin changes the rota rules");
+  }
+  if (p === "/shifts/staff" && m === "POST") return no("Only the pharmacy's admin adds people to the rota");
+  if (stf && m === "DELETE") return no("Only the pharmacy's admin removes people from the rota");
+  const own = await finOwnStaffIds(env, authUser);
+  if (stf && m === "PUT") return own.has(Number(stf[1])) ? null : no(OTHERS); // their own details / usual week
+  // Shift rows feed hours and pay: without the rota right nobody writes one, not even their own (they ask instead).
+  if (asg || p === "/shifts/assignments" || p === "/shifts/apply-pattern" || p === "/shifts/apply-plan") return no(OWN);
+  return null;
+}
+// FIN-roles end ====================================================================================================
 
 // Idle lock (backlog 2 item 4): the person on this session proves their password to carry on. Nothing changes:
 // no new session, the same token. Wrong password: 403 (never 401, which would end the session in the browser),
@@ -26091,6 +26708,9 @@ async function demoGuard(request, env, url, authUser, cors) {
     j.users = j.users.filter((x) => DEMO_EMAILS.includes(String(x.email || x.login || "").toLowerCase()));
     return { response: jsonResponse(j, r.status, cors) };
   }
+  // Roles (finish round): who is the pharmacist, who plans the rota and which rota row is which sign-in are account
+  // rights too. /team/users/:id/rights and /role are refused above; the rota link is refused here (a read stays open).
+  if (/^\/shifts\/staff\/\d+\/link$/.test(p) && write) return { response: demoNo(cors, "Linking the rota to sign-ins is not available in the demo") };
   if (p === "/auth/change-password") return { response: demoNo(cors, "The demo has no password to change") };
   if (p === "/auth/unlock" && m === "POST") return { response: jsonResponse({ ok: true, demo: true }, 200, cors) }; // nothing to type: the visitor has no password
   if (p.startsWith("/admin/names/") || p.startsWith("/su/")) return { response: demoNo(cors) };
@@ -26285,7 +26905,9 @@ function demoSeedSteps(cfg) {
     await c.p("POST", "/dda-purchases/entries", { entry_date: c.d(-12), dda_name_dose: "Morphine 10mg tablets", quantity: 30, agent: "Island Pharma", invoice_number: "INV-48211" });
     await c.p("POST", "/dda-purchases/entries", { entry_date: c.d(-6), dda_name_dose: "Fentanyl 25mcg/h patch", quantity: 10, agent: "Alliance", invoice_number: "INV-48390" });
     const sale = (x, n, med, q, dn, serial) => ({ entry_date: c.d(n), client_name: x.name, client_id_card: x.id_card, client_address: x.address, medicine_name_dose: med, quantity: q, doctor_name: dn, doctor_reg_no: DEMO_DOCS[dn], prescription_serial_no: serial });
-    await c.p("POST", "/dda-sales/entries", sale(P[2], -5, "Morphine 10mg tablets", 2, "Dr George Micallef", "S-10231"));
+    const s1 = await c.p("POST", "/dda-sales/entries", sale(P[2], -5, "Morphine 10mg tablets", 2, "Dr George Micallef", "S-10231"));
+    // Partial dispensing (finish round): this prescription was for 6, 2 given so far — "Partials — still to give" shows 4.
+    if (s1 && s1.entry_id) await c.p("POST", "/dda-partials", { register: "sales", entry_id: s1.entry_id, prescribed: 6 });
     await c.p("POST", "/dda-sales/entries", sale(P[4], -1, "Fentanyl 25mcg/h patch", 1, "Dr Mark Ellul", "S-10245"));
     await c.p("POST", "/dda-poyc/entries", sale(P[7], -3, "Morphine 10mg tablets", 1, "Dr Mark Ellul", "P-55102"));
     await c.p("POST", "/dda-poyc/entries", sale(P[4], -2, "Diazepam 5mg tablets", 1, "Dr Mark Ellul", "P-55118"));
@@ -26371,6 +26993,7 @@ function demoSeedSteps(cfg) {
     await c.p("PUT", "/pharmacovigilance/state", { state: { reports: [pv("demo-pv-1", P[1], -5, "Ramipril 5mg", "Dry cough since starting", "recovering"), pv("demo-pv-2", P[7], -1, "Amoxicillin 500mg", "Itchy rash on the arms", "not recovered")] } });
     const lbl = (id, x, drug, dose, freq, n) => ({ id, patientName: x.name, drugName: drug, dose, frequency: freq, route: "Oral", customInstructions: "", selectedWarnings: [], templateId: "tpl_std", printedAt: c.d(n) + " 10:20", printedBy: "Maria Borg" });
     await c.p("PUT", "/labels/state", { state: { labelHistory: [lbl("demo-lb-1", P[0], "Augmentin 625mg", "1 tablet", "Twice daily", -2), lbl("demo-lb-2", P[2], "Prednisolone 5mg", "2 tablets", "Once daily (morning)", -1), lbl("demo-lb-3", P[6], "Ramipril 5mg", "1 capsule", "Once daily", 0)] } });
+    await c.p("PUT", "/pharmacy/details", { name: cfg.name || "Demo Pharmacy", address: "1, Triq il-Kbira, Birkirkara", phone: "", licence: "" }); // Settings › Pharmacy details (finish round): labels and prints show an address (after /labels/state, which saves the whole settings row)
   });
   add("money", async (c) => {
     const eod = (n, x, epos, notes, lock) => ({ record: { date: c.d(n), eod_date: c.d(n), time_of_day: "PM", staff: "Maria Borg", staff_name: "Maria Borg", float_amount: "150.00", x: [{ amount: x, remark: "Main till" }], epos: [{ amount: epos, remark: "" }], cheques: [],

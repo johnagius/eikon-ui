@@ -15,8 +15,14 @@
   // Tabs, in the order of the menu. A guide's tab is where its screen lives.
   var TABS = [
     ["today", "Today"], ["customers", "Customers"], ["stock", "Stock"], ["registers", "Registers"],
-    ["services", "Services"], ["money", "Money"], ["team", "Team"], ["settings", "Settings"]
+    ["services", "Services"], ["money", "Money"], ["team", "Team"], ["settings", "Settings"],
+    ["distributor", "Distributor"], ["headoffice", "Head office"] // portals (FIN): shown only in their own portal (listHtml)
   ];
+  // portals (FIN): a portal lists its own guides only; a pharmacy never sees the portals' guides.
+  function tabShown(t) {
+    var r = E.state && E.state.activeRole, own = r === "supplier" ? "distributor" : r === "company_admin" ? "headoffice" : "";
+    return own ? t === own : t !== "distributor" && t !== "headoffice";
+  }
 
   // [id, tab, title, what it is for, [task title, step, step…] for the jobs done there most, still in the classic screen, words used]
   // Button names are the screen's own words; "still in the classic screen" is the screen's own footer sentence (tests/ui/run.mjs checks both).
@@ -134,6 +140,7 @@
       ["Check the registers", "Choose the days: This month, Last month, Last 3 months, Since last inspection or Choose days.", "Each register says In order, Look at this or Missing, with what was found."],
       ["Print the inspection pack", "Press Print inspection pack. It opens in a new tab: a cover page, contents with every gap, each register's own pages and a sign-off page. Anyone signed in can print it.", "After the inspector has been, keep today as the last inspection; next time choose Since last inspection."],
       ["Go to what needs a look", "Under a register, press Open: the register opens on that month or day."],
+      ["Controlled drugs and the pharmacist in charge", "A supply saved below what the registers showed is listed under Controlled drugs, with who saved it.", "A day with controlled drugs supplied or received and no pharmacist in the locum register is Missing, today included."],
       ["Print only this page", "Press Print this summary. It prints on one page with lines to sign."]
     ], "", []],
 
@@ -208,7 +215,9 @@
     ["cdsreg", "registers", "Controlled drugs supplied", "Every controlled drug handed over against a prescription.", [
       ["Record a prescription", "Press New prescription.", "Type the ID card: a known patient and address are filled in.", "Fill in the medicine and quantity, prescriber, reg no. and serial no., then press Save prescription."],
       ["More than one medicine", "Press Add a medicine for each extra line on the same prescription."],
+      ["Give part of a prescription now", "In the form, press Giving part now, then write how many were prescribed in total.", "It is listed under Partials — still to give. When the patient comes back, press Give the rest: everything is filled in with the quantity left; give less if it is again a part.", "Nothing more to give? Press Close without giving the rest, then say why."],
       ["See a medicine's balance", "Tap it under the month, or press By medicine. Under the quantity, the form says what the registers give before and after this line."],
+      ["When it says This takes it below the registers", "The line gives more than the registers show. Check the count, or a delivery not written in Received.", "If the prescription is right, save it as it really happened: the warning is kept and listed in the Inspection check and the inspection pack."],
       ["Correct a line (the pharmacist)", "Press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
     ], "", [["Serial no.", "the number printed on the prescription."], ["Reg no.", "the prescriber's registration number."]]],
@@ -216,6 +225,8 @@
     ["poyreg", "registers", "POYC controlled drugs", "Controlled drugs given under the Pharmacy of Your Choice scheme.", [
       ["Record a prescription", "Press New prescription.", "Type the ID card: a known patient is filled in.", "Fill in the medicine and quantity, prescriber, reg no. and serial no., then press Save prescription."],
       ["More than one medicine", "Press Add a medicine for each extra line."],
+      ["Give part of a prescription now", "In the form, press Giving part now, then write how many were prescribed in total.", "It is listed under Partials — still to give. When the patient comes back, press Give the rest: everything is filled in with the quantity left; give less if it is again a part.", "Nothing more to give? Press Close without giving the rest, then say why."],
+      ["When it says This takes it below the registers", "The line gives more than the registers show. Check the count, or a delivery not written in Received.", "If the prescription is right, save it as it really happened: the warning is kept and listed in the Inspection check and the inspection pack."],
       ["Correct a line (the pharmacist)", "Press Correct on the line.", "Change what was wrong and say why, then press Save correction."],
       ["Read and print a month", "Change month with ‹ and ›.", "Press Print."]
     ], "", [["POYC", "Pharmacy of Your Choice, the government scheme."]]],
@@ -226,7 +237,7 @@
       ["When it says Check", "Count it again, then look for a delivery or a prescription not written in, as it says.", "If it still does not match, tell the pharmacist in charge."],
       ["Another spelling of the same medicine", "Under Also found, tick it. Its lines join this balance. Tick only the same medicine and strength."],
       ["Print its lines", "Press Print."]
-    ], "", [["Check", "the count and the registers do not agree, or the registers go below zero. It assumes the invoices and the count use the same units (tablets)."]]],
+    ], "", [["Check", "the count and the registers do not agree, the registers go below zero, or a supply was saved below what the registers showed (warned when it was written). It assumes the invoices and the count use the same units (tablets)."]]],
 
     ["ddstreg", "registers", "Controlled drug stock takes", "Count each controlled drug and keep the count on file, ready to print.", [
       ["Start a stock take", "Press Start a stock take.", "For each medicine, fill in the name, dosage and tablets counted. Press Add item for the next one."],
@@ -286,8 +297,10 @@
       ["Print the rota", "Press Print, then choose this week, this month, or a list by day."],
       ["Fill a gap", "A day with no pharmacist for some hours says so in amber. Press Fill the gap.", "The hours are filled in and a free pharmacist is chosen. Press Add shift."],
       ["Swap two shifts", "Tap one of the shifts, then press Swap….", "Choose the other person's shift: the same day or any day of the week. The screen says who will work when, and any hours left without a pharmacist. Each person keeps their own note.", "Press Swap shifts. If something goes wrong half way, it is put back and the screen says so."],
-      ["Ask for leave", "Press + New leave request.", "Fill in who, the type, from and until, and the reason.", "Press Save leave request."],
-      ["Answer a leave request", "Press Approve or Refuse on the request. You are warned if no one would cover."],
+      ["Ask for leave", "Press + New leave request (+ Ask for leave if you do not plan the rota).", "Who is already you when the pharmacy's admin has linked you to the rota. Fill in the type, from and until, and the reason.", "Press Save leave request. It waits for an answer."],
+      ["Answer a leave request", "Press Approve or Refuse on the request. You are warned if no one would cover.", "Only the admin, and people who plan the rota, answer leave. Nobody but an admin answers their own."],
+      ["If you cannot change shifts", "Shifts, fills and the rules are changed by the pharmacy's admin and by the people they let plan the rota (People who sign in › Role…).", "You still see the whole rota and ask for leave. On a phone, Plan shifts opens your next shifts on Who's in first."],
+      ["Add someone who signs in here", "Press + Add a person to the rota. The people who sign in here and are not on the rota yet are listed: tap a name, choose the role, and press Add to the rota.", "They are linked to their sign-in, so they see their own shifts. Names, shifts and leave are not merged or copied."],
       // roster planner, rules and settings (B3, ui/eikon.rotaset.js)
       ["Change the opening hours", "Open ⋯ and choose Opening hours.", "Set each day's hours, or tick off Open for a day you are closed. Press Monday's hours for Tue–Fri to copy them.", "Press Save hours."],
       ["Open on a holiday, close a day, or a duty Sunday", "Tap the day's hours at the top of the week, or open ⋯ Opening hours.", "Choose Open or Closed, the hours and a note. Press Duty Sunday to open the next Sunday as the duty pharmacy.", "Press Save this day. Press Remove on a day to go back to the usual hours."],
@@ -297,11 +310,13 @@
       ["Change a person's details, or take them off the rota", "Tap the person's name and open Edit details.", "Change what is needed and press Save details.", "Press Deactivate when someone leaves: their shifts and leave stay in the history. Delete… removes everything and says how many shifts go first."]
     ], "", []],
 
-    ["teamreg", "team", "People who sign in", "Everyone at the pharmacy signs in as themselves, so the registers show who did what. For the pharmacist only.", [
-      ["Add a person", "Press Add a person.", "Fill in the name and e-mail, and choose the role.", "Press Add. Give them the password shown."],
+    ["teamreg", "team", "People who sign in", "Everyone at the pharmacy signs in as themselves, so the registers show who did what. For the pharmacy's admin only.", [
+      ["Add a person", "Press Add a person.", "Fill in the name and e-mail, and choose the role: Staff, Pharmacist or Admin.", "Press Add. Give them the password shown."],
+      ["Change someone's role, or let them plan the rota", "Press Role… on the person.", "Choose Staff, Pharmacist or Admin. Tick Plans the rota to let a staff member or pharmacist change shifts and answer other people's leave.", "Press Save. Once someone is an admin, only Eikon support changes their sign-in."],
+      ["Link someone to the rota", "Under the person it says where they are on the rota. Press Link, Link or add, or Change.", "Choose their name on the rota, or Add them to the rota. Press Save.", "This only links the two: they then see their own shifts and ask for leave as themselves."],
       ["Give a new password", "Press New password on the person. They choose their own at the next sign-in."],
       ["Switch someone off", "Press Switch off on the person. They are signed out everywhere; their name stays on what they recorded."],
-      ["See who signed in today", "Those who signed in today come first, with the time (Malta time). Everyone else shows the day they last signed in.", "Admin adds people and changes settings; Staff record and read everything else."]
+      ["See who signed in today", "Those who signed in today come first, with the time (Malta time). Everyone else shows the day they last signed in.", "Admin adds people, changes settings and plans the rota. Pharmacist does what staff do, signs off the registers each month and corrects a wrong register line. Staff record and read everything else."]
     ], "", []],
 
     ["loyreg", "customers", "Loyalty", "Stamp cards, points and offers for regular customers: record what they buy, see how close they are to a reward.", [
@@ -419,6 +434,11 @@
       ["Can't find it?", "Press Ask in Shortages."]
     ], "Closed lines and printing are in the classic screen.", []],
 
+    ["phdreg", "settings", "Pharmacy details", "The pharmacy's name, address, phone and registration no., printed at the top of every label and print.", [
+      ["Add or change them", "Type the name as it should read on a label, the address, the phone and the registration no.", "The example label underneath shows how they will print.", "Press Save."],
+      ["Who changes them", "The pharmacy's admin. Everyone else sees them here."]
+    ], "", []],
+
     ["audreg", "settings", "Audit trail", "Who changed what, across the whole system. Times are Malta time.", [
       ["See recent changes", "Choose Today, 7 days, 30 days or 90 days."],
       ["Look at one change", "Open a line to see what it was before and after."],
@@ -465,14 +485,16 @@
       ["Print a new label", "Type the medicine; one given before fills in how it was taken.", "Add the patient's name if it goes on the label, and tap the warnings that apply.", "Check the label and press Print label."],
       ["Usual labels", "Press Usual label to keep a medicine and its directions on this device. Tap it at the top to fill the form; × takes it off."],
       ["Language", "Labels print in English. A label first printed in Maltese prints again with the same directions and warnings in English."],
+      ["The pharmacy's address on the label", "The name, address and phone at the top come from Settings, Pharmacy details."],
       ["Start again", "Press Clear."]
-    ], "Templates, pharmacy details, the full print history and the warnings table are in the classic screen.", []],
+    ], "Templates, the full print history and the warnings table are in the classic screen.", []],
 
     ["sinreg", "stock", "Supplier stock", "What suppliers have right now, at what price, and your orders to them.", [
       ["Find a product", "Under Stock, search a supplier's list."],
       ["Order from a supplier", "Press Add to order on each line.", "Press Send order."],
-      ["Check your orders", "Press Sent orders to see what each supplier did. Press Mark as received when it arrives."]
-    ], "Columns, sorting, expiry warning months and reporting a problem with a delivery are in the classic screen.", []],
+      ["Check your orders", "Press Sent orders to see what each supplier did. Press Mark as received when it arrives."],
+      ["Something wrong with a delivery", "Open the order under Sent orders. Press Report a problem on the line.", "Choose what is wrong, write a note if you want, and press Send report.", "Press Add to Returns to put it in Returns too, or No."]
+    ], "Columns, sorting and expiry warning months are in the classic screen.", []],
 
     ["otcreg", "services", "Over the counter", "What to recommend, by symptom. Cautions always come first.", [
       ["Find by symptom", "Search, or tap a symptom."],
@@ -502,6 +524,44 @@
       ["Look for duplicates", "Open the screen. People are grouped by the same ID card, phone number, or name and date of birth."],
       ["Check again", "Press Check again after changes."],
       ["Not the same person", "Press Not the same person on a group. This device remembers it; Show again brings it back."]
+    ], "", []],
+
+    // portals (FIN): the distributor (supplier portal) and the head office. Shown only to them (listHtml).
+    ["suphome", "distributor", "Today", "What is waiting for you: orders to send, problems pharmacies reported, products expiring soon and products out of stock.", [
+      ["See what is waiting", "The tiles count orders to send, problems to answer, products expiring within 90 days and products out of stock. Tap one to open it."],
+      ["Send an order", "Tap the order under Orders to send. It opens in Orders."],
+      ["Put a product back in stock", "Under Out of stock, press Back in stock on its line."]
+    ], "", []],
+    ["suporders", "distributor", "Orders", "What pharmacies ordered from you: check each line, then mark the order sent.", [
+      ["Send an order", "Tap the order under To send.", "Press Not available on any line you cannot supply. If it is out of stock for everyone, press Mark out of stock; otherwise Only this order.", "Choose the delivery day and write a note for the pharmacy if you want.", "Press Mark as sent, then Yes, mark it sent."],
+      ["See earlier orders", "Press Sent, Received or All."]
+    ], "", [["Not available", "a line you cannot supply on this order. The pharmacy sees it crossed out."]]],
+    ["supproblems", "distributor", "Problems", "What pharmacies reported about a delivery (damaged, wrong item, short), and your answer.", [
+      ["Answer a problem", "Under Waiting, choose your answer and write a note for the pharmacy if you want.", "Press Send answer. The pharmacy sees it."],
+      ["See the order", "The order's button on the problem opens the order."]
+    ], "", []],
+    ["supproducts", "distributor", "Products", "Your price list, as pharmacies see it when they order from you.", [
+      ["Add a product", "Press Add product.", "Fill in the name, the cost before VAT and the recommended retail price; the rest if you have it.", "Press Add product again to save it."],
+      ["Change a product", "Press Change on its line.", "Change what you need and press Save changes."],
+      ["Out of stock", "Press Out of stock on its line. Press Back in stock when it is in again."],
+      ["Delete a product", "Press Change, then Delete product, then Yes, delete it."],
+      ["Find a product", "Type a name, stock code or barcode in the search box, or press Short expiry or Out of stock."]
+    ], "Importing a price list from a spreadsheet, and deleting several products at once, are in the classic layout (Account › Classic layout).", []],
+    ["ptlacct", "distributor", "Account", "Your password, help, the classic layout and signing out.", [
+      ["Change your password", "Press Password."],
+      ["The previous look", "Press Classic layout. The Use the new layout button at its top brings you back."]
+    ], "", []],
+    ["hqhome", "headoffice", "Today", "Your pharmacies at a glance: what needs someone, takings, end of day, registers, customers waiting and stock alerts.", [
+      ["See what needs someone", "Under Needs someone, each line names the pharmacy and what is missing or to look at, the worst first."],
+      ["One pharmacy's figures", "Press See the figures on its card. How we're doing opens on that pharmacy."]
+    ], "", [["Stock", "recalls and quarantines still open, and what expires within 30 days."]]],
+    ["hqregs", "headoffice", "Registers", "Each pharmacy's registers for a month: what was filled in, and when it was last written.", [
+      ["Read a month", "Change month with ‹ and ›. Press This month to come back."],
+      ["Which days are missing", "Tap the pharmacy's name at the top of its column. How we're doing opens on it, with each missing day."],
+      ["Print it", "Press Print."]
+    ], "", [["Working days", "Monday to Saturday, up to today."]]],
+    ["hqclient", "headoffice", "Cherubino", "Your group's own screens: orders from the pharmacies, price changes, the warehouse's short expiry and the out-of-stock list.", [
+      ["Open one", "Tap it. It opens in the classic screen, with a way back at the top."]
     ], "", []]
   ];
 
@@ -591,6 +651,7 @@
     }
     var any = false;
     TABS.forEach(function (t) {
+      if (!tabShown(t[0])) return;
       var items = G.filter(function (g) { return g[1] === t[0]; }).map(function (g) { return BY[g[0]]; }).filter(function (g) {
         if (!E.modules[g.id] && E._lateIn) return false; // not in this build or for this person
         if (E.modules[g.id] && E.modules[g.id].adminOnly && E.state.user && E.state.user.role && E.state.user.role !== "admin") return false;

@@ -112,7 +112,7 @@ export default {
     t.ok(/Undo the use of €12\.50/.test(q) && /leaving €12\.50/.test(q) && qFocus === "undo-yes", "undo: the question: " + q + " focus " + qFocus);
     t.ok(del.status === 200 && del.body == null && del.path === `/creditnotes/entries/${A}/purchases/${uA.id}`, "undo: not the classic's DELETE without a body: " + JSON.stringify(del));
     t.ok(after.card === String(A) && after.act === "use", "undo: focus did not return to the note's Use button: " + JSON.stringify({ act: after.act, card: after.card }));
-    t.same("credit note after undo", t.row("credit_notes", B), t.row("credit_notes", A), {});
+    t.same("credit note after undo", t.row("credit_notes", B), t.row("credit_notes", A), { cn_no: "the pharmacy's own credit-note number (W6): the next one, as the row id was" });
     const nr = (id) => uses(id).map((r) => strip(r, ["id", "credit_note_id", "timestamp"]));
     t.ok(uses(A).length === 1 && JSON.stringify(nr(A)) === JSON.stringify(nr(B)), "undo: the uses left differ: " + JSON.stringify(nr(A)) + " vs " + JSON.stringify(nr(B)));
     const ad = (pid) => t.db.prepare("SELECT * FROM audit_log WHERE action = 'CREDITNOTE_PURCHASE_DELETE' AND entity_id = ?").get(String(pid));

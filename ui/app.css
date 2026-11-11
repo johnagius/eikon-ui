@@ -980,7 +980,11 @@ html[data-ui2] .eikon-btn.primary{background:var(--accent);border-color:var(--ac
 /* Services and Money (2026-11-03): in the side rail on wider screens; on phones the bar keeps six words and the
    last tab reads "More" (its page lists Team, Services and Money first) and stays lit while one of those is open. */
 html[data-ui2] .eikon-rail-more{display:none}
+html[data-ui2] .eikon-rail-more-ico{display:none} /* FIN-dayzero W42: the phone's "More" has its own icon (three dots) */
 @media (max-width: 760px){
+  html[data-ui2] .eikon-rail-btn[data-mod="settings"] .eikon-rail-ico > svg{display:none}
+  html[data-ui2] .eikon-rail-btn[data-mod="settings"] .eikon-rail-more-ico{display:contents}
+  html[data-ui2] .eikon-rail-btn[data-mod="settings"] .eikon-rail-more-ico svg{display:block}
   html[data-ui2] .eikon-rail-top .eikon-rail-btn:is([data-mod="services"],[data-mod="money"]){display:none}
   html[data-ui2] .eikon-rail-btn[data-mod="settings"] .eikon-nav-label{display:none}
   html[data-ui2] .eikon-rail-btn[data-mod="settings"] .eikon-rail-more{display:inline;white-space:nowrap}
@@ -1126,10 +1130,11 @@ html[data-ui2] .eikon-rail-btn:not([data-mod="stock"]) .eikon-rail-badge{backgro
 @media (max-width: 760px) and (prefers-color-scheme: dark){
   html[data-ui2]:not([data-ui2-visit]) :is(.eikon-rail-btn.active,.eikon-rail-btn.more-on){background:#3A3A3C}
 }
-/* A screen title the app focuses after a tap or click (h1 tabindex=-1, for screen readers) shows no ring; after a key
-   (data-q58-ptr cleared by core.js) it keeps the keyboard ring. */
-html[data-ui2][data-q58-ptr] h1[tabindex="-1"]:is(:focus,:focus-visible){outline:none}
-html[data-ui2]:not([data-q58-ptr]) h1[tabindex="-1"]:focus-visible{outline:3px solid rgba(10,143,106,.5);outline-offset:4px;border-radius:6px}
+/* A screen title the app focuses when a screen opens (h1 tabindex=-1: a screen reader reads where it is) is not a control:
+   it never shows a ring, after a tap or a key alike (FIN-dayzero W29: the green box round every title read as a
+   selected text field). Every control keeps its :focus-visible ring for keyboard users; Tab from the title goes to the
+   screen's first control, which shows it. */
+html[data-ui2] h1[tabindex="-1"]:is(:focus,:focus-visible),html[data-ui2]:not([data-ui2-visit]) h1[tabindex="-1"]:is(:focus,:focus-visible){outline:none} /* the second beats the app-wide [tabindex]:focus-visible ring (line ~1063) */
 /* "Show 30 more (90 left)" under a long list (E.listPage in core.js). */
 html[data-ui2] .q5-8-morebox{display:flex;justify-content:center;margin:12px 0 4px}
 @media (max-width: 760px){ html[data-ui2] .q5-8-more{min-height:44px;width:100%;max-width:360px} }

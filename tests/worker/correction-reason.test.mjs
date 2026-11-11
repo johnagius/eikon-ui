@@ -54,7 +54,8 @@ for (const C of CASES) {
     eq(keys(ea.details), keys(eb.details), "the other detail keys are unchanged");
     // the two stored rows are the same in every column except id and the clock / who columns
     const ra = strip(row(DB, C.table, a)), rb = strip(row(DB, C.table, b));
-    for (const k of Object.keys(ra)) if (k !== "id" && k !== "created_at") eq(JSON.stringify(ra[k]), JSON.stringify(rb[k]), C.name + " column " + k);
+    for (const k of Object.keys(ra)) if (k !== "id" && k !== "created_at" && k !== "cn_no") // cn_no: the per-pharmacy credit-note number (W6), a sequence like id
+      eq(JSON.stringify(ra[k]), JSON.stringify(rb[k]), C.name + " column " + k);
     ok(!Object.values(ra).some((v) => /typed wrong/.test(String(v))), "the reason is not written on the row");
   });
 }

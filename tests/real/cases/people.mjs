@@ -76,9 +76,9 @@ export default {
     await p.waitForSelector(`[data-act="on"][data-id="${uid}"]`);
     await t.write(p, new RegExp("/team/users/" + uid + "/active$"), () => p.click(`[data-act="on"][data-id="${uid}"]`));
     const want = [{ email: "guzi" + tag + "@demo.mt", full_name: "Ġużi Hili " + tag, role: "staff" }, {}, { active: false }, { active: true }].map((x) => JSON.stringify(x));
-    if (await p.waitForSelector(`[data-act="role"][data-id="${uid}"]`, { timeout: 4000 }).then(() => true, () => false)) { // only where Eikon support lets admins manage admins
+    if (await p.waitForSelector(`[data-act="role"][data-id="${uid}"]`, { timeout: 4000 }).then(() => true, () => false)) { // Role… (roles round: Staff / Pharmacist / Admin; the pharmacy admin may make an admin)
       await p.waitForSelector(`[data-act="role"][data-id="${uid}"]`);
-      await t.write(p, new RegExp("/team/users/" + uid + "/role$"), async () => { await p.click(`[data-act="role"][data-id="${uid}"]`); await modal("Change"); });
+      await t.write(p, new RegExp("/team/users/" + uid + "/role$"), async () => { await p.click(`[data-act="role"][data-id="${uid}"]`); await p.check('input[name="tmr-role-pick"][value="admin"]'); await modal("Save"); });
       want.push(JSON.stringify({ role: "admin" }));
     } else t.note("Make admin is off on this server (TEAM_ADMINS_MANAGE_ADMINS): four of the five bodies compared");
     t.ok(want.length === 5, "all five sign-in writes driven: " + want.length);

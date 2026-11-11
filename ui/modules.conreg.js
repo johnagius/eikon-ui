@@ -36,9 +36,9 @@
     { name: "Urgent non-emergency care", phone: "1400", note: "Helpline" },
     { name: "Mater Dei Hospital", phone: "2545 0000", note: "Malta" },
     { name: "Gozo General Hospital", phone: "2156 1600", note: "Gozo" },
-    { name: "Floriana Health Centre", phone: "2124 3314", note: "24/7. Frangisk Saver Fenech Road, Floriana. Covers Cospicua, Vittoriosa, Senglea, Kalkara." },
-    { name: "Mosta Health Centre", phone: "2143 3256 / 2143 2062", note: "24/7. Rotunda Square, Mosta. Covers Rabat, Mdina, Dingli, Attard, Bidnija, Kuncizzjoni." },
-    { name: "Paola Health Centre", phone: "2169 1314 / 2169 1315", note: "24/7. Antoine De Paule Square, Paola. Covers Paola, Tarxien, Santa Lucia, Birzebbuga, Zejtun, Marsaxlokk, Zabbar, Marsascala, Xghajra, Fgura, Gudja, Ghaxaq." },
+    { name: "Floriana Health Centre", phone: "2124 3314", note: "24/7. Franġisk Saver Fenech Road, Floriana. Covers Cospicua, Vittoriosa, Senglea, Kalkara." },
+    { name: "Mosta Health Centre", phone: "2143 3256 / 2143 2062", note: "24/7. Rotunda Square, Mosta. Covers Rabat, Mdina, Dingli, Attard, Bidnija, Kunċizzjoni." },
+    { name: "Paola Health Centre", phone: "2169 1314 / 2169 1315", note: "24/7. Antoine De Paule Square, Paola. Covers Paola, Tarxien, Santa Luċija, Birżebbuġa, Żejtun, Marsaxlokk, Żabbar, Marsaskala, Xgħajra, Fgura, Gudja, Għaxaq." },
     { name: "Primary HealthCare call centre", phone: "2123 1231", note: "Appointments and information for all health centres." }
   ];
 

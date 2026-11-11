@@ -51,7 +51,7 @@
     ocps: "Find a contraceptive pill by its hormones and doses.",
     pharmacycalc: "Dosing plans and the supply to dispense, for one patient.",
     otcmindmap: "What to recommend over the counter, by symptom.",
-    labels: "Print dispensing labels in English or Maltese.",
+    labels: "Print dispensing labels with the pharmacy's name, address and phone.",
     alerts: "Recalls and quarantines, with each step ticked off.",
     nearexpiry: "What expires soon, nearest first.",
     scarcestock: "Hard-to-get lines other pharmacies have spare.",
@@ -69,7 +69,8 @@
     instructions: "What the last shift left, and what you leave.",
     messageboard: "Messages between pharmacies, kept for six months.",
     contacts: "Suppliers, reps, doctors, head office, one list.",
-    teamreg: "Add a person, give a new password, switch off someone who has left."
+    teamreg: "Add a person, give a new password, switch off someone who has left.",
+    phdreg: "Name, address, phone and registration no., printed on labels and prints."
   };
 
   // Each screen has one home tab (E.UI2_PARENT in core.js): the rail lights it and the back button returns to it.
@@ -131,7 +132,7 @@
           { title: "Add to desktop or home screen", desc: "Open Eikon with one tap, in its own window, like an app.", run: function () { if (E.install) E.install.open(); } },
           { title: "Sign out", desc: "Sign out on this device.", run: function () { E.logout(); } }
         ] },
-        { label: "This pharmacy", ids: ["audit", "expreg", "contacts", "teamreg"], actions: [
+        { label: "This pharmacy", ids: ["phdreg", "audit", "expreg", "contacts", "teamreg"], actions: [
           { title: "Lock when idle", desc: "Cover this computer's screen after a few quiet minutes; off unless you turn it on.", run: function () { E.showIdleLockSettings(); } }
         ] },
         { label: "Help", actions: [
@@ -216,6 +217,7 @@
           var mod = E.modules[mid];
           if (!mod) return; // not in this build or this portal
           if (mod.adminOnly && E.state.user && E.state.user.role && E.state.user.role !== "admin") return; // the pharmacist's own tools
+          if (id === "settings" && mid === "audit" && E.state.user && E.state.user.role && E.state.user.role !== "admin") return; // FIN-dayzero: the audit trail answers staff 403; no card that refuses
           var nat = (E.UI2_NATIVE || {})[mid], shown = (nat && E.modules[nat] && E.modules[nat].title) || mod.title || mid; // the name the screen itself shows
           cards += '<button class="hub-card" data-open="' + esc(mid) + '"><b>' + esc(sentence(shown)) + '</b><span>' + esc(DESC[mid] || "") + '</span></button>';
         });

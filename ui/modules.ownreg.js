@@ -258,8 +258,10 @@
     else if (d.group && !d.pharmacies.length) h += '<div class="own-quiet">No pharmacy is in your group yet.</div>';
     else h += body(S.period || per);
     h += "</div>";
-    if (E.repaintKeepingFocus) E.repaintKeepingFocus(m, function () { m.innerHTML = h; }); else m.innerHTML = h;
-    if (S.loading && S.period) m.querySelector(".own").setAttribute("aria-busy", "true");
+    // portals (FIN): the busy mark is set in the same step as the drawing; E.repaintKeepingFocus can draw a moment later
+    // (opened from a head-office row while focus was still moving), and a mark set before it found no .own (TypeError).
+    var busy = S.loading && S.period, draw = function () { m.innerHTML = h; var o = m.querySelector(".own"); if (o && busy) o.setAttribute("aria-busy", "true"); };
+    if (E.repaintKeepingFocus) E.repaintKeepingFocus(m, draw); else draw();
   }
 
   function body(per) {

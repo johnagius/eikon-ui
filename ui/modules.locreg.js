@@ -54,7 +54,7 @@
   function nowHm() { return (E.maltaHm && E.maltaHm()) || hmNow(); }
   // The signed-in pharmacist as a locum line already names them (name and reg no), or null.
   function selfLocum() {
-    var u = E.state.user || {}, n = norm(u.full_name); if (u.role !== "admin" || !n) return null;
+    var u = E.state.user || {}, n = norm(u.full_name); if (!(u.role === "admin" || (E.isPic && E.isPic())) || !n) return null; // roles round: an admin or a pharmacist
     var hit = S.history.find(function (e) { return norm(e.locum_full_name).replace(/^(dr|pharm)\.?\s+/, "") === n.replace(/^(dr|pharm)\.?\s+/, "") && e.registration_number; });
     return hit ? { name: hit.locum_full_name, reg: hit.registration_number } : null;
   }
@@ -133,7 +133,8 @@
       '<div class="dly-msg" id="lcr-qmsg" role="alert">' + esc(q.err || "") + "</div></div>";
     return D.today({ tone: lines.length ? "info" : "due", word: lines.length ? "Nobody now" : "Not yet", title: lines.length ? "Nobody is in charge now" : "Nobody signed in today", sub: done || "Sign in as the pharmacist in charge: today, " + nowHm() + ".", body: body });
   }
-  // Days of the month with work recorded (a reading, a cleaning or a daily-register line) but no pharmacist.
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+  // Days of the month with work recorded (a reading, a cleaning, a daily-register or a controlled-drug line) but no pharmacist.
   function missed() {
     var w = S.work[S.month]; if (!w) return [];
     var t = todayYmd(), have = {}; S.entries.forEach(function (e) { have[e.entry_date] = 1; });
@@ -153,8 +154,10 @@
   function loadWork(month) {
     if (S.work[month] || S.workLoading === month) return;
     S.workLoading = month;
-    Promise.all(["/temperature/entries", "/cleaning/entries", "/daily-register/entries"].map(function (p) { return E.apiFetch(p + "?month=" + encodeURIComponent(month), { method: "GET" }).catch(function () { return null; }); })).then(function (rs) {
-      var w = {}; rs.forEach(function (r) { ((r && r.entries) || []).forEach(function (e) { if (e.entry_date) w[e.entry_date] = 1; }); });
+    var last = month + "-" + pad2(new Date(Date.UTC(+month.slice(0, 4), +month.slice(5), 0)).getUTCDate()), t = todayYmd(); if (last > t) last = t;
+    var cd = month + "-01" > t ? Promise.resolve(null) : E.apiFetch("/dda-register/check?days_only=1&from=" + month + "-01&to=" + last, { method: "GET" }).catch(function () { return null; }); // controlled-drug days count as work (Finish round)
+    Promise.all(["/temperature/entries", "/cleaning/entries", "/daily-register/entries"].map(function (p) { return E.apiFetch(p + "?month=" + encodeURIComponent(month), { method: "GET" }).catch(function () { return null; }); }).concat([cd])).then(function (rs) {
+      var w = {}; rs.forEach(function (r) { ((r && r.entries) || []).forEach(function (e) { if (e.entry_date) w[e.entry_date] = 1; }); var dy = r && r.days; if (dy) (dy.supplied || []).concat(dy.received || []).forEach(function (d) { w[d] = 1; }); });
       S.work[month] = w; S.workLoading = null; if (S.month === month) E.whenFormIdle(S.mount, paint);
     });
   }

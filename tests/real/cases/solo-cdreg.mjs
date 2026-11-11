@@ -80,7 +80,7 @@ export default {
     m = t.maxId("dda_purchases_entries");
     await t.fill(p, "#cdp-add", { entry_date: P.date, agent: P.agent, invoice_number: P.inv, '#cdp-add [data-i="0"][data-k=quantity]': P.qty });
     await p.waitForFunction(() => /after this delivery: 72/.test((document.querySelector("#cdp-add .cd-balhint") || {}).textContent || ""), null, { timeout: 5000 }).catch(() => {});
-    t.ok(/In the register: 52 · after this delivery: 72/.test(await p.textContent("#cdp-add .cd-balhint").catch(() => "")), "the balance check at entry: " + await p.textContent("#cdp-add .cd-balhint").catch(() => "(none)"));
+    t.ok(/In the registers since the count on \d+ \w{3}: 52 · after this delivery: 72\./.test(await p.textContent("#cdp-add .cd-balhint").catch(() => "")), "the balance check at entry: " + await p.textContent("#cdp-add .cd-balhint").catch(() => "(none)"));
     await t.write(p, /\/dda-purchases\/entries$/, () => p.click("#cdp-add button[type=submit]"));
     const freshP = (await t.mine("dda_purchases_entries", m, { invoice_number: P.inv }))[0];
     t.has("received(cdreg)", freshP, { entry_date: P.date, dda_name_dose: MED, quantity: 20, agent: P.agent, invoice_number: P.inv });
@@ -94,9 +94,9 @@ export default {
     await p.waitForFunction(() => window.EIKON.state.activeModuleId === "cdsreg" && document.querySelector("#cds-add"));
     t.ok(await p.inputValue('#cds-add [data-i="0"][data-k=medicine_name_dose]') === MED, "Supplied opens the prescription form with the medicine in its first line");
     await p.fill('#cds-add [data-i="0"][data-k=quantity]', "90");
-    await p.waitForFunction(() => /below zero/.test((document.querySelector("#cds-add .cd-balhint") || {}).textContent || ""), null, { timeout: 5000 }).catch(() => {});
+    await p.waitForFunction(() => /below what the registers show/.test((document.querySelector("#cds-add .cd-balhint") || {}).textContent || ""), null, { timeout: 5000 }).catch(() => {});
     const hint = await p.textContent("#cds-add .cd-balhint").catch(() => "");
-    t.ok(/after this line: -18\. Check: that is below zero\./.test(hint) && await p.locator("#cds-add .cd-balhint").evaluate((e) => getComputedStyle(e).color === getComputedStyle(e.closest("form").querySelector(".hd") || e).color), "more than the registers give: said quietly, in muted words: " + hint);
+    t.ok(/^Check: This takes Tapentadol 50mg tablets 18 below what the registers show since the last count \(\d+ \w{3}\) — check the count or a delivery not written in Received\./.test(hint) && await p.locator("#cds-add .cd-balhint.warn").count() === 1, "more than the registers give: warned in amber, in the owner's words (Finish round): " + hint);
     m = t.maxId("dda_sales_entries");
     await t.fill(p, "#cds-add", { entry_date: RX.date, client_id_card: RX.id, client_name: RX.name, client_address: RX.addr, doctor_name: RX.doc, doctor_reg_no: RX.reg, prescription_serial_no: RX.serial, '#cds-add [data-i="0"][data-k=quantity]': RX.qty });
     await p.click("#cds-add button[type=submit]"); await p.waitForSelector(".cds-dup"); // the classic line has the same serial: second press

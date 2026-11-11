@@ -104,12 +104,12 @@ export default {
           const key = (e) => !e || e === document.body ? "BODY" : (e.getAttribute("name") || e.getAttribute("data-k") && e.getAttribute("data-k") + "#" + e.getAttribute("data-i") || e.id || e.tagName + ":" + (e.innerText || "").trim().slice(0, 20));
           const order = f ? [...f.querySelectorAll("input,select,textarea,button,a[href],summary,[tabindex]")].filter((e) => e.offsetParent !== null && !e.disabled && e.tabIndex >= 0 && e.type !== "hidden") : [];
           const i = order.indexOf(a);
-          return { key: key(a), inForm: !!(f && f.contains(a)), tag: a ? a.tagName : "", type: a && a.type || "", name: a && (a.getAttribute("name") || a.getAttribute("data-k") || a.id) || "", next: i >= 0 && order[i + 1] ? key(order[i + 1]) : null, value: a && "value" in a ? a.value : null };
+          return { key: key(a), inForm: !!(f && f.contains(a)), tag: a ? a.tagName : "", type: a && a.type || "", name: a && (a.getAttribute("name") || a.getAttribute("data-k") || a.id) || "", next: i >= 0 && order[i + 1] ? key(order[i + 1]) : null, value: a && "value" in a ? a.value : null, ph: a && a.placeholder || "" };
         }, sc.form);
         if (cur.key === "BODY") { lost.push(`${tag}: focus on BODY before step ${step}`); t.fail(`${tag}: focus is on BODY (the page) before field ${step + 1}`); break; }
         if (!cur.inForm || (cur.tag === "BUTTON" && cur.type === "submit")) break; // reached Record: every field is done
         const textual = cur.tag === "TEXTAREA" || (cur.tag === "INPUT" && /^(text|search|tel|email|url|number|)$/.test(cur.type));
-        if (sc.filled && cur.name in sc.filled) t.ok(cur.value === sc.filled[cur.name], `${tag}: the lookup should have filled ${cur.name} with ${JSON.stringify(sc.filled[cur.name])} by the time Tab reached it; it holds ${JSON.stringify(cur.value)}`);
+        if (sc.filled && cur.name in sc.filled) t.ok(cur.value === sc.filled[cur.name] || (cur.value === "" && cur.ph === sc.filled[cur.name]), `${tag}: the lookup should have filled ${cur.name} with ${JSON.stringify(sc.filled[cur.name])} by the time Tab reached it (or, W44 finish round, shown it as the hint of the field Tab lands in, taken if left empty); it holds ${JSON.stringify(cur.value)}, hint ${JSON.stringify(cur.ph)}`);
         if (textual && cur.name) {
           const v = (sc.values && sc.values[cur.name]) || guess(cur.name, cur.type, cur.tag);
           await p.keyboard.press("ControlOrMeta+A"); // what a lookup put in a field still to be typed is replaced, as a person would

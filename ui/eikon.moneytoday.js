@@ -117,7 +117,7 @@
     var asked = Date.now(), loc = locId();
     S.job = E.apiFetch("/money/today", { method: "GET", timeoutMs: 12000 }).then(function (r) {
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not check today's money");
-      S.data = r; S.at = asked; S.loc = loc; S.error = "";
+      S.data = clipStart(r); S.at = asked; S.loc = loc; S.error = "";
       return r;
     }).catch(function (e) {
       S.error = e && e.network ? "No connection, so today's money could not be checked." : "Today's money could not be checked.";
@@ -255,6 +255,19 @@
       if (!el) { el = document.createElement("em"); card.appendChild(el); }
       el.className = "mny-chip " + x.status; el.textContent = x.text;
     });
+  }
+
+  // FIN-dayzero: a day before the pharmacy started was never open: no "Yesterday not closed" for it. Only the "missing"
+  // days go (a day saved but not locked is a real record and stays). The answer is otherwise used as sent.
+  function clipStart(r) {
+    if (E.noteStart && r && r.since) E.noteStart(r.since);
+    var start = r && /^\d{4}-\d{2}-\d{2}$/.test(String(r.since || "")) ? r.since : (E.startYmd ? E.startYmd() : "");
+    var e = r && r.end_of_day;
+    if (start && e && Array.isArray(e.earlier)) {
+      e.earlier = e.earlier.filter(function (x) { return !(x && x.state === "missing" && String(x.date) < start); });
+      if (e.last_open_day && String(e.last_open_day) < start) e.last_open_day = null;
+    }
+    return r;
   }
 
   E.moneyToday = { items: items, sorted: sorted, summary: summary, headText: headText, chips: chips, eur: eur, load: load, render: render, state: S };

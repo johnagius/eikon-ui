@@ -234,7 +234,7 @@
       ".tdy-btn{font-size:13px;font-weight:600;padding:8px 14px;border-radius:9px;border:1px solid var(--border);background:var(--panel);white-space:nowrap;color:var(--text);cursor:pointer}.tdy-btn:disabled{opacity:.55;cursor:default}" +
       ".tdy-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}.tdy-btn.g{background:var(--ok);border-color:var(--ok);color:#fff}" +
       ".tdy-inl{display:flex;align-items:center;gap:6px}.tdy-inl input{width:62px;height:32px;border:1px solid var(--border);border-radius:8px;background:var(--bg);padding:0 8px;color:var(--text);font-size:13px;font-variant-numeric:tabular-nums}.tdy-inl input:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--shadow,rgba(10,143,106,.18))}.tdy-inl small{font-size:11px;color:var(--muted)}" +
-      ".tdy-tile{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}.tdy-tile .tdy-lab{margin:0 0 8px}.tdy-tile .big{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}.tdy-tile .big span{font-size:14px;font-weight:600;color:var(--muted);letter-spacing:0;margin-left:6px}.tdy-tile p{margin:6px 0 0;font-size:12.5px;color:var(--muted);line-height:1.45}.tdy-tile p b{color:var(--text);font-weight:600}.tdy-tile .tdy-btn{margin-top:10px}" +
+      ".tdy-tile{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}.tdy-tile .tdy-lab{margin:0 0 8px}.tdy-tile .big{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}.tdy-tile .big span{font-size:14px;font-weight:600;color:var(--muted);letter-spacing:0;margin-left:6px}.tdy-tile p{margin:6px 0 0;font-size:12.5px;color:var(--muted);line-height:1.45}.tdy-tile p b{color:var(--text);font-weight:600}.tdy-tile p.tdy-none{font-size:15px;color:var(--text);margin:0}.tdy-tile .tdy-btn{margin-top:10px}" +
       ".tdy-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.tdy-chips i{font-style:normal;height:26px;padding:0 10px;border-radius:6px;background:rgba(127,127,127,.12);display:inline-flex;align-items:center;font-size:11.5px;font-weight:600;color:var(--muted)}.tdy-chips i.on{background:rgba(28,138,91,.16);color:var(--ok)}" +
       ".tdy-foot{grid-column:1/-1;display:flex;gap:16px;align-items:center;font-size:12.5px;color:var(--muted);margin-top:18px;padding-top:10px;border-top:1px solid var(--border)}.tdy-foot a{color:var(--accent);cursor:pointer;font-weight:600}.tdy-foot .right{margin-left:auto}" +
       ".tdy-setup{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin:14px 0 0}.tdy-setup h2{font-size:15px;font-weight:700;margin:0 0 2px}.tdy-setup p{margin:0 0 6px;font-size:13px;color:var(--muted)}" +
@@ -262,6 +262,7 @@
       if (!r || !r.ok) r = await E.apiFetch("/today", { method: "GET", timeoutMs: 12000 });
       if (!r || !r.ok) throw new Error((r && r.error) || "Could not load Today");
       state.data = r; state.loadedAt = new Date(); state.error = ""; state.errorKind = "";
+      if (E.noteStart && r && r.since) E.noteStart(r.since); // FIN-dayzero
       await loadNotes(r);
     } catch (e) {
       // One sentence, ending in a full stop, whatever the server said ("Unauthorized" → "Not signed in.").
@@ -455,7 +456,10 @@
     if (s.sign_ins === 1) out.push({ k: "people", t: "Add the people who work here, so each signs in as themselves", go: "#teamreg", b: "Add people" });
     // q5-5: hours set for Bookings count too: there are bookings today, so Bookings has opening hours (D2)
     var bkHours = !!(state.data && state.data.bookings && state.data.bookings.total_today > 0);
-    if (s.opening_hours_saved === false && !bkHours) out.push({ k: "hours", t: "Set your opening hours", go: "#shifts", b: "Set hours" });
+    // W11: Set hours opens the opening hours themselves (E.openHours: the hours sheet), not the rota
+    if (s.opening_hours_saved === false && !bkHours) out.push({ k: "hours", t: "Set your opening hours", go: "#shifts", sheet: "hours", b: "Set hours" });
+    // FIN-dayzero (W10): the address and phone printed on labels and prints (Settings › Pharmacy details)
+    if (s.details_saved === false) out.push({ k: "details", t: "Add the pharmacy's address and phone, for labels and prints", go: "#phdreg", b: "Add details" });
     // Only where Emergency POS is used: it was opened here and found no product list (eposreg keeps that note).
     if (flag("eikon_epos_empty")) out.push({ k: "products", t: "Add your products to Emergency POS", go: "#eposreg", b: "Import" });
     return out;
@@ -469,7 +473,7 @@
     var items = setupItems(before);
     if (!items.length) return "";
     return '<section class="tdy-setup" aria-labelledby="tdy-setup-t"><div class="tdy-setup-h"><h2 id="tdy-setup-t">Getting this pharmacy ready</h2><button class="tdy-btn" data-setup-later aria-label="Not now: hide this list for ' + LATER_DAYS + ' days">Not now</button></div><p>' + plural(items.length, "thing") + ' left. Each goes from this list once it is done.</p><ul>' +
-      items.map(function (i) { return '<li data-setup="' + i.k + '"><span>' + esc(i.t) + '</span><button class="tdy-btn" data-open="' + esc(i.go) + '"' + (i.view ? ' data-view="' + esc(i.view) + '"' : "") + '>' + esc(i.b) + '</button></li>'; }).join("") + '</ul></section>';
+      items.map(function (i) { return '<li data-setup="' + i.k + '"><span>' + esc(i.t) + '</span><button class="tdy-btn" data-open="' + esc(i.go) + '"' + (i.view ? ' data-view="' + esc(i.view) + '"' : "") + (i.sheet ? ' data-sheet="' + esc(i.sheet) + '"' : "") + '>' + esc(i.b) + '</button></li>'; }).join("") + '</ul></section>';
   }
 
   // ---------- render ----------
@@ -512,6 +516,12 @@
       limits: (isFinite(lo) ? lo : "–") + " to " + (isFinite(hi) ? hi : "–") + " °C" };
   }
   function yesterdayYmd() { var t = todayYmd(); if (!t) return ""; var d = new Date(t + "T12:00:00"); d.setDate(d.getDate() - 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  // W31: a fridge added today, or a pharmacy that did not exist yesterday, had no reading to miss: its limits only.
+  function tempSub(r) {
+    var t = String(r.sub || "");
+    if (!r.yesterday && /^No reading yesterday/.test(t) && E.beforeStart && E.beforeStart(yesterdayYmd())) { t = t.replace(/^No reading yesterday( · )?/, ""); t = t ? t.charAt(0).toUpperCase() + t.slice(1) : ""; }
+    return t;
+  }
   function rowTemp(r) {
     var done = r.status === "done", yo = yesterdayOut(r);
     var cls = done ? (r.out_of_range ? "red" : (yo ? "amb" : "grn")) : "amb";
@@ -523,7 +533,7 @@
     return '<div class="tdy-row ' + cls + '" data-kind="temperature" data-device="' + esc(r.device_id) + '">' +
       '<div class="tdy-av sq nt">' + (r.limits && r.limits.max != null && r.limits.max <= 10 ? ICO.fridge : ICO.room) + '</div>' +
       '<div class="tdy-t"><b>' + esc(devName(r)) + '</b>' +
-      (had ? '<span>Note: ' + esc(had) + '</span>' : yo ? '<span class="w">Outside limits yesterday: ' + esc(yo.reading) + ' · limits ' + esc(yo.limits) + '</span>' : '<span>' + esc(r.sub) + '</span>') + '</div>' + pill + inl + '</div>' +
+      (had ? '<span>Note: ' + esc(had) + '</span>' : yo ? '<span class="w">Outside limits yesterday: ' + esc(yo.reading) + ' · limits ' + esc(yo.limits) + '</span>' : '<span>' + esc(tempSub(r)) + '</span>') + '</div>' + pill + inl + '</div>' +
       (needNote ? '<div class="tdy-note" data-note-for="' + esc(tk) + '">' + E.tempNote.noteForm({ key: tk, draft: state.noteDraft[tk], msg: state.noteMsg[tk] }) + '</div>' : "");
   }
   function rowDaily(r) {
@@ -613,7 +623,7 @@
 
     html += '<div class="tdy-col">';
     html += setupCard(before);
-    html += '<div class="tdy-lab">' + (hr < 12 ? "Before opening" : "Today's checks") + ' <b>' + nBefore + '</b><a href="#registers" data-open="#registers">All registers ›</a></div>'; // regs-hub: every register's status for today is on Registers
+    html += '<div class="tdy-lab">' + (hr < 12 ? "Before opening" : "Today's checks") + ' <b>' + (before.length > nBefore ? nBefore + " of " + before.length + " to do" : nBefore) + '</b><a href="#registers" data-open="#registers">All registers ›</a></div>'; // regs-hub: every register's status for today is on Registers
     // A fridge or room outside its limits yesterday is the first thing to see in the morning, in words and colour.
     var yOut = before.filter(function (r) { return r.kind === "temperature" && yesterdayOut(r); });
     // With its note box right there; once the note is saved it says what was done instead.
@@ -663,7 +673,7 @@
     // side tiles
     var t = d.takings || {}, st = d.stock || {}, tm = d.team || {};
     html += '<div class="tdy-side">';
-    html += '<div class="tdy-tile"><div class="tdy-lab">Money today</div><div class="big">€' + esc((t.paid_out_today || 0).toFixed(2)) + '<span>paid out today</span></div>' +
+    html += '<div class="tdy-tile"><div class="tdy-lab">Money today</div>' + (t.paid_out_count || t.paid_out_today ? '<div class="big">€' + esc((t.paid_out_today || 0).toFixed(2)) + '<span>paid out today</span></div>' : '<p class="tdy-none">Nothing paid out of the till today.</p>') + // W31: no "€0.00 paid out"
       '<p>' + (t.end_of_day_locked ? "<b>Day closed.</b>" : t.end_of_day_saved ? "<b>End of day started</b>, not yet closed." : "One button closes the day at closing time.") + '</p>' +
       '<button class="tdy-btn ' + (t.end_of_day_locked ? "" : "p") + '" data-open="' + esc(t.action ? t.action.path : "#endofday") + '">' + esc(t.action ? t.action.label : "Close the day") + '</button></div>';
 
@@ -717,7 +727,9 @@
       el.addEventListener("click", function () { var x = (state.repItems || [])[Number(el.getAttribute("data-rep-tell"))]; if (x && typeof E.tellCustomer === "function") E.tellCustomer({ kind: x.s.kind === "runout" ? "repeat_running_out" : "repeat_due", name: x.e.client_name, id_card: x.e.client_id, detail: x.e.medicine_name_dose, date: x.s.kind === "runout" ? x.e.expires_date : x.s.next }); });
     });
     m.querySelectorAll("[data-open]").forEach(function (el) {
-      el.addEventListener("click", function () { var v = el.getAttribute("data-view"); if (v) { try { sessionStorage.setItem("eikon_tempreg_view", v); } catch (e) {} }
+      el.addEventListener("click", function () {
+        if (el.getAttribute("data-sheet") === "hours" && E.openHours) { E.openHours({ onSaved: function () { load({ silent: true }); } }); return; } // W11
+        var v = el.getAttribute("data-view"); if (v) { try { sessionStorage.setItem("eikon_tempreg_view", v); } catch (e) {} }
         var to = el.getAttribute("data-hand"); // a waiting customer's row: that screen opens on this very record
         if (to && E.customerHandoff) E.customerHandoff(to, "open", { name: el.getAttribute("data-hand-name") || "", phone: el.getAttribute("data-hand-phone") || "" }, "", el.getAttribute("data-hand-id"));
         openPath(el.getAttribute("data-open")); });

@@ -158,7 +158,7 @@
   }
   async function openOrder(id) {
     if (S.open === id) { S.open = null; S.detail = null; return paint(); }
-    S.open = id; S.detail = null; S.detailErr = ""; paint();
+    S.open = id; S.detail = null; S.detailErr = ""; S.rp = null; S.ret = null; paint();
     try { var r = await E.apiFetch("/supplier-orders/" + encodeURIComponent(String(id)), { method: "GET" }); if (!r || !r.ok) throw new Error((r && r.error) || "Could not open the order"); if (S.open === id) S.detail = r; }
     catch (e) { if (S.open === id) S.detailErr = e && e.network ? "Can't reach the server. Try again in a moment." : String((e && (e.message || e)) || "Could not open the order"); }
     paint();
@@ -237,7 +237,8 @@
     var d = S.detail, ord = d.order || o, items = d.items || [], fb = {};
     (d.feedbacks || []).forEach(function (f) { fb[f.order_item_id] = f; });
     var late = ord.status === "shipped" || ord.status === "received", q = 0, fr = 0, cost = 0;
-    var h = '<div class="sin-det">' + (ord.supplier_notes ? '<p class="m"><b>Supplier:</b> ' + esc(ord.supplier_notes) + "</p>" : "") + (ord.scheduled_delivery_date ? '<p class="m"><b>Expected delivery:</b> ' + esc(ord.scheduled_delivery_date) + "</p>" : "") + (ord.notes ? '<p class="m"><b>Your note:</b> ' + esc(ord.notes) + "</p>" : "");
+    var h = '<div class="sin-det">' + (ord.supplier_notes ? '<p class="m"><b>Supplier:</b> ' + esc(ord.supplier_notes) + "</p>" : "") + (ord.scheduled_delivery_date ? '<p class="m"><b>Expected delivery:</b> ' + esc(niceDay(ord.scheduled_delivery_date)) + "</p>" : "") + (ord.notes ? '<p class="m"><b>Your note:</b> ' + esc(ord.notes) + "</p>" : "");
+    var coming = items.filter(function (it) { return !it.unavailable; }).length; // portals (FIN, W40): "1 of 3 lines coming"
     h += '<div style="margin-top:6px">' + items.map(function (it) {
       var gone = !!it.unavailable, f = fb[it.id];
       if (!gone) { q += Number(it.qty_requested) || 0; fr += Number(it.qty_free) || 0; cost += (Number(it.qty_requested) || 0) * (Number(it.cost_excl_vat) || 0); }
@@ -245,13 +246,63 @@
       var sub = [it.barcode, gone ? "" : it.notes].filter(Boolean).join(" · ");
       return '<div class="it' + (gone ? " gone" : "") + '"><div class="d"><b>' + esc(it.description) + "</b>" + (sub ? "<small>" + esc(sub) + "</small>" : "") +
         (gone ? '<span class="sin-pill bad">Unavailable</span>' : "") + (conf ? '<span class="sin-pill warn">' + esc(conf) + "</span>" : "") +
-        (f ? '<span class="sin-pill bad">Reported: ' + esc(f.problem_type) + "</span>" + (f.resolution_status ? '<span class="sin-pill">' + esc(f.resolution_status) + "</span>" : "") : "") + "</div>" +
-        '<div class="c">× ' + esc(it.qty_requested || 0) + (it.qty_free ? " +" + esc(it.qty_free) : "") + "<br><small style=\"color:var(--muted)\">" + eur(it.cost_excl_vat) + " each</small></div></div>";
+        (f ? '<span class="sin-pill bad">Reported: ' + esc(f.problem_type) + "</span>" + (f.resolution_status ? '<span class="sin-pill">' + esc(f.resolution_status) + "</span>" : "") : "") +
+        (late && !gone && !f && S.rp !== it.id ? '<button class="sin-btn s" data-act="rp" data-id="' + it.id + '" data-f="rp-' + it.id + '" aria-label="' + esc("Report a problem with " + it.description) + '">Report a problem</button>' : "") + "</div>" +
+        '<div class="c">× ' + esc(it.qty_requested || 0) + (it.qty_free ? " +" + esc(it.qty_free) : "") + "<br><small style=\"color:var(--muted)\">" + eur(it.cost_excl_vat) + " each</small></div></div>" +
+        (S.rp === it.id ? rpHtml(it) : "") + (S.ret && S.ret.id === it.id ? retHtml(ord) : "");
     }).join("") + "</div>";
-    h += '<div class="sin-tot"><span>' + q + (q === 1 ? " item" : " items") + (fr ? " (+" + fr + " free)" : "") + "</span><span>Cost " + eur(cost) + " excl. VAT</span></div>";
+    h += '<div class="sin-tot"><span>' + q + (q === 1 ? " item" : " items") + (fr ? " (+" + fr + " free)" : "") + (coming < items.length ? " · " + coming + " of " + items.length + " lines coming" : "") + "</span><span>Cost " + eur(cost) + " excl. VAT</span></div>";
     if (ord.status === "shipped") h += '<div class="sin-acts">' + (S.err && S.errFor === o.id ? '<span class="l sin-err" role="alert">' + esc(S.err) + "</span>" : "") + '<button class="sin-btn p" data-act="received" data-id="' + o.id + '" data-f="recv-' + o.id + '"' + (S.busy["r" + o.id] ? " disabled" : "") + ">" + (S.busy["r" + o.id] ? "Saving…" : "Mark as received") + "</button></div>";
-    if (late) h += '<p class="sin-note">Something wrong with an item? Report it, and add it to Returns, in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p>';
     return h + "</div>";
+  }
+  // portals (FIN, W23): a problem with a delivered line, reported here with the classic Supplier Inventory's request
+  // (POST …/items/:id/feedback { problem_type, notes }), then its "Add to Returns?" with the classic's returns body.
+  var PROBLEMS = ["Not Received", "Wrong Pick", "Damaged", "Short Quantity", "Other"];
+  function niceDay(v) { var m = String(v || "").match(/^(\d{4})-(\d{2})-(\d{2})$/); if (!m) return String(v || ""); var d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])); return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getUTCDay()] + " " + Number(m[3]) + " " + MON[+m[2] - 1] + (+m[1] === new Date().getFullYear() ? "" : " " + m[1]); }
+  function rpHtml(it) {
+    return '<form class="sin-ask" id="sin-rp" data-id="' + it.id + '" novalidate style="display:block"><label style="display:block;margin-bottom:6px">What is wrong with ' + esc(it.description) + "? " +
+      '<select name="problem_type" class="sin-sel" data-f="rp-type"><option value="">Choose…</option>' + PROBLEMS.map(function (p) { return '<option value="' + esc(p) + '"' + (S.rpType === p ? " selected" : "") + ">" + esc(p.charAt(0) + p.slice(1).toLowerCase()) + "</option>"; }).join("") + "</select></label>" +
+      '<label style="display:block;margin-bottom:6px">Note for the supplier <input name="notes" class="sin-sel" data-f="rp-notes" style="width:100%" placeholder="Optional, e.g. box crushed" value="' + esc(S.rpNotes || "") + '"></label>' +
+      (S.rpErr ? '<span class="sin-err" role="alert" style="display:block;margin-bottom:6px">' + esc(S.rpErr) + "</span>" : "") +
+      '<button type="submit" class="sin-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Sending…" : "Send report") + '</button> <button type="button" class="sin-btn" data-act="rp-no">Cancel</button></form>';
+  }
+  function retHtml(ord) {
+    var r = S.ret;
+    return '<div class="sin-ask" role="alert">Reported. Add ' + esc(r.desc) + " to Returns, for " + esc(ord.supplier_name || "the supplier") + "? " +
+      '<button class="sin-btn p" data-act="ret-yes" data-f="ret-yes"' + (S.saving ? " disabled" : "") + '>Add to Returns</button><button class="sin-btn" data-act="ret-no">No</button></div>';
+  }
+  async function report(f) {
+    if (S.saving) return;
+    var id = Number(f.getAttribute("data-id")), it = ((S.detail && S.detail.items) || []).find(function (x) { return x.id === id; }); if (!it) return;
+    var type = f.problem_type.value, notes = f.notes.value || "";
+    S.rpType = type; S.rpNotes = notes; S.rpErr = "";
+    if (!type) { S.rpErr = "Choose what is wrong. Nothing was sent."; paint(); focusLater('[data-f="rp-type"]'); return; }
+    S.saving = true; paint();
+    try {
+      var r = await E.apiFetch("/supplier-orders/items/" + id + "/feedback", { method: "POST", body: JSON.stringify({ problem_type: type, notes: notes }) });
+      if (!r || !r.ok) throw new Error((r && r.error) || "Save failed");
+      E.toast("Problem reported for " + it.description, "success");
+      S.rp = null; S.ret = { id: id, desc: it.description, type: type, notes: notes, batch: it.batch || "", expiry: it.expiry_date || "", qty: (it.qty_requested || 0) + (it.qty_free ? "+" + it.qty_free : "") };
+      var d = await E.apiFetch("/supplier-orders/" + S.open, { method: "GET" }); if (d && d.ok) S.detail = d;
+    } catch (x) { S.rpErr = E.saveFailText(x); }
+    S.saving = false; paint(); focusLater(S.ret ? '[data-f="ret-yes"]' : '[data-f="rp-type"]');
+  }
+  function ymdOf(v) { // the classic's toYmd
+    if (!v) return ""; if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    var d = expDate(v); if (!d) return "";
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  }
+  async function addReturn() {
+    var r = S.ret; if (!r || S.saving) return;
+    var ord = (S.detail && S.detail.order) || {};
+    var body = { entry_date: today(), description: r.desc, supplier: ord.supplier_name, batch: r.batch, expiry: ymdOf(r.expiry), quantity: r.qty, remarks: r.type + (r.notes ? " - " + r.notes : ""), damaged: r.type === "Damaged" ? 1 : 0 };
+    S.saving = true; paint();
+    try {
+      var x = await E.apiFetch("/returns/entries", { method: "POST", body: JSON.stringify(body) });
+      if (!x || !x.ok) throw new Error((x && x.error) || "Save failed");
+      E.toast(r.desc + " added to Returns", "success"); S.ret = null;
+    } catch (e) { E.toast(E.saveFailText(e), "error"); }
+    S.saving = false; paint(); focusLater('[data-act="open"][data-id="' + S.open + '"]');
   }
   function ordersHtml() {
     var h = '<div class="sin-bar"><input class="sin-q" id="sin-oq" type="search" placeholder="Supplier, order number or item" aria-label="Search your orders" value="' + esc(S.ordQ) + '"></div>' +
@@ -290,7 +341,7 @@
       "<h1>Supplier stock</h1><p class=\"sin-sub\">What suppliers have right now, at what price, and your orders to them.</p>" +
       '<div class="sin-seg" role="group" aria-label="View"><button data-act="view" data-v="stock" data-f="v-stock" aria-pressed="' + (S.view === "stock") + '">Stock' + (n ? " · " + n + " in order" : "") + '</button><button data-act="view" data-v="orders" data-f="v-orders" aria-pressed="' + (S.view === "orders") + '">Sent orders</button></div>' +
       (S.view === "stock" ? stockHtml() : ordersHtml()) +
-      '<p class="sin-foot">Columns, sorting, expiry warning months and reporting a problem with a delivery are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
+      '<p class="sin-foot">Columns, sorting and expiry warning months are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
     m.innerHTML = h;
     if (fsel) { var again = m.querySelector(fsel); if (again) { again.focus(); if (caret) try { again.setSelectionRange(caret[0], caret[1]); } catch (x) {} } }
     wire(m);
@@ -316,11 +367,17 @@
         else if (act === "status") { S.ordStatus = b.getAttribute("data-st"); S.open = null; S.detail = null; loadOrders(); }
         else if (act === "open") openOrder(id);
         else if (act === "received") received(id);
+        else if (act === "rp") { S.rp = id; S.ret = null; S.rpType = ""; S.rpNotes = ""; S.rpErr = ""; paint(); focusLater('[data-f="rp-type"]'); }
+        else if (act === "rp-no") { var was = S.rp; S.rp = null; S.rpErr = ""; paint(); focusLater('[data-f="rp-' + was + '"]'); }
+        else if (act === "ret-yes") addReturn();
+        else if (act === "ret-no") { S.ret = null; paint(); focusLater('[data-act="open"][data-id="' + S.open + '"]'); }
       });
     });
     var q = m.querySelector("#sin-q"); if (q) q.addEventListener("input", function () { S.q = q.value; clearTimeout(qTimer); qTimer = setTimeout(paint, 120); });
     var sp = m.querySelector("#sin-sup"); if (sp) sp.addEventListener("change", function () { S.sup = sp.value; paint(); });
     var ins = m.querySelector("#sin-ins"); if (ins) ins.addEventListener("change", function () { S.inStock = ins.checked; paint(); });
+    var rpf = m.querySelector("#sin-rp");
+    if (rpf) { rpf.addEventListener("submit", function (ev) { ev.preventDefault(); report(rpf); }); rpf.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { ev.preventDefault(); var was = S.rp; S.rp = null; paint(); focusLater('[data-f="rp-' + was + '"]'); } }); }
     var oq = m.querySelector("#sin-oq"); if (oq) oq.addEventListener("input", function () { S.ordQ = oq.value; clearTimeout(oqTimer); oqTimer = setTimeout(function () { S.open = null; S.detail = null; loadOrders(); }, 350); });
     m.querySelectorAll("input[data-qty]").forEach(function (inp) {
       inp.addEventListener("change", function () { var k = inp.getAttribute("data-qty"), it = S.cart[k]; if (!it) return; it.qty = snap(it.product, inp.value); saveDraft(); paint(); });
@@ -391,7 +448,7 @@
   E.registerModule({
     id: "sinreg", title: "Supplier stock", order: 3, icon: "▦", ui2Only: true,
     render: function (ctx) {
-      S.mount = ctx && ctx.mount; S.view = "stock"; S.cart = {}; S.draftOk = false; S.notes = {}; S.diaried = {}; S.warnId = null; S.sending = null; S.err = ""; S.busy = {}; S.open = null; S.detail = null; S.saving = false;
+      S.mount = ctx && ctx.mount; S.view = "stock"; S.cart = {}; S.draftOk = false; S.notes = {}; S.diaried = {}; S.warnId = null; S.sending = null; S.err = ""; S.busy = {}; S.open = null; S.detail = null; S.saving = false; S.rp = null; S.ret = null;
       css(); paint(); return load();
     }
   });

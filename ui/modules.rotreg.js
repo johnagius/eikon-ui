@@ -109,6 +109,7 @@
       if (!res[0] || !res[0].ok || !res[1] || !res[1].ok) throw new Error((res[1] && res[1].error) || (res[0] && res[0].error) || "Could not load the rota");
       if (from !== ymd(S.monday)) return; // the week changed while this was loading: the newer load paints
       S.staff = {}; (res[0].staff || []).forEach(function (p) { S.staff[p.id] = p; });
+      S.canPlan = "can_plan" in res[0] ? !!res[0].can_plan : true; // roles round: without the rota right a shift or a gap opens the week, not a change
       S.ahead = (res[1].shifts || []).slice().sort(function (a, b) { return String(a.shift_date).localeCompare(String(b.shift_date)) || String(a.start_time).localeCompare(String(b.start_time)); }); // this week and, on this week, the next (for Mine)
       S.shifts = S.ahead.filter(function (x) { return x.shift_date <= to; }).sort(function (a, b) { return String(a.start_time).localeCompare(String(b.start_time)); });
       S.hours = res[2] && res[2].hours; S.rules = res[2] && res[2].settings;
@@ -135,7 +136,7 @@
   function hrs(m) { var r = Math.round((m || 0) / 6) / 10; return Math.abs(r - Math.round(r)) < 1e-9 ? String(Math.round(r)) : r.toFixed(1); } // the classic fmtHoursFromMinutes, without its "h"
   // A shift is one tap from swapping it: Plan shifts opens on its week with that shift's "Swap with" ready.
   function swapLabel(x, day) { return "Swap " + person(x.staff_id).full_name + "’s shift, " + day + ", " + hm(x.start_time) + " to " + hm(x.end_time); }
-  function gapLink(key, g) { return '<button class="rot-gap" data-act="gap" data-date="' + key + '" data-s="' + g.from + '" data-e="' + g.to + '" aria-label="No pharmacist ' + esc(g.from) + " to " + esc(g.to) + ', fill the gap in Plan shifts"><b>No pharmacist ' + esc(g.from + "–" + g.to) + '</b><span>Fill the gap</span></button>'; }
+  function gapLink(key, g) { return '<button class="rot-gap" data-act="gap" data-date="' + key + '" data-s="' + g.from + '" data-e="' + g.to + '" aria-label="No pharmacist ' + esc(g.from) + " to " + esc(g.to) + (S.canPlan === false ? ', open the week in Plan shifts"' : ', fill the gap in Plan shifts"') + '><b>No pharmacist ' + esc(g.from + "–" + g.to) + '</b><span>' + (S.canPlan === false ? "See the week" : "Fill the gap") + '</span></button>'; } // Director (trial): no "Fill the gap" for staff without the rota right
 
   // The week as one table: a person to a row, a day to a column; the first row says each day's hours and cover.
   function gridHtml(today) {
@@ -308,7 +309,7 @@
     else {
       var today = ymd(new Date()), ti = thisWeek ? (new Date().getDay() + 6) % 7 : 0;
       h += lookHtml();
-      if (S.shifts.length) h += '<p class="rot-hint">Tap a shift to swap it with someone else’s, on any day of the week.</p>';
+      if (S.shifts.length && S.canPlan !== false) h += '<p class="rot-hint">Tap a shift to swap it with someone else’s, on any day of the week.</p>'; // Director (trial): no swap hint without the rota right
       h += gridHtml(today);
       // Phone and narrow screens: day by day, today first (the days already gone this week one tap away).
       h += '<div class="rot-week">';
@@ -353,6 +354,7 @@
         else if (a === "past") { S.past = !S.past; paint(); }
         else if (a === "month") { if (S.month && S.month.key === monthOf().y + "-" + pad(monthOf().m + 1) && S.month.open) { S.month.open = false; paint(); } else if (S.month && S.month.rows && S.month.key === monthOf().y + "-" + pad(monthOf().m + 1)) { S.month.open = true; paint(); } else loadMonth(); }
         else if (a === "month-retry") { S.month = null; loadMonth(); }
+        else if ((a === "gap" || a === "swap") && S.canPlan === false) { E._shfWeek = ymd(S.monday); location.hash = "#shfreg"; } // roles round
         else if (a === "gap") { E._shfWeek = ymd(S.monday); E._shfGap = { date: b.getAttribute("data-date"), from: b.getAttribute("data-s"), to: b.getAttribute("data-e") }; location.hash = "#shfreg"; } // Plan shifts opens on that day with the gap's shift ready
         else if (a === "swap") { E._shfSwap = { id: Number(b.getAttribute("data-id")), date: b.getAttribute("data-date") }; location.hash = "#shfreg"; }
         else if (a === "plan") { ev.preventDefault(); E._shfWeek = ymd(S.monday); location.hash = "#shfreg"; }

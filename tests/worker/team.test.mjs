@@ -54,14 +54,14 @@ test("team: add a person: temporary password once, must change at first sign-in,
   eq((await app.api("GET", "/today", { token: t })).status, 200);
 });
 
-test("team: create refusals: bad role, admin role (default), superuser e-mail, duplicate e-mail, bad e-mail, no name", async (app) => {
+test("team: create refusals: bad role, superuser e-mail, duplicate e-mail, bad e-mail, no name", async (app) => {
   app.env.SUPERUSER_EMAILS = "john@eikon.mt";
   const w = await world(app);
   const n0 = app.DB.db.prepare("SELECT COUNT(*) AS c FROM users").get().c;
   const tries = [
     [{ email: "a@example.com", full_name: "A", role: "superuser" }, 400],
     [{ email: "a@example.com", full_name: "A", role: "user" }, 400],
-    [{ email: "a@example.com", full_name: "A", role: "admin" }, 403],
+    [{ email: "a@example.com", full_name: "A", role: "owner" }, 400],
     [{ email: "JOHN@eikon.mt", full_name: "John", role: "staff" }, 403],
     [{ email: "staff@example.com", full_name: "Dup", role: "staff" }, 409],
     [{ email: "stranger@example.com", full_name: "Dup other group", role: "staff" }, 409],
@@ -138,7 +138,9 @@ test("team: an admin cannot change their own sign-in, another admin (default), o
     eq((await app.api("POST", "/team/users/" + other.user.id + "/" + p, { token: w.A.token, body: b })).status, 403, "other admin " + p);
     eq((await app.api("POST", "/team/users/" + su.user.id + "/" + p, { token: w.A.token, body: b })).status, 403, "superuser " + p);
   }
-  eq((await app.api("POST", "/team/users/" + w.staff.user.id + "/role", { token: w.A.token, body: { role: "admin" } })).status, 403, "no promotion by default");
+  // Roles round (owner decision, W3): the admin may make someone an admin; once an admin, only the flag lets them be changed.
+  eq((await app.api("POST", "/team/users/" + w.staff.user.id + "/role", { token: w.A.token, body: { role: "admin" } })).status, 200, "promotion by the pharmacy admin");
+  eq((await app.api("POST", "/team/users/" + w.staff.user.id + "/role", { token: w.A.token, body: { role: "staff" } })).status, 403, "an existing admin is not demoted without the flag");
   const l = await app.api("GET", "/team/users", { token: w.A.token });
   ok(l.json.users.find((u) => u.email === "john@eikon.mt").protected === true, "superuser shown as protected");
   eq((await app.api("GET", "/auth/me", { token: other.token })).status, 200);
@@ -223,9 +225,9 @@ test("team: /auth/unlock checks the session's own password, no new session; wron
 test("team: Today tells the admin (only) how many people sign in here and whether opening hours were saved", async (app) => {
   const w = await world(app);
   const a = await app.api("GET", "/today", { token: w.A.token });
-  eq(a.status, 200); eq(a.json.setup, { sign_ins: 2, opening_hours_saved: false });
+  eq(a.status, 200); eq(a.json.setup, { sign_ins: 2, opening_hours_saved: false, details_saved: false });
   ok(!("setup" in (await app.api("GET", "/today", { token: w.staff.token })).json), "staff get no setup block");
   eq((await app.api("PUT", "/shifts/opening-hours", { token: w.A.token, body: { default: { open: "08:00", close: "19:00", closed: false }, openSaturday: true, openSunday: false, overrides: {} } })).status, 200);
-  eq((await app.api("GET", "/today", { token: w.A.token })).json.setup, { sign_ins: 2, opening_hours_saved: true });
-  eq((await app.api("GET", "/today", { token: w.branch.token })).json.setup, { sign_ins: 1, opening_hours_saved: false });
+  eq((await app.api("GET", "/today", { token: w.A.token })).json.setup, { sign_ins: 2, opening_hours_saved: true, details_saved: false });
+  eq((await app.api("GET", "/today", { token: w.branch.token })).json.setup, { sign_ins: 1, opening_hours_saved: false, details_saved: false });
 });

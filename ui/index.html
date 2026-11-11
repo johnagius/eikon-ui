@@ -79,7 +79,7 @@
       // browser and the Worker's edge cache can reuse every file (previously every load
       // used Date.now(), so 52 files were re-downloaded on every visit).
       // Bump BUILD on EVERY change to any file in ui/: browsers keep stamped files for a day.
-      var BUILD = "2026-11-11.181";
+      var BUILD = "2026-11-11.182";
       if (window.EIKON_LEAVING) return; // moving to the clean address (see the head)
 
       function log() { try { console.log.apply(console, arguments); } catch (e) {} }
@@ -140,7 +140,7 @@
         if (uiParam !== "classic") sessionStorage.removeItem("eikon_ui2_pause"); // a classic visit lasts while its address says so (core.js initUi2)
         if (uiParam === "2") light = true;
         else if (uiParam === "1" || uiParam === "classic") light = false;
-        else { var role0 = localStorage.getItem("eikon_active_role"); light = localStorage.getItem("eikon_ui2") !== "0" && sessionStorage.getItem("eikon_ui2_pause") !== "1" && (!role0 || role0 === "pharmacy"); }
+        else { var role0 = localStorage.getItem("eikon_active_role"); light = localStorage.getItem("eikon_ui2") !== "0" && sessionStorage.getItem("eikon_ui2_pause") !== "1" && (!role0 || role0 === "pharmacy" || role0 === "supplier" || role0 === "company_admin"); } // portals (FIN): the new layout too
       } catch (e) {}
       // Signed in and opening on Today: ask who this is and for Today's data now, while the scripts download,
       // instead of after them (one round trip saved). core.js uses these answers once; anything odd and it asks again.
@@ -213,6 +213,7 @@
         "./modules.rotreg.js",
         "./modules.shfreg.js",
         "./modules.teamreg.js",
+        "./modules.phdreg.js",
         "./modules.repreg.js",
         "./modules.cnreg.js",
         "./modules.lrcreg.js",
@@ -281,6 +282,7 @@
         "./modules.otcmindmap.js",
         "./modules.labels.js",
         "./modules.contacts.js",
+        "./modules.portals.js",
         "./modules.supplier-dashboard.js",
         "./modules.supplier-products.js",
         "./modules.supplier-received-orders.js",

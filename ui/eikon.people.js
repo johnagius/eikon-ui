@@ -351,9 +351,17 @@ function eikonNameCase(value) {
         acts.appendChild(el); if (b.focus) first = el;
       });
       setTimeout(function () { try { (first || acts.lastChild).focus(); } catch (e) {} }, 0);
-      return new Promise(function (res) { resolveNow = function (v) { resolveNow = null; res(v); }; });
+      // W44: the question always ends — if the box leaves the page (a route change, an overlay sweep), it is "Go back",
+      // so the form's Save never waits on a question nobody can see; nothing is changed on that path.
+      return new Promise(function (res) {
+        var watch = setInterval(function () { if (!document.body.contains(ov) && resolveNow) resolveNow("back"); }, 400);
+        resolveNow = function (v) { clearInterval(watch); resolveNow = null; res(v); };
+      });
     };
+    var onNav = function () { if (resolveNow) resolveNow("back"); }; // leaving the screen = Go back (nothing changed)
+    window.addEventListener("hashchange", onNav);
     self.close = function () {
+      window.removeEventListener("hashchange", onNav);
       hidden.forEach(function (el) { el.removeAttribute("inert"); });
       if (ov.parentNode) ov.parentNode.removeChild(ov);
       if (back && document.body.contains(back)) try { back.focus(); } catch (e) {}

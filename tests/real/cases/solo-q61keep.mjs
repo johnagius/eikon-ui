@@ -20,7 +20,9 @@ const FORMS = [
 ];
 const drafts = (p) => p.evaluate((k) => Object.keys(sessionStorage).filter((x) => x.indexOf(k) === 0), KEY);
 const values = (p, f) => p.evaluate((f) => { const x = document.querySelector(f); return x ? [...x.querySelectorAll("input,select,textarea")].filter((e) => e.type !== "hidden").map((e) => e.type === "checkbox" ? e.checked : e.value) : null; }, f);
-const strip = (o, gen) => { const c = { ...(o || {}) }; for (const k of gen) delete c[k]; return JSON.stringify(c); };
+// balance_warning (finish round, records): sent when the line takes the medicine below zero — it says what the stock was
+// at that moment (the second save of the same line goes further down), not what the form held.
+const strip = (o, gen) => { const c = { ...(o || {}) }; for (const k of gen) delete c[k]; delete c.balance_warning; return JSON.stringify(c); };
 async function save(t, p, F) {
   const sub = F.form + " button[type=submit]";
   return t.write(p, F.path, async () => {

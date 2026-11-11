@@ -25,6 +25,9 @@ async function world(app, on = true) {
   const other = await app.addUser({ orgId: 3, locationId: 3, email: "rita@zammit.example", name: "Rita Zammit" });
   const ho = await app.addUser({ orgId: 3, locationId: 650, email: "ho@zammit.example", name: "Head Office" });
   const sup = await app.addUser({ orgId: 400, locationId: 400, email: "sales@supplier.example", name: "Supplier Sales" });
+  // FIN-roles adds users.is_pharmacist / plans_rota on first use: settle the schema first (as on the live database after the
+  // first request), so the byte-for-byte snapshots below compare values, not a column added in between.
+  eq((await app.api("GET", "/team/me", { token: live.token })).status, 200);
   if (on) { // as after the first reset (doors stay shut until one has finished); the reset tests run real ones
     Object.assign(app.env, DEMO_ENV);
     app.DB.db.exec("CREATE TABLE IF NOT EXISTS demo_state (k TEXT PRIMARY KEY, v TEXT NOT NULL DEFAULT '{}', at TEXT NOT NULL DEFAULT (datetime('now')))");
@@ -392,4 +395,92 @@ test("demo reset: the privacy tables (gdpr_erasures, gdpr_erasure_rows) lose onl
   const u = await app.api("POST", "/people/erasures/" + er.json.erasure_id + "/undo", { token: w.live, body: {} });
   eq(u.status, 200, "the live undo still works: " + u.text.slice(0, 200));
   eq(app.DB.db.prepare("SELECT name FROM people WHERE id = ?").get(lp.id).name, "Live Person");
+});
+
+// Finish round (integrator, batch-20): roles, records, dayzero and portals added tables and routes; the demo guard and the
+// reset cover them.
+test("demo guard: roles — a visitor cannot add a pharmacist or an admin, change anyone's rights or role, or link the rota to a sign-in (nothing written)", async (app) => {
+  const w = await world(app);
+  const P = await door(app);
+  const T = (m, p, body) => app.api(m, p, { token: P.token, body });
+  const st = await T("POST", "/shifts/staff", { full_name: "Karl Vella", designation: "assistant" });
+  eq(st.status, 200, st.text);
+  const sid = st.json.id || st.json.staff_id || (st.json.staff && st.json.staff.id);
+  ok(sid, "rota person made: " + st.text);
+  const users0 = JSON.stringify(app.DB.db.prepare("SELECT * FROM users ORDER BY id").all());
+  const staff0 = JSON.stringify(app.DB.db.prepare("SELECT * FROM shift_staff ORDER BY id").all());
+  for (const [m, p, body] of [
+    ["POST", "/team/users", { email: "ph@x.example", full_name: "Anna Pharm", role: "pharmacist", password: "Passw0rd!Passw0rd" }],
+    ["POST", "/team/users", { email: "ad@x.example", full_name: "Second Admin", role: "admin", password: "Passw0rd!Passw0rd" }],
+    ["POST", "/team/users/" + w.john.user.id + "/rights", { is_pharmacist: true, plans_rota: false }],
+    ["POST", "/team/users/" + w.john.user.id + "/role", { role: "staff" }],
+    ["POST", "/team/users/" + P.user.id + "/rights", { is_pharmacist: true }],
+    ["POST", "/shifts/staff/" + sid + "/link", { user_id: w.john.user.id }],
+    ["POST", "/shifts/staff/" + sid + "/link", { user_id: P.user.id }]]) {
+    const r = await T(m, p, body);
+    eq([m + " " + p, r.status, r.json && r.json.demo], [m + " " + p, 403, true], r.text.slice(0, 200));
+  }
+  eq(JSON.stringify(app.DB.db.prepare("SELECT * FROM users ORDER BY id").all()), users0, "no sign-in added or changed");
+  eq(JSON.stringify(app.DB.db.prepare("SELECT * FROM shift_staff ORDER BY id").all()), staff0, "no rota row linked");
+  const me = await T("GET", "/team/me");
+  eq(me.status, 200, me.text);
+  eq((await T("GET", "/shifts/staff")).status, 200, "the rota still reads");
+  // a live admin is not affected by the guard
+  const lst = await app.api("POST", "/shifts/staff", { token: w.live, body: { full_name: "Live Karl", designation: "assistant" } });
+  const lid = lst.json.id || lst.json.staff_id || (lst.json.staff && lst.json.staff.id);
+  eq((await app.api("POST", "/shifts/staff/" + lid + "/link", { token: w.live, body: { user_id: 1 } })).status, 200, "a live admin still links");
+});
+
+test("demo reset: finish-round tables (partials, balance warnings, credit-note numbers, pharmacy details) lose only the demo's rows; seed has details and one open partial; demo head office stock sees only demo pharmacies", async (app) => {
+  const w = await world(app);
+  const today = maltaYmd(0);
+  const line = (q, serial) => ({ entry_date: today, client_name: "Live Person", client_id_card: "0099999M", client_address: "1 Triq il-Knisja", medicine_name_dose: "Morphine 10mg tablets", quantity: q, doctor_name: "Dr Abela", doctor_reg_no: "R1", prescription_serial_no: serial });
+  const L = (m, p, body) => app.api(m, p, { token: w.live, body });
+  // live rows in every new table
+  eq((await L("PUT", "/pharmacy/details", { name: "Borg Pharmacy", address: "5, Triq San Pawl, Sliema", phone: "", licence: "" })).status, 200);
+  const s = await L("POST", "/dda-sales/entries", { ...line(2, "L-1"), balance_warning: { balance: 0, after: -2, since: today, counted: 0 } });
+  eq(s.status, 200, s.text);
+  eq((await L("POST", "/dda-partials", { register: "sales", entry_id: s.json.entry_id, prescribed: 10 })).status, 200);
+  const cn = await L("POST", "/creditnotes/entries", { issue_date: today, client_name: "Live", client_surname: "Person", telephone: "79999999", email: "", receipt_number: "R-1", amount: 5, expiry_date: "", no_expiry: 1 });
+  eq(cn.status, 200, cn.text);
+  // visitor junk in the same tables
+  const P = await door(app);
+  const V = (m, p, body) => app.api(m, p, { token: P.token, body });
+  const vs = await V("POST", "/dda-sales/entries", { ...line(1, "V-1"), balance_warning: { balance: 0, after: -1, since: today, counted: 0 } });
+  eq(vs.status, 200, vs.text);
+  eq((await V("POST", "/dda-partials", { register: "sales", entry_id: vs.json.entry_id, prescribed: 99 })).status, 200);
+  for (let i = 0; i < 3; i++) await V("POST", "/creditnotes/entries", { issue_date: today, client_name: "Visitor", client_surname: String(i), telephone: "79000000", email: "", receipt_number: "V", amount: 1, expiry_date: "", no_expiry: 1 });
+  eq((await V("PUT", "/pharmacy/details", { name: "Visitor's name", address: "Somewhere", phone: "", licence: "" })).status, 200, "the demo pharmacy's details are sandbox data (reset nightly)");
+  const NEW = ["dda_partials", "dda_partial_parts", "dda_balance_warnings", "credit_note_seq", "label_settings"];
+  const liveRows = () => JSON.stringify(NEW.map((t) => app.DB.db.prepare(`SELECT * FROM ${t} WHERE org_id <> 2 ORDER BY rowid`).all()));
+  const live0 = liveRows();
+  ok(NEW.every((t) => app.DB.db.prepare(`SELECT COUNT(*) AS c FROM ${t} WHERE org_id = 1`).get().c > 0), "live rows in every new table");
+  const before = liveSnapshot(app.DB);
+  app.env.SUPERUSER_EMAILS = "maria@live.example";
+  let r, n = 0;
+  do { r = await L("POST", "/su/api/demo/reset", {}); eq(r.status, 200, r.text); n++; } while (!r.json.done && n < 20);
+  ok(r.json.done, r.text);
+  eq(r.json.problems, [], "every seed call answered 2xx");
+  eq(r.json.skipped.filter((t) => NEW.includes(t)), [], "every new table is in the wipe plan");
+  eq(liveRows(), live0, "live rows of the new tables byte for byte");
+  const after = liveSnapshot(app.DB);
+  for (const t of Object.keys(before)) eq(after[t], before[t], "live rows of " + t + " unchanged");
+  const one = (sql) => app.DB.db.prepare(sql).get();
+  eq(one("SELECT COUNT(*) AS c FROM dda_partials WHERE location_id = 2 AND prescribed = 99").c, 0, "visitor's partial gone");
+  eq(one("SELECT COUNT(*) AS c FROM dda_balance_warnings WHERE org_id = 2").c, 0, "visitor's warnings gone (the seed stays within stock)");
+  eq(one("SELECT COUNT(*) AS c FROM dda_partials WHERE location_id = 2").c, 1, "the seed's one open partial");
+  const ps = await door(app);
+  const pl = await app.api("GET", "/dda-partials?register=sales", { token: ps.token });
+  eq(pl.status, 200, pl.text);
+  ok(pl.text.includes("Morphine 10mg tablets"), "the partial lists: " + pl.text.slice(0, 200));
+  const det = await app.api("GET", "/pharmacy/details", { token: ps.token });
+  eq([det.json.saved, det.json.details.address], [true, "1, Triq il-Kbira, Birkirkara"], "seeded details replace the visitor's");
+  const cnl = app.DB.db.prepare("SELECT cn_no FROM credit_notes WHERE location_id = 2 ORDER BY id").all().map((x) => x.cn_no);
+  eq(cnl, [1, 2], "the demo's credit notes number from 1 again; live numbers unchanged");
+  // the demo head office's stock read names only the demo's pharmacies
+  const H = await door(app, "hq");
+  const hs = await app.api("GET", "/hq/stock", { token: H.token });
+  eq(hs.status, 200, hs.text);
+  const names = hs.json.pharmacies.map((x) => x.name).sort();
+  ok(names.length === 2 && !names.some((x) => /Borg|Zammit/.test(x)), "demo pharmacies only: " + names.join(", "));
 });

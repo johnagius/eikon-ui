@@ -97,10 +97,13 @@ test("bulk: a 500-product POS batch runs in tens of statements; repeated names a
   eq(DB.one("SELECT barcode, price FROM pos_products WHERE name = 'Item 7'"), { barcode: "BC7", price: 407 }, "the later row's price, the earlier barcode kept");
 });
 
+// portals (FIN): /cherubino/* answers only the Cherubino group (org 12); these checks run as that group.
+function asCherubino(DB) { for (const t of ["orgs SET id = 12 WHERE id = 1", "locations SET org_id = 12 WHERE org_id = 1", "users SET org_id = 12 WHERE org_id = 1"]) DB.db.prepare("UPDATE " + t).run(); }
 test("bulk: a 500-item short-expiry batch runs in tens of statements", async ({ api, bootstrap, addUser, DB }) => {
   await bootstrap();
-  DB.db.prepare("INSERT INTO locations (id, org_id, name) VALUES (600, 1, 'Warehouse')").run();
-  const wh = await addUser({ locationId: 600, email: "wh@example.com", name: "Warehouse" });
+  asCherubino(DB);
+  DB.db.prepare("INSERT INTO locations (id, org_id, name) VALUES (600, 12, 'Warehouse')").run();
+  const wh = await addUser({ orgId: 12, locationId: 600, email: "wh@example.com", name: "Warehouse" });
   const items = range(500).map((i) => ({ stk_code: "S" + i, stk_desc: i % 50 ? "Desc " + i : "", batch: "L" + i, expiry: "2027/01", qty: i, loc_code: "WSL" }));
   const r = await measured(DB, () => api("POST", "/cherubino/short-expiry/upload", { token: wh.token, body: { items, wipe: true } }));
   eq(r.r.status, 200, r.r.text);

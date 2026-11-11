@@ -8,8 +8,10 @@
    sent, so they are never written over with an older copy). The entry keeps its id across retries.
    Labels are in English only (John, 2026-11-11), as on the classic screen: a template saved earlier with language
    "mt" prints English too, so reprinting an old Maltese label gives the English text of the same directions and
-   warnings; templates and history are sent back exactly as read, never rewritten. Templates, pharmacy details, the full history and the warnings table stay in
-   the classic screen. */
+   warnings; templates and history are sent back exactly as read, never rewritten. Templates, the full history and the warnings table stay in
+   the classic screen; the pharmacy's details are Settings › Pharmacy details (modules.phdreg.js, the same stored values).
+   FIN-dayzero (W18): the printed label (buildPrintHtml) has the pharmacy's address and phone and plain directions, in the
+   classic screen's code too, so a label still prints the same from either screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
@@ -78,23 +80,20 @@
     var lh = '1.2';
     var h = '';
     h += '<div style="font-family:Arial,Helvetica,sans-serif;color:#000;font-size:' + fs + ';line-height:' + lh + ';">';
-    // pharmacy name
-    h += '<div style="font-weight:900;">' + esc(pharm.name || "Pharmacy");
-    if (pharm.phone) h += ' <span style="font-weight:400;font-size:.75em;">T:' + esc(pharm.phone) + '</span>';
-    h += '</div>';
-    // fields
-    if (labelData.patientName) h += '<div><b>Pat:</b> ' + esc(labelData.patientName) + '</div>';
-    h += '<div><b>Rx:</b> ' + esc(labelData.drugName || "") + '</div>';
-    // dose + freq on one line
-    var doseFreq = '';
-    if (labelData.dose) doseFreq += esc(labelData.dose);
-    if (labelData.dose && labelData.frequency) doseFreq += ' | ';
-    if (labelData.frequency) {
-      doseFreq += esc(labelData.frequency);
-    }
-    if (doseFreq) h += '<div><b>Dose/Freq:</b> ' + doseFreq + '</div>';
-    if (labelData.route) h += '<div><b>Route:</b> ' + esc(labelData.route) + '</div>';
-    if (labelData.customInstructions) h += '<div><b>Note:</b> ' + esc(labelData.customInstructions) + '</div>';
+    // FIN-dayzero (W18): the pharmacy's address and phone under its name (Settings › Pharmacy details), the medicine on its
+    // own line and the directions in words ("1 capsule, Three times daily (oral)"), no "Rx:" or "Dose/Freq: … | …".
+    // The same in the classic Smart labels and the new Labels screen, so a label prints the same from either.
+    h += '<div style="font-weight:900;">' + esc(pharm.name || "Pharmacy") + '</div>';
+    var at = [];
+    if (pharm.address) at.push(esc(pharm.address));
+    if (pharm.phone) at.push('Tel ' + esc(pharm.phone));
+    if (at.length) h += '<div style="font-size:.8em;">' + at.join(' \u00B7 ') + '</div>';
+    if (labelData.patientName) h += '<div>For <b>' + esc(labelData.patientName) + '</b></div>';
+    h += '<div style="font-weight:700;">' + esc(labelData.drugName || "") + '</div>';
+    var how = [labelData.dose, labelData.frequency].filter(function (x) { return String(x || "").trim(); }).map(esc).join(', ');
+    if (labelData.route) how += (how ? ' ' : '') + '(' + esc(String(labelData.route).toLowerCase()) + ')';
+    if (how) h += '<div>' + how + '</div>';
+    if (labelData.customInstructions) h += '<div>' + esc(labelData.customInstructions) + '</div>';
     // warnings
     var selWarnings = WARNINGS.filter(function (w) { return (labelData.selectedWarnings || []).indexOf(w.id) !== -1; });
     selWarnings.forEach(function (w) {
@@ -103,7 +102,7 @@
     });
     // date — same size as body so it's legible on small labels
     h += '<div style="font-size:.85em;color:#333;">' + fmtDate(todayStr());
-    if (pharm.licence) h += ' | Lic:' + esc(pharm.licence);
+    if (pharm.licence) h += ' \u00B7 Reg. no. ' + esc(pharm.licence);
     h += '</div>';
     h += '</div>';
     return h;
@@ -384,7 +383,7 @@
       h += usualHtml();
       h += '<div class="lbl-grid"><div style="min-width:0"><div class="lbl-lab" style="margin-top:4px">New label</div>' + formHtml() + "</div>" + '<div class="lbl-side" id="lbl-side">' + previewHtml() + "</div></div>";
     }
-    h += '<p class="lbl-note">Templates, pharmacy details, the full print history and the warnings table are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += '<p class="lbl-note">The name, address and phone at the top of a label are the <a href="#phdreg" style="color:var(--accent)">Pharmacy details</a> in Settings. Templates, the full print history and the warnings table are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
     var ae = document.activeElement, sel = ae && m.contains(ae) && (ae.name ? "[name=" + ae.name + "]" : ae.id === "lbl-find" ? "#lbl-find" : "");
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) again.focus(); }

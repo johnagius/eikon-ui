@@ -40,7 +40,9 @@ async function save(t, p, F) {
   });
 }
 async function type(t, p, F) { await t.fill(p, F.form, F.fill); for (const [k, v] of Object.entries(F.sel || {})) await p.selectOption(F.form + " [name=" + k + "]", v); }
-const strip = (o, gen) => { const c = { ...(o || {}) }; for (const k of gen) delete c[k]; return JSON.stringify(c); };
+// balance_warning (finish round, records): sent when the line takes the medicine below zero — it says what the stock was
+// at that moment (the second save of the same line goes further down), not what the form held.
+const strip = (o, gen) => { const c = { ...(o || {}) }; for (const k of gen) delete c[k]; delete c.balance_warning; return JSON.stringify(c); };
 export default {
   title: "Drafts: a half-typed form comes back, saves the same, and never outlives a save or Cancel",
   async run(t) {

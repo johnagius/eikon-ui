@@ -294,17 +294,17 @@
     {
       name: "Floriana Health Centre",
       number: "2124 3314",
-      note: "Frangisk Saver Fenech Road, Floriana. Covers: Cospicua, Vittoriosa, Senglea, Kalkara."
+      note: "Franġisk Saver Fenech Road, Floriana. Covers: Cospicua, Vittoriosa, Senglea, Kalkara."
     },
     {
       name: "Mosta Health Centre",
       number: "2143 3256 / 2143 2062",
-      note: "Rotunda Square, Mosta. Covers: Rabat, Mdina, Dingli, Attard, Bidnija, Kuncizzjoni."
+      note: "Rotunda Square, Mosta. Covers: Rabat, Mdina, Dingli, Attard, Bidnija, Kunċizzjoni."
     },
     {
       name: "Paola Health Centre",
       number: "2169 1314 / 2169 1315",
-      note: "Antoine De Paule Square, Paola. Covers: Paola, Tarxien, Santa Lucia, Birzebbuga, Zejtun, Marsaxlokk, Zabbar, Marsascala, Xghajra, Fgura, Gudja, Ghaxaq."
+      note: "Antoine De Paule Square, Paola. Covers: Paola, Tarxien, Santa Luċija, Birżebbuġa, Żejtun, Marsaxlokk, Żabbar, Marsaskala, Xgħajra, Fgura, Gudja, Għaxaq."
     },
     {
       name: "Primary HealthCare Call Centre",

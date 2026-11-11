@@ -16,7 +16,8 @@ export default {
     const G = loadGuides(root), p = await t.page();
     await t.open(p, "2", "today", "today");
     let footers = 0;
-    for (const { id } of newScreens(root)) {
+    const portalOnly = /^(sup(home|orders|problems|products)|hq(home|regs|client)|ptlacct)$/; // portals (FIN): checked as their own users in portals.mjs
+    for (const { id } of newScreens(root).filter((x) => !portalOnly.test(x.id))) {
       await p.evaluate((h) => { window.location.hash = "#" + h; }, id);
       try { await p.waitForFunction((m) => window.EIKON.state.activeModuleId === m && document.querySelector("#eikon-content button"), id, { timeout: 15000 }); }
       catch (e) { t.fail(id + ": did not open"); continue; }
