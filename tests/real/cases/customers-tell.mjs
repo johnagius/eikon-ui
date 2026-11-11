@@ -6,7 +6,7 @@
 //  - A "no" to SMS on the record makes SMS unchoosable in the window.
 //  - Loyalty from the record stores the same row as the classic screen's body for the same purchase.
 import { ymd } from "../lib.mjs";
-const P = { name: "Żammit Ċensina", id_card: "0884455M", phone: "79884455", email: "censina@example.com" };
+const P = { name: "Zammit Ċensina", id_card: "0884455M", phone: "79884455", email: "censina@example.com" };
 export default {
   title: "Customers: tell the customer (WhatsApp, e-mail), preferences, loyalty in the record",
   async run(t) {

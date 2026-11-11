@@ -16,7 +16,7 @@ export default {
 
     // ---- a credit note with a use and a note, Maltese letters
     const T = "credit_notes", m0 = t.maxId(T);
-    await t.api("POST", "/creditnotes/entries", { issue_date: ymd(-3), client_name: "Ċensina", client_surname: "Żammit", telephone: "79111222", email: "censina@example.mt", receipt_number: "R-10A1", amount: "40", expiry_date: ymd(200), no_expiry: 0 });
+    await t.api("POST", "/creditnotes/entries", { issue_date: ymd(-3), client_name: "Ċensina", client_surname: "Zammit", telephone: "79111222", email: "censina@example.mt", receipt_number: "R-10A1", amount: "40", expiry_date: ymd(200), no_expiry: 0 });
     const id = t.since(T, m0)[0].id;
     await t.api("POST", `/creditnotes/entries/${id}/purchases`, { amount: 12.5, receipt_number: "R-10A2" });
     await t.api("POST", `/creditnotes/entries/${id}/notes`, { text: "Returned Ħ-brand syrup <unopened>" });
@@ -24,13 +24,13 @@ export default {
     // print: classic vs new
     await t.open(p, "classic", "creditnotes", "creditnotes", "#cn-new");
     await p.fill("#cn-search, input[placeholder*='Search']", "R-10A1").catch(() => {});
-    await p.click(`text=Żammit`); await p.waitForSelector("#cn-print-cn");
+    await p.click(`text=Zammit`); await p.waitForSelector("#cn-print-cn");
     const classic = await grab(() => p.click("#cn-print-cn"));
     await t.open(p, "2", "creditnotes", "cnreg", "#cnr-q"); await p.fill("#cnr-q", "#" + id); await p.waitForSelector(`[data-act=print][data-id="${id}"]`); // m1: the note found by its number opens by itself
     const fresh = await grab(() => p.click(`[data-act=print][data-id="${id}"]`));
     const c1 = classic.replace(PRINTED, ""), f1 = fresh.replace(PRINTED, "");
     t.ok(classic.length > 1500 && c1 === f1, "print: the new screen's page is the classic one, byte for byte (but the time printed)" + (c1 === f1 ? "" : ` (classic ${c1.length} chars, new ${f1.length})`));
-    t.ok(/Ċensina Żammit/.test(fresh) && /Returned Ħ-brand syrup &lt;unopened&gt;/.test(fresh) && /R-10A2/.test(fresh) && /€27\.50/.test(fresh), "print: name, note (escaped), use and balance are on it");
+    t.ok(/Ċensina Zammit/.test(fresh) && /Returned Ħ-brand syrup &lt;unopened&gt;/.test(fresh) && /R-10A2/.test(fresh) && /€27\.50/.test(fresh), "print: name, note (escaped), use and balance are on it");
 
     // notes: add and remove, classic vs new: the same rows and the same audit rows
     const N = "credit_note_notes", A = "audit_log";
@@ -39,7 +39,7 @@ export default {
     // classic add
     let n0 = t.maxId(N), a0 = aMax();
     await t.open(p, "classic", "creditnotes", "creditnotes", "#cn-new");
-    await p.click(`text=Żammit`); await p.waitForSelector("#cn-note-text");
+    await p.click(`text=Zammit`); await p.waitForSelector("#cn-note-text");
     await p.fill("#cn-note-text", "  Called, will come Friday  ");
     await t.write(p, new RegExp(`/creditnotes/entries/${id}/notes$`), () => p.click("#cn-add-note"));
     const cNote = t.since(N, n0)[0], cAud = auditSince(a0, "CREDITNOTE_NOTE_ADD")[0];
@@ -60,7 +60,7 @@ export default {
     // remove: classic removes the classic note, new removes the new one (the pharmacist, one question)
     a0 = aMax();
     await t.open(p, "classic", "creditnotes", "creditnotes", "#cn-new");
-    await p.click(`text=Żammit`); await p.waitForSelector(`[data-cn-del-note='${cNote.id}']`);
+    await p.click(`text=Zammit`); await p.waitForSelector(`[data-cn-del-note='${cNote.id}']`);
     await t.write(p, new RegExp(`/notes/${cNote.id}$`), () => p.click(`[data-cn-del-note='${cNote.id}']`), "DELETE");
     const cDel = auditSince(a0, "CREDITNOTE_NOTE_DELETE")[0];
     a0 = aMax();

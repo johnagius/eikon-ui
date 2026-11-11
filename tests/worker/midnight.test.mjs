@@ -81,9 +81,9 @@ test("midnight: scarce stock refuses an item from Near expiry that expires today
 test("midnight: a waitlist line with no date is added on Malta's day", async ({ api, bootstrap, DB }) => {
   const b = await bootstrap(); creds = { api, email: b.email, password: b.password };
   for (const iso of [WINDOW[0], DAYTIME[0]]) {
-    const r = await at(iso, (token) => api("POST", "/appointments/waitlist", { token, body: { patientName: "Borg Ċensa " + iso, patientPhone: "79000000" } }));
+    const r = await at(iso, (token) => api("POST", "/appointments/waitlist", { token, body: { patientName: "Borg Ċensina " + iso, patientPhone: "79000000" } }));
     ok(r.status === 200 || r.status === 201, r.text);
-    const row = DB.one("SELECT added_date FROM appt_waitlist WHERE patient_name = ?", "Borg Ċensa " + iso);
+    const row = DB.one("SELECT added_date FROM appt_waitlist WHERE patient_name = ?", "Borg Ċensina " + iso);
     eq(row && row.added_date, maltaDay(iso), "added at " + iso);
   }
 });

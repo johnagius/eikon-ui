@@ -37,7 +37,7 @@ await api("POST", "/bootstrap", { form: { bootstrap_token: "t", org_name: "Demo 
 const T = (await api("POST", "/auth/login", { body: { email: "maria@demo.mt", password: "Demo-Pass-2026" } })).json.token;
 const s = async (m, p, body) => { const r = await api(m, p, { token: T, body }); if (r.status >= 400) console.log("  seed refused", m, p, r.status, r.text.slice(0, 100)); return r.json || {}; };
 const ids = [];
-for (let i = 0; i < 30; i++) ids.push((await s("POST", "/order-diary/entries", { order_date: day(i % 10), item_name: ["Augmentin 625 x14", "Ventolin inhaler", "Ċetirizine 10mg"][i % 3], qty: 1 + (i % 3), supplier: ["GSK", "Ħili Pharma", ""][i % 3], notes: i % 4 ? "" : "For Ġorġ" })).id);
+for (let i = 0; i < 30; i++) ids.push((await s("POST", "/order-diary/entries", { order_date: day(i % 10), item_name: ["Augmentin 625 x14", "Ventolin inhaler", "Cetirizine 10mg"][i % 3], qty: 1 + (i % 3), supplier: ["GSK", "Hili Pharma", ""][i % 3], notes: i % 4 ? "" : "For Ġorġ" })).id);
 await s("PUT", "/order-diary/entries/" + ids[1], { status: "received" }); await s("PUT", "/order-diary/entries/" + ids[2], { status: "not_received" });
 await s("POST", "/order-diary/carry-over", { from_date: day(3), to_date: day(2) });
 const co = await s("POST", "/client-orders/entries", { order_date: day(1), client_name: "Borg Anna", contact: "79111222", client_phone: "79111222", items: "Ventolin inhaler", priority: 2 });

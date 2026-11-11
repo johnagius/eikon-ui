@@ -10,7 +10,7 @@ export default {
   title: "Team: shifts, handover, board, sign-ins",
   async run(t) {
     // ---------- Plan shifts ----------
-    const st = await t.api("POST", "/shifts/staff", { full_name: "Ċensina Żammit", designation: "assistant", employment_type: "fulltime", contracted_hours: 40 });
+    const st = await t.api("POST", "/shifts/staff", { full_name: "Ċensina Zammit", designation: "assistant", employment_type: "fulltime", contracted_hours: 40 });
     const sid = st.staff_id || st.id;
     t.ok(sid, "a person on the rota: " + JSON.stringify(st).slice(0, 120));
     const A = "shift_assignments";
@@ -118,7 +118,7 @@ export default {
     // ---------- People who sign in ----------
     const U = "users";
     let u0 = t.maxId(U);
-    await t.api("POST", "/team/users", { email: "karmenu@demo.mt", full_name: "Karmenu Ħili", role: "staff" });
+    await t.api("POST", "/team/users", { email: "karmenu@demo.mt", full_name: "Karmenu Hili", role: "staff" });
     const classicUser = (await t.mine(U, u0, { email: "karmenu@demo.mt" }))[0];
     await t.open(p, "2", "teamreg", "teamreg", "[data-act=add]");
     await p.click("[data-act=add]"); await p.waitForSelector("#tmr-add");
@@ -126,12 +126,12 @@ export default {
     const errs = await p.evaluate(() => ({ n: document.querySelectorAll(".tmr-ferr").length, inv: [...document.querySelectorAll("#tmr-add [aria-invalid=true]")].map((x) => x.id).join(), focus: document.activeElement.id }));
     t.ok(errs.n === 2 && errs.inv === "tmr-name,tmr-email" && errs.focus === "tmr-name", "an empty Add shows both problems at once, under their fields, focus on the first: " + JSON.stringify(errs));
     u0 = t.maxId(U);
-    await p.fill("#tmr-name", "Ġorġ Ħili"); await p.fill("#tmr-email", "gorg@demo.mt");
+    await p.fill("#tmr-name", "Ġorġ Hili"); await p.fill("#tmr-email", "gorg@demo.mt");
     await t.write(p, /\/team\/users$/, () => p.press("#tmr-email", "Enter"));
     await p.waitForSelector("#tmr-temp");
     const freshUser = (await t.mine(U, u0, { email: "gorg@demo.mt" }))[0];
     t.same("sign-in (add)", classicUser, freshUser, { email: "another person", full_name: "another person", pass_salt_b64: "random", pass_hash_b64: "from the random temporary password", last_sign_in_at: "clock" });
-    t.has("sign-in(new)", freshUser, { email: "gorg@demo.mt", full_name: "Ġorġ Ħili", role: "staff" });
+    t.has("sign-in(new)", freshUser, { email: "gorg@demo.mt", full_name: "Ġorġ Hili", role: "staff" });
     if (process.env.TEAM_DUMP) { // the stored rows, without ids, clocks and random parts, to compare two versions of the screens
       const drop = (r, ks) => { const o = { ...r }; for (const k of ["id", "created_at", "updated_at", "reviewed_at", ...ks]) delete o[k]; return o; };
       const hand = JSON.parse(row.handover_json || "[]").map((x) => ({ sev: x.sev, text: x.text, keys: Object.keys(x).sort().join() }));

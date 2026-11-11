@@ -8,10 +8,10 @@ export default {
   title: "People: contacts (our team, starred, called recently) and sign-ins today first",
   async run(t) {
     const tag = Date.now() % 100000;
-    const st = await t.api("POST", "/shifts/staff", { full_name: "Ċensina Żammit " + tag, designation: "assistant", employment_type: "fulltime", contracted_hours: 40, phone: "7900 2222", email: "censina" + tag + "@demo.mt" });
+    const st = await t.api("POST", "/shifts/staff", { full_name: "Ċensina Zammit " + tag, designation: "assistant", employment_type: "fulltime", contracted_hours: 40, phone: "7900 2222", email: "censina" + tag + "@demo.mt" });
     const sid = st.staff_id || st.id;
     t.ok(sid, "a person on the rota");
-    const sup = await t.api("POST", "/contacts/suppliers", { name: "Ħili Pharma " + tag, phone: "2133 0000", email: "orders@hili.example" });
+    const sup = await t.api("POST", "/contacts/suppliers", { name: "Hili Pharma " + tag, phone: "2133 0000", email: "orders@hili.example" });
     const supK = "suppliers:" + sup.id;
 
     const p = await t.page();
@@ -29,7 +29,7 @@ export default {
     // Maltese letters optional
     await p.click(".con-card ~ * [data-act=close], .con-dback[data-act=close]").catch(() => {});
     await p.fill("#con-q", "hili pharma " + tag); await p.waitForTimeout(150);
-    t.ok(await p.locator(`.con-open[data-open="${supK}"]`).count() >= 1, "“hili” finds Ħili");
+    t.ok(await p.locator(`.con-open[data-open="${supK}"]`).count() >= 1, "“hili” finds Hili");
 
     // Starred: this device only, per location, nothing sent
     const writes0 = reqs.filter((x) => !x.startsWith("GET ")).length;
@@ -62,9 +62,9 @@ export default {
     const meRow = t.db.prepare("SELECT MAX(s.created_at) AS at FROM sessions s JOIN users u ON u.id = s.user_id").get();
     t.ok(/Signed in today at \d{2}:\d{2}/.test(tm.first) && /signed in today/.test(tm.lab), "today's sign-ins first, with the time: " + JSON.stringify(tm) + " (latest session " + (meRow && meRow.at) + ", Malta " + maltaYmd(0) + ")");
     const posts = []; p.on("request", (r) => { if (r.method() === "POST" && /\/team\/users/.test(r.url())) posts.push(r.postData()); });
-    await p.click("[data-act=add]"); await p.fill("#tmr-name", "Ġużi Ħili " + tag); await p.fill("#tmr-email", "Guzi" + tag + "@Demo.mt");
+    await p.click("[data-act=add]"); await p.fill("#tmr-name", "Ġużi Hili " + tag); await p.fill("#tmr-email", "Guzi" + tag + "@Demo.mt");
     await t.write(p, /\/team\/users$/, () => p.click("#tmr-add button[type=submit]"));
-    t.ok(posts.length >= 1 && posts[0] === JSON.stringify({ email: "guzi" + tag + "@demo.mt", full_name: "Ġużi Ħili " + tag, role: "staff" }), "Add a person sends the same body as before: " + posts.join());
+    t.ok(posts.length >= 1 && posts[0] === JSON.stringify({ email: "guzi" + tag + "@demo.mt", full_name: "Ġużi Hili " + tag, role: "staff" }), "Add a person sends the same body as before: " + posts.join());
     await p.click("[data-act=done]");
     // the other writes of the screen, on the person just added: the same bodies the base screen (124158a) sends
     const uid = (t.db.prepare("SELECT id FROM users WHERE email = ?").get("guzi" + tag + "@demo.mt") || {}).id;
@@ -75,7 +75,7 @@ export default {
     await t.write(p, new RegExp("/team/users/" + uid + "/active$"), async () => { await p.click(`[data-act="off"][data-id="${uid}"]`); await modal("Switch off"); });
     await p.waitForSelector(`[data-act="on"][data-id="${uid}"]`);
     await t.write(p, new RegExp("/team/users/" + uid + "/active$"), () => p.click(`[data-act="on"][data-id="${uid}"]`));
-    const want = [{ email: "guzi" + tag + "@demo.mt", full_name: "Ġużi Ħili " + tag, role: "staff" }, {}, { active: false }, { active: true }].map((x) => JSON.stringify(x));
+    const want = [{ email: "guzi" + tag + "@demo.mt", full_name: "Ġużi Hili " + tag, role: "staff" }, {}, { active: false }, { active: true }].map((x) => JSON.stringify(x));
     if (await p.waitForSelector(`[data-act="role"][data-id="${uid}"]`, { timeout: 4000 }).then(() => true, () => false)) { // only where Eikon support lets admins manage admins
       await p.waitForSelector(`[data-act="role"][data-id="${uid}"]`);
       await t.write(p, new RegExp("/team/users/" + uid + "/role$"), async () => { await p.click(`[data-act="role"][data-id="${uid}"]`); await modal("Change"); });

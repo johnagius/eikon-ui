@@ -20,7 +20,7 @@ export default {
   async run(t) {
     const W = monday(12), E = (i) => ymdAdd(W, i), W3 = monday(13), F = (i) => ymdAdd(W3, i);
     const mk = async (n, d) => { const r = await t.api("POST", "/shifts/staff", { full_name: n, designation: d, employment_type: d === "locum" ? "external" : "fulltime", contracted_hours: 40, email: "", phone: "", registration_number: "", is_active: 1, patterns_json: "{}" }); return r.staff_id || r.id; };
-    const P = await mk("Swap Ġorġ Pharm", "pharmacist"), Q = await mk("Swap Marija Pharm", "pharmacist"), A = await mk("Swap Żaren Assistant", "assistant"), L = await mk("Swap Ħelena Locum", "locum");
+    const P = await mk("Swap Ġorġ Pharm", "pharmacist"), Q = await mk("Swap Marija Pharm", "pharmacist"), A = await mk("Swap Żaren Assistant", "assistant"), L = await mk("Swap Helena Locum", "locum");
     const add = async (sid, d, s, e, notes = "", role) => (await t.api("POST", "/shifts/assignments", role ? { staff_id: sid, shift_date: d, start_time: s, end_time: e, notes, role_override: role } : { staff_id: sid, shift_date: d, start_time: s, end_time: e, notes })).shift_id;
     const sx = await add(P, E(0), "07:30", "13:30", "Ċentru"), sy = await add(A, E(2), "13:30", "19:30", "Ħal Qormi", "manager");   // swapped on screen
     const hx = await add(P, E(1), "07:30", "13:30", "Ċentru"), hy = await add(A, E(3), "13:30", "19:30", "Ħal Qormi", "manager");   // the same, by hand
@@ -103,7 +103,7 @@ export default {
     }
     // the last remove fails and so does putting the removed shift back
     const o2 = await attempt({ d: fDay(E(4)), s: "15:00–19:00" }, otherF2, (rq, n) => (rq.method() === "DELETE" && n === 5) || (rq.method() === "POST" && n > 5));
-    t.ok(o2.err === "Only part of the swap went through, and it could not be put back: Swap Żaren Assistant is now on neither day; Swap Ħelena Locum is now on " + dw(E(5)) + " 15:00–19:00. Remove or add one here so each day is right.", "S2 an undo that fails too says exactly who is on which day now: " + o2.err);
+    t.ok(o2.err === "Only part of the swap went through, and it could not be put back: Swap Żaren Assistant is now on neither day; Swap Helena Locum is now on " + dw(E(5)) + " 15:00–19:00. Remove or add one here so each day is right.", "S2 an undo that fails too says exactly who is on which day now: " + o2.err);
     t.ok(o2.top && /shf-msg/.test(o2.focus), "S2 … above the week (that shift is gone), with focus on it: " + JSON.stringify(o2));
     t.ok(!t.db.prepare("SELECT id FROM shift_assignments WHERE staff_id = ? AND shift_date IN (?, ?)").get(A, E(4), E(5)) && row(L, E(5)) && !row(L, E(4)), "S2 … and that is what the rows say");
 
@@ -117,7 +117,7 @@ export default {
       await p.keyboard.press("Escape"); await p.keyboard.press("Escape"); return r;
     };
     const b1 = await block(qa, la), b2 = await block(qb, pb);
-    t.ok(b1.text === dw(F(2)) + " · Swap Ħelena Locum 08:00–12:00 · on leave " + dw(F(1)) && b1.off && b1.btn, "S3 approved leave on the other day: that choice greyed out with the reason: " + JSON.stringify(b1));
+    t.ok(b1.text === dw(F(2)) + " · Swap Helena Locum 08:00–12:00 · on leave " + dw(F(1)) && b1.off && b1.btn, "S3 approved leave on the other day: that choice greyed out with the reason: " + JSON.stringify(b1));
     t.ok(b2.text === dw(F(4)) + " · Swap Ġorġ Pharm 10:00–14:00 · Swap already works then" && b2.off && b2.btn, "S3 an overlapping shift on the other day: greyed out with the reason: " + JSON.stringify(b2));
     t.ok(writes.length === 0, "S3 nothing written");
 

@@ -38,7 +38,7 @@ async function seed(api, token, db, loc, today) {
   const person = (id, name, date, fus) => ({ id, idCard: "", name, phone: "", email: "", dob: "", type: "Walk-in", date, resultNotes: "", resultCategory: "Normal", referral: "No referral needed", referralNotes: "", poctResults: {}, followUps: fus || [] });
   eq((await api("PUT", "/screening/state", { token, body: { state: { campaigns: [
     { id: "c_on", name: "Blood pressure week", type: "Blood Pressure Check", startDate: plus(today, -3), endDate: plus(today, 4), status: "Active", location: "Pharmacy Floor", targetScreenings: "50",
-      participants: [person("p1", "Ċensu Borg", today, [{ id: "f1", scheduledDate: plus(today, -1), reason: "Recheck BP", status: "Pending", notes: "" }]), person("p2", "Marija Żammit", plus(today, -2)), person("p3", "Ħelena Vella", today)] },
+      participants: [person("p1", "Ċensu Borg", today, [{ id: "f1", scheduledDate: plus(today, -1), reason: "Recheck BP", status: "Pending", notes: "" }]), person("p2", "Marija Zammit", plus(today, -2)), person("p3", "Helena Vella", today)] },
     { id: "c_old", name: "Diabetes day", type: "Diabetes Screening", startDate: plus(today, -60), endDate: plus(today, -59), status: "Active",
       participants: [person("p4", "Ġorġ Abela", plus(today, -60), [
         { id: "f2", scheduledDate: today, reason: "HbA1c again", status: "Scheduled", notes: "" },

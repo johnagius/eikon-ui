@@ -33,10 +33,11 @@ export default {
     // OCP print: the new screen's printout is the classic finder's, byte for byte, for the same selection
     const pp = await t.page();
     await pp.addInitScript(() => {
+      window.__blobOf = {}; const mk = URL.createObjectURL; URL.createObjectURL = function (b) { const u = mk.call(URL, b); window.__blobOf[u] = b; return u; }; // the printed page is read from its Blob (fetch() of blob: is connect-src; the app only opens it)
       window.__printed = []; Date.prototype.toLocaleString = function () { return "9/11/2026, 10:00:00"; }; // one clock for both
       const o = window.open;
       window.open = function (u, ...a) {
-        if (/^blob:/.test(String(u))) { fetch(u).then((r) => r.text()).then((x) => window.__printed.push(x)); return { closed: false, document: {}, print() {}, close() {} }; }
+        if (/^blob:/.test(String(u))) { (window.__blobOf && window.__blobOf[u] ? window.__blobOf[u].text() : fetch(u).then((r) => r.text())).then((x) => window.__printed.push(x)); return { closed: false, document: {}, print() {}, close() {} }; }
         if (u === "" || u == null) { let buf = ""; return { closed: false, location: {}, print() {}, close() {}, addEventListener() {}, document: { open() {}, write(h) { buf += h; }, close() { window.__printed.push(buf); }, readyState: "loading", querySelectorAll: () => [] } }; }
         return o.call(window, u, ...a);
       };

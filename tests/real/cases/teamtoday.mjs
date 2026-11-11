@@ -19,7 +19,7 @@ export default {
     const api = async (m, p, body, token) => { const r = await t.stack.app.api(m, p, { token: token || A.token, body }); if (r.status >= 400 || (r.json && r.json.ok === false)) throw new Error(m + " " + p + " " + r.status + " " + r.text.slice(0, 160)); return r.json; };
     await api("GET", "/team/today"); await api("GET", "/board/messages"); // the tables
     const mk = async (full_name, designation, phone) => { const r = await api("POST", "/shifts/staff", { full_name, designation, employment_type: "fulltime", contracted_hours: 40, phone: phone || "" }); return r.staff_id || r.id; };
-    const ph = await mk("Dr Ħelena Farrugia", "pharmacist", "79 123 456"), as = await mk("Ċensina Żammit", "assistant", ""), off = await mk("Marija Pace", "pharmacist", "");
+    const ph = await mk("Dr Helena Farrugia", "pharmacist", "79 123 456"), as = await mk("Ċensina Zammit", "assistant", ""), off = await mk("Marija Pace", "pharmacist", "");
     await api("POST", "/shifts/assignments", { staff_id: ph, shift_date: today, start_time: "00:00", end_time: "23:59", notes: "" });
     await api("POST", "/shifts/assignments", { staff_id: as, shift_date: today, start_time: "23:58", end_time: "23:59", notes: "" });
     await api("POST", "/shifts/assignments", { staff_id: off, shift_date: today, start_time: "00:00", end_time: "23:59", notes: "" });
@@ -62,13 +62,13 @@ export default {
     t.ok(!B.reqs.some((x) => /^\/(shifts|instructions|board|locumregister)\//.test(x)), "no screen's own read on opening: " + JSON.stringify(B.reqs));
     const by = (r, k) => r.rows.find((x) => x.key === k) || {};
     t.ok(r1.rows[0] && r1.rows[0].key === "pic" && r1.rows[0].cls === "problem" && r1.rows[0].title === "No pharmacist signed in" && r1.rows[0].btn === "Sign in", "no pharmacist signed in: red, first, Sign in: " + JSON.stringify(r1.rows[0]));
-    t.ok(/^Open 00:00–23:59 · 2 people on today · Pharmacist: Dr Ħelena Farrugia until 23:59\.$/.test(r1.head), "the headline in words: " + r1.head);
+    t.ok(/^Open 00:00–23:59 · 2 people on today · Pharmacist: Dr Helena Farrugia until 23:59\.$/.test(r1.head), "the headline in words: " + r1.head);
     t.ok(by(r1, "hnd").cls === "todo" && by(r1, "hnd").title === "Handover from yesterday" && by(r1, "hnd").text === "1 critical point and 1 other. Not read by you yet." && by(r1, "hnd").btn === "Read ›", "handover not read (a quiet button: only the first thing to do is solid): " + JSON.stringify(by(r1, "hnd")));
     t.ok(by(r1, "men").cls === "todo" && by(r1, "men").title === "Mentioned you: Ħamrun Other" && /Ozempic 1mg/.test(by(r1, "men").text) && !/And \d/.test(by(r1, "men").text), "one mention of you (the public one): " + JSON.stringify(by(r1, "men")));
     t.ok(B.p && (await B.p.evaluate(() => document.querySelectorAll(".tmt-list .tmt-btn.p").length)) === 1, "one solid button on the list (the first thing to do)");
     t.ok(!/SECRET/.test(r1.page), "another group's private message is nowhere on the page");
     t.ok(by(r1, "lv").cls === "todo" && by(r1, "lv").text === "2 requests waiting for your answer." && by(r1, "lv").btn === "Answer ›", "leave requests for the pharmacist: " + JSON.stringify(by(r1, "lv")));
-    t.ok(r1.who.join(" | ") === "On now: Dr Ħelena Farrugia | Later today: Ċensina Żammit | Away today: Marija Pace" && r1.tel.join() === "tel:79123456", "who is on, later and away, Call by phone: " + JSON.stringify([r1.who, r1.tel]));
+    t.ok(r1.who.join(" | ") === "On now: Dr Helena Farrugia | Later today: Ċensina Zammit | Away today: Marija Pace" && r1.tel.join() === "tel:79123456", "who is on, later and away, Call by phone: " + JSON.stringify([r1.who, r1.tel]));
     t.ok(r1.chips.locumregister === "No pharmacist signed in" && r1.chips.instructions === "1 critical · not read" && /1 mention of you/.test(r1.chips.messageboard) && r1.chips.shifts === "2 leave requests" && /2 people today/.test(r1.chips.rotreg), "status under the cards: " + JSON.stringify(r1.chips));
     if (r1.cover) {
       t.ok(!r1.rows.some((x) => /^gap:/.test(x.key)), "E.teamCover in the build: covered all day, no gap line");
@@ -95,9 +95,9 @@ export default {
     t.ok(!B.reqs.includes("/team/today"), "Team again within a minute asked nothing: " + JSON.stringify(B.reqs));
 
     // ---- signed in, the handover read on this device ("Got it", the Handover screen's key): both done
-    await api("POST", "/locumregister/entries", { entry_date: today, time_in: "00:00", time_out: "23:59", locum_full_name: "Dr Ħelena Farrugia", registration_number: "P-1201" });
+    await api("POST", "/locumregister/entries", { entry_date: today, time_in: "00:00", time_out: "23:59", locum_full_name: "Dr Helena Farrugia", registration_number: "P-1201" });
     const C = await look(A.token, { before: `try { localStorage.setItem("eikon_hnd_read_${rita}", JSON.stringify({ from: "${add(today, -1)}", ids: "tt_1,tt_2", at: new Date().toISOString() })); } catch (e) {}` }), r2 = await C.read();
-    t.ok(by(r2, "pic").cls === "done" && /^Dr Ħelena Farrugia \(reg no P-1201\), since 00:00, until 23:59\.$/.test(by(r2, "pic").text) && r2.chips.locumregister === "In charge: Dr Ħelena Farrugia", "pharmacist in charge: " + JSON.stringify(by(r2, "pic")));
+    t.ok(by(r2, "pic").cls === "done" && /^Dr Helena Farrugia \(reg no P-1201\), since 00:00, until 23:59\.$/.test(by(r2, "pic").text) && r2.chips.locumregister === "In charge: Dr Helena Farrugia", "pharmacist in charge: " + JSON.stringify(by(r2, "pic")));
     t.ok(by(r2, "hnd").cls === "done" && r2.chips.instructions === "Read", "handover read on this device: " + JSON.stringify(by(r2, "hnd")));
     t.ok(r2.rows[0].cls === "todo", "nothing red left; to do first: " + r2.rows.map((x) => x.key + ":" + x.cls).join());
 

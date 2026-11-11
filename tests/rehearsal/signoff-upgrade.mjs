@@ -44,8 +44,8 @@ const devs = (await api("GET", "/temperature/devices", { token: T })).json?.devi
 for (let n = 1; n <= 45; n++) {
   if (n % 9 === 0) continue; // a missed day now and then
   for (const dv of devs.slice(0, 2)) await api("POST", "/temperature/entries", { token: T, body: { device_id: dv.id, entry_date: day(n), min_temp: 3.1, max_temp: 6.4 + (n % 3), notes: n % 5 ? "" : "Door left open, closed, re-checked" } });
-  if (n % 6 === 0) await api("POST", "/cleaning/entries", { token: T, body: { entry_date: day(n), time_in: "08:00", time_out: "08:40", cleaner_name: "Ġorġ Żammit", staff_name: "Maria Borg", notes: "" } });
-  await api("POST", "/daily-register/entries", { token: T, body: { entry_date: day(n), client_name: "Ċensu Ħili", client_id: "12345" + (n % 10) + "M", medicine_name_dose: "Amoxil 500mg", posology: "1-1-1 x 7 days", prescriber_name: "Dr Abela", prescriber_reg_no: "1234" } });
+  if (n % 6 === 0) await api("POST", "/cleaning/entries", { token: T, body: { entry_date: day(n), time_in: "08:00", time_out: "08:40", cleaner_name: "Ġorġ Zammit", staff_name: "Maria Borg", notes: "" } });
+  await api("POST", "/daily-register/entries", { token: T, body: { entry_date: day(n), client_name: "Ċensu Hili", client_id: "12345" + (n % 10) + "M", medicine_name_dose: "Amoxil 500mg", posology: "1-1-1 x 7 days", prescriber_name: "Dr Abela", prescriber_reg_no: "1234" } });
   await api("POST", "/locumregister/entries", { token: T, body: { entry_date: day(n), time_in: "08:00", time_out: "13:00", locum_full_name: "Anna Vella", registration_number: "P123" } });
   if (n % 7 === 0) await api("POST", "/locumreceipts/receipts", { token: T, body: { receipt_date: day(n), hours: 5, locum_full_name: "Anna Vella", registration_number: "P123", day_type: "normal", fee_per_hour: 25 } });
 }

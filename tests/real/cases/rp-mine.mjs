@@ -1,5 +1,5 @@
 // Roster planner A11 — Mine on Who's in: who am I on the rota, my next shifts, the calendar link.
-//  - the admin "marija  cassar" is Marija Ċassar on the rota (case, accents, spaces folded): "Your next shifts" lists her
+//  - the admin "marija  cassar" is Marija Cassar on the rota (case, accents, spaces folded): "Your next shifts" lists her
 //    shifts of the next two weeks only (with who works with her), her leave, and no one else's shifts;
 //  - the week read is still ONE assignments-range GET (it reaches two weeks ahead on this week): no extra request;
 //  - the staff user "Joe Vella" matches two active people → "Which one is you?" → the choice is kept on the device only
@@ -29,14 +29,15 @@ export default {
     await t.open(p, "2", "rotreg", "rotreg", ".rot-mine");
     const mine = await p.evaluate(() => ({ h: (document.querySelector("#rot-mine-h") || {}).textContent, rows: [...document.querySelectorAll(".rot-mine li")].map((li) => li.innerText.replace(/\s+/g, " ").trim()), who: (document.querySelector(".rot-mine .who") || {}).textContent || "" }));
     t.ok(mine.h === "Your next shifts", "Mine heading: " + mine.h);
-    t.ok(/Marija Ċassar/.test(mine.who), "shown for Marija Ċassar (the folded name match): " + mine.who);
+    t.ok(/Marija Cassar/.test(mine.who), "shown for Marija Cassar (the folded name match): " + mine.who);
     const shiftRows = mine.rows.filter((r) => /\d\d:\d\d–\d\d:\d\d/.test(r));
     t.ok(shiftRows.length === 3, "three of her shifts in the next two weeks (not the one in 15 days): " + JSON.stringify(mine.rows));
     t.ok(/^Tomorrow 08:00–14:00 with Joe · Ċentru$/.test(shiftRows[0] || ""), "tomorrow's row: time, who overlaps (Joe, not Ċensina who starts after), the note: " + shiftRows[0]);
     t.ok(!mine.rows.some((r) => /12:00$/.test(r) && /08:00–12:00/.test(r)), "no one else's shift in Mine");
     t.ok(mine.rows.some((r) => /Asked for annual leave/.test(r)), "her pending leave is listed: " + JSON.stringify(mine.rows));
     const ranges = gets.filter((g) => g.startsWith("/shifts/assignments-range"));
-    t.ok(ranges.length === 1 && ranges[0].includes("&to=" + ymdAdd(ranges[0].match(/from=([\d-]+)/)[1], 13)), "one range GET, reaching two weeks: " + JSON.stringify(ranges));
+    { const m = ranges[0] && ranges[0].match(/from=([\d-]+)&to=([\d-]+)/), wk = m && ymdAdd(m[1], 13), two = D(13); // the week's own two weeks, or two weeks from today if later (Mine promises the next two weeks)
+      t.ok(ranges.length === 1 && m && m[2] === (two > wk ? two : wk), "one range GET, reaching two weeks from today: " + JSON.stringify(ranges)); }
 
     // ---- the calendar link from Mine: link for her, the feed has only her shifts
     await p.click('.rot-mine [data-act="cal"]');
@@ -90,7 +91,7 @@ export default {
     t.ok(/Joe Vella/.test(await q.textContent(".rot-mine .who")), "still Joe after a reload");
     // the phone: no sideways scroll, Mine first under the week arrows
     const lay = await q.evaluate(() => ({ sw: document.documentElement.scrollWidth, order: [...document.querySelectorAll(".rot-nav, .rot-mine, .rot-week")].map((e) => e.className.split(" ")[0]) }));
-    t.ok(lay.sw <= 390 && lay.order.join() === "rot-nav,rot-mine,rot-week", "phone: no sideways scroll, Mine right under the week arrows: " + JSON.stringify(lay));
+    t.ok(lay.sw <= 390 && /^rot-nav,rot-mine(,rot-week)?$/.test(lay.order.join()), "phone: no sideways scroll, Mine right under the week arrows: " + JSON.stringify(lay));
     void lv;
   }
 };

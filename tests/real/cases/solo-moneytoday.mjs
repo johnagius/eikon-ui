@@ -28,8 +28,8 @@ export default {
     const busy = await pharmacy(t, "Money Today Busy", "moneytoday-busy@demo.mt"), calm = await pharmacy(t, "Money Today Closed", "moneytoday-closed@demo.mt");
     const first = (await t.stack.app.api("GET", "/money/today", { token: busy.token })).json; // the last open day by the default hours
     const lastOpen = first.end_of_day.last_open_day, older = add(today, -10);
-    await busy.api("PUT", "/endofday/record", eod(today, "1234.56", "Ċensa Żammit"));
-    await busy.api("PUT", "/endofday/record", eod(older, "800", "Ċensa Żammit"));
+    await busy.api("PUT", "/endofday/record", eod(today, "1234.56", "Ċensina Zammit"));
+    await busy.api("PUT", "/endofday/record", eod(older, "800", "Ċensina Zammit"));
     await busy.api("POST", "/paid-out/entries", { entry_date: today, entry_time: "10:15", payee_name: "Ħobża Bakery", fee: "12.50", payment_method: "cash", invoice_no: "", cheque_no: "", reason: "Milk" });
     await busy.api("POST", "/paid-out/entries", { entry_date: today, entry_time: "11:15", payee_name: "Courier Ltd", fee: "7.25", payment_method: "cash", invoice_no: "", cheque_no: "", reason: "Delivery" });
     t.db.prepare("INSERT INTO pos_sales (org_id, location_id, sale_date, receipt_no, items_json, subtotal, vat_total, total, payment_method, voided, created_by) VALUES (?, ?, ?, 'E1', '[]', 10, 0, 10, 'cash', 0, 1), (?, ?, ?, 'E2', '[]', 5.5, 0, 5.5, 'card', 0, 1)").run(busy.org, busy.loc, today, busy.org, busy.loc, today);
@@ -59,7 +59,7 @@ export default {
     const m = by("eod:" + lastOpen);
     t.ok(m.cls === "todo" && /^No end of day was saved/.test(m.text) && m.btn === "Open", "the last open day never closed: " + JSON.stringify(m));
     const td = by("eod");
-    t.ok(/^Started by Ċensa Żammit, not locked yet\. Takings so far €1,234\.56\./.test(td.text), "today started, takings so far: " + JSON.stringify(td));
+    t.ok(/^Started by Ċensina Zammit, not locked yet\. Takings so far €1,234\.56\./.test(td.text), "today started, takings so far: " + JSON.stringify(td));
     t.ok(by("po").text === "€19.75 paid from the till today, 2 payments.", "paid out: " + JSON.stringify(by("po")));
     t.ok(by("epos").text === "€15.50 taken on the emergency till today, 2 sales.", "emergency till: " + JSON.stringify(by("epos")));
     t.ok(/^€1,025\.00 held by customers on 2 credit notes\. 1 note expires within 30 days \(€25\.00\)/.test(by("cn").text), "credit notes held, one expiring: " + JSON.stringify(by("cn")));

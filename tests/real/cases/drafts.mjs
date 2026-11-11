@@ -10,11 +10,11 @@ const FORMS = [
   { id: "ordreg", btn: ".ord-top [data-act=add]", form: "#ord-add", table: "client_orders_entries", path: /\/client-orders\/entries$/, gen: ["order_code"],
     fill: { client_name: "Draft Ċensina Borg", contact: "79001122", items: "Augmentin 625 x14 ċġħż", notes: "Ring first", needed_by: ymd(2) }, sel: { priority: "1" }, leave: "back" },
   { id: "cdsreg", btn: "[data-act=add]", form: "#cds-add", table: "dda_sales_entries", path: /\/dda-sales\/entries$/, gen: [],
-    fill: { entry_date: ymd(0), client_id_card: "778899M", client_name: "Draft Ġorġ Żammit", client_address: "9 Triq il-Ħġejjeġ, Żebbuġ", doctor_name: "Dr Ħabela", doctor_reg_no: "R7788", prescription_serial_no: "RX-DRAFT-1", '#cds-add [data-i="0"][data-k=medicine_name_dose]': "Morphine 10mg tablets", '#cds-add [data-i="0"][data-k=quantity]': "12" }, leave: "tab" },
+    fill: { entry_date: ymd(0), client_id_card: "778899M", client_name: "Draft Ġorġ Zammit", client_address: "9 Triq il-Ġnien, Żebbuġ", doctor_name: "Dr Scicluna", doctor_reg_no: "R7788", prescription_serial_no: "RX-DRAFT-1", '#cds-add [data-i="0"][data-k=medicine_name_dose]': "Morphine 10mg tablets", '#cds-add [data-i="0"][data-k=quantity]': "12" }, leave: "tab" },
   { id: "tktreg", btn: "[data-act=add]", form: "#tkt-add", table: "client_tickets_entries", path: /\/client-tickets\/entries$/, gen: ["ticket_id"],
-    fill: { client_name: "Draft Ħabela Rita", phone: "79003344", issue: "Is the Żebbuġ order in? ċġħż" }, sel: { priority: "1" }, leave: "hub" },
+    fill: { client_name: "Draft Abela Rita", phone: "79003344", issue: "Is the Żebbuġ order in? ċġħż" }, sel: { priority: "1" }, leave: "hub" },
   { id: "odreg", btn: "[data-act=add]", form: "#odr-add", table: "order_diary_entries", path: /\/order-diary\/entries$/, gen: [],
-    fill: { item_name: "Draft Panadol 500 ċġħż", qty: "3", supplier: "Ħili Pharma", notes: "For Mrs Żammit" }, leave: "hash" },
+    fill: { item_name: "Draft Panadol 500 ċġħż", qty: "3", supplier: "Hili Pharma", notes: "For Mrs Zammit" }, leave: "hash" },
 ];
 async function leave(p, how) {
   if (how === "back") { await p.goBack(); }

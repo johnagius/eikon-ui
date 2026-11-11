@@ -23,7 +23,7 @@ export default {
   title: "Roster planner: fill weeks and months, select, copy, paste, clear, undo (grid)",
   async run(t) {
     const mk = async (n, d) => { const r = await t.api("POST", "/shifts/staff", { full_name: n, designation: d, employment_type: d === "locum" ? "external" : "fulltime", contracted_hours: 40, email: "", phone: "", registration_number: "", is_active: 1, patterns_json: "{}" }); return r.staff_id || r.id; };
-    const A = await mk("Fill Marija Ħabib", "assistant"), B = await mk("Fill Ġużi Pharm", "pharmacist"), C = await mk("Fill Ċettina Cashier", "cashier");
+    const A = await mk("Fill Marija Agius", "assistant"), B = await mk("Fill Ġużi Pharm", "pharmacist"), C = await mk("Fill Ċettina Cashier", "cashier");
     const add = async (sid, d, s, e, notes = "", role) => (await t.api("POST", "/shifts/assignments", role ? { staff_id: sid, shift_date: d, start_time: s, end_time: e, notes, role_override: role } : { staff_id: sid, shift_date: d, start_time: s, end_time: e, notes })).shift_id;
     const rowsOf = (sid, from, to) => t.db.prepare("SELECT * FROM shift_assignments WHERE staff_id = ? AND shift_date >= ? AND shift_date <= ? ORDER BY shift_date, start_time").all(sid, from, to);
     const writes = []; const track = (p) => p.on("request", (r) => { if (r.method() !== "GET" && /\/shifts\//.test(r.url())) writes.push({ m: r.method(), path: new URL(r.url()).pathname, body: r.postData() ? r.postDataJSON() : null }); });

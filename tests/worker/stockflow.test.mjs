@@ -13,7 +13,7 @@ test("stock flow: open lines across days, carried lines once, ordered marks and 
   const a = await diary(api, token, { order_date: day(-5), item_name: "Augmentin 625 x14", qty: 2, supplier: "GSK" });
   const b = await diary(api, token, { order_date: day(-2), item_name: "Ventolin inhaler", supplier: "Alliance" });
   const old = await diary(api, token, { order_date: day(-90), item_name: "Too old", supplier: "GSK" });
-  const c = await diary(api, token, { order_date: day(0), item_name: "Ensure vanilla x24", supplier: "Ħili Pharma" });
+  const c = await diary(api, token, { order_date: day(0), item_name: "Ensure vanilla x24", supplier: "Hili Pharma" });
   eq((await api("PUT", "/order-diary/entries/" + c, { token, body: { status: "received" } })).status, 200);
   // carry Augmentin's day forward: the earlier line is no longer open, the carried one is
   eq((await api("POST", "/order-diary/carry-over", { token, body: { from_date: day(-5), to_date: day(-4) } })).json.carried, 1);
@@ -56,7 +56,7 @@ test("stock flow: links tie a diary line to a customer order or a recall of the 
   const al = await api("POST", "/alerts/entries", { token, body: { entry_date: day(0), alert_type: "recall", status: "open", item_name: "Valsartan 80mg", batch: "VX1", quantity: "4", reason: "Recall", storage_location: "room" } });
   eq(al.status, 200, al.text); const alId = DB.one("SELECT id FROM alerts_entries").id;
   const d1 = await diary(api, token, { order_date: day(-1), item_name: "Ventolin inhaler", supplier: "Alliance" });
-  const d2 = await diary(api, token, { item_name: "Valsartan 80mg", supplier: "Ħili Pharma" });
+  const d2 = await diary(api, token, { item_name: "Valsartan 80mg", supplier: "Hili Pharma" });
   const coBefore = DB.q("SELECT * FROM client_orders_entries"), alBefore = DB.q("SELECT * FROM alerts_entries");
   eq((await api("POST", "/stock-flow/links", { token, body: { diary_id: d1, source: "order", source_id: coId } })).status, 200);
   eq((await api("POST", "/stock-flow/links", { token, body: { diary_id: d1, source: "order", source_id: coId } })).status, 200, "the same link twice is fine");

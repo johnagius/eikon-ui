@@ -19,7 +19,7 @@ export default {
       t.ok(n(a[0]) === n(b[0]), `${label}: audit differs:\n classic ${n(a[0]).slice(0, 300)}\n new     ${n(b[0]).slice(0, 300)}`);
     };
     // Two identical customer orders for the item, and two quotes: Alliance is the cheaper.
-    const order = { order_date: ymd(0), client_name: "Ċassar Ġorġ dstock", contact: "79123123", client_phone: "79123123", items: ITEM, needed_by: ymd(1), pick_up_date: ymd(1), priority: 2, notes: "" };
+    const order = { order_date: ymd(0), client_name: "Cassar Ġorġ dstock", contact: "79123123", client_phone: "79123123", items: ITEM, needed_by: ymd(1), pick_up_date: ymd(1), priority: 2, notes: "" };
     const o1 = (await t.api("POST", "/client-orders/entries", order)); const o2 = (await t.api("POST", "/client-orders/entries", order));
     const oid1 = o1.entry_id || o1.id, oid2 = o2.entry_id || o2.id;
     await t.api("POST", "/quotations/entries", { quote_date: ymd(-1), item_description: ITEM, supplier: SUP, vat_rate: 18, cost_excl_vat: 2.5, qty_purchased: 1, retail_price: 6 });
@@ -75,7 +75,7 @@ export default {
     const ev = await p.evaluate(() => window.__arrived);
     t.ok(ev.length === 1 && ev[0].customers.some((c) => c.client_order_id === linkedOid && c.client_phone === "79123123"), "eikon:stock-arrived names the customer: " + JSON.stringify(ev).slice(0, 300));
     const said = await p.textContent(".stk-done").catch(() => "");
-    t.ok(/Ċassar Ġorġ dstock is waiting for it: tell them/i.test(said), "the arrival says who is waiting: " + said);
+    t.ok(/Cassar Ġorġ dstock is waiting for it: tell them/i.test(said), "the arrival says who is waiting: " + said);
 
     // ── Ready: the Orders screen's Ready on the twin order vs the Stock tab's ──
     const twin = linkedOid === oid1 ? oid2 : oid1;

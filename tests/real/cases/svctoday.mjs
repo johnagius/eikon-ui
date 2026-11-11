@@ -28,8 +28,8 @@ export default {
     const per = (id, name, date, fus) => ({ id, idCard: "", name, phone: "", email: "", dob: "", type: "Walk-in", date, resultNotes: "", resultCategory: "Normal", referral: "No referral needed", referralNotes: "", poctResults: {}, followUps: fus || [] });
     await busy.api("PUT", "/screening/state", { state: { campaigns: [{ id: "cmp_svt", name: "Blood pressure week", type: "Blood Pressure Check", startDate: add(today, -2), endDate: add(today, 3), status: "Active", location: "Pharmacy Floor", targetScreenings: "40", participants: [
       per("ps1", "Ċensu Borg", add(today, -2), [{ id: "fs1", scheduledDate: add(today, -3), reason: "Recheck blood pressure", status: "Pending", notes: "" }]),
-      per("ps2", "Marija Żammit", today, [{ id: "fs2", scheduledDate: today, reason: "Bring home readings", status: "Scheduled", notes: "" }]),
-      per("ps3", "Ħelena Vella", today)] }], deleted_ids: [] } });
+      per("ps2", "Marija Zammit", today, [{ id: "fs2", scheduledDate: today, reason: "Bring home readings", status: "Scheduled", notes: "" }]),
+      per("ps3", "Helena Vella", today)] }], deleted_ids: [] } });
     const nowIso = new Date().toISOString();
     t.db.prepare("INSERT INTO poct_records (org_id, location_id, record_id, test_type, performed_at_iso, performed_at_local, record_json) VALUES (?, ?, 'svt1', 'bp', ?, ?, '{}'), (?, ?, 'svt2', 'bg', ?, ?, '{}')").run(busy.org, busy.loc, nowIso, today + "T09:30", busy.org, busy.loc, nowIso, today + "T10:30");
     await busy.api("POST", "/vaccines/stock/rows", { vaccine_name: "Vaxigrip Tetra", qty: 4, batch: "VX1", expiry_date: add(today, -2) });

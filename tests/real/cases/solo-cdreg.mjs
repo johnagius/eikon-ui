@@ -4,7 +4,7 @@
 // the balance check at entry, the way back, a shortage flagged with its next step, the print, and the reads it makes.
 import { ymd } from "../lib.mjs";
 const MED = "Tapentadol 50mg tablets", P = { date: ymd(-1), agent: "Ċensu Pharma Ltd", inv: "CDR-INV-1", qty: "20" };
-const RX = { date: ymd(-1), id: "456123M", name: "Farrugia Ġużeppi", addr: "9 Triq il-Kbira, Żebbuġ", doc: "Dr Ħelena Farrugia", reg: "R1310", serial: "CDR-RX-1", qty: "5" };
+const RX = { date: ymd(-1), id: "456123M", name: "Farrugia Ġużeppi", addr: "9 Triq il-Kbira, Żebbuġ", doc: "Dr Helena Farrugia", reg: "R1310", serial: "CDR-RX-1", qty: "5" };
 export default {
   title: "Controlled drugs by medicine",
   async run(t) {

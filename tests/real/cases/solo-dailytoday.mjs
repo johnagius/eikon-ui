@@ -11,7 +11,7 @@ export default {
     const p = await t.page();
     // ---- Cleaning: Record cleaning (today, now, the last cleaner, the signed-in person as checker)
     {
-      const T = "cleaning_entries", who = "Ċensina Żammit";
+      const T = "cleaning_entries", who = "Ċensina Zammit";
       await t.open(p, "2", "cleaning", "cleanreg", ".clr-status [name=quick_cleaner]");
       let m = t.maxId(T);
       await p.fill(".clr-status [name=quick_cleaner]", who);
@@ -28,7 +28,7 @@ export default {
     }
     // ---- Locum register: Sign in now, then Sign out (the classic edit body, only the time out changed)
     {
-      const T = "locum_register_entries", name = "Pharm. Ġużeppi Buħagiar", reg = "PH 7788";
+      const T = "locum_register_entries", name = "Pharm. Ġużeppi Buhagiar", reg = "PH 7788";
       await t.api("GET", "/locumregister/entries?month=" + ymd(0).slice(0, 7)); // the worker makes the table on first use
       t.db.prepare(`DELETE FROM ${T} WHERE entry_date = ? AND (time_out IS NULL OR time_out = '')`).run(ymd(0)); // nobody in charge now
       await t.open(p, "2", "locumregister", "locreg", ".dly-today [name=quick_name]");

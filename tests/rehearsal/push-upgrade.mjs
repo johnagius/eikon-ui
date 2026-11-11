@@ -49,7 +49,7 @@ async function seed(S) {
   S.T = (await api(S, "POST", "/auth/login", { body: { email: "maria@demo.mt", password: "Demo-Pass-2026" } })).json.token;
   const W = async (m, p, b) => { const r = await api(S, m, p, { token: S.T, body: b }); if (r.status !== 200) console.log("    write", p, r.status, r.text.slice(0, 120)); return r.json || {}; };
   S.W = W;
-  S.p1 = (await W("POST", "/shifts/staff", { full_name: "Ċensina \"Ċensi\" Żammit", designation: "pharmacist", employment_type: "fulltime", contracted_hours: 40 })).staff_id;
+  S.p1 = (await W("POST", "/shifts/staff", { full_name: "Ċensina \"Ina\" Zammit", designation: "pharmacist", employment_type: "fulltime", contracted_hours: 40 })).staff_id;
   S.p2 = (await W("POST", "/shifts/staff", { full_name: "Ġorġ <b>Borg</b>", designation: "assistant", employment_type: "parttime", contracted_hours: 20 })).staff_id;
   await W("POST", "/shifts/assignments", { staff_id: S.p1, shift_date: day(0), start_time: "08:00", end_time: "13:00", notes: "Ħal Qormi; \"cover\", ok" });
   await W("POST", "/shifts/assignments", { staff_id: S.p2, shift_date: day(0), start_time: "13:00", end_time: "19:30", notes: "" });

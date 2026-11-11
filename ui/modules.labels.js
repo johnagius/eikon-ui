@@ -2,7 +2,8 @@
    Eikon – Smart Label Generator module
 
    Create and print medication dispensing labels with customizable templates.
-   Multi-language support (English + Maltese), standard warnings, print preview,
+   English labels (Maltese removed 2026-11-11, John: English only; a template saved with
+   language "mt" prints English), standard warnings, print preview,
    reprint from history, and audit log.
 
    Features:
@@ -104,26 +105,26 @@
 
   // ── warning labels ───────────────────────────────────────────────────────
   var WARNINGS = [
-    { id: "w01", en: "Take with food", mt: "\u0126u me\u0127ud mal-ikel" },
-    { id: "w02", en: "Take on an empty stomach", mt: "\u0126u fuq stonku vojt" },
-    { id: "w03", en: "May cause drowsiness", mt: "Jista\u2019 jikkaw\u017Ca ng\u0127as" },
-    { id: "w04", en: "Do not drive or operate machinery", mt: "Issuqx u t\u0127addimx makkinarju" },
-    { id: "w05", en: "Keep refrigerated (2-8\u00B0C)", mt: "\u017Bomb fil-fri\u0121\u0121 (2-8\u00B0C)" },
-    { id: "w06", en: "Shake well before use", mt: "\u0126awwad sew qabel l-u\u017Cu" },
-    { id: "w07", en: "For external use only", mt: "G\u0127all-u\u017Cu estern biss" },
-    { id: "w08", en: "Avoid alcohol", mt: "Evita l-alko\u0127ol" },
-    { id: "w09", en: "Avoid prolonged sun exposure", mt: "Evita espo\u017Cizzjoni twila g\u0127ax-xemx" },
-    { id: "w10", en: "Complete the full course", mt: "Lesti l-kors kollu" },
-    { id: "w11", en: "Swallow whole, do not crush", mt: "Ibla\u2019 s\u0127i\u0127, tfarrakx" },
-    { id: "w12", en: "Dissolve under the tongue", mt: "\u0126oll ta\u0127t l-ilsien" },
-    { id: "w13", en: "Take at bedtime", mt: "\u0126u qabel l-irqad" },
-    { id: "w14", en: "Take in the morning", mt: "\u0126u filg\u0127odu" },
-    { id: "w15", en: "Store below 25\u00B0C", mt: "A\u0127\u017Cen ta\u0127t 25\u00B0C" },
-    { id: "w16", en: "Keep out of reach of children", mt: "\u017Bomb \u2018il bog\u0127od mit-tfal" },
-    { id: "w17", en: "Do not stop taking without medical advice", mt: "Tiqafx tie\u0127u ming\u0127ajr parir mediku" },
-    { id: "w18", en: "May cause dizziness", mt: "Jista\u2019 jikkaw\u017Ca sturdament" },
-    { id: "w19", en: "Take with plenty of water", mt: "\u0126u ma\u2019 \u0127afna ilma" },
-    { id: "w20", en: "Not suitable during pregnancy", mt: "Mhux adattat waqt it-tqala" }
+    { id: "w01", en: "Take with food" },
+    { id: "w02", en: "Take on an empty stomach" },
+    { id: "w03", en: "May cause drowsiness" },
+    { id: "w04", en: "Do not drive or operate machinery" },
+    { id: "w05", en: "Keep refrigerated (2-8\u00B0C)" },
+    { id: "w06", en: "Shake well before use" },
+    { id: "w07", en: "For external use only" },
+    { id: "w08", en: "Avoid alcohol" },
+    { id: "w09", en: "Avoid prolonged sun exposure" },
+    { id: "w10", en: "Complete the full course" },
+    { id: "w11", en: "Swallow whole, do not crush" },
+    { id: "w12", en: "Dissolve under the tongue" },
+    { id: "w13", en: "Take at bedtime" },
+    { id: "w14", en: "Take in the morning" },
+    { id: "w15", en: "Store below 25\u00B0C" },
+    { id: "w16", en: "Keep out of reach of children" },
+    { id: "w17", en: "Do not stop taking without medical advice" },
+    { id: "w18", en: "May cause dizziness" },
+    { id: "w19", en: "Take with plenty of water" },
+    { id: "w20", en: "Not suitable during pregnancy" }
   ];
 
   var FREQUENCIES_EN = [
@@ -132,21 +133,6 @@
     "Every 8 hours", "Every 12 hours", "Once weekly", "As needed", "As directed"
   ];
 
-  var FREQUENCIES_MT = {
-    "Once daily": "Darba kuljum",
-    "Twice daily": "Darbtejn kuljum",
-    "Three times daily": "Tliet darbiet kuljum",
-    "Four times daily": "Erba\u2019 darbiet kuljum",
-    "Every morning": "Kull filg\u0127odu",
-    "Every evening": "Kull filg\u0127axija",
-    "Every 4 hours": "Kull 4 sig\u0127at",
-    "Every 6 hours": "Kull 6 sig\u0127at",
-    "Every 8 hours": "Kull 8 sig\u0127at",
-    "Every 12 hours": "Kull 12-il sieg\u0127a",
-    "Once weekly": "Darba fil-\u0121img\u0127a",
-    "As needed": "Skont il-b\u017Conn",
-    "As directed": "Skont id-direzzjonijiet"
-  };
 
   var ROUTES = ["Oral", "Topical", "Sublingual", "Rectal", "Inhaled", "Nasal", "Ophthalmic", "Otic", "Intramuscular", "Subcutaneous", "Intravenous"];
 
@@ -299,7 +285,6 @@
   // Line budget: 2.2mm × 1.2 = 2.64mm/line → ~8 lines in 22mm.
   function buildPrintHtml(labelData, pharm, tpl) {
     var isLarge = tpl && tpl.size === "large";
-    var showMt = tpl && tpl.language === "mt";
     var fs = isLarge ? '2.8mm' : '2.2mm';
     var lh = '1.2';
     var h = '';
@@ -317,7 +302,6 @@
     if (labelData.dose && labelData.frequency) doseFreq += ' | ';
     if (labelData.frequency) {
       doseFreq += esc(labelData.frequency);
-      if (showMt && FREQUENCIES_MT[labelData.frequency]) doseFreq += ' <i style="font-size:.85em;">(' + esc(FREQUENCIES_MT[labelData.frequency]) + ')</i>';
     }
     if (doseFreq) h += '<div><b>Dose/Freq:</b> ' + doseFreq + '</div>';
     if (labelData.route) h += '<div><b>Route:</b> ' + esc(labelData.route) + '</div>';
@@ -326,7 +310,6 @@
     var selWarnings = WARNINGS.filter(function (w) { return (labelData.selectedWarnings || []).indexOf(w.id) !== -1; });
     selWarnings.forEach(function (w) {
       h += '<div style="font-weight:700;font-size:.85em;">\u26A0 ' + esc(w.en);
-      if (showMt) h += ' <i style="font-weight:400;">(' + esc(w.mt) + ')</i>';
       h += '</div>';
     });
     // date — same size as body so it's legible on small labels
@@ -463,10 +446,8 @@
       ".lb .label-preview .lp-row{margin:4px 0;display:flex;gap:6px}",
       ".lb .label-preview .lp-label{font-weight:700;color:#333;min-width:80px;flex-shrink:0}",
       ".lb .label-preview .lp-val{color:#111}",
-      ".lb .label-preview .lp-mt{color:#666;font-style:italic;font-size:.9em}",
       ".lb .label-preview .lp-warn{margin-top:10px;padding-top:8px;border-top:1.5px solid #ddd}",
       ".lb .label-preview .lp-warn div{font-weight:700;font-size:.88em;color:#b45309;margin:3px 0;display:flex;align-items:center;gap:5px}",
-      ".lb .label-preview .lp-warn .lp-wmt{color:#888;font-weight:400;font-style:italic}",
       ".lb .label-preview .lp-footer{margin-top:10px;padding-top:8px;border-top:1.5px solid #ddd;font-size:.78em;color:#888;display:flex;justify-content:space-between}",
 
       /* modal */
@@ -540,7 +521,6 @@
   var activeTab = "create";
   var searchQ = "";
   var currentLabel = null;
-  var showMaltese = true;
   var includePatientName = false;
 
   async function render(ctx) {
@@ -645,7 +625,6 @@
         '<div class="fld"><label>Template</label><select id="lb-tpl">' +
           templates.map(function (t) { return '<option value="' + esc(t.id) + '"' + (t.id === label.templateId ? ' selected' : '') + '>' + esc(t.name) + '</option>'; }).join("") +
         '</select></div>' +
-        '<div class="fld"><label>Language</label><select id="lb-lang"><option value="en"' + (!showMaltese ? ' selected' : '') + '>English only</option><option value="both"' + (showMaltese ? ' selected' : '') + '>English + Maltese</option></select></div>' +
       '</div>' +
       '<div class="fld"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" id="lb-inc-patient"' + (includePatientName ? ' checked' : '') + ' style="width:auto;margin:0"> Include Patient Name</label></div>' +
       '<div class="fld" id="lb-patient-fld" style="' + (includePatientName ? '' : 'display:none') + '"><label>Patient Name</label><input type="text" id="lb-patient" placeholder="Start typing to search\u2026" value="' + esc(label.patientName) + '" autocomplete="off"></div>' +
@@ -840,7 +819,6 @@
     // collect form data
     function collectFormData() {
       label.templateId = document.getElementById("lb-tpl").value;
-      showMaltese = document.getElementById("lb-lang").value === "both";
       label.patientName = includePatientName ? document.getElementById("lb-patient").value.trim() : "";
       label.drugName = document.getElementById("lb-drug").value.trim();
       label.dose = document.getElementById("lb-dose").value.trim();
@@ -863,7 +841,6 @@
       html += '<div class="lp-row"><span class="lp-label">Drug:</span> <span class="lp-val"><strong>' + esc(label.drugName || "\u2014") + '</strong></span></div>';
       if (label.dose) html += '<div class="lp-row"><span class="lp-label">Dose:</span> <span class="lp-val">' + esc(label.dose) + '</span></div>';
       html += '<div class="lp-row"><span class="lp-label">Frequency:</span> <span class="lp-val">' + esc(label.frequency);
-      if (showMaltese && FREQUENCIES_MT[label.frequency]) html += ' <span class="lp-mt">(' + esc(FREQUENCIES_MT[label.frequency]) + ')</span>';
       html += '</span></div>';
       html += '<div class="lp-row"><span class="lp-label">Route:</span> <span class="lp-val">' + esc(label.route) + '</span></div>';
       if (label.customInstructions) html += '<div class="lp-row"><span class="lp-label">Note:</span> <span class="lp-val">' + esc(label.customInstructions) + '</span></div>';
@@ -873,7 +850,6 @@
         html += '<div class="lp-warn">';
         selWarnings.forEach(function (w) {
           html += '<div>\u26A0\uFE0F ' + esc(w.en);
-          if (showMaltese) html += ' <span class="lp-wmt">(' + esc(w.mt) + ')</span>';
           html += '</div>';
         });
         html += '</div>';
@@ -896,7 +872,7 @@
     });
 
     // attach change listeners for preview
-    ["lb-tpl", "lb-lang", "lb-patient", "lb-drug", "lb-dose", "lb-route", "lb-freq", "lb-custom"].forEach(function (id) {
+    ["lb-tpl", "lb-patient", "lb-drug", "lb-dose", "lb-route", "lb-freq", "lb-custom"].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener("input", updatePreview);
       if (el) el.addEventListener("change", updatePreview);
@@ -1107,11 +1083,11 @@
     bd.className = "bd";
     bd.style.overflowX = "auto";
     var table = document.createElement("table");
-    table.innerHTML = '<thead><tr><th style="width:40px">#</th><th>English</th><th>Maltese (Malti)</th></tr></thead>';
+    table.innerHTML = '<thead><tr><th style="width:40px">#</th><th>Warning</th></tr></thead>';
     var tbody = document.createElement("tbody");
     WARNINGS.forEach(function (w, i) {
       var tr = document.createElement("tr");
-      tr.innerHTML = '<td style="color:var(--mut);text-align:center">' + (i + 1) + '</td><td><strong>' + esc(w.en) + '</strong></td><td style="color:var(--mut);font-style:italic">' + esc(w.mt) + '</td>';
+      tr.innerHTML = '<td style="color:var(--mut);text-align:center">' + (i + 1) + '</td><td><strong>' + esc(w.en) + '</strong></td>';
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);

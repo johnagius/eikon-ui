@@ -1,12 +1,12 @@
 // Search and suggestions find what a pharmacist types (q5-7, BACKLOG5 item 7), on the real worker:
-//  - ċ ġ ħ ż left out or typed: "zammit velja" finds Żammit Velja and Zammit Velja (Customers, the search, an Orders
-//    name field), "cassar rajan" finds Ċassar Rajan, "habela tumas" Ħabela Tumas, "xkora gorg" Xkora Ġorġ. No worker
+//  - ċ ġ ħ ż left out or typed: "xerri censu" finds Xerri Ċensu and Xerri Censu (Customers, the search, an Orders
+//    name field), "mallia cettina" finds Mallia Ċettina, "tabone ganni" Tabone Ġanni, "xuereb gorg" Xuereb Ġorġ. No worker
 //    change: the longest stretch without c/g/h/z is asked as well, and the browser compares with them folded.
 //  - Ctrl+Enter in the prescriber field of the Daily register saves with the known reg no. filled (as Tab would), and
 //    the row is byte-identical to the one saved after a Tab.
 //  - "log fridge" lands on the fridge's line (not the room's, the first one); its reading is stored on the fridge.
 import { ymd } from "../lib.mjs";
-const CARDS = [["Żammit Velja", "0771101M", "79771101"], ["Zammit Velja", "0771102M", "79771102"], ["Ċassar Rajan", "0771103M", "79771103"], ["Ħabela Tumas", "0771104M", "79771104"], ["Xkora Ġorġ", "0771105M", "79771105"]];
+const CARDS = [["Xerri Ċensu", "0771101M", "79771101"], ["Xerri Censu", "0771102M", "79771102"], ["Mallia Ċettina", "0771103M", "79771103"], ["Tabone Ġanni", "0771104M", "79771104"], ["Xuereb Ġorġ", "0771105M", "79771105"]];
 async function dialog(p, q) {
   await p.evaluate(() => { location.hash = "#registers"; });
   await p.waitForFunction(() => window.EIKON.state.activeModuleId === "registers");
@@ -23,7 +23,7 @@ export default {
 
     // Customers
     await t.open(p, "2", "customers", "customers", "#cus-q");
-    for (const [q, want] of [["zammit velja", ["Żammit Velja", "Zammit Velja"]], ["cassar rajan", ["Ċassar Rajan"]], ["habela tumas", ["Ħabela Tumas"]], ["xkora gorg", ["Xkora Ġorġ"]], ["żammit velja", ["Żammit Velja", "Zammit Velja"]]]) {
+    for (const [q, want] of [["xerri censu", ["Xerri Ċensu", "Xerri Censu"]], ["mallia cettina", ["Mallia Ċettina"]], ["tabone ganni", ["Tabone Ġanni"]], ["xuereb gorg", ["Xuereb Ġorġ"]], ["xerri ċensu", ["Xerri Ċensu", "Xerri Censu"]]]) {
       await p.fill("#cus-q", ""); await p.locator("#cus-q").pressSequentially(q, { delay: 15 });
       await p.waitForFunction((w) => w.every((n) => document.querySelector("#cus-list") && document.querySelector("#cus-list").innerText.includes(n)), want, { timeout: 6000 }).catch(() => {});
       const txt = await p.evaluate(() => document.querySelector("#cus-list").innerText);
@@ -31,7 +31,7 @@ export default {
     }
 
     // The search dialog
-    for (const [q, want] of [["cassar rajan", "Ċassar Rajan"], ["zammit velja", "Żammit Velja"], ["habela tumas", "Ħabela Tumas"]]) {
+    for (const [q, want] of [["mallia cettina", "Mallia Ċettina"], ["xerri censu", "Xerri Ċensu"], ["tabone ganni", "Tabone Ġanni"]]) {
       const opts = await dialog(p, q);
       t.ok(opts.some((o) => o.startsWith(want) && /Customers/.test(o)), `search: "${q}" offers the card ${want}: ${JSON.stringify(opts.slice(0, 4))}`);
       await p.keyboard.press("Escape");
@@ -41,7 +41,7 @@ export default {
     await t.open(p, "2", "clientorders", "ordreg", "[data-act=add]");
     await p.click("[data-act=add]"); await p.waitForSelector("#ord-add");
     const box = p.locator("#ord-add [name=client_name]");
-    for (const [q, want, first] of [["zammit velja", ["Żammit Velja", "Zammit Velja"], "Zammit Velja"], ["żammit velja", ["Żammit Velja", "Zammit Velja"], "Żammit Velja"], ["cassar rajan", ["Ċassar Rajan"], "Ċassar Rajan"]]) {
+    for (const [q, want, first] of [["xerri censu", ["Xerri Ċensu", "Xerri Censu"], "Xerri Censu"], ["xerri ċensu", ["Xerri Ċensu", "Xerri Censu"], "Xerri Ċensu"], ["mallia cettina", ["Mallia Ċettina"], "Mallia Ċettina"]]) {
       await box.fill(""); await box.pressSequentially(q, { delay: 15 });
       await p.waitForTimeout(500); // the list of the query before is gone
       await p.waitForFunction(([w, f]) => { const b = [...document.querySelectorAll("#ord-add .epp-opt b")].map((x) => x.textContent); return b[0] === f && w.every((n) => b.includes(n)); }, [want, first], { timeout: 6000 }).catch(() => {});

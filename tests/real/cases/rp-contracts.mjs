@@ -34,7 +34,7 @@ export default {
     t.ok(r.parsed.usual === "p" + S.people.find((x) => x.id === S.ids.maria).patterns_json.match(/"provisionalId":"p([^"]+)"/)[1] && r.parsed.plain === 1 && r.parsed.rot, "rotaPlan.parse reads a classic pattern as the usual one: " + JSON.stringify(r.parsed));
     t.ok(r.ex && r.pv, "expand / preview shapes");
     t.ok(r.cover.length === 1 && r.cover[0].startsWith(S.d(1) + " No pharmacist") && /14:00–19:30/.test(r.cover[0]) && r.shape, "rotaCheck: the seeded Tuesday gap, in E.teamCover's words: " + JSON.stringify(r.cover));
-    t.ok(r.me === S.ids.maria, "rotaMe: 'marija  cassar' signed in = Marija Ċassar on the rota");
+    t.ok(r.me === S.ids.maria, "rotaMe: 'marija  cassar' signed in = Marija Cassar on the rota");
     t.ok(r.meta, "rotaMeta.get");
   }
 };

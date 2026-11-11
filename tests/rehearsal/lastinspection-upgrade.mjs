@@ -43,9 +43,9 @@ const T = (await api("POST", "/auth/login", { body: { email: "maria@demo.mt", pa
 const devs = (await api("GET", "/temperature/devices", { token: T })).json?.devices || [];
 for (let n = 1; n <= 40; n++) {
   for (const dv of devs.slice(0, 2)) await api("POST", "/temperature/entries", { token: T, body: { device_id: dv.id, entry_date: day(n), min_temp: 3.1, max_temp: 6.4, notes: "" } });
-  if (n % 6 === 0) await api("POST", "/cleaning/entries", { token: T, body: { entry_date: day(n), time_in: "08:00", time_out: "08:40", cleaner_name: "Ġorġ Żammit", staff_name: "Maria Borg", notes: "" } });
+  if (n % 6 === 0) await api("POST", "/cleaning/entries", { token: T, body: { entry_date: day(n), time_in: "08:00", time_out: "08:40", cleaner_name: "Ġorġ Zammit", staff_name: "Maria Borg", notes: "" } });
   await api("POST", "/locumregister/entries", { token: T, body: { entry_date: day(n), time_in: "08:00", time_out: "13:00", locum_full_name: "Anna Vella", registration_number: "P123" } });
-  if (n % 10 === 0) await api("POST", "/dda-sales/entries", { token: T, body: { entry_date: day(n), client_name: "Ċensu Ħili", client_id_card: "0012345M", client_address: "1 Triq il-Knisja", medicine_name_dose: "Morphine 10mg", quantity: 2, doctor_name: "Dr Abela", doctor_reg_no: "R1", prescription_serial_no: "S" + n } });
+  if (n % 10 === 0) await api("POST", "/dda-sales/entries", { token: T, body: { entry_date: day(n), client_name: "Ċensu Hili", client_id_card: "0012345M", client_address: "1 Triq il-Knisja", medicine_name_dose: "Morphine 10mg", quantity: 2, doctor_name: "Dr Abela", doctor_reg_no: "R1", prescription_serial_no: "S" + n } });
 }
 await api("POST", "/registers/signoffs", { token: T, body: { register: "temperature", month: last } }); // a table from batch-9 (absent on an older base: fine)
 const tables = () => DB.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map((r) => r.name);

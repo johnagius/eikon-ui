@@ -54,7 +54,7 @@ export default {
 
     // 2. Deliveries: open a delivery, at once the Time box; the month list arrives while typing.
     const DT = "client_deliveries";
-    const seed = { delivery_id: "DEL-08001", order_date: ymd(-1), scheduled_date: ymd(0), scheduled_time_slot: "Afternoon", client_name: "Borġ Ċensina", phone: "79111222", email: "", delivery_address: "12 Triq il-Ħamrun, Żebbuġ", address_notes: "", id_doc_ref: "", delivery_method: "Courier", priority: 2, assigned_driver: "", tracking_number: "", status: "Scheduled", signature_required: 0, signature_obtained: 0, recipient_name: "", proof_of_delivery: "", delivery_attempts: 0, failure_reason: "", contains_controlled: 0, cold_chain_required: 0, ticket_ref: "", items: "[]", delivery_log: "[]", internal_notes: "" };
+    const seed = { delivery_id: "DEL-08001", order_date: ymd(-1), scheduled_date: ymd(0), scheduled_time_slot: "Afternoon", client_name: "Borg Ċensina", phone: "79111222", email: "", delivery_address: "12 Triq il-Ħamrun, Żebbuġ", address_notes: "", id_doc_ref: "", delivery_method: "Courier", priority: 2, assigned_driver: "", tracking_number: "", status: "Scheduled", signature_required: 0, signature_obtained: 0, recipient_name: "", proof_of_delivery: "", delivery_attempts: 0, failure_reason: "", contains_controlled: 0, cold_chain_required: 0, ticket_ref: "", items: "[]", delivery_log: "[]", internal_notes: "" };
     const m0 = t.maxId(DT); await t.api("POST", "/client-deliveries/entries", seed); await t.api("POST", "/client-deliveries/entries", seed);
     const [da, db] = t.since(DT, m0).map((r) => r.id);
     const dbodies = [];
@@ -67,7 +67,7 @@ export default {
       await human(p, "#dlv-edit [name=scheduled_time_slot]", "Evening");
       await p.waitForTimeout(LAG + 100);
       const v = await vals(p, "#dlv-edit", ["client_name", "scheduled_time_slot"]);
-      t.ok(v.client_name === "Borġ Ċensina" && v.scheduled_time_slot === "Evening", `deliveries change (${slow ? "slow" : "racy"}): name ${JSON.stringify(v.client_name)}, time ${JSON.stringify(v.scheduled_time_slot)}`);
+      t.ok(v.client_name === "Borg Ċensina" && v.scheduled_time_slot === "Evening", `deliveries change (${slow ? "slow" : "racy"}): name ${JSON.stringify(v.client_name)}, time ${JSON.stringify(v.scheduled_time_slot)}`);
       const w = await t.write(p, new RegExp("/client-deliveries/entries/" + id + "$"), () => p.click("#dlv-edit button[type=submit]"), "PUT");
       dbodies.push(w.body); t.note(`body deliveries change ${slow ? "slow" : "racy"}: ${strip(w.body, ["id"])}`);
       await calm(p);
@@ -77,7 +77,7 @@ export default {
     t.same("deliveries change", t.row(DT, da), t.row(DT, db), { delivery_id: "batch 6 (W3): seeded twice with DEL-08001, the server gave the second DEL-08002" });
 
     // 3. New order, question, delivery: by the button, and from a customer's page; the second field at once.
-    const P = { name: "Ħili Ġorġa", id_card: "0771122M", phone: "79222333", address: "7 Triq il-Wied, Qormi" };
+    const P = { name: "Hili Ġorġ", id_card: "0771122M", phone: "79222333", address: "7 Triq il-Wied, Qormi" };
     const made = await t.api("POST", "/people", P); const pid = made && made.person && made.person.id;
     const NEW = [
       { go: "order", mod: "ordreg", form: "#ord-add", re: /\/client-orders\/entries$/, second: "contact", text: "79222333", rest: { client_name: P.name, items: "Augmentin 625 x14", needed_by: ymd(2) }, check: ["client_name", "contact", "items"], drop: [], carrySecond: "items", carryText: "Augmentin 625 x14" },

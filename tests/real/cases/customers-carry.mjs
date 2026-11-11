@@ -2,7 +2,7 @@
 // (the form opens in the new layout with the person filled in) store exactly what the same screen stores when the same
 // values are typed there; the person in Customers is left exactly as it was (no second person, no change).
 import { ymd } from "../lib.mjs";
-const P = { name: "Ħili Żarenu", id_card: "0889911M", phone: "79345678", address: "12 Triq il-Ħamrun, Żebbuġ" };
+const P = { name: "Hili Żaren", id_card: "0889911M", phone: "79345678", address: "12 Triq il-Kbira, Ħaż-Żebbuġ" };
 export default {
   title: "Customers carry a person into Orders, Questions and Deliveries",
   async run(t) {

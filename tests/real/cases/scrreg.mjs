@@ -9,7 +9,7 @@ const stamp = Date.now(), A = "sc_rcA_" + stamp, B = "sc_rcB_" + stamp, P0 = "sc
 const camp = (id, name) => ({ id, name, type: "Blood Pressure Check", startDate: ymd(-3), endDate: ymd(10), notes: "", status: "Active", location: "Pharmacy Floor", targetScreenings: "40", extra: "kept",
   participants: [{ id: P0, idCard: "0333111M", name: "Vella Ġużeppa", phone: "79333111", email: "", dob: "", type: "Walk-in", date: ymd(-2), resultNotes: "", resultCategory: "Borderline", referral: "No referral needed", referralNotes: "",
     poctResults: { sys: 142, dia: 88, pulse: 70, arm: "Left", position: "Sitting" }, followUps: [{ id: F0, scheduledDate: ymd(-1), reason: " Re-test blood pressure ", status: "Pending", notes: "" }] }] });
-const IN = { idCard: "0444222M", name: "Żammit Ċensa", phone: "79444222", date: ymd(0), sys: "158", dia: "96", pulse: "77", cat: "Abnormal", ref: "Referred to GP", res: "High twice", refNotes: "Letter given", fuDate: ymd(14), fuReason: "Re-test blood pressure" };
+const IN = { idCard: "0444222M", name: "Zammit Ċensina", phone: "79444222", date: ymd(0), sys: "158", dia: "96", pulse: "77", cat: "Abnormal", ref: "Referred to GP", res: "High twice", refNotes: "Letter given", fuDate: ymd(14), fuReason: "Re-test blood pressure" };
 const stored = (t, id) => { const r = t.db.prepare(`SELECT campaign_json FROM ${T} WHERE campaign_id = ?`).get(id); return r ? JSON.parse(r.campaign_json) : null; };
 export default {
   title: "Screening: record with a follow-up, Mark done",

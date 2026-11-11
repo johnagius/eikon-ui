@@ -13,7 +13,7 @@ export default {
     const p = await t.page();
     const cases = [
       { key: "suppliers", table: "contacts_suppliers", body: { name: "Ħal Far Twin Supplies", phone: "2165 4321", email: "orders@halfar.example" } },
-      { key: "clients", table: "contacts_clients", body: { name: "Żammit Ġużeppa Twin", id_card: "765432M", address: "12 Triq il-Ħolja, Għargħur", phone: "7999 1234", alt_phone: "" } },
+      { key: "clients", table: "contacts_clients", body: { name: "Zammit Ġużeppa Twin", id_card: "765432M", address: "12 Triq il-Knisja, Ħal Għargħur", phone: "7999 1234", alt_phone: "" } },
     ];
     for (const c of cases) {
       const m = t.maxId(c.table);

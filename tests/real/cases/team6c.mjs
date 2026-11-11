@@ -58,7 +58,7 @@ export default {
     t.ok(await p.evaluate(() => !document.querySelector("#hnd-std") && document.activeElement.getAttribute("data-act") === "std"), "Escape closes the change and focus goes back to Change");
 
     // ---------- New leave requests ----------
-    const st = await t.api("POST", "/shifts/staff", { full_name: "Ċensina Żammit 6c", designation: "assistant", employment_type: "fulltime", contracted_hours: 40, email: "", phone: "", registration_number: "", is_active: 1, patterns_json: JSON.stringify({ patterns: [], provisionalId: null }) });
+    const st = await t.api("POST", "/shifts/staff", { full_name: "Ċensina Zammit 6c", designation: "assistant", employment_type: "fulltime", contracted_hours: 40, email: "", phone: "", registration_number: "", is_active: 1, patterns_json: JSON.stringify({ patterns: [], provisionalId: null }) });
     const sid = st.staff_id || st.id;
     t.ok(sid, "a person on the rota");
     const mine = (since) => t.db.prepare("SELECT * FROM shift_leaves WHERE id > ? AND staff_id = ? ORDER BY id").all(since, sid);
@@ -96,7 +96,7 @@ export default {
       const ca = lvAud(classic && classic.id), fa = lvAud(fresh && fresh.id);
       t.same(`leave (${c.label}) audit`, ca, fa, { entity_id: "the row's own id" });
       await p.waitForFunction(() => document.activeElement && document.activeElement.getAttribute("data-act") === "lv-new", null, { timeout: 3000 }).catch(() => {});
-      const after = await p.evaluate(() => ({ listed: [...document.querySelectorAll(".shf-lv")].filter((x) => /Ċensina Żammit 6c/.test(x.textContent)).length, focus: (document.activeElement.outerHTML || "").slice(0, 80) }));
+      const after = await p.evaluate(() => ({ listed: [...document.querySelectorAll(".shf-lv")].filter((x) => /Ċensina Zammit 6c/.test(x.textContent)).length, focus: (document.activeElement.outerHTML || "").slice(0, 80) }));
       t.ok(after.listed >= 1 && /data-act="lv-new"/.test(after.focus), `leave (${c.label}): the request is listed to approve, focus back on + New leave request: ` + JSON.stringify(after));
     }
   },

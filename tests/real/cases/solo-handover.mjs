@@ -66,7 +66,7 @@ export default {
     // ---------- Chat board ----------
     db.prepare("INSERT OR IGNORE INTO locations (id, org_id, name) VALUES (31, 1, 'Birkirkara')").run();
     db.prepare("INSERT OR IGNORE INTO orgs (id, name) VALUES (88, 'Sliema Group')").run(); db.prepare("INSERT OR IGNORE INTO locations (id, org_id, name) VALUES (188, 88, 'Sliema Pharmacy')").run();
-    const bkr = await app.addUser({ orgId: 1, locationId: 31, email: "bkr.hnd@demo.mt", password: "Demo-Pass-2026", name: "Ġorġ Ħili" });
+    const bkr = await app.addUser({ orgId: 1, locationId: 31, email: "bkr.hnd@demo.mt", password: "Demo-Pass-2026", name: "Ġorġ Hili" });
     const oth = await app.addUser({ orgId: 88, locationId: 188, email: "sliema.hnd@demo.mt", password: "Demo-Pass-2026", name: "Sara Vella" });
     const bkrId = bkr.user.id || bkr.user.user_id, othId = oth.user.id || oth.user.user_id;
     const B = "board_messages";

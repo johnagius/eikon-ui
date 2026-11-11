@@ -45,11 +45,11 @@ export default {
     };
     const CASES = [
       { name: "questions", hash: "tickets", mod: "tktreg", form: "#tkt-add", T: "client_tickets_entries", re: /\/client-tickets\/entries$/, last: "[name=issue]", allow: { ticket_id: "the next number in the sequence" },
-        fill: async () => { const f = (n, v) => p.fill("#tkt-add [name=" + n + "]", v); await f("client_name", "Borġ Ċensina"); await f("phone", "79123456"); await f("issue", "Can I take ibuprofen with my blood pressure tablets?"); await f("followup_date", ymd(2)); } },
+        fill: async () => { const f = (n, v) => p.fill("#tkt-add [name=" + n + "]", v); await f("client_name", "Borg Ċensina"); await f("phone", "79123456"); await f("issue", "Can I take ibuprofen with my blood pressure tablets?"); await f("followup_date", ymd(2)); } },
       { name: "deliveries", hash: "deliveries", mod: "dlvreg", form: "#dlv-add", T: "client_deliveries", re: /\/client-deliveries\/entries$/, last: "[name=items]", allow: { delivery_id: "the next number in the sequence" }, json: "delivery_log",
-        fill: async () => { const f = (n, v) => p.fill("#dlv-add [name=" + n + "]", v); await f("client_name", "Żammit Ġorġ"); await f("phone", "79333444"); await f("delivery_address", "12 Triq il-Ħamrun, Żebbuġ"); await f("scheduled_date", ymd(1)); await f("scheduled_time_slot", "Afternoon"); await f("items", "Insulin pens"); } },
+        fill: async () => { const f = (n, v) => p.fill("#dlv-add [name=" + n + "]", v); await f("client_name", "Zammit Ġorġ"); await f("phone", "79333444"); await f("delivery_address", "12 Triq il-Ħamrun, Żebbuġ"); await f("scheduled_date", ymd(1)); await f("scheduled_time_slot", "Afternoon"); await f("items", "Insulin pens"); } },
       { name: "orders", hash: "clientorders", mod: "ordreg", form: "#ord-add", T: "client_orders_entries", re: /\/client-orders\/entries$/, last: "[name=notes]", allow: {},
-        fill: async () => { const f = (n, v) => p.locator("#ord-add [name=" + n + "]").first().fill(v); await f("client_name", "Ħili Marija"); await f("contact", "79555666"); await f("items", "Pen needles 4mm"); await f("needed_by", ymd(2)); await f("notes", "Calls after 5"); } },
+        fill: async () => { const f = (n, v) => p.locator("#ord-add [name=" + n + "]").first().fill(v); await f("client_name", "Hili Marija"); await f("contact", "79555666"); await f("items", "Pen needles 4mm"); await f("needed_by", ymd(2)); await f("notes", "Calls after 5"); } },
     ];
     for (const c of CASES) {
       let m = t.maxId(c.T);

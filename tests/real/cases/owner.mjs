@@ -21,11 +21,11 @@ export default {
     // ---- seed last month
     const eods = [[3, "1234.56", "200", "10", { n500: 1, n200: 1, n100: 1, coins_total: "4.56" }], [4, "999.99", "0", "0", { n500: 2, coins_total: "0" }], [5, "500", "100", "0", { n200: 2, n100: 1, coins_total: "0" }]];
     for (const [d, x, ep, po, cash] of eods) await api("PUT", "/endofday/record", { record: { eod_date: D(d), time_of_day: "PM", staff_name: "Rita", float_amount: 500, x: [{ amount: x, remark: "" }], epos: [{ amount: ep, remark: "" }], cheques: [], paid_outs: [{ amount: po, remark: "" }], cash, notes: "", action: "LOCK", locked_at: new Date().toISOString() } });
-    for (const [d, fee] of [[3, 12.5], [4, 7.25], [20, 30]]) await api("POST", "/paid-out/entries", { entry_date: D(d), entry_time: "10:00", payee_name: "Courier Ċassar", fee, payment_method: "cash", invoice_no: "", cheque_no: "", reason: "" });
-    const cn = await api("POST", "/creditnotes/entries", { issue_date: D(6), client_name: "Ġorġ", client_surname: "Żammit", telephone: "79000001", amount: 40, no_expiry: 1 });
+    for (const [d, fee] of [[3, 12.5], [4, 7.25], [20, 30]]) await api("POST", "/paid-out/entries", { entry_date: D(d), entry_time: "10:00", payee_name: "Courier Cassar", fee, payment_method: "cash", invoice_no: "", cheque_no: "", reason: "" });
+    const cn = await api("POST", "/creditnotes/entries", { issue_date: D(6), client_name: "Ġorġ", client_surname: "Zammit", telephone: "79000001", amount: 40, no_expiry: 1 });
     await api("POST", `/creditnotes/entries/${cn.id}/purchases`, { amount: 15, receipt_number: "R1" });
     for (const [d, q] of [[7, 2], [8, 3]]) await api("POST", "/dda-sales/entries", { entry_date: D(d), client_name: "Borg John", client_id_card: "123456M", client_address: "1 Triq", medicine_name_dose: "Morphine 10mg/ml", quantity: q, doctor_name: "Dr Abela", doctor_reg_no: "R1201", prescription_serial_no: "OW" + d });
-    const st = await api("POST", "/shifts/staff", { full_name: "Doris Ċassar", designation: "assistant", contracted_hours: 20 });
+    const st = await api("POST", "/shifts/staff", { full_name: "Doris Cassar", designation: "assistant", contracted_hours: 20 });
     const sid = st.staff_id || st.id || (st.staff && st.staff.id);
     for (const d of [9, 10]) await api("POST", "/shifts/assignments", { staff_id: sid, shift_date: D(d), start_time: "09:00", end_time: "13:30" });
     // what the registers hold, worked out here from the stored rows with End of day's own sums
@@ -50,20 +50,20 @@ export default {
     t.ok(tiles[3] === "€25.00", "Credit notes held: €40 less €15 used = " + tiles[3]);
     const txt = await p.evaluate(() => document.querySelector(".own").innerText);
     t.ok(/Morphine 10mg\/ml\s+2\s+5/.test(txt), "controlled drugs supplied: 2 lines, 5 in all");
-    t.ok(/Doris Ċassar[\s\S]{0,60}2\s+9/.test(txt), "Doris Ċassar: 2 shifts, 9 hours on the rota");
+    t.ok(/Doris Cassar[\s\S]{0,60}2\s+9/.test(txt), "Doris Cassar: 2 shifts, 9 hours on the rota");
     t.ok(!/Demo Pharmacy/.test(txt), "no other pharmacy of the group appears");
     t.ok(reqs.length === 2 && reqs.every((q) => q.indexOf("/owner/summary?") === 0) && !/loc=/.test(reqs.join()), "one request per month shown, never naming another pharmacy: " + reqs.join(" "));
     // the payments behind Paid out
     await p.click('.own-tile[data-rec="paid_outs"]');
     await p.waitForFunction(() => document.querySelector("#own-dlg tbody"), null, { timeout: 10000 });
     const dl = await p.evaluate(() => ({ n: document.querySelectorAll("#own-dlg tbody tr").length, foot: document.querySelector("#own-dlg tfoot").innerText, names: document.querySelector("#own-dlg tbody").innerText }));
-    t.ok(dl.n === 3 && dl.foot.includes(eur(paid)) && dl.names.includes("Courier Ċassar"), "the three payments and their total: " + JSON.stringify(dl));
+    t.ok(dl.n === 3 && dl.foot.includes(eur(paid)) && dl.names.includes("Courier Cassar"), "the three payments and their total: " + JSON.stringify(dl));
     await p.keyboard.press("Escape");
     // month end, printed and as a workbook
     await p.evaluate(() => { window.__p = null; window.EIKON.openPrintUrlOrLink = function () { window.__p = window.EIKON.months.lastPrint; return {}; }; });
     await p.click('[data-rep="month"][data-how="print"]'); await p.waitForFunction(() => window.__p && !window.EIKON.owner.state.busy, null, { timeout: 10000 });
     const html = await p.evaluate(() => window.__p.html);
-    t.ok(html.includes("<b>Owner Figures Pharmacy</b>") && html.includes(eur(takings)) && html.includes("Courier Ċassar") && /counter\(pages\)/.test(html), "month end printout: the pharmacy, the takings, the payments, page numbers");
+    t.ok(html.includes("<b>Owner Figures Pharmacy</b>") && html.includes(eur(takings)) && html.includes("Courier Cassar") && /counter\(pages\)/.test(html), "month end printout: the pharmacy, the takings, the payments, page numbers");
     await p.click('[data-rep="month"][data-how="sheet"]'); await p.waitForFunction(() => window.EIKON.owner.lastSheet && !window.EIKON.owner.state.busy, null, { timeout: 15000 });
     const sh = await p.evaluate(() => window.EIKON.owner.lastSheet.sheets.map((s) => s.name + ":" + (s.rows.length - 1)).join());
     t.ok(/End of day:3,Paid outs:3,Credit notes issued:1,Credit notes used:\d,Locum receipts:0/.test(sh), "the workbook: " + sh);

@@ -51,10 +51,10 @@ await W("PUT", "/screening/state", { state: { campaigns: [{ id: "c_r1", name: "�
 await W("PUT", "/poct/state", { records: [{ id: "r_r1", testType: "bp", testLabel: "Blood Pressure", performedAtIso: new Date().toISOString(), performedAtLocal: day(0) + "T10:00", patient: { patientId: "0000123M", name: "Ċensu Borg", phone: "79000000" }, results: { sys: 150, dia: 95 } }],
   patients: [{ patientId: "0000123M", name: "Ċensu Borg", phone: "79000000" }] });
 await W("POST", "/vaccines/stock/rows", { vaccine_name: "Vaxigrip Tetra", qty: 3, batch: "VX\"1\"", expiry_date: day(-10) });
-await W("POST", "/vaccines/orders", { section: "other", client_first: "Ġużeppi", client_last: "Żammit", phone: "79111111", items: [{ vaccine_name: "Vaxigrip Tetra", qty: 1 }] });
+await W("POST", "/vaccines/orders", { section: "other", client_first: "Ġużeppi", client_last: "Zammit", phone: "79111111", items: [{ vaccine_name: "Vaxigrip Tetra", qty: 1 }] });
 const pr = await W("POST", "/bookings/providers", { name: "Maria Borg", kind: "pharmacist", hours: { 1: [["00:00", "23:59"]], 2: [["00:00", "23:59"]], 3: [["00:00", "23:59"]], 4: [["00:00", "23:59"]], 5: [["00:00", "23:59"]], 6: [["00:00", "23:59"]], 0: [["00:00", "23:59"]] } });
 const sv = await W("POST", "/bookings/services", { name: "Flu vaccine", durationMin: 10, bufferMin: 0, priceCents: 1500, providerIds: [pr.json && pr.json.provider && pr.json.provider.id] });
-await W("POST", "/bookings", { serviceId: sv.json && sv.json.service && sv.json.service.id, date: day(-1), start: "10:00", personName: "Rita Ħili", personPhone: "79222222" });
+await W("POST", "/bookings", { serviceId: sv.json && sv.json.service && sv.json.service.id, date: day(-1), start: "10:00", personName: "Rita Hili", personPhone: "79222222" });
 ok(wrote >= 8, "old worker: " + wrote + " services writes (reports, campaign, test, vaccine stock and order, Bookings set-up and a booking)");
 const TABLES = ["pv_reports", "screening_campaigns", "poct_records", "poct_patients", "vaccines_stock", "vaccines_orders", "vaccines_order_items", "bk_services", "bk_providers", "bk_bookings"];
 const schema = () => JSON.stringify(DB.db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master ORDER BY type, name").all());

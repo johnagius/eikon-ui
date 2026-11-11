@@ -1,6 +1,10 @@
 // Helpers shared by the cases in tests/real/cases/. One `t` per case: its own browser context(s), checks, and the
 // column comparison (classic row vs new-layout row, every column; only the listed columns may differ).
 import { maltaYmd, contextTz, prepareContext } from "../clock.mjs";
+import { watchCsp } from "../csp.mjs";
+// Every Content-Security-Policy violation of the whole run (security audit 2026-11-10): a case with one fails, and the
+// tail counts them.
+export const CSPV = [];
 // Malta's calendar day n days from today: the day the worker's /today, the header and a browser in Malta call today
 // (the machine running the tests is on UTC, which is a day behind for an hour or two around midnight).
 export const ymd = (n = 0) => maltaYmd(n);
@@ -9,7 +13,7 @@ const show = (v) => v === undefined ? "(missing)" : v === null ? "null" : JSON.s
 const ALWAYS = ["id", "created_at", "updated_at"];
 
 export function makeT({ browser, stack, token, name }) {
-  const ctxs = [], pageErrs = [];
+  const ctxs = [], pageErrs = [], cspSeen = [];
   const t = {
     name, checks: 0, fails: [], notes: [], known: [], stack, token, base: stack.base + "/ui/index.html",
     ok(c, m) { t.checks++; if (!c) t.fails.push(m); return !!c; },
@@ -21,6 +25,7 @@ export function makeT({ browser, stack, token, name }) {
       // in Malta's time zone, like the pharmacies' devices (tests/clock.mjs: EIKON_BROWSER_TZ, EIKON_FAKE_NOW)
       const ctx = await prepareContext(await browser.newContext({ ...(phone ? { viewport: { width: 390, height: 844 }, isMobile: true, deviceScaleFactor: 2 } : { viewport: { width: 1280, height: 900 } }), ...contextTz() }));
       ctxs.push(ctx);
+      await watchCsp(ctx, (txt, u) => { cspSeen.push(txt + " (" + u + ")"); CSPV.push(name + ": " + txt); });
       await ctx.addInitScript((tok) => { try { if (!localStorage.getItem("eikon_token")) localStorage.setItem("eikon_token", tok); if (!localStorage.getItem("eikon_active_role")) localStorage.setItem("eikon_active_role", "pharmacy"); } catch (e) {} }, token);
       await ctx.route("**/*", (r) => { const u = r.request().url(); return /^(about|blob|data):/.test(u) || new URL(u).hostname === "localhost" ? r.continue() : r.abort(); });
       const p = await ctx.newPage(); p.setDefaultTimeout(10000);
@@ -113,6 +118,7 @@ export function makeT({ browser, stack, token, name }) {
     },
     async close() {
       for (const e of pageErrs) t.fail("page error: " + e.slice(0, 200));
+      for (const v of [...new Set(cspSeen)]) t.fail("CSP violation: " + v.slice(0, 240));
       for (const c of ctxs) await c.close().catch(() => {});
     },
   };

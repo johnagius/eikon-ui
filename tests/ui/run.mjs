@@ -13,6 +13,10 @@ const { chromium } = createRequire(import.meta.url)("playwright");
 // EIKON_FAKE_NOW runs the suite at a given moment, EIKON_BROWSER_TZ puts the pages in another zone.
 import { installNodeClock, maltaYmd, contextTz, prepareContext, CLOCK_OFFSET, BROWSER_TZ } from "../clock.mjs";
 installNodeClock();
+// Pages are served with the worker's own Content-Security-Policy (report-only, or enforced with CSP_ENFORCE=1), and every
+// violation in any page of the suite is collected (security audit 2026-11-10): the last check asks for none.
+import { cspHeadersFor, watchCsp } from "../csp.mjs";
+const CSPV = [];
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const root = path.join(here, "..", "..", "ui");
@@ -84,9 +88,9 @@ let lblState = { history: [{ patientName: "", drugName: "Amoxicillin 500mg", dos
 // DDA stock takes (new layout ddstreg): one closed stock take with two lines; writes behave as the worker's handlers.
 let ddstState = { next: 2, nextItem: 3, list: [{ id: 1, created_at: "2026-10-01 09:00:00", closed_at: "2026-10-01 10:00:00", updated_at: "2026-10-01 10:00:00" }],
   items: [{ id: 1, stocktake_id: 1, item_name: "Morphine sulphate", dosage: "10mg", qty_tablets: 30 }, { id: 2, stocktake_id: 1, item_name: "Alprazolam", dosage: "0.5mg", qty_tablets: 56 }] };
-const MT_PEOPLE = [{ id: 31, name: "Żammit Rożi", id_card: "0313131M", phone: "79313131", version: 1 }, { id: 32, name: "Zammit Paul", id_card: "", phone: "79000001", version: 1 }, { id: 33, name: "Ċassar Ryan", id_card: "0333333M", phone: "79333333", version: 1 }, { id: 34, name: "Ħabela Tumas", id_card: "0343434M", phone: "79343434", version: 1 }, { id: 35, name: "Xkora Ġorġ", id_card: "0353535M", phone: "79353535", version: 1 }];
-const MT_HIST = [{ key: "n:rożi żammit", name: "Rożi Żammit", id_card: "", phone: "79313131", alt_phone: "", email: "", address: "", doctor_name: "", sources: { credit_note: 1 }, last_date: "2026-11-01" },
-  { key: "n:żammit ġużeppi", name: "Żammit Ġużeppi", id_card: "", phone: "79414141", alt_phone: "", email: "", address: "", doctor_name: "", sources: { dda_sale: 1 }, last_date: "2026-11-02" }];
+const MT_PEOPLE = [{ id: 31, name: "Vella Żaren", id_card: "0313131M", phone: "79313131", version: 1 }, { id: 32, name: "Mifsud Zaren", id_card: "", phone: "79000001", version: 1 }, { id: 33, name: "Pace Ċettina", id_card: "0333333M", phone: "79333333", version: 1 }, { id: 34, name: "Abela Ċensina", id_card: "0343434M", phone: "79343434", version: 1 }, { id: 35, name: "Xuereb Ġorġ", id_card: "0353535M", phone: "79353535", version: 1 }];
+const MT_HIST = [{ key: "n:żaren vella", name: "Żaren Vella", id_card: "", phone: "79313131", alt_phone: "", email: "", address: "", doctor_name: "", sources: { credit_note: 1 }, last_date: "2026-11-01" },
+  { key: "n:grech żaren", name: "Grech Żaren", id_card: "", phone: "79414141", alt_phone: "", email: "", address: "", doctor_name: "", sources: { dda_sale: 1 }, last_date: "2026-11-02" }];
 let peopleState = { mt: false, mtQs: [], adopted: false, carmel: { id: 1, name: "Zammit Carmel", id_card: "0012345M", phone: "79123456", alt_phone: "", email: "", address: "1 Triq il-Knisja", doctor_name: "", date_of_birth: "", notes: "", source: "history", version: 1, updated_at: "2026-10-31 09:00:00" } };
 // Team sign-ins (teamreg, forced change, idle lock, first-run list): behaves as the worker's /team routes.
 const teamFresh = () => ({ me: { role: "admin", must_change: false }, next: 5, setup: undefined, users: [
@@ -167,8 +171,8 @@ function ownerMock(req, res, p, url) {
   if (p === "/owner/records") {
     const kinds = (url.searchParams.get("kinds") || "").split(","), records = {};
     kinds.forEach((k) => { records[k] = []; locs.forEach((l) => days.forEach((d, i) => {
-      if (k === "paid_outs") records[k].push({ id: i + 1, location_id: l.id, pharmacy: l.name, entry_date: d, entry_time: "10:00", payee_name: "Courier Ċassar", fee: 5, payment_method: "cash", invoice_no: "", cheque_no: "", reason: "Delivery" });
-      if (k === "dda_supplied" && i < 2) records[k].push({ id: i + 1, location_id: l.id, pharmacy: l.name, entry_date: d, client_name: group ? "" : "Żammit Ġorġ", client_id_card: group ? "" : "1234M", medicine_name_dose: "Morphine 10mg", quantity: 2, doctor_name: "Dr Abela", prescription_serial_no: "S" + i });
+      if (k === "paid_outs") records[k].push({ id: i + 1, location_id: l.id, pharmacy: l.name, entry_date: d, entry_time: "10:00", payee_name: "Courier Cassar", fee: 5, payment_method: "cash", invoice_no: "", cheque_no: "", reason: "Delivery" });
+      if (k === "dda_supplied" && i < 2) records[k].push({ id: i + 1, location_id: l.id, pharmacy: l.name, entry_date: d, client_name: group ? "" : "Zammit Ġorġ", client_id_card: group ? "" : "1234M", medicine_name_dose: "Morphine 10mg", quantity: 2, doctor_name: "Dr Abela", prescription_serial_no: "S" + i });
       if (k === "credit_notes" && i < 1) records[k].push({ id: 9, location_id: l.id, pharmacy: l.name, issue_date: d, client_name: group ? "" : "Rita", client_surname: group ? "" : "Pace", amount: 30, used: 10, no_expiry: 1 }); })); });
     return J({ ok: true, from, to, group, patient_details: !group, records, capped: {}, unread: [] });
   }
@@ -208,7 +212,7 @@ function mockApi(req, res, body) {
   // q6-2: Change time to a time taken meanwhile: 409 with the next free ones, as the worker answers
   if (p === "/bookings/501" && req.method === "PATCH" && body && body.date && body.start === "23:35") { res.writeHead(409, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, error: "That time is not free", next: [{ date: todayYmd, time: "23:40", providerId: 1, providerName: "Maria Borg" }, { date: todayYmd, time: "23:45", providerId: 1, providerName: "Maria Borg" }] })); }
   res.writeHead(200, { "content-type": "application/json" });
-  // q5-7: as the worker's LIKE, which lowers only A to Z (so "zammit" does not find Żammit on the server)
+  // q5-7: as the worker's LIKE, which lowers only A to Z (so "zammit" does not find Zammit on the server)
   if (p === "/people" && peopleState.mt) {
     const q = (url.searchParams.get("q") || "").toLowerCase(), L = (x) => String(x || "").replace(/[A-Z]/g, (c) => c.toLowerCase()), hit = (x) => L(x.name).includes(q) || L(x.id_card).includes(q);
     peopleState.mtQs.push(q);
@@ -307,7 +311,7 @@ function mockApi(req, res, body) {
       messages: { 601: [{ kind: "confirm", status: "sent" }, { kind: "remind_evening", status: "sent" }] }, noShows: { 602: 2 },
       bookings: d0 === tm || url.searchParams.get("to") >= tm && d0 <= tm ? [
         { id: 601, serviceId: 1, providerId: 1, date: tm, start: "09:30", end: "09:45", personName: "Rita Vella", personPhone: "79000601", personEmail: "rita@example.com", status: "booked", version: 2 },
-        { id: 602, serviceId: 2, providerId: 1, date: tm, start: "10:00", end: "10:15", personName: "Pawlu Ħaġġar", personPhone: "79000602", personEmail: "", status: "booked", version: 1 }] : [] }); }
+        { id: 602, serviceId: 2, providerId: 1, date: tm, start: "10:00", end: "10:15", personName: "Pawlu Agius", personPhone: "79000602", personEmail: "", status: "booked", version: 1 }] : [] }); }
     if (p === "/bookings/exceptions" && req.method === "GET") return J2({ ok: true, exceptions: [{ id: 77, providerId: 1, date: maltaYmd(1), kind: "off", start: "12:00", end: "12:30", note: "Lunch" }] });
     if (p === "/bookings/exceptions" && req.method === "POST") return J2({ ok: true, id: 78 }, 201);
     if (/^\/bookings\/exceptions\/\d+$/.test(p) && req.method === "DELETE") return J2({ ok: true });
@@ -322,7 +326,7 @@ function mockApi(req, res, body) {
       const d1 = body.date, add = (k) => { const x = new Date(d1 + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + k); return x.toISOString().slice(0, 10); };
       return J2({ ok: true, booking: mk(0, d1), series: [mk(0, d1), mk(1, add(7)), mk(3, add(21))], skipped: [{ date: add(14), start: body.start }], message: "no-email" }, 201); }
     if (/^\/bookings\/60[12]$/.test(p) && req.method === "PATCH") { const id = Number(p.slice(10)), tm = maltaYmd(1);
-      const cur = id === 601 ? { id: 601, serviceId: 1, providerId: 1, date: tm, start: "09:30", end: "09:45", personName: "Rita Vella", personPhone: "79000601", personEmail: "rita@example.com", status: "booked", version: 3 } : { id: 602, serviceId: 2, providerId: 1, date: tm, start: "10:00", end: "10:15", personName: "Pawlu Ħaġġar", personPhone: "79000602", personEmail: "", status: "booked", version: 2 };
+      const cur = id === 601 ? { id: 601, serviceId: 1, providerId: 1, date: tm, start: "09:30", end: "09:45", personName: "Rita Vella", personPhone: "79000601", personEmail: "rita@example.com", status: "booked", version: 3 } : { id: 602, serviceId: 2, providerId: 1, date: tm, start: "10:00", end: "10:15", personName: "Pawlu Agius", personPhone: "79000602", personEmail: "", status: "booked", version: 2 };
       if (body.status) cur.status = body.status; if (body.status === "confirmed") cur.confirmedVia = "staff";
       if (body.date) { cur.date = body.date; cur.start = body.start; }
       return J2({ ok: true, booking: cur, message: body.notify === false ? "not-told" : body.date ? "sent" : "", offer: body.date ? { waitlistId: 9, personName: "Doris Ellul", personPhone: "79000009", personEmail: "", serviceId: 1, providerId: 1, date: tm, start: "09:30" } : null }); }
@@ -334,7 +338,7 @@ function mockApi(req, res, body) {
   // q6-2: a day before today answers with what happened that day (done, cancelled, never marked); today has Anna Vella.
   if (p === "/bookings" && req.method === "GET" && (url.searchParams.get("to") || "") < todayYmd) { const d0 = url.searchParams.get("from"); return res.end(JSON.stringify({ ok: true, bookings: [
     { id: 490, serviceId: 1, providerId: 1, date: d0, start: "09:00", end: "09:15", personName: "Borg Ċensina", personPhone: "79111111", status: "done", version: 2 },
-    { id: 491, serviceId: 1, providerId: 1, date: d0, start: "09:30", end: "09:45", personName: "Galea Ħelena", personPhone: "", status: "cancelled", cancelReason: "Called to cancel", version: 2 },
+    { id: 491, serviceId: 1, providerId: 1, date: d0, start: "09:30", end: "09:45", personName: "Galea Helena", personPhone: "", status: "cancelled", cancelReason: "Called to cancel", version: 2 },
     { id: 492, serviceId: 1, providerId: 1, date: d0, start: "10:00", end: "10:15", personName: "Zammit Paul", personPhone: "79000001", status: "booked", version: 1 }] })); }
   if (p === "/bookings" && req.method === "GET") return res.end(JSON.stringify({ ok: true, bookings: [{ id: 501, serviceId: 1, providerId: 1, date: todayYmd, start: "23:50", end: "23:59", personName: "Anna Vella", personPhone: "79000000", status: "booked", version: 3 }] }));
   // Change time (q6-2): the day's free times; 23:35 is taken at another counter (409 with the next ones), any other time moves.
@@ -546,6 +550,11 @@ const server = http.createServer((req, res) => {
   if (p.startsWith("/ui/")) p = p.slice(3);
   const f = path.join(root, p);
   if (fs.existsSync(f) && fs.statSync(f).isFile()) {
+    if (/\.html?$/i.test(f)) { // the page gets the worker's CSP, as in production
+      const html = fs.readFileSync(f, "utf8");
+      return cspHeadersFor(path.relative(root, f), html).then((h) => { res.writeHead(200, { "content-type": "text/html", ...h }); res.end(html); },
+        (e) => { res.writeHead(500); res.end("csp header: " + e.message); });
+    }
     res.writeHead(200, { "content-type": mime[f.split(".").pop()] || "application/octet-stream" });
     return fs.createReadStream(f).pipe(res);
   }
@@ -564,7 +573,7 @@ const browser = await chromium.launch();
 { // every page in Malta's zone (unless a check sets its own) and on the suite's clock
   const nc = browser.newContext.bind(browser);
   // eikonClock: false for a check that installs Playwright's own clock (page.clock), which must not be shifted twice
-  browser.newContext = async (o = {}) => { const { eikonClock, ...rest } = o, c = await nc({ ...contextTz(), ...rest }); return eikonClock === false ? c : prepareContext(c); };
+  browser.newContext = async (o = {}) => { const { eikonClock, ...rest } = o, c = await nc({ ...contextTz(), ...rest }); await watchCsp(c, (t, u) => CSPV.push(t + " (" + u + ")")); return eikonClock === false ? c : prepareContext(c); };
   browser.newPage = async (o = {}) => { const c = await browser.newContext(o), pg = await c.newPage(); pg.once("close", () => c.close().catch(() => {})); return pg; };
   if (CLOCK_OFFSET || BROWSER_TZ !== "Europe/Malta") console.log(`  clock: ${new Date().toISOString()} (faked), pages in ${BROWSER_TZ}`); }
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -985,15 +994,15 @@ report("customers: a delivery in the Story shows its item names, not the stored 
 // different phone or ID card, or two possible cards: still offered as Add (never guessed).
 {
   const cards = [{ id: 307, name: "Grech Claire", phone: "79441430", id_card: "0002159M" }, { id: 11, name: "Abela Claire", phone: "79211278", id_card: "0035010M" }, { id: 12, name: "Abela Claire", phone: "79432230", id_card: "0548491M" },
-    { id: 20, name: "Grech Maria", phone: "79555000", id_card: "" }, { id: 30, name: "Farrugia Ninu Maria Assunta", phone: "", id_card: "" }, { id: 40, name: "Ċassar Ryan", phone: "79001122", id_card: "0012345M" }];
+    { id: 20, name: "Grech Maria", phone: "79555000", id_card: "" }, { id: 30, name: "Farrugia Ninu Maria Assunta", phone: "", id_card: "" }, { id: 40, name: "Cassar Ryan", phone: "79001122", id_card: "0012345M" }];
   const hist = [
     { name: "Claire Grech", phone: "79441430", sources: { credit_note: 1 } },            // → 307 (phone, name turned)
     { name: "Claire Abela", phone: "+356 7921 1278", sources: { credit_note: 1 } },      // → 11 (phone picks the one of two namesakes)
     { name: "Claire Abela", phone: "", sources: { vaccine: 1 } },                        // two cards, no phone: Add
     { name: "Claire Grech", phone: "79555000", sources: { booking: 1 } },                // family phone of Grech Maria, other name, and 307's phone differs: Add
     { name: "Ninu Maria Assunta Farrugia", phone: "", sources: { contact: 1 } },        // → 30 (same words, nothing differs)
-    { name: "Ryan Ċassar", id_card: "12345M", sources: { calculator: 1 } },              // → 40 (same ID card)
-    { name: "Ryan Ċassar", id_card: "0099999M", phone: "79001122", sources: { poct: 1 } } // another ID card: Add
+    { name: "Ryan Cassar", id_card: "12345M", sources: { calculator: 1 } },              // → 40 (same ID card)
+    { name: "Ryan Cassar", id_card: "0099999M", phone: "79001122", sources: { poct: 1 } } // another ID card: Add
   ];
   const sp = await page.evaluate(([people, history]) => { const r = window.EIKON.customersAlsoSplit({ people, history }); const out = {}; Object.keys(r.also).forEach((k) => out[k] = r.also[k].map((h) => history.indexOf(h))); return { also: out, hist: r.hist.map((h) => history.indexOf(h)) }; }, [cards, hist]);
   report("customers: a history row that is a card (ID card, or phone and name in any order, or the same words turned) shows on that card, not as Add; namesakes, family phones and other cards stay Add",
@@ -1525,7 +1534,7 @@ try {
   const C = async () => (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.path !== "/client-log");
   await page.goto(base + "&ui=2#customers"); await page.goto(base + "&ui=2#clientorders");
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector(".ord-row"), null, { timeout: 15000 });
-  const addOne = async (items) => { await page.click(".ord-top [data-act=add]"); await page.waitForSelector("#ord-add"); await page.fill("#ord-add [name=client_name]", "Ċachia Ġorġ"); await page.fill("#ord-add [name=contact]", "79444555"); await page.fill("#ord-add [name=items]", items); await page.fill("#ord-add [name=needed_by]", todayYmd); await page.click("#ord-add button[type=submit]"); await page.waitForSelector("#ord-diary"); await page.waitForTimeout(150); };
+  const addOne = async (items) => { await page.click(".ord-top [data-act=add]"); await page.waitForSelector("#ord-add"); await page.fill("#ord-add [name=client_name]", "Cachia Ġorġ"); await page.fill("#ord-add [name=contact]", "79444555"); await page.fill("#ord-add [name=items]", items); await page.fill("#ord-add [name=needed_by]", todayYmd); await page.click("#ord-add button[type=submit]"); await page.waitForSelector("#ord-diary"); await page.waitForTimeout(150); };
   await addOne("Ħ-brand syrup 200ml");
   await page.waitForFunction(() => document.activeElement && document.activeElement.getAttribute("data-act") === "add", null, { timeout: 3000 }).catch(() => {}); // after the list is read again
   const od0 = await page.evaluate(() => ({ text: document.querySelector("#ord-diary .ord-meta").textContent, focus: document.activeElement.getAttribute("data-act"), foot: document.querySelector(".ord > p:last-child").textContent }));
@@ -1589,12 +1598,12 @@ try {
   qStep = "orders search";
   // search: twelve orders, so the box shows; typing redraws only the list
   const dS = (n) => maltaYmd(n);
-  await page.route("**/client-orders/entries?*", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: Array.from({ length: 12 }, (_, i) => ({ id: 300 + i, order_date: dS(0), client_name: (i % 3 ? "Borg " : "Ħili Ġorġ ") + i, client_phone: "7900" + i, items_text: "Item " + i, priority: 2, needed_by: dS(i - 2), fulfilled: 0 })) }) }));
+  await page.route("**/client-orders/entries?*", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: Array.from({ length: 12 }, (_, i) => ({ id: 300 + i, order_date: dS(0), client_name: (i % 3 ? "Borg " : "Hili Ġorġ ") + i, client_phone: "7900" + i, items_text: "Item " + i, priority: 2, needed_by: dS(i - 2), fulfilled: 0 })) }) }));
   await page.goto(base + "&ui=2#customers"); await page.goto(base + "&ui=2#clientorders"); // a real visit, so the list is read again
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector("#ord-q") && document.querySelectorAll(".ord-row").length === 12, null, { timeout: 15000 }); // the list has arrived, so the marker tests a search, not the first paint
   await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {}); await page.waitForTimeout(300); // the months history arrives after the list and repaints the screen once; a search is measured after that
   await page.evaluate(() => { document.querySelector("#ord-q").__same = 1; });
-  await page.focus("#ord-q"); await page.keyboard.type("ħili", { delay: 30 });
+  await page.focus("#ord-q"); await page.keyboard.type("ġorġ", { delay: 30 });
   const oQ = await page.evaluate(() => ({ same: document.querySelector("#ord-q").__same === 1, focus: document.activeElement.id, rows: document.querySelectorAll(".ord-row").length, lab: document.querySelector(".ord-lab").textContent }));
   await page.keyboard.press("Escape"); const oQ2 = await page.evaluate(() => ({ v: document.querySelector("#ord-q").value, rows: document.querySelectorAll(".ord-row").length }));
   await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(100);
@@ -2104,11 +2113,11 @@ report("price check: opens from the old link; the 10+2 deal is Best at €2.17 a
   await fetch(`http://localhost:${PORT}/__reset`);
   await page.fill("#odr-edit [name=qty]", "two"); await page.click("#odr-edit button[type=submit]"); await page.waitForTimeout(150);
   const odBad = await page.evaluate(() => { const e = document.querySelector("#odr-edit [role=alert]"); return e ? e.textContent : ""; }), odBadCalls = (await calls()).length, odBadF = await focusName();
-  await page.fill("#odr-edit [name=qty]", "3"); await page.fill("#odr-edit [name=supplier]", "Ħili Pharma"); await page.click("#odr-edit button[type=submit]"); await page.waitForTimeout(700);
+  await page.fill("#odr-edit [name=qty]", "3"); await page.fill("#odr-edit [name=supplier]", "Hili Pharma"); await page.click("#odr-edit button[type=submit]"); await page.waitForTimeout(700);
   const odPut = (await calls()).filter((c) => c.path === "/order-diary/entries/101"), odBackF = await page.evaluate(() => document.activeElement && document.activeElement.getAttribute("data-id"));
   report("order diary (b4-6a): tap an item to change it (form opens on Item); “two” is refused in words with nothing sent; Save sends the classic Edit Item body; focus goes back to the item; the footer no longer sends changes to classic",
     odName === "Change Augmentin 625× 2|false" && odF === "item_name" && /Write how many/.test(odBad) && odBadCalls === 0 && odBadF === "qty" && odPut.length === 1 && odPut[0].method === "PUT" &&
-    JSON.stringify(odPut[0].body) === JSON.stringify({ item_name: "Augmentin 625", qty: 3, supplier: "Ħili Pharma", notes: "For Mrs Borg" }) && odBackF === "101" && /Tap an item to change it/.test(odFoot) && !/Changing or deleting/.test(odFoot),
+    JSON.stringify(odPut[0].body) === JSON.stringify({ item_name: "Augmentin 625", qty: 3, supplier: "Hili Pharma", notes: "For Mrs Borg" }) && odBackF === "101" && /Tap an item to change it/.test(odFoot) && !/Changing or deleting/.test(odFoot),
     JSON.stringify({ odName, odF, odBad, odBadCalls, odBadF, odPut, odBackF }));
   await page.click('[data-act=open][data-id="101"]'); await page.waitForSelector("#odr-edit");
   await fetch(`http://localhost:${PORT}/__reset`);
@@ -2160,12 +2169,12 @@ report("price check: opens from the old link; the 10+2 deal is Best at €2.17 a
   await fetch(`http://localhost:${PORT}/__reset`);
   await page.click("#rtn-add button[type=submit]"); await page.waitForTimeout(150);
   const rtBad = await page.evaluate(() => { const e = document.querySelector("#rtn-add [role=alert]"); return e ? e.textContent : ""; }), rtBadCalls = (await calls()).length, rtBadF = await focusName(), rtInv = await page.getAttribute("#rtn-add [name=description]", "aria-invalid");
-  await page.fill("#rtn-add [name=description]", "Ċipro 500mg x10"); await page.fill("#rtn-add [name=quantity]", "2"); await page.fill("#rtn-add [name=supplier]", "Ħili Pharma"); await page.fill("#rtn-add [name=remarks]", "Expiring soon"); await page.fill("#rtn-add [name=expiry]", "2027-01-31");
+  await page.fill("#rtn-add [name=description]", "Cipro 500mg x10"); await page.fill("#rtn-add [name=quantity]", "2"); await page.fill("#rtn-add [name=supplier]", "Hili Pharma"); await page.fill("#rtn-add [name=remarks]", "Expiring soon"); await page.fill("#rtn-add [name=expiry]", "2027-01-31");
   await page.click("#rtn-add button[type=submit]");
   let rtPost = null; for (let i = 0; i < 40 && !rtPost; i++) { await page.waitForTimeout(100); rtPost = (await calls()).find((c) => c.method === "POST" && c.path === "/returns/entries") || null; }
   report("returns (b4-6a): with nothing going back the empty state offers New return (no classic); it opens on Item with today's date; no item is refused in words and nothing is sent; Save return sends the classic New + Save body",
     /Nothing is going back/.test(rtEmpty.text) && !/classic/.test(rtEmpty.text) && !rtEmpty.top && rtEmpty.main === "New return" && rtF === "description" && rtDate === todayYmd && /Write the item/.test(rtBad) && rtBadCalls === 0 && rtBadF === "description" && rtInv === "true" && !!rtPost &&
-    JSON.stringify(rtPost.body) === JSON.stringify({ entry_date: todayYmd, description: "Ċipro 500mg x10", expiry: "2027-01-31", batch: "", quantity: "2", supplier: "Ħili Pharma", invoice_number: "", remarks: "Expiring soon", location_stored: "", return_arranged: 0, handed_over: 0, collection_note_received: 0, credit_note_received: 0, supplier_refused: 0, damaged: 0 }),
+    JSON.stringify(rtPost.body) === JSON.stringify({ entry_date: todayYmd, description: "Cipro 500mg x10", expiry: "2027-01-31", batch: "", quantity: "2", supplier: "Hili Pharma", invoice_number: "", remarks: "Expiring soon", location_stored: "", return_arranged: 0, handed_over: 0, collection_note_received: 0, credit_note_received: 0, supplier_refused: 0, damaged: 0 }),
     JSON.stringify({ rtEmpty, rtF, rtDate, rtBad, rtBadCalls, rtBadF, rtInv, rtPost }));
   await page.waitForTimeout(500);
   const rtTop = await page.evaluate(() => ({ top: !!document.querySelector(".rtn-top [data-act=add]"), foot: document.querySelector(".rtn").innerText }));
@@ -2271,7 +2280,7 @@ try {
   const gets = (await calls2()).filter((c) => c.method === "GET" && c.path === "/bookings").map((c) => c.query || "");
   await page.click("[data-act=today]"); await page.waitForTimeout(300);
   report("bookings q6-2: the strip starts yesterday (one tap); a past day shows done, cancelled and never marked, read only, with the reason; a known customer's name opens the card; Today, ‹ › a week and the date box reach any day",
-    strip[1] === todayYmd && past1.rows.join() === "Borg Ċensina=Done,Zammit Paul=Not marked,Galea Ħelena=Cancelled" && past1.free === 0 && past1.today && /2 booked/.test(past1.sub) &&
+    strip[1] === todayYmd && past1.rows.join() === "Borg Ċensina=Done,Zammit Paul=Not marked,Galea Helena=Cancelled" && past1.free === 0 && past1.today && /2 booked/.test(past1.sub) &&
     past2.acts === 0 && past2.st === "Not marked" && /Open Zammit Paul’s customer card/.test(past2.card) && /Cancelled · Called to cancel/.test(past3) &&
     wk.strip.length === 7 && wk.on === wk.strip[1] && wk.strip[0] > todayYmd && gotoFocus === "bkx-goto" && /Thursday 24 December/.test(goto1.sub) && !goto1.box && goto1.foc === "pickdate" && gets.some((q) => /from=2026-12-24/.test(q)),
     JSON.stringify({ strip, past1, past2, past3, wk, gotoFocus, goto1, gets }));
@@ -2352,7 +2361,7 @@ try {
     free: [...document.querySelectorAll(".bkx-free")].map((f) => f.getAttribute("aria-label")), sum: (document.querySelector("[data-act=calls]") || {}).textContent || "", head: (document.querySelector(".bkx-ch") || {}).innerText || "",
     region: (document.querySelector(".bkx-cal") || {}).getAttribute ? document.querySelector(".bkx-cal").getAttribute("aria-label") : "" }));
   report("bookings calendar: a column per person with the day's hours; bookings say Reminded / To call and missed bookings; lunch is a grey block; each free stretch is a labelled button; the line above says who to call",
-    c1.ev.length === 2 && /09:30 Rita Vella.*Reminded/.test(c1.ev[0]) && /10:00 Pawlu Ħaġġar.*To call.*missed 2/.test(c1.ev[1]) && /Lunch.*12:00–12:30/.test(c1.off.replace(/\s+/g, " ")) &&
+    c1.ev.length === 2 && /09:30 Rita Vella.*Reminded/.test(c1.ev[0]) && /10:00 Pawlu Agius.*To call.*missed 2/.test(c1.ev[1]) && /Lunch.*12:00–12:30/.test(c1.off.replace(/\s+/g, " ")) &&
     c1.free.some((f) => /^Free 10:15 to 12:00 with Pharm\. Maria Borg\. Book$/.test(f)) && c1.sum === "1 reminded · 1 to call" && /Pharm\. Maria Borg\s*2 booked · 3h free/.test(c1.head) && /^Calendar for /.test(c1.region),
     JSON.stringify(c1));
 
@@ -2394,8 +2403,8 @@ try {
   const r2 = await page.evaluate(() => document.querySelector(".bkx-sheet") ? document.querySelector(".bkx-sheet").innerText.replace(/\s+/g, " ") : "");
   await page.keyboard.press("Escape"); await page.waitForTimeout(150);
   report("bookings calendar: the reminders list puts the customer without e-mail under To call with the number; Confirmed sends { version, status: confirmed } and moves them to Confirmed",
-    /To call · 1 10:00 Pawlu Ħaġġar .*no e-mail · 79000602/.test(r1.text) && /Reminded, not confirmed yet · 1 09:30 Rita Vella/.test(r1.text) && r1.tel &&
-    cPatch.length === 1 && cPatch[0][0] === "/bookings/602" && JSON.stringify(cPatch[0][1]) === JSON.stringify({ version: 1, status: "confirmed" }) && /Confirmed · 1 10:00 Pawlu Ħaġġar/.test(r2), JSON.stringify({ r1, cPatch, r2 }));
+    /To call · 1 10:00 Pawlu Agius .*no e-mail · 79000602/.test(r1.text) && /Reminded, not confirmed yet · 1 09:30 Rita Vella/.test(r1.text) && r1.tel &&
+    cPatch.length === 1 && cPatch[0][0] === "/bookings/602" && JSON.stringify(cPatch[0][1]) === JSON.stringify({ version: 1, status: "confirmed" }) && /Confirmed · 1 10:00 Pawlu Agius/.test(r2), JSON.stringify({ r1, cPatch, r2 }));
 
   // block time from a free stretch, then unblock the lunch
   await fetch(`http://localhost:${PORT}/__reset`);
@@ -2500,11 +2509,11 @@ try {
     /Write the customer's name/.test(q1n.err || "") && q1n.role === "alert" && q1n.inv === "true" && q1n.focus && q1n.phone === "79111222" && q1nClear && q1nPosts.length === 0 && q1n.kb === "characters,tel", JSON.stringify({ q1n, q1nClear, q1nPosts }));
   await page.click('#cus-new [data-act="cancel"]');
   await fetch(`http://localhost:${PORT}/__reset`);
-  await page.fill("#cus-q", "ħabela"); await page.waitForTimeout(700);
-  const q1m = await page.evaluate(() => ({ people: document.querySelectorAll("[data-person]").length, hist: document.querySelectorAll("[data-hist]").length, unit: [window.EIKON.customersServerQ("Ġorġ Ħili"), window.EIKON.customersServerQ("zammit"), window.EIKON.customersServerQ("ħż")].join("|") }));
+  await page.fill("#cus-q", "żaren"); await page.waitForTimeout(700);
+  const q1m = await page.evaluate(() => ({ people: document.querySelectorAll("[data-person]").length, hist: document.querySelectorAll("[data-hist]").length, unit: [window.EIKON.customersServerQ("Ġużeppi Borg"), window.EIKON.customersServerQ("zammit"), window.EIKON.customersServerQ("ħż")].join("|") }));
   const q1mQ = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "GET" && c.path === "/people").map((c) => c.query || "");
-  report("quality customers: 'ħabela' asks the server for 'abela' (its LOWER() knows only A to Z) and shows only names with every word typed; plain searches are sent as typed",
-    q1mQ.length >= 1 && q1mQ.every((x) => /q=abela/.test(x)) && q1m.people === 0 && q1m.hist === 0 && q1m.unit === "ili|zammit|ħż", JSON.stringify({ q1m, q1mQ }));
+  report("quality customers: 'żaren' asks the server for 'aren' (its LOWER() knows only A to Z) and shows only names with every word typed; plain searches are sent as typed",
+    q1mQ.length >= 1 && q1mQ.every((x) => /q=aren/.test(x)) && q1m.people === 0 && q1m.hist === 0 && q1m.unit === "eppi|zammit|ħż", JSON.stringify({ q1m, q1mQ }));
 
   // Bookings: a name typed while the free times are still loading is kept; Enter in the name books; a missing name is read out
   await page.goto(base + "&ui=2#bookings");
@@ -2513,7 +2522,7 @@ try {
   await page.route("**/bookings/next**", async (r) => { await new Promise((ok) => setTimeout(ok, 700)); await r.continue(); });
   await fetch(`http://localhost:${PORT}/__reset`);
   await page.click("[data-act=new]"); await page.waitForSelector("#bkx-name"); await page.focus("#bkx-name");
-  await page.keyboard.type("Ġorġ Ħili");
+  await page.keyboard.type("Ġorġ Hili");
   await page.waitForFunction(() => document.querySelector(".bkx-slot.on"), null, { timeout: 5000 }); await page.waitForTimeout(100);
   const q1b = await page.evaluate(() => ({ v: document.getElementById("bkx-name").value, focus: document.activeElement && document.activeElement.id }));
   await page.unroute("**/bookings/next**");
@@ -2535,7 +2544,7 @@ try {
   report("quality bookings: a known person is offered under Name; choosing fills name and phone, kept across a redraw, nothing booked until Book",
     q1bp.role === "combobox" && /^Zammit (Paul|Carmel)$/.test(q1bp.n) && q1bp.open && q1bpPosts === 1 && q1bp2.split("|")[0] === q1bp.n && q1bp2.split("|")[1] === q1bp.ph && (q1bp.n !== "Zammit Paul" || q1bp.ph === "79000001"), JSON.stringify({ q1bp, q1bp2, q1bpPosts }));
   report("quality bookings: a name typed while free times load is kept (was cut to its last letters); Enter in it books once with the same body; no name is said (alert) with focus on Name",
-    q1b.v === "Ġorġ Ħili" && q1b.focus === "bkx-name" && q1bPosts.length === 1 && q1bPosts[0].personName === "Ġorġ Ħili" && q1bPosts[0].start === "23:30" && /Type the person's name/.test(q1be.err || "") && q1be.role === "alert" && q1be.focus === "bkx-name" && q1be.open,
+    q1b.v === "Ġorġ Hili" && q1b.focus === "bkx-name" && q1bPosts.length === 1 && q1bPosts[0].personName === "Ġorġ Hili" && q1bPosts[0].start === "23:30" && /Type the person's name/.test(q1be.err || "") && q1be.role === "alert" && q1be.focus === "bkx-name" && q1be.open,
     JSON.stringify({ q1b, q1bPosts, q1be }));
 
   // Rail: the lit tab is announced as the current page
@@ -2597,7 +2606,7 @@ report("contacts: opens from the old link; personal number kept out of the list;
 // delete says so and keeps the question; Delete contact is the classic call (DELETE /contacts/<type>/<id>, no body),
 // once; focus goes to the next contact in the list. Staff see no Delete…; the footer no longer sends deleting away.
 try {
-  let conSup = [{ id: 31, org_id: 1, name: "Actavis Malta", phone: "2123 4567", email: "orders@actavis.example" }, { id: 32, org_id: 1, name: "Ħili Pharma", phone: "2133 0000", email: "" }, { id: 33, org_id: 1, name: "Żebbuġ Supplies", phone: "2144 1111", email: "" }];
+  let conSup = [{ id: 31, org_id: 1, name: "Actavis Malta", phone: "2123 4567", email: "orders@actavis.example" }, { id: 32, org_id: 1, name: "Hili Pharma", phone: "2133 0000", email: "" }, { id: 33, org_id: 1, name: "Żebbuġ Supplies", phone: "2144 1111", email: "" }];
   let conFail = true; const conDels = [];
   await page.route(/\/contacts\/suppliers(\/\d+)?(\?.*)?$/, (r) => {
     const rq = r.request(), m = new URL(rq.url()).pathname.match(/\/contacts\/suppliers\/(\d+)$/);
@@ -2631,7 +2640,7 @@ try {
   await page.unroute(/\/contacts\/suppliers(\/\d+)?(\?.*)?$/);
   report("contacts delete (q5-10c): the pharmacist's Delete… asks once in plain words, Escape keeps it, a failure says so and keeps the question, then one classic DELETE with no body; focus to the next contact; staff see no Delete…; footer shrunk",
     !/Deleting/.test(cdFoot) && /^Import and export, hiding sections and the specialty filter are in the classic screen\.$/.test(cdFoot.trim()) &&
-    cdAsk.text === "Delete Ħili Pharma from Contacts? This cannot be undone." && cdAsk.focus === "del-cancel" && cdAsk.desc === "con-ask" &&
+    cdAsk.text === "Delete Hili Pharma from Contacts? This cannot be undone." && cdAsk.focus === "del-cancel" && cdAsk.desc === "con-ask" &&
     !cdEsc.ask && cdEsc.focus === "del" && cdEsc.open &&
     /^Not deleted: Server busy/.test(cdErr.err) && cdErr.ask && cdErr.still &&
     conDels.length === 2 && conDels.every((d) => d.path === "/contacts/suppliers/32" && d.body == null) && cdDone.gone && cdDone.focus === "suppliers:33" && cdStaff,
@@ -2767,7 +2776,7 @@ try {
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector(".ord-top [data-act=add]"), null, { timeout: 15000 });
   await page.click(".ord-top [data-act=add]"); await page.waitForTimeout(150);
   const oc0 = await chips("#ord-add"), oHint = await page.textContent("#ord-pu-hint");
-  await page.fill("#ord-add [name=client_name]", "Borġ Ċensina"); await page.fill("#ord-add [name=contact]", "79112233"); await page.fill("#ord-add [name=items]", "Augmentin 625 x14");
+  await page.fill("#ord-add [name=client_name]", "Borg Ċensina"); await page.fill("#ord-add [name=contact]", "79112233"); await page.fill("#ord-add [name=items]", "Augmentin 625 x14");
   await fetch(`http://localhost:${PORT}/__reset`);
   await page.click("#ord-add button[type=submit]"); await page.waitForTimeout(250);
   const oNo = { posts: (await calls4("/client-orders/entries")).length, inv: await page.getAttribute("#ord-add [name=needed_by]", "aria-invalid") };
@@ -2780,7 +2789,7 @@ try {
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "dlvreg" && document.querySelector(".dlv-top [data-act=add]"), null, { timeout: 15000 });
   await page.click(".dlv-top [data-act=add]"); await page.waitForTimeout(150);
   const dc0 = await chips("#dlv-add");
-  await page.fill("#dlv-add [name=client_name]", "Żammit Ġużi"); await page.fill("#dlv-add [name=phone]", "79001122"); await page.fill("#dlv-add [name=delivery_address]", "4 Triq il-Ħamrun");
+  await page.fill("#dlv-add [name=client_name]", "Zammit Ġużi"); await page.fill("#dlv-add [name=phone]", "79001122"); await page.fill("#dlv-add [name=delivery_address]", "4 Triq il-Ħamrun");
   await page.click('#dlv-add .q44-days [data-day="2"]'); const dVal = await page.inputValue("#dlv-add [name=scheduled_date]");
   await fetch(`http://localhost:${PORT}/__reset`); await page.click("#dlv-add button[type=submit]"); await page.waitForTimeout(500);
   const dPost = (await calls4("/client-deliveries/entries"))[0] || {};
@@ -2789,15 +2798,15 @@ try {
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "tktreg" && document.querySelector("[data-act=add]"), null, { timeout: 15000 });
   await page.click("[data-act=add]"); await page.waitForTimeout(150);
   const tc0 = await chips("#tkt-add");
-  await page.fill("#tkt-add [name=client_name]", "Grech Ħelena"); await page.fill("#tkt-add [name=phone]", "79333444"); await page.fill("#tkt-add [name=issue]", "Omron M3 back in stock?");
+  await page.fill("#tkt-add [name=client_name]", "Grech Helena"); await page.fill("#tkt-add [name=phone]", "79333444"); await page.fill("#tkt-add [name=issue]", "Omron M3 back in stock?");
   await page.click('#tkt-add .q44-days [data-day="1"]');
   await fetch(`http://localhost:${PORT}/__reset`); await page.click("#tkt-add button[type=submit]"); await page.waitForTimeout(500);
   const tPost = (await calls4("/client-tickets/entries"))[0] || {};
   report("counter forms: Today · Tomorrow · next working day (Sunday skipped) under Needed by, Deliver on and Follow up; nothing chosen on Orders until tapped (still refused, nothing sent); a tap sets the field and is exactly what is sent; clearer pick-up help",
     JSON.stringify(oc0.map((c) => c.ymd)) === JSON.stringify(W) && oc0[0].t === "Today" && oc0.every((c) => c.on === "false") && oHint === "Leave empty if they collect the same day" &&
     oNo.posts === 0 && oNo.inv === "true" && oc1.v === W[1] && oc1.chips[1].on === "true" && oc1.chips[0].on === "false" && oc1.inv === null && oc1.focus === "1" &&
-    oPost.needed_by === W[1] && oPost.pick_up_date === W[1] && oPost.pickup_date === W[1] && oPost.client_name === "Borġ Ċensina" &&
-    dc0[0].on === "true" && dVal === W[2] && dPost.scheduled_date === W[2] && dPost.client_name === "Żammit Ġużi" &&
+    oPost.needed_by === W[1] && oPost.pick_up_date === W[1] && oPost.pickup_date === W[1] && oPost.client_name === "Borg Ċensina" &&
+    dc0[0].on === "true" && dVal === W[2] && dPost.scheduled_date === W[2] && dPost.client_name === "Zammit Ġużi" &&
     tc0.every((c) => c.on === "false") && tPost.followup_date === W[1] && tPost.issue === "Omron M3 back in stock?",
     JSON.stringify({ W, oc0, oHint, oNo, oc1, oPost: { n: oPost.needed_by, p: oPost.pick_up_date }, dc0, dVal, dPost: dPost.scheduled_date, tc0, tPost: tPost.followup_date }));
 } catch (e) { report("counter forms: quick days ran to the end", false, String(e).slice(0, 300)); }
@@ -3204,20 +3213,25 @@ try {
   const lblRail = await page.evaluate(() => [...document.querySelectorAll(".eikon-rail-btn.active")].map((b) => b.dataset.mod).join());
   await page.fill("[name=drugName]", "Amoxicillin 500mg"); await page.waitForTimeout(200);
   const lblDose = await page.inputValue("[name=dose]"), lblPrev = await page.textContent("#lbl-prev");
-  await page.evaluate(() => { window.__lblPrinted = []; window.open = (u) => { fetch(u).then((r) => r.text()).then((t) => window.__lblPrinted.push(t)); return {}; }; });
+  // English only (John, 2026-11-11): no language choice and no Maltese wording on the screen
+  const lblNoMt = await page.evaluate(() => !document.querySelector("[data-act=lang], .lbl-mt, [lang=mt]") && !/English \+ Maltese|In Maltese|Read out in/.test(document.querySelector(".lbl").textContent));
+  // The printed page is read from the Blob itself (a fetch() of the blob: address is connect-src, which the app never
+  // does: it only opens the address in a tab, a navigation the CSP allows).
+  await page.evaluate(() => { window.__lblPrinted = []; const blobs = {}, mk = URL.createObjectURL; URL.createObjectURL = (b) => { const u = mk.call(URL, b); blobs[u] = b; return u; };
+    window.open = (u) => { (blobs[u] ? blobs[u].text() : fetch(u).then((r) => r.text())).then((t) => window.__lblPrinted.push(t)); return {}; }; });
   await fetch(`http://localhost:${PORT}/__reset`);
   await page.click("#lbl-add button[type=submit]");
   await page.waitForFunction(() => window.__lblPrinted.length === 1 && /saved to recent labels/.test(document.querySelector("#lbl-status").textContent), null, { timeout: 8000 });
   const lblHtml = await page.evaluate(() => window.__lblPrinted[0]);
   const lblPuts = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "PUT" && c.path === "/labels/state").map((c) => c.body.state);
   const e0 = ((lblPuts[0] || {}).labelHistory || [])[0] || {};
-  report("dispensing labels: #labels opens it under Services; a known medicine fills its dose; Print opens the classic print page; one PUT with only the new entry and the settings unchanged",
-    lblRail === "services" && lblDose === "1 capsule" && /Rx: Amoxicillin 500mg/.test(lblPrev) && /Dose\/Freq: 1 capsule \| Three times daily/.test(lblPrev) &&
+  report("dispensing labels: #labels opens it under Services; no language choice (English only); a known medicine fills its dose; Print opens the classic print page; one PUT with only the new entry and the settings unchanged",
+    lblRail === "services" && lblNoMt && lblDose === "1 capsule" && /Rx: Amoxicillin 500mg/.test(lblPrev) && /Dose\/Freq: 1 capsule \| Three times daily/.test(lblPrev) &&
     /<b>Rx:<\/b> Amoxicillin 500mg/.test(lblHtml) && /@page\{margin:0;\}/.test(lblHtml) && /T:21234567/.test(lblHtml) && !/<script|\son[a-z]+=/i.test(lblHtml) &&
     lblPuts.length === 1 && lblPuts[0].labelHistory.length === 1 && e0.drugName === "Amoxicillin 500mg" && e0.dose === "1 capsule" && e0.templateId === "tpl_std" && /^lb_\d+_/.test(e0.id) &&
     JSON.stringify(Object.keys(e0)) === JSON.stringify(["patientName", "drugName", "dose", "frequency", "route", "customInstructions", "selectedWarnings", "templateId", "id", "printedAt", "printedBy"]) &&
     lblPuts[0].templates.length === 1 && lblPuts[0].templates[0].id === "tpl_std" && lblPuts[0].pharmacyDetails.phone === "21234567",
-    JSON.stringify({ lblRail, lblDose, lblPrev, lblPuts }).slice(0, 600));
+    JSON.stringify({ lblRail, lblNoMt, lblDose, lblPrev, lblPuts }).slice(0, 600));
 } catch (e) { report("dispensing labels: ran to the end", false, String(e).slice(0, 300)); }
 // Supplier stock: the old link opens the new screen under Stock; the deal line goes in at 10 and 14 snaps back to 10;
 // sending posts the classic's order body once; the draft is saved with PUT (never DELETE); Mark as received sends only the status.
@@ -3936,7 +3950,7 @@ try {
   await page.keyboard.press("Escape");
   globalThis.__ownGroup = false;
   report("owner: head office sees All 2 pharmacies (a row each, Needs you named by pharmacy), chooses one (loc=4 on the next request), and the lines come without patients' details and without Open (another pharmacy's screen)",
-    g1.opts.join() === "All 2 pharmacies,Ħamrun Pharmacy,Żebbuġ Pharmacy" && g1.rows === 2 && g1.needs.some((t) => /^Ħamrun Pharmacy: /.test(t)) && /loc=4/.test(reqs4[reqs4.length - 1]) && !/Żammit|1234M/.test(g2.txt) && /left out for head office/.test(g2.txt) && !g2.open, JSON.stringify({ g1, reqs4, g2: g2.txt.slice(0, 300) }));
+    g1.opts.join() === "All 2 pharmacies,Ħamrun Pharmacy,Żebbuġ Pharmacy" && g1.rows === 2 && g1.needs.some((t) => /^Ħamrun Pharmacy: /.test(t)) && /loc=4/.test(reqs4[reqs4.length - 1]) && !/Zammit|1234M/.test(g2.txt) && /left out for head office/.test(g2.txt) && !g2.open, JSON.stringify({ g1, reqs4, g2: g2.txt.slice(0, 300) }));
   // Staff: no card in Money, and the screen says who can, without asking the server
   await page.evaluate(() => { localStorage.removeItem("eikon_own_view"); window.EIKON.owner.state.data = null; window.EIKON.owner.state.loc = "all"; window.EIKON.state.user.role = "staff"; location.hash = "#money"; }); await page.waitForTimeout(500);
   const staffCard = await page.$('[data-open="ownreg"]');
@@ -4066,7 +4080,7 @@ try {
   const wsrc2 = fs.readFileSync(path.join(here, "..", "..", "cloudflare-worker", "code"), "utf8");
   const fnOf = (src, name) => { const i = src.indexOf("function " + name + "("); let d = 0, j = src.indexOf("{", i); for (; j < src.length; j++) { if (src[j] === "{") d++; else if (src[j] === "}" && --d === 0) break; } return src.slice(i, j + 1); };
   const WN = new Function(fnOf(wsrc2, "eikonNameCase") + "\nreturn eikonNameCase;")();
-  const samples = ["carmel zammit", "CARMEL ZAMMIT", "ĠUŻEPPI ĦILI", "il-ħamrun", "anne-marie d'amato", "O'BRIEN", "mcdonald", "de Gabriele", "john Agius", "McDonald", "JD", "0123456M", "rita@x.mt", "j.p. borg", "JOHN SMITH III"];
+  const samples = ["carmel zammit", "CARMEL ZAMMIT", "ĠUŻEPPI HILI", "il-ħamrun", "anne-marie d'amato", "O'BRIEN", "mcdonald", "de Gabriele", "john Agius", "McDonald", "JD", "0123456M", "rita@x.mt", "j.p. borg", "JOHN SMITH III"];
   await page.goto(base + "&ui=2#tickets");
   await page.waitForFunction(() => window.EIKON && window.EIKON.people && window.EIKON.people.nameCase && window.EIKON.state.activeModuleId === "tktreg", null, { timeout: 15000 });
   const uiOut = await page.evaluate((x) => x.map((v) => window.EIKON.people.nameCase(v)), samples);
@@ -4076,11 +4090,11 @@ try {
   const v1 = await page.inputValue("#tkt-add [name=client_name]"), v2 = await page.inputValue("#tkt-add [name=issue]");
   await page.fill("#tkt-add [name=client_name]", "de Gabriele Maria"); await page.press("#tkt-add [name=client_name]", "Tab");
   const v3 = await page.inputValue("#tkt-add [name=client_name]");
-  await page.fill("#tkt-add [name=client_name]", "ĠORĠ ĦILI"); await page.press("#tkt-add [name=client_name]", "Tab");
+  await page.fill("#tkt-add [name=client_name]", "ĠORĠ HILI"); await page.press("#tkt-add [name=client_name]", "Tab");
   const v4 = await page.inputValue("#tkt-add [name=client_name]");
   report("names: a name field is put in Title Case when it is left (Maltese letters too); a mixed-case name and the other fields stay as typed; the UI's function gives the worker's answers",
     JSON.stringify(uiOut) === JSON.stringify(samples.map(WN)) && uiOut[0] === "Carmel Zammit" && uiOut[7] === "De Gabriele" && uiOut[8] === "John Agius" &&
-    v1 === "Carmel Zammit" && v2 === "omron m3 in stock?" && v3 === "De Gabriele Maria" && v4 === "Ġorġ Ħili",
+    v1 === "Carmel Zammit" && v2 === "omron m3 in stock?" && v3 === "De Gabriele Maria" && v4 === "Ġorġ Hili",
     JSON.stringify({ uiOut, v1, v2, v3, v4 }));
 } catch (e) { report("names: a name field is put in Title Case when it is left", false, String(e).slice(0, 300)); }
 // Error reports (backlog 7): a thrown error on a screen is one POST /client-log with build, screen id, kind, scrubbed
@@ -4602,41 +4616,41 @@ try {
   await page.goto(base + "&ui=2#registers"); await ready("registers");
   // 1. the helpers
   const u = await page.evaluate(() => { const P = window.EIKON.people; return {
-    fold: ["Żammit", "ĊASSAR", "Ħabela", "Ġorġ", "Zammit"].map(P.foldMt), st: ["zammit", "cassar ryan", "habela", "gorg", "vella", "Ħabela", "0012345M", "z"].map(P.mtStretch),
-    wires: ["zammit", "Ħabela", "vella", "0012345M", "carmel zammit"].map((q) => window.EIKON.personPickWires(q)), cus: ["cassar ryan", "vella", "żammit"].map(window.EIKON.customersAsks),
-    has: [P.hasWordsMt("Żammit Rożi", "zammit rozi"), P.hasWordsMt("Zammit Paul", "żammit"), P.hasWordsMt("Ċassar Ryan", "ryan cassar"), P.hasWordsMt("Vella Anna", "zammit")] }; });
-  report("q5-7 fold: ċ ġ ħ ż fold to c g h z (E.people.foldMt); a name with c/g/h/z is also asked as its longest stretch without them ('zammit' → 'ammit'), an ID card or a name without them as before; matching works both ways",
-    JSON.stringify(u.fold) === JSON.stringify(["zammit", "cassar", "habela", "gorg", "zammit"]) && JSON.stringify(u.st) === JSON.stringify(["ammit", "assar", "abela", "or", "", "abela", "", ""]) &&
-    JSON.stringify(u.wires) === JSON.stringify([["zammit", "ammit"], ["abela"], ["vella"], ["12345M"], ["carmel", "armel"]]) && JSON.stringify(u.cus) === JSON.stringify([["cassar ryan", "assar"], ["vella"], ["ammit"]]) && u.has.join() === "true,true,true,false", JSON.stringify(u));
+    fold: ["Żaren", "ĊETTINA", "Ħamrun", "Ġorġ", "Zaren"].map(P.foldMt), st: ["zaren", "pace cettina", "hamrun", "gorg", "vella", "Ħamrun", "0012345M", "z"].map(P.mtStretch),
+    wires: ["zaren", "Ċensina", "vella", "0012345M", "carmel zammit"].map((q) => window.EIKON.personPickWires(q)), cus: ["pace cettina", "vella", "żaren"].map(window.EIKON.customersAsks),
+    has: [P.hasWordsMt("Vella Żaren", "vella zaren"), P.hasWordsMt("Mifsud Zaren", "żaren"), P.hasWordsMt("Pace Ċettina", "cettina pace"), P.hasWordsMt("Vella Anna", "zaren")] }; });
+  report("q5-7 fold: ċ ġ ħ ż fold to c g h z (E.people.foldMt); a name with c/g/h/z is also asked as its longest stretch without them ('zaren' → 'aren'), an ID card or a name without them as before; matching works both ways",
+    JSON.stringify(u.fold) === JSON.stringify(["zaren", "cettina", "hamrun", "gorg", "zaren"]) && JSON.stringify(u.st) === JSON.stringify(["aren", "ettina", "amrun", "or", "", "amrun", "", ""]) &&
+    JSON.stringify(u.wires) === JSON.stringify([["zaren", "aren"], ["ensina"], ["vella"], ["12345M"], ["carmel", "armel"]]) && JSON.stringify(u.cus) === JSON.stringify([["pace cettina", "ettina"], ["vella"], ["aren"]]) && u.has.join() === "true,true,true,false", JSON.stringify(u));
 
   // 2. the search dialog: Maltese letters left out find them; the card first; a history row of that card is not a second person
   peopleState.mt = true; peopleState.mtQs = []; await page.evaluate(() => { window.EIKON.lastWriteAt = Date.now(); window.EIKON.searchCacheClear(); }); await page.waitForTimeout(5); // answers kept from before are stale
   const r1 = {};
-  for (const q of ["zammit rozi", "cassar ryan", "habela", "gorg", "żammit", "zammit"]) r1[q] = (await ask(q)).people;
-  report("q5-7 search: 'zammit rozi' finds Żammit Rożi (and her credit-note row 'Rożi Żammit' is her card, not a second person); 'cassar ryan' Ċassar Ryan, 'habela' Ħabela Tumas, 'gorg' Xkora Ġorġ",
-    r1["zammit rozi"].length === 1 && /^Żammit Rożi .*Customers/.test(r1["zammit rozi"][0]) && /^Ċassar Ryan .*Customers/.test(r1["cassar ryan"][0] || "") && /^Ħabela Tumas/.test(r1.habela[0] || "") && /^Xkora Ġorġ/.test(r1.gorg[0] || ""), JSON.stringify(r1));
-  const zz = r1["żammit"], z0 = r1.zammit;
-  report("q5-7 search: both ways, cards first: 'żammit' and 'zammit' both list Żammit Rożi and Zammit Paul (as typed first) before 'Żammit Ġużeppi', seen only in the registers and labelled 'In the registers, no card yet'",
-    zz.length === 3 && /^Żammit Rożi/.test(zz[0]) && /^Zammit Paul/.test(zz[1]) && /^Żammit Ġużeppi .*In the registers, no card yet$/.test(zz[2]) && z0.length === 3 && /^Zammit Paul/.test(z0[0]) && /^Żammit Rożi/.test(z0[1]) && /no card yet$/.test(z0[2]) && !zz.concat(z0).some((x) => /Customers$/.test(x) && /Ġużeppi/.test(x)), JSON.stringify({ zz, z0 }));
+  for (const q of ["vella zaren", "pace cettina", "censina", "gorg", "żaren", "zaren"]) r1[q] = (await ask(q)).people;
+  report("q5-7 search: 'vella zaren' finds Vella Żaren (and his credit-note row 'Żaren Vella' is his card, not a second person); 'pace cettina' Pace Ċettina, 'censina' Abela Ċensina, 'gorg' Xuereb Ġorġ",
+    r1["vella zaren"].length === 1 && /^Vella Żaren .*Customers/.test(r1["vella zaren"][0]) && /^Pace Ċettina .*Customers/.test(r1["pace cettina"][0] || "") && /^Abela Ċensina/.test(r1.censina[0] || "") && /^Xuereb Ġorġ/.test(r1.gorg[0] || ""), JSON.stringify(r1));
+  const zz = r1["żaren"], z0 = r1.zaren;
+  report("q5-7 search: both ways, cards first: 'żaren' and 'zaren' both list Vella Żaren and Mifsud Zaren (as typed first) before 'Grech Żaren', seen only in the registers and labelled 'In the registers, no card yet'",
+    zz.length === 3 && /^Vella Żaren/.test(zz[0]) && /^Mifsud Zaren/.test(zz[1]) && /^Grech Żaren .*In the registers, no card yet$/.test(zz[2]) && z0.length === 3 && /^Mifsud Zaren/.test(z0[0]) && /^Vella Żaren/.test(z0[1]) && /no card yet$/.test(z0[2]) && !zz.concat(z0).some((x) => /Customers$/.test(x) && /Grech/.test(x)), JSON.stringify({ zz, z0 }));
   // requests: typed at 40 ms a key, one pause: the name and its stretch, once each
   await page.evaluate(() => { window.EIKON.lastWriteAt = Date.now(); window.EIKON.searchCacheClear(); }); await page.waitForTimeout(5); await fetch(`http://localhost:${PORT}/__reset`); peopleState.mtQs = [];
-  await ask("zammit", 40);
+  await ask("zaren", 40);
   const pq = (await callsNow()).filter((c) => c.path === "/people" && c.method === "GET").map((c) => new URLSearchParams(c.query).get("q"));
-  report("q5-7 search: typing 'zammit' asks /people twice in all (q=zammit and q=ammit, in the one pause of typing), never a Maltese letter", pq.length === 2 && pq.includes("zammit") && pq.includes("ammit"), JSON.stringify(pq));
+  report("q5-7 search: typing 'zaren' asks /people twice in all (q=zaren and q=aren, in the one pause of typing), never a Maltese letter", pq.length === 2 && pq.includes("zaren") && pq.includes("aren"), JSON.stringify(pq));
   await page.evaluate(() => window.EIKON.searchClose(false));
 
   // 3. Customers and the people suggestions under a register field
   await page.goto(base + "&ui=2#customers"); await ready("customers");
   const cus = {};
-  for (const q of ["zammit", "cassar ryan", "habela tumas"]) { await page.fill("#cus-q", ""); await page.locator("#cus-q").pressSequentially(q, { delay: 10 }); await page.waitForTimeout(700); cus[q] = await page.evaluate(() => document.querySelector("#cus-list").innerText.replace(/\s+/g, " ")); }
-  report("q5-7 customers: 'zammit' lists Żammit Rożi and Zammit Paul; 'cassar ryan' Ċassar Ryan; 'habela tumas' Ħabela Tumas",
-    /Żammit Rożi/.test(cus.zammit) && /Zammit Paul/.test(cus.zammit) && /Ċassar Ryan/.test(cus["cassar ryan"]) && /Ħabela Tumas/.test(cus["habela tumas"]), JSON.stringify(cus).slice(0, 600));
+  for (const q of ["zaren", "pace cettina", "abela censina"]) { await page.fill("#cus-q", ""); await page.locator("#cus-q").pressSequentially(q, { delay: 10 }); await page.waitForTimeout(700); cus[q] = await page.evaluate(() => document.querySelector("#cus-list").innerText.replace(/\s+/g, " ")); }
+  report("q5-7 customers: 'zaren' lists Vella Żaren and Mifsud Zaren; 'pace cettina' Pace Ċettina; 'abela censina' Abela Ċensina",
+    /Vella Żaren/.test(cus.zaren) && /Mifsud Zaren/.test(cus.zaren) && /Pace Ċettina/.test(cus["pace cettina"]) && /Abela Ċensina/.test(cus["abela censina"]), JSON.stringify(cus).slice(0, 600));
   await page.goto(base + "&ui=2#clientorders"); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector(".ord-top [data-act=add]"), null, { timeout: 15000 });
   await page.click(".ord-top [data-act=add]"); await page.waitForSelector("#ord-add");
   const pp = {};
-  for (const q of ["cassar ryan", "żammit", "gorg"]) { const b = page.locator("#ord-add [name=client_name]"); await b.fill(""); await b.pressSequentially(q, { delay: 15 }); await page.waitForTimeout(700); pp[q] = await page.evaluate(() => [...document.querySelectorAll("#ord-add .epp-opt b")].map((b) => b.textContent)); }
-  report("q5-7 suggestions: an Orders name field offers Ċassar Ryan for 'cassar ryan', Żammit Rożi first then Zammit Paul then the registers-only name for 'żammit', Xkora Ġorġ for 'gorg'",
-    pp["cassar ryan"][0] === "Ċassar Ryan" && JSON.stringify(pp["żammit"]) === JSON.stringify(["Żammit Rożi", "Zammit Paul", "Żammit Ġużeppi"]) && pp.gorg[0] === "Xkora Ġorġ", JSON.stringify(pp));
+  for (const q of ["pace cettina", "żaren", "gorg"]) { const b = page.locator("#ord-add [name=client_name]"); await b.fill(""); await b.pressSequentially(q, { delay: 15 }); await page.waitForTimeout(700); pp[q] = await page.evaluate(() => [...document.querySelectorAll("#ord-add .epp-opt b")].map((b) => b.textContent)); }
+  report("q5-7 suggestions: an Orders name field offers Pace Ċettina for 'pace cettina', Vella Żaren first then Mifsud Zaren then the registers-only name for 'żaren', Xuereb Ġorġ for 'gorg'",
+    pp["pace cettina"][0] === "Pace Ċettina" && JSON.stringify(pp["żaren"]) === JSON.stringify(["Vella Żaren", "Mifsud Zaren", "Grech Żaren"]) && pp.gorg[0] === "Xuereb Ġorġ", JSON.stringify(pp));
   await page.keyboard.press("Escape"); await page.keyboard.press("Escape");
   peopleState.mt = false;
 
@@ -5209,7 +5223,7 @@ try {
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector(".ord-top [data-act=add]"), null, { timeout: 15000 });
   await page.click(".ord-top [data-act=add]"); await page.waitForSelector("#ord-add");
   const ow = await page.evaluate(() => ({ open: document.querySelector(".ord-tabs").innerText.replace(/\s+/g, " "), save: document.querySelector("#ord-add button[type=submit]").textContent }));
-  await page.fill("#ord-add [name=client_name]", "Borġ Ċensina"); await page.fill("#ord-add [name=items]", "Augmentin 625"); await page.fill("#ord-add [name=needed_by]", todayYmd);
+  await page.fill("#ord-add [name=client_name]", "Borg Ċensina"); await page.fill("#ord-add [name=items]", "Augmentin 625"); await page.fill("#ord-add [name=needed_by]", todayYmd);
   await page.click("#ord-add button[type=submit]"); await page.waitForTimeout(700);
   const oT = await lastToast();
   // Questions
@@ -5224,7 +5238,7 @@ try {
   const addDlv = async (id) => {
     await fetch(`http://localhost:${PORT}/__reset`);
     await page.click(".dlv-top [data-act=add]"); await page.waitForSelector("#dlv-add");
-    await page.fill("#dlv-add [name=client_name]", id ? "Fenech Ġorġ" : "Borġ Ċensina"); if (id) await page.fill("#dlv-add [name=id_doc_ref]", id);
+    await page.fill("#dlv-add [name=client_name]", id ? "Fenech Ġorġ" : "Borg Ċensina"); if (id) await page.fill("#dlv-add [name=id_doc_ref]", id);
     await page.fill("#dlv-add [name=phone]", "79111222"); await page.fill("#dlv-add [name=delivery_address]", "Triq il-Ħamrun, Żebbuġ");
     const save = await page.evaluate(() => document.querySelector("#dlv-add button[type=submit]").textContent);
     await page.click("#dlv-add button[type=submit]");
@@ -5236,12 +5250,12 @@ try {
   };
   const d0 = await addDlv(""), d1 = await addDlv("7654321m");
   const keys0 = d0.post ? Object.keys(d0.post).sort().join() : "", keys1 = d1.post ? Object.keys(d1.post).filter((k) => k !== "id_doc_ref").sort().join() : "";
-  report("words: Orders 'New order' → 'Save order', Waiting / Done, success 'Saved · order for Borġ Ċensina'",
-    ow.open === "Waiting Done" && ow.save === "Save order" && oT.indexOf("Saved · order for Borġ Ċensina") >= 0, JSON.stringify({ ow, oT }));
+  report("words: Orders 'New order' → 'Save order', Waiting / Done, success 'Saved · order for Borg Ċensina'",
+    ow.open === "Waiting Done" && ow.save === "Save order" && oT.indexOf("Saved · order for Borg Ċensina") >= 0, JSON.stringify({ ow, oT }));
   report("words: Questions 'New question' → 'Save question', filters Waiting / Done (Open is only a button)",
     qw.opener === "New question" && qw.save === "Save question" && JSON.stringify(qw.tabs) === JSON.stringify(["Waiting", "Done"]) && !/^Open/.test(qw.lab), JSON.stringify(qw));
-  report("words: Deliveries 'Save delivery', success 'Saved · delivery for Borġ Ċensina · DEL-…'; no ID card typed = no id_doc_ref in the body; 7654321m typed = id_doc_ref as typed (as the classic stores it) and nothing else changes",
-    d0.save === "Save delivery" && d0.post && !("id_doc_ref" in d0.post) && d1.post && d1.post.id_doc_ref === "7654321m" && keys0 === keys1 && /Saved · delivery for Borġ Ċensina · DEL-\d+/.test(d0.toast),
+  report("words: Deliveries 'Save delivery', success 'Saved · delivery for Borg Ċensina · DEL-…'; no ID card typed = no id_doc_ref in the body; 7654321m typed = id_doc_ref as typed (as the classic stores it) and nothing else changes",
+    d0.save === "Save delivery" && d0.post && !("id_doc_ref" in d0.post) && d1.post && d1.post.id_doc_ref === "7654321m" && keys0 === keys1 && /Saved · delivery for Borg Ċensina · DEL-\d+/.test(d0.toast),
     JSON.stringify({ d0s: d0.save, d0t: d0.toast, d0k: keys0, d1k: keys1, id: d1.post && d1.post.id_doc_ref }));
 } catch (e) { report("words: ran to the end", false, String(e).slice(0, 300)); }
 
@@ -5254,13 +5268,13 @@ try {
   await page.goto(base + "&ui=2#tickets");
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "tktreg" && document.querySelector(".tkt-top [data-act=add]"), null, { timeout: 15000 });
   await page.click(".tkt-top [data-act=add]"); await page.waitForSelector("#tkt-add");
-  await page.fill("#tkt-add [name=client_name]", "Ċachia Marija"); await page.fill("#tkt-add [name=issue]", "Is the repeat ready?");
+  await page.fill("#tkt-add [name=client_name]", "Cachia Marija"); await page.fill("#tkt-add [name=issue]", "Is the repeat ready?");
   await page.click("#tkt-add button[type=submit]"); await page.waitForTimeout(800);
   const tT = await lastToast();
   await page.goto(base + "&ui=2#deliveries");
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "dlvreg" && document.querySelector(".dlv-top [data-act=add]"), null, { timeout: 15000 });
   await page.click(".dlv-top [data-act=add]"); await page.waitForSelector("#dlv-add");
-  await page.fill("#dlv-add [name=client_name]", "Żammit Ġorġ"); await page.fill("#dlv-add [name=phone]", "79111333"); await page.fill("#dlv-add [name=delivery_address]", "Triq il-Kbira, Qormi");
+  await page.fill("#dlv-add [name=client_name]", "Zammit Ġorġ"); await page.fill("#dlv-add [name=phone]", "79111333"); await page.fill("#dlv-add [name=delivery_address]", "Triq il-Kbira, Qormi");
   await page.click("#dlv-add button[type=submit]");
   await page.waitForFunction(() => !document.querySelector("#dlv-add") || document.querySelector("[role=alertdialog]"), null, { timeout: 8000 }).catch(() => {});
   for (let i = 0; i < 3; i++) { const b = await page.$("[role=alertdialog] [data-epc=no], [role=alertdialog] [data-epc=skip], [role=alertdialog] [data-epc=go]"); if (!b) break; await b.click(); await page.waitForTimeout(400); }
@@ -5404,7 +5418,7 @@ try {
   const nxBack = (await sp.textContent(".nex-back")).trim();
   const nxPill = await sp.evaluate(() => [...document.querySelectorAll(".nex-pill")].map((e) => e.textContent));
   await fetch(`http://localhost:${PORT}/__reset`);
-  await sp.click("[data-act=add]"); await sp.fill("#nex-add [name=product_name]", "Ċetirizine 10mg"); await sp.fill("#nex-add [name=expiry_date]", "2027-01-31"); await sp.fill("#nex-add [name=location]", "Shelf Ż4");
+  await sp.click("[data-act=add]"); await sp.fill("#nex-add [name=product_name]", "Cetirizine 10mg"); await sp.fill("#nex-add [name=expiry_date]", "2027-01-31"); await sp.fill("#nex-add [name=location]", "Shelf Ż4");
   await sp.click("#nex-add button[type=submit]"); await sp.waitForTimeout(700);
   const nxAfter = await sp.evaluate(() => { const f = document.querySelector("#nex-add"); return f && { product: f.querySelector("[name=product_name]").value, where: f.querySelector("[name=location]").value, focus: document.activeElement && document.activeElement.name, submit: f.querySelector("[type=submit]").textContent, cancel: f.querySelector("[data-act=add-cancel]").textContent }; });
   const nxPost = (await posts("/near-expiry/entries"))[0];
@@ -5412,7 +5426,7 @@ try {
   const nxEsc = { open: !!(await sp.$("#nex-add")), focus: await focusIs() };
   report("near expiry: the way back is ‹ Stock; pills say “Expired 2 days ago”; after Add the form stays for the next item with Where kept and focus on Product (Save item / Done); the body is as before; Escape closes it and Add has focus",
     nxBack === "‹ Stock" && nxPill.includes("Expired 2 days ago") && nxAfter && nxAfter.product === "" && nxAfter.where === "Shelf Ż4" && nxAfter.focus === "product_name" && nxAfter.submit === "Save item" && nxAfter.cancel === "Done" &&
-    nxPost && JSON.stringify(nxPost.body) === JSON.stringify({ product_name: "Ċetirizine 10mg", expiry_date: "2027-01-31", location: "Shelf Ż4", notes: "" }) && !nxEsc.open && nxEsc.focus === "add",
+    nxPost && JSON.stringify(nxPost.body) === JSON.stringify({ product_name: "Cetirizine 10mg", expiry_date: "2027-01-31", location: "Shelf Ż4", notes: "" }) && !nxEsc.open && nxEsc.focus === "add",
     JSON.stringify({ nxBack, nxPill, nxAfter, nxPost, nxEsc }));
 
   // Send back: the supplier field has focus; an empty one is refused out loud; the next one starts with the last supplier, selected.
@@ -5421,13 +5435,13 @@ try {
   const rbFocus = await focusIs();
   await sp.click("#nex-ret button[type=submit]"); await sp.waitForTimeout(150);
   const rbErr = await sp.evaluate(() => { const e = document.querySelector(".nex-err"); return e ? e.getAttribute("role") + "|" + e.textContent : ""; });
-  await sp.fill("#nex-ret [name=supplier]", "Ħili Pharma"); await sp.click("#nex-ret button[type=submit]"); await sp.waitForTimeout(700);
+  await sp.fill("#nex-ret [name=supplier]", "Hili Pharma"); await sp.click("#nex-ret button[type=submit]"); await sp.waitForTimeout(700);
   await sp.click('[data-act=ret][data-id="2"]'); await sp.waitForTimeout(120);
   const rbNext = await sp.evaluate(() => { const i = document.querySelector("#nex-ret [name=supplier]"); return { v: i.value, sel: i.selectionStart === 0 && i.selectionEnd === i.value.length, focus: document.activeElement === i, opts: [...document.querySelectorAll("#nex-sup option")].map((o) => o.value) }; });
   await sp.keyboard.press("Escape"); await sp.waitForTimeout(150);
   const rbEsc = await focusIs();
   report("near expiry, send back: the supplier field has focus; an empty supplier is announced (role=alert); the next one starts with the last supplier, selected, and it is offered in the list; Escape returns to that row's Send back",
-    rbFocus === "supplier" && /^alert\|Write the supplier/.test(rbErr) && rbNext.v === "Ħili Pharma" && rbNext.sel && rbNext.focus && rbNext.opts[0] === "Ħili Pharma" && rbEsc === "ret:2", JSON.stringify({ rbFocus, rbErr, rbNext, rbEsc }));
+    rbFocus === "supplier" && /^alert\|Write the supplier/.test(rbErr) && rbNext.v === "Hili Pharma" && rbNext.sel && rbNext.focus && rbNext.opts[0] === "Hili Pharma" && rbEsc === "ret:2", JSON.stringify({ rbFocus, rbErr, rbNext, rbEsc }));
 
   // A failed load says so and offers Try again, which loads it.
   let failsLeft = 2; // the app retries a failed read once by itself
@@ -5550,11 +5564,11 @@ try {
   // 4. Ctrl+Enter in the question box saves (one POST); afterwards focus is on a control of the screen, not the page
   const tkBefore = (await fcalls("POST", "/client-tickets/entries")).length;
   await fp.keyboard.press("n"); await fp.waitForSelector("#tkt-add [name=issue]", { timeout: 3000 });
-  await fp.fill("#tkt-add [name=client_name]", "Borġ Ċensina"); await fp.fill("#tkt-add [name=phone]", "79123456"); await fp.fill("#tkt-add [name=issue]", "Can I take ibuprofen?");
+  await fp.fill("#tkt-add [name=client_name]", "Borg Ċensina"); await fp.fill("#tkt-add [name=phone]", "79123456"); await fp.fill("#tkt-add [name=issue]", "Can I take ibuprofen?");
   await fp.focus("#tkt-add [name=issue]"); await fp.keyboard.press("Control+Enter"); await fp.waitForTimeout(1500);
   const tkPosts = (await fcalls("POST", "/client-tickets/entries")).slice(tkBefore);
   const afterTk = await at();
-  report("focus: Ctrl+Enter in a text box saves the form once, with the same body as the Add button; after the save focus is on New question, not the page", tkPosts.length === 1 && tkPosts[0].body.client_name === "Borġ Ċensina" && tkPosts[0].body.issue === "Can I take ibuprofen?" && afterTk !== "BODY" && /New question/.test(afterTk), JSON.stringify({ n: tkPosts.length, body: tkPosts[0] && tkPosts[0].body, afterTk }));
+  report("focus: Ctrl+Enter in a text box saves the form once, with the same body as the Add button; after the save focus is on New question, not the page", tkPosts.length === 1 && tkPosts[0].body.client_name === "Borg Ċensina" && tkPosts[0].body.issue === "Can I take ibuprofen?" && afterTk !== "BODY" && /New question/.test(afterTk), JSON.stringify({ n: tkPosts.length, body: tkPosts[0] && tkPosts[0].body, afterTk }));
 
   // 5. A redraw that removes the focused control: focus goes to the same control redrawn, else the heading; never the page
   await openFrom("customers", "ordreg", ".ord-top");
@@ -5927,10 +5941,10 @@ try {
   const pre = [await bp.inputValue("#trg-add [name=min_limit]"), await bp.inputValue("#trg-add [name=max_limit]")];
   await bp.selectOption("#trg-add [name=device_type]", "room"); const preRoom = [await bp.inputValue("#trg-add [name=min_limit]"), await bp.inputValue("#trg-add [name=max_limit]")];
   await bp.selectOption("#trg-add [name=device_type]", "fridge");
-  await bp.fill("#trg-add [name=name]", "Vaccine fridġ"); await bp.press("#trg-add [name=name]", "Enter"); await bp.press("#trg-add [name=name]", "Enter").catch(() => {}); await bp.waitForTimeout(600);
+  await bp.fill("#trg-add [name=name]", "Friġġ tal-vaċċini"); await bp.press("#trg-add [name=name]", "Enter"); await bp.press("#trg-add [name=name]", "Enter").catch(() => {}); await bp.waitForTimeout(600);
   const w2 = await writes(/temperature\/devices/), f2 = await focusIs(), nameAfter = await bp.inputValue("#trg-add [name=name]");
   report("fridges and rooms: Add starts a fridge at 2 to 8 °C (a room at 15 to 25), sends the classic body once, and leaves the name box ready for the next",
-    pre.join() === "2,8" && preRoom.join() === "15,25" && w2.length === 1 && w2[0] === 'POST /temperature/devices {"name":"Vaccine fridġ","device_type":"fridge","min_limit":2,"max_limit":8}' && f2 === "name" && nameAfter === "" && (await bp.$$('form.trg-dv[data-dv]')).length === 3,
+    pre.join() === "2,8" && preRoom.join() === "15,25" && w2.length === 1 && w2[0] === 'POST /temperature/devices {"name":"Friġġ tal-vaċċini","device_type":"fridge","min_limit":2,"max_limit":8}' && f2 === "name" && nameAfter === "" && (await bp.$$('form.trg-dv[data-dv]')).length === 3,
     JSON.stringify({ pre, preRoom, w2, f2, nameAfter }));
 
   // mistakes: said once under the boxes, the box marked and focused, nothing sent; a failed save keeps what was typed
@@ -5952,7 +5966,7 @@ try {
   await bp.click('[data-k="dv-again:3"]'); await bp.waitForTimeout(500);
   const w4 = await writes(/temperature\/devices/);
   report("fridges and rooms: Stop logging asks once (Escape keeps logging, focus back on it), then {active:false}; Log it again sends {active:true}",
-    askF === "dv-keep" && escF === "dv-stop:3" && offList.join() === "Vaccine fridġ" && w4.join("|") === 'PUT /temperature/devices/3 {"active":false}|PUT /temperature/devices/3 {"active":true}', JSON.stringify({ askF, escF, offList, w4 }));
+    askF === "dv-keep" && escF === "dv-stop:3" && offList.join() === "Friġġ tal-vaċċini" && w4.join("|") === 'PUT /temperature/devices/3 {"active":false}|PUT /temperature/devices/3 {"active":true}', JSON.stringify({ askF, escF, offList, w4 }));
 
   // Escape goes back to the month, onto the button that opened it; Today no longer asks to name them
   await bp.keyboard.press("Escape"); await bp.waitForTimeout(500);
@@ -5973,15 +5987,15 @@ try {
   const s0 = { text: await main(), role: await bp.inputValue("#shf-who [name=designation]") };
   await bp.click("#shf-who [data-k=who-add]"); await bp.waitForTimeout(150);
   const s1 = await bp.evaluate(() => ({ err: (document.querySelector("#shf-who-err") || {}).textContent, focus: document.activeElement.name }));
-  await bp.fill("#shf-who [name=full_name]", "Ġorġ Borġ"); await bp.press("#shf-who [name=full_name]", "Enter"); await bp.waitForTimeout(600);
+  await bp.fill("#shf-who [name=full_name]", "Ġorġ Borg"); await bp.press("#shf-who [name=full_name]", "Enter"); await bp.waitForTimeout(600);
   const s2 = { focus: await focusIs(), role: await bp.inputValue("#shf-who [name=designation]"), said: await bp.evaluate(() => (document.querySelector(".shf-who .ok") || {}).textContent || ""), adds: (await bp.$$('.shf-add[data-act="add"]')).length };
-  await bp.fill("#shf-who [name=full_name]", "Marija Żammit"); await bp.press("#shf-who [name=full_name]", "Enter"); await bp.waitForTimeout(600);
+  await bp.fill("#shf-who [name=full_name]", "Marija Zammit"); await bp.press("#shf-who [name=full_name]", "Enter"); await bp.waitForTimeout(600);
   await bp.click("[data-k=who-done]"); await bp.waitForTimeout(200); const s3 = await focusIs();
   const w5 = await writes(/shifts\/staff/);
   const cls = (b) => '{"full_name":"' + b[0] + '","designation":"' + b[1] + '","employment_type":"fulltime","contracted_hours":40,"email":"","phone":"","registration_number":"","is_active":1,"patterns_json":"{\\"patterns\\":[],\\"provisionalId\\":null}"}';
   report("plan shifts, empty rota: 'Who works here?' in place (no classic), name required, each person sent with the classic Add Employee body; the next defaults to assistant; Done lands on '+ Add a person'",
-    !/classic Shifts screen first/.test(s0.text) && s0.role === "pharmacist" && /Write the person/.test(s1.err || "") && s1.focus === "full_name" && s2.focus === "full_name" && s2.role === "assistant" && /Ġorġ Borġ is on the rota/.test(s2.said) && s2.adds === 7 &&
-    w5.join("|") === "POST /shifts/staff " + cls(["Ġorġ Borġ", "pharmacist"]) + "|POST /shifts/staff " + cls(["Marija Żammit", "assistant"]) && s3 === "who", JSON.stringify({ s0: s0.role, s1, s2, s3, w5 }));
+    !/classic Shifts screen first/.test(s0.text) && s0.role === "pharmacist" && /Write the person/.test(s1.err || "") && s1.focus === "full_name" && s2.focus === "full_name" && s2.role === "assistant" && /Ġorġ Borg is on the rota/.test(s2.said) && s2.adds === 7 &&
+    w5.join("|") === "POST /shifts/staff " + cls(["Ġorġ Borg", "pharmacist"]) + "|POST /shifts/staff " + cls(["Marija Zammit", "assistant"]) && s3 === "who", JSON.stringify({ s0: s0.role, s1, s2, s3, w5 }));
 
   // Emergency POS with no products: import here (the real SheetJS, the classic mapping and upload); Today lists it until then
   await fetch(`http://localhost:${PORT}/__reset`);
@@ -6269,14 +6283,14 @@ try {
 // People suggestions with ċ ġ ħ ż (ui/eikon.personpick.js wire()): the server's LOWER()/LIKE know only A to Z, so a
 // name with them is sent as its longest stretch without them; every typed word is still checked in the browser.
 try {
-  const w = await page.evaluate(() => { const f = window.EIKON.personPickWire; return f ? ["ħabela", "Ħabela", "Ċensina Ħabela", "Ġorġ", "Carmel Zammit", "0012345M", "ċ"].map(f) : null; });
+  const w = await page.evaluate(() => { const f = window.EIKON.personPickWire; return f ? ["żaren", "Żaren", "Ċensina Abela", "Ġorġ", "Carmel Zammit", "0012345M", "ċ"].map(f) : null; });
   await fetch(`http://localhost:${PORT}/__reset`);
   await page.goto(base + "&ui=2#clientorders"); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelector(".ord-top [data-act=add]"), null, { timeout: 15000 });
   await page.click(".ord-top [data-act=add]"); await page.waitForSelector("#ord-add");
-  await page.locator("#ord-add [name=client_name]").pressSequentially("Ħabela", { delay: 20 }); await page.waitForTimeout(600);
+  await page.locator("#ord-add [name=client_name]").pressSequentially("Żaren", { delay: 20 }); await page.waitForTimeout(600);
   const qs = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => c.method === "GET" && c.path === "/people").map((c) => new URLSearchParams(c.query).get("q"));
-  report("people suggestions: a name with ċ ġ ħ ż asks the server for its longest stretch without them (\"Ħabela\" -> \"abela\"); plain names and ID cards are sent as before",
-    JSON.stringify(w) === JSON.stringify(["abela", "abela", "ensina", "or", "Carmel", "12345M", "ċ"]) && qs.includes("abela") && !qs.some((q) => /[ċġħżĊĠĦŻ]/.test(q)), JSON.stringify({ w, qs }));
+  report("people suggestions: a name with ċ ġ ħ ż asks the server for its longest stretch without them (\"Żaren\" -> \"aren\"); plain names and ID cards are sent as before",
+    JSON.stringify(w) === JSON.stringify(["aren", "aren", "ensina", "or", "Carmel", "12345M", "ċ"]) && qs.includes("aren") && !qs.some((q) => /[ċġħżĊĠĦŻ]/.test(q)), JSON.stringify({ w, qs }));
 } catch (e) { report("people suggestions with Maltese letters: ran to the end", false, String(e && e.stack || e).slice(0, 400)); }
 
 // The month bar's printout (ui/eikon.months.js) stamps "printed" in Malta time, whatever the device's clock zone.
@@ -6485,7 +6499,7 @@ try {
     await dp.waitForSelector(btn); await dp.click(btn); await dp.waitForSelector(form);
     const boxes = dp.locator(form + " input[type=text]:visible, " + form + " input:not([type]):visible, " + form + " textarea:visible");
     const n = Math.min(2, await boxes.count());
-    for (let i = 0; i < n; i++) { await boxes.nth(i).click(); await dp.keyboard.type(i ? "Typed Ċġħż " + how[0].toUpperCase() + how.slice(1) : "Żammit Ġorġ " + id[0].toUpperCase() + id.slice(1), { delay: 0 }); } // words capitalised: a name field capitalises as it is left
+    for (let i = 0; i < n; i++) { await boxes.nth(i).click(); await dp.keyboard.type(i ? "Typed Ċġħż " + how[0].toUpperCase() + how.slice(1) : "Zammit Ġorġ " + id[0].toUpperCase() + id.slice(1), { delay: 0 }); } // words capitalised: a name field capitalises as it is left
     const typed = await values(form);
     await LEAVE[how]();
     const left = await dp.evaluate(() => window.EIKON.state.activeModuleId);
@@ -6585,7 +6599,7 @@ try {
   const type = async (form, tag) => {
     const boxes = qp.locator(form + " input[type=text]:visible, " + form + " input:not([type]):visible, " + form + " textarea:visible");
     const n = Math.min(2, await boxes.count());
-    for (let i = 0; i < n; i++) { await boxes.nth(i).click(); await qp.keyboard.type(i ? "Typed Ċġħż " + tag : "Żammit Ġorġ " + tag, { delay: 0 }); }
+    for (let i = 0; i < n; i++) { await boxes.nth(i).click(); await qp.keyboard.type(i ? "Typed Ċġħż " + tag : "Zammit Ġorġ " + tag, { delay: 0 }); }
     await qp.evaluate(() => document.activeElement && document.activeElement.blur && document.activeElement.blur());
     return n;
   };
@@ -6674,7 +6688,7 @@ try {
   await qp.goto(base); await qp.evaluate(() => { localStorage.setItem("eikon_token", "x"); localStorage.setItem("eikon_active_role", "pharmacy"); localStorage.setItem("eikon_ui2", "1"); localStorage.removeItem("eikon_dbg"); });
   await qp.goto(base + "&ui=2#tickets");
   await qp.waitForFunction(() => window.EIKON && window.EIKON._booted && window.EIKON.state.activeModuleId === "tktreg" && document.querySelector("[data-act=add]"), null, { timeout: 15000 });
-  await qp.click("[data-act=add]"); await qp.fill("#tkt-add [name=client_name]", "Ċassar Ryan"); await qp.focus("#tkt-add [name=issue]"); await qp.keyboard.type("Wants");
+  await qp.click("[data-act=add]"); await qp.fill("#tkt-add [name=client_name]", "Cassar Ryan"); await qp.focus("#tkt-add [name=issue]"); await qp.keyboard.type("Wants");
   await fetch(`http://localhost:${PORT}/__reset`);
   await qp.evaluate(() => { setTimeout(() => { throw new Error("Bar test boom"); }, 0); }); await qp.waitForTimeout(500);
   const a1 = await qp.evaluate(() => { const b = document.getElementById("eikon-error-bar"); return { overlay: !!document.getElementById("eikon-fatal-overlay"), role: b && b.getAttribute("role"), text: b && b.innerText.replace(/\s+/g, " ").trim(), focus: document.activeElement && document.activeElement.name,
@@ -6692,7 +6706,7 @@ try {
   await qp.evaluate(() => { Promise.reject(new Error("Rejected after boot")); }); await qp.waitForTimeout(300);
   a1.rejection = await qp.evaluate(() => { const b = document.getElementById("eikon-error-bar"); const r = !!b && !document.getElementById("eikon-fatal-overlay"); if (b) b.remove(); return r; });
   report("q5-1 after boot: an error is a closable bar (role=alert, plain words, Reload this screen / Close), the screen, the form, the typing and the focus are kept; Escape/Close put it away with focus back; the same error does not reopen it, another does; reported once each",
-    !a1.overlay && a1.role === "alert" && a1.text === "Something went wrong on this screen. What you typed is kept. Reload this screen Close" && a1.focus === "issue" && a1.kept === "Ċassar Ryan|Wants" && a1.z === "fixed" &&
+    !a1.overlay && a1.role === "alert" && a1.text === "Something went wrong on this screen. What you typed is kept. Reload this screen Close" && a1.focus === "issue" && a1.kept === "Cassar Ryan|Wants" && a1.z === "fixed" &&
     a1.typed === "Wants Ozempic" && !a1.afterClose.bar && a1.afterClose.focus === "issue" && !a1.sameAgain && a1.other && a1.clicked && a1.rejection &&
     a1.logs.length === 2 && /^error:.*Bar test boom/.test(a1.logs[0]) && /^error:.*Another fault/.test(a1.logs[1]), JSON.stringify(a1).slice(0, 900));
   // while starting: the blocking notice, plain words; dbg=2 keeps the developer one at any time
@@ -6753,7 +6767,7 @@ try {
 // and the red rail badge readable on the lit Customers tab.
 try {
   const dQ = (n) => maltaYmd(n);
-  const many = Array.from({ length: 75 }, (_, i) => ({ id: 400 + i, order_date: dQ(0), client_name: (i === 70 ? "Żammit Ċensina" : "Borg Paul ") + i, client_phone: "7911" + String(i).padStart(4, "0"), items_text: "Item " + i, priority: 2, needed_by: dQ(i - 80), fulfilled: 0 }));
+  const many = Array.from({ length: 75 }, (_, i) => ({ id: 400 + i, order_date: dQ(0), client_name: (i === 70 ? "Zammit Ċensina" : "Borg Paul ") + i, client_phone: "7911" + String(i).padStart(4, "0"), items_text: "Item " + i, priority: 2, needed_by: dQ(i - 80), fulfilled: 0 }));
   await page.route("**/client-orders/entries?*", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, entries: (() => { const sp = new URL(r.request().url()).searchParams; return sp.get("from") || sp.get("month") === dQ(0).slice(0, 7) ? many : []; })() }) }));
   await page.goto(base + "&ui=2#customers"); await page.goto(base + "&ui=2#clientorders");
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "ordreg" && document.querySelectorAll(".ord-row").length >= 30, null, { timeout: 15000 });
@@ -6765,7 +6779,7 @@ try {
   const p1 = await lst(); const f1 = await page.evaluate(() => { const a = document.activeElement, all = [...document.querySelectorAll(".ord-row [data-act=open]")]; return all.indexOf(a); });
   await page.click("[data-act=q58-more]"); await page.waitForTimeout(250); const p2 = await lst();
   page.off("request", onReq);
-  await page.fill("#ord-q", "Żammit"); await page.waitForTimeout(200); const pq = await lst();
+  await page.fill("#ord-q", "Zammit"); await page.waitForTimeout(200); const pq = await lst();
   await page.fill("#ord-q", ""); await page.waitForTimeout(200); const pc = await lst();
   // a row asked for by id (item 5's "open by id", or a row just saved) is drawn even when it is past the first 30
   const rev = await page.evaluate(() => { window.EIKON.listPage.reveal("ord", 470); const q = document.querySelector("#ord-q"); q.dispatchEvent(new Event("input", { bubbles: true })); return { has: !!document.querySelector('.ord-row [data-act=open][data-id="470"]'), rows: document.querySelectorAll(".ord-row").length }; });
@@ -6883,7 +6897,7 @@ try {
     JSON.stringify({ lerr, lp }));
 
   // The helpers
-  const u = await page.evaluate(() => { const T = window.EIKON.tell; return [T.firstName("Zammit Carmel"), T.firstName("Maria Borg"), T.firstName("Ċassar Ryan"), T.firstName("Borg Vella"), T.intl("7912 3456"), T.intl("+44 7700 900123"), T.intl("0035699123456"), T.intl("123"), T.isMobile("21234567"), T.isMobile("99123456"), T.smsLink("79123456", "a b&c")].join("|"); });
+  const u = await page.evaluate(() => { const T = window.EIKON.tell; return [T.firstName("Zammit Carmel"), T.firstName("Maria Borg"), T.firstName("Cassar Ryan"), T.firstName("Borg Vella"), T.intl("7912 3456"), T.intl("+44 7700 900123"), T.intl("0035699123456"), T.intl("123"), T.isMobile("21234567"), T.isMobile("99123456"), T.smsLink("79123456", "a b&c")].join("|"); });
   report("d-cust Tell helpers: the greeting name (a Maltese surname first is passed over), Maltese numbers get 356, the SMS link works on Android and iPhone",
     u === "Carmel|Maria|Ryan|Borg|35679123456|447700900123|35699123456||false|true|sms:+35679123456?&body=a%20b%26c", u);
   peopleState.adopted = was;
@@ -6913,7 +6927,7 @@ try {
   globalThis.__stk = { open: [
     { id: 201, order_date: dm3, first_date: dm3, item_name: "Nexium 20mg", qty: 1, supplier: "GSK", status: "pending", notes: "", links: [], ordered_at: null },
     { id: 204, order_date: d0, first_date: d0, item_name: "Nexium 20mg", qty: 2, supplier: "GSK", status: "not_received", notes: "", links: [], ordered_at: null },
-    { id: 202, order_date: d0, first_date: d0, item_name: "Ċetirizine 10mg", qty: 1, supplier: "Actavis", status: "pending", notes: "", links: [], ordered_at: "2026-11-04 08:00:00", ordered_by_name: "Maria Borg" }],
+    { id: 202, order_date: d0, first_date: d0, item_name: "Cetirizine 10mg", qty: 1, supplier: "Actavis", status: "pending", notes: "", links: [], ordered_at: "2026-11-04 08:00:00", ordered_by_name: "Maria Borg" }],
     received: [{ id: 203, order_date: maltaYmd(-1), first_date: maltaYmd(-1), item_name: "Augmentin 625 x14", qty: 1, supplier: "Actavis", status: "received", notes: "", links: [{ source: "order", source_id: 51 }], updated_at: d0 + " 08:00:00" }] };
   await page.evaluate(() => window.EIKON.stockFlow.reload()); await page.waitForTimeout(500);
   const f1 = await page.evaluate(() => ({ seg: [...document.querySelectorAll(".stk-seg button")].map((b) => b.textContent), text: document.querySelector("#stk-slot").innerText, tell: !!document.querySelector('.stk-tell [data-act=ready][data-oid="51"]') }));
@@ -6972,7 +6986,7 @@ try {
   await page.waitForFunction(() => window.EIKON.state.activeModuleId === "shfreg" && window.EIKON.rotaSet && window.EIKON.rotaCheck, null, { timeout: 15000 });
   const rc = await page.evaluate(async () => {
     const E = window.EIKON, out = {};
-    const staff = [{ id: 1, full_name: "Maria Borg", designation: "pharmacist", contracted_hours: 40 }, { id: 2, full_name: "Joe Vella", designation: "pharmacist", contracted_hours: 30 }, { id: 3, full_name: "Karl Ċamilleri", designation: "assistant", contracted_hours: 40 }, { id: 4, full_name: "Rita Żammit", designation: "assistant", contracted_hours: 20 }, { id: 5, full_name: "Lara Ħili", designation: "assistant", contracted_hours: 40 }];
+    const staff = [{ id: 1, full_name: "Maria Borg", designation: "pharmacist", contracted_hours: 40 }, { id: 2, full_name: "Joe Vella", designation: "pharmacist", contracted_hours: 30 }, { id: 3, full_name: "Karl Camilleri", designation: "assistant", contracted_hours: 40 }, { id: 4, full_name: "Rita Zammit", designation: "assistant", contracted_hours: 20 }, { id: 5, full_name: "Lara Hili", designation: "assistant", contracted_hours: 40 }];
     let n = 0; const S = (id, d, s, e, x) => Object.assign({ id: ++n, staff_id: id, shift_date: d, start_time: s, end_time: e }, x || {});
     const shifts = [S(1, "2026-11-16", "07:30", "13:30"), S(2, "2026-11-16", "13:00", "19:30"), S(1, "2026-11-17", "07:30", "13:30"), S(1, "2026-11-18", "07:30", "19:30"), S(2, "2026-11-18", "10:00", "12:00"),
       S(4, "2026-11-19", "08:00", "14:00"), S(1, "2026-11-19", "07:30", "19:30"), ...["16", "17", "18", "19", "20"].map((d) => S(3, "2026-11-" + d, "07:00", "19:30")),
@@ -7022,19 +7036,19 @@ try {
   // the sheets: open, Escape closes, focus returns, typing kept
   const sh = await page.evaluate(async () => {
     const E = window.EIKON, keep = E.apiFetch, out = [];
-    E.apiFetch = async (p) => /settings/.test(p) ? { ok: true, settings: { pharmacistRequired: true, minPharmacists: 1 } } : /opening-hours/.test(p) ? { ok: true, hours: { default: { open: "07:30", close: "19:30", closed: false }, openSaturday: true, openSunday: false, overrides: {} } } : /leaves/.test(p) ? { ok: true, leaves: [] } : /staff/.test(p) ? { ok: true, staff: [{ id: 3, full_name: "Karl Ċamilleri", designation: "assistant", contracted_hours: 40, is_active: 1 }] } : { ok: true };
+    E.apiFetch = async (p) => /settings/.test(p) ? { ok: true, settings: { pharmacistRequired: true, minPharmacists: 1 } } : /opening-hours/.test(p) ? { ok: true, hours: { default: { open: "07:30", close: "19:30", closed: false }, openSaturday: true, openSunday: false, overrides: {} } } : /leaves/.test(p) ? { ok: true, leaves: [] } : /staff/.test(p) ? { ok: true, staff: [{ id: 3, full_name: "Karl Camilleri", designation: "assistant", contracted_hours: 40, is_active: 1 }] } : { ok: true };
     E.rotaRules && E.rotaRules(true);
     const wait = (sel) => new Promise((ok) => { let i = 0; const t = setInterval(() => { if (document.querySelector(sel) || ++i > 60) { clearInterval(t); ok(!!document.querySelector(sel)); } }, 50); });
     const btn = document.querySelector("#eikon-content button"); btn.focus();
     try {
-      for (const [k, a, sel] of [["hours", null, ".rps [data-f=week]"], ["rules", null, ".rps [data-f=rules]"], ["availability", { id: 3, full_name: "Karl Ċamilleri" }, ".rps [data-f=avail]"], ["leave", { id: 3, full_name: "Karl Ċamilleri", designation: "assistant", contracted_hours: 40 }, ".rps-bal"], ["details", { id: 3, full_name: "Karl Ċamilleri", designation: "assistant", contracted_hours: 40, is_active: 1 }, ".rps [data-f=person]"], ["hours", null, ".rps [data-f=week]"]]) {
+      for (const [k, a, sel] of [["hours", null, ".rps [data-f=week]"], ["rules", null, ".rps [data-f=rules]"], ["availability", { id: 3, full_name: "Karl Camilleri" }, ".rps [data-f=avail]"], ["leave", { id: 3, full_name: "Karl Camilleri", designation: "assistant", contracted_hours: 40 }, ".rps-bal"], ["details", { id: 3, full_name: "Karl Camilleri", designation: "assistant", contracted_hours: 40, is_active: 1 }, ".rps [data-f=person]"], ["hours", null, ".rps [data-f=week]"]]) {
         E.rotaSet.open(k, a); const ok = await wait(sel);
         const dlg = document.querySelector(".rps-ov [role=dialog]"), title = document.querySelector("#rps-h").textContent;
         if (k === "details") { const f = document.querySelector(".rps [name=phone]"); f.value = "79 111 222"; }
         document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
         out.push({ k, ok, modal: dlg && dlg.getAttribute("aria-modal"), title, gone: !document.querySelector(".rps-ov"), back: document.activeElement === btn });
       }
-      E.rotaSet.open("details", { id: 3, full_name: "Karl Ċamilleri", designation: "assistant", contracted_hours: 40, is_active: 1 }); await wait(".rps [data-f=person]"); await new Promise((ok) => setTimeout(ok, 50));
+      E.rotaSet.open("details", { id: 3, full_name: "Karl Camilleri", designation: "assistant", contracted_hours: 40, is_active: 1 }); await wait(".rps [data-f=person]"); await new Promise((ok) => setTimeout(ok, 50));
       out.push({ kept: document.querySelector(".rps [name=phone]").value });
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     } finally { E.apiFetch = keep; }
@@ -7076,5 +7090,7 @@ for (const f of ["modules.ddasales.js", "modules.ddapoyc.js"]) {
   report("source: " + f + " escapeHtml produces entities", !bad && good);
 }
 
+{ const uniq = [...new Set(CSPV)];
+  report("csp: no Content-Security-Policy violation on any page of the suite (" + (process.env.CSP_ENFORCE ? "enforced" : "report-only") + " policy from the worker): " + CSPV.length, CSPV.length === 0, uniq.slice(0, 20).join("\n       ")); }
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

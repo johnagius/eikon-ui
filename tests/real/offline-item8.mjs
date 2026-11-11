@@ -91,8 +91,8 @@ ok("late commit: retry finds it, one row", (await ordersNamed("Late Commit")) ==
 // 7b. the shared path without E.landedOk (any rebuilt create): Cleaning, through E.apiFetch on the screen
 await p.getByRole("button", { name: "Not now" }).tap().catch(() => {});
 await p.evaluate(() => location.hash = "#cleanreg"); await p.waitForTimeout(2000);
-const cbody = { entry_date: new Date().toISOString().slice(0, 10), time_in: "09:00", time_out: "09:30", cleaner_name: "Ċensu Żammit", staff_name: "Maria", notes: "" };
-const cleans = async () => ((await api("/cleaning/entries?month=" + month)).entries || []).filter((e) => e.cleaner_name === "Ċensu Żammit").length;
+const cbody = { entry_date: new Date().toISOString().slice(0, 10), time_in: "09:00", time_out: "09:30", cleaner_name: "Ċensu Zammit", staff_name: "Maria", notes: "" };
+const cleans = async () => ((await api("/cleaning/entries?month=" + month)).entries || []).filter((e) => e.cleaner_name === "Ċensu Zammit").length;
 await p.route("**/cleaning/entries", async (r) => { if (r.request().method() !== "POST") return r.continue(); await r.fetch(); await r.abort("connectionreset"); }, { times: 1 });
 const g1 = await p.evaluate(async (bd) => { const E = window.EIKON; try { await E.apiFetch("/cleaning/entries", { method: "POST", body: JSON.stringify(bd) }); return "ok"; } catch (x) { return E.saveFailText(x); } }, cbody);
 const g2 = await p.evaluate(async (bd) => { const E = window.EIKON; try { await E.apiFetch("/cleaning/entries", { method: "POST", body: JSON.stringify(bd) }); return "ok"; } catch (x) { return E.saveFailText(x); } }, cbody);

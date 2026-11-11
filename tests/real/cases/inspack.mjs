@@ -32,8 +32,8 @@ export default {
       if (fridge && MISS.includes(d)) continue;
       await api("POST", "/temperature/entries", { device_id: dv.id, entry_date: d, min_temp: fridge ? 3 : 19, max_temp: fridge ? (d === L + "-12" ? 9.5 : 6) : 22, notes: "" });
     }
-    for (const d of days) if (new Date(d + "T12:00:00Z").getUTCDay() === 3) await api("POST", "/cleaning/entries", { entry_date: d, time_in: "08:00", time_out: "08:40", cleaner_name: "Karl Ħili", staff_name: "Rita", notes: "" });
-    for (const d of days) if (!NOPHARM.includes(d)) await api("POST", "/locumregister/entries", { entry_date: d, time_in: "08:00", time_out: "19:00", locum_full_name: d < L + "-10" ? "Pharm. Daniela Spiteri" : "Pharm. Ġorġ Żammit", registration_number: d < L + "-10" ? "PH 1234" : "PH 2001" });
+    for (const d of days) if (new Date(d + "T12:00:00Z").getUTCDay() === 3) await api("POST", "/cleaning/entries", { entry_date: d, time_in: "08:00", time_out: "08:40", cleaner_name: "Karl Hili", staff_name: "Rita", notes: "" });
+    for (const d of days) if (!NOPHARM.includes(d)) await api("POST", "/locumregister/entries", { entry_date: d, time_in: "08:00", time_out: "19:00", locum_full_name: d < L + "-10" ? "Pharm. Daniela Spiteri" : "Pharm. Ġorġ Zammit", registration_number: d < L + "-10" ? "PH 1234" : "PH 2001" });
     for (const d of days.filter((x, i) => i % 4 === 0)) await api("POST", "/daily-register/entries", { entry_date: d, client_name: "Borg John", client_id: "123456M", medicine_name_dose: "Amoxil 500mg", posology: "1 tds", prescriber_name: "Dr Abela", prescriber_reg_no: "4321" });
     for (const ym of [M2, L]) {
       await api("POST", "/dda-purchases/entries", { entry_date: ym + "-04", dda_name_dose: "Morphine 10mg/ml amp", quantity: 10, agent: "Medicare Ltd", invoice_number: "INV-" + ym });
@@ -92,7 +92,7 @@ export default {
 
     // cover
     t.ok(html.includes("Spiżerija Pack Pharmacy") && html.includes("12 Triq il-Merkanti, Il-Belt Valletta") && html.includes("2122 3344"), "cover: the pharmacy, its address and phone");
-    t.ok(html.includes("<td>Pharm. Daniela Spiteri</td><td>PH 1234</td>") && html.includes("<td>Pharm. Ġorġ Żammit</td><td>PH 2001</td>"), "cover: every pharmacist in charge in these days");
+    t.ok(html.includes("<td>Pharm. Daniela Spiteri</td><td>PH 1234</td>") && html.includes("<td>Pharm. Ġorġ Zammit</td><td>PH 2001</td>"), "cover: every pharmacist in charge in these days");
     t.ok(html.includes("by Rita Camilleri"), "cover: who prepared it");
     // contents: every register with ✓ or the gap
     const C = await p.evaluate(() => window.EIKON.inspack.last.contents.map((c) => c.id + ":" + c.mark).join());

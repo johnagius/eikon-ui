@@ -27,7 +27,7 @@ export default {
     // ago, no pharmacist today, a controlled drug supplied last month with no stock-take, a certificate expired.
     const devB = (await bad.api("GET", "/temperature/devices")).devices, fridgeB = devB.find((d) => d.device_type === "fridge") || devB[0];
     await bad.api("POST", "/temperature/entries", { device_id: fridgeB.id, entry_date: today, min_temp: 3, max_temp: 9.5, notes: "" });
-    await bad.api("POST", "/cleaning/entries", { entry_date: add(today, -9), time_in: "08:00", time_out: "08:30", cleaner_name: "Ġanni Żammit", staff_name: "Rita", notes: "" });
+    await bad.api("POST", "/cleaning/entries", { entry_date: add(today, -9), time_in: "08:00", time_out: "08:30", cleaner_name: "Ġanni Zammit", staff_name: "Rita", notes: "" });
     await bad.api("POST", "/dda-sales/entries", { entry_date: lastYm + "-10", client_name: "Zammit Carmel", client_id_card: "0012345M", client_address: "1 Triq il-Knisja", medicine_name_dose: "Morphine 10mg/ml", quantity: 2, doctor_name: "Dr Abela", doctor_reg_no: "R1201", prescription_serial_no: "S9001" });
     const certsB = (await bad.api("GET", "/certificates/items")).items, certB = certsB.find((c) => c.item_key === "thermometer_calibration") || certsB[0];
     await bad.api("PUT", "/certificates/items/" + certB.id, { last_date: add(today, -400), interval_months: 12, certified_person: certB.requires_person ? "Rita Camilleri" : undefined });
@@ -72,7 +72,7 @@ export default {
     t.ok(marks.every((n) => n === 0), "one status marker per row, no chip beside it (H5)");
     const red = await B.p.evaluate(() => { const r = document.querySelector('[data-rgt="cd"] .rgt-t > span'); return { all: getComputedStyle(r).color, hot: (r.querySelector(".rgt-hot") || {}).textContent || "" }; });
     t.ok(red.hot === "was not counted" && !/^rgb\(2[01]\d, 3\d, 2\d\)$/.test(red.all), "only the key words coloured (H6): " + JSON.stringify(red));
-    t.ok(by("clean").cls === "overdue" && /last done 9 days ago/.test(by("clean").text) && /Ġanni Żammit/.test(by("clean").text), "cleaning overdue, with the name as typed: " + JSON.stringify(by("clean")));
+    t.ok(by("clean").cls === "overdue" && /last done 9 days ago/.test(by("clean").text) && /Ġanni Zammit/.test(by("clean").text), "cleaning overdue, with the name as typed: " + JSON.stringify(by("clean")));
     t.ok(by("locum").cls === "todo" && by("locum").btn === "Sign in", "no pharmacist in charge: " + JSON.stringify(by("locum")));
     const early = Number(today.slice(8)) <= 7;
     t.ok(by("cd").cls === (early ? "todo" : "overdue") && by("cd").text.indexOf(lastName) === 0, "stock take for " + lastName + ": " + JSON.stringify(by("cd")));

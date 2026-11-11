@@ -20,16 +20,16 @@ export default {
     await p.getByRole("button", { name: "Devices", exact: true }).click();
     await p.waitForSelector("input[placeholder^='Device name']");
     let m = t.maxId(D);
-    await p.fill("input[placeholder^='Device name']", "Vaccine fridġ ħ");
+    await p.fill("input[placeholder^='Device name']", "Friġġ il-kbir");
     await p.locator(".eikon-card select.eikon-select").first().selectOption("fridge");
     await p.fill("input[placeholder='Min limit (optional)']", "2"); await p.fill("input[placeholder='Max limit (optional)']", "8");
     await t.write(p, /\/temperature\/devices$/, () => p.getByRole("button", { name: "Add device" }).click());
     for (let i = 0; i < 50 && !sinceL(D, m).length; i++) await p.waitForTimeout(100);
     const cAdd = sinceL(D, m)[0];
     await p.waitForTimeout(600);
-    const idx = await p.evaluate(() => [...document.querySelectorAll("tbody tr")].findIndex((tr) => (tr.querySelector("input") || {}).value === "Vaccine fridġ ħ"));
+    const idx = await p.evaluate(() => [...document.querySelectorAll("tbody tr")].findIndex((tr) => (tr.querySelector("input") || {}).value === "Friġġ il-kbir"));
     const row = p.locator("tbody tr").nth(idx);
-    await row.locator("input").nth(0).fill("Vaccine fridġ ż"); await row.locator("input").nth(1).fill("2.5"); await row.locator("input").nth(2).fill("7.5");
+    await row.locator("input").nth(0).fill("Friġġ iż-żgħir"); await row.locator("input").nth(1).fill("2.5"); await row.locator("input").nth(2).fill("7.5");
     await t.write(p, /\/temperature\/devices\/\d+$/, () => row.getByRole("button", { name: "Save" }).click(), "PUT");
     const classicDev = cAdd && t.row(D, cAdd.id);
     t.ok(cAdd && cAdd.min_limit === 2 && cAdd.max_limit === 8, "classic: device added with 2 to 8");
@@ -37,7 +37,7 @@ export default {
     m = t.maxId(D);
     await t.open(p, "2", "temperature", "tempreg", "[data-k=devices]");
     await p.click("[data-k=devices]"); await p.waitForSelector("#trg-add [name=name]");
-    await p.fill("#trg-add [name=name]", "Vaccine fridġ ħ"); // a fridge is chosen, 2 to 8 filled in
+    await p.fill("#trg-add [name=name]", "Friġġ il-kbir"); // a fridge is chosen, 2 to 8 filled in
     t.ok(await p.inputValue("#trg-add [name=min_limit]") === "2" && await p.inputValue("#trg-add [name=max_limit]") === "8", "new: a fridge starts at 2 to 8");
     await t.write(p, /\/temperature\/devices$/, () => p.click("[data-k=dv-add]"));
     for (let i = 0; i < 50 && !sinceL(D, m).length; i++) await p.waitForTimeout(100);
@@ -45,7 +45,7 @@ export default {
     t.same("device (add)", cAdd, nAdd);
     if (nAdd) {
       const f = `form.trg-dv[data-dv="${nAdd.id}"]`; await p.waitForSelector(f);
-      await t.fill(p, "", { [f + " [name=name]"]: "Vaccine fridġ ż", [f + " [name=min_limit]"]: "2,5", [f + " [name=max_limit]"]: "7.5" });
+      await t.fill(p, "", { [f + " [name=name]"]: "Friġġ iż-żgħir", [f + " [name=min_limit]"]: "2,5", [f + " [name=max_limit]"]: "7.5" });
       await t.write(p, /\/temperature\/devices\/\d+$/, () => p.click(`[data-k="dv-save:${nAdd.id}"]`), "PUT");
       t.same("device (rename and limits)", classicDev, t.row(D, nAdd.id));
       t.db.prepare(`DELETE FROM ${D} WHERE id = ?`).run(nAdd.id);
@@ -56,7 +56,7 @@ export default {
     await t.open(p, "classic", "shifts", "shifts");
     await p.getByRole("button", { name: /Staff/ }).first().click(); await p.waitForSelector("#sh-add-emp");
     m = t.maxId(ST);
-    await p.click("#sh-add-emp"); await p.fill("#se-name", "Ġużeppa Żammit"); await p.selectOption("#se-desig", "dispenser");
+    await p.click("#sh-add-emp"); await p.fill("#se-name", "Ġużeppa Zammit"); await p.selectOption("#se-desig", "dispenser");
     await t.write(p, /\/shifts\/staff$/, () => p.getByRole("button", { name: "Add Employee" }).last().click());
     for (let i = 0; i < 50 && !t.since(ST, m).length; i++) await p.waitForTimeout(100);
     const cSt = t.since(ST, m)[0];
@@ -64,7 +64,7 @@ export default {
     m = t.maxId(ST);
     await t.open(p, "2", "shifts", "shfreg", "[data-k=who], #shf-who");
     if (await p.$("[data-k=who]")) await p.click("[data-k=who]");
-    await p.fill("#shf-who [name=full_name]", "Ġużeppa Żammit"); await p.selectOption("#shf-who [name=designation]", "dispenser");
+    await p.fill("#shf-who [name=full_name]", "Ġużeppa Zammit"); await p.selectOption("#shf-who [name=designation]", "dispenser");
     await t.write(p, /\/shifts\/staff$/, () => p.click("#shf-who [data-k=who-add]"));
     for (let i = 0; i < 50 && !t.since(ST, m).length; i++) await p.waitForTimeout(100);
     t.same("rota person", cSt, t.since(ST, m)[0]);

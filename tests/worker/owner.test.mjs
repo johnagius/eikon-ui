@@ -42,7 +42,7 @@ async function world(app) {
     cash: { n500: 1, n200: 1, n50: 1, coins_total: "30.25" }, notes: "" } });
   await must("PUT", "/endofday/record", T.A, { record: { eod_date: D2, time_of_day: "PM", staff_name: "Maria", float_amount: 500, x: [{ amount: "777.77", remark: "" }], epos: [], cheques: [], paid_outs: [], cash: { n500: 2, n200: 1, n50: 1, n20: 1, n5: 1, coins_total: "2.77" }, notes: "" } });
   await must("POST", "/paid-out/entries", T.A, { entry_date: D1, entry_time: "10:00", payee_name: "Courier Ltd", fee: 20.25, payment_method: "cash", invoice_no: "", cheque_no: "", reason: "" });
-  const cn = await must("POST", "/creditnotes/entries", T.A, { issue_date: D1, client_name: "Ġużeppi", client_surname: "Żammit", telephone: "79000001", amount: 40, no_expiry: 1 });
+  const cn = await must("POST", "/creditnotes/entries", T.A, { issue_date: D1, client_name: "Ġużeppi", client_surname: "Zammit", telephone: "79000001", amount: 40, no_expiry: 1 });
   await must("POST", `/creditnotes/entries/${cn.id}/purchases`, T.A, { amount: 15, receipt_number: "R1" });
   await must("POST", "/locumreceipts/receipts", T.A, { receipt_date: D1, hours: 4, locum_full_name: "Dr Locum", registration_number: "R-9", fee_per_hour: 20, total_fee: 80, day_type: "normal" }, { "X-Eikon-Edit-Pass": "!4321" });
   await must("POST", "/dda-sales/entries", T.A, { entry_date: D1, client_name: "Patient Secret", client_id_card: "777777M", client_address: "1 Triq Sigriet", medicine_name_dose: "Morphine 10mg", quantity: 3, doctor_name: "Dr A", doctor_reg_no: "12", prescription_serial_no: "S1" });
@@ -124,11 +124,11 @@ test("owner: a group's head office sees each of its pharmacies and the group com
   const rec = await api("GET", "/owner/records" + Q + "&loc=1&kinds=dda_supplied,orders,credit_notes,eod", { token: T.ho });
   eq(rec.status, 200); eq(rec.json.patient_details, false);
   eq(rec.json.records.dda_supplied.map((x) => [x.medicine_name_dose, x.quantity, x.client_name, x.client_id_card, x.client_address]), [["Morphine 10mg", 3, "", "", ""], ["Morphine 10mg", 2, "", "", ""]]);
-  ok(!rec.text.includes("Patient Secret") && !rec.text.includes("777777M") && !rec.text.includes("Order Secret") && !rec.text.includes("Żammit"), "no names, ID cards or phones");
+  ok(!rec.text.includes("Patient Secret") && !rec.text.includes("777777M") && !rec.text.includes("Order Secret") && !rec.text.includes("Zammit"), "no names, ID cards or phones");
   eq(rec.json.records.eod.length, 2);
   // The pharmacy's own admin sees the lines in full (it is their register).
   const own = await api("GET", "/owner/records" + Q + "&kinds=dda_supplied,credit_notes", { token: T.A });
-  eq(own.json.patient_details, true); ok(own.text.includes("Patient Secret") && own.text.includes("Żammit"));
+  eq(own.json.patient_details, true); ok(own.text.includes("Patient Secret") && own.text.includes("Zammit"));
   eq(own.json.records.credit_notes[0].used, 15);
   eq((await api("GET", "/owner/records" + Q + "&kinds=everything", { token: T.A })).status, 400, "an unknown kind is refused");
   eq((await api("GET", "/owner/summary?from=2026-01-01&to=2028-01-01", { token: T.A })).status, 400, "at most 400 days");

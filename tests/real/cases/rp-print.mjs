@@ -59,7 +59,7 @@ export default {
     t.ok(H.includes("Pharmacist on duty") && H.includes("No pharmacist 14:00–19:30"), "pharmacist-on-duty row names the Tuesday gap");
     t.ok(/Rita Camilleri[\s\S]*Annual leave/.test(H) && /class="t x">11:30–19:30<\/span><span class="n ol">\(on leave\)/.test(H), "Rita: 'Annual leave' and her shift that day struck '(on leave)'");
     t.ok(/09:00–17:00<\/span><span class="n">\(acts as pharmacist\)/.test(H), "role_override: '(acts as pharmacist)'");
-    t.ok(H.includes("Marija Ċassar") && /Pharmacist · \d+(\.\d)? h of 40 h/.test(H), "people with role and hours of contract");
+    t.ok(H.includes("Marija Cassar") && /Pharmacist · \d+(\.\d)? h of 40 h/.test(H), "people with role and hours of contract");
     t.ok(/Sun \d+ [A-Z][a-z]{2}<\/b><small>Closed/.test(H), "Sunday closed in its heading");
     if (w) { await w.waitForLoadState().catch(() => {}); const body = await w.evaluate(() => document.body.innerText).catch(() => ""); t.ok(/Pharmacist on duty/.test(body), "the tab shows the printed rota"); await w.close().catch(() => {}); }
 

@@ -59,15 +59,15 @@ for (const [e] of users) T[e[0].toUpperCase() === "H" ? "HO" : e[0].toUpperCase(
 ok(Object.values(T).every(Boolean) && Object.keys(T).length === 6, "old worker: six pharmacies signed in (A, B, HO of Chain One; X, Y of Chain Two; L alone)");
 
 const seed = async (tok, m, p, body) => { const r = await api(m, p, { token: tok, body }); if (r.status >= 400) out("     seed refused: " + m + " " + p + " " + r.status + " " + r.text.slice(0, 120)); return r; };
-for (const n of ["Ċachia Marija", "Żammit Ġorġ", "Ħaġġar Pawlu", "Buħaġiar Rita", "Borg Anna", "Vella Joseph", "Grech Ċensina"]) await seed(T.A, "POST", "/people", { name: n, phone: "79" + String(Math.floor(Math.random() * 1e6)).padStart(6, "0") });
+for (const n of ["Cachia Ċettina", "Zammit Ġorġ", "Agius Żaren", "Buhagiar Rita (Ħamrun)", "Borg Anna", "Vella Joseph", "Grech Ċensina"]) await seed(T.A, "POST", "/people", { name: n, phone: "79" + String(Math.floor(Math.random() * 1e6)).padStart(6, "0") });
 await api("GET", "/people?q=x", { token: T.A });
-sql("INSERT INTO people (org_id, location_id, name) VALUES (1, 1, 'ċaruana ħelen')"); // an older row never re-cased
+sql("INSERT INTO people (org_id, location_id, name) VALUES (1, 1, 'caruana ġużeppa')"); // an older row never re-cased
 // Questions and deliveries as older devices left them: TKT-00001 twice (two devices), DEL-00001 twice
-for (const [tok, id, who] of [[T.A, "TKT-00001", "Ċachia Ġużeppi"], [T.A, "TKT-00001", "Żammit Ġorġ"], [T.A, "TKT-00003", "Borg Anna"], [T.B, "TKT-00001", "Vella Joseph"]])
+for (const [tok, id, who] of [[T.A, "TKT-00001", "Cachia Ġużeppi"], [T.A, "TKT-00001", "Zammit Ġorġ"], [T.A, "TKT-00003", "Borg Anna"], [T.B, "TKT-00001", "Vella Joseph"]])
   await seed(tok, "POST", "/client-tickets/entries", { ticket_id: id, open_date: D, client_name: who, phone: "79111222", issue: "Asked about stock", category: "Stock" });
-for (const [tok, id, who] of [[T.A, "DEL-00001", "Ħaġġar Pawlu"], [T.A, "DEL-00001", "Grech Ċensina"], [T.X, "DEL-00004", "Abela Ġanni"]])
+for (const [tok, id, who] of [[T.A, "DEL-00001", "Agius Żaren"], [T.A, "DEL-00001", "Grech Ċensina"], [T.X, "DEL-00004", "Abela Ġanni"]])
   await seed(tok, "POST", "/client-deliveries/entries", { delivery_id: id, order_date: D, client_name: who, phone: "79333444", delivery_address: "Triq il-Kbira, Żebbuġ" });
-await seed(T.A, "POST", "/dda-sales/entries", { entry_date: D, client_name: "Ċachia Marija", client_id_card: "0012345M", client_address: "1 Triq il-Knisja", medicine_name_dose: "Morphine 10mg", quantity: 2, doctor_name: "Dr Abela", doctor_reg_no: "R1", prescription_serial_no: "S1" });
+await seed(T.A, "POST", "/dda-sales/entries", { entry_date: D, client_name: "Cachia Ċettina", client_id_card: "0012345M", client_address: "1 Triq il-Knisja", medicine_name_dose: "Morphine 10mg", quantity: 2, doctor_name: "Dr Abela", doctor_reg_no: "R1", prescription_serial_no: "S1" });
 // Scarce stock across two groups and the lone pharmacy; under the old worker anyone could ask for anything
 const offer = async (tok, item) => (await seed(tok, "POST", "/scarce-stock/offers", { entry_date: D, item_name: item, quantity_available: 10, expiry_date: "2027-06-30" })).json.id;
 const oA = await offer(T.A, "Ozempic 1mg (A)"), oX = await offer(T.X, "Mounjaro 5mg (X)"), oL = await offer(T.L, "Insulin glargine (L)");
@@ -77,8 +77,8 @@ await seed(T.L, "POST", `/scarce-stock/offers/${oX}/requests`, { quantity_reques
 await seed(T.A, "POST", "/scarce-stock/needs", { entry_date: D, item_name: "Wegovy", quantity_needed: 1 });
 const oldSaw = {}; for (const k of Object.keys(T)) oldSaw[k] = ((await api("GET", "/scarce-stock/offers", { token: T[k] })).json.offers || []).map((o) => o.item_name).sort();
 ok(oldSaw.L.length === 3 && oldSaw.X.length === 3, "old worker: every pharmacy sees all three offers (" + oldSaw.L.join(", ") + ")");
-const oldCachia = (await api("GET", "/people?q=cachia", { token: T.A })).json;
-ok((oldCachia.people || []).length === 0, "old worker: 'cachia' finds nobody (" + JSON.stringify((oldCachia.people || []).map((p) => p.name)) + ")");
+const oldCachia = (await api("GET", "/people?q=cettina", { token: T.A })).json;
+ok((oldCachia.people || []).length === 0, "old worker: 'cettina' finds nobody (" + JSON.stringify((oldCachia.people || []).map((p) => p.name)) + ")");
 
 // ---- snapshot every row (by table and rowid), the schema, and the lists the screens read
 const tables = () => DB.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map((r) => r.name);
@@ -103,11 +103,11 @@ ok(same === READS.length, `lists without Maltese letters in the query return the
 // W2
 const nm = async (q) => ((await api("GET", "/people?q=" + encodeURIComponent(q), { token: T.A })).json.people || []).map((p) => p.name);
 const hs = async (q) => ((await api("GET", "/people?q=" + encodeURIComponent(q), { token: T.A })).json.history || []).map((p) => p.name);
-ok(JSON.stringify(await nm("cachia")) === JSON.stringify(["Ċachia Marija"]), "W2: 'cachia' finds Ċachia Marija");
-ok(JSON.stringify(await nm("zammit")) === JSON.stringify(["Żammit Ġorġ"]), "W2: 'zammit' finds Żammit Ġorġ");
-ok(JSON.stringify(await nm("caruana")) === JSON.stringify(["ċaruana ħelen"]), "W2: 'caruana' finds the older lowercase 'ċaruana ħelen'");
-ok((await hs("guzeppi")).includes("Ċachia Ġużeppi"), "W2: history finds Ċachia Ġużeppi from 'guzeppi'");
-ok(((await api("GET", "/client-tickets/entries?q=zammit", { token: T.A })).json.entries || []).some((e) => e.client_name === "Żammit Ġorġ"), "W2: the Questions list search folds too");
+ok(JSON.stringify(await nm("cettina")) === JSON.stringify(["Cachia Ċettina"]), "W2: 'cettina' finds Cachia Ċettina");
+ok(JSON.stringify(await nm("gorg")) === JSON.stringify(["Zammit Ġorġ"]), "W2: 'gorg' finds Zammit Ġorġ");
+ok(JSON.stringify(await nm("guzeppa")) === JSON.stringify(["caruana ġużeppa"]), "W2: 'guzeppa' finds the older lowercase 'caruana ġużeppa'");
+ok((await hs("guzeppi")).includes("Cachia Ġużeppi"), "W2: history finds Cachia Ġużeppi from 'guzeppi'");
+ok(((await api("GET", "/client-tickets/entries?q=gorg", { token: T.A })).json.entries || []).some((e) => e.client_name === "Zammit Ġorġ"), "W2: the Questions list search folds too");
 
 // W3
 const tk = await api("POST", "/client-tickets/entries", { token: T.A, body: { ticket_id: "TKT-00001", open_date: D, client_name: "New One", issue: "Q", category: "Stock" } });

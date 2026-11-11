@@ -37,7 +37,7 @@ function boardTables(db) {
 
 async function seed(api, token, today) {
   const staff = async (full_name, designation) => { const r = await api("POST", "/shifts/staff", { token, body: { full_name, designation, employment_type: "fulltime", contracted_hours: 40, phone: designation === "pharmacist" ? "79123456" : "" } }); eq(r.status, 200, r.text); return r.json.staff_id || r.json.id; };
-  const ph = await staff("Ċensina Żammit", "pharmacist"), as = await staff("Ġorġ Borg", "assistant"), lo = await staff("Ħelena Vella", "locum"), off = await staff("Marija Pace", "pharmacist");
+  const ph = await staff("Ċensina Zammit", "pharmacist"), as = await staff("Ġorġ Borg", "assistant"), lo = await staff("Helena Vella", "locum"), off = await staff("Marija Pace", "pharmacist");
   const shift = async (staff_id, shift_date, start_time, end_time) => eq((await api("POST", "/shifts/assignments", { token, body: { staff_id, shift_date, start_time, end_time, notes: "" } })).status, 200);
   await shift(ph, today, "08:00", "13:00");
   await shift(as, today, "08:00", "20:00");
@@ -50,7 +50,7 @@ async function seed(api, token, today) {
   // the opening hours for today, as the Shifts screen saves an override (today may be a holiday or a Sunday)
   eq((await api("PUT", "/shifts/opening-hours", { token, body: { default: { open: "07:30", close: "19:30", closed: false }, weekly: {}, overrides: { [today]: { open: "08:00", close: "20:00", closed: false, note: "" } } } })).status, 200);
   // the pharmacist in charge, as the locum register saves it
-  eq((await api("POST", "/locumregister/entries", { token, body: { entry_date: today, time_in: "08:00", time_out: "13:00", locum_full_name: "Ċensina Żammit", registration_number: "1234" } })).status < 300, true);
+  eq((await api("POST", "/locumregister/entries", { token, body: { entry_date: today, time_in: "08:00", time_out: "13:00", locum_full_name: "Ċensina Zammit", registration_number: "1234" } })).status < 300, true);
   // the handover: two days ago left points (yesterday nothing); an older day is not read
   const day = async (ymd, handover_out) => eq((await api("PUT", "/instructions/daily", { token, body: { ymd, notes: "", handover_out } })).status, 200);
   await day(plus(today, -6), [{ id: "o", sev: "r", text: "Too old" }]);
@@ -93,14 +93,14 @@ test("team today: one read says who is on, who is away, the pharmacist in charge
   ok(n.rows <= 20, "a handful of rows returned: " + n.rows);
   const j = r.json;
   // who is on today, in start order, with role and phone; tomorrow's shift left out
-  eq(j.shifts.map((p) => p.full_name).join(), "Ċensina Żammit,Ġorġ Borg,Marija Pace,Ħelena Vella");
+  eq(j.shifts.map((p) => p.full_name).join(), "Ċensina Zammit,Ġorġ Borg,Marija Pace,Helena Vella");
   eq(j.shifts[0].designation, "pharmacist"); eq(j.shifts[3].designation, "locum"); eq(j.shifts[0].start_time, "08:00"); eq(j.shifts[0].end_time, "13:00"); eq(j.shifts[0].phone, "79123456");
   // approved leave covering today (the pending one is not)
   eq(j.leave.length, 1); eq(j.leave[0].full_name, "Marija Pace"); eq(j.leave[0].leave_type, "sick"); eq(j.leave[0].end_date, plus(today, 1));
   // opening hours: today's override, flagged (a holiday stays closed only when there is none: E.teamCover)
   eq(JSON.stringify(j.hours), JSON.stringify({ open: "08:00", close: "20:00", closed: false, override: true }));
   // the pharmacist in charge
-  eq(j.locum_today.length, 1); eq(j.locum_today[0].locum_full_name, "Ċensina Żammit"); eq(j.locum_today[0].registration_number, "1234"); eq(j.locum_today[0].time_in, "08:00");
+  eq(j.locum_today.length, 1); eq(j.locum_today[0].locum_full_name, "Ċensina Zammit"); eq(j.locum_today[0].registration_number, "1234"); eq(j.locum_today[0].time_in, "08:00");
   // the handover: the last day before today with points (two days ago); today's own points are for tomorrow
   eq(j.handover.ids.join(), "a,b,c", "the points' ids, as stored"); eq(j.handover.from_ymd, plus(today, -2)); eq(j.handover.total, 3); eq(j.handover.critical, 1); eq(j.handover.medium, 1);
   eq(j.handover.seen_by_me, null, "no 'I've read it' table: unknown, and nothing made here");

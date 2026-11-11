@@ -44,7 +44,7 @@ DB.db.prepare("INSERT INTO locations (id, org_id, name) VALUES (2, 1, 'Branch')"
 const T = (await api("POST", "/auth/login", { body: { email: "maria@demo.mt", password: "Demo-Pass-2026" } })).json.token;
 let wrote = 0;
 const W = async (m, p, b) => { const r = await api(m, p, { token: T, body: b }); if (r.status === 200 || r.status === 201) wrote++; else console.log("    write", p, r.status, r.text.slice(0, 120)); return r; };
-const s1 = await W("POST", "/shifts/staff", { full_name: "Ċensina \"Ċensi\" Żammit", designation: "pharmacist", employment_type: "fulltime", contracted_hours: 40, phone: "79 123 456" });
+const s1 = await W("POST", "/shifts/staff", { full_name: "Ċensina \"Ina\" Zammit", designation: "pharmacist", employment_type: "fulltime", contracted_hours: 40, phone: "79 123 456" });
 const s2 = await W("POST", "/shifts/staff", { full_name: "Ġorġ <b>Borg</b>", designation: "assistant", employment_type: "parttime", contracted_hours: 20 });
 const id1 = s1.json && (s1.json.staff_id || s1.json.id), id2 = s2.json && (s2.json.staff_id || s2.json.id);
 await W("POST", "/shifts/assignments", { staff_id: id1, shift_date: day(0), start_time: "08:00", end_time: "13:00", notes: "Ħal Qormi" });
@@ -54,7 +54,7 @@ await W("POST", "/shifts/leaves/" + (lv.json && lv.json.leave_id) + "/approve", 
 await W("POST", "/shifts/leaves", { staff_id: id1, leave_type: "sick", start_date: day(1), end_date: day(0), reason: "" });
 await W("PUT", "/shifts/opening-hours", { default: { open: "07:30", close: "19:30", closed: false }, weekly: {}, overrides: { [day(0)]: { open: "08:00", close: "19:30", closed: false, note: "Festa" } } });
 await W("PUT", "/shifts/settings", { pharmacistRequired: true, minPharmacists: 1 });
-await W("POST", "/locumregister/entries", { entry_date: day(0), time_in: "08:00", time_out: "13:00", locum_full_name: "Ċensina Żammit", registration_number: "R\"12\"" });
+await W("POST", "/locumregister/entries", { entry_date: day(0), time_in: "08:00", time_out: "13:00", locum_full_name: "Ċensina Zammit", registration_number: "R\"12\"" });
 await W("PUT", "/instructions/daily", { ymd: day(1), notes: "Notes ċ ġ ħ ż", handover_out: [{ id: "b1", sev: "r", text: "Fridge <door>", created_at: new Date().toISOString() }, { id: "b2", sev: "g", text: "Cotton wool" }] });
 await W("POST", "/board/messages", { body: "Group only: staff meeting @Demo", scope: "org" });
 await W("POST", "/board/messages", { body: "Everyone: Ozempic 1mg?", scope: "all" });
@@ -74,7 +74,7 @@ ok(before.status === 404 || !before.json || !before.json.shifts, "the old worker
 worker = NEW;
 const r = await api("GET", "/team/today", { token: T });
 const j = r.json || {};
-ok(r.status === 200 && j.shifts.length === 2 && j.shifts[0].full_name === "Ċensina \"Ċensi\" Żammit" && j.shifts[0].phone === "79 123 456", "new worker: today's two shifts from the old worker's rota " + r.text.slice(0, 160));
+ok(r.status === 200 && j.shifts.length === 2 && j.shifts[0].full_name === "Ċensina \"Ina\" Zammit" && j.shifts[0].phone === "79 123 456", "new worker: today's two shifts from the old worker's rota " + r.text.slice(0, 160));
 ok(j.leave.length === 1 && j.leave[0].leave_type === "annual" && j.leave_pending === 1, "the approved leave covering today, and the one waiting");
 ok(j.hours.override === true && j.hours.open === "08:00" && j.settings.pharmacistRequired === true, "today's override and the rota settings");
 ok(j.locum_today.length === 1 && j.locum_today[0].registration_number === "R\"12\"", "the pharmacist in charge from the locum register");

@@ -44,7 +44,7 @@ for (const nm of ["Havrix 1440", "Boostrix", "Typhim Vi", "Influvac"]) {
   await api("POST", "/vaccines/catalog", { token: T, body: { brand_name: nm, vaccinates_for: "x", dosing_schedule: "0, 6 months", routine_in_malta: nm === "Influvac" ? "yes" : "", travel_always: "KE,TZ", travel_highrisk: "IN" } });
   await api("POST", "/vaccines/stock/rows", { token: T, body: { vaccine_name: nm, qty: 20, batch: "B-" + nm.slice(0, 3), expiry_date: "2027-0" + (nm.length % 9 + 1) + "-28" } });
 }
-for (let n = 0; n < 25; n++) await api("POST", "/vaccines/orders", { token: T, body: { section: n % 2 ? "travel" : "other", country_code: n % 2 ? "KE" : "", country_name: n % 2 ? "Kenya" : "", client_first: "Ġorġ" + n, client_last: "Żammit", phone: "7900" + (1000 + n), email: "", items: [{ name: "Havrix 1440", qty: 1 }, { name: n % 3 ? "Boostrix" : "Typhim Vi", qty: 1 }] } });
+for (let n = 0; n < 25; n++) await api("POST", "/vaccines/orders", { token: T, body: { section: n % 2 ? "travel" : "other", country_code: n % 2 ? "KE" : "", country_name: n % 2 ? "Kenya" : "", client_first: "Ġorġ" + n, client_last: "Zammit", phone: "7900" + (1000 + n), email: "", items: [{ name: "Havrix 1440", qty: 1 }, { name: n % 3 ? "Boostrix" : "Typhim Vi", qty: 1 }] } });
 await api("PUT", "/pharmacovigilance/state", { token: T, body: { state: { reports: [{ id: "pv_1_abc", created_at: "2026-10-01T09:00:00Z", updated_at: "2026-10-01T09:00:00Z", status: "Draft", pt_initials: "G.Ż.", drugs: [{ name: "Havrix 1440", route: "IM" }], reaction_meddra: "Injection site reaction" }], deleted_ids: [] } } });
 const tables = () => DB.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map((r) => r.name);
 const dump = (skip) => { const o = {}; for (const t of tables()) if (!skip.includes(t)) o[t] = JSON.stringify(DB.db.prepare("SELECT * FROM " + t + " ORDER BY rowid").all()); return o; };
@@ -63,7 +63,7 @@ console.log("old worker:", tablesOld.length, "tables");
 worker = NEW;
 const listsNew = await lists();
 ok(LISTS.every((p) => listsNew[p] === listsOld[p]), "every vaccines/reactions list (and Today) answers identically on the new worker (" + LISTS.length + " lists)" + LISTS.filter((p) => listsNew[p] !== listsOld[p]).map((p) => " · " + p).join(""));
-const g1 = await api("POST", "/vaccines/given", { token: T, body: { given_on: day(0), client_first: "Ġorġ1", client_last: "Żammit", phone: "79001001", vaccine_name: "Havrix 1440", dose: "1st", batch: "B-Hav", expiry_date: "2027-02-28", site: "Left upper arm", consent_by: "Patient", next_due: malta(new Date(Date.now() + 180 * 864e5)) } });
+const g1 = await api("POST", "/vaccines/given", { token: T, body: { given_on: day(0), client_first: "Ġorġ1", client_last: "Zammit", phone: "79001001", vaccine_name: "Havrix 1440", dose: "1st", batch: "B-Hav", expiry_date: "2027-02-28", site: "Left upper arm", consent_by: "Patient", next_due: malta(new Date(Date.now() + 180 * 864e5)) } });
 ok(g1.status === 200 && g1.json.given && g1.json.given.given_by_name === "Maria Borg", "a vaccination is recorded: " + g1.status);
 const due = await api("GET", "/vaccines/given/due?to=" + malta(new Date(Date.now() + 200 * 864e5)), { token: T });
 ok(due.json && due.json.due.length === 1, "its recall is listed");

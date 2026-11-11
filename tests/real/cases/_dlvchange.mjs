@@ -3,7 +3,7 @@
 // edit loses and the new screen keeps, and the pharmacist's delete with a reason.
 import { ymd } from "../lib.mjs";
 const T = "client_deliveries";
-const seed = (over = {}) => Object.assign({ delivery_id: "DEL-07001", order_date: ymd(-1), scheduled_date: ymd(0), scheduled_time_slot: "Afternoon", client_name: "Borġ Ċensina", phone: "79111222", email: "censina@example.mt",
+const seed = (over = {}) => Object.assign({ delivery_id: "DEL-07001", order_date: ymd(-1), scheduled_date: ymd(0), scheduled_time_slot: "Afternoon", client_name: "Borg Ċensina", phone: "79111222", email: "censina@example.mt",
   delivery_address: "12 Triq il-Ħamrun, Żebbuġ", address_notes: "Green door", id_doc_ref: "", delivery_method: "Courier", priority: 1, assigned_driver: "", tracking_number: "TRK1", status: "Scheduled",
   signature_required: 1, signature_obtained: 0, recipient_name: "", proof_of_delivery: "", delivery_attempts: 1, failure_reason: "Not home", contains_controlled: 0, cold_chain_required: 0, ticket_ref: "TKT-00009",
   items: JSON.stringify([{ name: "Insulin pens", qty: 2, schedule: "OTC", batch_ref: "B12", expiry: "2027-01" }]), delivery_log: JSON.stringify([{ ts: "2026-11-02T08:00:00.000Z", author: "Maria Borg", text: "Delivery recorded." }]), internal_notes: "Ring twice" }, over);

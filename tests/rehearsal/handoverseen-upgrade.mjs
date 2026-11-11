@@ -44,7 +44,7 @@ const T = (await api("POST", "/auth/login", { body: { email: "maria@demo.mt", pa
 for (let n = 1; n <= 35; n++) {
   if (n % 7 === 0) continue; // closed days
   const pts = [{ id: "b_" + n + "_1", sev: n % 3 ? "g" : "r", text: "Ċempel lil Mrs Borg dwar l-insulina (" + n + ")", created_at: "2026-10-01T08:00:00.000Z" }];
-  if (n % 2) pts.push({ id: "b_" + n + "_2", sev: "y", text: "Ħili Pharma short by 2", created_at: "2026-10-01T09:00:00.000Z" });
+  if (n % 2) pts.push({ id: "b_" + n + "_2", sev: "y", text: "Hili Pharma short by 2", created_at: "2026-10-01T09:00:00.000Z" });
   await api("PUT", "/instructions/daily", { token: T, body: { ymd: day(n), notes: n % 4 ? "Inspector may visit" : "", handover_out: pts } });
 }
 await api("PUT", "/instructions/global", { token: T, body: { global: { opening: { text: "Alarm, lights, shutters", updated_at: "" }, permanent_handover: { text: "Count the CD cupboard every evening", updated_at: "" } } } });

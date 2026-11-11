@@ -4,7 +4,7 @@
 //
 //   import { rpSeed } from "./_rpseed.mjs";
 //   const S = await rpSeed(t, { tag: "patterns", weeks: 2 });
-//   S.api(method, path, body[, token])   S.page({ phone, staff })   S.ids.{maria,joe,lara,karl,rita,ċensina,ħelena,locum}
+//   S.api(method, path, body[, token])   S.page({ phone, staff })   S.ids.{maria,joe,lara,karl,rita,ċensina,helena,locum}
 //   S.mon (see below), S.d(i) = S.mon + i days, S.hol = { date, name } (first Malta holiday on or after S.mon,
 //   within 13 months), S.closedDay / S.openDay (overrides), S.leave.{whole,part,pending} ids, S.people (the 8 rows)
 //
@@ -45,12 +45,12 @@ export async function rpSeed(t, { tag = "rp", weeks = 1 } = {}) {
   const d = (i) => ymdAdd(mon, i);
   const usual = { patterns: [{ id: "p" + u, name: "Usual", week: [0, 1, 2, 3, 4].map(() => ({ off: false, start: "08:00", end: "14:00" })).concat([{ off: false, start: "08:00", end: "13:00" }, { off: true }]), createdAt: new Date().toISOString() }], provisionalId: "p" + u };
   const P = [
-    ["maria", "Marija Ċassar", "pharmacist", "fulltime", 40, JSON.stringify(usual)],
+    ["maria", "Marija Cassar", "pharmacist", "fulltime", 40, JSON.stringify(usual)],
     ["joe", "Joe Vella", "pharmacist", "fulltime", 40, "{}"],
-    ["helena", "Ħelena Farrugia", "locum", "external", 40, "{}"],
+    ["helena", "Helena Farrugia", "locum", "external", 40, "{}"],
     ["karl", "Karl Zammit", "manager", "fulltime", 40, "{}"],
     ["rita", "Rita Camilleri", "assistant", "fulltime", 40, "{}"],
-    ["censina", "Ċensina Żammit", "assistant", "fulltime", 40, "{}"],
+    ["censina", "Ċensina Zammit", "assistant", "fulltime", 40, "{}"],
     ["lara", "Lara Grech", "assistant", "parttime", 20, "{}"],
     ["gorg", "Ġorġ Borg", "cashier", "fulltime", 40, "{}"]
   ];

@@ -2,13 +2,13 @@
 // Print again on a recent label prints the same page and saves the same history entry as "Use again" then "Print
 // label" (only the entry's id and print time differ); starring a usual label sends nothing to the server, and the
 // chip fills the form; on a phone Print label is on screen without scrolling.
-const CAPTURE = `(() => { window.__printed = []; const o = window.open; window.open = function (u, ...a) { if (window.__capture && /^blob:/.test(String(u))) { fetch(u).then((r) => r.text()).then((t) => window.__printed.push(t)); return {}; } return o.call(window, u, ...a); }; })();`;
+const CAPTURE = `(() => { window.__printed = []; window.__blobOf = {}; const mk = URL.createObjectURL; URL.createObjectURL = function (b) { const u = mk.call(URL, b); window.__blobOf[u] = b; return u; }; const o = window.open; window.open = function (u, ...a) { if (window.__capture && /^blob:/.test(String(u))) { (window.__blobOf && window.__blobOf[u] ? window.__blobOf[u].text() : fetch(u).then((r) => r.text())).then((t) => window.__printed.push(t)); return {}; } return o.call(window, u, ...a); }; })();`;
 const TPL = [
   { id: "tpl_std", name: "Standard Label", size: "standard", fields: ["patientName", "drugName", "dose", "frequency", "route", "warnings", "pharmacyDetails", "date"], isDefault: true },
   { id: "tpl_large", name: "Large Print (Elderly)", size: "large", fields: ["patientName", "drugName", "dose", "frequency", "route", "warnings", "pharmacyDetails", "date"], isDefault: false },
   { id: "tpl_mt", name: "Maltese", size: "standard", language: "mt", fields: [], isDefault: false }];
 const PH = { name: "Demo Pharmacy", address: "1 Triq il-Kbira, Mosta", phone: "21234567", licence: "PH-042" };
-const SEED = { id: "lb_counter_seed_1", patientName: "Ħili Ġorġ", drugName: "Counterxin 250mg", dose: "1 tablet", frequency: "Twice daily", route: "Oral", customInstructions: "After meals", selectedWarnings: ["w01", "w08"], templateId: "tpl_large", printedAt: "2026-11-01 10:00", printedBy: "Maria Borg" };
+const SEED = { id: "lb_counter_seed_1", patientName: "Hili Ġorġ", drugName: "Counterxin 250mg", dose: "1 tablet", frequency: "Twice daily", route: "Oral", customInstructions: "After meals", selectedWarnings: ["w01", "w08"], templateId: "tpl_large", printedAt: "2026-11-01 10:00", printedBy: "Maria Borg" };
 export default {
   title: "Counter: labels print again and usual labels",
   async run(t) {
@@ -20,9 +20,9 @@ export default {
     const ours = async () => ((await t.api("GET", "/labels/state")).state.labelHistory || []).filter((e) => e.drugName === SEED.drugName);
     await t.open(p, "2", "labels", "lblreg", "#lbl-add");
     t.ok(await p.locator("#lbl-find").count() === 1, "the search for a recent label is on the screen");
-    await p.fill("#lbl-find", "ħili"); // Maltese letters typed or not, the label is found
+    await p.fill("#lbl-find", "hili ġorġ"); // Maltese letters typed or not, the label is found
     await p.waitForSelector("#lbl-recent [data-act=reprint]");
-    t.ok(await p.locator("#lbl-recent .lbl-row").count() === 1, "search 'ħili' finds the one label");
+    t.ok(await p.locator("#lbl-recent .lbl-row").count() === 1, "search 'hili ġorġ' finds the one label");
     await p.fill("#lbl-find", "hili");
     t.ok(await p.locator("#lbl-recent .lbl-row").count() === 1, "search 'hili' (no Maltese letters) finds it too");
     const a = await printed(() => p.click("#lbl-recent [data-act=reprint]"));
@@ -40,7 +40,7 @@ export default {
     const n2 = after2.find((e) => e.id !== SEED.id && e.id !== (n1 || {}).id);
     t.ok(!!n1 && !!n2, "both new entries saved");
     t.ok(a === b, `Print again prints the same page as Use again + Print label (${a.length} vs ${b.length} chars)`);
-    t.ok(/Ħili Ġorġ/.test(a) && /Counterxin 250mg/.test(a) && /Avoid alcohol/.test(a), "the printed label has the patient, medicine and warnings");
+    t.ok(/Hili Ġorġ/.test(a) && /Counterxin 250mg/.test(a) && /Avoid alcohol/.test(a), "the printed label has the patient, medicine and warnings");
     if (n1 && n2) t.same("Print again entry vs Use again + Print label", n2, n1, { printedAt: "the moment of printing" });
     // Usual labels: kept in the browser only
     let puts = 0; p.on("request", (r) => { if (r.method() !== "GET" && /\/labels\//.test(r.url())) puts++; });

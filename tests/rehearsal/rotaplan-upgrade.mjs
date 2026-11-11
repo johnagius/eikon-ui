@@ -47,7 +47,7 @@ const T = (await api("POST", "/auth/login", { body: { email: "maria@demo.mt", pa
 let wrote = 0;
 const W = async (m, p, b) => { const r = await api(m, p, { token: T, body: b }); if (r.status === 200 || r.status === 201) wrote++; else console.log("    write", p, r.status, r.text.slice(0, 120)); return r; };
 const pj = JSON.stringify({ patterns: [{ id: "rot.k3f9.1of2." + day(0), name: "Usual · week A of 2", week: [{ off: true }, { off: false, start: "08:00", end: "14:00", role_override: "" }, { off: true }, { off: true }, { off: true }, { off: true }, { off: false, start: "08:00", end: "13:00", role_override: "" }], createdAt: 1 }], provisionalId: "rot.k3f9.1of2." + day(0) });
-const s1 = await W("POST", "/shifts/staff", { full_name: "Ċensina \"Ċensi\" Żammit", designation: "pharmacist", employment_type: "fulltime", contracted_hours: 40, phone: "79 123 456", patterns_json: pj });
+const s1 = await W("POST", "/shifts/staff", { full_name: "Ċensina \"Ina\" Zammit", designation: "pharmacist", employment_type: "fulltime", contracted_hours: 40, phone: "79 123 456", patterns_json: pj });
 const s2 = await W("POST", "/shifts/staff", { full_name: "Ġorġ <b>Borg</b>", designation: "assistant", employment_type: "parttime", contracted_hours: 20 });
 const id1 = s1.json && s1.json.staff_id, id2 = s2.json && s2.json.staff_id;
 await W("POST", "/shifts/assignments", { staff_id: id1, shift_date: day(0), start_time: "08:00", end_time: "13:00", notes: "Ħal Qormi; \"cover\", ok" });

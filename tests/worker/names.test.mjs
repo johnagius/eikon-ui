@@ -19,7 +19,7 @@ const today = new Date().toISOString().slice(0, 10);
 const EXAMPLES = [
   ["carmel zammit", "Carmel Zammit"], ["CARMEL ZAMMIT", "Carmel Zammit"], ["Carmel Zammit", "Carmel Zammit"],
   ["zammit carmel", "Zammit Carmel"], ["ĠUŻEPPI BORG", "Ġużeppi Borg"], ["ġużeppi borg", "Ġużeppi Borg"],
-  ["ħelen żammit", "Ħelen Żammit"], ["ĊENSU ĦILI", "Ċensu Ħili"], ["IL-ĦAMRUN", "Il-Ħamrun"], ["ħaż-żebbuġ", "Ħaż-Żebbuġ"],
+  ["żaren zammit", "Żaren Zammit"], ["ĊENSU HILI", "Ċensu Hili"], ["IL-ĦAMRUN", "Il-Ħamrun"], ["ħaż-żebbuġ", "Ħaż-Żebbuġ"],
   ["anne-marie vella", "Anne-Marie Vella"], ["ANNE-MARIE VELLA", "Anne-Marie Vella"], ["d'amato rita", "D'Amato Rita"],
   ["O'BRIEN SEAN", "O'Brien Sean"], ["l’abbate", "L’Abbate"], ["ta’ xbiex", "Ta’ Xbiex"],
   ["mcdonald john", "McDonald John"], ["MCDONALD JOHN", "McDonald John"], ["macdonald john", "Macdonald John"],
@@ -49,7 +49,7 @@ async function seedThroughApi(api, token) {
   r.mixed = await api("POST", "/client-tickets/entries", { token, body: { ticket_id: "TKT-00002", open_date: today, client_name: "de Gabriele Maria", phone: "79000001", category: "General Enquiry", priority: 2, status: "Open", issue: "x" } });
   r.dda = await api("POST", "/dda-sales/entries", { token, body: { entry_date: today, client_name: "vella anna", client_id_card: "123456m", client_address: "1 triq il-knisja", medicine_name_dose: "morphine 10mg", quantity: 1, doctor_name: "DR ABELA", doctor_reg_no: "r12", prescription_serial_no: "s1" } });
   r.cn = await api("POST", "/creditnotes/entries", { token, body: { issue_date: today, client_name: "rita", client_surname: "PACE", telephone: "79111222", amount: 5, no_expiry: 1 } });
-  r.vax = await api("POST", "/vaccines/orders", { token, body: { section: "travel", country_code: "KE", country_name: "Kenya", client_first: "ĠORĠ", client_last: "ħili", phone: "79333333", email: "", items: [{ name: "yellow fever", qty: 1 }] } });
+  r.vax = await api("POST", "/vaccines/orders", { token, body: { section: "travel", country_code: "KE", country_name: "Kenya", client_first: "ĠORĠ", client_last: "hili", phone: "79333333", email: "", items: [{ name: "yellow fever", qty: 1 }] } });
   r.person = await api("POST", "/people", { token, body: { name: "spiteri noel", id_card: "777m", doctor_name: "dr galea" } });
   r.appt = await api("POST", "/appointments/entries", { token, body: { patientName: "borg mark", date: today, time: "10:00", notes: "bring results" } });
   r.loy = await api("POST", "/loyalty/clients", { token, body: { id_card: "0000888M", name: "CAMILLERI LINA" } });
@@ -66,7 +66,7 @@ test("names: new saves are cased in every register; mixed case, ID cards, e-mail
   eq(one("SELECT client_name, client_id_card, client_address, medicine_name_dose, doctor_name, doctor_reg_no FROM dda_sales_entries"),
     { client_name: "Vella Anna", client_id_card: "0123456M", client_address: "1 triq il-knisja", medicine_name_dose: "morphine 10mg", doctor_name: "Dr Abela", doctor_reg_no: "r12" });
   eq(one("SELECT client_name, client_surname FROM credit_notes"), { client_name: "Rita", client_surname: "Pace" });
-  eq(one("SELECT client_first, client_last, country_name FROM vaccines_orders"), { client_first: "Ġorġ", client_last: "Ħili", country_name: "Kenya" });
+  eq(one("SELECT client_first, client_last, country_name FROM vaccines_orders"), { client_first: "Ġorġ", client_last: "Hili", country_name: "Kenya" });
   eq(one("SELECT vaccine_name FROM vaccines_order_items").vaccine_name, "yellow fever", "a medicine name is not a person");
   eq(one("SELECT name, doctor_name, id_card FROM people"), { name: "Spiteri Noel", doctor_name: "Dr Galea", id_card: "0000777M" });
   eq(one("SELECT patient_name, notes FROM appt_appointments"), { patient_name: "Borg Mark", notes: "bring results" });
@@ -126,7 +126,7 @@ function makeOld(DB) {
   set("UPDATE client_tickets_entries SET client_name = 'GRECH JOSEPH' WHERE ticket_id = 'TKT-00001'");
   set("UPDATE dda_sales_entries SET client_name = 'vella anna', doctor_name = 'DR ABELA'");
   set("UPDATE credit_notes SET client_name = 'rita', client_surname = 'PACE'");
-  set("UPDATE vaccines_orders SET client_first = 'ĠORĠ', client_last = 'ħili'");
+  set("UPDATE vaccines_orders SET client_first = 'ĠORĠ', client_last = 'hili'");
   set("UPDATE people SET name = 'spiteri noel'");
   set("UPDATE appt_appointments SET patient_name = 'borg mark'");
   set("UPDATE loyalty_clients SET name = 'CAMILLERI LINA'");
@@ -284,9 +284,9 @@ test("names: a booking and a waiting-list entry are cased; a service name is not
   const b = await api("POST", "/bookings", { token, body: { serviceId: s.json.service.id, date: MON, start: "09:00", personName: "CAMILLERI ROSE", personPhone: "79123456" } });
   eq(b.status, 201, b.text);
   eq(b.json.booking.personName, "Camilleri Rose");
-  const w = await api("POST", "/bookings/waitlist", { token, body: { serviceId: s.json.service.id, personName: "żammit ġorġ", personPhone: "79000000" } });
+  const w = await api("POST", "/bookings/waitlist", { token, body: { serviceId: s.json.service.id, personName: "zammit ġorġ", personPhone: "79000000" } });
   ok(w.status < 300, w.text);
-  eq(DB.q("SELECT person_name FROM bk_waitlist")[0].person_name, "Żammit Ġorġ");
+  eq(DB.q("SELECT person_name FROM bk_waitlist")[0].person_name, "Zammit Ġorġ");
   eq(DB.q("SELECT name FROM bk_services")[0].name, "FLU VACCINE");
   eq(DB.q("SELECT name FROM bk_providers")[0].name, "maria", "providers are left as typed (not in the list)");
 });
@@ -303,10 +303,10 @@ test("names: the public booking form cases the name the customer typed", async (
     await api("PUT", "/bookings/settings", { token, body: { provider: "resend", fromEmail: "b@demo.mt", apiKey: "k" } });
     const slug = (await api("PUT", "/bookings/settings", { token, body: { publicEnabled: true } })).json.settings.publicSlug;
     const s0 = (await api("GET", `/book/${slug}/next?service_id=${flu.id}`, {})).json.slots[0];
-    const hold = await api("POST", `/book/${slug}/hold`, { body: { serviceId: flu.id, providerId: s0.providerId, date: s0.date, start: s0.time, name: "OLGA ĦILI", email: "OLGA@example.com" } });
+    const hold = await api("POST", `/book/${slug}/hold`, { body: { serviceId: flu.id, providerId: s0.providerId, date: s0.date, start: s0.time, name: "ĊETTINA HILI", email: "OLGA@example.com" } });
     eq(hold.status, 200, hold.text);
     const code = /Your code: (\d{6})/.exec(sent.find((m) => /Your code/.test(m.subject)).subject)[1];
     eq((await api("POST", `/book/${slug}/confirm`, { body: { holdId: hold.json.holdId, code } })).status, 200);
-    eq(DB.q("SELECT person_name, person_email FROM bk_bookings")[0], { person_name: "Olga Ħili", person_email: "olga@example.com" });
+    eq(DB.q("SELECT person_name, person_email FROM bk_bookings")[0], { person_name: "Ċettina Hili", person_email: "olga@example.com" });
   } finally { globalThis.fetch = realFetch; }
 });

@@ -1,4 +1,4 @@
-/* Dispensing labels, new layout: fill one label (template, language, patient, medicine, dose, route, frequency, note,
+/* Dispensing labels, new layout: fill one label (template, patient, medicine, dose, route, frequency, note,
    warnings), see the printed label as you type, print it, and pick a recent label to use again.
    Same endpoint and the same history entry as the classic Smart labels screen (GET/PUT /labels/state). The printed page
    is built by the classic screen's own code, copied unchanged (buildPrintHtml, printLabelHtml, openPrintTab), so the
@@ -6,16 +6,17 @@
    Saving: the PUT sends the one new history entry (the server upserts history by id and never deletes by omission) with
    the templates and pharmacy details read from the server just before, unchanged (the server keeps settings exactly as
    sent, so they are never written over with an older copy). The entry keeps its id across retries.
-   As on the classic screen, Maltese is printed only by a template whose language is Maltese; the language choice on its
-   own shows the Maltese wording on screen. Templates, pharmacy details, the full history and the warnings table stay in
+   Labels are in English only (John, 2026-11-11), as on the classic screen: a template saved earlier with language
+   "mt" prints English too, so reprinting an old Maltese label gives the English text of the same directions and
+   warnings; templates and history are sent back exactly as read, never rewritten. Templates, pharmacy details, the full history and the warnings table stay in
    the classic screen. */
 (function () {
   "use strict";
   var E = window.EIKON;
   if (!E) return;
 
-  var S = { mount: null, loading: false, error: "", history: [], templates: [], pharm: {}, f: null, inc: false, mt: true, variants: null, saving: false, again: false, err: "", pending: [], done: "", find: "" };
-  // counter: this person's usual labels (starred) and the template / language used last, kept in this browser only
+  var S = { mount: null, loading: false, error: "", history: [], templates: [], pharm: {}, f: null, inc: false, variants: null, saving: false, again: false, err: "", pending: [], done: "", find: "" };
+  // counter: this person's usual labels (starred) and the template used last, kept in this browser only
   function picks() { return E.picks ? E.picks("lblreg") : null; }
   function pref(k, v) { var key = "eikon_lblreg_" + k + ":" + ((E.state.user || {}).location_id || ""); try { if (v === undefined) return window.localStorage.getItem(key); window.localStorage.setItem(key, String(v)); } catch (e) { return null; } }
   function fold(v) { return E.people && E.people.foldMt ? E.people.foldMt(v) : String(v || "").toLowerCase(); }
@@ -43,52 +44,36 @@
     ];
   }
   var WARNINGS = [
-    { id: "w01", en: "Take with food", mt: "Ħu meħud mal-ikel" },
-    { id: "w02", en: "Take on an empty stomach", mt: "Ħu fuq stonku vojt" },
-    { id: "w03", en: "May cause drowsiness", mt: "Jista’ jikkawża ngħas" },
-    { id: "w04", en: "Do not drive or operate machinery", mt: "Issuqx u tħaddimx makkinarju" },
-    { id: "w05", en: "Keep refrigerated (2-8°C)", mt: "Żomb fil-friġġ (2-8°C)" },
-    { id: "w06", en: "Shake well before use", mt: "Ħawwad sew qabel l-użu" },
-    { id: "w07", en: "For external use only", mt: "Għall-użu estern biss" },
-    { id: "w08", en: "Avoid alcohol", mt: "Evita l-alkoħol" },
-    { id: "w09", en: "Avoid prolonged sun exposure", mt: "Evita espożizzjoni twila għax-xemx" },
-    { id: "w10", en: "Complete the full course", mt: "Lesti l-kors kollu" },
-    { id: "w11", en: "Swallow whole, do not crush", mt: "Ibla’ sħiħ, tfarrakx" },
-    { id: "w12", en: "Dissolve under the tongue", mt: "Ħoll taħt l-ilsien" },
-    { id: "w13", en: "Take at bedtime", mt: "Ħu qabel l-irqad" },
-    { id: "w14", en: "Take in the morning", mt: "Ħu filgħodu" },
-    { id: "w15", en: "Store below 25°C", mt: "Aħżen taħt 25°C" },
-    { id: "w16", en: "Keep out of reach of children", mt: "Żomb ‘il bogħod mit-tfal" },
-    { id: "w17", en: "Do not stop taking without medical advice", mt: "Tiqafx tieħu mingħajr parir mediku" },
-    { id: "w18", en: "May cause dizziness", mt: "Jista’ jikkawża sturdament" },
-    { id: "w19", en: "Take with plenty of water", mt: "Ħu ma’ ħafna ilma" },
-    { id: "w20", en: "Not suitable during pregnancy", mt: "Mhux adattat waqt it-tqala" }
+    { id: "w01", en: "Take with food" },
+    { id: "w02", en: "Take on an empty stomach" },
+    { id: "w03", en: "May cause drowsiness" },
+    { id: "w04", en: "Do not drive or operate machinery" },
+    { id: "w05", en: "Keep refrigerated (2-8°C)" },
+    { id: "w06", en: "Shake well before use" },
+    { id: "w07", en: "For external use only" },
+    { id: "w08", en: "Avoid alcohol" },
+    { id: "w09", en: "Avoid prolonged sun exposure" },
+    { id: "w10", en: "Complete the full course" },
+    { id: "w11", en: "Swallow whole, do not crush" },
+    { id: "w12", en: "Dissolve under the tongue" },
+    { id: "w13", en: "Take at bedtime" },
+    { id: "w14", en: "Take in the morning" },
+    { id: "w15", en: "Store below 25°C" },
+    { id: "w16", en: "Keep out of reach of children" },
+    { id: "w17", en: "Do not stop taking without medical advice" },
+    { id: "w18", en: "May cause dizziness" },
+    { id: "w19", en: "Take with plenty of water" },
+    { id: "w20", en: "Not suitable during pregnancy" }
   ];
   var FREQUENCIES_EN = [
     "Once daily", "Twice daily", "Three times daily", "Four times daily",
     "Every morning", "Every evening", "Every 4 hours", "Every 6 hours",
     "Every 8 hours", "Every 12 hours", "Once weekly", "As needed", "As directed"
   ];
-  var FREQUENCIES_MT = {
-    "Once daily": "Darba kuljum",
-    "Twice daily": "Darbtejn kuljum",
-    "Three times daily": "Tliet darbiet kuljum",
-    "Four times daily": "Erba’ darbiet kuljum",
-    "Every morning": "Kull filgħodu",
-    "Every evening": "Kull filgħaxija",
-    "Every 4 hours": "Kull 4 sigħat",
-    "Every 6 hours": "Kull 6 sigħat",
-    "Every 8 hours": "Kull 8 sigħat",
-    "Every 12 hours": "Kull 12-il siegħa",
-    "Once weekly": "Darba fil-ġimgħa",
-    "As needed": "Skont il-bżonn",
-    "As directed": "Skont id-direzzjonijiet"
-  };
   var ROUTES = ["Oral", "Topical", "Sublingual", "Rectal", "Inhaled", "Nasal", "Ophthalmic", "Otic", "Intramuscular", "Subcutaneous", "Intravenous"];
 
   function buildPrintHtml(labelData, pharm, tpl) {
     var isLarge = tpl && tpl.size === "large";
-    var showMt = tpl && tpl.language === "mt";
     var fs = isLarge ? '2.8mm' : '2.2mm';
     var lh = '1.2';
     var h = '';
@@ -106,7 +91,6 @@
     if (labelData.dose && labelData.frequency) doseFreq += ' | ';
     if (labelData.frequency) {
       doseFreq += esc(labelData.frequency);
-      if (showMt && FREQUENCIES_MT[labelData.frequency]) doseFreq += ' <i style="font-size:.85em;">(' + esc(FREQUENCIES_MT[labelData.frequency]) + ')</i>';
     }
     if (doseFreq) h += '<div><b>Dose/Freq:</b> ' + doseFreq + '</div>';
     if (labelData.route) h += '<div><b>Route:</b> ' + esc(labelData.route) + '</div>';
@@ -115,7 +99,6 @@
     var selWarnings = WARNINGS.filter(function (w) { return (labelData.selectedWarnings || []).indexOf(w.id) !== -1; });
     selWarnings.forEach(function (w) {
       h += '<div style="font-weight:700;font-size:.85em;">⚠ ' + esc(w.en);
-      if (showMt) h += ' <i style="font-weight:400;">(' + esc(w.mt) + ')</i>';
       h += '</div>';
     });
     // date — same size as body so it's legible on small labels
@@ -237,7 +220,6 @@
       ".lbl-paper{background:#fff;color:#000;border:1px solid var(--border);border-radius:10px;padding:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}" +
       ".lbl-paper>.in{width:46mm;max-width:100%;padding:0.8mm 1mm 0.5mm 1.5mm;box-sizing:border-box;zoom:1.75;margin:0 auto;overflow-wrap:anywhere}" +
       ".lbl-cap{font-size:12.5px;color:var(--muted);margin:8px 2px 0;line-height:1.45}" +
-      ".lbl-mt{margin-top:12px;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-size:13.5px;line-height:1.5}.lbl-mt b{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:4px}.lbl-mt p{margin:2px 0}" +
       ".lbl-list{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden}" +
       ".lbl-row{display:flex;gap:10px;align-items:center;padding:10px 14px;border-top:.5px solid var(--border)}.lbl-row:first-child{border-top:0}" +
       ".lbl-row .t{flex:1;min-width:0}.lbl-row b{display:block;font-size:15px;font-weight:600;overflow-wrap:anywhere}.lbl-row span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}" +
@@ -292,12 +274,6 @@
     var lab = labelNow(); // before a medicine is written the paper says so (on screen only; the printed page is unchanged)
     var h = '<div class="lbl-lab" id="lbl-prev-lab">Printed label</div><div class="lbl-paper" role="group" aria-labelledby="lbl-prev-lab"><div class="in" id="lbl-prev">' + (lab.drugName ? buildPrintHtml(lab, pharmacy(), tpl) : '<div class="lbl-ph">The label shows here as you type the medicine.</div>') + "</div></div>";
     h += '<p class="lbl-cap">What the printer gets, line for line. Where the lines break depends on your label paper.</p>';
-    if (S.mt) {
-      var f = S.f, ws = WARNINGS.filter(function (w) { return (f.selectedWarnings || []).indexOf(w.id) !== -1; });
-      h += '<div class="lbl-mt" lang="mt"><b lang="en">In Maltese</b>' + (FREQUENCIES_MT[f.frequency] ? "<p>" + esc(FREQUENCIES_MT[f.frequency]) + "</p>" : "") +
-        ws.map(function (w) { return "<p>⚠ " + esc(w.mt) + "</p>"; }).join("") +
-        '<p lang="en" style="color:var(--muted);font-size:12.5px;margin-top:6px">' + (tpl.language === "mt" ? "This template prints the Maltese on the label too." : "To read to the patient. The printed label is in English, as on the classic screen; Maltese prints only from a Maltese template.") + "</p></div>";
-    }
     return h;
   }
   function refreshPreview() {
@@ -342,10 +318,7 @@
       '<details class="lbl-wd"' + (wOpen() ? " open" : "") + '><summary class="hd" id="lbl-w-lab">' + warnSummary() + '</summary><div class="lbl-chips" role="group" aria-labelledby="lbl-w-lab">' +
       WARNINGS.map(function (w) { var on = f.selectedWarnings.indexOf(w.id) !== -1; return '<button type="button" class="lbl-chip' + (on ? " on" : "") + '" data-act="warn" data-w="' + w.id + '" aria-pressed="' + on + '">' + esc(w.en) + "</button>"; }).join("") + "</div></details>" +
       '<div class="hd">Label</div>' +
-      '<label><span>Template</span><select name="templateId">' + S.templates.map(function (t) { return '<option value="' + esc(t.id) + '"' + (t.id === f.templateId ? " selected" : "") + ">" + esc(t.name) + "</option>"; }).join("") + "</select></label>" +
-      '<div class="row"><span id="lbl-lang-lab">Read out in</span><div class="lbl-seg" role="group" aria-labelledby="lbl-lang-lab">' +
-        '<button type="button" data-act="lang" data-v="en" aria-pressed="' + !S.mt + '" class="' + (S.mt ? "" : "on") + '">English</button>' +
-        '<button type="button" data-act="lang" data-v="both" aria-pressed="' + S.mt + '" class="' + (S.mt ? "on" : "") + '">English + Maltese</button></div></div>';
+      '<label><span>Template</span><select name="templateId">' + S.templates.map(function (t) { return '<option value="' + esc(t.id) + '"' + (t.id === f.templateId ? " selected" : "") + ">" + esc(t.name) + "</option>"; }).join("") + "</select></label>";
     h += '<div id="lbl-status" role="status">' + statusHtml() + "</div>";
     var pk = picks(), starOn = !!(pk && f.drugName && pk.isFav(usualOf(f).id));
     h += '<div class="lbl-acts">' + (pk ? '<button type="button" class="lbl-btn lbl-star" data-act="star" aria-pressed="' + starOn + '"' + (String(f.drugName || "").trim() ? "" : " disabled") + '><span aria-hidden="true">' + (starOn ? "★" : "☆") + "</span> Usual label</button>" : "") +
@@ -432,7 +405,6 @@
         var act = b.getAttribute("data-act");
         if (act === "back") window.location.hash = E.ui2BackHash("lblreg");
         else if (act === "classic") { ev.preventDefault(); try { sessionStorage.setItem("eikon_ui2_return", "lblreg"); } catch (x) {} E.openClassic("labels"); }
-        else if (act === "lang") { keep(); S.mt = b.getAttribute("data-v") === "both"; paint(true); var lb = m.querySelector('[data-act=lang][data-v="' + b.getAttribute("data-v") + '"]'); if (lb) lb.focus(); }
         else if (act === "warn") { var id = b.getAttribute("data-w"), ws = S.f.selectedWarnings, i = ws.indexOf(id); if (i !== -1) ws.splice(i, 1); else ws.push(id); var on = i === -1; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); keep(); refreshPreview(); var sm = m.querySelector("#lbl-w-lab"); if (sm) sm.innerHTML = warnSummary(); }
         else if (act === "variant") { keep(); applyEntry(S.variants[Number(b.getAttribute("data-i"))]); paint(true); var d = m.querySelector("[name=dose]"); if (d) d.focus(); }
         else if (act === "clear") { S.f = blank(); S.variants = null; S.done = ""; if (!S.pending.length) S.err = ""; paint(true); focus("[name=drugName]"); }
@@ -488,7 +460,7 @@
     var entry = Object.assign({}, label, { id: uid(), printedAt: nowStr(), printedBy: u ? u.full_name || u.email : "Unknown" });
     // printed at once, from the click (a print window opened later is blocked by the browser), as the classic screen does
     printLabelHtml(buildPrintHtml(entry, pharmacy(), tplOf(label.templateId)));
-    pref("tpl", label.templateId); pref("mt", S.mt ? "1" : "0"); // counter: the next label starts on this template and language
+    pref("tpl", label.templateId); // counter: the next label starts on this template
     S.pending.push(entry);
     flush();
   }
@@ -540,7 +512,7 @@
 
   E.registerModule({
     id: "lblreg", title: "Dispensing labels", order: 3, icon: "🏷️", ui2Only: true,
-    render: function (ctx) { S.mount = ctx && ctx.mount; S.f = null; S.find = ""; S.wOpen = null; S.moreRecent = false; var pm = pref("mt"); if (pm === "0" || pm === "1") S.mt = pm === "1"; S.variants = null; S.err = S.pending.length ? "Printed earlier, not yet in the history. Save again: a label is never saved twice." : ""; S.done = ""; S.lastMed = ""; css(); paint(); return load().then(function () { var phone = false; try { phone = window.matchMedia("(max-width:600px)").matches; } catch (e) {} if (!phone) focus("[name=drugName]"); }); } // a phone keyboard does not jump up on open
+    render: function (ctx) { S.mount = ctx && ctx.mount; S.f = null; S.find = ""; S.wOpen = null; S.moreRecent = false; S.variants = null; S.err = S.pending.length ? "Printed earlier, not yet in the history. Save again: a label is never saved twice." : ""; S.done = ""; S.lastMed = ""; css(); paint(); return load().then(function () { var phone = false; try { phone = window.matchMedia("(max-width:600px)").matches; } catch (e) {} if (!phone) focus("[name=drugName]"); }); } // a phone keyboard does not jump up on open
   });
   if (Array.isArray(E.UI2_DESTINATIONS) && E.UI2_DESTINATIONS.indexOf("lblreg") < 0) E.UI2_DESTINATIONS.push("lblreg");
   if (E.UI2_PARENT) E.UI2_PARENT.lblreg = "services";

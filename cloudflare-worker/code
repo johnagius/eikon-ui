@@ -4,7 +4,7 @@ function nowIso() {
 
 
 
-const WORKER_VERSION = "2026-11-10-batch-15";
+const WORKER_VERSION = "2026-11-11-batch-16";
 function isDebugEnabled(request) {
   try {
     return (request && request.headers && (request.headers.get("X-Eikon-Debug") || "") === "1");
@@ -10628,14 +10628,26 @@ function contentTypeForPath(pathname) {
   return "application/octet-stream";
 }
 
+// Which git ref the /ui/ files come from (staging, security audit 2026-11-10): UI_GITHUB_REF (a branch such as "release",
+// or a tag) wins; else UI_GITHUB_BRANCH; else "main" — so a worker without UI_GITHUB_REF serves exactly what it did.
+// A ref that is not a plain git name (spaces, "..", a leading "/" or "-") is ignored, never put in the URL.
+function uiGithubRef(env) {
+  const okRef = (v) => /^[A-Za-z0-9][A-Za-z0-9._\/-]{0,99}$/.test(v) && v.indexOf("..") < 0 && !/\/$|\.lock$|\/\//.test(v);
+  for (const k of ["UI_GITHUB_REF", "UI_GITHUB_BRANCH"]) {
+    const v = String((env && env[k]) || "").trim();
+    if (v && okRef(v)) return v;
+  }
+  return "main";
+}
+
 function buildGithubRawUrl(env, uiPath) {
   const owner = (env.UI_GITHUB_OWNER || "").trim() || "johnagius";
   const repo = (env.UI_GITHUB_REPO || "").trim() || "eikon-ui";
-  const branch = (env.UI_GITHUB_BRANCH || "").trim() || "main";
+  const ref = uiGithubRef(env);
   const dir = (env.UI_GITHUB_DIR || "").trim() || "ui";
 
   const safe = uiPath.replace(/^\/+/, "").replace(/\.\.+/g, ".");
-  return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${dir}/${safe}`;
+  return `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${dir}/${safe}`;
 }
 
 function sanitizeJsSourceText(s) {
@@ -10728,7 +10740,7 @@ async function handleAppPage(request, env, url) {
         "Cache-Control": "no-store",
         "Vary": "Accept, Sec-Fetch-Mode, Authorization",
         "X-Eikon-Page": "app",
-        ...(await appSecurityHeaders(out)) // backlog 2-9: nosniff, Referrer-Policy, CSP Report-Only
+        ...(await appSecurityHeaders(out, env)) // backlog 2-9: nosniff, Referrer-Policy, CSP Report-Only
       }
     });
   } catch (e) {
@@ -10775,7 +10787,7 @@ async function handleUiAsset(request, env, url) {
 
   if (cachingEnabled) {
     const cached = await cache.match(request);
-    if (cached) return withUiSecurityHeaders(cached, rel); // backlog 2-9: security headers
+    if (cached) return withUiSecurityHeaders(cached, rel, env); // backlog 2-9: security headers
   }
 
   const ghUrl = buildGithubRawUrl(env, rel);
@@ -10823,7 +10835,7 @@ async function handleUiAsset(request, env, url) {
     await cache.put(request, out.clone());
   }
 
-  return withUiSecurityHeaders(out, rel); // backlog 2-9: security headers
+  return withUiSecurityHeaders(out, rel, env); // backlog 2-9: security headers
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -10831,8 +10843,9 @@ async function handleUiAsset(request, env, url) {
    (handleAppPage's headers, handleUiAsset's two returns), nosniff in jsonResponse and "csp" in CLIENT_LOG_KINDS.
    - Every /ui/* file and the app page: X-Content-Type-Options nosniff, Referrer-Policy same-origin.
    - HTML (the app page at "/" and /<screen>, /ui/index.html, next.html, ...): also Content-Security-Policy-Report-Only.
-     REPORT-ONLY: the browser blocks nothing, it only tells the page (securitypolicyviolation, which core.js sends
-     to /client-log as kind "csp"). Enforce only after a quiet week and John's OK.
+     REPORT-ONLY by default: the browser blocks nothing, it only tells the page (securitypolicyviolation, which core.js
+     sends to /client-log as kind "csp") and POSTs a report to /csp-report (report-uri; logged, not stored).
+     CSP_ENFORCE=1 (a worker variable, security audit 2026-11-10) enforces it, frame-ancestors excepted (see cspEnforced).
    - script-src: 'self' plus the sha256 of each inline <script> of THAT page, worked out here from the very HTML
      being sent: index.html's inline script holds BUILD, so a fixed list would go stale on every UI release
      (the UI ships from GitHub without a worker deploy). 'wasm-unsafe-eval' lets the vendored OCR engine
@@ -10870,7 +10883,12 @@ async function appCspHashes(html) {
   return hashes;
 }
 
-function appCspPolicy(hashes) {
+// CSP_ENFORCE (security audit 2026-11-10): "1"/"true"/"on" sends the policy as Content-Security-Policy (the browser
+// blocks), still with a report-only copy that alone carries frame-ancestors (the GoDaddy custom-HTML frame's origin is
+// not known, so frames are reported, never refused). Unset (the default): report-only, exactly as before.
+function cspEnforced(env) { return /^(1|true|on|yes)$/i.test(String((env && env.CSP_ENFORCE) || "").trim()); }
+
+function appCspPolicy(hashes, frames = true) {
   return [
     "default-src 'self'",
     "script-src 'self' 'wasm-unsafe-eval'" + (hashes.length ? " " + hashes.join(" ") : ""),
@@ -10884,29 +10902,61 @@ function appCspPolicy(hashes) {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors " + APP_FRAME_ANCESTORS.join(" ")
+    ...(frames ? ["frame-ancestors " + APP_FRAME_ANCESTORS.join(" ")] : []),
+    "report-uri /csp-report"
   ].join("; ");
 }
 
-// Headers for the app page / a /ui/ file. html: the page's text when it is a page (adds the report-only policy).
-async function appSecurityHeaders(html) {
+// Headers for the app page / a /ui/ file. html: the page's text when it is a page (adds the policy: report-only, or
+// enforced without frame-ancestors plus the full report-only copy when CSP_ENFORCE is on).
+async function appSecurityHeaders(html, env) {
   const h = { "X-Content-Type-Options": "nosniff", "Referrer-Policy": "same-origin" };
-  if (html != null) h["Content-Security-Policy-Report-Only"] = appCspPolicy(await appCspHashes(html));
+  if (html != null) {
+    const hashes = await appCspHashes(html);
+    if (cspEnforced(env)) h["Content-Security-Policy"] = appCspPolicy(hashes, false);
+    h["Content-Security-Policy-Report-Only"] = appCspPolicy(hashes);
+  }
   return h;
 }
 
 // A /ui/ response with the headers above (a new Response: one from the edge cache cannot be changed in place).
-async function withUiSecurityHeaders(res, rel) {
+async function withUiSecurityHeaders(res, rel, env) {
   try {
     if (!res || res.status !== 200) return res;
     const isHtml = /\.html?$/i.test(String(rel || "")) || /^text\/html/i.test(res.headers.get("Content-Type") || "");
-    const add = await appSecurityHeaders(isHtml ? await res.clone().text() : null);
+    const add = await appSecurityHeaders(isHtml ? await res.clone().text() : null, env);
     const out = new Response(res.body, res);
     for (const [k, v] of Object.entries(add)) out.headers.set(k, v);
     return out;
   } catch (e) {
     return res;
   }
+}
+// POST /csp-report (the policy's report-uri; public: a browser sends it with no sign-in, also before sign-in, which
+// the page's own /client-log reporter cannot). Nothing is stored: one console line per violation (wrangler tail /
+// Workers logs), the blocked address cut to its origin and the source to file:line, so no token or query is kept.
+// Both report shapes: report-uri's {"csp-report":{...}} and the Reporting API's [{type:"csp-violation",body:{...}}].
+async function handleCspReport(request) {
+  try {
+    const len = Number(request.headers.get("Content-Length") || 0);
+    if (len > 16384) return new Response(null, { status: 413 });
+    const text = await request.text();
+    if (text.length > 16384) return new Response(null, { status: 413 });
+    let j = null; try { j = JSON.parse(text); } catch (e) { j = null; }
+    const list = Array.isArray(j) ? j.map((x) => x && x.body).filter(Boolean) : j && j["csp-report"] ? [j["csp-report"]] : [];
+    const origin = (u) => { const v = String(u || ""); if (!/^https?:/i.test(v)) return v.slice(0, 40); try { return new URL(v).origin; } catch (e) { return "?"; } };
+    const file = (u) => { const v = String(u || ""); try { return new URL(v).pathname.split("/").pop().slice(0, 80); } catch (e) { return v.slice(0, 40); } };
+    for (const r of list.slice(0, 5)) {
+      console.log("[csp] " + JSON.stringify({
+        d: String(r["effective-directive"] || r.effectiveDirective || r["violated-directive"] || "").slice(0, 40),
+        blocked: origin(r["blocked-uri"] || r.blockedURL),
+        page: file(r["document-uri"] || r.documentURL),
+        src: file(r["source-file"] || r.sourceFile) + ":" + (Number(r["line-number"] || r.lineNumber) || 0),
+        mode: String(r.disposition || "").slice(0, 10)
+      }));
+    }
+  } catch (e) {}
+  return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
 }
 // ── End app page security headers ──────────────────────────────────────────────────────────────────────
 
@@ -18923,6 +18973,8 @@ export default {
       return await handleUiAsset(request, env, url);
     }
 
+    if (url.pathname === "/csp-report" && request.method === "POST") return await handleCspReport(request);
+
     if (url.pathname === "/health") {
       return jsonResponse({ ok: true, time: nowIso(), version: WORKER_VERSION }, 200, { "Cache-Control": "no-store", "X-Eikon-Worker-Version": WORKER_VERSION });
     }
@@ -18942,23 +18994,10 @@ export default {
     // The pharmacy's public booking page (only when switched on)
     if (url.pathname.startsWith("/book/")) return await handlePublicBooking(request, env, url);
 
-    // Hard 302 redirect to ChatGPT.
-    // A server-side redirect means the browser goes from "blank new tab" straight
-    // to ChatGPT without ever loading an intermediate page. Because no intermediate
-    // page loads, there is no COOP context established in the tab before ChatGPT
-    // arrives, so Firefox never detects a COOP change and never shows the
-    // "security configuration doesn't match" interstitial.
-    // (The JS-redirect shim we tried previously DID load an intermediate page first,
-    // which established COOP: unsafe-none in the tab; when ChatGPT then loaded with
-    // COOP: same-origin Firefox treated that as a disallowed COOP change.)
-    if (url.pathname === "/go/gpt-extractor" && request.method === "GET") {
-      return new Response(null, {
-        status: 302,
-        headers: {
-          "Location": "https://chatgpt.com/g/g-69a717442e348191950843c857f4801e-invoice-extractor",
-          "Cache-Control": "no-store"
-        }
-      });
+    // /go/gpt-extractor (a 302 to a ChatGPT GPT) is retired (security audit 2026-11-10): the worker sends no one to an
+    // outside site. Any old /go/ link gets a plain 404 (it used to fall through to "Unauthorized").
+    if (url.pathname.startsWith("/go/")) {
+      return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
     }
 
     const cors = corsHeadersForRequest(request, env);

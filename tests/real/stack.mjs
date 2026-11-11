@@ -5,6 +5,7 @@
 import http from "node:http"; import fs from "node:fs"; import path from "node:path"; import { fileURLToPath } from "node:url";
 import { makeApp } from "../worker/harness.mjs";
 import { maltaYmd } from "../clock.mjs";
+import { cspHeadersFor } from "../csp.mjs"; // pages carry the worker's own CSP (report-only, or CSP_ENFORCE=1)
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const USER = { email: "maria@demo.mt", password: "Demo-Pass-2026", name: "Maria Borg" };
@@ -32,6 +33,10 @@ export async function startStack(port) {
     const u = new URL(req.url, "http://localhost"); const p = decodeURIComponent(u.pathname);
     if (p.startsWith("/ui/")) {
       const f = path.join(ROOT, "ui", p.slice(4));
+      if (f.startsWith(path.join(ROOT, "ui")) && fs.existsSync(f) && fs.statSync(f).isFile() && /\.html?$/i.test(f)) {
+        const html = fs.readFileSync(f, "utf8");
+        return void cspHeadersFor(path.relative(path.join(ROOT, "ui"), f), html).then((h) => { res.writeHead(200, { "content-type": "text/html", ...h }); res.end(html); }, (e) => { res.writeHead(500); res.end(String(e)); });
+      }
       if (f.startsWith(path.join(ROOT, "ui")) && fs.existsSync(f) && fs.statSync(f).isFile()) { res.writeHead(200, { "content-type": TYPES[f.split(".").pop()] || "application/octet-stream" }); return fs.createReadStream(f).pipe(res); }
     }
     const chunks = []; req.on("data", (c) => chunks.push(c)); req.on("end", async () => {

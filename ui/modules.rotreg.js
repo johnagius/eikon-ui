@@ -101,7 +101,7 @@
   async function load() {
     var keepView = E.takeSaveFailed && E.takeSaveFailed(); S.loading = true; S.error = ""; paint();
     var thisWk = ymd(mondayOf(new Date())) === ymd(S.monday);
-    var from = ymd(S.monday), to = ymd(plus(S.monday, 6)), upto = thisWk ? ymd(plus(S.monday, 13)) : to, years = [S.monday.getFullYear(), plus(S.monday, 6).getFullYear()].filter(function (y, i, a) { return a.indexOf(y) === i; });
+    var from = ymd(S.monday), to = ymd(plus(S.monday, 6)), upto = thisWk ? (function () { var t0 = E.maltaYmd ? E.maltaYmd(new Date()) : ymd(new Date()), a1 = ymd(plus(S.monday, 13)), a2 = ymd(plus(parse(t0), 13)); return a2 > a1 ? a2 : a1; })() : to, years = [S.monday.getFullYear(), plus(S.monday, 6).getFullYear()].filter(function (y, i, a) { return a.indexOf(y) === i; });
     try {
       var rules = E.rotaRules ? E.rotaRules() : Promise.resolve({});
       var res = await Promise.all([E.apiFetch("/shifts/staff?include_inactive=1", { method: "GET" }), E.apiFetch("/shifts/assignments-range?from=" + from + "&to=" + upto, { method: "GET" }), rules]

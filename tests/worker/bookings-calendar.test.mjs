@@ -34,7 +34,7 @@ test("calendar: a walk-in starts now with whoever is free, is marked Here, and s
     const busy = await book(app, token, sid, { start: "10:15", providerId: pid, personEmail: "c@x.mt" });
     eq(busy.status, 201, busy.text);
     const before = cap.sent.length;
-    const w = await app.api("POST", "/bookings", { token, body: { walkIn: true, serviceId: sid, personName: "Ġorġ Żammit" } });
+    const w = await app.api("POST", "/bookings", { token, body: { walkIn: true, serviceId: sid, personName: "Ġorġ Zammit" } });
     eq(w.status, 201, w.text);
     eq([w.json.booking.date, w.json.booking.start, w.json.booking.end, w.json.booking.status, w.json.booking.walkIn], [MON, "10:05", "10:20", "arrived", true]);
     eq(w.json.booking.providerId, pid2, "Maria has 10:15 booked, so Joe takes it");
@@ -134,7 +134,7 @@ test("calendar: a move can skip the e-mail (notify:false); the time it frees goe
   try {
     const { token, sid } = await setup(app, { mail: true });
     const b = await book(app, token, sid, { personEmail: "carmen@example.com" });
-    const wl = await app.api("POST", "/bookings/waitlist", { token, body: { serviceId: sid, personName: "Pawlu Ħaġġar", personPhone: "79000000" } });
+    const wl = await app.api("POST", "/bookings/waitlist", { token, body: { serviceId: sid, personName: "Pawlu Agius", personPhone: "79000000" } });
     const before = cap.sent.length;
     const mv = await app.api("PATCH", "/bookings/" + b.json.booking.id, { token, body: { version: 1, date: MON, start: "11:00", notify: false } });
     eq(mv.status, 200, mv.text);

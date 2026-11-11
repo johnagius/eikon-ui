@@ -30,7 +30,7 @@ test("eod overview: the month and the day being closed in one read", async ({ ap
   const other = await addUser({ orgId: 1, locationId: 2, email: "branch@example.com", name: "Paul Branch" });
   const put = (b, tk = token) => api("PUT", "/endofday/record", { token: tk, body: b });
   eq((await put(day("2026-09-29", "Karl", { action: "LOCK", locked_at: "x" }))).status, 200);
-  eq((await put(day("2026-10-02", "Ġorġ Żammit"))).status, 200);
+  eq((await put(day("2026-10-02", "Ġorġ Zammit"))).status, 200);
   eq((await put(day("2026-10-05", "Maria", { action: "LOCK", locked_at: "x" }))).status, 200);
   eq((await put(day("2026-11-01", "Maria"))).status, 200); // another month: not in October's list
   for (const [d, fee, m] of [["2026-10-06", 12.5, "cash"], ["2026-10-06", 30, "cheque"], ["2026-10-07", 9, "cash"]])
@@ -46,7 +46,7 @@ test("eod overview: the month and the day being closed in one read", async ({ ap
   eq(r.status, 200, r.text);
   const j = r.json, sql0 = n.sql.slice(), rows0 = n.rows;
   eq(j.records.map((x) => x.date), ["2026-10-02", "2026-10-05"], "October's saved days at this pharmacy only");
-  eq(j.records[0].staff_name, "Ġorġ Żammit"); eq(j.records[1].locked_at !== "", true); eq(j.records[0].location_name, "Demo Pharmacy");
+  eq(j.records[0].staff_name, "Ġorġ Zammit"); eq(j.records[1].locked_at !== "", true); eq(j.records[0].location_name, "Demo Pharmacy");
   // the same record the per-day route gives
   const one = (await api("GET", "/endofday/record?date=2026-10-02", { token })).json.record;
   eq(j.records[0], one, "a record in the month is the same as GET /endofday/record gives");

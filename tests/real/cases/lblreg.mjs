@@ -1,15 +1,17 @@
 // Dispensing labels (lblreg) vs classic Smart labels (from the r109 label method, agents/labels/lbl-real.mjs):
-// the printed page is identical, and the saved history entry matches the classic one field for field.
-const CAPTURE = `(() => { window.__printed = []; const o = window.open; window.open = function (u, ...a) { if (window.__capture && /^blob:/.test(String(u))) { fetch(u).then((r) => r.text()).then((t) => window.__printed.push(t)); return {}; } return o.call(window, u, ...a); }; })();`;
+// the printed page is identical, and the saved history entry matches the classic one field for field. Labels are English
+// only (John, 2026-11-11): neither screen offers a language, and a template saved with language "mt" (older data, kept
+// unchanged) prints the English directions and warnings, so an old Maltese label reprints in English.
+const CAPTURE = `(() => { window.__printed = []; window.__blobOf = {}; const mk = URL.createObjectURL; URL.createObjectURL = function (b) { const u = mk.call(URL, b); window.__blobOf[u] = b; return u; }; const o = window.open; window.open = function (u, ...a) { if (window.__capture && /^blob:/.test(String(u))) { (window.__blobOf && window.__blobOf[u] ? window.__blobOf[u].text() : fetch(u).then((r) => r.text())).then((t) => window.__printed.push(t)); return {}; } return o.call(window, u, ...a); }; })();`;
 const TPL = [
   { id: "tpl_std", name: "Standard Label", size: "standard", fields: ["patientName", "drugName", "dose", "frequency", "route", "warnings", "pharmacyDetails", "date"], isDefault: true },
   { id: "tpl_large", name: "Large Print (Elderly)", size: "large", fields: ["patientName", "drugName", "dose", "frequency", "route", "warnings", "pharmacyDetails", "date"], isDefault: false },
   { id: "tpl_mt", name: "Maltese", size: "standard", language: "mt", fields: [], isDefault: false }];
 const PH = { name: "Demo Pharmacy", address: "1 Triq il-Kbira, Mosta", phone: "21234567", licence: "PH-042" };
 const INPUTS = [
-  { name: "English, standard", tpl: "tpl_std", mt: false, patient: "", drug: "Amoxicillin 500mg", dose: "1 capsule", freq: "Three times daily", route: "Oral", note: "Until finished", w: ["w10", "w01"] },
-  { name: "English + Maltese, large print, patient, odd characters", tpl: "tpl_large", mt: true, patient: "Zammit Carmel", drug: "Paracetamol <500mg> & co", dose: "2 tablets", freq: "Every 6 hours", route: "Oral", note: "Max 8 in 24h \"strict\"", w: ["w03", "w08"] },
-  { name: "Maltese template", tpl: "tpl_mt", mt: true, patient: "Borg Ġorġ", drug: "Ċetirizina 10mg", dose: "1 pillola", freq: "Once daily", route: "Sublingual", note: "", w: ["w16", "w13", "w03"] }];
+  { name: "English, standard", tpl: "tpl_std", patient: "", drug: "Amoxicillin 500mg", dose: "1 capsule", freq: "Three times daily", route: "Oral", note: "Until finished", w: ["w10", "w01"] },
+  { name: "large print, patient, odd characters", tpl: "tpl_large", patient: "Zammit Carmel", drug: "Paracetamol <500mg> & co", dose: "2 tablets", freq: "Every 6 hours", route: "Oral", note: "Max 8 in 24h \"strict\"", w: ["w03", "w08"] },
+  { name: "a template saved as Maltese", tpl: "tpl_mt", patient: "Borg Ġorġ", drug: "Cetirizine 10mg", dose: "1 pillola", freq: "Once daily", route: "Sublingual", note: "", w: ["w16", "w13", "w03"] }];
 export default {
   title: "Dispensing labels",
   async run(t) {
@@ -24,7 +26,7 @@ export default {
     const classic = [];
     for (const x of INPUTS) {
       await p.click(".lb .btn:has-text('Clear Form')");
-      await p.selectOption("#lb-tpl", x.tpl); await p.selectOption("#lb-lang", x.mt ? "both" : "en");
+      await p.selectOption("#lb-tpl", x.tpl);
       if (await p.isChecked("#lb-inc-patient") !== !!x.patient) await p.click("#lb-inc-patient");
       if (x.patient) await p.fill("#lb-patient", x.patient);
       await p.fill("#lb-drug", x.drug); await p.keyboard.press("Escape");
@@ -35,12 +37,13 @@ export default {
     }
     for (let i = 0; i < 40 && ((await t.api("GET", "/labels/state")).state.labelHistory || []).length < 3; i++) await p.waitForTimeout(150);
     const afterClassic = (await t.api("GET", "/labels/state")).state.labelHistory;
+    t.ok(await p.locator("#lb-lang").count() === 0 && !/English \+ Maltese|Maltese \(Malti\)/.test(await p.locator(".lb").innerText()), "classic: no language choice on the label screen");
     // new
     await t.open(p, "2", "labels", "lblreg", "#lbl-add");
     const fresh = [];
     for (const x of INPUTS) {
       await p.click("[data-act=clear]");
-      await p.selectOption("[name=templateId]", x.tpl); await p.click(`[data-act=lang][data-v=${x.mt ? "both" : "en"}]`);
+      await p.selectOption("[name=templateId]", x.tpl);
       if (await p.isChecked("[name=inc]") !== !!x.patient) await p.click("[name=inc]");
       if (x.patient) await p.fill("[name=patientName]", x.patient);
       await p.fill("[name=drugName]", x.drug); await p.waitForTimeout(100);
@@ -49,6 +52,11 @@ export default {
       fresh.push(await printed(() => p.click("#lbl-add button[type=submit]")));
       await p.waitForFunction(() => /saved to recent labels/.test((document.querySelector("#lbl-status") || {}).textContent || ""), null, { timeout: 8000 });
     }
+    t.ok(await p.locator("[data-act=lang], .lbl-mt").count() === 0 && !/English \+ Maltese|In Maltese|Read out in/.test(await p.locator(".lbl").innerText()), "new: no language choice on the screen");
+    // English only: no Maltese words in any printout, the Maltese template's included (its frequency and warnings in English)
+    const MT = /Darba|kuljum|Żomb|Żomm|Ħu |Jista|mit-tfal|irqad|\(<\/?i|<i /;
+    t.ok([...classic, ...fresh].every((h) => !MT.test(h)), "no Maltese wording in any printed label");
+    t.ok(/Once daily/.test(classic[2]) && /⚠ Keep out of reach of children/.test(classic[2]) && /⚠ Take at bedtime/.test(classic[2]), "the label from the template saved as Maltese prints its frequency and warnings in English");
     INPUTS.forEach((x, i) => t.ok(fresh[i] === classic[i], `labels "${x.name}": print page identical to the classic (${classic[i].length} vs ${fresh[i].length} chars)`));
     const hist = (await t.api("GET", "/labels/state")).state.labelHistory;
     const nw = hist.filter((e) => !afterClassic.some((c) => c.id === e.id));
@@ -57,5 +65,7 @@ export default {
       const c = afterClassic.find((e) => e.drugName === x.drug), n = nw.find((e) => e.drugName === x.drug);
       t.same(`labels "${x.name}"`, c, n, { printedAt: "the moment of printing" });
     }
+    const st = (await t.api("GET", "/labels/state")).state;
+    t.ok(JSON.stringify(st.templates) === JSON.stringify(TPL), "the saved templates are unchanged (the Maltese one keeps language \"mt\"; nothing is rewritten)");
   },
 };

@@ -32,7 +32,7 @@ test("registers today: one read says what each register needs today", async ({ a
   ok(devs.length >= 2, "default fridge and room");
   const fridge = devs.find((d) => d.device_type === "fridge") || devs[0];
   eq((await api("POST", "/temperature/entries", { token, body: { device_id: fridge.id, entry_date: today, min_temp: 3, max_temp: 9.5, notes: "" } })).status, 200);
-  eq((await api("POST", "/cleaning/entries", { token, body: { entry_date: plus(today, -9), time_in: "08:00", time_out: "08:30", cleaner_name: "Karl Ċassar", staff_name: "Maria", notes: "" } })).status, 200);
+  eq((await api("POST", "/cleaning/entries", { token, body: { entry_date: plus(today, -9), time_in: "08:00", time_out: "08:30", cleaner_name: "Karl Cassar", staff_name: "Maria", notes: "" } })).status, 200);
   eq((await api("POST", "/locumregister/entries", { token, body: { entry_date: today, time_in: "08:00", time_out: "19:00", locum_full_name: "Pharm. Daniela Spiteri", registration_number: "PH 1234" } })).status, 200);
   eq((await api("POST", "/dda-sales/entries", { token, body: { entry_date: lastYm + "-10", client_name: "Zammit Carmel", client_id_card: "0012345M", client_address: "1 Triq il-Knisja", medicine_name_dose: "Morphine 10mg/ml", quantity: 2, doctor_name: "Dr Abela", doctor_reg_no: "R1201", prescription_serial_no: "S5001" } })).status, 200);
   const certs = (await api("GET", "/certificates/items", { token })).json.items;
@@ -53,7 +53,7 @@ test("registers today: one read says what each register needs today", async ({ a
   eq(tf.today.max, 9.5); eq(tf.out_of_range, true); eq(tf.note, false);
   ok(j.temperature.some((d) => d.device_id !== fridge.id && d.today === null), "the room is not logged yet");
   eq(j.daily_register.count_today, 0);
-  eq(j.cleaning.days_since, 9); eq(j.cleaning.by, "Karl Ċassar");
+  eq(j.cleaning.days_since, 9); eq(j.cleaning.by, "Karl Cassar");
   eq(j.locum.signed, true); eq(j.locum.entries[0].name, "Pharm. Daniela Spiteri");
   eq(j.stocktake.last_month, lastYm); eq(j.stocktake.last_month_counted, null); eq(j.stocktake.last_month_lines, true); eq(j.stocktake.open, null);
   ok(j.certificates.some((c) => c.status === "expired" && c.title === c0.title), "expired certificate: " + JSON.stringify(j.certificates));

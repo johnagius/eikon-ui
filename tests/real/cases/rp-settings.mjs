@@ -110,7 +110,7 @@ export default {
       await t.write(p, /\/shifts\/settings$/, () => p.click(f + " [type=submit]"), "PUT"); }
     const s2 = JSON.parse(SET());
     t.ok(s2.calendarToken === "otherdevicetoken999" && s2.rota.minStaff === 2 && s2.rota.warn.twoph === false && s2.rota.warn.rest === false && s2.rota.plans[7].rid === "k3f9", "rules saved read-fresh-merge: another device's change kept, rota.plans kept: " + SET());
-    const [P1] = await Promise.all([api("POST", "/shifts/staff", { full_name: "Lara Ħili", designation: "assistant", employment_type: "parttime", contracted_hours: 20, email: "lara@demo.mt", phone: "79 000 111", registration_number: "", is_active: 1, patterns_json: JSON.stringify({ patterns: [], provisionalId: null }) })]);
+    const [P1] = await Promise.all([api("POST", "/shifts/staff", { full_name: "Lara Hili", designation: "assistant", employment_type: "parttime", contracted_hours: 20, email: "lara@demo.mt", phone: "79 000 111", registration_number: "", is_active: 1, patterns_json: JSON.stringify({ patterns: [], provisionalId: null }) })]);
     const lara = P1.staff_id || P1.id, laraRow = () => db.prepare("SELECT * FROM shift_staff WHERE id = ?").get(lara);
     await planner("avail", laraRow());
     { const f = ".rps [data-f=avail]"; await p.selectOption(f + " [name=w4]", "no"); await p.selectOption(f + " [name=w0]", "only"); await p.fill(f + " [name=w0f]", "12:00"); await p.fill(f + " [name=w0t]", "19:30");
@@ -126,16 +126,16 @@ export default {
     t.ok(JSON.stringify(JSON.parse(SET()).rota) === JSON.stringify(before), "a classic Rules save afterwards keeps every rota.* key: " + JSON.stringify(JSON.parse(SET()).rota));
 
     // ---- a person's details, deactivate, activate: the row the classic Edit Employee / Deactivate stores ----
-    const seedP = { full_name: "Lara Ħili", designation: "assistant", employment_type: "parttime", contracted_hours: 20, email: "lara@demo.mt", phone: "79 000 111", registration_number: "", is_active: 1, patterns_json: JSON.stringify({ patterns: [], provisionalId: null }) };
+    const seedP = { full_name: "Lara Hili", designation: "assistant", employment_type: "parttime", contracted_hours: 20, email: "lara@demo.mt", phone: "79 000 111", registration_number: "", is_active: 1, patterns_json: JSON.stringify({ patterns: [], provisionalId: null }) };
     const rowOf = () => { const r = laraRow(); delete r.updated_at; return JSON.stringify(r); };
     const putP = () => api("PUT", "/shifts/staff/" + lara, seedP);
     await both("edit details", rowOf, putP,
-      async () => { await classic("staff", "#sh-add-emp"); await p.click(`tr:has-text("Lara Ħili") button:has-text("Edit")`); await p.waitForSelector("#se-name"); await p.fill("#se-name", "Lara Ħili Żammit"); await p.selectOption("#se-type", "fulltime"); await p.fill("#se-hrs", "40"); await p.fill("#se-reg", "PA-778");
+      async () => { await classic("staff", "#sh-add-emp"); await p.click(`tr:has-text("Lara Hili") button:has-text("Edit")`); await p.waitForSelector("#se-name"); await p.fill("#se-name", "Lara Hili Zammit"); await p.selectOption("#se-type", "fulltime"); await p.fill("#se-hrs", "40"); await p.fill("#se-reg", "PA-778");
         await t.write(p, /\/shifts\/staff\/\d+$/, () => p.click(".eikon-modal-actions button:has-text('Save')"), "PUT"); },
-      async () => { await planner("person", laraRow()); const f = ".rps [data-f=person]"; await p.fill(f + " [name=full_name]", "Lara Ħili Żammit"); await p.selectOption(f + " [name=employment_type]", "fulltime"); await p.fill(f + " [name=contracted_hours]", "40"); await p.fill(f + " [name=registration_number]", "PA-778");
+      async () => { await planner("person", laraRow()); const f = ".rps [data-f=person]"; await p.fill(f + " [name=full_name]", "Lara Hili Zammit"); await p.selectOption(f + " [name=employment_type]", "fulltime"); await p.fill(f + " [name=contracted_hours]", "40"); await p.fill(f + " [name=registration_number]", "PA-778");
         await t.write(p, /\/shifts\/staff\/\d+$/, () => p.click(f + " [type=submit]"), "PUT"); await p.waitForSelector(f + " .rps-msg.ok"); });
     await both("deactivate", rowOf, putP,
-      async () => { await classic("staff", "#sh-add-emp"); await t.write(p, /\/shifts\/staff\/\d+$/, () => p.click(`tr:has-text("Lara Ħili") button:has-text("Deactivate")`), "PUT"); },
+      async () => { await classic("staff", "#sh-add-emp"); await t.write(p, /\/shifts\/staff\/\d+$/, () => p.click(`tr:has-text("Lara Hili") button:has-text("Deactivate")`), "PUT"); },
       async () => { await planner("person", laraRow()); await t.write(p, /\/shifts\/staff\/\d+$/, () => p.click(".rps [data-act=active]"), "PUT"); await p.waitForSelector(".rps [data-k=amsg].ok"); });
     t.ok(laraRow().is_active === 0, "deactivated: is_active 0");
     const offWords = await p.evaluate(() => document.querySelector(".rps [data-k=amsg]").textContent + " / " + document.querySelector(".rps [data-act=active]").textContent);
@@ -160,7 +160,7 @@ export default {
     await api("POST", "/shifts/leaves", { staff_id: lara, leave_type: "annual", start_date: ymdAdd(today, 40), end_date: ymdAdd(today, 40), hours_requested: 8, reason: "", status: "pending" });
     await planner("person", laraRow()); await p.click(".rps [data-act=del]"); await p.waitForSelector(".rps [data-act=del-yes]");
     const conf = await p.evaluate(() => ({ text: document.querySelector(".rps-warn").textContent, btns: [...document.querySelectorAll(".rps [data-k=del] button")].map((b) => b.textContent), focus: document.activeElement.textContent }));
-    t.ok(/^Delete Lara Ħili\? This removes them, their 2 shifts and all their leave records\. This cannot be undone\. Deactivate keeps the history\.$/.test(conf.text) && conf.btns.join("|") === "Keep Lara|Deactivate instead|Delete for good" && conf.focus === "Keep Lara", "delete confirm names the shifts, offers Deactivate instead, focus on Keep: " + JSON.stringify(conf));
+    t.ok(/^Delete Lara Hili\? This removes them, their 2 shifts and all their leave records\. This cannot be undone\. Deactivate keeps the history\.$/.test(conf.text) && conf.btns.join("|") === "Keep Lara|Deactivate instead|Delete for good" && conf.focus === "Keep Lara", "delete confirm names the shifts, offers Deactivate instead, focus on Keep: " + JSON.stringify(conf));
     await t.write(p, /\/shifts\/staff\/\d+$/, () => p.click(".rps [data-act=del-yes]"), "DELETE");
     const left = { staff: db.prepare("SELECT COUNT(*) n FROM shift_staff WHERE id = ?").get(lara).n, shifts: db.prepare("SELECT COUNT(*) n FROM shift_assignments WHERE staff_id = ?").get(lara).n, leave: db.prepare("SELECT COUNT(*) n FROM shift_leaves WHERE staff_id = ?").get(lara).n };
     t.ok(left.staff === 0 && left.shifts === 0 && left.leave === 0, "deleted with the classic cascade: " + JSON.stringify(left));

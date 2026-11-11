@@ -10,7 +10,7 @@
 // A "solo-" case: it runs alone after every other case (it adds rows to tables the others read as "the newest").
 import { ymd } from "../lib.mjs";
 
-const DAY = (d) => ({ record: { date: d, eod_date: d, time_of_day: "PM", staff: "Ġorġ Żammit", staff_name: "Ġorġ Żammit", float_amount: "150.00",
+const DAY = (d) => ({ record: { date: d, eod_date: d, time_of_day: "PM", staff: "Ġorġ Zammit", staff_name: "Ġorġ Zammit", float_amount: "150.00",
   x: [{ amount: "1250.40", remark: "Main till" }, { amount: "80.00", remark: "" }, { amount: "1.00", remark: "" }, { amount: "2.00", remark: "" }, { amount: "3.00", remark: "fifth, past the sheet" }],
   epos: [{ amount: "520.10", remark: "" }], cheques: [{ amount: "45.00", remark: "Ħal Qormi clinic" }], paid_outs: [{ amount: "12.50", remark: "Milk" }, { amount: "3.20", remark: "Stamps" }],
   cash: { n500: "0", n200: "0", n100: "2", n50: "6", n20: "10", n10: "7", n5: "3", coins_total: "59.15" }, deposit: { n500: 0, n200: 0, n100: 2, n50: 6, n20: 10, n10: 7, n5: 1 },

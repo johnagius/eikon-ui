@@ -442,7 +442,7 @@
       ["Print a label again", "Type the medicine or the patient under Print a recent label again.", "Press Print again on the label. Use again puts it in the form to change it first."],
       ["Print a new label", "Type the medicine; one given before fills in how it was taken.", "Add the patient's name if it goes on the label, and tap the warnings that apply.", "Check the label and press Print label."],
       ["Usual labels", "Press Usual label to keep a medicine and its directions on this device. Tap it at the top to fill the form; × takes it off."],
-      ["Read it in Maltese", "Choose English + Maltese to see the words to read to the patient. The printed label is in English, as on the classic screen; Maltese prints only from a Maltese template."],
+      ["Language", "Labels print in English. A label first printed in Maltese prints again with the same directions and warnings in English."],
       ["Start again", "Press Clear."]
     ], "Templates, pharmacy details, the full print history and the warnings table are in the classic screen.", []],
 

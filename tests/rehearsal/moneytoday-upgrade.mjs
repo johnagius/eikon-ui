@@ -41,7 +41,7 @@ const day = (n) => { const [y, m, d] = malta().split("-").map(Number); return ne
 await api("POST", "/bootstrap", { form: { bootstrap_token: "t", org_name: "Demo Org", location_name: "Demo Pharmacy", admin_email: "maria@demo.mt", admin_full_name: "Maria Borg", admin_password: "Demo-Pass-2026" } });
 DB.db.prepare("INSERT INTO locations (id, org_id, name) VALUES (2, 1, 'Branch')").run();
 const T = (await api("POST", "/auth/login", { body: { email: "maria@demo.mt", password: "Demo-Pass-2026" } })).json.token;
-const rec = (d, x, locked) => ({ record: { date: day(d), eod_date: day(d), time_of_day: "PM", staff: "Ċensa Żammit", staff_name: "Ċensa Żammit", float_amount: "150.00", x: [{ amount: x, remark: "Main \"till\" <b>" }], epos: [{ amount: "300.10", remark: "" }], cheques: [], paid_outs: [{ amount: "12.50", remark: "Milk" }], cash: { n500: "0", n200: "1", n100: "2", n50: "0", n20: "3", n10: "0", n5: "1", coins_total: "41.15" }, deposit: {}, bov_bag_number: "B-1", notes: "ħ" } });
+const rec = (d, x, locked) => ({ record: { date: day(d), eod_date: day(d), time_of_day: "PM", staff: "Ċensina Zammit", staff_name: "Ċensina Zammit", float_amount: "150.00", x: [{ amount: x, remark: "Main \"till\" <b>" }], epos: [{ amount: "300.10", remark: "" }], cheques: [], paid_outs: [{ amount: "12.50", remark: "Milk" }], cash: { n500: "0", n200: "1", n100: "2", n50: "0", n20: "3", n10: "0", n5: "1", coins_total: "41.15" }, deposit: {}, bov_bag_number: "B-1", notes: "ħ" } });
 let wrote = 0;
 const W = async (m, p, b) => { const r = await api(m, p, { token: T, body: b }); if (r.status === 200) wrote++; return r; };
 await W("PUT", "/endofday/record", rec(0, "1234.56")); await W("PUT", "/endofday/record", rec(1, "900")); await W("PUT", "/endofday/record", rec(3, "800"));

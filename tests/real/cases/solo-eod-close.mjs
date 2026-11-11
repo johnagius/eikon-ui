@@ -16,7 +16,7 @@ export default {
     const had = [D0, D1, D2].map((d) => t.db.prepare(`SELECT * FROM ${T} WHERE eod_date = ?`).get(d));
     [D0, D1, D2].forEach(del);
     // the day before yesterday saved, not locked; yesterday nothing
-    await t.api("PUT", "/endofday/record", { record: { date: D2, eod_date: D2, time_of_day: "PM", staff: "Ġorġ Żammit", staff_name: "Ġorġ Żammit", float_amount: "150.00", x: [{ amount: "700.00", remark: "" }], epos: [], cheques: [], paid_outs: [], cash: { n50: "4", n100: "5", coins_total: "0" }, deposit: { n50: 4, n100: 5 }, bag_number: "B-2", notes: "", action: "SAVE" } });
+    await t.api("PUT", "/endofday/record", { record: { date: D2, eod_date: D2, time_of_day: "PM", staff: "Ġorġ Zammit", staff_name: "Ġorġ Zammit", float_amount: "150.00", x: [{ amount: "700.00", remark: "" }], epos: [], cheques: [], paid_outs: [], cash: { n50: "4", n100: "5", coins_total: "0" }, deposit: { n50: 4, n100: 5 }, bag_number: "B-2", notes: "", action: "SAVE" } });
     const po0 = t.maxId("paid_out_entries"), ps0 = t.maxId("pos_sales");
     // Earlier cases in the suite record paid outs and emergency sales for today too: set them aside (dated far back)
     // for this case, so the register holds only what it adds, and put them back at the end. (Director, test isolation.)
@@ -25,7 +25,7 @@ export default {
     asidePo.forEach((id) => t.db.prepare("UPDATE paid_out_entries SET entry_date = '1999-01-01' WHERE id = ?").run(id));
     asidePs.forEach((id) => t.db.prepare("UPDATE pos_sales SET sale_date = '1999-01-01' WHERE id = ?").run(id));
     await t.api("POST", "/paid-out/entries", { entry_date: D0, entry_time: "10:00", payee_name: "Courier Ltd", fee: 12.5, payment_method: "cash", reason: "Delivery" });
-    await t.api("POST", "/paid-out/entries", { entry_date: D0, entry_time: "11:00", payee_name: "Ħili Pharma", fee: 30, payment_method: "cheque", cheque_no: "CH1", reason: "Invoice" });
+    await t.api("POST", "/paid-out/entries", { entry_date: D0, entry_time: "11:00", payee_name: "Hili Pharma", fee: 30, payment_method: "cheque", cheque_no: "CH1", reason: "Invoice" });
     await t.api("POST", "/emergency-pos/sales", { sale_date: D0, items: [{ name: "Panadol", qty: 1, price: 10, vat_rate: 0 }], payment_method: "cash", amount_tendered: 10 });
     await t.api("POST", "/emergency-pos/sales", { sale_date: D0, items: [{ name: "Panadol", qty: 1, price: 5.2, vat_rate: 0 }], payment_method: "card" });
 
@@ -85,7 +85,7 @@ export default {
     await p2.waitForSelector("#eod-closing", { timeout: 8000 });
     await p2.waitForFunction(() => document.activeElement && document.activeElement.id === "eod-closing", null, { timeout: 3000 }).catch(() => {});
     const op = await p2.evaluate(() => ({ foc: document.activeElement && document.activeElement.id, ask: !!document.querySelector("[data-act=lock-yes]"), line: (document.querySelector(".eod-who span") || {}).textContent }));
-    t.ok(op.foc === "eod-closing" && !op.ask && /Ġorġ Żammit/.test(op.line), "Close opens the day with a note, no lock question yet: " + JSON.stringify(op));
+    t.ok(op.foc === "eod-closing" && !op.ask && /Ġorġ Zammit/.test(op.line), "Close opens the day with a note, no lock question yet: " + JSON.stringify(op));
     const was = JSON.stringify(t.db.prepare(`SELECT * FROM ${T} WHERE eod_date = ?`).get(D2));
     await p2.keyboard.press("Enter"); await p2.waitForTimeout(600); await t.idle(p2);
     t.ok(JSON.stringify(t.db.prepare(`SELECT * FROM ${T} WHERE eod_date = ?`).get(D2)) === was && !(await p2.$("[data-act=lock-yes]")), "one Enter after Close yesterday saves and locks nothing");

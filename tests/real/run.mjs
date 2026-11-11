@@ -5,7 +5,7 @@
 // Env: REAL_PORT (default 8895), REAL_JOBS (parallel browser contexts, default 4), REAL_HEADED=1.
 import { createRequire } from "node:module"; import fs from "node:fs"; import path from "node:path"; import { fileURLToPath, pathToFileURL } from "node:url";
 import { startStack, USER } from "./stack.mjs";
-import { makeT } from "./lib.mjs";
+import { makeT, CSPV } from "./lib.mjs";
 import { installNodeClock, CLOCK_OFFSET, BROWSER_TZ } from "../clock.mjs";
 installNodeClock(); // EIKON_FAKE_NOW: the worker and the cases run at that moment
 
@@ -59,5 +59,6 @@ out("\n=== tail ===");
 if (process.env.REAL_NOTES) for (const r of results) if (r.notes.length) out("note " + r.name + ": " + r.notes.join(" | "));
 for (const r of results) for (const k of r.known) out("KNOWN " + r.name + ": " + k);
 for (const r of failed) { out("FAILED " + r.name + " (" + r.title + ")"); for (const x of r.fails) out("  - " + x); }
+out(`csp: ${CSPV.length} violation(s) under the ${process.env.CSP_ENFORCE ? "enforced" : "report-only"} policy`);
 out(`real: ${results.length - failed.length} passed, ${failed.length} failed (${results.reduce((n, r) => n + r.checks, 0)} checks, ${((Date.now() - t0) / 1000).toFixed(0)}s)`);
 process.exit(failed.length ? 1 : 0);

@@ -79,7 +79,7 @@ const ok = (c, m) => { if (!c) throw new Error(m || "not ok"); };
 
 const HOURS = { default: { open: "07:30", close: "19:30", closed: false }, weekly: { 0: { open: "07:30", close: "19:30", closed: true }, 1: { open: "07:30", close: "19:30", closed: false }, 2: { open: "07:30", close: "19:30", closed: false }, 3: { open: "07:30", close: "19:30", closed: false }, 4: { open: "07:30", close: "19:30", closed: false }, 5: { open: "07:30", close: "19:30", closed: false }, 6: { open: "08:00", close: "13:00", closed: false } }, openSaturday: true, openSunday: false, overrides: {} };
 const SET = { pharmacistRequired: true, minPharmacists: 1 };
-const MARIA = { id: 11, full_name: "Marija Ċassar", designation: "pharmacist", is_active: 1 };
+const MARIA = { id: 11, full_name: "Marija Cassar", designation: "pharmacist", is_active: 1 };
 const JOE = { id: 12, full_name: "Joe Vella", designation: "pharmacist", is_active: 1 };
 const RITA = { id: 13, full_name: "Rita Camilleri", designation: "assistant", is_active: 1 };
 const MF = (s, e) => [0, 1, 2, 3, 4].map(() => ({ start: s, end: e }));
@@ -258,11 +258,11 @@ test("same as last week, everyone's usual pattern, scattered days", ({ E }) => {
 test("fill the gaps: a pharmacist for every open hour (fewest hours first, leave/availability respected); an assistant role too; unfilled listed", ({ E }) => {
   const P = E.rotaPlan;
   const shifts = [{ id: 1, staff_id: 11, shift_date: "2026-11-17", start_time: "07:30", end_time: "14:00", role_override: "", notes: "" }, { id: 2, staff_id: 12, shift_date: "2026-11-16", start_time: "07:30", end_time: "19:30", role_override: "", notes: "" }];
-  const L = { id: 14, full_name: "Ħelena Farrugia", designation: "locum", is_active: 1 };
+  const L = { id: 14, full_name: "Helena Farrugia", designation: "locum", is_active: 1 };
   const data = { staff: [MARIA, JOE, L, RITA], shifts, hours: HOURS, settings: SET, leaves: [{ staff_id: 14, status: "approved", leave_type: "annual", start_date: "2026-11-18", end_date: "2026-11-18" }] };
   const g = P.gaps({ from: "2026-11-17", to: "2026-11-18", data });
   const by = Object.fromEntries(g.map((x) => [x.staff_id, x.add.map((r) => r.date + " " + r.start_time + "–" + r.end_time)]));
-  eq(by, { 11: ["2026-11-18 07:30–19:30"], 14: ["2026-11-17 14:00–19:30"] }, "Tue pm to the locum (0 h planned); Wed to Maria (Ħelena on leave; Maria 6.5 h < Joe 12 h)");
+  eq(by, { 11: ["2026-11-18 07:30–19:30"], 14: ["2026-11-17 14:00–19:30"] }, "Tue pm to the locum (0 h planned); Wed to Maria (Helena on leave; Maria 6.5 h < Joe 12 h)");
   ok(g.every((x) => x.extra && !x.keep.length), "gap shifts are extra shifts");
   const asst = P.gaps({ from: "2026-11-16", to: "2026-11-16", role: "assistant", data });
   eq(asst.map((x) => [x.staff_id, x.add.map((r) => r.start_time + "–" + r.end_time)]), [[13, ["07:30–19:30"]]]);
@@ -277,7 +277,7 @@ test("preview words: SPEC §2.4 wording, skips with reasons, asked and trimmed, 
   const ex = [{ id: 5, staff_id: 11, shift_date: "2026-11-16", start_time: "08:00", end_time: "14:00", role_override: "", notes: "" }];
   const x = P.expand({ person: MARIA, rotation: altSat("2026-11-16"), from: "2026-11-16", to: "2026-12-13", hours: HOURS, settings: { ...SET, rota: { avail } }, leaves, existing: ex });
   const pv = P.preview([], x, "keep", { after: { shifts: ex, staff: [MARIA], leaves, hours: HOURS, settings: SET } });
-  eq(pv.words.title, "Marija Ċassar, 16 Nov – 13 Dec 2026");
+  eq(pv.words.title, "Marija Cassar, 16 Nov – 13 Dec 2026");
   eq(pv.words.line, "Adds " + x.add.length + " shifts · keeps 1 shift already planned · removes nothing");
   eq(pv.words.skips, "Skips: 1 public holiday · 2 days of leave · 1 day Marija can't work (Thu 3 Dec)");
   ok(/Marija asked for annual leave on Thu 26 Nov \(they get the shift for now\)/.test(pv.words.asked), pv.words.asked);

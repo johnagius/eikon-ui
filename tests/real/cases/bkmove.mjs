@@ -22,7 +22,7 @@ export default {
 async function steps(t, sent) {
   // A practitioner and a service of this case's own (no other case books), e-mails on through one sender.
   const hrs = {}; for (let d = 0; d < 7; d++) hrs[d] = [["08:00", "20:00"]];
-  const pr = await t.api("POST", "/bookings/providers", { name: "Ħelena Move", kind: "pharmacist", hours: hrs });
+  const pr = await t.api("POST", "/bookings/providers", { name: "Helena Move", kind: "pharmacist", hours: hrs });
   const sv = await t.api("POST", "/bookings/services", { name: "Move check", durationMin: 15, priceCents: 500, providerIds: [pr.provider.id] });
   const sid = sv.service.id, pid = pr.provider.id;
   await t.api("POST", "/bookings/senders", { kind: "brevo", apiKey: "test-key-not-real-0123456789", fromEmail: "bookings@demo.test", dailyCap: 0 });

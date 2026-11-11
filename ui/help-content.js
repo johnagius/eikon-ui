@@ -814,7 +814,7 @@
           heading: "Overview",
           body:
             "<p>Generate pharmacy dispensing labels with auto-fill from a medicine database, " +
-            "multi-language support (English/Maltese), customisable templates, and instant printing.</p>"
+            "English labels, customisable templates, and instant printing.</p>"
         },
         {
           heading: "First-Time Setup",
@@ -833,17 +833,16 @@
             "<li>Optionally type the <strong>patient name</strong> (autocomplete from history).</li>" +
             "<li>Start typing the <strong>medicine name</strong> \u2014 select from autocomplete.</li>" +
             "<li>The <strong>dose</strong>, <strong>advice</strong>, and <strong>warnings</strong> auto-fill from the database (fields flash green). Edit any field if needed.</li>" +
-            "<li>Toggle the <strong>language</strong> (English or Maltese) if required.</li>" +
             "<li>Click <strong>Print</strong> \u2014 the label sends directly to the printer, no popup.</li>" +
             "</ol>" +
-            "<p>To reprint a previous label, open <strong>History</strong> and click <strong>Reprint</strong> on any past entry.</p>"
+            "<p>To reprint a previous label, open <strong>History</strong> and click <strong>Reprint</strong> on any past entry. Labels print in English; one first printed in Maltese prints again with the same directions and warnings in English.</p>"
         },
         {
           heading: "Tips",
           body:
             "<ul>" +
             "<li>Auto-fill speeds up entry dramatically \u2014 just start typing the medicine name.</li>" +
-            "<li>The <strong>Warnings</strong> tab is a reference table of all standard warnings in English and Maltese.</li>" +
+            "<li>The <strong>Warnings</strong> tab is a reference table of all standard warnings.</li>" +
             "<li>Also available as a quick-entry on the Dashboard.</li>" +
             "</ul>"
         }

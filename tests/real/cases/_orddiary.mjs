@@ -1,7 +1,7 @@
 // Orders (ordreg, b4-5): after a new order, its items go into the order diary, as the classic screen's
 // "Add to Order Diary?" does: the same diary row, column by column.
 import { ymd } from "../lib.mjs";
-const IN = { name: "Ċachia Ġorġ", phone: "79444555", items: "Ħ-brand syrup 200ml", needed: ymd(2), supplier: "PharmaCo" };
+const IN = { name: "Cachia Ġorġ", phone: "79444555", items: "Ħ-brand syrup 200ml", needed: ymd(2), supplier: "PharmaCo" };
 export default {
   title: "Orders: into the order diary",
   async run(t) {

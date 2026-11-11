@@ -3,7 +3,7 @@
 import { test, eq, ok } from "./lib.mjs";
 
 const D = "2026-11-04";
-const NAMES = ["Ċachia Marija", "Żammit Ġorġ", "Ħaġġar Pawlu", "Buħaġiar Rita", "Borg Anna", "Vella Joseph", "ċaruana ħelen"];
+const NAMES = ["Cachia Ċettina", "Zammit Ġorġ", "Agius Żaren", "Buhagiar Rita (Ħamrun)", "Borg Anna", "Vella Joseph", "caruana ċensina"];
 
 // Stored as they are in a live pharmacy (older rows were never re-cased), straight into the table.
 async function addPeople(api, token, DB) {
@@ -14,54 +14,54 @@ const names = (r) => (r.json.people || []).map((p) => p.name).sort();
 const hist = (r) => (r.json.history || []).map((p) => p.name).sort();
 
 // ---------------------------------------------------------------- W2
-test("batch6 W2: /people?q= finds Ċachia from 'cachia', Żammit from 'zammit', and capitals/lowercase alike", async ({ api, bootstrap, DB }) => {
+test("batch6 W2: /people?q= finds Ċettina from 'cettina', Ġorġ from 'gorg', and capitals/lowercase alike", async ({ api, bootstrap, DB }) => {
   const { token } = await bootstrap();
   await addPeople(api, token, DB);
-  eq(names(await api("GET", "/people?q=cachia", { token })), ["Ċachia Marija"]);
-  eq(names(await api("GET", "/people?q=zammit", { token })), ["Żammit Ġorġ"]);
-  eq(names(await api("GET", "/people?q=gorg", { token })), ["Żammit Ġorġ"]);
-  eq(names(await api("GET", "/people?q=haggar", { token })), ["Ħaġġar Pawlu"]);
-  eq(names(await api("GET", "/people?q=buhagiar", { token })), ["Buħaġiar Rita"]);
-  eq(names(await api("GET", "/people?q=CARUANA", { token })), ["ċaruana ħelen"]);
-  eq(names(await api("GET", "/people?q=Ċaruana", { token })), ["ċaruana ħelen"], "a capital Ċ in the query finds a lowercase ċ stored");
-  eq(names(await api("GET", "/people?q=ħelen", { token })), ["ċaruana ħelen"]);
+  eq(names(await api("GET", "/people?q=cettina", { token })), ["Cachia Ċettina"]);
+  eq(names(await api("GET", "/people?q=ĠORĠ", { token })), ["Zammit Ġorġ"]);
+  eq(names(await api("GET", "/people?q=gorg", { token })), ["Zammit Ġorġ"]);
+  eq(names(await api("GET", "/people?q=zaren", { token })), ["Agius Żaren"]);
+  eq(names(await api("GET", "/people?q=hamrun", { token })), ["Buhagiar Rita (Ħamrun)"]);
+  eq(names(await api("GET", "/people?q=CENSINA", { token })), ["caruana ċensina"]);
+  eq(names(await api("GET", "/people?q=Ċensina", { token })), ["caruana ċensina"], "a capital Ċ in the query finds a lowercase ċ stored");
+  eq(names(await api("GET", "/people?q=ħamrun", { token })), ["Buhagiar Rita (Ħamrun)"]);
   // Queries and names without those letters: exactly as before
   eq(names(await api("GET", "/people?q=borg", { token })), ["Borg Anna"]);
   eq(names(await api("GET", "/people?q=vella", { token })), ["Vella Joseph"]);
-  eq(names(await api("GET", "/people?q=ar", { token })), ["Buħaġiar Rita", "Marija", "Ħaġġar Pawlu", "ċaruana ħelen"].map((x) => x === "Marija" ? "Ċachia Marija" : x).sort());
+  eq(names(await api("GET", "/people?q=ar", { token })), ["Agius Żaren", "Buhagiar Rita (Ħamrun)", "caruana ċensina"].sort());
 });
 
 test("batch6 W2: history (legacy registers) and the register lists fold Maltese letters too", async ({ api, bootstrap }) => {
   const { token } = await bootstrap();
-  const t = await api("POST", "/client-tickets/entries", { token, body: { ticket_id: "TKT-00001", open_date: D, client_name: "Ċachia Ġużeppi", issue: "Asked about stock", category: "Stock" } });
+  const t = await api("POST", "/client-tickets/entries", { token, body: { ticket_id: "TKT-00001", open_date: D, client_name: "Cachia Ġużeppi", issue: "Asked about stock", category: "Stock" } });
   eq(t.status, 200, t.text);
-  const dv = await api("POST", "/client-deliveries/entries", { token, body: { delivery_id: "DEL-00001", order_date: D, client_name: "Żerafa Ħili", delivery_address: "Triq il-Kbira" } });
+  const dv = await api("POST", "/client-deliveries/entries", { token, body: { delivery_id: "DEL-00001", order_date: D, client_name: "Zerafa Ċettina", delivery_address: "Triq il-Kbira" } });
   eq(dv.status, 200, dv.text);
-  const r = await api("GET", "/people?q=cachia", { token });
-  eq(hist(r), ["Ċachia Ġużeppi"], r.text);
-  eq(hist(await api("GET", "/people?q=zerafa hili", { token })), ["Żerafa Ħili"]);
+  const r = await api("GET", "/people?q=guzeppi", { token });
+  eq(hist(r), ["Cachia Ġużeppi"], r.text);
+  eq(hist(await api("GET", "/people?q=zerafa cettina", { token })), ["Zerafa Ċettina"]);
   const tl = await api("GET", "/client-tickets/entries?q=guzeppi", { token });
-  eq((tl.json.entries || []).map((e) => e.client_name), ["Ċachia Ġużeppi"], tl.text);
-  eq((await api("POST", "/appointments/waitlist", { token, body: { patient_name: "Ħili Żaren" } })).status, 201);
-  ok((await api("GET", "/appointments/waitlist?q=zaren", { token })).text.includes("Ħili Żaren"), "waiting list");
-  eq((await api("POST", "/loyalty/clients", { token, body: { name: "Ġatt Ċensu", id_card: "123456M" } })).status, 200);
-  ok((await api("GET", "/loyalty/clients?q=gatt censu", { token })).text.includes("Ġatt Ċensu"), "loyalty clients");
-  ok((await api("GET", "/client-deliveries/entries", { token })).text.includes("Żerafa"), "delivery stored");
+  eq((tl.json.entries || []).map((e) => e.client_name), ["Cachia Ġużeppi"], tl.text);
+  eq((await api("POST", "/appointments/waitlist", { token, body: { patient_name: "Hili Żaren" } })).status, 201);
+  ok((await api("GET", "/appointments/waitlist?q=zaren", { token })).text.includes("Hili Żaren"), "waiting list");
+  eq((await api("POST", "/loyalty/clients", { token, body: { name: "Gatt Ċensu", id_card: "123456M" } })).status, 200);
+  ok((await api("GET", "/loyalty/clients?q=gatt censu", { token })).text.includes("Gatt Ċensu"), "loyalty clients");
+  ok((await api("GET", "/client-deliveries/entries", { token })).text.includes("Zerafa Ċettina"), "delivery stored");
 });
 
 test("batch6 W2: 5,000 people — a folded search stays fast", async ({ api, bootstrap, DB }) => {
   const { token } = await bootstrap();
   await api("GET", "/people?q=xx", { token }); // creates the table
   const ins = DB.db.prepare("INSERT INTO people (org_id, location_id, name, phone) VALUES (1, 1, ?, ?)");
-  const sur = ["Ċachia", "Żammit", "Borg", "Vella", "Camilleri", "Farrugia", "Ħaġġar", "Grech", "Galea", "Abela"];
+  const sur = ["Cachia Ċettina", "Zammit Ġorġ", "Borg", "Vella", "Camilleri", "Farrugia", "Agius Żaren", "Grech", "Galea", "Abela"];
   DB.db.exec("BEGIN");
   for (let i = 0; i < 5000; i++) ins.run(sur[i % 10] + " Person" + i, "79" + String(100000 + i));
   DB.db.exec("COMMIT");
   const t0 = performance.now();
-  const r = await api("GET", "/people?q=cachia&limit=50", { token });
+  const r = await api("GET", "/people?q=cettina&limit=50", { token });
   const ms = performance.now() - t0;
   eq(r.json.people.length, 50);
-  ok(r.json.people.every((p) => p.name.startsWith("Ċachia")), "only Ċachia");
+  ok(r.json.people.every((p) => p.name.startsWith("Cachia Ċettina")), "only Ċettina");
   ok(ms < 1500, "5,000 people searched in " + Math.round(ms) + " ms");
 });
 

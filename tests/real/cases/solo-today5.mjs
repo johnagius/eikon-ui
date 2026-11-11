@@ -11,9 +11,9 @@ export default {
     const O = "client_orders_entries", Q = "client_tickets_entries", D = "client_deliveries";
     const a = await t.api("POST", "/client-orders/entries", order("Ellul Paul Q" + NOW, "79551111"));
     const b = await t.api("POST", "/client-orders/entries", order("Ellul Pawlu Q" + NOW, "79551111"));
-    const qa = await t.api("POST", "/client-tickets/entries", ticket("Ħabela Rita Q" + NOW, 1));
-    const qb = await t.api("POST", "/client-tickets/entries", ticket("Ħabela Rito Q" + NOW, 2));
-    const dl = await t.api("POST", "/client-deliveries/entries", { delivery_id: "DEL-9" + NOW.replace(/\D/g, "0").slice(0, 4), order_date: ymd(-1), scheduled_date: ymd(-1), scheduled_time_slot: "Morning", client_name: "Żammit Ġorġ Q" + NOW, phone: "79552222", email: "", delivery_address: "1, Triq il-Kbira, Żebbuġ", address_notes: "", delivery_method: "In-house Driver", priority: 1, status: "Scheduled", signature_required: 0, signature_obtained: 0, delivery_attempts: 0, contains_controlled: 0, cold_chain_required: 0, items: "[]", delivery_log: "[]", internal_notes: "" });
+    const qa = await t.api("POST", "/client-tickets/entries", ticket("Abela Rita Q" + NOW, 1));
+    const qb = await t.api("POST", "/client-tickets/entries", ticket("Abela Rina Q" + NOW, 2));
+    const dl = await t.api("POST", "/client-deliveries/entries", { delivery_id: "DEL-9" + NOW.replace(/\D/g, "0").slice(0, 4), order_date: ymd(-1), scheduled_date: ymd(-1), scheduled_time_slot: "Morning", client_name: "Zammit Ġorġ Q" + NOW, phone: "79552222", email: "", delivery_address: "1, Triq il-Kbira, Żebbuġ", address_notes: "", delivery_method: "In-house Driver", priority: 1, status: "Scheduled", signature_required: 0, signature_obtained: 0, delivery_attempts: 0, contains_controlled: 0, cold_chain_required: 0, items: "[]", delivery_log: "[]", internal_notes: "" });
     const ids = { a: a && (a.id || a.entry_id), b: b && (b.id || b.entry_id), qa: qa && (qa.id || qa.entry_id), qb: qb && (qb.id || qb.entry_id), dl: dl && (dl.id || dl.entry_id) };
     if (!t.ok(Object.values(ids).every(Boolean), "seed: " + JSON.stringify(ids))) return;
 
@@ -51,7 +51,7 @@ export default {
     // Reply → Questions on that card, focus on Resolved; Enter there; the twin resolved from the list
     await today();
     {
-      await go(ids.qa, "tktreg", "#tickets", "Ħabela Rita Q" + NOW);
+      await go(ids.qa, "tktreg", "#tickets", "Abela Rita Q" + NOW);
       await p.waitForFunction((id) => window.EIKON.state.activeModuleId === "tktreg" && document.activeElement && document.activeElement.matches(`[data-act=resolve][data-id="${id}"]`), ids.qa, { timeout: 15000 });
       await t.write(p, new RegExp("/client-tickets/entries/" + ids.qa + "$"), () => p.keyboard.press("Enter"), "PUT");
       await t.open(p, "2", "tickets", "tktreg", `[data-act=resolve][data-id="${ids.qb}"]`);
@@ -65,7 +65,7 @@ export default {
     const before = JSON.stringify(t.row(D, ids.dl));
     {
       api.length = 0;
-      await go(ids.dl, "dlvreg", "#deliveries", "Żammit Ġorġ Q" + NOW);
+      await go(ids.dl, "dlvreg", "#deliveries", "Zammit Ġorġ Q" + NOW);
       await p.waitForFunction((id) => window.EIKON.state.activeModuleId === "dlvreg" && document.activeElement && document.activeElement.matches(`[data-act=done][data-id="${id}"]`), ids.dl, { timeout: 15000 });
       await t.idle(p);
       t.ok(!api.some((x) => !x.startsWith("GET ")), "landing writes nothing: " + api.join());

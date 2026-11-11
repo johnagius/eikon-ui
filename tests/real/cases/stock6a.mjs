@@ -16,10 +16,10 @@ export default {
     const p = await t.page();
 
     // ── Order diary: change an item ──
-    const OD = "order_diary_entries", od = { order_date: ymd(0), item_name: "Augmentin 625 x14", qty: 2, supplier: "Actavis", notes: "For Mrs Borġ" };
+    const OD = "order_diary_entries", od = { order_date: ymd(0), item_name: "Augmentin 625 x14", qty: 2, supplier: "Actavis", notes: "For Mrs Borg" };
     const twinOd = async () => { const m = t.maxId(OD); await t.api("POST", "/order-diary/entries", od); await t.api("POST", "/order-diary/entries", od); return t.since(OD, m).map((r) => r.id); };
     let [a, b] = await twinOd(), au = t.maxId("audit_log");
-    const ED = { name: "Augmentin 1g x14", qty: "3", sup: "Ħili Pharma", notes: "For Ġorġ Żammit" };
+    const ED = { name: "Augmentin 1g x14", qty: "3", sup: "Hili Pharma", notes: "For Ġorġ Zammit" };
     await t.open(p, "classic", "order-diary", "order-diary", `[data-eid='${a}']`);
     await p.click(`[data-eid='${a}']`); await p.waitForSelector("#od-e-name");
     await p.fill("#od-e-name", ED.name); await p.fill("#od-e-qty", ED.qty); await p.fill("#od-e-sup", ED.sup); await p.fill("#od-e-notes", ED.notes);
@@ -50,7 +50,7 @@ export default {
     await p.waitForFunction(() => { const a = document.activeElement; return a && a.closest && a.closest(".odr") && a !== document.body; }, null, { timeout: 4000 }).then(() => t.ok(1), () => t.fail("order diary: focus is lost after the delete"));
 
     // ── Returns: a new return ──
-    const RT = "returns_entries", RIN = { desc: "Ċiprofloxacin 500mg x10", qty: "3", sup: "Ħili Pharma", why: "Expiring soon", exp: ymd(20), batch: "B-ĠĦ1", inv: "INV-77", kept: "Back room" };
+    const RT = "returns_entries", RIN = { desc: "Ciprofloxacin 500mg x10", qty: "3", sup: "Hili Pharma", why: "Expiring soon", exp: ymd(20), batch: "B-ĠĦ1", inv: "INV-77", kept: "Back room" };
     let m = t.maxId(RT); au = t.maxId("audit_log");
     await t.open(p, "classic", "returns", "returns", "#re-new");
     await p.click("#re-new");
@@ -92,9 +92,9 @@ export default {
       return t.write(p, new RegExp("/quotations/entries/" + id + "$"), () => p.click("#qtr-edit button[type=submit]"), "PUT");
     };
     [a, b] = await twinQt(); au = t.maxId("audit_log");
-    const cq = await classicQt(a, async () => { await p.selectOption("#qt-i-vat", "5"); await p.fill("#qt-i-excl", "2.55"); await p.fill("#qt-i-deuro", "0.30"); await p.fill("#qt-i-free", "2"); await p.fill("#qt-i-retail", "4.80"); await p.fill("#qt-i-supplier", "Ħili Pharma"); });
-    const wq = await newQt(b, { cost_excl_vat: "2.55", discount_euro: "0.30", qty_free: "2", retail_price: "4.80", supplier: "Ħili Pharma" }, "5");
-    t.has("qt change(new)", t.row(QT, b), { supplier: "Ħili Pharma", vat_rate: 5, cost_excl_vat: 2.55, cost_incl_vat: 2.68, discount_euro: 0.3, qty_free: 2, retail_price: 4.8, stock_code: "PN24", notes: "Phone order", quote_date: ymd(-3) });
+    const cq = await classicQt(a, async () => { await p.selectOption("#qt-i-vat", "5"); await p.fill("#qt-i-excl", "2.55"); await p.fill("#qt-i-deuro", "0.30"); await p.fill("#qt-i-free", "2"); await p.fill("#qt-i-retail", "4.80"); await p.fill("#qt-i-supplier", "Hili Pharma"); });
+    const wq = await newQt(b, { cost_excl_vat: "2.55", discount_euro: "0.30", qty_free: "2", retail_price: "4.80", supplier: "Hili Pharma" }, "5");
+    t.has("qt change(new)", t.row(QT, b), { supplier: "Hili Pharma", vat_rate: 5, cost_excl_vat: 2.55, cost_incl_vat: 2.68, discount_euro: 0.3, qty_free: 2, retail_price: 4.8, stock_code: "PN24", notes: "Phone order", quote_date: ymd(-3) });
     t.same("qt change", t.row(QT, a), t.row(QT, b));
     sameAudit("qt change audit", audit(QT, a, au), audit(QT, b, au));
     t.ok(JSON.stringify(cq.body) === JSON.stringify(wq.body), "price check: the same body as the classic Edit Entry:\n classic " + JSON.stringify(cq.body) + "\n new     " + JSON.stringify(wq.body));
@@ -108,13 +108,13 @@ export default {
     sameAudit("qt retail audit", audit(QT, a, au), audit(QT, b, au));
 
     // ── Price check: delete (pharmacist) ──
-    [a, b] = await twinQt({ item_description: "Ċetirizine 10mg x30" }); au = t.maxId("audit_log");
+    [a, b] = await twinQt({ item_description: "Cetirizine 10mg x30" }); au = t.maxId("audit_log");
     await t.open(p, "classic", "quotations", "quotations", `[data-del='${a}']`);
     await p.click(`[data-del='${a}']`);
     await t.write(p, new RegExp("/quotations/entries/" + a + "$"), () => p.click("#eikon-modal-actions .eikon-btn.primary"), "DELETE");
     await t.open(p, "2", "qtreg", "qtreg", `[data-act=open][data-id="${b}"]`);
     await p.click(`[data-act=open][data-id="${b}"]`); await p.click("#qtr-edit [data-act=del]");
-    t.ok(/Delete the GSK quote for Ċetirizine 10mg x30\? This cannot be undone\./.test(await p.textContent("#qtr-edit")), "price check: the question is in plain words");
+    t.ok(/Delete the GSK quote for Cetirizine 10mg x30\? This cannot be undone\./.test(await p.textContent("#qtr-edit")), "price check: the question is in plain words");
     await t.write(p, new RegExp("/quotations/entries/" + b + "$"), () => p.click("#qtr-edit [data-act=del-go]"), "DELETE");
     t.ok(!t.row(QT, a) && !t.row(QT, b), "price check: both quotes gone (the server's delete, as classic)");
     sameAudit("qt delete audit", audit(QT, a, au), audit(QT, b, au));

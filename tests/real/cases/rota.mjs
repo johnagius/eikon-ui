@@ -33,7 +33,7 @@ export default {
   async run(t) {
     const W = monday(8), D = (i) => ymdAdd(W, i);
     const mk = async (n, d) => { const r = await t.api("POST", "/shifts/staff", { full_name: n, designation: d, employment_type: d === "locum" ? "external" : "fulltime", contracted_hours: 40, email: "", phone: "", registration_number: "", is_active: 1, patterns_json: "{}" }); return r.staff_id || r.id; };
-    const P1 = await mk("Rota Ġużeppi Pharm", "pharmacist"), L = await mk("Rota Ħelena Locum", "locum"), A = await mk("Rota Żaren Assistant", "assistant");
+    const P1 = await mk("Rota Ġużeppi Pharm", "pharmacist"), L = await mk("Rota Helena Locum", "locum"), A = await mk("Rota Żaren Assistant", "assistant");
     const add = (sid, d, s, e, notes = "") => t.api("POST", "/shifts/assignments", { staff_id: sid, shift_date: d, start_time: s, end_time: e, notes });
     await add(P1, D(0), "07:30", "13:30");                                  // Mon: gap 13:30–19:30 → filled on screen
     const tA = await add(P1, D(1), "07:30", "13:30", "Ċentru"), tB = await add(A, D(1), "13:30", "19:30", "Ħal Qormi"); // Tue: swapped on screen
@@ -99,6 +99,6 @@ export default {
     const thu = ymdAdd(W, 3), mfrom = thu.slice(0, 7) + "-01", mto = thu.slice(0, 7) + "-31";
     const sum = (sid) => t.db.prepare("SELECT start_time, end_time FROM shift_assignments WHERE staff_id = ? AND shift_date >= ? AND shift_date <= ?").all(sid, mfrom, mto).reduce((n, r) => { const a = r.start_time.split(":"), z = r.end_time.split(":"); const d = (+z[0] * 60 + +z[1]) - (+a[0] * 60 + +a[1]); return n + (d > 0 ? d : 0); }, 0);
     const shown = await p.evaluate(() => Object.fromEntries([...document.querySelectorAll(".rot-mt tbody tr")].map((tr) => [tr.querySelector("th b").textContent, tr.querySelectorAll("td")[1].querySelector("b").textContent])));
-    for (const [sid, n] of [[P1, "Rota Ġużeppi Pharm"], [L, "Rota Ħelena Locum"], [A, "Rota Żaren Assistant"]]) { const h = Math.round(sum(sid) / 6) / 10; t.ok(shown[n] === (Number.isInteger(h) ? String(h) : h.toFixed(1)) + " h", "hours in the month for " + n + ": shown " + shown[n] + ", rows " + h); }
+    for (const [sid, n] of [[P1, "Rota Ġużeppi Pharm"], [L, "Rota Helena Locum"], [A, "Rota Żaren Assistant"]]) { const h = Math.round(sum(sid) / 6) / 10; t.ok(shown[n] === (Number.isInteger(h) ? String(h) : h.toFixed(1)) + " h", "hours in the month for " + n + ": shown " + shown[n] + ", rows " + h); }
   }
 };

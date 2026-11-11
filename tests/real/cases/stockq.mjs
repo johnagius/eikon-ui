@@ -11,24 +11,24 @@ export default {
     await t.open(p, "2", "nexreg", "nexreg", "[data-act=add]");
     let m = t.maxId("near_expiry_entries");
     await p.click("[data-act=add]"); await p.waitForSelector("#nex-add");
-    await t.fill(p, "#nex-add", { product_name: "Ċiprofloxacin 500mg", expiry_date: ymd(10), location: "Shelf Ħ2", notes: "3 boxes" });
+    await t.fill(p, "#nex-add", { product_name: "Ciprofloxacin 500mg", expiry_date: ymd(10), location: "Shelf Ħ2", notes: "3 boxes" });
     await t.write(p, /\/near-expiry\/entries$/, () => p.click("#nex-add button[type=submit]"));
     await p.waitForFunction(() => { const f = document.querySelector("#nex-add [name=product_name]"); return f && !f.value && document.activeElement === f; });
     t.ok(await p.inputValue("#nex-add [name=location]") === "Shelf Ħ2", "near expiry: Where is kept for the next item");
-    await t.fill(p, "#nex-add", { product_name: "Żinc oxide cream", expiry_date: ymd(40) });
+    await t.fill(p, "#nex-add", { product_name: "Zinc oxide cream", expiry_date: ymd(40) });
     await t.write(p, /\/near-expiry\/entries$/, () => p.press("#nex-add [name=expiry_date]", "Enter"));
     const ne = await t.mine("near_expiry_entries", m, { location: "Shelf Ħ2" }, 2);
     t.ok(ne.length === 2, "near expiry: two rows stored, one per item: " + ne.length);
-    t.has("near_expiry(1)", ne[0], { product_name: "Ċiprofloxacin 500mg", expiry_date: ymd(10), location: "Shelf Ħ2", notes: "3 boxes" });
-    t.has("near_expiry(2)", ne[1], { product_name: "Żinc oxide cream", expiry_date: ymd(40), location: "Shelf Ħ2", notes: "" });
+    t.has("near_expiry(1)", ne[0], { product_name: "Ciprofloxacin 500mg", expiry_date: ymd(10), location: "Shelf Ħ2", notes: "3 boxes" });
+    t.has("near_expiry(2)", ne[1], { product_name: "Zinc oxide cream", expiry_date: ymd(40), location: "Shelf Ħ2", notes: "" });
     await p.focus("#nex-add [name=product_name]"); await p.keyboard.press("Escape"); await p.waitForSelector("#nex-add", { state: "detached" });
     // Send the first one back.
     const mr = t.maxId("returns_entries");
     await p.click(`[data-act=ret][data-id="${ne[0].id}"]`); await p.waitForSelector("#nex-ret");
-    await t.fill(p, "#nex-ret", { supplier: "Ħili Pharma", quantity: "3" });
+    await t.fill(p, "#nex-ret", { supplier: "Hili Pharma", quantity: "3" });
     await t.write(p, /create-return$/, () => p.click("#nex-ret button[type=submit]"));
-    const rt = (await t.mine("returns_entries", mr, { supplier: "Ħili Pharma" }))[0];
-    t.has("returns(from near expiry)", rt, { description: "Ċiprofloxacin 500mg", supplier: "Ħili Pharma", quantity: "3", expiry: ymd(10) });
+    const rt = (await t.mine("returns_entries", mr, { supplier: "Hili Pharma" }))[0];
+    t.has("returns(from near expiry)", rt, { description: "Ciprofloxacin 500mg", supplier: "Hili Pharma", quantity: "3", expiry: ymd(10) });
 
     // Alerts: record a quarantine, then tick "Supplier told"; every other field stays as it was.
     await t.open(p, "2", "alertreg", "alertreg", "[data-act=add]");
