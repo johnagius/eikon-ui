@@ -13,7 +13,8 @@ does not: it changes only when someone runs `wrangler deploy`.
 
 | | Version | Cloudflare version id |
 |---|---|---|
-| Live now (2026-11-11) | `2026-11-10-batch-15`: Roster planner — POST /shifts/apply-plan (one-step), leave in ICS feed + feed caching (ETag/304), web push (/sw.js, push_subscriptions, VAPID_PRIVATE_KEY secret set); UI .177 | `ad99610c-654f-412a-8e1c-6aa507ae6441` |
+| Live now (2026-11-11) | `2026-11-11-batch-16`: safety (gpt-extractor 404, CSP report-uri, CSP_ENFORCE flag off, UI_GITHUB_REF), labels English only; UI .178 | `a88db514-f356-4d43-98db-7a2dedc55be3` |
+| Before that (2026-11-11) | `2026-11-10-batch-15`: Roster planner — POST /shifts/apply-plan (one-step), leave in ICS feed + feed caching (ETag/304), web push (/sw.js, push_subscriptions, VAPID_PRIVATE_KEY secret set); UI .177 | `ad99610c-654f-412a-8e1c-6aa507ae6441` |
 | Before that (2026-11-10) | `2026-11-10-batch-14`: Team round 2 — board queries rewritten (same answers, 2 indexes), unread 99+, pins per group; UI .176 | `5434019e-d750-4cfb-a03b-2318547c3d95` |
 | Before that (2026-11-10 12:01 UTC) | `2026-11-10-batch-13`: Team & shifts — GET /team/today (read-only), handover_seen table + /instructions/daily/seen, @mention matching for names followed by more words (group isolation unchanged); UI .175 | `fa9f09aa-c0f8-4861-9376-754ee47b32b0` |
 | Before that (2026-11-10 07:06 UTC) | `2026-11-09-batch-12`: Services — GET /services/today (read-only), vaccinations table + /vaccines/given; UI .174 | `b8ba8bc3-2582-4e10-8c46-a80faf3a998f` |
@@ -101,6 +102,7 @@ open Bookings and press "Set up bookings".
 
 ## Restore points
 
+- Before batch-16 (2026-11-11): `00000fcd-00000000-00005120-46dc74f64336adaf306b0b22361b46d7`.
 - Before batch-15 (2026-11-11): `00000fbc-00000000-00005120-86ff85b5db9a3ff3efb6685c1412d685`.
 - Before batch-14 (2026-11-10): `00000f64-00000000-0000511f-4bfe2dbc3d68c239b3c8f9f0879891b0`.
 - Before batch-13 (2026-11-10 12:01 UTC): `00000f49-00000000-0000511f-f5b141dc54fc3665823d9e66fa887a3c`.
