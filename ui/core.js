@@ -953,6 +953,17 @@
   E.q = function (sel, root) { return (root || document).querySelector(sel); };
   E.qa = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
 
+  // A supplier problem's type in plain English. The pickers store "Not Received", "Wrong Pick", "Damaged", "Short Quantity",
+  // "Other"; other writers (the demo seed, older screens, the API) may store a code such as "short_dated". Display only.
+  var PROBLEM_WORDS = { "not received": "Not received", "not delivered": "Not received", "missing": "Missing", "wrong pick": "Wrong pick", "wrong item": "Wrong item", "wrong product": "Wrong item",
+    "damaged": "Damaged", "broken": "Damaged", "short quantity": "Short quantity", "short qty": "Short quantity", "short dated": "Short expiry date", "short expiry": "Short expiry date",
+    "expired": "Expired", "wrong price": "Wrong price", "wrong batch": "Wrong batch", "cold chain": "Cold chain broken", "other": "Other" };
+  E.problemLabel = function (t) {
+    var raw = String(t == null ? "" : t).trim(); if (!raw) return "Problem";
+    var k = raw.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_\-.]+/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+    if (PROBLEM_WORDS[k]) return PROBLEM_WORDS[k];
+    return k.charAt(0).toUpperCase() + k.slice(1);
+  };
   E.escapeHtml = function (s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];

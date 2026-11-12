@@ -246,7 +246,7 @@
       var sub = [it.barcode, gone ? "" : it.notes].filter(Boolean).join(" · ");
       return '<div class="it' + (gone ? " gone" : "") + '"><div class="d"><b>' + esc(it.description) + "</b>" + (sub ? "<small>" + esc(sub) + "</small>" : "") +
         (gone ? '<span class="sin-pill bad">Unavailable</span>' : "") + (conf ? '<span class="sin-pill warn">' + esc(conf) + "</span>" : "") +
-        (f ? '<span class="sin-pill bad">Reported: ' + esc(f.problem_type) + "</span>" + (f.resolution_status ? '<span class="sin-pill">' + esc(f.resolution_status) + "</span>" : "") : "") +
+        (f ? '<span class="sin-pill bad">Reported: ' + esc(E.problemLabel(f.problem_type)) + "</span>" + (f.resolution_status ? '<span class="sin-pill">' + esc(f.resolution_status) + "</span>" : "") : "") +
         (late && !gone && !f && S.rp !== it.id ? '<button class="sin-btn s" data-act="rp" data-id="' + it.id + '" data-f="rp-' + it.id + '" aria-label="' + esc("Report a problem with " + it.description) + '">Report a problem</button>' : "") + "</div>" +
         '<div class="c">× ' + esc(it.qty_requested || 0) + (it.qty_free ? " +" + esc(it.qty_free) : "") + "<br><small style=\"color:var(--muted)\">" + eur(it.cost_excl_vat) + " each</small></div></div>" +
         (S.rp === it.id ? rpHtml(it) : "") + (S.ret && S.ret.id === it.id ? retHtml(ord) : "");
@@ -261,7 +261,7 @@
   function niceDay(v) { var m = String(v || "").match(/^(\d{4})-(\d{2})-(\d{2})$/); if (!m) return String(v || ""); var d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])); return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getUTCDay()] + " " + Number(m[3]) + " " + MON[+m[2] - 1] + (+m[1] === new Date().getFullYear() ? "" : " " + m[1]); }
   function rpHtml(it) {
     return '<form class="sin-ask" id="sin-rp" data-id="' + it.id + '" novalidate style="display:block"><label style="display:block;margin-bottom:6px">What is wrong with ' + esc(it.description) + "? " +
-      '<select name="problem_type" class="sin-sel" data-f="rp-type"><option value="">Choose…</option>' + PROBLEMS.map(function (p) { return '<option value="' + esc(p) + '"' + (S.rpType === p ? " selected" : "") + ">" + esc(p.charAt(0) + p.slice(1).toLowerCase()) + "</option>"; }).join("") + "</select></label>" +
+      '<select name="problem_type" class="sin-sel" data-f="rp-type"><option value="">Choose…</option>' + PROBLEMS.map(function (p) { return '<option value="' + esc(p) + '"' + (S.rpType === p ? " selected" : "") + ">" + esc(E.problemLabel(p)) + "</option>"; }).join("") + "</select></label>" +
       '<label style="display:block;margin-bottom:6px">Note for the supplier <input name="notes" class="sin-sel" data-f="rp-notes" style="width:100%" placeholder="Optional, e.g. box crushed" value="' + esc(S.rpNotes || "") + '"></label>' +
       (S.rpErr ? '<span class="sin-err" role="alert" style="display:block;margin-bottom:6px">' + esc(S.rpErr) + "</span>" : "") +
       '<button type="submit" class="sin-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Sending…" : "Send report") + '</button> <button type="button" class="sin-btn" data-act="rp-no">Cancel</button></form>';

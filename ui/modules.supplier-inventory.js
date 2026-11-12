@@ -676,7 +676,7 @@
             if (existingFb.supplier_notes) resHtml += "<div style='font-size:10px;color:var(--muted);margin-top:1px;'>Supplier: " + esc(existingFb.supplier_notes) + "</div>";
           }
           html += "<td style='padding:6px;'><span style='display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;" +
-            "background:" + pc + "22;color:" + pc + ";'>" + esc(existingFb.problem_type) + "</span>" +
+            "background:" + pc + "22;color:" + pc + ";'>" + esc(E.problemLabel ? E.problemLabel(existingFb.problem_type) : existingFb.problem_type) + "</span>" +
             (existingFb.notes ? "<div style='font-size:10px;color:var(--muted);margin-top:2px;'>" + esc(existingFb.notes) + "</div>" : "") +
             resHtml + "</td>";
         } else if (!unavail) {

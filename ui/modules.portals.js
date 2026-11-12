@@ -215,7 +215,7 @@
           : '<div class="ptl-quiet">Nothing to send. New orders from pharmacies appear here' + (sentWeek ? "; " + plural(sentWeek, "order", "orders") + " sent this week." : ".") + "</div>";
         if (fb.length) {
           h += '<h2 class="ptl-lab">Problems reported <b>' + fb.length + "</b></h2><div class=\"ptl-list\">" + fb.slice(0, 5).map(function (f) {
-            return '<button type="button" class="ptl-row" data-fb="' + f.id + '"><span class="w"><b>' + esc(f.problem_type || "Problem") + " · " + esc(f.item_description) + '</b><span class="s">' + esc(f.pharmacy_name) + " · order " + f.order_id + " · " + esc(when(f.created_at)) + "</span></span></button>";
+            return '<button type="button" class="ptl-row" data-fb="' + f.id + '"><span class="w"><b>' + esc(E.problemLabel(f.problem_type)) + " · " + esc(f.item_description) + '</b><span class="s">' + esc(f.pharmacy_name) + " · order " + f.order_id + " · " + esc(when(f.created_at)) + "</span></span></button>";
           }).join("") + "</div>";
         }
         if (short.length) {
@@ -333,7 +333,7 @@
     });
     h += '<div class="ptl-sum"><span>' + t.qty + (t.free ? " + " + t.free + " free" : "") + " items</span><span><b>" + eur(t.excl) + "</b> before VAT</span><span>" + eur(t.incl) + " with VAT</span></div></div>";
     if ((O.feedbacks || []).length) h += '<h2 class="ptl-lab">Problems reported <b>' + O.feedbacks.length + '</b></h2><div class="ptl-list">' + O.feedbacks.map(function (f) {
-      return '<button type="button" class="ptl-row" data-fb="' + f.id + '"><span class="w"><b>' + esc(f.problem_type || "Problem") + " · " + esc(f.item_description) + '</b><span class="s">' + (f.resolution_status ? "Answered: " + esc(sentence(f.resolution_status)) : "Waiting for your answer") + "</span></span></button>";
+      return '<button type="button" class="ptl-row" data-fb="' + f.id + '"><span class="w"><b>' + esc(E.problemLabel(f.problem_type)) + " · " + esc(f.item_description) + '</b><span class="s">' + (f.resolution_status ? "Answered: " + esc(sentence(f.resolution_status)) : "Waiting for your answer") + "</span></span></button>";
     }).join("") + "</div>";
     if (isPending) {
       h += '<form class="ptl-form" id="ptl-ship" novalidate><h2>Send it</h2>' +
@@ -458,7 +458,7 @@
   });
   function fbCard(S, f) {
     var d = S.forms[f.id] || {}, det = [f.item_qty ? "Qty " + f.item_qty : "", f.item_batch ? "Batch " + f.item_batch : "", f.item_expiry_date ? "Expiry " + f.item_expiry_date : ""].filter(Boolean).join(" · ");
-    var h = '<div class="ptl-list" style="margin-top:14px" data-fbcard="' + f.id + '"><div class="ptl-line"><div class="w"><b>' + esc(f.problem_type || "Problem") + " · " + esc(f.item_description) + '</b><span class="s">' + esc(f.pharmacy_name) + " · reported " + esc(when(f.created_at)) + (det ? " · " + esc(det) : "") + "</span>" +
+    var h = '<div class="ptl-list" style="margin-top:14px" data-fbcard="' + f.id + '"><div class="ptl-line"><div class="w"><b>' + esc(E.problemLabel(f.problem_type)) + " · " + esc(f.item_description) + '</b><span class="s">' + esc(f.pharmacy_name) + " · reported " + esc(when(f.created_at)) + (det ? " · " + esc(det) : "") + "</span>" +
       (f.notes ? '<span class="s">“' + esc(f.notes) + "”</span>" : "") + '</div><button type="button" class="ptl-btn" data-openorder="' + f.order_id + '">Order ' + f.order_id + "</button></div>";
     if (f.resolution_status) h += '<div class="ptl-note"><em class="ptl-chip ok" style="margin:0 6px 0 0">' + esc(sentence(f.resolution_status)) + "</em>" + (f.supplier_notes ? "“" + esc(f.supplier_notes) + "” · " : "") + "answered " + esc(when(f.resolved_at)) + "</div>";
     else h += '<form class="ptl-form" style="margin:0;border:0;border-top:.5px solid var(--border);border-radius:0" data-fbform="' + f.id + '" novalidate>' +

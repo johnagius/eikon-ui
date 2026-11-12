@@ -212,7 +212,7 @@
         "<td style='padding:6px;'>" + esc(fb.item_batch) + "</td>" +
         "<td style='padding:6px;'>" + esc(fb.item_expiry_date) + "</td>" +
         "<td style='padding:6px;'><span style='display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;" +
-          "background:" + pColor + "22;color:" + pColor + ";'>" + esc(fb.problem_type) + "</span></td>" +
+          "background:" + pColor + "22;color:" + pColor + ";'>" + esc(E.problemLabel ? E.problemLabel(fb.problem_type) : fb.problem_type) + "</span></td>" +
         "<td style='padding:6px;font-size:11px;color:var(--muted);'>" + esc(fb.notes) + "</td>" +
         "<td style='padding:6px;font-size:11px;'>" + fmtDate(fb.created_at) + "</td>" +
         "<td style='padding:6px;'>" + resCell + "</td>" +
