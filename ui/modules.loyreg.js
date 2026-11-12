@@ -187,6 +187,7 @@
     ["client_id", "client_name", "campaign_id", "item_desc", "item_qty", "total", "receipt_no", "notes"].forEach(function (k) { var el = f.querySelector("[name=" + k + "]"); if (el) S.form[k] = el.value; });
   }
   // A card's progress on each campaign: the record's own lines (modules.customers.js loyInner), the campaign chosen first.
+  function rewardOf(c) { return String(c.reward || "").trim() || "a free item"; }
   function progress(rows, focusId) {
     var byC = {};
     rows.forEach(function (t) { var s = byC[t.campaign_id] = byC[t.campaign_id] || { stamps: 0, points: 0, n: 0, spend: 0 }; s.stamps += Number(t.stamps_awarded) || 0; s.points += Number(t.points_awarded) || 0; s.n++; s.spend += Number(t.total) || 0; });
@@ -195,7 +196,9 @@
     if (!list.length) return "";
     return '<ul class="lyr-prog">' + list.map(function (c) {
       var s = byC[c.id] || { stamps: 0, points: 0, n: 0, spend: 0 }, line = "", pct = null, full = "";
-      if (c.type === "stamp_card") { var tg = Number(c.stamp_target) || 10, e = s.stamps % tg; line = e + " of " + tg + " stamps"; if (e + 1 >= tg) full = "The next stamp completes the card"; pct = e / tg; }
+      if (c.type === "stamp_card") { var tg = Number(c.stamp_target) || 10, e = s.stamps % tg, dn = Math.floor(s.stamps / tg);
+        if (s.stamps > 0 && !e) { line = "Card complete"; full = "Reward due: " + rewardOf(c) + (dn > 1 ? " · " + dn + " cards completed so far" : ""); pct = 1; } // the worker keeps no "reward given": the next stamp starts the new card
+        else { line = e + " of " + tg + " stamps" + (dn ? " · " + dn + (dn === 1 ? " card" : " cards") + " completed" : ""); if (e + 1 >= tg) full = "The next stamp completes the card"; pct = e / tg; } }
       else if (c.type === "points") { var th = Number(c.redeem_threshold) || 100; line = s.points.toLocaleString("en-GB") + " points · " + (th - (s.points % th)) + " to " + (c.reward || "the reward"); var done = Math.floor(s.points / th); if (done) full = "Reached the reward " + done + (done === 1 ? " time" : " times"); pct = Math.min(1, (s.points % th) / th); }
       else if (c.type === "buy_x_get_y") { var bq = Number(c.buy_qty) || 3, ac = s.n % bq; line = ac + " of " + bq + " purchases"; if (ac + 1 >= bq) full = "The next one earns the free item"; pct = ac / bq; }
       else if (c.type === "tiered") { line = (E.eur ? E.eur(s.spend) : "€" + s.spend.toFixed(2)) + " spent"; var cur = null; (c.tiers || []).forEach(function (t) { if (s.spend >= parseFloat(t.spend || 0)) cur = t; }); if (cur) full = "Level reached: " + cur.reward; }
@@ -221,7 +224,7 @@
     if (!S.camps.length) return '<div class="lyr-quiet">No campaign yet. ' + '<button type="button" class="lyr-lnk" data-act="new-camp">Start a campaign</button> — a stamp card, points or an offer — then record purchases here.</div>';
     if (!run.length) return '<div class="lyr-quiet">No campaign is running today. Start one in <button type="button" class="lyr-lnk" data-act="view" data-v="campaigns">Campaigns</button>.</div>';
     var h = "";
-    if (S.saved) h += '<div class="lyr-done" role="status"><span><b>Saved for ' + esc(S.saved.txn.client_name || S.saved.txn.client_id) + '.</b> ' + esc(S.saved.txn.action_label) + " · " + esc(S.saved.camp.name) + '</span><button type="button" class="lyr-btn" data-act="print-receipt">Print receipt</button></div>';
+    if (S.saved) h += '<div class="lyr-done" role="status"><span><b>Saved for ' + esc(S.saved.txn.client_name || S.saved.txn.client_id) + '.</b> ' + esc(S.saved.txn.action_label) + " · " + esc(S.saved.camp.name) + (S.saved.full ? ' <b class="full">' + esc(S.saved.full) + "</b>" : "") + '</span><button type="button" class="lyr-btn" data-act="print-receipt">Print receipt</button></div>';
     h += '<form class="lyr-form sf-form" id="lyr-rec" autocomplete="off" novalidate>' +
       '<label><span>ID card</span><input name="client_id" value="' + esc(f.client_id) + '" placeholder="e.g. 123456M" autocapitalize="characters" spellcheck="false"></label>' +
       '<label><span>Name</span><input name="client_name" value="' + esc(f.client_name) + '" placeholder="Name and surname" autocapitalize="words"></label>' +
@@ -294,6 +297,9 @@
       if (!r || !r.ok) throw new Error((r && r.error) || "Not saved");
       lsSet(LAST, camp.id);
       S.saved = { txn: txn, camp: camp, items: items };
+      if (camp.type === "stamp_card" && stampsAwarded && S.hist[normIdc] && S.hist[normIdc].rows) { // a stamp that fills the card says so (the stored words stay the classic's)
+        var tg = Number(camp.stamp_target) || 10, had = S.hist[normIdc].rows.filter(function (r) { return r.campaign_id === camp.id; }).reduce(function (a, r) { return a + (Number(r.stamps_awarded) || 0); }, 0), got = Math.floor((had + stampsAwarded) / tg) - Math.floor(had / tg);
+        if (got > 0) S.saved.full = (got === 1 ? "Card complete" : got + " cards complete") + " — reward due: " + rewardOf(camp) + "."; }
       S.form = fresh(camp.id); delete S.hist[normIdc]; S.clients = null;
       S.month.unshift({ client_id: normIdc, client_name: name, campaign_id: camp.id, action_label: actionLabel, date: txn.date, total: total, items: items });
       S.saving = false; paint();

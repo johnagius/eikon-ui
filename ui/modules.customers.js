@@ -122,7 +122,7 @@
       ".cus-chip span{display:inline-flex;align-items:center;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--border);background:var(--panel);font-size:13.5px;font-weight:600;color:var(--text)}" +
       ".cus-chip input:checked+span{background:var(--accent);border-color:var(--accent);color:#fff}.cus-chip.no input:checked+span{background:rgba(191,59,46,.12);border-color:var(--danger);color:var(--danger)}.cus-chip.no input:checked+span:before{content:'\\2715\\00a0'}.cus-chip input:focus-visible+span{outline:3px solid var(--accent);outline-offset:2px}" +
       ".cus-pref input[name=allergies],.cus-loyx input,#cus-loy select{width:100%;box-sizing:border-box;height:40px;border:1px solid var(--border);border-radius:9px;background:var(--bg);padding:0 10px;color:var(--text);font-size:15px}" +
-      "#cus-loy select{height:38px}.cus-loy{list-style:none;margin:0;padding:0}.cus-loy li{padding:8px 0;border-top:1px solid var(--border)}.cus-loy li:first-child{border-top:0;padding-top:0}.cus-loy b{display:block;font-size:14px}.cus-loy span{display:block;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}" +
+      "#cus-loy select{height:38px}.cus-loy{list-style:none;margin:0;padding:0}.cus-loy li{padding:8px 0;border-top:1px solid var(--border)}.cus-loy li:first-child{border-top:0;padding-top:0}.cus-loy b{display:block;font-size:14px}.cus-loy span{display:block;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}.cus-loy em.due{display:inline-block;margin-left:8px;font-style:normal;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;vertical-align:1px;background:rgba(28,138,91,.16);color:var(--ok)}.cus-loy span.done{color:var(--ok);font-weight:600}" +
       "@media (prefers-color-scheme: dark){html[data-ui2]:not([data-ui2-visit]) .cus-chip input:checked+span{color:#00160E}html[data-ui2]:not([data-ui2-visit]) .cus-chip.no input:checked+span{color:var(--danger)}}" +
       ".cus-bar{height:6px;border-radius:3px;background:rgba(127,127,127,.18);margin-top:6px;overflow:hidden}.cus-bar i{display:block;height:100%;background:var(--accent);border-radius:3px}" +
       "@media (max-width:600px){.cus-btn{min-height:44px}.cus-btn.sm{min-height:44px;padding:0 12px}.cus-chip span{min-height:44px}.cus-w{flex-wrap:wrap}.cus-w .a{width:100%;justify-content:flex-start;padding-left:20px}.cus-pref input[name=allergies],#cus-loy select,#cus-loy input{font-size:16px;height:44px}.cus-tel b{display:inline-block;min-height:44px;line-height:44px}}"; // links now (keyboard and a long-press reach them), still looking like chips
@@ -523,7 +523,7 @@
     var f1 = first(p);
     var html = '<div class="cus-card">';
     html += '<div class="cus-head">' + av(p.name, "lg") + '<div style="flex:1;min-width:0"><h1>' + esc(p.name) + '</h1><div class="cus-meta">' +
-      (p.phone ? '<a class="cus-tel" href="tel:' + esc(String(p.phone).replace(/\s+/g, "")) + '" aria-label="' + esc("Call " + p.name + ", " + p.phone) + '"><b>' + esc(p.phone) + '</b></a>' : '<span>No phone</span>') + (p.id_card ? '<span class="cus-pill">' + esc(p.id_card) + '</span>' : "") + (d.loyalty ? '<span class="cus-pill">Loyalty · ' + esc(Number(d.loyalty.points || 0).toLocaleString("en-GB")) + ' pts</span>' : counts.loyalty ? '<span class="cus-pill">Loyalty card</span>' : "") + (counts.repeat ? '<span class="cus-pill grn">Repeat prescription</span>' : "") + (p.merged_from ? '<span class="cus-pill amb">Merged record opened</span>' : "") +
+      (p.phone ? '<a class="cus-tel" href="tel:' + esc(String(p.phone).replace(/\s+/g, "")) + '" aria-label="' + esc("Call " + p.name + ", " + p.phone) + '"><b>' + esc(p.phone) + '</b></a>' : '<span>No phone</span>') + (p.id_card ? '<span class="cus-pill">' + esc(p.id_card) + '</span>' : "") + (d.loyalty || counts.loyalty ? '<span class="cus-pill" id="cus-loy-pill">' + esc(loyHeadline(d) ? "Loyalty · " + loyHeadline(d) : "Loyalty card") + '</span>' : "") + (counts.repeat ? '<span class="cus-pill grn">Repeat prescription</span>' : "") + (p.merged_from ? '<span class="cus-pill amb">Merged record opened</span>' : "") +
       (pr.prefers ? '<span class="cus-pill blu">Prefers ' + esc(CHW[pr.prefers] || pr.prefers) + '</span>' : "") + (pr.lang === "mt" ? '<span class="cus-pill">Malti</span>' : "") +
       '</div></div>' + (state.editing ? "" : '<button class="cus-btn" data-act="edit">Edit</button>' + privacyMore(p)) + '</div>';
     if (!state.editing && pr.allergies) html += '<div class="cus-allergy" role="note"><b>Allergies</b> ' + esc(pr.allergies) + '</div>';
@@ -746,24 +746,54 @@
       if (!state.detail || !state.detail.person || state.detail.person.id !== id) return;
       state.loy = { camps: (r[0] && r[0].campaigns) || [], txns: (r[1] && r[1].transactions) || [] };
     } catch (e) { state.loy = { error: true }; }
+    paintLoyHead();
     var box = state.mount && state.mount.querySelector("#cus-loy-box"); if (box) E.whenFormIdle(state.mount, function () { var b2 = state.mount.querySelector("#cus-loy-box"); if (b2) { b2.innerHTML = loyInner(state.detail.person); bindLoy(b2); } });
+  }
+  // Each campaign's totals from the card's purchases (stamps, points, visits, spend, last date).
+  function loyByC(txns) { var byC = {}; (txns || []).forEach(function (t) { var s = byC[t.campaign_id] = byC[t.campaign_id] || { stamps: 0, points: 0, n: 0, spend: 0, last: "" }; s.stamps += Number(t.stamps_awarded) || 0; s.points += Number(t.points_awarded) || 0; s.n++; s.spend += Number(t.total) || 0; if (String(t.date || "") > s.last) s.last = String(t.date || ""); }); return byC; }
+  // A stamp card: the stamps on the card now, and how many cards were filled. A card filled by the last stamp(s) and not
+  // started again yet shows as complete with its reward due (the worker keeps no "reward given" record: the next stamp
+  // starts the new card).
+  function stampState(c, total) { var tg = Number(c.stamp_target) || 10, n = Math.max(0, Number(total) || 0); return { tg: tg, on: n % tg, done: Math.floor(n / tg), due: n > 0 && n % tg === 0 }; }
+  function rewardWords(c) { var r = String(c.reward || "").trim() || "free item"; return /^(A|An|The) /.test(r) ? r.charAt(0).toLowerCase() + r.slice(1) : r; } // "A free pack of vitamins" reads mid-sentence as "a free pack…"
+  // The few words the header chip and the card's title give: stamps for a stamp card, points for points.
+  function loyHeadline(d) {
+    var L = state.loy;
+    if (L && !L.error && L.camps) {
+      var byC = loyByC(L.txns), bits = [];
+      L.camps.forEach(function (c) { var s = byC[c.id]; if (!s) return;
+        if (c.type === "stamp_card") { var st = stampState(c, s.stamps); bits.push(st.due ? "reward due" : st.on + " of " + st.tg + " stamps"); }
+        else if (c.type === "points") bits.push(s.points.toLocaleString("en-GB") + " pts"); });
+      if (bits.length) return bits.slice(0, 2).join(" · ");
+      if (L.txns && L.txns.length) return "";
+    }
+    var l = (state.detail && state.detail.loyalty) || d && d.loyalty; if (!l) return "";
+    if (Number(l.points)) return Number(l.points).toLocaleString("en-GB") + " pts";
+    if (Number(l.stamps)) return Number(l.stamps) + (Number(l.stamps) === 1 ? " stamp" : " stamps");
+    return "";
+  }
+  function paintLoyHead() {
+    var m = state.mount; if (!m || !state.detail) return; var t = loyHeadline(state.detail);
+    var pill = m.querySelector("#cus-loy-pill"); if (pill) pill.textContent = t ? "Loyalty · " + t : "Loyalty card";
+    var sum = m.querySelector("#cus-loy-sum"); if (sum) { sum.textContent = t; sum.hidden = !t; }
   }
   function loyInner(p) {
     if (!p.id_card) return '<div class="cus-src">Loyalty is by ID card. Add ' + esc(poss(first(p))) + ' ID card with Edit.</div>';
     var L = state.loy; if (!L) return '<div class="cus-src">Loading…</div>';
     if (L.error) return '<div class="cus-src">Could not load loyalty. <a data-act="loy-retry" href="#" style="color:var(--accent);font-weight:600">Try again</a></div>';
-    var act = L.camps.filter(loyActive), byC = {};
-    L.txns.forEach(function (t) { var s = byC[t.campaign_id] = byC[t.campaign_id] || { stamps: 0, points: 0, n: 0, spend: 0, last: "" }; s.stamps += Number(t.stamps_awarded) || 0; s.points += Number(t.points_awarded) || 0; s.n++; s.spend += Number(t.total) || 0; if (String(t.date || "") > s.last) s.last = String(t.date || ""); });
+    var act = L.camps.filter(loyActive), byC = loyByC(L.txns);
     var shown = L.camps.filter(function (c) { return byC[c.id] || loyActive(c); });
     var h = shown.length ? '<ul class="cus-loy">' + shown.map(function (c) {
-      var s = byC[c.id] || { stamps: 0, points: 0, n: 0, spend: 0 }, line = "", pct = null;
-      if (c.type === "stamp_card") { var tg = Number(c.stamp_target) || 10, e = s.stamps % tg; line = e + " of " + tg + " stamps" + (e + 1 >= tg ? " · next one completes the card" : ""); pct = e / tg; }
+      var s = byC[c.id] || { stamps: 0, points: 0, n: 0, spend: 0 }, line = "", pct = null, due = false, sub = "";
+      if (c.type === "stamp_card") { var st = stampState(c, s.stamps); due = st.due;
+        if (due) { line = "Card complete · " + rewardWords(c) + " due"; pct = 1; } else { line = st.on + " of " + st.tg + " stamps" + (st.on + 1 >= st.tg ? " · next one completes the card" : ""); pct = st.on / st.tg; }
+        if (st.done && !(due && st.done === 1)) sub = st.done + (st.done === 1 ? " card" : " cards") + " completed so far"; }
       else if (c.type === "points") { var th = Number(c.redeem_threshold) || 100; line = s.points.toLocaleString("en-GB") + " points" + (s.points >= th ? " · reward ready (" + (c.reward || "reward") + ")" : " · " + (th - (s.points % th)) + " to the reward"); pct = Math.min(1, (s.points % th) / th); }
       else if (c.type === "buy_x_get_y") { var bq = Number(c.buy_qty) || 3, ac = s.n % bq; line = ac + " of " + bq + " purchases" + (ac + 1 >= bq ? " · next one is free" : ""); pct = ac / bq; }
       else if (c.type === "tiered") line = "€" + s.spend.toFixed(2) + " spent";
       else if (c.type === "discount") line = (c.discount_pct || 10) + "% off" + (c.brand ? " " + c.brand : "");
       else line = s.n + (s.n === 1 ? " purchase" : " purchases");
-      return '<li><b>' + esc(c.name) + (loyActive(c) ? "" : ' <span class="cus-src" style="display:inline">(ended)</span>') + '</b><span>' + esc(line) + '</span>' + (pct != null ? '<span class="cus-bar" role="img" aria-label="' + Math.round(pct * 100) + ' percent"><i style="width:' + Math.round(pct * 100) + '%"></i></span>' : "") + '</li>';
+      return '<li><b>' + esc(c.name) + (loyActive(c) ? "" : ' <span class="cus-src" style="display:inline">(ended)</span>') + (due ? '<em class="due">Reward due</em>' : "") + '</b><span' + (due ? ' class="done"' : "") + '>' + esc(line) + '</span>' + (sub ? "<span>" + esc(sub) + "</span>" : "") + (pct != null ? '<span class="cus-bar" role="img" aria-label="' + Math.round(pct * 100) + ' percent"><i style="width:' + Math.round(pct * 100) + '%"></i></span>' : "") + '</li>';
     }).join("") + '</ul>' : '<div class="cus-src">No loyalty campaign is running.</div>';
     if (state.loyForm && act.length) {
       var lastC = ""; try { lastC = localStorage.getItem("eikon_loyreg_camp") || ""; } catch (e) {} // the campaign used last in Loyalty, on this device
@@ -801,11 +831,14 @@
       var r = await E.apiFetch("/loyalty/transactions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(txn) });
       if (!r || !r.ok) throw new Error((r && r.error) || "Not saved");
       try { localStorage.setItem("eikon_loyreg_camp", camp.id); } catch (e) {}
-      state.loySaving = false; state.loyForm = false; E.toast(actionLabel || "Purchase added", "success");
+      var said = actionLabel || "Purchase added";
+      if (camp.type === "stamp_card" && stampsAwarded) { var had = (loyByC(state.loy.txns)[camp.id] || { stamps: 0 }).stamps, b4 = stampState(camp, had), af = stampState(camp, had + stampsAwarded), got = af.done - b4.done;
+        if (got > 0) said = (got === 1 ? "Card complete — " : got + " cards complete — ") + rewardWords(camp) + (got === 1 ? " due" : "s due") + (af.on ? ". " + af.on + " of " + af.tg + " on the new card" : ""); }
+      state.loySaving = false; state.loyForm = false; E.toast(said, "success");
       await loadLoyalty(); repaintLoy(); E.focusSoon(function () { return state.mount && state.mount.querySelector("#cus-loy-box [data-act=loy-add]"); });
     } catch (x) { state.loySaving = false; state.loyErr = E.saveFailText(x); repaintLoy(); }
   }
-  function repaintLoy() { var b = state.mount && state.mount.querySelector("#cus-loy-box"); if (b && state.detail && state.detail.person) { b.innerHTML = loyInner(state.detail.person); bindLoy(b); } }
+  function repaintLoy() { var b = state.mount && state.mount.querySelector("#cus-loy-box"); if (b && state.detail && state.detail.person) { b.innerHTML = loyInner(state.detail.person); bindLoy(b); } paintLoyHead(); }
   function bindLoy(b) {
     var a = b.querySelector("[data-act=loy-add]"); if (a) a.addEventListener("click", function () { state.loyForm = {}; state.loyErr = ""; repaintLoy(); E.focusSoon(function () { var s = b.querySelector("#cus-ly-c"); return s && !s.value ? s : b.querySelector("#cus-ly-d"); }); });
     var c = b.querySelector("[data-act=loy-cancel]"); if (c) c.addEventListener("click", function () { state.loyForm = false; state.loyErr = ""; repaintLoy(); E.focusSoon(function () { return b.querySelector("[data-act=loy-add]"); }); });
@@ -839,7 +872,8 @@
   function loyaltyHtml(d, p) {
     var counts = d.counts || {};
     if (!p.id_card && !counts.loyalty && !d.loyalty) return '<div class="cus-card"><div class="cus-lab" style="margin-top:0">Loyalty</div><div id="cus-loy-box">' + loyInner(p) + '</div></div>';
-    return '<div class="cus-card"><div class="cus-lab" style="margin-top:0">Loyalty' + (d.loyalty ? ' <b>' + esc(Number(d.loyalty.points || 0).toLocaleString("en-GB")) + ' pts</b>' : "") + '</div><div id="cus-loy-box">' + loyInner(p) + '</div></div>';
+    var hl = loyHeadline(d);
+    return '<div class="cus-card"><div class="cus-lab" style="margin-top:0">Loyalty <b id="cus-loy-sum"' + (hl ? "" : " hidden") + '>' + esc(hl) + '</b></div><div id="cus-loy-box">' + loyInner(p) + '</div></div>';
   }
 
   function tellFrom(spec) {
