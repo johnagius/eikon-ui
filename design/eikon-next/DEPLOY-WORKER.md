@@ -137,3 +137,5 @@ cd cloudflare-worker && npx wrangler rollback 4b2cf8da-5410-46b1-93b7-103606d7a7
 ```
 
 puts the previous version back (the new booking tables stay, unused, and harm nothing).
+
+- UI .183 (2026-11-12, main b2edf54): polish only, no worker change — film faults, footers, 24-hour hours, 44 px inputs, rotaset focus after redraw. UI 578/578.
