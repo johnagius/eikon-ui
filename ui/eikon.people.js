@@ -68,7 +68,7 @@ function eikonNameCase(value) {
   var letters = value.match(/\p{L}/gu) || [];
   if (!/\p{Ll}/u.test(value) && !/\s/.test(value.trim()) && (letters.length <= 2 || (letters.length === 3 && !/[AEIOUY]/.test(value)))) return value;
   var first = true;
-  var out = value.replace(/[^\s\-‐‑–—]+/g, function (seg) {
+  var out = value.replace(/[^\s\-‐‑–—]+/g, function (seg, at, all) {
     var wasFirst = first; first = false;
     var lo = /\p{Ll}/u.test(seg), up = /\p{Lu}/u.test(seg);
     if (!lo && !up) return seg;
@@ -77,11 +77,27 @@ function eikonNameCase(value) {
     o = o.replace(/(^|[^\p{L}])(\p{Lu})(['’ʼ])(\p{Ll})/gu, function (m, pre, a, ap, b) { return pre + a + ap + b.toUpperCase(); });
     o = o.replace(/^Mc(\p{Ll})(?=\p{Ll})/u, function (m, a) { return "Mc" + a.toUpperCase(); });
     if (!wasFirst && /^(Ii|Iii|Iv|Vi|Vii|Viii|Ix)[,.]?$/.test(o)) o = o.toUpperCase();
+    // Particles inside a name stay small (never the first word, and only with more of the name after them): the Maltese
+    // "tal-", "tad-", "taż-"… and "ta'" always ("Borg tal-Ħamrun", "Zammit ta' Xbiex"); "de", "di", "von"… unless typed
+    // with a capital on purpose ("Joseph De Gabriele" is kept).
+    var next = all.charAt(at + seg.length), more = /\p{L}/u.test(all.slice(at + seg.length));
+    if (!wasFirst && more) {
+      if (/^ta[lċdnrstxzż]$/u.test(o.toLowerCase()) && /[\-‐‑]/.test(next)) o = o.toLowerCase();
+      else if (/^Ta['’ʼ]/u.test(o)) o = "t" + o.slice(1);
+      else if (!(lo && up) && /\s/.test(next) && /^(de|di|da|del|della|von|van|der|den|du)$/.test(o.toLowerCase())) o = o.toLowerCase();
+    }
     return o;
   });
   if (out.toLowerCase() !== value.toLowerCase()) return value;
   return out;
 }
+
+  // A stored name as shown: a Maltese "Tal-", "Taż-" or "Ta'" inside a name (an older casing capitalised it) reads small,
+  // "… Assunta tal-Ħamrun". Display only: the stored name is not changed. Never the first word.
+  function showName(n) {
+    if (typeof n !== "string" || n.indexOf("Ta") < 0) return n;
+    return n.replace(/(\s)Ta([lċdnrstxzż][\-‐‑](?=\p{L})|['’ʼ](?=\s*\p{L}))/gu, function (m, sp, rest) { return sp + "ta" + rest; });
+  }
 
   // The name fields of the new-layout screens: cased when the field is left. Only the value is set (and a
   // "change" sent); the screens read their fields when they save, so nothing else needs to know.
@@ -221,7 +237,7 @@ function eikonNameCase(value) {
 
   E.people = {
     normIdCard: normIdCard, idCardKeys: idCardKeys, isMtIdCard: isMtIdCard, sameIdCard: sameIdCard,
-    normName: normName, nameKey: nameKey, normEmail: normEmail, normPhone: normPhone, nameCase: eikonNameCase, isPersonInput: isPersonInput,
+    normName: normName, nameKey: nameKey, normEmail: normEmail, normPhone: normPhone, nameCase: eikonNameCase, showName: showName, isPersonInput: isPersonInput,
     find: find, link: link, byIdCard: byIdCard,
     // Off switches: the hook in the screens, and putting a new ID card on the one card-less person with that name.
     autoLink: true, attachCardByName: false

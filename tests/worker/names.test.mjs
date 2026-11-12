@@ -23,12 +23,16 @@ const EXAMPLES = [
   ["anne-marie vella", "Anne-Marie Vella"], ["ANNE-MARIE VELLA", "Anne-Marie Vella"], ["d'amato rita", "D'Amato Rita"],
   ["O'BRIEN SEAN", "O'Brien Sean"], ["l’abbate", "L’Abbate"], ["ta’ xbiex", "Ta’ Xbiex"],
   ["mcdonald john", "McDonald John"], ["MCDONALD JOHN", "McDonald John"], ["macdonald john", "Macdonald John"],
-  ["de gabriele maria", "De Gabriele Maria"], ["VAN DER BERG", "Van Der Berg"], ["di giorgio", "Di Giorgio"],
+  ["de gabriele maria", "De Gabriele Maria"], ["VAN DER BERG", "Van der Berg"], ["di giorgio", "Di Giorgio"],
   ["j.p. borg", "J.P. Borg"], ["DR. ABELA", "Dr. Abela"], ["dr abela", "Dr Abela"], ["JOHN SMITH III", "John Smith III"],
   ["ÉLODIE DUPONT", "Élodie Dupont"], ["joão silva", "João Silva"], ["maria  vella ", "Maria  Vella "], ["x", "X"], ["joe", "Joe"],
   ["ann", "Ann"], ["ANN", "Ann"], ["joseph’s", "Joseph’s"],
+  // particles inside a name stay small (polish-22): Maltese tal-/tad-/taż-/ta' always, de/di/von unless typed with a capital
+  ["borg maria tal-ħamrun", "Borg Maria tal-Ħamrun"], ["BORG MARIA TAL-ĦAMRUN", "Borg Maria tal-Ħamrun"], ["Abela Pietru Tal-Ħamrun", "Abela Pietru tal-Ħamrun"],
+  ["grech tad-dawl", "Grech tad-Dawl"], ["zammit taż-żejt", "Zammit taż-Żejt"], ["zammit ta' xbiex", "Zammit ta' Xbiex"], ["tal-pietà", "Tal-Pietà"],
+  ["joseph de gabriele", "Joseph de Gabriele"], ["Joseph De Gabriele", "Joseph De Gabriele"], ["ludwig von beethoven", "Ludwig von Beethoven"], ["maria de", "Maria De"], ["talbot john", "Talbot John"],
   // left exactly as typed
-  ["de Gabriele", "De Gabriele"], ["john Agius", "John Agius"], ["D'amato", "D'Amato"], ["McDonald", "McDonald"], ["Anne-marie Vella", "Anne-Marie Vella"], ["van der Berg", "Van Der Berg"],
+  ["de Gabriele", "De Gabriele"], ["john Agius", "John Agius"], ["D'amato", "D'Amato"], ["McDonald", "McDonald"], ["Anne-marie Vella", "Anne-Marie Vella"], ["van der Berg", "Van der Berg"],
   ["DeBono", "DeBono"], ["JD", "JD"], ["MCB", "MCB"], ["Room 3", "Room 3"], ["0123456M", "0123456M"], ["rita@example.mt", "rita@example.mt"],
   ["79123456", "79123456"], ["", ""], ["   ", "   "], ["-", "-"], [null, null], [undefined, undefined], [42, 42]
 ];

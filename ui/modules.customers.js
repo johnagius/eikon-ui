@@ -446,7 +446,7 @@
       html += '<div class="cus-list">' + people.map(function (p) {
         var sub = [p.phone, p.id_card].filter(Boolean).join(" · ") || p.email || p.address || "No details yet";
         var aka = also[p.id] ? '<span class="cus-also">' + esc(alsoLine(also[p.id])) + '</span>' : "";
-        return '<button class="cus-item' + (p.id === state.selected ? " on" : "") + '" data-person="' + p.id + '">' + av(p.name) + '<span class="cus-t"><b>' + esc(p.name) + '</b><span>' + esc(sub) + '</span>' + aka + '</span></button>';
+        return '<button class="cus-item' + (p.id === state.selected ? " on" : "") + '" data-person="' + p.id + '">' + av(p.name) + '<span class="cus-t"><b>' + esc(showName(p.name)) + '</b><span>' + esc(sub) + '</span>' + aka + '</span></button>';
       }).join("") + '</div>';
     } else if (qq && qq.trim().length < 2 && !state.loading) {
       // The search starts at two letters (the server answers one letter with the recent list): do not say "no one" yet.
@@ -522,7 +522,7 @@
     if (nw && nw.activity && nw.activity.length > act.length) act = nw.activity;
     var f1 = first(p);
     var html = '<div class="cus-card">';
-    html += '<div class="cus-head">' + av(p.name, "lg") + '<div style="flex:1;min-width:0"><h1>' + esc(p.name) + '</h1><div class="cus-meta">' +
+    html += '<div class="cus-head">' + av(p.name, "lg") + '<div style="flex:1;min-width:0"><h1>' + esc(showName(p.name)) + '</h1><div class="cus-meta">' +
       (p.phone ? '<a class="cus-tel" href="tel:' + esc(String(p.phone).replace(/\s+/g, "")) + '" aria-label="' + esc("Call " + p.name + ", " + p.phone) + '"><b>' + esc(p.phone) + '</b></a>' : '<span>No phone</span>') + (p.id_card ? '<span class="cus-pill">' + esc(p.id_card) + '</span>' : "") + (d.loyalty || counts.loyalty ? '<span class="cus-pill" id="cus-loy-pill">' + esc(loyHeadline(d) ? "Loyalty · " + loyHeadline(d) : "Loyalty card") + '</span>' : "") + (counts.repeat ? '<span class="cus-pill grn">Repeat prescription</span>' : "") + (p.merged_from ? '<span class="cus-pill amb">Merged record opened</span>' : "") +
       (pr.prefers ? '<span class="cus-pill blu">Prefers ' + esc(CHW[pr.prefers] || pr.prefers) + '</span>' : "") + (pr.lang === "mt" ? '<span class="cus-pill">Malti</span>' : "") +
       '</div></div>' + (state.editing ? "" : '<button class="cus-btn" data-act="edit">Edit</button>' + privacyMore(p)) + '</div>';
@@ -736,6 +736,7 @@
 
   // ---------- Loyalty in the record (classic endpoints and bodies: GET /loyalty/campaigns, GET /loyalty/transactions?client=,
   // POST /loyalty/transactions with exactly the body the classic Loyalty screen sends) ----------
+  function showName(n) { return E.people && E.people.showName ? E.people.showName(n) : n; } // "… tal-Ħamrun" as shown; the stored name is not changed
   function loyNormId(raw) { var s = String(raw || "").trim().toUpperCase(); var m = s.match(/^(\d+)([A-Z]?)$/); return m ? m[1].padStart(7, "0") + m[2] : s; } // the classic normMtId
   function loyActive(c) { if (!c.active) return false; if (c.open_ended) return true; var t = E.maltaYmd ? E.maltaYmd() : ""; return !(c.end_date && c.end_date < t) && !(c.start_date && c.start_date > t); }
   async function loadLoyalty() {
