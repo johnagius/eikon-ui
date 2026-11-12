@@ -623,7 +623,7 @@
     (w.questions || []).forEach(function (q) {
       if (q.done) {
         var told = toldLine(msgs, "question", q.id);
-        out.push({ key: "answer-" + q.id, rank: told ? 3 : 1, tone: told ? "grn" : "blu", title: "Answered · " + q.issue, sub: (q.last_note ? "“" + q.last_note + "”" : "Resolved " + when(String(q.done_at || "").slice(0, 10))), told: told,
+        out.push({ key: "answer-" + q.id, rank: told ? 3 : 1, tone: told ? "grn" : "blu", title: "Answered · " + q.issue, sub: (q.last_note ? "“" + q.last_note + "” · " : "") + "Resolved " + when(String(q.done_at || "").slice(0, 10)) + (told ? "" : " · " + (first(p) || "they") + " has not been told yet"), told: told, // it waits here only until they are told (the question itself is resolved)
           tell: { purpose: "answer", ref: { kind: "question", id: q.id }, vars: { issue: q.issue, answer: q.last_note || "" }, subtitle: q.issue }, open: ["tktreg", q.id] });
       } else {
         var lateQ = q.followup_date && t && q.followup_date < t;
