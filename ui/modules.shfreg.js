@@ -1571,7 +1571,10 @@
   function mountEd() {
     var D = S.dlg, el = S.mount.querySelector("#shf-rp-ed"); if (!D || !el) return; var f = D.f;
     if (!f.sid || !RP() || !RP().ui || !RP().ui.editor) { el.innerHTML = f.sid ? '<p class="shf-hint">The editor is still loading.</p>' : ""; return; }
-    try { RP().ui.editor(el, person(f.sid), { onSaved: function () { reloadStaff(); }, onApply: function (pp) { var sid = String((pp && pp.id) || f.sid); reloadStaff().then(function () { if (!S.dlg) return; var g = newFill("usual"); g.who = "one"; g.sid = sid; g.len = "12m"; setTo(g); S.dlg.f = g; paintDlg(); dlgNext(); /* straight to what it will do: one person, from today, until changed */ }); }, onCancel: closeDlg }); } catch (e) { el.textContent = "The editor could not open: " + (e && e.message || e); }
+    try { RP().ui.editor(el, person(f.sid), { onSaved: function () { reloadStaff(); }, onApply: function (pp) { var sid = String((pp && pp.id) || f.sid);
+        var go = function () { if (!S.dlg) return; var g = newFill("usual"); g.who = "one"; g.sid = sid; g.len = "12m"; setTo(g); S.dlg.f = g; paintDlg(); dlgNext(); /* straight to what it will do: one person, from today, until changed */ };
+        // the editor hands back the person as just saved (with the usual week): no second read of everyone first (onSaved already reads them again)
+        if (pp && pp.id != null && pp.patterns_json != null && S.staff[pp.id]) { S.staff[pp.id] = Object.assign({}, S.staff[pp.id], pp); go(); } else reloadStaff().then(go); }, onCancel: closeDlg }); } catch (e) { el.textContent = "The editor could not open: " + (e && e.message || e); }
   }
   function whoIds(f) {
     if (f.who === "all") return active().sort(byOrder).map(function (p) { return Number(p.id); });
@@ -1683,9 +1686,12 @@
       if (f.step === "clear" || f.step === "paste" || f.step === "last") { S.dlg = null; paintDlg(); S.msg = f.err; paint(true); return; } paintDlg(); var e = S.mount.querySelector(".shf-dlg .shf-err"); if (e) { e.setAttribute("tabindex", "-1"); e.focus(); } return; }
     var plan = b.plan; D.from = f.step; D.busy = true; D.prog = "Working out what changes…"; f.step = "preview"; D.pv = null; paintDlg();
     try {
-      var lo = plan.from, hi = plan.to, gotRows = await rangeList(lo, hi), leaves = S.leaves.slice();
+      var lo = plan.from, hi = plan.to, leaves = S.leaves.slice();
       var ys = []; for (var y = +lo.slice(0, 4); y <= +hi.slice(0, 4); y++) if (years().indexOf(y) < 0) ys.push(y);
-      if (ys.length) { var more = await Promise.all(ys.map(function (yy) { return E.apiFetch("/shifts/leaves?year=" + yy, { method: "GET" }).catch(function () { return null; }); })); var seen = {}; leaves.forEach(function (l) { seen[l.id] = 1; }); more.forEach(function (r) { ((r && r.ok && r.leaves) || []).forEach(function (l) { if (!seen[l.id]) { seen[l.id] = 1; leaves.push(l); } }); }); }
+      // the rows and the leave of the other years are read together (one wait, not two in a row)
+      var got = await Promise.all([rangeList(lo, hi)].concat(ys.map(function (yy) { return E.apiFetch("/shifts/leaves?year=" + yy, { method: "GET" }).catch(function () { return null; }); })));
+      var gotRows = got[0], more = got.slice(1);
+      if (more.length) { var seen = {}; leaves.forEach(function (l) { seen[l.id] = 1; }); more.forEach(function (r) { ((r && r.ok && r.leaves) || []).forEach(function (l) { if (!seen[l.id]) { seen[l.id] = 1; leaves.push(l); } }); }); }
       var data = { staff: S.staff, shifts: gotRows, leaves: leaves, hours: S.hours, settings: S.rules };
       var exps = (runEngine(plan, data) || []).filter(function (x) { return x && x.add; });
       var pv0 = RP().preview(exps, { after: { shifts: gotRows, staff: S.staff, leaves: leaves, hours: S.hours, settings: S.rules } });
