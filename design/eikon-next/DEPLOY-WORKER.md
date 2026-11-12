@@ -13,7 +13,8 @@ does not: it changes only when someone runs `wrangler deploy`.
 
 | | Version | Cloudflare version id |
 |---|---|---|
-| Live now (2026-11-11) | `2026-11-11-batch-20`: finish round — roles (is_pharmacist, plans_rota, shift_staff.user_id), day zero + pharmacy details, distributor/HQ portals, CD supply warning, partials (CD + POYC), credit_notes.cn_no + credit_note_seq, demo guard/reset extended; UI .182 | `f365827b-f706-465c-a956-238424612a7a` |
+| Live now (2026-11-12) | `2026-11-12-polish-22`: eikonNameCase keeps tal-/ta' (and de/van/von unless typed capital) small on new saves; no schema or stored-data change; UI .184 | `f51937b2-f01a-4afa-a701-48b1d713444c` |
+| Previous (2026-11-11) | `2026-11-11-batch-20`: finish round — roles (is_pharmacist, plans_rota, shift_staff.user_id), day zero + pharmacy details, distributor/HQ portals, CD supply warning, partials (CD + POYC), credit_notes.cn_no + credit_note_seq, demo guard/reset extended; UI .182 | `f365827b-f706-465c-a956-238424612a7a` |
 | Before that (2026-11-11) | `2026-11-11-batch-19`: Stock & Customers r2 — GDPR routes + gdpr_erasures/gdpr_erasure_rows, returns schema fix; UI .181 | `5ddebdfe-4d09-491a-901e-b3f9348bed22` |
 | Before that (2026-11-11) | `2026-11-11-batch-18`: one-click demo (DEMO_* vars: org 2, locations 2, 399, 599, 899), guard, nightly reset; UI .180 | `ddd0ac82-2d29-417e-9234-dc1e00c84bf2` |
 | Before that (2026-11-11) | `2026-11-11-batch-17` HOTFIX: End of day zero-overwrite guard (409 would_clear_figures unless confirm_zero); UI .179 | `cef7eeef-5b55-4178-b2c8-b08af4f8019f` |
@@ -138,4 +139,6 @@ cd cloudflare-worker && npx wrangler rollback 4b2cf8da-5410-46b1-93b7-103606d7a7
 
 puts the previous version back (the new booking tables stay, unused, and harm nothing).
 
+- Before polish-22 (2026-11-12): `00001080-00000000-00005121-44fd8748a1c86173bdb09999447ef8d8`. Checked after: /health polish-22; /today, /people, /admin/names answer 401 signed out; main 0e1386e.
 - UI .183 (2026-11-12, main b2edf54): polish only, no worker change — film faults, footers, 24-hour hours, 44 px inputs, rotaset focus after redraw. UI 578/578.
+- UI .184 (2026-11-12, main 0e1386e): polish-22 — loyalty card complete/reward due, stamps in chip, problem types in plain English, End of day bar flush, roster preview 3 waits → 1, answered question 'not told yet', tal- small. UI 578/578, worker 374/374.
