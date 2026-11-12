@@ -151,11 +151,40 @@
     return '<button type="button" class="otc-row" data-open="' + esc(n.id) + '"><span class="t"><b>' + esc(nice(n)) + "</b>" + (sub ? '<span class="s">' + esc(sub) + "</span>" : "") + "</span>" +
       (pill ? '<span class="otc-pill">' + esc(pill) + "</span>" : "") + '<i aria-hidden="true">›</i></button>';
   }
-  function linkSub(l) { return [l.label, l.why, l.score != null ? "Score " + l.score : ""].filter(Boolean).join(" · "); }
+  // What a row says under its name: the link's own words for a person at the counter. The data's internal score and its
+  // import notes ("Imported symptom tags") are bookkeeping, never shown.
+  var TAG = { primary: "Main use", secondary: "Also used for" }; // a symptom link's import grade, in counter words
+  function linkSub(l) {
+    var why = /\b(imported|tags?)\b/i.test(String(l.why || "")) ? "" : l.why, lab = l.rel === "symptom" && TAG[String(l.label || "").toLowerCase()] || l.label;
+    return [lab, why].filter(Boolean).join(" · ");
+  }
+
+  // "Goes well with": the data links a product to every product of a neighbouring group (121 for a lozenge), all on a
+  // few tied scores. Show the best few: highest score first, then one per brand and active ingredient and spread over
+  // the groups, so five rows are five different suggestions; the rest stay behind "Show all", in score order.
+  var FEW = 5;
+  function brandOf(n) { var m = n.meta || {}; return String(m.brand || String(n.label || "").split(/\s+/)[0] || "").toLowerCase(); }
+  function ranked(list) {
+    var picked = [], seen = {}, grp = {}, rest = [];
+    var byScore = list.slice(); // already highest score first (sections)
+    for (var pass = 0; pass < 2 && picked.length < FEW; pass++) {
+      byScore.forEach(function (x) {
+        if (picked.length >= FEW || picked.indexOf(x) >= 0) return;
+        var b = brandOf(x.node), gen = String((x.node.meta || {}).generic || "").toLowerCase(), g = String(x.link.label || "");
+        if (seen["b:" + b] || (gen && seen["g:" + gen])) return;
+        if (pass === 0 && grp[g] >= 2) return; // the first pass keeps any one group to two rows
+        picked.push(x); seen["b:" + b] = 1; if (gen) seen["g:" + gen] = 1; grp[g] = (grp[g] || 0) + 1;
+      });
+    }
+    byScore.forEach(function (x) { if (picked.indexOf(x) < 0) rest.push(x); });
+    return picked.concat(rest);
+  }
 
   function section(key, title, list) {
     if (!list || !list.length) return "";
-    var all = S.more[key], shown = all ? list : list.slice(0, SHOW);
+    var few = key === "complement" ? FEW : SHOW;
+    if (key === "complement") list = ranked(list);
+    var all = S.more[key], shown = all ? list : list.slice(0, few);
     return '<div class="otc-lab"><span>' + esc(title) + "</span><b>" + list.length + '</b></div><div class="otc-list" data-sec="' + key + '">' +
       shown.map(function (x) { return row(x.node, linkSub(x.link), ""); }).join("") +
       (list.length > shown.length ? '<button type="button" class="otc-more" data-more="' + key + '">Show all ' + list.length + "</button>" : "") + "</div>";

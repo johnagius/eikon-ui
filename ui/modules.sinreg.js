@@ -341,7 +341,7 @@
       "<h1>Supplier stock</h1><p class=\"sin-sub\">What suppliers have right now, at what price, and your orders to them.</p>" +
       '<div class="sin-seg" role="group" aria-label="View"><button data-act="view" data-v="stock" data-f="v-stock" aria-pressed="' + (S.view === "stock") + '">Stock' + (n ? " · " + n + " in order" : "") + '</button><button data-act="view" data-v="orders" data-f="v-orders" aria-pressed="' + (S.view === "orders") + '">Sent orders</button></div>' +
       (S.view === "stock" ? stockHtml() : ordersHtml()) +
-      '<p class="sin-foot">Columns, sorting and expiry warning months are in the <a href="#" data-act="classic">classic screen</a>.</p></div>';
+      "</div>";
     m.innerHTML = h;
     if (fsel) { var again = m.querySelector(fsel); if (again) { again.focus(); if (caret) try { again.setSelectionRange(caret[0], caret[1]); } catch (x) {} } }
     wire(m);

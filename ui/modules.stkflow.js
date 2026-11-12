@@ -378,7 +378,7 @@
   }
   function addForm() {
     var a = S.adding;
-    return '<div class="stk-addf"><form class="stk-form" id="stk-add" autocomplete="off" aria-label="Add an item to order"><label>Item<input name="item_name" value="' + esc(a.item_name || "") + '" placeholder="e.g. Augmentin 625 x14"></label><label class="n">How many<input name="qty" inputmode="numeric" value="' + esc(a.qty || "1") + '"></label>' +
+    return '<div class="stk-addf"><form class="stk-form sf-form" id="stk-add" autocomplete="off" aria-label="Add an item to order"><label>Item<input name="item_name" value="' + esc(a.item_name || "") + '" placeholder="e.g. Augmentin 625 x14"></label><label class="n">How many<input name="qty" inputmode="numeric" value="' + esc(a.qty || "1") + '"></label>' +
       '<label>Supplier<input name="supplier" list="stk-sups" value="' + esc(a.supplier || "") + '" placeholder="Optional"></label><label>Note<input name="notes" value="' + esc(a.notes || "") + '" placeholder="Optional, e.g. for Mrs Borg"></label>' +
       (S.addErr ? '<p class="stk-err" role="alert">' + esc(S.addErr) + "</p>" : "") +
       '<div class="acts">' + btn("add-cancel", "Cancel") + '<button type="submit" class="stk-btn p"' + (S.saving ? " disabled" : "") + ">" + (S.saving ? "Saving…" : "Add to today") + "</button></div></form></div>";

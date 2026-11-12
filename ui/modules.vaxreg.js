@@ -84,7 +84,14 @@
     return WD[d.getUTCDay()] + " " + d.getUTCDate() + " " + MON[d.getUTCMonth()] + (d.getUTCFullYear() === Number(todayY().slice(0, 4)) ? "" : " " + d.getUTCFullYear());
   }
   function daysTo(ymd) { return Math.round((Date.parse(ymd + "T12:00:00Z") - Date.parse(todayY() + "T12:00:00Z")) / 864e5); }
-  function nextDose(d) { var i = DOSES.indexOf(d); return i < 0 ? "" : i <= 1 ? DOSES[i + 1] : i <= 3 ? "Booster" : ""; }
+  // The dose due after the one given: this screen's words ("Dose 1" -> "Dose 2" ... "Dose 3"/"Booster" -> "Booster"), and
+  // also the "1st" / "2" / "dose 1" style other records use (the demo's own seed writes "1st"), so Record the dose picks it.
+  function nextDose(d) {
+    var g = String(d || "").trim(), i = DOSES.indexOf(g);
+    if (i >= 0) return i <= 1 ? DOSES[i + 1] : i <= 3 ? "Booster" : "";
+    var m = /^(?:dose\s*)?(\d+)/i.exec(g); if (m) { var n = Number(m[1]) + 1; return n >= 2 && n <= 3 ? "Dose " + n : n > 3 ? "Booster" : ""; }
+    return /booster/i.test(g) ? "Booster" : "";
+  }
   function person(g) { return (String(g.client_first || "").trim() + " " + String(g.client_last || "").trim()).trim(); }
   function initials(first, last) { return [first, last].map(function (x) { var c = String(x || "").trim().charAt(0); return c ? c.toUpperCase() + "." : ""; }).join(""); }
   // What this device remembers per pharmacy: the last batch and expiry of each vaccine, the last site, recent vaccines.
@@ -134,7 +141,7 @@
 
   function dueRow(g) {
     var n = daysTo(g.next_due), nd = nextDose(g.dose), what = nd || "Next dose";
-    var pill = n < 0 ? '<em class="vxg-pill r">Overdue · ' + (-n) + (n === -1 ? " day" : " days") + "</em>" : n === 0 ? '<em class="vxg-pill a">' + esc(what) + " due today</em>" : '<em class="vxg-pill">Due ' + esc(dayWords(g.next_due)) + "</em>";
+    var pill = n < 0 ? '<em class="vxg-pill r">Overdue · ' + (-n) + (n === -1 ? " day" : " days") + "</em>" : n === 0 ? '<em class="vxg-pill am">' + esc(what) + " due today</em>" : '<em class="vxg-pill">Due ' + esc(dayWords(g.next_due)) + "</em>";
     var acts = S.closing === g.id
       ? '<i>Close this recall without a dose?</i><button class="vax-btn" data-act="due-close-yes" data-gid="' + g.id + '">Yes, not needed</button><button class="vax-btn t" data-act="due-close-no">Keep</button>'
       : '<button class="vax-btn" data-act="due-give" data-gid="' + g.id + '">Record ' + esc(nd ? nd.toLowerCase() : "the dose") + '</button><button class="vax-btn t" data-act="due-close" data-gid="' + g.id + '" aria-label="' + esc("Not needed: close the recall for " + person(g)) + '">Not needed</button>';
@@ -332,12 +339,13 @@
       ".vxg-row .a{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center}.vxg-row .a i{font-style:normal;font-size:13px;color:var(--muted);width:100%;text-align:right}" +
       ".vxg-name{border:0;background:none;padding:0;font:inherit;font-size:15px;font-weight:600;color:var(--accent);cursor:pointer;text-align:left;min-height:24px}.vxg-name:hover{text-decoration:underline}" +
       ".vxg-pill{display:inline-block;font-style:normal;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:rgba(118,118,128,.14);color:var(--muted);margin-left:6px;vertical-align:1px}" +
-      ".vxg-pill.r{background:rgba(215,38,28,.12);color:var(--danger)}.vxg-pill.a{background:rgba(201,138,18,.16);color:var(--warn,#8A5A08)}.vxg-over{color:var(--danger);font-weight:600}" +
+      ".vxg-pill.r{background:rgba(215,38,28,.12);color:var(--danger)}" + // amber is .am: a bare .a is the row's actions box (.vxg-row .a, display:flex, full width on a phone)
+      ".vxg-pill.am{background:rgba(201,138,18,.16);color:var(--warn,#8A5A08)}.vxg-over{color:var(--danger);font-weight:600}" +
       ".vxg-more{margin:6px 0 0;min-height:34px}.vxg-to{margin-left:auto;font-weight:400}.vxg-hist h2{font-size:24px;margin:0;font-weight:700;letter-spacing:-.02em}" +
       ".vxg-ttl{font-size:17px;font-weight:700;padding:10px 14px 2px}.vxg-l{font-size:15px;padding:10px 14px 0;border-top:.5px solid var(--border)}" +
       ".vxg-seg{display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px 10px}.vxg-seg .vax-btn{height:auto;min-height:34px;padding:6px 12px}.vxg-seg[aria-invalid=true] .vax-btn{border-color:var(--danger)}.vxg-segerr{display:block;margin:-4px 14px 8px!important}" +
       ".vxr-form label small:not(.vxr-ferr){color:var(--muted);font-weight:500}" +
-      "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .vxg-pill.r,html[data-ui2]:not([data-ui2-visit]) .vxg-over{color:#FF7A72}html[data-ui2]:not([data-ui2-visit]) .vxg-pill.a{color:#F2B84B}}" +
+      "@media (prefers-color-scheme:dark){html[data-ui2]:not([data-ui2-visit]) .vxg-pill.r,html[data-ui2]:not([data-ui2-visit]) .vxg-over{color:#FF7A72}html[data-ui2]:not([data-ui2-visit]) .vxg-pill.am{color:#F2B84B}}" +
       "@media (max-width:600px){.vxg-row{flex-wrap:wrap}.vxg-row .a{width:100%;justify-content:flex-start}.vxg-row .a i{text-align:left}.vxg-seg .vax-btn{min-height:44px}.vxg-name{min-height:44px}.vxr-top .acts2{width:100%}.vxr-top .acts2 .vax-btn{flex:1}}" +
       "@media (max-width:600px){.vxr{padding:4px 16px 0}.vxr h1{font-size:32px}.vxr-form label>span{flex-basis:92px}.vxr-row{flex-wrap:wrap}.vxr-row .a{width:100%;justify-content:flex-start}.vxr-row .a i{text-align:left}" +
       ".vax-btn{height:44px;border-radius:22px}.vxr-chips .vax-btn{min-height:44px}.vxr-form .ln .x{flex-basis:44px;height:44px;border-radius:22px}.vxr-q{height:44px}.vxr-ferr{margin-left:0}}";

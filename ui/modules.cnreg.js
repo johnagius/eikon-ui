@@ -393,7 +393,7 @@
       h += '<div id="cnr-list">' + listHtml() + "</div>";
     }
     if (S.view === "month" && !S.error) h += E.months.history("cnreg", HIST); // cnreg-3: a view of its own, not a second list under the notes
-    h += (E.correct.can() ? E.correct.foot("", "Deleting a credit note is") : E.correct.foot('Deleting a credit note is in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.')) + "</div>";
+    h += E.correct.foot("") + "</div>";
     var ae = document.activeElement, sel = ae && m.contains(ae) ? (ae.id === "cnr-q" ? "#cnr-q" : ae.name ? "[name=" + ae.name + "]" : "") : "";
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) { again.focus(); try { var L = again.value.length; again.setSelectionRange(L, L); } catch (x) {} } }

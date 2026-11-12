@@ -63,7 +63,7 @@ export default {
     const cra = audit(t, T, a, au); au = t.maxId("audit_log");
     await openNew(b);
     await p.click("#rtn-edit [data-act=refuse]");
-    t.ok(/refused Twin Return Refused Ventolin\? This closes the return/.test(await p.textContent("#rtn-edit")), "refuse(new): one plain question");
+    t.ok(/Mark Twin Return Refused Ventolin as refused by the supplier\? This closes the return/.test(await p.textContent("#rtn-edit")), "refuse(new): one plain question");
     t.ok(t.row(T, b).supplier_refused === 0, "refuse(new): nothing is saved before the answer");
     const nr = await t.write(p, new RegExp("^/returns/entries/" + b + "$"), () => p.click("#rtn-edit [data-act=refuse-go]"), "PUT");
     t.ok(JSON.stringify(nr.body) === JSON.stringify(cr.body), "refuse: the classic body:\n classic " + JSON.stringify(cr.body) + "\n new     " + JSON.stringify(nr.body));

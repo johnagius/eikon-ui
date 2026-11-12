@@ -160,7 +160,7 @@
   var RANK = { problem: 0, todo: 1, info: 2, done: 3 };
   function sorted(list) { return list.map(function (x, i) { return { x: x, i: i }; }).sort(function (a, b) { return RANK[a.x.status] - RANK[b.x.status] || a.i - b.i; }).map(function (o) { return o.x; }); }
 
-  // The line at the top, in words: "Open 08:00–20:00 · 4 on today · Pharmacist: Maria Borg until 13:00, then Joe Vella"
+  // The line at the top, in words: "Open 08:00–20:00 · 4 on today · Pharmacist: Maria Borg until 13:00, then Joe Vella from 13:00"
   function headText(D, now) {
     var c = cover(D);
     if (c.closed) return (c.words || ("Closed" + (c.holiday ? " · Public holiday (" + c.holiday + ")" : ""))) + "."; // E.teamCover's words (Director X3)
@@ -170,7 +170,9 @@
     bits.push(on ? plural(on, "person", "people") + " on today" : gettingReady(D) ? "Getting ready: no rota yet" : "Nobody on the rota today");
     var n = mins(now), ph = (D.shifts || []).filter(function (s) { return isPharm(s) && !(D.leave || []).some(function (l) { return l.staff_id === s.staff_id; }) && mins(s.end_time) > n && !(mins(s.start_time) >= mins(c.close)); }) // not a shift after closing
       .sort(function (a, b) { return mins(a.start_time) - mins(b.start_time); });
-    if (ph.length) bits.push("Pharmacist: " + ph.slice(0, 2).map(function (s, i) { return (i ? "then " : "") + s.full_name + (mins(s.start_time) > n ? " from " + s.start_time : " until " + s.end_time); }).join(", "));
+    // Two shifts in turn: "Maria Borg until 13:00, then Joe Vella from 13:00". When they overlap (the second starts before
+    // the first ends) "then" would be wrong: "Maria Borg until 14:00, with Kurt Zahra from 13:00".
+    if (ph.length) bits.push("Pharmacist: " + ph.slice(0, 2).map(function (s, i) { return (i ? (mins(s.start_time) < mins(ph[0].end_time) ? "with " : "then ") : "") + s.full_name + (mins(s.start_time) > n ? " from " + s.start_time : " until " + s.end_time); }).join(", "));
     return bits.join(" · ") + ".";
   }
 

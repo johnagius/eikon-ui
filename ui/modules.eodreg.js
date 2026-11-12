@@ -860,7 +860,8 @@
         else if (act === "fix-no") { S.fix = null; paint(true); var fb = m.querySelector("[data-act=fix]"); if (fb) fb.focus(); }
         else if (act === "fix-go") unlockToFix();
         else if (act === "who") { keep(); S.whoOpen = true; paint(true); var dy = m.querySelector("#eod-day"); if (dy) dy.focus(); }
-        else if (act === "lock") { keep(); S.ask = "lock"; S.err = ""; paint(true); setTimeout(function () { var y = m.querySelector('[role=alertdialog] [data-act=ask-no]'); if (y) y.focus(); }, 30); }
+        else if (act === "lock") { keep(); S.err = check(S.w); if (S.err) { S.ask = null; if (S.bad === "staff" || S.bad === "float_amount") S.whoOpen = true; paint(true); return toBad(); } // batch-21: what is missing (a bag number) is said before the lock question, not after it
+          S.ask = "lock"; paint(true); setTimeout(function () { var y = m.querySelector('[role=alertdialog] [data-act=ask-no]'); if (y) y.focus(); }, 30); }
         else if (act === "lock-yes") { S.ask = null; save(true); }
         else if (act === "clear-yes") { S.ask = null; save(!!S.clearLock, { clear: true }); }
         else if (act === "ask-no") { keep(); var wasAsk = S.ask; S.ask = null; if (wasAsk === "lock" || wasAsk === "clear") setTimeout(function () { var lb = m.querySelector("[data-act=lock]"); if (lb) lb.focus(); }, 30); S.pendingDate = ""; S.pendingClose = false; paint(true); var di = m.querySelector("#eod-day"); if (di) di.value = S.date; }

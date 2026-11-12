@@ -1135,6 +1135,11 @@ html[data-ui2] .eikon-rail-btn:not([data-mod="stock"]) .eikon-rail-badge{backgro
    selected text field). Every control keeps its :focus-visible ring for keyboard users; Tab from the title goes to the
    screen's first control, which shows it. */
 html[data-ui2] h1[tabindex="-1"]:is(:focus,:focus-visible),html[data-ui2]:not([data-ui2-visit]) h1[tabindex="-1"]:is(:focus,:focus-visible){outline:none} /* the second beats the app-wide [tabindex]:focus-visible ring (line ~1063) */
+/* batch-21 (.183): the same for every title the app moves the keyboard to — a detail's h2/h3 heading, a sheet's title, a
+   [role=heading] — and on every layout (a classic screen visited from the new one kept the browser's ring, and some screens
+   drew their own 2 px one on their h1). These are tabindex=-1: never reached with Tab, so never a ring; :focus-visible
+   stays on every real control. */
+:is(h1,h2,h3,[role=heading])[tabindex="-1"]:is(:focus,:focus-visible),html :is(h1,h2,h3,[role=heading])[tabindex="-1"]:is(:focus,:focus-visible),html[data-ui2]:not([data-ui2-visit]) :is(h1,h2,h3,[role=heading])[tabindex="-1"]:is(:focus,:focus-visible){outline:none}
 /* "Show 30 more (90 left)" under a long list (E.listPage in core.js). */
 html[data-ui2] .q5-8-morebox{display:flex;justify-content:center;margin:12px 0 4px}
 @media (max-width: 760px){ html[data-ui2] .q5-8-more{min-height:44px;width:100%;max-width:360px} }

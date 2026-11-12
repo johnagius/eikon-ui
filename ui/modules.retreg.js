@@ -121,7 +121,7 @@
       (S.editErr ? '<div class="rtn-err" id="rtn-edit-err" role="alert">' + esc(S.editErr) + "</div>" : "");
     if (S.ask === "del") h += '<p class="rtn-ask" id="rtn-ask">Delete the return of ' + esc(e.description) + "? This cannot be undone.</p>" +
       '<div class="acts"><button type="button" class="rtn-btn" data-act="ask-cancel">Keep it</button><button type="button" class="rtn-btn dd" data-act="del-go" aria-describedby="rtn-ask"' + (S.editSaving ? " disabled" : "") + ">" + (S.editSaving ? "Deleting…" : "Delete return") + "</button></div>";
-    else if (S.ask === "refuse") h += '<p class="rtn-ask" id="rtn-ask">The supplier refused ' + esc(e.description) + "? This closes the return. If it came from Near expiry, it stays there.</p>" +
+    else if (S.ask === "refuse") h += '<p class="rtn-ask" id="rtn-ask">Mark ' + esc(e.description) + " as refused by the supplier? This closes the return. If it came from Near expiry, it stays there.</p>" +
       '<div class="acts"><button type="button" class="rtn-btn" data-act="ask-cancel">Keep it open</button><button type="button" class="rtn-btn dd" data-act="refuse-go" aria-describedby="rtn-ask"' + (S.editSaving ? " disabled" : "") + ">" + (S.editSaving ? "Saving…" : "Mark refused") + "</button></div>";
     else h += '<div class="acts l"><span>' + (canDelete() ? '<button type="button" class="rtn-btn d" data-act="del">Delete…</button>' : "") + (refused ? "" : '<button type="button" class="rtn-btn d" data-act="refuse">Supplier refused…</button>') + "</span>" +
       '<span><button type="button" class="rtn-btn" data-act="edit-cancel">Close</button><button type="submit" class="rtn-btn p"' + (S.editSaving ? " disabled" : "") + ">" + (S.editSaving ? "Saving…" : "Save changes") + "</button></span></div>";

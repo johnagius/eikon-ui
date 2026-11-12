@@ -222,7 +222,7 @@
     if (!run.length) return '<div class="lyr-quiet">No campaign is running today. Start one in <button type="button" class="lyr-lnk" data-act="view" data-v="campaigns">Campaigns</button>.</div>';
     var h = "";
     if (S.saved) h += '<div class="lyr-done" role="status"><span><b>Saved for ' + esc(S.saved.txn.client_name || S.saved.txn.client_id) + '.</b> ' + esc(S.saved.txn.action_label) + " · " + esc(S.saved.camp.name) + '</span><button type="button" class="lyr-btn" data-act="print-receipt">Print receipt</button></div>';
-    h += '<form class="lyr-form" id="lyr-rec" autocomplete="off" novalidate>' +
+    h += '<form class="lyr-form sf-form" id="lyr-rec" autocomplete="off" novalidate>' +
       '<label><span>ID card</span><input name="client_id" value="' + esc(f.client_id) + '" placeholder="e.g. 123456M" autocapitalize="characters" spellcheck="false"></label>' +
       '<label><span>Name</span><input name="client_name" value="' + esc(f.client_name) + '" placeholder="Name and surname" autocapitalize="words"></label>' +
       '<div id="lyr-snap">' + snapHtml() + "</div>" +

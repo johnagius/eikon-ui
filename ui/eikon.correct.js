@@ -106,12 +106,11 @@
   C.isOpen = function (key) { return !!(ST[key] && ST[key].open != null); };
   C.openId = function (key) { return ST[key] ? ST[key].open : null; };
 
-  // The screen's footer line: corrections happen here, by the pharmacist; deleting is in the classic screen.
-  // del: what the pharmacist deletes there, with its verb ("Deleting a payment is"); a line by default.
-  C.foot = function (extra, del) {
-    return '<p class="ecr-foot" style="font-size:12.5px;color:var(--muted);margin-top:12px">' + (isAdmin()
-      ? "A wrong line is put right with Correct, saying what was wrong; the audit keeps what it said before. " + (del || "Deleting a line is") + ' in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.'
-      : canFix() ? "A wrong line is put right with Correct, saying what was wrong; the audit keeps what it said before."
+  // The screen's footer line (VISUAL X3, the daily registers' D.foot words since batch-21): plain words, no trip to the
+  // classic screens. del is kept for the callers' sake and no longer shown (deleting stays reachable from Settings › Help).
+  C.foot = function (extra, del) { // eslint-disable-line no-unused-vars
+    return '<p class="ecr-foot" style="font-size:12.5px;color:var(--muted);margin-top:12px">' + (canFix()
+      ? "Made a mistake? Press Correct on the line \u2014 what it said before stays on record."
       : "A wrong line is corrected by the pharmacist (Correct, with the reason).") + (extra ? " " + extra : "") + "</p>";
   };
 

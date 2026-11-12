@@ -79,10 +79,11 @@
     return h;
   }
   function needCard(n, mine) {
-    var left = Math.max(0, Number(n.remaining_quantity) || 0), sub = [mine ? "Asked " + dm(n.entry_date) : (n.org_name + " — " + n.location_name)];
-    if (n.needed_by) sub.push("needed by " + dm(n.needed_by)); if (!mine) sub.push(dm(n.entry_date));
+    // SF9: the same words on both kinds of line ("Asked 10 Nov · needed by 14 Nov · asked for 5"); another pharmacy's name on its own line
+    var left = Math.max(0, Number(n.remaining_quantity) || 0), sub = ["Asked " + dm(n.entry_date)], from = mine ? "" : (n.org_name + " — " + n.location_name);
+    if (n.needed_by) sub.push("needed by " + dm(n.needed_by));
     var offers = (n.offers || []).filter(function (o) { return mine || o.mine; });
-    var h = '<div class="ssr-card"><div class="h"><b>' + esc(n.item_name) + "</b><em>" + (left ? left + " still needed" : "All offered") + '</em></div><div class="s">' + esc(sub.join(" · ")) + " · asked for " + esc(n.quantity_needed) + "</div>" + (n.description ? '<div class="d">' + esc(n.description) + "</div>" : "");
+    var h = '<div class="ssr-card"><div class="h"><b>' + esc(n.item_name) + "</b><em>" + (left ? left + " still needed" : "All offered") + "</em></div>" + (from ? '<div class="s">' + esc(from) + "</div>" : "") + '<div class="s">' + esc(sub.join(" · ")) + " · asked for " + esc(n.quantity_needed) + "</div>" + (n.description ? '<div class="d">' + esc(n.description) + "</div>" : "");
     h += offers.map(function (o) { return offerLine(o, mine); }).join("");
     if (mine && !offers.length) h += '<div class="s" style="margin-top:8px">No offers yet.</div>';
     if (mine) h += mineActs(n);

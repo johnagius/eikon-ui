@@ -3377,7 +3377,7 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   const otcApi = (await (await fetch(`http://localhost:${PORT}/__calls`)).json()).filter((c) => /productmap|otc/i.test(c.path));
   report("over the counter: #otcmindmap opens it under Services; 76 symptoms with products (as chips); acid reflux lists its 29 products, best score first; a product's cautions come first, in words; Escape steps back; fits 360 px; reads only the classic's files",
-    otcRail === "services" && otcSym.title === "Acid reflux" && otcSym.n === "29" && otcSym.first === "Acidex Oral Suspension" && /^Primary · Imported symptom tags · Score 92$/.test(otcSym.sub) && otcSym.focus === "otc-title" &&
+    otcRail === "services" && otcSym.title === "Acid reflux" && otcSym.n === "29" && otcSym.first === "Acidex Oral Suspension" && otcSym.sub === "Main use" && otcSym.focus === "otc-title" &&
     otcRes.join("|") === "Actifed 60mg/2.5mg Tablets|ACTIFED 30mg/1.25mg per 5ml Syrup" && /Caution: 2 products to check before selling together/.test(otcCaut) && !/guardrail/i.test(otcCaut) && /Do not cross-sell together by default; show as alternative options instead\./.test(otcCaut) && /Medofed/.test(otcCaut) &&
     /otc-caution/.test(otcFirst) && otcBack === "ACTIFED 30mg/1.25mg per 5ml Syrup" && otcW && otcApi.length === 0,
     JSON.stringify({ otcRail, otcSym, otcRes: otcRes.slice(0, 3), otcCaut: otcCaut.slice(0, 200), otcFirst, otcBack, otcW, otcApi }).slice(0, 700));
@@ -6211,7 +6211,7 @@ try {
   }
   await mp.close();
   report("help matches the screen: on " + list.length + " screens (" + footers + " with a classic footer), the guide's “Still in the classic screen” is the footer's own sentence and names nothing the screen has",
-    footers >= 25 && !probs.length && !missing.length, JSON.stringify({ footers, missing, probs: probs.slice(0, 6), err: mErr.slice(0, 2) }));
+    footers >= 18 && !probs.length && !missing.length, JSON.stringify({ footers, missing, probs: probs.slice(0, 6), err: mErr.slice(0, 2) }));
 } catch (e) { report("help matches the screen: ran to the end", false, String(e && e.stack || e).slice(0, 600)); }
 {
   const problems = [];
@@ -6572,9 +6572,9 @@ try {
   report("credit notes: Add a note puts the cursor in the box, says so when empty, sends the classic POST with the text trimmed, focus back on Add a note",
     nf === "note_text" && /Write the note first/.test(nEmpty.msg) && nEmpty.inv === "true" && posts.length === 1 && posts[0].path === "/creditnotes/entries/91/notes" && JSON.stringify(posts[0].body) === '{"text":"Will call Friday"}' && nBack.focus === "note" && !nBack.form,
     JSON.stringify({ nf, nEmpty, posts, nBack }));
-  report("credit notes: Remove on a note asks once in plain words (Escape keeps it, focus back), then sends the classic DELETE; the footer leaves only deleting a note in the classic screen",
+  report("credit notes: Remove on a note asks once in plain words (Escape keeps it, focus back), then sends the classic DELETE; the footer is the new-design one (no classic screen)",
     /Remove this note\?/.test(rAsk.text) && /Rang, no answer/.test(rAsk.text) && rAsk.focus === "rmnote-yes" && rEsc.gone && rEsc.focus === "rmnote" && rDels.length === 1 && rDels[0].path === "/creditnotes/entries/91/notes/7" &&
-    /Deleting a credit note is in the classic screen\.$/.test(foot.trim()) && !/printing/i.test(foot), JSON.stringify({ rAsk, rEsc, rDels, foot }));
+    /^Made a mistake\? Press Correct on the line — what it said before stays on record\.$/.test(foot.trim()) && !/printing|classic/i.test(foot), JSON.stringify({ rAsk, rEsc, rDels, foot })); // batch-21: the new-design footer
   // End of day: the deposit for the bank email
   eodState = { rec: { id: 1, date: todayYmd, eod_date: todayYmd, staff: "Ġorġ", float_amount: "100", x: [{ amount: "300" }], epos: [], cheques: [], paid_outs: [], cash: { n50: "4", n20: "5", coins_total: "0" }, deposit: { n50: 3, n20: 5 }, bov_deposit: { n50: 3, n20: 5 }, bag_number: "", contact_id: "4", deposit_edited: true, updated_at: "2026-11-03 18:00:00" }, n: 0 };
   await fetch(`http://localhost:${PORT}/__reset`);
@@ -6772,12 +6772,11 @@ try {
   const w = {};
   const open = async (h, mod, sel) => { await page.goto(base + "&ui=2#" + h); await page.waitForFunction(([m, s]) => window.EIKON.state.activeModuleId === m && document.querySelector(s), [mod, sel], { timeout: 15000 }); await page.waitForTimeout(300); };
   const foot = () => page.evaluate(() => [...document.querySelectorAll('#eikon-content [data-act="classic"]')].map((a) => ({ p: (a.closest("p") || a.parentElement).innerText.replace(/\s+/g, " ").trim(), a: a.textContent })));
-  for (const [h, mod, want] of [["poreg", "poreg", "Deleting a payment is in the classic screen."], ["cnreg", "cnreg", "Deleting a credit note is in the classic screen."]]) {
-    await open(h, mod, ".ecr-foot"); const f = await foot(); w[h] = f.length === 1 && f[0].a === "classic screen" && f[0].p.endsWith(want) && !/not deleted/.test(f[0].p) ? "ok" : f;
+  // batch-21 (.183): Paid out and Credit notes end with the new-design footer (the daily registers' words), no classic link
+  for (const h of ["poreg", "cnreg"]) {
+    await open(h, h, ".ecr-foot"); const f = await foot(), t2 = await page.textContent(".ecr-foot"); w[h] = !f.length && /^Made a mistake\? Press Correct on the line — what it said before stays on record\.$/.test(t2.trim()) ? "ok" : [f, t2];
   }
-  await open("poreg", "poreg", ".ecr-foot [data-act=classic]");
-  await Promise.all([page.waitForURL(/ui=classic/, { timeout: 15000 }), page.click(".ecr-foot [data-act=classic]")]);
-  w.cleanLink = /ui=classic/.test(page.url()) && /#paidout$/.test(page.url());
+  w.cleanLink = true;
   const src = (f) => fs.readFileSync(path.join(root, f), "utf8");
   w.oneName = ["audreg", "calreg", "eposreg", "ocpreg", "pocreg", "rotreg", "shfreg", "alertreg"].filter((m) => { const t = src("modules." + m + ".js"); return [...t.matchAll(/data-act="classic"[^>]*>([^<]*)</g)].some((x) => x[1] !== "classic screen"); });
   await page.goto(base + "&ui=2#nexreg"); await page.waitForFunction(() => window.EIKON.state.activeModuleId === "nexreg" && document.querySelector("[data-act=add]"), null, { timeout: 15000 });
@@ -6794,7 +6793,7 @@ try {
   await page.click("[data-mb=print]"); await page.waitForFunction(() => window.__tp, null, { timeout: 5000 });
   w.temp = await page.evaluate(() => ({ cols: window.__tp.sections[0].cols.slice(1), intro: window.__tp.intro }));
   await page.unroute(/\/temperature\/devices/);
-  report("same word, screen and print (item 11): Correct registers say deleting is in the classic screen and the link opens it; one name for the classic link; Save item, Add point, Date and Time; sales are sent when the connection is back; export names match the registers; the room prints as Room (Demo Pharmacy)",
+  report("same word, screen and print (item 11): Paid out and Credit notes end with the new-design footer (batch-21); one name for the classic link; Save item, Add point, Date and Time; sales are sent when the connection is back; export names match the registers; the room prints as Room (Demo Pharmacy)",
     ["poreg", "cnreg"].every((k) => w[k] === "ok") && w.cleanLink && !w.oneName.length && w.nex === "Save item" && w.hnd === "Add point" && w.po === "Date:entry_date,Time:entry_time" &&
     /sales are sent when the connection is back/.test(w.hub) && !/sync/.test(w.hub) && w.exp === "Controlled drugs received|Controlled drugs supplied|POYC controlled drugs" &&
     JSON.stringify(w.temp.cols) === JSON.stringify(["Room (Demo Pharmacy)", "Fridge 1"]) && /Room \(Demo Pharmacy\) 15/.test(w.temp.intro), JSON.stringify(w).slice(0, 900));
@@ -7403,13 +7402,17 @@ try {
     E.rotaRules && E.rotaRules(true);
     const wait = (sel) => new Promise((ok) => { let i = 0; const t = setInterval(() => { if (document.querySelector(sel) || ++i > 60) { clearInterval(t); ok(!!document.querySelector(sel)); } }, 50); });
     const btn = document.querySelector("#eikon-content button"); btn.focus();
+    // batch-21: Plan shifts may redraw under the sheet (its own reads coming back), which replaces this button. Focus then
+    // has to land on the new copy of it (same focus key), never on the page: that counts as back, the old node cannot.
+    const bkey = E.focusKey(btn), isBack = () => { const a = document.activeElement; return a === btn || (!btn.isConnected && a && a.isConnected && a !== document.body && E.focusKey(a) === bkey); };
     try {
       for (const [k, a, sel] of [["hours", null, ".rps [data-f=week]"], ["rules", null, ".rps [data-f=rules]"], ["availability", { id: 3, full_name: "Karl Camilleri" }, ".rps [data-f=avail]"], ["leave", { id: 3, full_name: "Karl Camilleri", designation: "assistant", contracted_hours: 40 }, ".rps-bal"], ["details", { id: 3, full_name: "Karl Camilleri", designation: "assistant", contracted_hours: 40, is_active: 1 }, ".rps [data-f=person]"], ["hours", null, ".rps [data-f=week]"]]) {
         E.rotaSet.open(k, a); const ok = await wait(sel);
         const dlg = document.querySelector(".rps-ov [role=dialog]"), title = document.querySelector("#rps-h").textContent;
         if (k === "details") { const f = document.querySelector(".rps [name=phone]"); f.value = "79 111 222"; }
+        if (k === "rules") { const c = [...document.querySelectorAll("#eikon-content button")].find((x) => E.focusKey(x) === bkey); if (c) c.replaceWith(c.cloneNode(true)); } // always once: the screen redraws under the sheet
         document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-        out.push({ k, ok, modal: dlg && dlg.getAttribute("aria-modal"), title, gone: !document.querySelector(".rps-ov"), back: document.activeElement === btn });
+        out.push({ k, ok, modal: dlg && dlg.getAttribute("aria-modal"), title, gone: !document.querySelector(".rps-ov"), back: isBack() });
       }
       E.rotaSet.open("details", { id: 3, full_name: "Karl Camilleri", designation: "assistant", contracted_hours: 40, is_active: 1 }); await wait(".rps [data-f=person]"); await new Promise((ok) => setTimeout(ok, 50));
       out.push({ kept: document.querySelector(".rps [name=phone]").value });
@@ -7521,6 +7524,15 @@ try {
   report("rotapush: the iPhone words", /On iPhone this works once Eikon is added to the Home Screen \(iOS 16\.4\+\)/.test(ui));
   report("rotapush: loaded after eikon.rotaprint.js and before modules.rotreg.js", (() => { const h = fs.readFileSync(path.join(root, "index.html"), "utf8"); const a = h.indexOf('"./eikon.rotaprint.js"'), b = h.indexOf('"./eikon.rotapush.js"'), c = h.indexOf('"./modules.rotreg.js"'); return a > 0 && b > a && c > b; })());
 } catch (e) { report("rotapush: static checks ran", false, String(e && e.stack || e).slice(0, 300)); }
+
+// Polish batch-21 (.183), stock flows SF9 / SF10: the words (no DOM needed; the screens are covered by tests/real)
+{
+  const ss = fs.readFileSync(path.join(root, "modules.ssreg.js"), "utf8"), rt = fs.readFileSync(path.join(root, "modules.retreg.js"), "utf8");
+  report("SF9 (batch-21): a shortage line says \"Asked <day> · needed by <day>\" for every pharmacy, another pharmacy's name on its own line (no bare date)",
+    /sub = \["Asked " \+ dm\(n\.entry_date\)\]/.test(ss) && !/if \(!mine\) sub\.push\(dm\(n\.entry_date\)\)/.test(ss) && /\(from \? '<div class="s">' \+ esc\(from\)/.test(ss));
+  report("SF10 (batch-21): Supplier refused asks a question (\"Mark … as refused by the supplier?\"), not a statement with a question mark",
+    /Mark ' \+ esc\(e\.description\) \+ " as refused by the supplier\? This closes the return\./.test(rt) && !/The supplier refused ' \+ esc/.test(rt));
+}
 
 // Source-level check for the escape fix (no DOM needed)
 for (const f of ["modules.ddasales.js", "modules.ddapoyc.js"]) {

@@ -383,7 +383,7 @@
       h += usualHtml();
       h += '<div class="lbl-grid"><div style="min-width:0"><div class="lbl-lab" style="margin-top:4px">New label</div>' + formHtml() + "</div>" + '<div class="lbl-side" id="lbl-side">' + previewHtml() + "</div></div>";
     }
-    h += '<p class="lbl-note">The name, address and phone at the top of a label are the <a href="#phdreg" style="color:var(--accent)">Pharmacy details</a> in Settings. Templates, the full print history and the warnings table are in the <a href="#" data-act="classic" style="color:var(--accent)">classic screen</a>.</p></div>';
+    h += '<p class="lbl-note">The name, address and phone at the top of a label come from <a href="#phdreg" style="color:var(--accent)">Pharmacy details</a>.</p></div>';
     var ae = document.activeElement, sel = ae && m.contains(ae) && (ae.name ? "[name=" + ae.name + "]" : ae.id === "lbl-find" ? "#lbl-find" : "");
     m.innerHTML = h;
     if (sel) { var again = m.querySelector(sel); if (again) again.focus(); }

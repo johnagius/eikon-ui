@@ -28,6 +28,23 @@
   function low(s) { return String(s == null ? "" : s).toLowerCase().trim(); }
   function hm(t) { return String(t || "").slice(0, 5); }
   function mn(t) { var p = hm(t).split(":"); return Number(p[0]) * 60 + Number(p[1] || 0); }
+  // batch-21: the opening hours are typed in 24-hour time on every device. A browser's own time box follows the computer's
+  // language (07:30 AM on an English (US) Windows), so these are plain boxes: "8", "830", "8.30" and "08:30" all become
+  // "08:30" on leaving the box; anything else is said before saving.
+  var T24 = 'type="text" class="rps-t" inputmode="numeric" maxlength="5" autocomplete="off" spellcheck="false" placeholder="08:00"';
+  function t24(v) {
+    var x = String(v == null ? "" : v).trim().replace(/[.,h ]/g, ":"); if (!x) return "";
+    var m = /^(\d{1,2})(?::?(\d{2}))?$/.exec(x); if (!m) return null;
+    var h = Number(m[1]), mi = Number(m[2] || 0); if (h > 23 || mi > 59) return null;
+    return (h < 10 ? "0" : "") + h + ":" + (mi < 10 ? "0" : "") + mi;
+  }
+  function fix24(form) { // every 24-hour box tidied; the names of those that are not a time
+    var bad = [];
+    Array.prototype.forEach.call(form.querySelectorAll("input.rps-t"), function (x) { if (x.closest("[hidden],[data-shut]")) return; var v = t24(x.value); if (v === null) bad.push(x.name); else x.value = v; });
+    return bad;
+  }
+  var T24_SAY = "Write the times in 24-hour time, e.g. 08:00 or 19:30.";
+  document.addEventListener("focusout", function (e) { var x = e.target; if (x && x.classList && x.classList.contains("rps-t")) { var v = t24(x.value); if (v) x.value = v; } }, true);
   function today() { return E.maltaYmd ? E.maltaYmd() : new Date().toISOString().slice(0, 10); }
   function addD(ymd, n) { var d = new Date(ymd + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
   function wd(ymd) { return new Date(ymd + "T12:00:00Z").getUTCDay(); }
@@ -109,7 +126,7 @@
       ".rps-row{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 14px;border-top:.5px solid var(--border);flex-wrap:wrap}.rps-row:first-child{border-top:0}" +
       ".rps-row>.n{flex:1 1 120px;min-width:0;font-size:15px}.rps-row>.n small{display:block;color:var(--muted);font-size:12.5px}.rps-row .v{font-variant-numeric:tabular-nums;font-weight:600;font-size:14.5px}" +
       ".rps-row input[type=time],.rps-row input[type=date],.rps-row input[type=number],.rps-row input[type=text],.rps-row input[type=email],.rps-row input[type=tel],.rps-row select{font:inherit;font-size:16px;min-height:40px;border:1px solid var(--border);border-radius:9px;background:var(--bg,#fff);color:var(--text);padding:0 8px;box-sizing:border-box}" +
-      ".rps-row input[type=time]{width:136px}.rps-row input[type=number]{width:88px}.rps-row input.w,.rps-row select.w{flex:1 1 180px;min-width:0}" +
+      ".rps-row input[type=time]{width:136px}.rps-row input.rps-t{width:84px;text-align:center;font-variant-numeric:tabular-nums}.rps-row input[type=number]{width:88px}.rps-row input.w,.rps-row select.w{flex:1 1 180px;min-width:0}" +
       ".rps-row .to{color:var(--muted)}.rps-row label.ck{display:flex;align-items:center;gap:8px;min-height:44px;font-size:15px;cursor:pointer}.rps-row label.ck input{width:20px;height:20px;margin:0}" +
       ".rps-row[data-shut] .tm{display:none}.rps-row .shut{display:none;color:var(--muted);font-size:14.5px}.rps-row[data-shut] .shut{display:inline}.rps [hidden]{display:none!important}" +
       ".rps-btn{font:inherit;font-size:14.5px;font-weight:600;min-height:40px;padding:0 14px;border-radius:20px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;white-space:nowrap}" +
@@ -149,7 +166,7 @@
     var h = R.hours, t0 = today(), ov = h.overrides || {};
     var keys = Object.keys(ov).sort(), up = keys.filter(function (d) { return d >= t0; }), past = keys.filter(function (d) { return d < t0; });
     var hol = []; for (var d = t0, i = 0; i < 366; i++, d = addD(d, 1)) { var nm = E.maltaHoliday(d); if (nm && !ov[d]) hol.push([d, nm]); }
-    var row = function (dd) { var v = h.weekly[dd] || {}, shut = !!v.closed; return '<div class="rps-row"' + (shut ? " data-shut" : "") + ' role="group" aria-label="' + DAYN[dd] + '"><span class="n">' + DAYN[dd] + '</span><label class="ck"><input type="checkbox" name="open' + dd + '"' + (shut ? "" : " checked") + '> Open</label><span class="shut">Closed</span><span class="tm"><input type="time" name="from' + dd + '" value="' + esc(hm(v.open)) + '" aria-label="' + DAYN[dd] + ' opens"> <span class="to">to</span> <input type="time" name="to' + dd + '" value="' + esc(hm(v.close)) + '" aria-label="' + DAYN[dd] + ' closes"></span></div>'; };
+    var row = function (dd) { var v = h.weekly[dd] || {}, shut = !!v.closed; return '<div class="rps-row"' + (shut ? " data-shut" : "") + ' role="group" aria-label="' + DAYN[dd] + '"><span class="n">' + DAYN[dd] + '</span><label class="ck"><input type="checkbox" name="open' + dd + '"' + (shut ? "" : " checked") + '> Open</label><span class="shut">Closed</span><span class="tm"><input ' + T24 + ' name="from' + dd + '" value="' + esc(hm(v.open)) + '" aria-label="' + DAYN[dd] + ' opens"> <span class="to">to</span> <input ' + T24 + ' name="to' + dd + '" value="' + esc(hm(v.close)) + '" aria-label="' + DAYN[dd] + ' closes"></span></div>'; };
     var ovRow = function (dd) { var v = ov[dd]; return '<div class="rps-row"><span class="n">' + esc(dayW(dd, true)) + "<small>" + esc(ovWords(v) + (v.note ? " · " + v.note : "") + (E.maltaHoliday(dd) ? " · Public holiday (" + E.maltaHoliday(dd) + ")" : "")) + '</small></span><button type="button" class="rps-btn l" data-act="ov-rm" data-d="' + dd + '" aria-label="Remove ' + esc(dayW(dd, true)) + ', back to the usual hours">Remove</button></div>'; };
     mount.innerHTML = '<div class="rps">' +
       '<form data-f="week" novalidate><h3>Every week</h3><div class="rps-card">' + ORDER.map(row).join("") + '</div>' +
@@ -160,7 +177,7 @@
       '<form data-f="ov" novalidate style="margin-top:10px"><div class="rps-card">' +
       '<div class="rps-row"><label class="n" for="rps-ovd">Day</label><input type="date" id="rps-ovd" name="date" min="' + t0 + '"></div>' +
       '<div class="rps-row"><span class="n" id="rps-ovk">The pharmacy is</span><span role="radiogroup" aria-labelledby="rps-ovk" style="display:flex;gap:14px"><label class="ck"><input type="radio" name="kind" value="open" checked> Open</label><label class="ck"><input type="radio" name="kind" value="closed"> Closed</label></span></div>' +
-      '<div class="rps-row" data-k="times"><span class="n">Hours</span><span><input type="time" name="from" value="' + esc(hm(h["default"].open || "07:30")) + '" aria-label="Opens"> <span class="to">to</span> <input type="time" name="to" value="' + esc(hm(h["default"].close || "19:30")) + '" aria-label="Closes"></span></div>' +
+      '<div class="rps-row" data-k="times"><span class="n">Hours</span><span><input ' + T24 + ' name="from" value="' + esc(hm(h["default"].open || "07:30")) + '" aria-label="Opens"> <span class="to">to</span> <input ' + T24 + ' name="to" value="' + esc(hm(h["default"].close || "19:30")) + '" aria-label="Closes"></span></div>' +
       '<div class="rps-row"><label class="n" for="rps-ovn">Note</label><input type="text" class="w" id="rps-ovn" name="note" placeholder="e.g. Half day, Duty roster" autocomplete="off"></div></div>' +
       '<div class="rps-acts"><button type="button" class="rps-btn" data-act="duty">Duty Sunday</button><span class="grow"></span><button type="submit" class="rps-btn p">Save this day</button></div><p class="rps-msg" role="status"></p></form>' +
       (hol.length ? '<h3>Public holidays coming up</h3><p class="sub">Closed unless you open the day.</p><div class="rps-card">' + hol.map(function (x) { return '<div class="rps-row"><span class="n">' + esc(dayW(x[0], true)) + "<small>" + esc(x[1]) + ' · Closed</small></span><button type="button" class="rps-btn l" data-act="hol-open" data-d="' + x[0] + '" aria-label="Open ' + esc(dayW(x[0], true)) + ' (' + esc(x[1]) + ')">Open this day</button></div>'; }).join("") + "</div>" : "") +
@@ -173,6 +190,7 @@
     fw.querySelector("[data-act=copy7]").onclick = function () { copy([2, 3, 4, 5, 6, 0]); };
     fw.onsubmit = async function (ev) {
       ev.preventDefault(); var msg = fw.querySelector(".rps-msg"), bad = [], wk2 = {};
+      var b24 = fix24(fw); if (b24.length) { mark(fw, b24); return say(msg, T24_SAY, true); }
       for (var dd = 0; dd < 7; dd++) {
         var o = fw.querySelector("[name=open" + dd + "]").checked, a = fw.querySelector("[name=from" + dd + "]").value, z = fw.querySelector("[name=to" + dd + "]").value;
         wk2[dd] = { closed: !o, open: a, close: z }; // the classic Save Hours: closed, open, close; empty times on an open day take 07:30–19:30
@@ -197,6 +215,7 @@
     fo.onsubmit = async function (ev) {
       ev.preventDefault(); var msg = fo.querySelector(".rps-msg"), d1 = fo.querySelector("[name=date]").value, cl = kind() === "closed", a = fo.querySelector("[name=from]").value, z = fo.querySelector("[name=to]").value, note = fo.querySelector("[name=note]").value.trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d1)) { mark(fo, ["date"]); return say(msg, "Choose the day.", true); }
+      var b24o = cl ? [] : fix24(fo); if (b24o.length) { mark(fo, b24o); return say(msg, T24_SAY, true); } a = fo.querySelector("[name=from]").value; z = fo.querySelector("[name=to]").value;
       if (!cl && !(a && z && mn(z) > mn(a))) { mark(fo, ["to"]); return say(msg, "The closing time must be after the opening time.", true); }
       mark(fo, []); var btn = fo.querySelector("[type=submit]"); busy(btn, true);
       try {
@@ -229,7 +248,7 @@
     mount.innerHTML = '<div class="rps"><p class="sub" style="font-size:15px;color:var(--text)"><b>' + esc(dayW(ymd, true)) + "</b> · " + esc(c.closed ? c.words : "Open " + c.open + "–" + c.close + (ph ? " · Public holiday (" + ph + ")" : "")) + (ov && ov.note ? " · " + esc(ov.note) : "") + "</p>" +
       '<form data-f="day" novalidate><div class="rps-card">' +
       '<div class="rps-row"><span class="n" id="rps-dk">The pharmacy is</span><span role="radiogroup" aria-labelledby="rps-dk" style="display:flex;gap:14px"><label class="ck"><input type="radio" name="kind" value="open"' + (openIt ? " checked" : "") + '> Open</label><label class="ck"><input type="radio" name="kind" value="closed"' + (openIt ? "" : " checked") + '> Closed</label></span></div>' +
-      '<div class="rps-row" data-k="times"><span class="n">Hours</span><span><input type="time" name="from" value="' + esc(c.closed ? hm(w.open || "07:30") : c.open) + '" aria-label="Opens"> <span class="to">to</span> <input type="time" name="to" value="' + esc(c.closed ? hm(w.close || "19:30") : c.close) + '" aria-label="Closes"></span></div>' +
+      '<div class="rps-row" data-k="times"><span class="n">Hours</span><span><input ' + T24 + ' name="from" value="' + esc(c.closed ? hm(w.open || "07:30") : c.open) + '" aria-label="Opens"> <span class="to">to</span> <input ' + T24 + ' name="to" value="' + esc(c.closed ? hm(w.close || "19:30") : c.close) + '" aria-label="Closes"></span></div>' +
       '<div class="rps-row"><label class="n" for="rps-dn">Note</label><input type="text" class="w" id="rps-dn" name="note" value="' + esc(ov ? ov.note || "" : c.closed && wd(ymd) === 0 && !ph ? "Duty roster" : "") + '" autocomplete="off"></div></div>' +
       '<div class="rps-acts">' + (ov ? '<button type="button" class="rps-btn" data-act="usual">Back to the usual hours</button>' : "") + '<span class="grow"></span><button type="submit" class="rps-btn p">' + (c.closed ? "Open this day" : "Save this day") + "</button></div><p class=\"rps-msg\" role=\"status\"></p></form></div>";
     var f = mount.querySelector("form"), kind = function () { return f.querySelector("[name=kind]:checked").value; };
@@ -237,6 +256,7 @@
     Array.prototype.forEach.call(f.querySelectorAll("[name=kind]"), function (r) { r.onchange = showT; }); showT();
     f.onsubmit = async function (ev) {
       ev.preventDefault(); var msg = f.querySelector(".rps-msg"), cl = kind() === "closed", a = f.querySelector("[name=from]").value, z = f.querySelector("[name=to]").value, note = f.querySelector("[name=note]").value.trim();
+      var b24d = cl ? [] : fix24(f); if (b24d.length) { mark(f, b24d); return say(msg, T24_SAY, true); } a = f.querySelector("[name=from]").value; z = f.querySelector("[name=to]").value;
       if (!cl && !(a && z && mn(z) > mn(a))) { mark(f, ["to"]); return say(msg, "The closing time must be after the opening time.", true); }
       var btn = f.querySelector("[type=submit]"); busy(btn, true);
       try { await E.rotaHoursPut(function (hh) { hh.overrides[ymd] = cl ? { closed: true, note: note } : { open: a, close: z, closed: false, note: note }; }); busy(btn, false); say(msg, dayW(ymd, true) + " saved: " + (cl ? "closed" : "open " + a + "–" + z) + "."); ctx.onSaved && ctx.onSaved("hours", ymd); changed("hours"); if (ctx.close) ctx.close(); }
@@ -556,13 +576,24 @@
   function draftKey(kind, arg) { return kind + "|" + (arg && typeof arg === "object" ? arg.id : arg == null ? "" : arg); }
   function open(kind, arg, ctx) {
     if (!UI[kind]) return null; css(); ctx = Object.assign({}, ctx || {});
-    var back = document.activeElement, ov = document.createElement("div"); ov.className = "rps-ov"; ov.setAttribute("data-rotaset", kind);
+    var back = document.activeElement, ov = document.createElement("div");
+    // batch-21: the screen under the sheet may redraw while it is open (its data comes back, a save elsewhere); then the
+    // opener is a new button. Remember how to find it again (its focus key and place), so Done/Escape never drops focus on the page.
+    var scr = document.getElementById("eikon-content"), bkey = back && scr && scr.contains(back) && E.focusKey ? E.focusKey(back) : "", bnth = 0;
+    if (bkey) { try { bnth = Math.max(0, Array.prototype.indexOf.call(scr.querySelectorAll(bkey), back)); } catch (e) { bkey = ""; } }
+    function backTo() {
+      if (back && back.isConnected) return back;
+      var c = document.getElementById("eikon-content"), el = null; if (!c) return null;
+      if (bkey) { try { var l = c.querySelectorAll(bkey); el = l[bnth] || l[0] || null; } catch (e) {} }
+      if (!el) { el = c.querySelector("h1"); if (el && !el.hasAttribute("tabindex")) el.setAttribute("tabindex", "-1"); }
+      return el;
+    } ov.className = "rps-ov"; ov.setAttribute("data-rotaset", kind);
     var t = TITLE[kind]; if (kind === "avail" && arg) t = "When can't " + first(arg.full_name) + " work?"; else if ((kind === "leave" || kind === "person") && arg) t = (kind === "leave" ? "Leave · " : "Edit details · ") + (arg.full_name || ""); else if (kind === "day" && arg) t = dayW(arg, true);
     ov.innerHTML = '<div class="rps-sheet" role="dialog" aria-modal="true" aria-labelledby="rps-h"><div class="rps-top"><h2 id="rps-h" tabindex="-1">' + esc(t) + '</h2><button type="button" class="rps-x" data-act="close">Done</button></div><div class="rps-body"></div></div>';
     document.body.appendChild(ov);
     var box = ov.querySelector(".rps-sheet"), mount = ov.querySelector(".rps-body"), dk = draftKey(kind, arg), closed = false;
     function keep() { var d = {}, any = false; Array.prototype.forEach.call(mount.querySelectorAll("input[name],select[name]"), function (el) { if (el.type === "radio" || el.type === "checkbox" ? el.checked !== el.defaultChecked : el.tagName === "SELECT" ? !el.options[el.selectedIndex] || !el.options[el.selectedIndex].defaultSelected : el.value !== el.defaultValue) any = true; d[el.name + (el.type === "radio" ? "=" + el.value : "")] = el.type === "radio" || el.type === "checkbox" ? el.checked : el.value; }); if (any) drafts[dk] = d; else delete drafts[dk]; }
-    function close() { if (closed) return; closed = true; keep(); document.removeEventListener("keydown", onKey, true); window.removeEventListener("hashchange", onRoute); ov.remove(); try { if (back && back.isConnected) back.focus(); } catch (e) {} if (ctx.onClose) try { ctx.onClose(); } catch (e) {} }
+    function close() { if (closed) return; closed = true; keep(); document.removeEventListener("keydown", onKey, true); window.removeEventListener("hashchange", onRoute); ov.remove(); try { var bt = backTo(); if (bt) bt.focus(); } catch (e) {} if (ctx.onClose) try { ctx.onClose(); } catch (e) {} }
     function onKey(ev) {
       if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); close(); return; }
       if (ev.key === "Tab") {

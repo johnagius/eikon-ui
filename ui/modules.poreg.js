@@ -139,7 +139,7 @@
         }).join("") + "</div>";
       });
     }
-    h += E.correct.foot("", "Deleting a payment is") + "</div>";
+    h += E.correct.foot("") + "</div>";
     m.innerHTML = h;
     m.querySelectorAll("[data-act]").forEach(function (b) {
       b.addEventListener("click", function (ev) {
